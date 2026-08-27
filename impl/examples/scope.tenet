@@ -1,0 +1,29 @@
+// Tenet 作用域示例：块作用域、遮蔽、函数
+// 运行：cargo run -- run examples/scope.tenet
+
+// 函数：最大公约数（欧几里得算法）
+fn gcd(a: int, b: int) -> int {
+    while (b != 0) {
+        let t: int = b;
+        b = a % b;
+        a = t;
+    }
+    return a;
+}
+
+print("gcd(48, 36) =", gcd(48, 36));
+
+// 块作用域：内层遮蔽外层
+let x: int = 1;
+{
+    let x: int = 2;
+    print("内层 x =", x);      // 2
+}
+print("外层 x =", x);          // 1
+
+// 赋值修改外层变量
+let counter: int = 0;
+{
+    counter = counter + 10;    // 没有 let，是赋值，修改外层
+}
+print("counter =", counter);   // 10
