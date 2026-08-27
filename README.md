@@ -40,7 +40,7 @@ Tenet 源码
    └─▶ REPL（交互式执行）
 ```
 
-- [`impl/`](impl/) — Rust 实现：`lexer` / `parser` / `interpreter` / `codegen` / `repl`
+- [`tenet-rs/`](tenet-rs/) — Rust 实现：`lexer` / `parser` / `interpreter` / `codegen` / `repl`
 - [`lang/tenet/`](lang/tenet/tenet.md) — Tenet 语言设计文档：从词法、语法到代码生成的完整路线
 
 ## Why "TenetLang"?

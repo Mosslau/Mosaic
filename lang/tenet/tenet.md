@@ -47,11 +47,11 @@ cargo run -- codegen examples/fib.tenet # 生成 Go 源码（stdout）
 
 ## 阶段路线
 
-> 每个阶段与 `impl/` 中的真实源码一一对应，学习时边读文档边读代码。
+> 每个阶段与 `tenet-rs/` 中的真实源码一一对应，学习时边读文档边读代码。
 
 ### 1. 词法分析阶段
 
-> 📖 [Ph01-lexer/01-lexer.md](./Ph01-lexer/01-lexer.md) · 源码 [`impl/src/lexer.rs`](../../impl/src/lexer.rs)
+> 📖 [Ph01-lexer/01-lexer.md](./Ph01-lexer/01-lexer.md) · 源码 [`tenet-rs/src/lexer.rs`](../../tenet-rs/src/lexer.rs)
 
 把源码字符串切成 Token 流：字面量、关键字、运算符、注释与空白。
 
@@ -61,7 +61,7 @@ cargo run -- codegen examples/fib.tenet # 生成 Go 源码（stdout）
 
 ### 2. 语法分析与 AST 阶段
 
-> 📖 [Ph02-parser-ast/02-parser-ast.md](./Ph02-parser-ast/02-parser-ast.md) · 源码 [`impl/src/parser.rs`](../../impl/src/parser.rs) / [`impl/src/ast.rs`](../../impl/src/ast.rs)
+> 📖 [Ph02-parser-ast/02-parser-ast.md](./Ph02-parser-ast/02-parser-ast.md) · 源码 [`tenet-rs/src/parser.rs`](../../tenet-rs/src/parser.rs) / [`tenet-rs/src/ast.rs`](../../tenet-rs/src/ast.rs)
 
 把 Token 流变成抽象语法树（AST），验证语法正确性。
 
@@ -71,7 +71,7 @@ cargo run -- codegen examples/fib.tenet # 生成 Go 源码（stdout）
 
 ### 3. 解释器与值系统阶段
 
-> 📖 [Ph03-interpreter/03-interpreter.md](./Ph03-interpreter/03-interpreter.md) · 源码 [`impl/src/interpreter.rs`](../../impl/src/interpreter.rs) / [`impl/src/value.rs`](../../impl/src/value.rs)
+> 📖 [Ph03-interpreter/03-interpreter.md](./Ph03-interpreter/03-interpreter.md) · 源码 [`tenet-rs/src/interpreter.rs`](../../tenet-rs/src/interpreter.rs) / [`tenet-rs/src/value.rs`](../../tenet-rs/src/value.rs)
 
 直接对 AST 求值：表达式递归求值，语句递归执行。
 
@@ -81,7 +81,7 @@ cargo run -- codegen examples/fib.tenet # 生成 Go 源码（stdout）
 
 ### 4. 作用域与函数阶段
 
-> 📖 [Ph04-scope-func/04-scope-func.md](./Ph04-scope-func/04-scope-func.md) · 源码 [`impl/src/env.rs`](../../impl/src/env.rs)
+> 📖 [Ph04-scope-func/04-scope-func.md](./Ph04-scope-func/04-scope-func.md) · 源码 [`tenet-rs/src/env.rs`](../../tenet-rs/src/env.rs)
 
 块作用域、词法作用域链、函数调用与递归。
 
@@ -91,7 +91,7 @@ cargo run -- codegen examples/fib.tenet # 生成 Go 源码（stdout）
 
 ### 5. 代码生成阶段
 
-> 📖 [Ph05-codegen/05-codegen.md](./Ph05-codegen/05-codegen.md) · 源码 [`impl/src/codegen.rs`](../../impl/src/codegen.rs)
+> 📖 [Ph05-codegen/05-codegen.md](./Ph05-codegen/05-codegen.md) · 源码 [`tenet-rs/src/codegen.rs`](../../tenet-rs/src/codegen.rs)
 
 把 AST 翻译成 Go 源码——源码到源码的编译器。
 

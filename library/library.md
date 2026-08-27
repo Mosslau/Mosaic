@@ -18,7 +18,7 @@
 | 资料 | 说明 |
 |------|------|
 | [lang/tenet/tenet.md](../lang/tenet/tenet.md) | Tenet 语言设计路线：从词法到代码生成 |
-| [impl/](../impl/) | Rust 实现源码（lexer / parser / interpreter / codegen / repl） |
+| [tenet-rs/](../tenet-rs/) | Rust 实现源码（lexer / parser / interpreter / codegen / repl） |
 
 ## 书单
 
