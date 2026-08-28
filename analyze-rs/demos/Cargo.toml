@@ -1,5 +1,5 @@
 [package]
-name = "tenet-rs-analysis-demos"
+name = "analyze-rs-analysis-demos"
 version = "0.1.0"
 edition = "2021"
 description = "Rust 语言设计分析配套可运行示例"

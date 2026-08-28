@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "tenet-rs-analysis-demos"
+name = "analyze-rs-analysis-demos"
 version = "0.1.0"

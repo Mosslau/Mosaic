@@ -1,4 +1,4 @@
-# tenet-cpp 设计分析 demos
+# analyze-cpp 设计分析 demos
 CXX ?= clang++
 CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra
 
