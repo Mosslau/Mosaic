@@ -15,7 +15,7 @@
 
 > 🧭 **两条线的关系**：`lang-*`（语言学习路线）= 讲*怎么学*这门语言；
 > `analyze-*`（设计分析）= 讲*为什么*这门语言这么设计（设计解剖）。
-> 建议先学后析；分析结论汇总到 [Tenet设计溯源](../tenet/Tenet设计溯源.md)。
+> 建议先学后析；分析结论汇总到 [Tenet](../tenet/Tenet.md)（完整文档）。
 
 ## 语言设计分析
 
@@ -29,12 +29,8 @@
 
 | 资料 | 说明 |
 |------|------|
-| [tenet/设计溯源](../tenet/Tenet设计溯源.md) | **设计 · 溯源**：三语言吸收矩阵、每个特性从哪门语言来、拒绝了什么、演进路线 |
-| [tenet/语言规范](../tenet/Tenet语言规范.md) | **设计 · 规范**：正式文法（EBNF）、类型系统与推断、求值语义（唯一事实来源） |
-| [tenet/架构](../tenet/Tenet架构.md) | **架构文档**：前端/后端划分、模块职责、LLVM 设计决策 |
-| [tenet/LLVM后端](../tenet/LLVM后端.md) | **后端文档**：IR 生成全貌、clang 驱动、指令映射、调试工具 |
-| [tenet/实现](../tenet/Tenet实现.md) | **实现文档**：逐模块实现要点、测试策略、如何扩展 |
-| [tenet/README](../tenet/README.md) | Tenet 语言与编译器入口：速览、文档导航、演进 |
+| [tenet/Tenet](../tenet/Tenet.md) | **完整文档**：设计溯源 / 语言规范 / 架构 / LLVM 后端 / 实现 / 演进 |
+| [tenet/README](../tenet/README.md) | Tenet 语言与编译器入口：速览、快速开始、导航 |
 | [tenet/compiler-rs/](../tenet/compiler-rs/) | **实现 · Rust**：clang 驱动 LLVM（.ll 文本 + clang 链接） |
 | [tenet/compiler-cpp/](../tenet/compiler-cpp/) | **实现 · C++17**：进程内调用 LLVM 后端库（rustc 方式，IRBuilder + TargetMachine） |
 | [tenet/compiler-arm64/](../tenet/compiler-arm64/) | **实现 · C++17 手写后端**：AArch64 汇编（零 LLVM/clang，as/ld 链接） |

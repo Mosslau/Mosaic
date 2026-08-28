@@ -52,12 +52,8 @@ hello.tenet
    ├─▶ clang 链接 → hello（原生二进制，直接运行）
 ```
 
-- [`tenet/设计溯源`](tenet/Tenet设计溯源.md) — **设计文档 · 溯源**：三语言吸收矩阵、每个特性从哪来、拒绝了什么
-- [`tenet/语言规范`](tenet/Tenet语言规范.md) — **设计文档 · 规范**：正式文法（EBNF）、类型系统、求值语义（唯一事实来源）
-- [`tenet/架构`](tenet/Tenet架构.md) — **架构文档**：前端/后端划分、模块职责、LLVM 设计决策
-- [`tenet/LLVM后端`](tenet/LLVM后端.md) — **后端文档**：IR 生成全貌、clang 驱动、指令映射、调试工具
-- [`tenet/实现`](tenet/Tenet实现.md) — **实现文档**：逐模块实现要点、测试策略、如何扩展
-- [`tenet/README`](tenet/README.md) — 语言与编译器入口（速览、文档导航、演进）
+- [`tenet/README`](tenet/README.md) — 语言与编译器入口（速览、快速开始、导航）
+- [`tenet/Tenet`](tenet/Tenet.md) — **完整文档**：设计溯源 / 语言规范 / 架构 / LLVM 后端 / 实现 / 演进
 - [`tenet/compiler-rs/`](tenet/compiler-rs/) — **实现 · Rust**（clang 驱动 LLVM）：`tenet build` / `tenet run`
 - [`tenet/compiler-cpp/`](tenet/compiler-cpp/) — **实现 · C++17**（进程内调用 LLVM 后端库，rustc 方式）：`make && ./tenet build`
 - [`tenet/compiler-arm64/`](tenet/compiler-arm64/) — **实现 · C++17 手写后端**（AArch64 汇编，零 LLVM/clang）：`make && ./tenet build`
