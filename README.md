@@ -45,7 +45,8 @@ Tenet 源码
    └─▶ REPL（交互式执行）
 ```
 
-- [`tenet/design-notes.md`](tenet/design-notes.md) — **设计溯源**：每个特性从哪门语言来、拒绝了什么
+- [`tenet/design-notes.md`](tenet/design-notes.md) — **设计溯源**：三语言吸收矩阵、每个特性从哪来、拒绝了什么
+- [`tenet/grammar.md`](tenet/grammar.md) — **语言规范**：正式文法（EBNF）、类型系统、求值语义（唯一事实来源）
 - [`tenet/tenet.md`](tenet/tenet.md) — 语言设计文档：从词法、语法到代码生成的完整路线
 
 「万语归宗」的实践闭环：学习 → 分析 → 合成 →（实现验证待设计成熟后恢复）。

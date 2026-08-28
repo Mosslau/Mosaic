@@ -1,50 +1,78 @@
 # Tenet 语言设计 Roadmap
 
-> 万语归宗——学了 6 种语言之后，亲手实现一门属于自己的语言。
-> 用 Rust 从零搭建完整的语言管线：**词法 → 语法 → 语义 → 代码生成**。
+> 万语归宗——分析 C++ / Rust / Python 的设计，继承优点、拒绝包袱，
+> 合成一门属于自己的语言。完整语言规范见 [`grammar.md`](./grammar.md)，
+> 设计决策溯源见 [`design-notes.md`](./design-notes.md)。
 
 > 📌 **本文档是 Tenet 语言的设计说明书**（语法、语义、管线设计）。
-> 目前处于**设计阶段**：先用 [`design-notes.md`](./design-notes.md) 定设计决策，
-> 实现暂缓（三端实现的完整代码曾存在于本仓库，设计成熟后再重建）。
+> 目前处于**设计阶段**：先定设计决策与规范，实现暂缓（三端实现的完整代码
+> 曾存在于本仓库，设计成熟后再重建）。
 
 ## 语言速览
 
-Tenet 是一门小型静态类型语言，刻意保持最小可用：
+Tenet 是吸收了 C++ / Rust / Python 设计的**静态类型语言**：语法骨骼像 C 家族，
+安全与抽象学 Rust，开发体验学 Python，资源哲学学 C++ 的 RAII。
 
 ```tenet
-// 变量、类型、print
+// 标量与类型推断（Python 式 let，Rust 式签名）
 let name: string = "Tenet";
-let year: int = 2026;
-print("Hello,", name, year);
+let year = 2026;                 // 推断为 int
 
-// 函数与递归
-fn fib(n: int) -> int {
-    if (n < 2) { return n; }
-    return fib(n - 1) + fib(n - 2);
+// struct 组合（C / Rust：无继承，组合优先）
+struct Point {
+    x: int;
+    y: int;
+}
+let origin: Point = Point { x: 0, y: 0 };
+print("origin:", origin.x, origin.y);
+
+// array + 索引 + len
+let primes: array<int> = [2, 3, 5, 7];
+print("primes:", len(primes), "first:", primes[0]);
+
+// Option：显式空值，无 null（Rust）
+fn find(nums: array<int>, target: int) -> Option<int> {
+    let i: int = 0;
+    while (i < len(nums)) {
+        if (nums[i] == target) { return Some(i); }
+        i = i + 1;
+    }
+    return None;
 }
 
-// 循环与控制流
-let i: int = 0;
-while (i < 10) {
-    if (i % 2 == 0) { print(i); }
-    i = i + 1;
+// Result + ?：显式错误传播，无异常（Rust）
+fn half(n: int) -> Result<int, string> {
+    if (n % 2 != 0) { return Err("不是偶数"); }
+    return Ok(n / 2);
+}
+let h = half(10)?;               // Ok → 10；Err → 当前函数立即返回 Err
+
+// match：穷尽性分支（Rust）
+match find(primes, 5) {
+    Some(i) => print("found at", i),
+    None => print("not found"),
 }
 ```
 
 | 维度 | 设计 |
 |------|------|
-| 类型系统 | 4 种标量类型：`int` / `float` / `bool` / `string` |
-| 变量 | `let` 声明（类型标注可选，缺省时静态推断） |
-| 函数 | `fn` 声明，支持递归、`->` 返回类型 |
-| 控制流 | `if / else if / else`、`while`、`break`、`return` |
+| 类型系统 | 标量 `int`/`float`/`bool`/`string` + 复合 `array<T>`/`struct` + `Option<T>`/`Result<T,E>` |
+| 变量 | `let` 声明，类型标注可选（局部静态推断）；赋值 `=`（值语义） |
+| 函数 | `fn f(a: int) -> int`，显式返回类型，递归，`?` 错误传播 |
+| 数据建模 | `struct` 组合（无继承）；字段访问 `.` |
+| 控制流 | `if/else`、`while`（唯一循环）、`break`/`continue`、`match` |
+| 空值 | `Option<T>`（`None`/`Some`），无 null |
+| 错误 | `Result<T,E>`（`Ok`/`Err`）+ `?` 显式传播，无异常 |
+| 内存 | 自动管理：值语义 + 引用计数，无指针 |
 | 注释 | `//` 行注释、`/* */` 块注释 |
-| 后端 | ① 树遍历解释器 ② 源码到源码的 Go 代码生成 |
+| 内建 | `print(...)`、`len(x)` |
 
 ## 实现阶段（暂缓）
 
-Tenet 当前聚焦**设计**：确定语法、语义与管线，并记录每个设计决策的取舍。
+Tenet 当前聚焦**设计**：语法、语义与管线已在 [grammar.md](./grammar.md) 固化，
+设计取舍记录在 [design-notes.md](./design-notes.md)。
 可运行的完整实现（Rust / Python / C++ 三端，语义一致、Go 输出逐字节相同）
-曾在本仓库中验证过设计可行性，现阶段已移出，待设计成熟后重建。
+曾在本仓库中验证过 v1 设计的可行性，现阶段已移出，待 v2 设计定稿后重建。
 
 ## 阶段路线
 
@@ -58,7 +86,7 @@ Tenet 当前聚焦**设计**：确定语法、语义与管线，并记录每个�
 
 - **目标**：理解「字符 → 词法单元」的映射，能写出带行列号的 Tokenizer
 - **必会概念**：最长匹配、关键字 vs 标识符、转义序列、错误定位（行:列）
-- **阶段验收**：能说明 `==` 为什么不能拆成两个 `=`；能说出 `3.14` 和 `3` 的词法区别
+- **阶段验收**：能说明 `==` 为什么不能拆成两个 `=`；能说出 `3.` 和 `3` 的词法区别
 
 ### 2. 语法分析与 AST 阶段
 
@@ -104,16 +132,18 @@ Tenet 当前聚焦**设计**：确定语法、语义与管线，并记录每个�
 
 | 参考对象 | Tenet 学到了什么 |
 |---------|-----------------|
-| C | 语法风格（`{}`、`;`、运算符优先级）、静态类型思想 |
+| C | 语法风格（`{}`、`;`、运算符优先级）、静态类型思想、标量 + 数组 + struct 的数据模型 |
+| C++ | 值语义、RAII 资源管理思想、性能意识（分析见 tenet-cpp/） |
 | Go | 代码生成目标语言、`:=` 式类型推断、`for` 即唯一循环 |
-| Rust | 实现语言：`enum` 表达 AST、`Result` 处理错误、所有权管理环境 |
-| Python | 动态求值模型（树遍历解释器）的思想原型 |
-| Java / C++ | 词法作用域、函数调用栈等语义的对照 |
+| Rust | 组合优先（trait 思想）、`Option`/`Result` + `?`、`match` 穷尽性、错误带位置（分析见 tenet-rs/） |
+| Python | 类型推断、REPL、`print` 内建、可读性与上手体验（分析见 tenet-py/） |
+| Java | 词法作用域、函数调用栈等语义的对照 |
 
 ## 后续演进方向
 
-- **闭包**：函数作为一等值，捕获定义时环境（需要在类型系统中加入函数类型）
-- **复合类型**：数组 / 结构体，把类型系统从标量扩展到容器
+- **trait / 方法**：给 struct 加行为抽象（吸收 Rust trait，仍无继承）
+- **泛型**：类型参数化（吸收 C++ 模板 / Rust 泛型，最后再加）
 - **字节码 VM**：AST 编译为字节码 + 虚拟机执行，性能提升一个数量级
-- **静态类型检查器**：把解释器里的运行时检查前移到编译期
-- **更完善的标准库**：字符串处理、文件 IO、集合操作
+- **类型检查器独立阶段**：把 grammar.md 5.3 的静态检查从解释器剥离为独立编译阶段
+- **模块 / 多文件**：工程化组织
+- **自举**：用 Tenet 写 Tenet 编译器（吸收 clang/rustc/CPython 的参考实现模式）
