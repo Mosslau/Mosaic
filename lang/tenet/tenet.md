@@ -36,9 +36,9 @@ while (i < 10) {
 | 注释 | `//` 行注释、`/* */` 块注释 |
 | 后端 | ① 树遍历解释器 ② 源码到源码的 Go 代码生成 |
 
-## 两种实现、两套执行方式
+## 三种实现、三套执行方式
 
-同一门语言，两种宿主实现，语义完全一致，Go 输出逐字节相同：
+同一门语言，三种宿主实现，语义完全一致，Go 输出逐字节相同：
 
 ```bash
 # Rust 实现（tenet-rs/）
@@ -52,6 +52,13 @@ cd tenet-py
 python3 -m tenet run examples/fib.tenet
 python3 -m tenet repl
 python3 -m tenet codegen examples/fib.tenet
+
+# C++17 实现（tenet-cpp/）
+cd tenet-cpp
+make
+./tenet run examples/fib.tenet
+./tenet repl
+./tenet codegen examples/fib.tenet
 ```
 
 ## 阶段路线
