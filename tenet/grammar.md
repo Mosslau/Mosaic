@@ -2,7 +2,7 @@
 
 > 本文档是 Tenet 设计的**唯一事实来源**：完整文法（EBNF）、类型系统、
 > 求值语义与优先级规则。设计决策溯源见 [design-notes.md](./design-notes.md)，
-> 编译器实现见 [`compiler/`](../compiler/)。
+> 编译器实现见 [`compiler/`](./compiler/)。
 >
 > Tenet 是一门吸收了 **C++（值语义/RAII 思想）、Rust（组合/Result/match/无继承）、
 > Python（类型推断/REPL/可读性）** 设计的静态类型语言，编译器产出自包含的原生二进制。

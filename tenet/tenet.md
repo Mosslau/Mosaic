@@ -1,12 +1,18 @@
-# Tenet 编译器设计 Roadmap
+# Tenet 语言与编译器
 
 > 万语归宗——分析 C++ / Rust / Python 的设计，继承优点、拒绝包袱，
-> 合成一门属于自己的语言，并实现一个 **clang / rustc 式的原生编译器**：
+> 合成一门属于自己的语言，并实现一个 **clang / rustc 式原生编译器**：
 > `tenet build hello.tenet` 产出可直接运行的二进制。
-> 完整语言规范见 [`grammar.md`](./grammar.md)，设计决策溯源见 [`design-notes.md`](./design-notes.md)。
 
-> 📌 **本文档是 Tenet 编译器与语言的设计说明书**。
-> 编译器实现在 [`compiler/`](../compiler/)。
+## 文档导航
+
+| 文档 | 内容 | 回答的问题 |
+|------|------|-----------|
+| [design-notes.md](./design-notes.md) | **设计文档 · 溯源**：三语言吸收矩阵、特性来源表、拒绝清单、演进路线 | 为什么这么设计 |
+| [grammar.md](./grammar.md) | **设计文档 · 规范**：正式文法（EBNF）、类型系统、求值语义（唯一事实来源） | 语言是什么 |
+| [architecture.md](./architecture.md) | **架构文档**：前端/后端划分、模块职责、LLVM 设计决策 | 编译器怎么组织 |
+| [implementation.md](./implementation.md) | **实现文档**：逐模块实现要点、测试策略、如何扩展 | 代码怎么写 |
+| [`compiler/`](./compiler/) | **实现代码**：Rust 前端（词法/语法/类型/LLVM IR）+ clang 链接 | 代码在哪 |
 
 ## 语言速览
 
@@ -42,42 +48,29 @@ while (i < 10) {
 | 内建 | `print(...)`（任意类型、任意数量）、`len(x)` |
 | 执行 | **编译为原生二进制**：`tenet build` → 可执行文件，直接运行 |
 
-## 编译器架构（类似 clang / rustc）
-
-```text
-hello.tenet
-   │
-   ├─▶ ① 词法分析 Lexer ──▶ Token 流
-   │
-   ├─▶ ② 语法分析 Parser ──▶ AST
-   │
-   ├─▶ ③ 类型检查与推断 ──▶ 带类型的 AST
-   │
-   ├─▶ ④ 代码生成 ──▶ LLVM IR（.ll）
-   │
-   ├─▶ ⑤ 链接 ──▶ clang hello.ll -o hello
-   │
-   └─▶ hello          ← 原生二进制（Mach-O / ELF），直接运行
-```
-
-**前端（①②③④）自己写**，后端（⑤）复用 LLVM/clang——这正是 clang 和 rustc 的真实架构：
-它们也都是"自己写前端 → 生成 LLVM IR → 交给 LLVM 后端产出机器码"。
-
 ## 实现状态
 
 | 模块 | 位置 | 状态 |
 |------|------|------|
-| 词法 / 语法 / 类型 / 代码生成 | [`compiler/`](../compiler/) | ✅ 已实现（核心子集） |
-| 命令行 | `tenet build <file> -o <out>` / `tenet run <file>` | ✅ 已实现 |
-| 示例 | `compiler/examples/`（hello / fib / fizzbuzz） | ✅ 可编译为二进制并运行 |
-| 复合类型 / Option / Result / match | 设计已定（grammar.md），编译器实现待扩展 | 路线 |
+| 词法 / 语法 / 类型 / LLVM IR 代码生成 | [`compiler/`](./compiler/) | ✅ 已实现（核心子集） |
+| 命令行 | `tenet build` / `tenet run` / `tenet ir` | ✅ 已实现 |
+| 示例 | `compiler/examples/`（hello / fib / fizzbuzz） | ✅ 编译为原生二进制运行正确 |
+| 复合类型 / Option / Result / match | 设计已定（grammar.md），代码生成待扩展 | 演进 |
+
+## 快速开始
+
+```bash
+cd compiler
+cargo run -- build examples/hello.tenet -o hello && ./hello   # 编译为二进制并运行
+cargo run -- run examples/fib.tenet                            # 编译+运行一步到位
+cargo test                                                     # 22 个单元测试
+```
 
 ## 后续演进方向
 
 - **复合类型**：`struct` / `array<T>` 的 LLVM 代码生成（struct → LLVM struct 类型 + gep）
 - **Option / Result / match / `?`**：标签联合 + 分支
-- **字节码中间层**：可选的前端出口（复用解释器时代的树遍历器做 `run` 的快速路径）
-- **优化**：`-O` 级别透传 LLVM 优化（`opt` / `clang -O2`）
+- **优化**：`-O2` 透传 LLVM 优化（`clang -O2`）
 - **类型检查器独立阶段**：把推断与静态检查（match 穷尽性等）独立成 pass
 - **模块 / 多文件**：分离编译 + 链接
 - **自举**：用 Tenet 写 Tenet 编译器（吸收 clang/rustc 的参考实现模式）

@@ -70,7 +70,7 @@ C++ / Rust / Python 的核心主张互相矛盾，Tenet 的每个设计点都是
 
 ## 三、实现验证：clang / rustc 式编译器
 
-设计以 **clang / rustc 式原生编译器**落地（[`compiler/`](../compiler/)）：
+设计以 **clang / rustc 式原生编译器**落地（[`compiler/`](./compiler/)）：
 前端（词法 → 语法 → 类型检查 → LLVM IR）自己写，后端复用 LLVM/clang 产出
 原生二进制——与 rustc 完全相同的架构。行为以编译产物为准：
 同一份 `.tenet` 源码，编译出的二进制运行结果即语言语义的证据。
@@ -112,6 +112,6 @@ const 编译期常量   ← C / C++ constexpr（不可变保证）
 - `tenet-rs/` 等分析台 = 每门语言的"设计解剖"（为什么这么设计）
 - `design-notes.md` = 解剖结论的**合成**（哪些吸收、哪些拒绝、矛盾怎么调和）
 - `grammar.md` = 合成结果的**固化**（正式文法与语义，唯一事实来源）
-- `compiler/` = 合成的**实现**（clang/rustc 式编译器，产出原生二进制）
+- `tenet/compiler/` = 合成的**实现**（clang/rustc 式编译器，产出原生二进制）
 
 **万语归宗**：学习 → 分析 → 吸收 → 合成 → 固化 → 实现 → 运行。

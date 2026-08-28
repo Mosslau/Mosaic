@@ -1,0 +1,104 @@
+# 🔧 Tenet 实现文档
+
+> 实现细节：compiler/ 每个模块怎么写的、测试怎么组织的、如何扩展。
+> 架构总览见 [architecture.md](./architecture.md)，代码在 [`compiler/`](./compiler/)。
+
+## 1. 模块实现要点
+
+### lexer.rs —— 词法分析
+
+- 字符流逐字符扫描，维护 `line`/`col`（1 起始），每个 Token 带位置
+- **最长匹配**：`==`、`<=`、`&&`、`->` 等双字符运算符贪心匹配
+- 数字：`3.` 合法浮点（Go 风格）；整数解析失败报 `整数超出 i64 范围`
+- 字符串转义：`\n \t \" \\`，未知转义报错，未闭合报错
+- 注释：`//` 行注释、`/* */` 块注释，等价于空白跳过
+
+### parser.rs —— 语法分析
+
+- **递归下降**：每种语法结构一个函数（`parse_let`/`parse_if`/`parse_fn_decl`…）
+- **优先级爬升**（Pratt）：`|| < && < == != < 比较 < + - < * / % < 一元`
+- `else if` 链 = 嵌套 if 语句（无专门语法节点）
+- 错误：`期望 X，但遇到 Y` + `[行:列]` 定位
+
+### codegen.rs —— 类型推断 + LLVM IR
+
+**类型推断**（`let` 省略标注时），规则与语言语义一致：
+
+| 表达式 | 推断类型 |
+|--------|---------|
+| 整数字面量 / 浮点 / 字符串 / bool | 对应标量 |
+| `+` | 全 string → string；有 float → float；全 int → int |
+| `- * /` | 有 float → float；全 int → int |
+| `%` | 仅全 int → int |
+| 比较 / `&&` / `\|\|` | bool |
+| 函数调用 | 签名返回类型 |
+
+**IR 生成模式**（每种表达式 → 指令序列）：
+
+```text
+变量读取   load i64, ptr %x.addr
+let        alloca + store
+赋值       store（先查符号表找槽位）
+二元算术   add/sub/mul/sdiv/srem i64 | fadd/... double（混合先 sitofp）
+一元取负   sub i64 0, %v | fsub double 0.0, %v
+逻辑取反   xor i1 true, %v
+字符串拼接 call @tenet_concat(ptr, ptr)
+字符串比较 call @tenet_strcmp + icmp
+print      编译期拼格式串 + call @printf
+```
+
+### main.rs —— CLI 驱动
+
+- `build`：读文件 → `compile_to_ir` → 写临时 .ll + runtime.c → `clang` 链接
+- `run`：build 到临时二进制 → 执行 → 透传退出码 → 清理
+- `ir`：只输出 LLVM IR（调试用）
+- 错误：前端错误打印 `[行:列] 消息`；clang 缺失提示安装 LLVM 或设 `TENET_CLANG`
+
+## 2. 运行时库（runtime.c）
+
+```c
+char* tenet_concat(const char* a, const char* b);  // malloc + memcpy 拼接
+int   tenet_strcmp(const char* a, const char* b);  // 透传 libc strcmp
+```
+
+内嵌在 `main.rs` 的 `RUNTIME_C` 常量里，链接时写入临时文件与 .ll 一起交给 clang——
+这就是真实编译器"运行时库随编译器分发"模式的缩影。
+
+## 3. 测试策略
+
+| 层级 | 位置 | 内容 |
+|------|------|------|
+| 词法 | `lexer.rs` `#[cfg(test)]` | 字面量/运算符/关键字/转义/位置/错误 |
+| 语法 | `parser.rs` `#[cfg(test)]` | let/优先级/函数/else-if 链/语法错误 |
+| IR 生成 | `codegen.rs` `#[cfg(test)]` | 各结构生成模式、错误（缺 return/保留名） |
+| 端到端 | 手工验证（examples/） | `build` → 原生二进制 → 运行输出 |
+
+运行：`cd tenet/compiler && cargo test`
+
+## 4. 如何扩展一个特性
+
+以加 `continue` 为例（三步走）：
+
+1. **词法**：`token.rs` 加 `Continue` 关键字，`lexer.rs` 关键字表加映射
+2. **语法**：`ast.rs` 加 `Stmt::Continue`，`parser.rs` 的 `parse_stmt` 加分支
+3. **代码生成**：`codegen.rs` 的 `emit_stmt` 加分支——`br %cond`（continue 目标
+   需要一个"循环条件标签"栈，与现有 `break_stack` 对称）
+
+每个新特性都要配：单元测试（IR 模式断言）+ 端到端示例（编译运行验证）。
+
+## 5. 已知限制与演进
+
+- 字符串拼接产生堆分配（无 free）——教学取舍，长期可加 GC/引用计数
+- `struct`/`array`/`Option`/`Result`/`match`/`?` 尚未生成代码（设计已定，见 grammar.md）
+- 除法/取模零除是 UB（与 C 一致，未加运行时检查）
+- `print` 的 `%g` 浮点格式是 C 库的"最短表示"，输出与语言实现无关，稳定
+
+## 6. 与十亿级编译器工程的对应
+
+| 本实现 | 真实编译器（clang/rustc） |
+|--------|--------------------------|
+| `lexer.rs` | lib/Lexer |
+| `parser.rs` | Sema / Parse |
+| `codegen.rs`（内存模型） | CodeGen（alloca 阶段） |
+| `runtime.c` | compiler-rt |
+| `clang out.ll -o out` | LLVM 后端 + 链接器 |
