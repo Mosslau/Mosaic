@@ -60,6 +60,7 @@ hello.tenet
 - [`tenet/README`](tenet/README.md) — 语言与编译器入口（速览、文档导航、演进）
 - [`tenet/compiler-rs/`](tenet/compiler-rs/) — **实现 · Rust**（clang 驱动 LLVM）：`tenet build` / `tenet run`
 - [`tenet/compiler-cpp/`](tenet/compiler-cpp/) — **实现 · C++17**（进程内调用 LLVM 后端库，rustc 方式）：`make && ./tenet build`
+- [`tenet/compiler-arm64/`](tenet/compiler-arm64/) — **实现 · C++17 手写后端**（AArch64 汇编，零 LLVM/clang）：`make && ./tenet build`
 
 「万语归宗」的实践闭环：学习 → 分析 → 合成 → 固化 → 实现 → 运行。
 

@@ -44,3 +44,7 @@ tenet-cpp/demos/05_constexpr
 # compiler-cpp 构建产物
 tenet/compiler-cpp/tenet
 tenet/compiler-cpp/test_tenet
+
+# compiler-arm64 构建产物
+tenet/compiler-arm64/tenet
+tenet/compiler-arm64/test_tenet

@@ -36,7 +36,7 @@ hello.tenet
 | `ast.rs` | 抽象语法树 | 表达式/语句枚举 + 运算符常量 |
 | `parser.rs` | 语法分析 | 递归下降 + 优先级爬升（Pratt） |
 | `codegen.rs` | 类型推断 + LLVM IR | 内存模型（见 §3）、基本块控制流（见 §4） |
-| `main.rs` / `main.cpp` | CLI 驱动 | `build` / `run` / `ir`（compiler-rs 走 clang，compiler-cpp 走 LLVM 库） |
+| `main.rs` / `main.cpp` | CLI 驱动 | `build` / `run` / `ir`·`asm`（compiler-rs 走 clang，compiler-cpp 走 LLVM 库，compiler-arm64 走 as/ld） |
 | 运行时 `runtime.c` | 字符串支持 | 拼接/比较（链接时编入，类似真实编译器 runtime） |
 
 ## 3. 变量模型：alloca + load/store（免 phi）

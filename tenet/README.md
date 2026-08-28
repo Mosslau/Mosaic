@@ -53,8 +53,8 @@ while (i < 10) {
 
 | 模块 | 位置 | 状态 |
 |------|------|------|
-| 词法 / 语法 / 类型 / LLVM IR 代码生成 | [`compiler-rs/`](./compiler-rs/)（clang 驱动）· [`compiler-cpp/`](./compiler-cpp/)（LLVM 库，进程内） | ✅ 已实现（核心子集） |
-| 命令行 | `tenet build` / `tenet run` / `tenet ir`（两实现相同） | ✅ 已实现 |
+| 词法 / 语法 / 类型 / 代码生成 | [`compiler-rs/`](./compiler-rs/)（clang 驱动）· [`compiler-cpp/`](./compiler-cpp/)（LLVM 库进程内）· [`compiler-arm64/`](./compiler-arm64/)（**手写 AArch64 后端**，零 LLVM） | ✅ 已实现（核心子集） |
+| 命令行 | `tenet build` / `tenet run` / `ir` 或 `asm`（三实现相同） | ✅ 已实现 |
 | 示例 | `compiler-rs/examples/`（hello / fib / fizzbuzz） | ✅ 编译为原生二进制运行正确 |
 | 复合类型 / Option / Result / match | 设计已定（语言规范），代码生成待扩展 | 演进 |
 

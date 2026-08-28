@@ -37,6 +37,7 @@
 | [tenet/README](../tenet/README.md) | Tenet 语言与编译器入口：速览、文档导航、演进 |
 | [tenet/compiler-rs/](../tenet/compiler-rs/) | **实现 · Rust**：clang 驱动 LLVM（.ll 文本 + clang 链接） |
 | [tenet/compiler-cpp/](../tenet/compiler-cpp/) | **实现 · C++17**：进程内调用 LLVM 后端库（rustc 方式，IRBuilder + TargetMachine） |
+| [tenet/compiler-arm64/](../tenet/compiler-arm64/) | **实现 · C++17 手写后端**：AArch64 汇编（零 LLVM/clang，as/ld 链接） |
 
 > 使用：`cd tenet/compiler && cargo run -- build examples/hello.tenet -o hello && ./hello`
 

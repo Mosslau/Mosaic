@@ -35,9 +35,14 @@ rustc 把 LLVM"请进门当员工"，clang 方式把 LLVM"当外部供应商"。
 
 两个编译器前端分别走了两条路，共享同一套语言与前端设计：
 
-| | compiler-rs | compiler-cpp |
-|---|---|---|
-| 前端 | Rust（lexer/parser/typecheck） | C++17（lexer/parser/typecheck） |
+| | compiler-rs | compiler-cpp | compiler-arm64 |
+|---|---|---|---|
+| 前端 | Rust（lexer/parser/typecheck） | C++17（lexer/parser/typecheck） | C++17（lexer/parser/typecheck） |
+| IR 构建 | 生成 `.ll` 文本 | LLVM C++ API（IRBuilder） | AST 直出 arm64 汇编 |
+| IR → 机器码 | clang 驱动（外部进程） | LLVM 后端库（进程内） | **自己写（指令选择/寄存器/栈帧/调用约定）** |
+| 链接 | clang 驱动 | 系统 `cc` | 系统 `as` + `ld` |
+| LLVM/clang 依赖 | 有（clang） | 有（LLVM 库） | **零** |
+| 实测 | ✅ 原生二进制 | ✅ 原生二进制，输出一致 | ✅ 原生二进制，输出一致 |
 | IR 构建 | 生成 `.ll` 文本 | LLVM C++ API（IRBuilder 内存构建） |
 | IR → 机器码 | clang 驱动（外部进程） | **LLVM 后端库（进程内 TargetMachine）** |
 | 链接 | clang 驱动 | 系统 `cc` |
