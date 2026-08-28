@@ -22,3 +22,10 @@ target
 
 # macOS
 .DS_Store
+
+# Python (tenet-py)
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/

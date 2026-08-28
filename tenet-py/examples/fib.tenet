@@ -1,0 +1,15 @@
+// Tenet 递归示例：斐波那契数列
+// 运行：cargo run -- run examples/fib.tenet
+
+fn fib(n: int) -> int {
+    if (n < 2) {
+        return n;
+    }
+    return fib(n - 1) + fib(n - 2);
+}
+
+let i: int = 0;
+while (i <= 10) {
+    print("fib(", i, ") =", fib(i));
+    i = i + 1;
+}

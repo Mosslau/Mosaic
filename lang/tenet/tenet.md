@@ -36,13 +36,22 @@ while (i < 10) {
 | 注释 | `//` 行注释、`/* */` 块注释 |
 | 后端 | ① 树遍历解释器 ② 源码到源码的 Go 代码生成 |
 
-## 两种执行方式
+## 两种实现、两套执行方式
+
+同一门语言，两种宿主实现，语义完全一致，Go 输出逐字节相同：
 
 ```bash
-cd impl
-cargo run -- run examples/fib.tenet     # 解释执行
-cargo run -- repl                        # 交互式 REPL
-cargo run -- codegen examples/fib.tenet # 生成 Go 源码（stdout）
+# Rust 实现（tenet-rs/）
+cd tenet-rs
+cargo run -- run examples/fib.tenet      # 解释执行
+cargo run -- repl                         # 交互式 REPL
+cargo run -- codegen examples/fib.tenet  # 生成 Go 源码（stdout）
+
+# Python 实现（tenet-py/）
+cd tenet-py
+python3 -m tenet run examples/fib.tenet
+python3 -m tenet repl
+python3 -m tenet codegen examples/fib.tenet
 ```
 
 ## 阶段路线
