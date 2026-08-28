@@ -1,7 +1,7 @@
 # 🔬 Python 语言设计分析（analyze-py）
 
 > 一步步分析 Python 的语言设计，每篇主题配一个可直接运行的 demo。
-> 分析结论汇总到 [`tenet/design-notes.md`](../tenet/Tenet设计溯源.md)，作为 Tenet 语言设计的输入。
+> 分析结论汇总到 [`Tenet设计溯源`](../tenet/Tenet设计溯源.md)，作为 Tenet 语言设计的输入。
 
 > 🧭 **定位**：本目录是「设计解剖」——讲*为什么*这么设计。
 > 对应的「学习笔记」（讲*怎么学*）在 [`lang-py/`](../lang-python/)，建议先学后析。
