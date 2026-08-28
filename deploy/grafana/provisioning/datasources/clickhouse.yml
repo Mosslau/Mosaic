@@ -1,0 +1,14 @@
+apiVersion: 1
+
+datasources:
+  - name: ClickHouse
+    type: grafana-clickhouse-datasource
+    access: proxy
+    url: http://clickhouse:8123
+    jsonData:
+      defaultDatabase: oceanverse
+      port: 8123
+      username: default
+      password: oceanverse123
+      tlsSkipVerify: true
+    isDefault: true
