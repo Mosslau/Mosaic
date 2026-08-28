@@ -25,11 +25,11 @@
 
 | 资料 | 说明 |
 |------|------|
-| [tenet/design-notes.md](../tenet/design-notes.md) | **设计 · 溯源**：三语言吸收矩阵、每个特性从哪门语言来、拒绝了什么、演进路线 |
-| [tenet/grammar.md](../tenet/grammar.md) | **设计 · 规范**：正式文法（EBNF）、类型系统与推断、求值语义（唯一事实来源） |
-| [tenet/architecture.md](../tenet/architecture.md) | **架构文档**：前端/后端划分、模块职责、LLVM 设计决策 |
-| [tenet/implementation.md](../tenet/implementation.md) | **实现文档**：逐模块实现要点、测试策略、如何扩展 |
-| [tenet/tenet.md](../tenet/tenet.md) | Tenet 语言与编译器入口：速览、文档导航、演进 |
+| [tenet/设计溯源](../tenet/设计溯源.md) | **设计 · 溯源**：三语言吸收矩阵、每个特性从哪门语言来、拒绝了什么、演进路线 |
+| [tenet/语言规范](../tenet/语言规范.md) | **设计 · 规范**：正式文法（EBNF）、类型系统与推断、求值语义（唯一事实来源） |
+| [tenet/架构](../tenet/架构.md) | **架构文档**：前端/后端划分、模块职责、LLVM 设计决策 |
+| [tenet/实现](../tenet/实现.md) | **实现文档**：逐模块实现要点、测试策略、如何扩展 |
+| [tenet/README](../tenet/README.md) | Tenet 语言与编译器入口：速览、文档导航、演进 |
 | [tenet/compiler/](../tenet/compiler/) | **实现代码**：Rust 前端（词法/语法/类型/LLVM IR）+ clang 链接 → 原生二进制 |
 
 > 使用：`cd tenet/compiler && cargo run -- build examples/hello.tenet -o hello && ./hello`

@@ -8,10 +8,10 @@
 
 | 文档 | 内容 | 回答的问题 |
 |------|------|-----------|
-| [design-notes.md](./design-notes.md) | **设计文档 · 溯源**：三语言吸收矩阵、特性来源表、拒绝清单、演进路线 | 为什么这么设计 |
-| [grammar.md](./grammar.md) | **设计文档 · 规范**：正式文法（EBNF）、类型系统、求值语义（唯一事实来源） | 语言是什么 |
-| [architecture.md](./architecture.md) | **架构文档**：前端/后端划分、模块职责、LLVM 设计决策 | 编译器怎么组织 |
-| [implementation.md](./implementation.md) | **实现文档**：逐模块实现要点、测试策略、如何扩展 | 代码怎么写 |
+| [设计溯源](./设计溯源.md) | **设计文档 · 溯源**：三语言吸收矩阵、特性来源表、拒绝清单、演进路线 | 为什么这么设计 |
+| [语言规范](./语言规范.md) | **设计文档 · 规范**：正式文法（EBNF）、类型系统、求值语义（唯一事实来源） | 语言是什么 |
+| [架构](./架构.md) | **架构文档**：前端/后端划分、模块职责、LLVM 设计决策 | 编译器怎么组织 |
+| [实现](./实现.md) | **实现文档**：逐模块实现要点、测试策略、如何扩展 | 代码怎么写 |
 | [`compiler/`](./compiler/) | **实现代码**：Rust 前端（词法/语法/类型/LLVM IR）+ clang 链接 | 代码在哪 |
 
 ## 语言速览
@@ -40,7 +40,7 @@ while (i < 10) {
 
 | 维度 | 设计 |
 |------|------|
-| 类型系统 | 标量 `int`/`float`/`bool`/`string`（完整设计含 `array<T>`/`struct`/`Option`/`Result`，见 grammar.md） |
+| 类型系统 | 标量 `int`/`float`/`bool`/`string`（完整设计含 `array<T>`/`struct`/`Option`/`Result`，见语言规范） |
 | 变量 | `let` 声明，类型标注可选（局部静态推断）；赋值 `=`（值语义） |
 | 函数 | `fn f(a: int) -> int`，显式返回类型，递归 |
 | 控制流 | `if/else`、`while`（唯一循环）、`break`、`return` |
@@ -55,7 +55,7 @@ while (i < 10) {
 | 词法 / 语法 / 类型 / LLVM IR 代码生成 | [`compiler/`](./compiler/) | ✅ 已实现（核心子集） |
 | 命令行 | `tenet build` / `tenet run` / `tenet ir` | ✅ 已实现 |
 | 示例 | `compiler/examples/`（hello / fib / fizzbuzz） | ✅ 编译为原生二进制运行正确 |
-| 复合类型 / Option / Result / match | 设计已定（grammar.md），代码生成待扩展 | 演进 |
+| 复合类型 / Option / Result / match | 设计已定（语言规范），代码生成待扩展 | 演进 |
 
 ## 快速开始
 

@@ -41,11 +41,11 @@ hello.tenet
    ├─▶ clang 链接 → hello（原生二进制，直接运行）
 ```
 
-- [`tenet/design-notes.md`](tenet/design-notes.md) — **设计文档 · 溯源**：三语言吸收矩阵、每个特性从哪来、拒绝了什么
-- [`tenet/grammar.md`](tenet/grammar.md) — **设计文档 · 规范**：正式文法（EBNF）、类型系统、求值语义（唯一事实来源）
-- [`tenet/architecture.md`](tenet/architecture.md) — **架构文档**：前端/后端划分、模块职责、LLVM 设计决策
-- [`tenet/implementation.md`](tenet/implementation.md) — **实现文档**：逐模块实现要点、测试策略、如何扩展
-- [`tenet/tenet.md`](tenet/tenet.md) — 语言与编译器入口（速览、文档导航、演进）
+- [`tenet/设计溯源`](tenet/设计溯源.md) — **设计文档 · 溯源**：三语言吸收矩阵、每个特性从哪来、拒绝了什么
+- [`tenet/语言规范`](tenet/语言规范.md) — **设计文档 · 规范**：正式文法（EBNF）、类型系统、求值语义（唯一事实来源）
+- [`tenet/架构`](tenet/架构.md) — **架构文档**：前端/后端划分、模块职责、LLVM 设计决策
+- [`tenet/实现`](tenet/实现.md) — **实现文档**：逐模块实现要点、测试策略、如何扩展
+- [`tenet/README`](tenet/README.md) — 语言与编译器入口（速览、文档导航、演进）
 - [`tenet/compiler/`](tenet/compiler/) — **实现代码**（Rust 前端 + LLVM 后端）：`tenet build` / `tenet run`
 
 「万语归宗」的实践闭环：学习 → 分析 → 合成 → 固化 → 实现 → 运行。

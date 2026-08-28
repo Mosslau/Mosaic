@@ -1,7 +1,7 @@
 # 🔬 Python 语言设计分析（tenet-py）
 
 > 一步步分析 Python 的语言设计，每篇主题配一个可直接运行的 demo。
-> 分析结论汇总到 [`tenet/design-notes.md`](../tenet/design-notes.md)，作为 Tenet 语言设计的输入。
+> 分析结论汇总到 [`tenet/design-notes.md`](../tenet/设计溯源.md)，作为 Tenet 语言设计的输入。
 
 Python 的核心设计命题：**"简单、可读、快速上手"优先于性能与严谨**——
 动态类型、一切皆对象、鸭子类型、解释执行。它是"语言设计要服务开发者体验"的最佳样本，
