@@ -1,6 +1,6 @@
 # Ph01 · 词法分析（Lexer）
 
-> 源码对照：[`tenet-rs/src/lexer.rs`](../../../tenet-rs/src/lexer.rs) · [`tenet-rs/src/token.rs`](../../../tenet-rs/src/token.rs)
+> 源码对照：[`tenet-rs/src/lexer.rs`](../../tenet-rs/src/lexer.rs) · [`tenet-rs/src/token.rs`](../../tenet-rs/src/token.rs)
 > 测试对照：`tenet-rs/src/lexer.rs` 末尾的 `#[cfg(test)] mod tests`
 
 ## 1. 概述

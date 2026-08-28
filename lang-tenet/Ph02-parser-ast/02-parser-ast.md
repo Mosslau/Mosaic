@@ -1,6 +1,6 @@
 # Ph02 · 语法分析与 AST
 
-> 源码对照：[`tenet-rs/src/parser.rs`](../../../tenet-rs/src/parser.rs) · [`tenet-rs/src/ast.rs`](../../../tenet-rs/src/ast.rs)
+> 源码对照：[`tenet-rs/src/parser.rs`](../../tenet-rs/src/parser.rs) · [`tenet-rs/src/ast.rs`](../../tenet-rs/src/ast.rs)
 > 测试对照：`tenet-rs/src/parser.rs` 末尾的 `#[cfg(test)] mod tests`
 
 ## 1. 概述

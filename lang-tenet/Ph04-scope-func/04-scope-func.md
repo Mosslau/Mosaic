@@ -1,6 +1,6 @@
 # Ph04 · 作用域与函数
 
-> 源码对照：[`tenet-rs/src/env.rs`](../../../tenet-rs/src/env.rs) · [`tenet-rs/src/interpreter.rs`](../../../tenet-rs/src/interpreter.rs)
+> 源码对照：[`tenet-rs/src/env.rs`](../../tenet-rs/src/env.rs) · [`tenet-rs/src/interpreter.rs`](../../tenet-rs/src/interpreter.rs)
 > 测试对照：`tenet-rs/src/interpreter.rs` 的 `block_scoping_shadows` / `recursion_fib` 测试
 
 ## 1. 概述
