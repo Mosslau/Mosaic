@@ -1,53 +1,63 @@
-"""Minimax 与 Alpha-Beta 剪枝 — demo：同数据双跑 + 可视化对比
+"""Minimax / Alpha-Beta demo：井字棋上朴素版 vs 剪枝版双跑对比。
 
-要求：
-1. 用一个小而经典的数据集（能几分钟内跑完）
-2. 同一份 train/test 切分，分别跑手写版（impl.py）和框架版（framework.py）
-3. 输出两套关键指标并排对比
-4. 至少一张可视化图（matplotlib），含手写 vs 框架的对比
-5. 结论写回本目录 README.md 的「实验结果」一节
+对照逻辑：同一棋盘、同一深度、同一局面，
+跑 impl.minimax 与 impl.alphabeta，对比 节点访问数 / 耗时 ——
+结果应完全一致，剪枝收益（访问节点显著变少）由此量化。
 """
 
 import time
 
-from impl import Model
-from framework import run_framework
+from impl import minimax, alphabeta
 
 
-def load_data():
-    """TODO: 加载数据集，返回 X_train, X_test, y_train, y_test（固定随机种子保证可复现）。"""
-    raise NotImplementedError
+class TicTacToe:
+    """TODO: 井字棋：3x3 棋盘 + get_moves / apply / evaluate / is_terminal。"""
+
+    def get_moves(self) -> list:
+        raise NotImplementedError
+
+    def apply(self, move) -> "TicTacToe":
+        raise NotImplementedError
+
+    def evaluate(self) -> float:
+        raise NotImplementedError
+
+    def is_terminal(self) -> bool:
+        raise NotImplementedError
 
 
-def evaluate(y_true, y_pred) -> dict:
-    """TODO: 返回本任务的关键指标，如 {'mse': ..., 'mae': ...}"""
+def run_with_counter(fn, state, *args, **kwargs) -> tuple:
+    """TODO: 包一层计数器，返回 (move, score, nodes_visited)。"""
     raise NotImplementedError
 
 
 def main() -> None:
-    X_train, X_test, y_train, y_test = load_data()
+    state = TicTacToe()
+    game = {
+        "get_moves": state.get_moves,
+        "apply": lambda s, m: s.apply(m),
+        "evaluate": state.evaluate,
+        "is_terminal": state.is_terminal,
+    }
 
-    # --- 手写实现 ---
     t0 = time.perf_counter()
-    model = Model()
-    model.fit(X_train, y_train)
-    pred_manual = model.predict(X_test)
-    t_manual = time.perf_counter() - t0
-    metrics_manual = evaluate(y_test, pred_manual)
+    m_plain, score_plain, nodes_plain = run_with_counter(minimax, state, 9, True, **game)
+    t_plain = time.perf_counter() - t0
 
-    # --- 框架对照 ---
     t0 = time.perf_counter()
-    metrics_framework = run_framework(X_train, X_test, y_train, y_test)
-    t_framework = time.perf_counter() - t0
+    m_ab, score_ab, nodes_ab = run_with_counter(
+        alphabeta, state, 9, float("-inf"), float("inf"), True, **game)
+    t_ab = time.perf_counter() - t0
 
-    # --- 并排对比 ---
-    print(f"{'':12} | {'手写实现':>12} | {'框架调用':>12}")
-    print("-" * 44)
-    for k, v in metrics_manual.items():
-        print(f"{k:12} | {v:>12.4f} | {metrics_framework.get(k, float('nan')):>12.4f}")
-    print(f"{'time_sec':12} | {t_manual:>12.4f} | {t_framework:>12.4f}")
+    print(f"{'':14} | {'minimax':>10} | {'alphabeta':>10}")
+    print("-" * 42)
+    print(f"{'move':14} | {str(m_plain):>10} | {str(m_ab):>10}")
+    print(f"{'score':14} | {score_plain:>10.2f} | {score_ab:>10.2f}")
+    print(f"{'nodes':14} | {nodes_plain:>10} | {nodes_ab:>10}")
+    print(f"{'time_sec':14} | {t_plain:>10.4f} | {t_ab:>10.4f}")
 
-    # TODO: 可视化对比（matplotlib），保存图片到本目录
+    # TODO: 可视化（可选：剪枝比例随搜索深度的变化曲线），保存到本目录
+    # 结论写回本目录 README.md 的「实验结果」一节
 
 
 if __name__ == "__main__":

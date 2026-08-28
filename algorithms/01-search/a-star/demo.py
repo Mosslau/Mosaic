@@ -1,53 +1,47 @@
-"""A* 启发式搜索 — demo：同数据双跑 + 可视化对比
+"""A* demo：同一张地图，手写 A* vs Dijkstra 双跑对比。
 
-要求：
-1. 用一个小而经典的数据集（能几分钟内跑完）
-2. 同一份 train/test 切分，分别跑手写版（impl.py）和框架版（framework.py）
-3. 输出两套关键指标并排对比
-4. 至少一张可视化图（matplotlib），含手写 vs 框架的对比
-5. 结论写回本目录 README.md 的「实验结果」一节
+搜索算法的"对照"是基线算法而非 sklearn：
+- 同一张随机障碍地图（固定随机种子，保证起点终点连通）
+- 分别跑 impl.solve（A*）与 baseline.dijkstra（Dijkstra）
+- 对比 路径长度 / 扩展节点数 / 耗时 —— 启发式 h 的收益由此量化
 """
 
 import time
 
-from impl import Model
-from framework import run_framework
+from impl import solve
+from baseline import dijkstra
 
 
-def load_data():
-    """TODO: 加载数据集，返回 X_train, X_test, y_train, y_test（固定随机种子保证可复现）。"""
+def make_grid(rows: int = 21, cols: int = 21, obstacle_ratio: float = 0.3, seed: int = 42):
+    """TODO: 生成随机障碍地图（0=通路，1=障碍），保证 (1,1) 与 (rows-2, cols-2) 连通。"""
     raise NotImplementedError
 
 
-def evaluate(y_true, y_pred) -> dict:
-    """TODO: 返回本任务的关键指标，如 {'mse': ..., 'mae': ...}"""
+def draw(grid, path_a: list, path_d: list) -> None:
+    """TODO: matplotlib 画地图 + 两条路径，保存图片到本目录。"""
     raise NotImplementedError
 
 
 def main() -> None:
-    X_train, X_test, y_train, y_test = load_data()
+    grid = make_grid()
+    start, goal = (1, 1), (19, 19)
 
-    # --- 手写实现 ---
     t0 = time.perf_counter()
-    model = Model()
-    model.fit(X_train, y_train)
-    pred_manual = model.predict(X_test)
-    t_manual = time.perf_counter() - t0
-    metrics_manual = evaluate(y_test, pred_manual)
+    r_a = solve(grid, start, goal)
+    t_a = time.perf_counter() - t0
 
-    # --- 框架对照 ---
     t0 = time.perf_counter()
-    metrics_framework = run_framework(X_train, X_test, y_train, y_test)
-    t_framework = time.perf_counter() - t0
+    r_d = dijkstra(grid, start, goal)
+    t_d = time.perf_counter() - t0
 
-    # --- 并排对比 ---
-    print(f"{'':12} | {'手写实现':>12} | {'框架调用':>12}")
-    print("-" * 44)
-    for k, v in metrics_manual.items():
-        print(f"{k:12} | {v:>12.4f} | {metrics_framework.get(k, float('nan')):>12.4f}")
-    print(f"{'time_sec':12} | {t_manual:>12.4f} | {t_framework:>12.4f}")
+    print(f"{'':14} | {'A*':>10} | {'Dijkstra':>10}")
+    print("-" * 42)
+    print(f"{'path_len':14} | {len(r_a.path) if r_a.path else 0:>10} | {len(r_d.path) if r_d.path else 0:>10}")
+    print(f"{'nodes_expanded':14} | {r_a.nodes_expanded:>10} | {r_d.nodes_expanded:>10}")
+    print(f"{'time_sec':14} | {t_a:>10.4f} | {t_d:>10.4f}")
 
-    # TODO: 可视化对比（matplotlib），保存图片到本目录
+    draw(grid, r_a.path, r_d.path)
+    # 结论写回本目录 README.md 的「实验结果」一节
 
 
 if __name__ == "__main__":
