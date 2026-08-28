@@ -1,7 +1,7 @@
 # 🔧 Tenet 实现文档
 
-> 实现细节：compiler-rs/ 每个模块怎么写的、测试怎么组织的、如何扩展。
-> 架构总览见 [Tenet架构](./Tenet架构.md)，代码在 [`compiler-rs/`](./compiler-rs/)。
+> 实现细节：两个编译器前端（[`compiler-rs/`](./compiler-rs/) Rust 版、[`compiler-cpp/`](./compiler-cpp/) C++17 版）
+> 每个模块怎么写的、测试怎么组织的、如何扩展。架构总览见 [Tenet架构](./Tenet架构.md)。
 
 ## 1. 模块实现要点
 
