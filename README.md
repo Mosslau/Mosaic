@@ -4,6 +4,12 @@
 >
 > *All languages converge. We seek the tenet beneath them.*
 
+## Why "TenetLang"?
+
+A tenet is a core principle. Every language — C, Rust, Python — is a
+different expression of the same underlying ideas. This project digs
+beneath the syntax, back to the source — and then builds one from scratch.
+
 一个编程语言学习与实践仓库：先系统化学习主流语言，再从零实现一门属于自己的语言。
 
 ## 📚 Part 1 · 学习笔记库
@@ -44,9 +50,3 @@ Tenet 源码
 - [`tenet-py/`](tenet-py/) — Python 实现：与 Rust 版语义一致、Go 输出逐字节相同
 - [`tenet-cpp/`](tenet-cpp/) — C++17 实现：三端语义一致、Go 输出逐字节相同
 - [`tenet/`](tenet/tenet.md) — Tenet 语言设计文档：从词法、语法到代码生成的完整路线
-
-## Why "TenetLang"?
-
-A tenet is a core principle. Every language — C, Rust, Python — is a
-different expression of the same underlying ideas. This project digs
-beneath the syntax, back to the source — and then builds one from scratch.
