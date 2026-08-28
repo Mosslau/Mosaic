@@ -1,6 +1,6 @@
 # 🧬 Tenet 设计溯源（Design Notes）
 
-> Tenet 是"语言设计实验"的产物：先分析 Rust / C++ / Python（见 `tenet-rs/`、`tenet-cpp/`、`tenet-py/` 分析工作台），
+> Tenet 是"语言设计实验"的产物：先分析 Rust / C++ / Python（见 `analyze-rs/`、`analyze-cpp/`、`analyze-py/` 分析工作台），
 > 结合 Go / Java / C 的笔记，吸收各自优点，拒绝各自包袱，合成一门新语言。
 > 完整语言规范见 [`语言规范`](./Tenet语言规范.md)。
 
@@ -109,7 +109,7 @@ const 编译期常量   ← C / C++ constexpr（不可变保证）
 ## 五、与学习笔记的关系
 
 - `lang-rust/` 等笔记 = 每门语言的"说明书"（学什么）
-- `tenet-rs/` 等分析台 = 每门语言的"设计解剖"（为什么这么设计）
+- `analyze-rs/` 等分析台 = 每门语言的"设计解剖"（为什么这么设计）
 - `Tenet设计溯源.md` = 解剖结论的**合成**（哪些吸收、哪些拒绝、矛盾怎么调和）
 - `Tenet语言规范.md` = 合成结果的**固化**（正式文法与语义，唯一事实来源）
 - `tenet/compiler/` = 合成的**实现**（clang/rustc 式编译器，产出原生二进制）

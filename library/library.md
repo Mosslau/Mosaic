@@ -13,13 +13,17 @@
 | Python | [python.md](../lang-python/python.md) | 基础语法 / 数据结构 / 函数与模块 / 面向对象 / 文件与异常 |
 | Rust | [rust.md](../lang-rust/rust.md) | 基础语法 / 所有权 / 数据结构 / Option·Result / 模式匹配 |
 
+> 🧭 **两条线的关系**：`lang-*`（语言学习路线）= 讲*怎么学*这门语言；
+> `analyze-*`（设计分析）= 讲*为什么*这门语言这么设计（设计解剖）。
+> 建议先学后析；分析结论汇总到 [Tenet设计溯源](../tenet/Tenet设计溯源.md)。
+
 ## 语言设计分析
 
 | 分析台 | 分析对象 | 主题（notes/） |
 |--------|---------|----------------|
-| [tenet-rs/](../tenet-rs/) | Rust：内存安全如何成为编译期保证 | 所有权与借用 / 生命周期 / trait 与泛型 / Option·Result / Send·Sync |
-| [tenet-cpp/](../tenet-cpp/) | C++：零成本抽象与多范式并存 | RAII / 移动语义 / 多范式 / STL 设计 / constexpr |
-| [tenet-py/](../tenet-py/) | Python：开发者体验优先的取舍 | 动态类型 / 数据模型 / 装饰器 / 生成器 / 上下文管理器 |
+| [analyze-rs/](../analyze-rs/) | Rust：内存安全如何成为编译期保证 | 所有权与借用 / 生命周期 / trait 与泛型 / Option·Result / Send·Sync |
+| [analyze-cpp/](../analyze-cpp/) | C++：零成本抽象与多范式并存 | RAII / 移动语义 / 多范式 / STL 设计 / constexpr |
+| [analyze-py/](../analyze-py/) | Python：开发者体验优先的取舍 | 动态类型 / 数据模型 / 装饰器 / 生成器 / 上下文管理器 |
 
 ## Tenet 语言与编译器
 

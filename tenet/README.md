@@ -81,8 +81,8 @@ cargo test                                                     # 22 个单元测
 | 参考对象 | Tenet 学到了什么 |
 |---------|-----------------|
 | C | 语法风格（`{}`、`;`、运算符优先级）、静态类型思想 |
-| C++ | 值语义、RAII 资源管理思想、性能意识（分析见 tenet-cpp/） |
+| C++ | 值语义、RAII 资源管理思想、性能意识（分析见 analyze-cpp/） |
 | Go | `:=` 式类型推断、`for` 即唯一循环、克制的设计哲学 |
-| Rust | 组合优先（trait 思想）、`Option`/`Result`、错误带位置、**LLVM 后端的架构**（分析见 tenet-rs/） |
-| Python | 类型推断、REPL、`print` 内建、可读性与上手体验（分析见 tenet-py/） |
+| Rust | 组合优先（trait 思想）、`Option`/`Result`、错误带位置、**LLVM 后端的架构**（分析见 analyze-rs/） |
+| Python | 类型推断、REPL、`print` 内建、可读性与上手体验（分析见 analyze-py/） |
 | Java | 词法作用域、函数调用栈等语义的对照 |

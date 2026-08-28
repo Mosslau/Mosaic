@@ -1,7 +1,10 @@
-# 🔬 Rust 语言设计分析（tenet-rs）
+# 🔬 Rust 语言设计分析（analyze-rs）
 
 > 一步步分析 Rust 的语言设计，每篇主题配一个可运行的 demo。
 > 分析结论汇总到 [`tenet/design-notes.md`](../tenet/Tenet设计溯源.md)，作为 Tenet 语言设计的输入。
+
+> 🧭 **定位**：本目录是「设计解剖」——讲*为什么*这么设计。
+> 对应的「学习笔记」（讲*怎么学*）在 [`lang-rust/`](../lang-rust/)，建议先学后析。
 
 Rust 的核心设计命题：**在没有 GC 的前提下，把内存安全和并发安全变成编译期保证**。
 整个语言围绕这一个命题展开——所有权、借用、生命周期、trait、Result、Send/Sync 都是它的推论。
@@ -19,7 +22,7 @@ Rust 的核心设计命题：**在没有 GC 的前提下，把内存安全和并
 ## 快速开始
 
 ```bash
-cd tenet-rs/demos
+cd analyze-rs/demos
 cargo run --bin 01_ownership    # 依次试 01~05
 ```
 
