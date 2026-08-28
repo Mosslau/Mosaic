@@ -562,6 +562,11 @@ private:
 
         if (op == OP_AND || op == OP_OR) return gen_logic(op, e);
 
+        // 字符串与非字符串混合 → 类型错误（不得静默按数值处理）
+        if ((lt == T_STR) != (rt == T_STR)) {
+            throw TenetError("运算符 `" + op + "` 不能作用于 " + lt + " 和 " + rt);
+        }
+
         // 数值：先 lhs 后 rhs 入栈，再逆序弹出
         gen_expr(e->lhs);
         gen_expr(e->rhs);
