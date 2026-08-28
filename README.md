@@ -53,7 +53,7 @@ hello.tenet
 ```
 
 - [`tenet/README`](tenet/README.md) — 语言与编译器入口（速览、快速开始、导航）
-- [`tenet/Tenet`](tenet/Tenet.md) — **完整文档**：设计溯源 / 语言规范 / 架构 / LLVM 后端 / 实现 / 演进
+- [`tenet/Tenet`](tenet/Tenet架构设计.md) — **完整文档**：设计溯源 / 语言规范 / 架构 / LLVM 后端 / 实现 / 演进
 - [`tenet/compiler-rs/`](tenet/compiler-rs/) — **实现 · Rust**（clang 驱动 LLVM）：`tenet build` / `tenet run`
 - [`tenet/compiler-cpp/`](tenet/compiler-cpp/) — **实现 · C++17**（进程内调用 LLVM 后端库，rustc 方式）：`make && ./tenet build`
 - [`tenet/compiler-arm64/`](tenet/compiler-arm64/) — **实现 · C++17 手写后端**（AArch64 汇编，零 LLVM/clang）：`make && ./tenet build`

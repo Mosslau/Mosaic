@@ -15,7 +15,7 @@
 
 > 🧭 **两条线的关系**：`lang-*`（语言学习路线）= 讲*怎么学*这门语言；
 > `analyze-*`（设计分析）= 讲*为什么*这门语言这么设计（设计解剖）。
-> 建议先学后析；分析结论汇总到 [Tenet](../tenet/Tenet.md)（完整文档）。
+> 建议先学后析；分析结论汇总到 [Tenet](../tenet/Tenet架构设计.md)（完整文档）。
 
 ## 语言设计分析
 
@@ -29,7 +29,7 @@
 
 | 资料 | 说明 |
 |------|------|
-| [tenet/Tenet](../tenet/Tenet.md) | **完整文档**：设计溯源 / 语言规范 / 架构 / LLVM 后端 / 实现 / 演进 |
+| [tenet/Tenet](../tenet/Tenet架构设计.md) | **完整文档**：设计溯源 / 语言规范 / 架构 / LLVM 后端 / 实现 / 演进 |
 | [tenet/README](../tenet/README.md) | Tenet 语言与编译器入口：速览、快速开始、导航 |
 | [tenet/compiler-rs/](../tenet/compiler-rs/) | **实现 · Rust**：clang 驱动 LLVM（.ll 文本 + clang 链接） |
 | [tenet/compiler-cpp/](../tenet/compiler-cpp/) | **实现 · C++17**：进程内调用 LLVM 后端库（rustc 方式，IRBuilder + TargetMachine） |

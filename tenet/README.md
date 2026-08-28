@@ -2,7 +2,7 @@
 
 > 万语归宗——分析 C++ / Rust / Python 的设计，继承优点、拒绝包袱，
 > 合成一门属于自己的语言，并用三种自主度实现编译器。
-> **完整文档见 [`Tenet.md`](./Tenet.md)**（设计溯源 / 语言规范 / 架构 / LLVM 后端 / 实现）。
+> **完整文档见 [`Tenet架构设计.md`](./Tenet架构设计.md)**（设计溯源 / 语言规范 / 架构 / LLVM 后端 / 实现）。
 
 ## 语言速览
 
@@ -30,7 +30,7 @@ while (i < 10) {
 
 | 维度 | 设计 |
 |------|------|
-| 类型系统 | 标量 `int`/`float`/`bool`/`string`（完整设计含 `array<T>`/`struct`/`Option`/`Result`，见 Tenet.md §2） |
+| 类型系统 | 标量 `int`/`float`/`bool`/`string`（完整设计含 `array<T>`/`struct`/`Option`/`Result`，见 Tenet架构设计.md §2） |
 | 变量 | `let` 声明，类型标注可选（局部静态推断）；赋值 `=`（值语义） |
 | 函数 | `fn f(a: int) -> int`，显式返回类型，递归 |
 | 控制流 | `if/else`、`while`（唯一循环）、`break`、`return` |
@@ -71,7 +71,7 @@ make
 ```
 tenet/
 ├── README.md          # 本入口：语言速览 + 快速开始 + 导航
-├── Tenet.md           # ★完整文档：设计溯源 / 语言规范 / 架构 / LLVM 后端 / 实现 / 演进
+├── Tenet架构设计.md           # ★完整文档：设计溯源 / 语言规范 / 架构 / LLVM 后端 / 实现 / 演进
 ├── compiler-rs/       # 实现 · Rust（clang 驱动）
 ├── compiler-cpp/      # 实现 · C++17（LLVM 库进程内）
 └── compiler-arm64/    # 实现 · C++17（手写 AArch64 后端，零 LLVM）
@@ -81,4 +81,4 @@ tenet/
 
 仓库的三条主线：`lang-*`（学 6 门语言）→ `analyze-*`（析它们的语言设计）→
 `tenet/`（合 + 实现）。本目录即"合成与实现"的落点：
-学习与分析的结论在 `Tenet.md` §1 汇总为设计决策，三个编译器把设计变成可运行的二进制。
+学习与分析的结论在 `Tenet架构设计.md` §1 汇总为设计决策，三个编译器把设计变成可运行的二进制。
