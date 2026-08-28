@@ -17,7 +17,7 @@
 
 | 资料 | 说明 |
 |------|------|
-| [lang/tenet/tenet.md](../lang-tenet/tenet.md) | Tenet 语言设计路线：从词法到代码生成 |
+| [tenet/tenet.md](../tenet/tenet.md) | Tenet 语言设计路线：从词法到代码生成 |
 | [tenet-rs/](../tenet-rs/) | Rust 实现源码（lexer / parser / interpreter / codegen / repl） |
 | [tenet-py/](../tenet-py/) | Python 实现源码（与 Rust 版语义一致、Go 输出逐字节相同） |
 | [tenet-cpp/](../tenet-cpp/) | C++17 实现源码（三端语义一致、Go 输出逐字节相同） |

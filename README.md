@@ -43,7 +43,7 @@ Tenet 源码
 - [`tenet-rs/`](tenet-rs/) — Rust 实现：`lexer` / `parser` / `interpreter` / `codegen` / `repl`
 - [`tenet-py/`](tenet-py/) — Python 实现：与 Rust 版语义一致、Go 输出逐字节相同
 - [`tenet-cpp/`](tenet-cpp/) — C++17 实现：三端语义一致、Go 输出逐字节相同
-- [`lang-tenet/`](lang-tenet/tenet.md) — Tenet 语言设计文档：从词法、语法到代码生成的完整路线
+- [`tenet/`](tenet/tenet.md) — Tenet 语言设计文档：从词法、语法到代码生成的完整路线
 
 ## Why "TenetLang"?
 
