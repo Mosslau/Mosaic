@@ -148,7 +148,49 @@ entry:
 - **phi 节点**：汇合点（if/while 合并）不需要——变量都在栈槽里，`load` 即取值
 - **手写汇编/机器码**：交给 LLVM，我们只生成可读的 IR 文本
 
-## 6. 类型与指令映射
+## 6. 从 IR 到二进制：LLVM 内部发生了什么
+
+IR 生成之后，到可执行二进制之间还有六个阶段（对两个实现都成立，
+只是 compiler-rs 在 clang 进程里做、compiler-cpp 在进程内做）：
+
+```text
+LLVM IR
+   │ ① 验证 verifyModule：IR 结构合法性（我们两个实现都显式/隐式执行）
+   ▼
+② 优化 passes（常量折叠 / 死代码消除 / 内联 / 向量化…）
+   │   compiler-cpp 实测：`7 / 2.0` 在 IR 阶段被折叠成常量 3.5
+   ▼
+③ 指令选择 SelectionDAG / GlobalISel：IR 指令 → 目标 CPU 指令
+   │   （如 i64 add → AArch64 的 add x0, x1, x2）
+   ▼
+④ 寄存器分配：虚拟寄存器 → 物理寄存器（ARM64 的 x0-x30 / d0-d31）
+   ▼
+⑤ 指令调度与布局
+   ▼
+⑥ MC 汇编层：目标指令 → 对象文件 .o（机器码 + 符号表 + 重定位信息）
+   ▼
+⑦ 链接器：解析符号（tenet_concat / printf / main）、重定位 → 可执行文件
+   ▼
+二进制（Mach-O / ELF）
+```
+
+| 阶段 | compiler-rs（clang 驱动） | compiler-cpp（LLVM 库进程内） |
+|------|---------------------------|------------------------------|
+| ① 验证 | clang 内部 | 显式 `verifyModule` |
+| ②③④⑤⑥ | clang 进程内（不可见） | `TargetMachine` + `legacy::PassManager` 进程内 |
+| ⑦ 链接 | clang 兼链接（链接 runtime.c） | 系统 `cc`（链接 runtime.c） |
+
+**观察每一层**（compiler-cpp 生成的 IR 走 `tenet ir` 导出后同样适用）：
+
+```bash
+tenet ir examples/fib.tenet            # ①+② 之前：前端产物（IR）
+llc fib.ll -o fib.s                    # ③④⑤：汇编（指令选择+寄存器分配后）
+clang -S -O2 fib.ll -o fib.opt.s       # ②：优化后的汇编
+file fib                               # 产物格式
+nm fib | grep tenet_                   # ⑦：链接进来的符号
+```
+
+## 7. 类型与指令映射
 
 | Tenet | IR | 示例 |
 |-------|-----|------|
@@ -161,7 +203,7 @@ entry:
 | `&&`/`\|\|` | 短路跳转 + alloca | 右侧只在需要时求值 |
 | `print` | 拼格式串 + `printf` | `%lld`/`%g`/`%s`/bool 用 `select` 选 true/false 串 |
 
-## 7. 调试与检查工具
+## 8. 调试与检查工具
 
 ```bash
 cd tenet/compiler
@@ -175,7 +217,7 @@ clang -S -O2 /tmp/f.ll -o /tmp/f.opt.s       # 看优化后的汇编
 对照三份文件（IR → 汇编 → 优化汇编），能直观看到 LLVM 后端如何把
 我们的 IR 变成真实机器码。
 
-## 8. 兼容性注记（本机实测）
+## 9. 兼容性注记（本机实测）
 
 - **gep 语法**：本机 Homebrew LLVM 21 的 IR 解析器对
   `getelementptr inbounds (聚合类型, ...)` 报 `expected type`，
@@ -185,7 +227,7 @@ clang -S -O2 /tmp/f.ll -o /tmp/f.opt.s       # 看优化后的汇编
   `overriding the module target triple`——无害警告（IR 未写死平台，
   clang 按本机默认平台编译，反而更可移植）
 
-## 9. 演进方向（LLVM 侧）
+## 10. 演进方向（LLVM 侧）
 
 | 特性 | LLVM 表达 |
 |------|-----------|
