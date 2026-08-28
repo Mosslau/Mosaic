@@ -35,7 +35,7 @@
 | [tenet/LLVM后端](../tenet/LLVM后端.md) | **后端文档**：IR 生成全貌、clang 驱动、指令映射、调试工具 |
 | [tenet/实现](../tenet/Tenet实现.md) | **实现文档**：逐模块实现要点、测试策略、如何扩展 |
 | [tenet/README](../tenet/README.md) | Tenet 语言与编译器入口：速览、文档导航、演进 |
-| [tenet/compiler/](../tenet/compiler/) | **实现代码**：Rust 前端（词法/语法/类型/LLVM IR）+ clang 链接 → 原生二进制 |
+| [tenet/compiler-rs/](../tenet/compiler-rs/) | **实现代码**：Rust 前端（词法/语法/类型/LLVM IR）+ clang 链接 → 原生二进制 |
 
 > 使用：`cd tenet/compiler && cargo run -- build examples/hello.tenet -o hello && ./hello`
 

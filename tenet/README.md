@@ -8,12 +8,12 @@
 
 | 文档 | 内容 | 回答的问题 |
 |------|------|-----------|
-| [设计溯源](./Tenet设计溯源.md) | **设计文档 · 溯源**：三语言吸收矩阵、特性来源表、拒绝清单、演进路线 | 为什么这么设计 |
-| [语言规范](./Tenet语言规范.md) | **设计文档 · 规范**：正式文法（EBNF）、类型系统、求值语义（唯一事实来源） | 语言是什么 |
-| [架构](./Tenet架构.md) | **架构文档**：前端/后端划分、模块职责、LLVM 设计决策 | 编译器怎么组织 |
+| [Tenet设计溯源](./Tenet设计溯源.md) | **设计文档 · 溯源**：三语言吸收矩阵、特性来源表、拒绝清单、演进路线 | 为什么这么设计 |
+| [Tenet语言规范](./Tenet语言规范.md) | **设计文档 · 规范**：正式文法（EBNF）、类型系统、求值语义（唯一事实来源） | 语言是什么 |
+| [Tenet架构](./Tenet架构.md) | **架构文档**：前端/后端划分、模块职责、LLVM 设计决策 | 编译器怎么组织 |
 | [LLVM后端](./LLVM后端.md) | **后端文档**：IR 生成全貌、clang 驱动、指令映射、调试工具 | LLVM 后端怎么工作 |
-| [实现](./Tenet实现.md) | **实现文档**：逐模块实现要点、测试策略、如何扩展 | 代码怎么写 |
-| [`compiler/`](./compiler/) | **实现代码**：Rust 前端（词法/语法/类型/LLVM IR）+ clang 链接 | 代码在哪 |
+| [Tenet实现](./Tenet实现.md) | **实现文档**：逐模块实现要点、测试策略、如何扩展 | 代码怎么写 |
+| [`compiler-rs/`](./compiler-rs/) | **实现代码**：Rust 前端（词法/语法/类型/LLVM IR）+ clang 链接 | 代码在哪 |
 
 ## 语言速览
 
@@ -53,15 +53,15 @@ while (i < 10) {
 
 | 模块 | 位置 | 状态 |
 |------|------|------|
-| 词法 / 语法 / 类型 / LLVM IR 代码生成 | [`compiler/`](./compiler/) | ✅ 已实现（核心子集） |
+| 词法 / 语法 / 类型 / LLVM IR 代码生成 | [`compiler-rs/`](./compiler-rs/) | ✅ 已实现（核心子集） |
 | 命令行 | `tenet build` / `tenet run` / `tenet ir` | ✅ 已实现 |
-| 示例 | `compiler/examples/`（hello / fib / fizzbuzz） | ✅ 编译为原生二进制运行正确 |
+| 示例 | `compiler-rs/examples/`（hello / fib / fizzbuzz） | ✅ 编译为原生二进制运行正确 |
 | 复合类型 / Option / Result / match | 设计已定（语言规范），代码生成待扩展 | 演进 |
 
 ## 快速开始
 
 ```bash
-cd compiler
+cd compiler-rs
 cargo run -- build examples/hello.tenet -o hello && ./hello   # 编译为二进制并运行
 cargo run -- run examples/fib.tenet                            # 编译+运行一步到位
 cargo test                                                     # 22 个单元测试

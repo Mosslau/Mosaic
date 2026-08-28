@@ -1,7 +1,7 @@
 # ⚙️ LLVM 后端文档
 
 > LLVM 后端：如何把前端生成的 LLVM IR 变成原生二进制，以及我们生成的 IR 长什么样。
-> 前端设计见 [架构](./Tenet架构.md)，语言规范见 [语言规范](./Tenet语言规范.md)。
+> 前端设计见 [Tenet架构](./Tenet架构.md)，语言规范见 [Tenet语言规范](./Tenet语言规范.md)。
 
 ## 1. 为什么用 LLVM
 
@@ -74,7 +74,7 @@ rustc 需要深度控制：LTO、增量编译、codegen 并行、JIT、自定义
 
 ```text
 tenet build hello.tenet
-   │  compiler/src/main.rs
+   │  compiler-rs/src/main.rs
    ├─① 前端生成 IR 文本（.ll）
    ├─② 写入临时文件 + 内嵌运行时库 runtime.c
    ├─③ 执行：clang out.ll runtime.c -o hello
