@@ -221,3 +221,7 @@ __marimo__/
 .DS_Store
 
 .workbuddy
+
+# MindSpring experiment artifacts
+**/outputs/
+**/data/cache/
