@@ -1,7 +1,7 @@
 # Ph05 · 代码生成（Codegen → Go）
 
-> 源码对照：[`tenet-rs/src/codegen.rs`](../../tenet-rs/src/codegen.rs)
-> 测试对照：`tenet-rs/src/codegen.rs` 末尾的 `#[cfg(test)] mod tests`
+> 源码对照：[`impl-rs/src/codegen.rs`](../impl-rs/src/codegen.rs)
+> 测试对照：`impl-rs/src/codegen.rs` 末尾的 `#[cfg(test)] mod tests`
 
 ## 1. 概述
 

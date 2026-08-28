@@ -1,69 +1,35 @@
-# tenet-cpp — Tenet 语言的 C++17 实现
+# 🔬 C++ 语言设计分析（tenet-cpp）
 
-与 [`tenet-rs/`](../tenet-rs/)、[`tenet-py/`](../tenet-py/) 三端对齐的 C++17 移植版：
-同样的语言、同样的语义、同样的错误信息、**逐字节一致**的 Go 代码生成输出。
+> 一步步分析 C++ 的语言设计，每篇主题配一个可编译运行的 demo。
+> 分析结论汇总到 [`tenet/design-notes.md`](../tenet/design-notes.md)，作为 Tenet 语言设计的输入。
 
-## 目录结构
+C++ 的核心设计命题：**在"零成本抽象"的前提下，把尽可能多的范式塞进一门语言**——
+过程式、面向对象、泛型、模板元编程、函数式并存。它的伟大与混乱都源于此。
 
-```
-tenet-cpp/
-├── src/                    # 源码（header-only，模块与 Rust 版一一对应）
-│   ├── error.hpp           # 统一错误类型（[行:列]）
-│   ├── token.hpp           # 词法单元（enum class）
-│   ├── lexer.hpp           # 词法分析器
-│   ├── ast.hpp             # 抽象语法树（标签结构体）
-│   ├── parser.hpp          # 语法分析器（递归下降 + 优先级爬升）
-│   ├── value.hpp           # 运行时值系统（std::variant）
-│   ├── env.hpp             # 作用域环境（词法作用域链）
-│   ├── interpreter.hpp     # 树遍历解释器
-│   ├── codegen.hpp         # Go 代码生成器
-│   ├── repl.hpp            # 交互式 REPL
-│   └── main.cpp            # CLI 入口
-├── examples/               # 示例程序（与 tenet-rs 相同）
-└── tests/test_main.cpp     # 测试（镜像 Rust 48 个测试）
-```
+## 分析路线
 
-## 构建与使用
+| # | 主题 | 核心问题 | Demo |
+|---|------|---------|------|
+| 01 | [RAII 资源管理](notes/01-raii.md) | 资源（内存/文件/锁）怎么自动释放？ | `make && ./demos/01_raii` |
+| 02 | [移动语义与右值引用](notes/02-move-semantics.md) | 怎么零拷贝地传递大对象？ | `make && ./demos/02_move` |
+| 03 | [多范式设计](notes/03-multiparadigm.md) | 一门语言能同时容纳几种编程范式？ | `make && ./demos/03_multiparadigm` |
+| 04 | [STL 设计](notes/04-stl-design.md) | 容器/迭代器/算法怎么解耦？ | `make && ./demos/04_stl` |
+| 05 | [constexpr 编译期计算](notes/05-constexpr.md) | 计算能提到编译期吗？ | `make && ./demos/05_constexpr` |
+
+## 快速开始
 
 ```bash
-cd tenet-cpp
-make                # 构建 tenet 与 test_tenet，并运行测试
-make tenet          # 仅构建 CLI
-
-./tenet run examples/fib.tenet        # 解释执行
-./tenet repl                          # 交互式 REPL
-./tenet codegen examples/fib.tenet    # 生成 Go 源码（stdout）
+cd tenet-cpp/demos
+make          # 编译全部 5 个 demo
+./01_raii     # 依次运行
 ```
 
-要求：C++17 编译器（clang 14+ / GCC 11+，需要 `std::to_chars` 浮点支持）、
-零第三方依赖。
+## 分析方法
 
-## 测试
+每篇笔记的结构：
 
-```bash
-cd tenet-cpp
-make test
-```
-
-## 三端对应关系
-
-| tenet-rs (Rust) | tenet-py (Python) | tenet-cpp (C++) | 说明 |
-|-----------------|-------------------|-----------------|------|
-| `src/token.rs` | `tenet/token.py` | `src/token.hpp` | TokenKind → enum class |
-| `src/lexer.rs` | `tenet/lexer.py` | `src/lexer.hpp` | 最长匹配、i64 范围检查 |
-| `src/ast.rs` | `tenet/ast.py` | `src/ast.hpp` | 枚举 → dataclass → 标签结构体 |
-| `src/parser.rs` | `tenet/parser.py` | `src/parser.hpp` | 同一优先级表与错误信息 |
-| `src/value.rs` | `tenet/value.py` | `src/value.hpp` | 枚举 → 原生类型 → std::variant |
-| `src/env.rs` | `tenet/env.py` | `src/env.hpp` | 作用域链（Rc → 共享指针） |
-| `src/interpreter.rs` | `tenet/interpreter.py` | `src/interpreter.hpp` | Flow 信号、短路求值 |
-| `src/codegen.rs` | `tenet/codegen.py` | `src/codegen.hpp` | Go 输出逐字节一致 |
-| `src/repl.rs` | `tenet/repl.py` | `src/repl.hpp` | 多行、缺分号容错、回显 |
-
-设计原则：**零第三方依赖**，只用标准库；语义与 Rust/Python 版完全对齐，
-包括 `7 / 2 == 3`（C++ 原生向零截断）、`true || (1/0==1)` 不报错（短路）、
-`1 == 1.0` 为真、块作用域遮蔽等细节。
-
-C++ 特有实现要点：
-- AST 用「标签 + 可选载荷」的单一结构体（tagged struct），等价于 Rust 枚举
-- 值系统用 `std::variant<int64_t, double, bool, std::string, Nil>`
-- 浮点格式化用 `std::to_chars(fixed)` 的最短往返表示，对齐 Rust f64 Display
+1. **设计动机**——这个设计解决什么问题
+2. **机制拆解**——语法/语义/编译期规则
+3. **代码验证**——最小 demo 亲眼看到机制
+4. **代价与取舍**——牺牲了什么
+5. **对 Tenet 的启示**——值得吸收 / 应该拒绝（输入 design-notes.md）

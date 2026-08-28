@@ -13,14 +13,23 @@
 | Python | [python.md](../lang-python/python.md) | 基础语法 / 数据结构 / 函数与模块 / 面向对象 / 文件与异常 |
 | Rust | [rust.md](../lang-rust/rust.md) | 基础语法 / 所有权 / 数据结构 / Option·Result / 模式匹配 |
 
-## 语言设计与实现
+## 语言设计分析
+
+| 分析台 | 分析对象 | 主题（notes/） |
+|--------|---------|----------------|
+| [tenet-rs/](../tenet-rs/) | Rust：内存安全如何成为编译期保证 | 所有权与借用 / 生命周期 / trait 与泛型 / Option·Result / Send·Sync |
+| [tenet-cpp/](../tenet-cpp/) | C++：零成本抽象与多范式并存 | RAII / 移动语义 / 多范式 / STL 设计 / constexpr |
+| [tenet-py/](../tenet-py/) | Python：开发者体验优先的取舍 | 动态类型 / 数据模型 / 装饰器 / 生成器 / 上下文管理器 |
+
+## Tenet 语言（合成与验证）
 
 | 资料 | 说明 |
 |------|------|
+| [tenet/design-notes.md](../tenet/design-notes.md) | **设计溯源**：每个特性从哪门语言来、拒绝了什么、演进路线 |
 | [tenet/tenet.md](../tenet/tenet.md) | Tenet 语言设计路线：从词法到代码生成 |
-| [tenet-rs/](../tenet-rs/) | Rust 实现源码（lexer / parser / interpreter / codegen / repl） |
-| [tenet-py/](../tenet-py/) | Python 实现源码（与 Rust 版语义一致、Go 输出逐字节相同） |
-| [tenet-cpp/](../tenet-cpp/) | C++17 实现源码（三端语义一致、Go 输出逐字节相同） |
+| [tenet/impl-rs/](../tenet/impl-rs/) | Rust 实现（lexer / parser / interpreter / codegen / repl） |
+| [tenet/impl-py/](../tenet/impl-py/) | Python 实现（与 Rust 版语义一致、Go 输出逐字节相同） |
+| [tenet/impl-cpp/](../tenet/impl-cpp/) | C++17 实现（三端语义一致、Go 输出逐字节相同） |
 
 ## 书单
 

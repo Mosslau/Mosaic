@@ -23,14 +23,23 @@ target
 # macOS
 .DS_Store
 
-# Python (tenet-py)
+# Python
 __pycache__/
 *.py[cod]
 *.egg-info/
 .venv/
 venv/
 
-# C++ (tenet-cpp)
-tenet-cpp/tenet
-tenet-cpp/test_tenet
+# C++
 *.o
+
+# tenet 三端实现构建产物（tenet/impl-*）
+tenet/impl-cpp/tenet
+tenet/impl-cpp/test_tenet
+
+# 语言设计分析 demo 构建产物
+tenet-cpp/demos/01_raii
+tenet-cpp/demos/02_move
+tenet-cpp/demos/03_multiparadigm
+tenet-cpp/demos/04_stl
+tenet-cpp/demos/05_constexpr

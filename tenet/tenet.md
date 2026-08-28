@@ -4,8 +4,8 @@
 > 用 Rust 从零搭建完整的语言管线：**词法 → 语法 → 语义 → 代码生成**。
 
 > 📌 **本文档是 Tenet 语言的设计说明书**（语法、语义、管线设计），
-> 可运行的实现见 [`tenet-rs/`](../tenet-rs/)（Rust）、[`tenet-py/`](../tenet-py/)（Python）、
-> [`tenet-cpp/`](../tenet-cpp/)（C++17）——三端语义一致，Go 输出逐字节相同。
+> 可运行的实现见 [`impl-rs/`](./impl-rs/)（Rust）、[`impl-py/`](./impl-py/)（Python）、
+> [`impl-cpp/`](./impl-cpp/)（C++17）——三端语义一致，Go 输出逐字节相同。
 
 ## 语言速览
 
@@ -45,20 +45,20 @@ while (i < 10) {
 同一门语言，三种宿主实现，语义完全一致，Go 输出逐字节相同：
 
 ```bash
-# Rust 实现（tenet-rs/）
-cd tenet-rs
+# Rust 实现（tenet/impl-rs/）
+cd tenet/impl-rs
 cargo run -- run examples/fib.tenet      # 解释执行
 cargo run -- repl                         # 交互式 REPL
 cargo run -- codegen examples/fib.tenet  # 生成 Go 源码（stdout）
 
-# Python 实现（tenet-py/）
-cd tenet-py
+# Python 实现（tenet/impl-py/）
+cd tenet/impl-py
 python3 -m tenet run examples/fib.tenet
 python3 -m tenet repl
 python3 -m tenet codegen examples/fib.tenet
 
-# C++17 实现（tenet-cpp/）
-cd tenet-cpp
+# C++17 实现（tenet/impl-cpp/）
+cd tenet/impl-cpp
 make
 ./tenet run examples/fib.tenet
 ./tenet repl
@@ -67,11 +67,11 @@ make
 
 ## 阶段路线
 
-> 每个阶段与 `tenet-rs/` 中的真实源码一一对应，学习时边读文档边读代码。
+> 每个阶段与 `impl-rs/` 中的真实源码一一对应，学习时边读文档边读代码。
 
 ### 1. 词法分析阶段
 
-> 📖 [Ph01-lexer/01-lexer.md](./Ph01-lexer/01-lexer.md) · 源码 [`tenet-rs/src/lexer.rs`](../tenet-rs/src/lexer.rs)
+> 📖 [Ph01-lexer/01-lexer.md](./Ph01-lexer/01-lexer.md) · 源码 [`impl-rs/src/lexer.rs`](./impl-rs/src/lexer.rs)
 
 把源码字符串切成 Token 流：字面量、关键字、运算符、注释与空白。
 
@@ -81,7 +81,7 @@ make
 
 ### 2. 语法分析与 AST 阶段
 
-> 📖 [Ph02-parser-ast/02-parser-ast.md](./Ph02-parser-ast/02-parser-ast.md) · 源码 [`tenet-rs/src/parser.rs`](../tenet-rs/src/parser.rs) / [`tenet-rs/src/ast.rs`](../tenet-rs/src/ast.rs)
+> 📖 [Ph02-parser-ast/02-parser-ast.md](./Ph02-parser-ast/02-parser-ast.md) · 源码 [`impl-rs/src/parser.rs`](./impl-rs/src/parser.rs) / [`impl-rs/src/ast.rs`](./impl-rs/src/ast.rs)
 
 把 Token 流变成抽象语法树（AST），验证语法正确性。
 
@@ -91,7 +91,7 @@ make
 
 ### 3. 解释器与值系统阶段
 
-> 📖 [Ph03-interpreter/03-interpreter.md](./Ph03-interpreter/03-interpreter.md) · 源码 [`tenet-rs/src/interpreter.rs`](../tenet-rs/src/interpreter.rs) / [`tenet-rs/src/value.rs`](../tenet-rs/src/value.rs)
+> 📖 [Ph03-interpreter/03-interpreter.md](./Ph03-interpreter/03-interpreter.md) · 源码 [`impl-rs/src/interpreter.rs`](./impl-rs/src/interpreter.rs) / [`impl-rs/src/value.rs`](./impl-rs/src/value.rs)
 
 直接对 AST 求值：表达式递归求值，语句递归执行。
 
@@ -101,7 +101,7 @@ make
 
 ### 4. 作用域与函数阶段
 
-> 📖 [Ph04-scope-func/04-scope-func.md](./Ph04-scope-func/04-scope-func.md) · 源码 [`tenet-rs/src/env.rs`](../tenet-rs/src/env.rs)
+> 📖 [Ph04-scope-func/04-scope-func.md](./Ph04-scope-func/04-scope-func.md) · 源码 [`impl-rs/src/env.rs`](./impl-rs/src/env.rs)
 
 块作用域、词法作用域链、函数调用与递归。
 
@@ -111,7 +111,7 @@ make
 
 ### 5. 代码生成阶段
 
-> 📖 [Ph05-codegen/05-codegen.md](./Ph05-codegen/05-codegen.md) · 源码 [`tenet-rs/src/codegen.rs`](../tenet-rs/src/codegen.rs)
+> 📖 [Ph05-codegen/05-codegen.md](./Ph05-codegen/05-codegen.md) · 源码 [`impl-rs/src/codegen.rs`](./impl-rs/src/codegen.rs)
 
 把 AST 翻译成 Go 源码——源码到源码的编译器。
 

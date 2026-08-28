@@ -1,0 +1,25 @@
+[package]
+name = "tenet-rs-analysis-demos"
+version = "0.1.0"
+edition = "2021"
+description = "Rust 语言设计分析配套可运行示例"
+
+[[bin]]
+name = "01_ownership"
+path = "src/bin/01_ownership.rs"
+
+[[bin]]
+name = "02_lifetimes"
+path = "src/bin/02_lifetimes.rs"
+
+[[bin]]
+name = "03_trait_generics"
+path = "src/bin/03_trait_generics.rs"
+
+[[bin]]
+name = "04_option_result"
+path = "src/bin/04_option_result.rs"
+
+[[bin]]
+name = "05_send_sync"
+path = "src/bin/05_send_sync.rs"

@@ -1,7 +1,7 @@
 # Ph03 · 解释器与值系统
 
-> 源码对照：[`tenet-rs/src/interpreter.rs`](../../tenet-rs/src/interpreter.rs) · [`tenet-rs/src/value.rs`](../../tenet-rs/src/value.rs)
-> 测试对照：`tenet-rs/src/interpreter.rs` 末尾的 `#[cfg(test)] mod tests`
+> 源码对照：[`impl-rs/src/interpreter.rs`](../impl-rs/src/interpreter.rs) · [`impl-rs/src/value.rs`](../impl-rs/src/value.rs)
+> 测试对照：`impl-rs/src/interpreter.rs` 末尾的 `#[cfg(test)] mod tests`
 
 ## 1. 概述
 

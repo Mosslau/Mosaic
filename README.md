@@ -4,33 +4,31 @@
 >
 > *All languages converge. We seek the tenet beneath them.*
 
-## Why "TenetLang"?
-
-A tenet is a core principle. Every language — C, Rust, Python — is a
-different expression of the same underlying ideas. This project digs
-beneath the syntax, back to the source — and then builds one from scratch.
-
-一个编程语言学习与实践仓库：先系统化学习主流语言，再从零实现一门属于自己的语言。
+一个编程语言学习与实践仓库，三条主线：**学习** 6 门语言 → **分析** 它们的语言设计 → **合成** 一门属于自己的语言 **Tenet**。
 
 ## 📚 Part 1 · 学习笔记库
 
 6 种主流语言的系统化学习路线：**C、C++、Go、Java、Python、Rust**。
-
-每种语言采用两级结构：
 
 | 层级 | 位置 | 内容 |
 |------|------|------|
 | Roadmap 总览 | `lang-<语言>/<语言>.md` | 分阶段学习路线：目标 / 学习内容 / 必会概念 / 示例 / 练习 / 阶段验收 / 推荐项目 |
 | 阶段详解 | `lang-<语言>/Ph01..Ph05/` | 每个基础阶段的完整展开：来源与演变 / 语法与参数 / 底层原理 / 代码示例 / 总结验收 |
 
-配套资源：
+## 🔬 Part 2 · 语言设计分析
 
-- [`books/books.md`](books/books.md) — 计算机方向书单推荐
-- [`library/library.md`](library/library.md) — 全库资料索引
+不是"学完就完"，而是**解剖每门语言的设计**：核心设计命题、机制拆解、代价取舍。
+每篇笔记配一个可运行的 demo，末尾标注「对 Tenet 的启示」。
 
-## ⚙️ Part 2 · 语言设计与实现
+| 分析台 | 分析对象 | 主题（notes/） |
+|--------|---------|----------------|
+| [`tenet-rs/`](tenet-rs/) | Rust：内存安全如何成为编译期保证 | 所有权与借用 / 生命周期 / trait 与泛型 / Option·Result / Send·Sync |
+| [`tenet-cpp/`](tenet-cpp/) | C++：零成本抽象与多范式并存 | RAII / 移动语义 / 多范式 / STL 设计 / constexpr |
+| [`tenet-py/`](tenet-py/) | Python：开发者体验优先的取舍 | 动态类型 / 数据模型 / 装饰器 / 生成器 / 上下文管理器 |
 
-用 Rust 从零实现一门小型语言 **Tenet**，验证「万语归宗」——把 Part 1 里学到的语言原理亲手搭一遍：
+## ⚙️ Part 3 · Tenet 语言（合成与验证）
+
+分析完三/六门语言，**继承优点、拒绝包袱**，合成 Tenet——然后三种宿主各实现一遍，验证设计可行：
 
 ```text
 Tenet 源码
@@ -46,7 +44,16 @@ Tenet 源码
    └─▶ REPL（交互式执行）
 ```
 
-- [`tenet-rs/`](tenet-rs/) — Rust 实现：`lexer` / `parser` / `interpreter` / `codegen` / `repl`
-- [`tenet-py/`](tenet-py/) — Python 实现：与 Rust 版语义一致、Go 输出逐字节相同
-- [`tenet-cpp/`](tenet-cpp/) — C++17 实现：三端语义一致、Go 输出逐字节相同
-- [`tenet/`](tenet/tenet.md) — Tenet 语言设计文档：从词法、语法到代码生成的完整路线
+- [`tenet/design-notes.md`](tenet/design-notes.md) — **设计溯源**：每个特性从哪门语言来、拒绝了什么
+- [`tenet/tenet.md`](tenet/tenet.md) — 语言设计文档：从词法、语法到代码生成的完整路线
+- [`tenet/impl-rs/`](tenet/impl-rs/) — Rust 实现（`cargo run` / `repl` / `codegen`）
+- [`tenet/impl-py/`](tenet/impl-py/) — Python 实现（`python3 -m tenet ...`）
+- [`tenet/impl-cpp/`](tenet/impl-cpp/) — C++17 实现（`make && ./tenet ...`）
+
+三端语义一致、Go 输出逐字节相同——「万语归宗」的实践闭环：分析 → 吸收 → 合成 → 验证。
+
+## Why "TenetLang"?
+
+A tenet is a core principle. Every language — C, Rust, Python — is a
+different expression of the same underlying ideas. This project digs
+beneath the syntax, back to the source — and then builds one from scratch.
