@@ -26,30 +26,27 @@
 | [`tenet-cpp/`](tenet-cpp/) | C++：零成本抽象与多范式并存 | RAII / 移动语义 / 多范式 / STL 设计 / constexpr |
 | [`tenet-py/`](tenet-py/) | Python：开发者体验优先的取舍 | 动态类型 / 数据模型 / 装饰器 / 生成器 / 上下文管理器 |
 
-## ⚙️ Part 3 · Tenet 语言（设计阶段）
+## ⚙️ Part 3 · Tenet 语言与编译器
 
-分析完三/六门语言，**继承优点、拒绝包袱**，合成 Tenet——当前聚焦**设计**，
-实现暂缓（曾用 Rust / Python / C++ 三端完整实现验证过设计可行，代码已移出仓库）：
+分析完三/六门语言，**继承优点、拒绝包袱**，合成 Tenet——并实现一个
+**clang / rustc 式原生编译器**：`tenet build hello.tenet` 产出可直接运行的二进制。
 
 ```text
-Tenet 源码
+hello.tenet
    │
-   ├─▶ 词法分析 Lexer ──▶ Token 流
-   │
-   ├─▶ 语法分析 Parser ──▶ AST
-   │                          │
-   │                          └─▶ 类型检查 + 解释执行 ──▶ 直接编译运行
-   │
-   └─▶ REPL（交互式执行）
-
-自包含：tenet run file.tenet 一条命令完成，零外部工具链依赖
+   ├─▶ 词法分析 → Token 流
+   ├─▶ 语法分析 → AST
+   ├─▶ 类型检查与推断
+   ├─▶ 代码生成 → LLVM IR
+   ├─▶ clang 链接 → hello（原生二进制，直接运行）
 ```
 
 - [`tenet/design-notes.md`](tenet/design-notes.md) — **设计溯源**：三语言吸收矩阵、每个特性从哪来、拒绝了什么
 - [`tenet/grammar.md`](tenet/grammar.md) — **语言规范**：正式文法（EBNF）、类型系统、求值语义（唯一事实来源）
-- [`tenet/tenet.md`](tenet/tenet.md) — 语言设计文档：从词法、语法到解释执行的完整路线
+- [`tenet/tenet.md`](tenet/tenet.md) — 编译器与语言设计文档（管线、架构、演进）
+- [`compiler/`](compiler/) — **编译器实现**（Rust 前端 + LLVM 后端）：`tenet build` / `tenet run`
 
-「万语归宗」的实践闭环：学习 → 分析 → 合成 →（实现验证待设计成熟后恢复）。
+「万语归宗」的实践闭环：学习 → 分析 → 合成 → 固化 → 实现 → 运行。
 
 ## Why "TenetLang"?
 

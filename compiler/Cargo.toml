@@ -1,0 +1,17 @@
+[package]
+name = "tenet"
+version = "0.2.0"
+edition = "2021"
+description = "Tenet 编译器：clang/rustc 式原生编译器（前端自写 + LLVM 后端），产出可直接运行的二进制"
+license = "MIT"
+
+[lib]
+name = "tenet"
+path = "src/lib.rs"
+
+[[bin]]
+name = "tenet"
+path = "src/main.rs"
+
+[profile.release]
+lto = true

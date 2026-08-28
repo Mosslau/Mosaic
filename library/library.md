@@ -21,15 +21,16 @@
 | [tenet-cpp/](../tenet-cpp/) | C++：零成本抽象与多范式并存 | RAII / 移动语义 / 多范式 / STL 设计 / constexpr |
 | [tenet-py/](../tenet-py/) | Python：开发者体验优先的取舍 | 动态类型 / 数据模型 / 装饰器 / 生成器 / 上下文管理器 |
 
-## Tenet 语言（设计阶段）
+## Tenet 语言与编译器
 
 | 资料 | 说明 |
 |------|------|
 | [tenet/design-notes.md](../tenet/design-notes.md) | **设计溯源**：三语言吸收矩阵、每个特性从哪门语言来、拒绝了什么、演进路线 |
 | [tenet/grammar.md](../tenet/grammar.md) | **语言规范**：正式文法（EBNF）、类型系统与推断、求值语义（唯一事实来源） |
-| [tenet/tenet.md](../tenet/tenet.md) | Tenet 语言设计路线：从词法到解释执行 |
+| [tenet/tenet.md](../tenet/tenet.md) | Tenet 编译器与语言设计路线：管线、架构、演进 |
+| [compiler/](../compiler/) | **编译器实现**：Rust 前端（词法/语法/类型/LLVM IR）+ clang 链接 → 原生二进制 |
 
-> 实现暂缓：三端完整实现（Rust / Python / C++）曾验证过设计可行，现已移出仓库，设计成熟后重建。
+> 使用：`cd compiler && cargo run -- build examples/hello.tenet -o hello && ./hello`
 
 ## 书单
 

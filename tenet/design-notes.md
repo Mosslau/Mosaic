@@ -68,38 +68,42 @@ C++ / Rust / Python 的核心主张互相矛盾，Tenet 的每个设计点都是
 | 生成器 / yield | Python | 无大数据场景，`while` 足够 |
 | trait / 方法 | Rust | struct 先落地；行为抽象放演进（避免一步到位） |
 
-## 三、实现验证（暂缓）
+## 三、实现验证：clang / rustc 式编译器
 
-设计曾用三种宿主语言完整实现验证过 v1（Rust / Python / C++，三端语义一致、
-行为逐字节相同——这就是"设计已确定"的证据：宿主语言可以换，
-语言本身的语义不变）。三端实现代码现已移出仓库，待 v2 设计定稿后重建。
+设计以 **clang / rustc 式原生编译器**落地（[`compiler/`](../compiler/)）：
+前端（词法 → 语法 → 类型检查 → LLVM IR）自己写，后端复用 LLVM/clang 产出
+原生二进制——与 rustc 完全相同的架构。行为以编译产物为准：
+同一份 `.tenet` 源码，编译出的二进制运行结果即语言语义的证据。
 
-> v1 曾支持"翻译成 Go 源码"（源码到源码编译器）作为教学演示，
-> 因其依赖外部工具链、与自包含目标矛盾，已从 v2 设计中移除。
+> 更早的 v1 曾用三种宿主语言实现过树遍历解释器（Rust / Python / C++，三端
+> 语义一致），并支持"翻译成 Go 源码"的教学演示；两者均已移出，
+> 前者被 compiler/ 取代，后者因依赖外部工具链被移除。
 
-重建时可参考当时的实现思路（每个设计点在三种宿主里的表达方式）：
+编译器各阶段的设计与实现（每个设计点在 LLVM 里的表达方式）：
 
-| 设计 | Rust 思路 | Python 思路 | C++ 思路 |
-|---|---|---|---|
-| AST | `enum` | dataclass | 标签结构体 |
-| 值系统 | `enum Value` | 原生类型 | `std::variant` |
-| 环境 | `Rc<RefCell<Env>>` | 对象 + parent | `shared_ptr` |
-| 错误 | `TResult<T>` | 异常 | `TenetError` 类 |
-| 整除 | 向零截断（原生） | 手写 `trunc_div` | 原生 |
+| 阶段 | 设计 | LLVM 表达 |
+|------|------|-----------|
+| 词法 | Token 流 + `[行:列]` 定位 | — |
+| 语法 | 递归下降 + 优先级爬升 | — |
+| 类型 | 标量 + 推断 | `i64` / `double` / `i1` / `i8*` |
+| 变量 | 值语义 + 块作用域 | `alloca` / `load` / `store`（内存模型，免 phi） |
+| 函数 | 显式返回类型 + 递归 | `define` + 参数 alloca |
+| 控制流 | if / while / break / 短路 | 基本块 + `br` / `icmp` / `fcmp` |
+| print | 任意类型 | 编译期拼格式串 → `printf` |
 
 ## 四、演进吸收路线（未来）
 
-按"每步一个特性、标注来源"的节奏扩展（v2 已把 struct/array/Option/Result/match 落地为设计，以下为后续）：
+按"每步一个特性、标注来源"的节奏扩展：
 
 ```text
-字节码编译 + VM    ← CPython / JVM（自包含的"编译"形态，性能）
+struct / array<T>   ← C / Rust（LLVM struct 类型 + gep / 堆数组）
+Option / Result / match / ?  ← Rust（标签联合 + 分支）
+优化 -O            ← LLVM opt / clang -O2（性能）
 trait / 方法        ← Rust（行为抽象，仍无继承）
 泛型              ← Java / C++ / Rust（最后再加）
-类型检查器独立阶段  ← Rust 编译期检查哲学
-模块 / 多文件       ← Go / Java（工程化）
+模块 / 多文件       ← Go / Java（分离编译 + 链接）
 const 编译期常量   ← C / C++ constexpr（不可变保证）
-上下文管理         ← Python with（若加文件 IO）
-自举              ← clang / rustc / CPython（用 Tenet 写 Tenet 编译器）
+自举              ← clang / rustc（用 Tenet 写 Tenet 编译器）
 ```
 
 ## 五、与学习笔记的关系
@@ -108,6 +112,6 @@ const 编译期常量   ← C / C++ constexpr（不可变保证）
 - `tenet-rs/` 等分析台 = 每门语言的"设计解剖"（为什么这么设计）
 - `design-notes.md` = 解剖结论的**合成**（哪些吸收、哪些拒绝、矛盾怎么调和）
 - `grammar.md` = 合成结果的**固化**（正式文法与语义，唯一事实来源）
-- 实现验证 = 合成的**检验**（设计可不可行，跑一遍就知道）——当前暂缓
+- `compiler/` = 合成的**实现**（clang/rustc 式编译器，产出原生二进制）
 
-**万语归宗**：学习 → 分析 → 吸收 → 合成 → 固化 →（验证待实现恢复）。
+**万语归宗**：学习 → 分析 → 吸收 → 合成 → 固化 → 实现 → 运行。
