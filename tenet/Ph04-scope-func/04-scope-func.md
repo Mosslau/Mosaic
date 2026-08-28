@@ -133,4 +133,4 @@ fn fib(n: int) -> int {
 
 ## 下一阶段
 
-[Ph05 · 代码生成](../Ph05-codegen/05-codegen.md) — 把同一棵 AST 翻译成 Go。
+字节码编译与 VM——自包含的「编译」形态（演进方向，见 [tenet.md](../tenet.md)）。

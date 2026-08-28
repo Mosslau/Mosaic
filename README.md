@@ -38,16 +38,16 @@ Tenet 源码
    │
    ├─▶ 语法分析 Parser ──▶ AST
    │                          │
-   │                          ├─▶ 树遍历解释器 Interpreter ──▶ 直接执行
-   │                          │
-   │                          └─▶ 代码生成 Codegen ──▶ Go 源码
+   │                          └─▶ 类型检查 + 解释执行 ──▶ 直接编译运行
    │
    └─▶ REPL（交互式执行）
+
+自包含：tenet run file.tenet 一条命令完成，零外部工具链依赖
 ```
 
 - [`tenet/design-notes.md`](tenet/design-notes.md) — **设计溯源**：三语言吸收矩阵、每个特性从哪来、拒绝了什么
 - [`tenet/grammar.md`](tenet/grammar.md) — **语言规范**：正式文法（EBNF）、类型系统、求值语义（唯一事实来源）
-- [`tenet/tenet.md`](tenet/tenet.md) — 语言设计文档：从词法、语法到代码生成的完整路线
+- [`tenet/tenet.md`](tenet/tenet.md) — 语言设计文档：从词法、语法到解释执行的完整路线
 
 「万语归宗」的实践闭环：学习 → 分析 → 合成 →（实现验证待设计成熟后恢复）。
 

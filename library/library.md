@@ -27,7 +27,7 @@
 |------|------|
 | [tenet/design-notes.md](../tenet/design-notes.md) | **设计溯源**：三语言吸收矩阵、每个特性从哪门语言来、拒绝了什么、演进路线 |
 | [tenet/grammar.md](../tenet/grammar.md) | **语言规范**：正式文法（EBNF）、类型系统与推断、求值语义（唯一事实来源） |
-| [tenet/tenet.md](../tenet/tenet.md) | Tenet 语言设计路线：从词法到代码生成 |
+| [tenet/tenet.md](../tenet/tenet.md) | Tenet 语言设计路线：从词法到解释执行 |
 
 > 实现暂缓：三端完整实现（Rust / Python / C++）曾验证过设计可行，现已移出仓库，设计成熟后重建。
 
