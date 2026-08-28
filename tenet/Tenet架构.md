@@ -2,7 +2,7 @@
 
 > 架构设计：Tenet 编译器如何组织、各阶段职责、关键设计决策。
 > 语言规范见 [Tenet语言规范](./Tenet语言规范.md)，实现细节见 [Tenet实现](./Tenet实现.md)，
-> 代码在 [`compiler-rs/`](./compiler-rs/)。
+> 代码在 [`compiler-rs/`](./compiler-rs/)、[`compiler-cpp/`](./compiler-cpp/)、[`compiler-arm64/`](./compiler-arm64/)。
 
 ## 1. 总体架构：前端自写 + LLVM 后端
 
@@ -12,7 +12,7 @@
 ```text
 hello.tenet
    │
-   ├─▶ 前端（compiler-rs/src/，自己写）
+   ├─▶ 前端（三个实现，自己写）
    │    ① lexer.rs     词法分析：字符 → Token 流
    │    ② parser.rs    语法分析：Token → AST（递归下降 + 优先级爬升）
    │    ③ codegen.rs   类型推断 + LLVM IR 生成
@@ -27,7 +27,7 @@ hello.tenet
 也最成熟的部分，rustc 和 clang 都选择复用 LLVM 而非重写——我们同样如此。
 前端（词法/语法/类型/IR 生成）才是"语言设计"的体现，也是本项目的核心。
 
-## 2. 模块划分（compiler-rs/src/）
+## 2. 模块划分（以 compiler-rs 为例，三实现同构）
 
 | 模块 | 职责 | 关键设计 |
 |------|------|---------|

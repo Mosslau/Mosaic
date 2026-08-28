@@ -13,7 +13,9 @@
 | [Tenet架构](./Tenet架构.md) | **架构文档**：前端/后端划分、模块职责、LLVM 设计决策 | 编译器怎么组织 |
 | [LLVM后端](./LLVM后端.md) | **后端文档**：IR 生成全貌、clang 驱动、指令映射、调试工具 | LLVM 后端怎么工作 |
 | [Tenet实现](./Tenet实现.md) | **实现文档**：逐模块实现要点、测试策略、如何扩展 | 代码怎么写 |
-| [`compiler-rs/`](./compiler-rs/) | **实现代码**：Rust 前端（词法/语法/类型/LLVM IR）+ clang 链接 | 代码在哪 |
+| [`compiler-rs/`](./compiler-rs/) | **实现 · Rust**（clang 驱动 LLVM） | 代码在哪 |
+| [`compiler-cpp/`](./compiler-cpp/) | **实现 · C++17**（LLVM 库进程内，rustc 方式） | 代码在哪 |
+| [`compiler-arm64/`](./compiler-arm64/) | **实现 · C++17 手写后端**（AArch64 汇编，零 LLVM/clang） | 代码在哪 |
 
 ## 语言速览
 
@@ -55,7 +57,7 @@ while (i < 10) {
 |------|------|------|
 | 词法 / 语法 / 类型 / 代码生成 | [`compiler-rs/`](./compiler-rs/)（clang 驱动）· [`compiler-cpp/`](./compiler-cpp/)（LLVM 库进程内）· [`compiler-arm64/`](./compiler-arm64/)（**手写 AArch64 后端**，零 LLVM） | ✅ 已实现（核心子集） |
 | 命令行 | `tenet build` / `tenet run` / `ir` 或 `asm`（三实现相同） | ✅ 已实现 |
-| 示例 | `compiler-rs/examples/`（hello / fib / fizzbuzz） | ✅ 编译为原生二进制运行正确 |
+| 示例 | 三个实现各带 `examples/`（hello / fib / fizzbuzz） | ✅ 编译为原生二进制运行正确 |
 | 复合类型 / Option / Result / match | 设计已定（语言规范），代码生成待扩展 | 演进 |
 
 ## 快速开始
@@ -67,6 +69,11 @@ cargo run -- build examples/hello.tenet -o hello && ./hello
 
 # C++17 实现（进程内调用 LLVM 后端库，rustc 方式）
 cd ../compiler-cpp
+make
+./tenet build examples/hello.tenet -o hello && ./hello
+
+# C++17 手写后端（AArch64 汇编，零 LLVM/clang）
+cd ../compiler-arm64
 make
 ./tenet build examples/hello.tenet -o hello && ./hello
 ```

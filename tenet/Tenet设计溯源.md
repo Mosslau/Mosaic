@@ -71,10 +71,11 @@ C++ / Rust / Python 的核心主张互相矛盾，Tenet 的每个设计点都是
 ## 三、实现验证：clang / rustc 式编译器
 
 设计以 **clang / rustc 式原生编译器**落地，且有两种后端集成方式：
-[`compiler-rs/`](./compiler-rs/)（Rust 前端 + clang 驱动）与
-[`compiler-cpp/`](./compiler-cpp/)（C++17 前端 + 进程内调用 LLVM 后端库，rustc 方式）。
-前端（词法 → 语法 → 类型检查 → LLVM IR）自己写，后端复用 LLVM 产出原生二进制。
-行为以编译产物为准：同一份 `.tenet` 源码，两个独立实现编译出的二进制运行结果一致。
+[`compiler-rs/`](./compiler-rs/)（Rust 前端 + clang 驱动）、
+[`compiler-cpp/`](./compiler-cpp/)（C++17 前端 + 进程内 LLVM 后端库，rustc 方式）与
+[`compiler-arm64/`](./compiler-arm64/)（C++17 前端 + 手写 AArch64 汇编后端，零 LLVM）。
+前端自己写，后端复用 LLVM 或完全自写，产出原生二进制。
+行为以编译产物为准：同一份 `.tenet` 源码，三个独立实现编译出的二进制运行结果一致。
 
 > 更早的 v1 曾用三种宿主语言实现过树遍历解释器（Rust / Python / C++，三端
 > 语义一致），并支持"翻译成 Go 源码"的教学演示；两者均已移出，
@@ -113,6 +114,6 @@ const 编译期常量   ← C / C++ constexpr（不可变保证）
 - `analyze-rs/` 等分析台 = 每门语言的"设计解剖"（为什么这么设计）
 - `Tenet设计溯源.md` = 解剖结论的**合成**（哪些吸收、哪些拒绝、矛盾怎么调和）
 - `Tenet语言规范.md` = 合成结果的**固化**（正式文法与语义，唯一事实来源）
-- `tenet/compiler-rs/` / `tenet/compiler-cpp/` = 合成的**实现**（双前端：clang 驱动 / LLVM 库进程内，产出原生二进制）
+- `tenet/compiler-rs/` / `tenet/compiler-cpp/` / `tenet/compiler-arm64/` = 合成的**实现**（三前端：clang 驱动 / LLVM 库进程内 / 手写 AArch64 后端）
 
 **万语归宗**：学习 → 分析 → 吸收 → 合成 → 固化 → 实现 → 运行。

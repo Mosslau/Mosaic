@@ -2,12 +2,12 @@
 
 > 本文档是 Tenet 设计的**唯一事实来源**：完整文法（EBNF）、类型系统、
 > 求值语义与优先级规则。设计决策溯源见 [Tenet设计溯源](./Tenet设计溯源.md)，
-> 编译器实现见 [`compiler-rs/`](./compiler-rs/)（Rust，clang 驱动）与 [`compiler-cpp/`](./compiler-cpp/)（C++17，LLVM 库进程内）。
+> 编译器实现见 [`compiler-rs/`](./compiler-rs/)（Rust，clang 驱动）、[`compiler-cpp/`](./compiler-cpp/)（C++17，LLVM 库进程内）与 [`compiler-arm64/`](./compiler-arm64/)（C++17，手写 AArch64 后端）。
 >
 > Tenet 是一门吸收了 **C++（值语义/RAII 思想）、Rust（组合/Result/match/无继承）、
 > Python（类型推断/REPL/可读性）** 设计的静态类型语言，编译器产出自包含的原生二进制。
 >
-> **实现状态**：`compiler-rs/` 与 `compiler-cpp/` 均已实现核心子集（标量类型 + 函数递归 + 控制流 + print），行为一致；
+> **实现状态**：三个编译器均已实现核心子集（标量类型 + 函数递归 + 控制流 + print），行为一致；
 > `struct`/`array<T>`/`Option`/`Result`/`match`/`?` 为已定设计，代码生成待扩展。
 
 ## 1. 设计定位

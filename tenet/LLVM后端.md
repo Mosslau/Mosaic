@@ -31,9 +31,9 @@ rustc 进程内调用 LLVM 后端      clang 进程调用 LLVM 后端
 "打包好的 LLVM 后端"，而不是自己动手链接那份库。区别只是合同形式：
 rustc 把 LLVM"请进门当员工"，clang 方式把 LLVM"当外部供应商"。
 
-### 2.2 本仓库双实现对照（两种方式都已落地）
+### 2.2 本仓库三实现对照（三种方式都已落地）
 
-两个编译器前端分别走了两条路，共享同一套语言与前端设计：
+三个编译器前端分别走了三条路，共享同一套语言与前端设计：
 
 | | compiler-rs | compiler-cpp | compiler-arm64 |
 |---|---|---|---|
@@ -132,8 +132,9 @@ entry:
 
 ## 6. 从 IR 到二进制：LLVM 内部发生了什么
 
-IR 生成之后，到可执行二进制之间还有六个阶段（对两个实现都成立，
-只是 compiler-rs 在 clang 进程里做、compiler-cpp 在进程内做）：
+IR 生成之后，到可执行二进制之间还有六个阶段（对两个 LLVM 系实现
+compiler-rs / compiler-cpp 成立；手写后端 compiler-arm64 不走 LLVM，
+直接由我们自己完成指令选择与寄存器分配，见 [Tenet实现](./Tenet实现.md)）：
 
 ```text
 LLVM IR
@@ -158,8 +159,8 @@ LLVM IR
 
 | 阶段 | compiler-rs（clang 驱动） | compiler-cpp（LLVM 库进程内） |
 |------|---------------------------|------------------------------|
-| ① 验证 | clang 内部 | 显式 `verifyModule` |
-| ②③④⑤⑥ | clang 进程内（不可见） | `TargetMachine` + `legacy::PassManager` 进程内 |
+| ① 验证 | clang 内部 | 显式 `verifyModule` | —（无 LLVM） |
+| ②③④⑤⑥ | clang 进程内（不可见） | `TargetMachine` + `legacy::PassManager` 进程内 | 自己写（指令选择/寄存器/栈帧） |
 | ⑦ 链接 | clang 兼链接（链接 runtime.c） | 系统 `cc`（链接 runtime.c） |
 
 **观察每一层**（compiler-cpp 生成的 IR 走 `tenet ir` 导出后同样适用）：
