@@ -1,7 +1,6 @@
 # Ph01 · 词法分析（Lexer）
 
-> 源码对照：[`impl-rs/src/lexer.rs`](../impl-rs/src/lexer.rs) · [`impl-rs/src/token.rs`](../impl-rs/src/token.rs)
-> 测试对照：`impl-rs/src/lexer.rs` 末尾的 `#[cfg(test)] mod tests`
+> 📌 实现阶段暂缓：源码对照与测试对照将在实现恢复后补回。
 
 ## 1. 概述
 

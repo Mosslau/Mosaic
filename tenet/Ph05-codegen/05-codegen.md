@@ -1,7 +1,6 @@
 # Ph05 · 代码生成（Codegen → Go）
 
-> 源码对照：[`impl-rs/src/codegen.rs`](../impl-rs/src/codegen.rs)
-> 测试对照：`impl-rs/src/codegen.rs` 末尾的 `#[cfg(test)] mod tests`
+> 📌 实现阶段暂缓：源码对照与测试对照将在实现恢复后补回。
 
 ## 1. 概述
 

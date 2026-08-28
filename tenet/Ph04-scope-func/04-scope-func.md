@@ -1,7 +1,6 @@
 # Ph04 · 作用域与函数
 
-> 源码对照：[`impl-rs/src/env.rs`](../impl-rs/src/env.rs) · [`impl-rs/src/interpreter.rs`](../impl-rs/src/interpreter.rs)
-> 测试对照：`impl-rs/src/interpreter.rs` 的 `block_scoping_shadows` / `recursion_fib` 测试
+> 📌 实现阶段暂缓：源码对照与测试对照将在实现恢复后补回。
 
 ## 1. 概述
 

@@ -26,9 +26,10 @@
 | [`tenet-cpp/`](tenet-cpp/) | C++：零成本抽象与多范式并存 | RAII / 移动语义 / 多范式 / STL 设计 / constexpr |
 | [`tenet-py/`](tenet-py/) | Python：开发者体验优先的取舍 | 动态类型 / 数据模型 / 装饰器 / 生成器 / 上下文管理器 |
 
-## ⚙️ Part 3 · Tenet 语言（合成与验证）
+## ⚙️ Part 3 · Tenet 语言（设计阶段）
 
-分析完三/六门语言，**继承优点、拒绝包袱**，合成 Tenet——然后三种宿主各实现一遍，验证设计可行：
+分析完三/六门语言，**继承优点、拒绝包袱**，合成 Tenet——当前聚焦**设计**，
+实现暂缓（曾用 Rust / Python / C++ 三端完整实现验证过设计可行，代码已移出仓库）：
 
 ```text
 Tenet 源码
@@ -46,11 +47,8 @@ Tenet 源码
 
 - [`tenet/design-notes.md`](tenet/design-notes.md) — **设计溯源**：每个特性从哪门语言来、拒绝了什么
 - [`tenet/tenet.md`](tenet/tenet.md) — 语言设计文档：从词法、语法到代码生成的完整路线
-- [`tenet/impl-rs/`](tenet/impl-rs/) — Rust 实现（`cargo run` / `repl` / `codegen`）
-- [`tenet/impl-py/`](tenet/impl-py/) — Python 实现（`python3 -m tenet ...`）
-- [`tenet/impl-cpp/`](tenet/impl-cpp/) — C++17 实现（`make && ./tenet ...`）
 
-三端语义一致、Go 输出逐字节相同——「万语归宗」的实践闭环：分析 → 吸收 → 合成 → 验证。
+「万语归宗」的实践闭环：学习 → 分析 → 合成 →（实现验证待设计成熟后恢复）。
 
 ## Why "TenetLang"?
 

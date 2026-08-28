@@ -33,9 +33,6 @@ venv/
 # C++
 *.o
 
-# tenet 三端实现构建产物（tenet/impl-*）
-tenet/impl-cpp/tenet
-tenet/impl-cpp/test_tenet
 
 # 语言设计分析 demo 构建产物
 tenet-cpp/demos/01_raii
