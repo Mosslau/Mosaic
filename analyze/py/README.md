@@ -1,10 +1,10 @@
-# 🔬 Python 语言设计分析（analyze-py）
+# 🔬 Python 语言设计分析（analyze/py）
 
 > 一步步分析 Python 的语言设计，每篇主题配一个可直接运行的 demo。
-> 分析结论汇总到 [`Tenet`](../tenet/Tenet架构设计.md)，作为 Tenet 语言设计的输入。
+> 分析结论汇总到 [`Tenet`](../../tenet/Tenet架构设计.md)，作为 Tenet 语言设计的输入。
 
 > 🧭 **定位**：本目录是「设计解剖」——讲*为什么*这么设计。
-> 对应的「学习笔记」（讲*怎么学*）在 [`lang-py/`](../lang-python/)，建议先学后析。
+> 对应的「学习笔记」（讲*怎么学*）在 [`lang/py/`](../../lang/py/)，建议先学后析。
 
 Python 的核心设计命题：**"简单、可读、快速上手"优先于性能与严谨**——
 动态类型、一切皆对象、鸭子类型、解释执行。它是"语言设计要服务开发者体验"的最佳样本，
@@ -23,7 +23,7 @@ Python 的核心设计命题：**"简单、可读、快速上手"优先于性能
 ## 快速开始
 
 ```bash
-cd analyze-py
+cd analyze/py
 python3 demos/01_dynamic_typing.py   # 依次运行 01~05
 ```
 
