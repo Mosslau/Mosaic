@@ -2,12 +2,14 @@
 //!
 //! 优先级（低 → 高）：
 //!   ||  <  &&  <  == !=  <  < <= > >=  <  + -  <  * / %  <  一元 - !
+//! 每个 AST 节点记录起始位置（表达式的第一个 token / 语句的关键字），
+//! 供代码生成阶段全链路 `[行:列]` 报错。
 
 use crate::ast::{
-    Expr, Program, Stmt, T_BOOL, T_FLOAT, T_INT, T_STR, OP_ADD, OP_AND, OP_DIV, OP_EQ,
-    OP_GTE, OP_GT, OP_LTE, OP_LT, OP_MOD, OP_MUL, OP_NEG, OP_NEQ, OP_NOT, OP_OR, OP_SUB,
+    Expr, ExprKind, Program, Stmt, StmtKind, T_BOOL, T_FLOAT, T_INT, T_STR, OP_ADD, OP_AND, OP_DIV,
+    OP_EQ, OP_GTE, OP_GT, OP_LTE, OP_LT, OP_MOD, OP_MUL, OP_NEG, OP_NEQ, OP_NOT, OP_OR, OP_SUB,
 };
-use crate::error::{TenetError, TResult};
+use crate::error::{Position, TenetError, TResult};
 use crate::token::{Token, TokenKind};
 
 pub struct Parser {
@@ -65,26 +67,28 @@ impl Parser {
     // ---- 语句 ----
 
     fn parse_stmt(&mut self) -> TResult<Stmt> {
-        match &self.peek().kind {
-            TokenKind::Let => self.parse_let(),
-            TokenKind::Fn => self.parse_fn_decl(),
-            TokenKind::If => self.parse_if(),
-            TokenKind::While => self.parse_while(),
-            TokenKind::Return => self.parse_return(),
+        let pos = self.peek().pos.clone();
+        let kind = match &self.peek().kind {
+            TokenKind::Let => self.parse_let()?,
+            TokenKind::Fn => self.parse_fn_decl()?,
+            TokenKind::If => self.parse_if()?,
+            TokenKind::While => self.parse_while()?,
+            TokenKind::Return => self.parse_return()?,
             TokenKind::Break => {
                 self.advance();
                 self.expect(&TokenKind::Semi, "`;`")?;
-                Ok(Stmt::Break)
+                StmtKind::Break
             }
             _ => {
                 let expr = self.parse_expr()?;
                 self.expect(&TokenKind::Semi, "`;`")?;
-                Ok(Stmt::Expr(expr))
+                StmtKind::Expr(expr)
             }
-        }
+        };
+        Ok(Stmt { pos, kind })
     }
 
-    fn parse_let(&mut self) -> TResult<Stmt> {
+    fn parse_let(&mut self) -> TResult<StmtKind> {
         self.advance();
         let name = self.expect_ident("变量名")?;
         let ty = if self.check(&TokenKind::Colon) {
@@ -96,10 +100,10 @@ impl Parser {
         self.expect(&TokenKind::Assign, "`=`")?;
         let value = self.parse_expr()?;
         self.expect(&TokenKind::Semi, "`;`")?;
-        Ok(Stmt::Let { name, ty, value })
+        Ok(StmtKind::Let { name, ty, value })
     }
 
-    fn parse_fn_decl(&mut self) -> TResult<Stmt> {
+    fn parse_fn_decl(&mut self) -> TResult<StmtKind> {
         self.advance();
         let name = self.expect_ident("函数名")?;
         self.expect(&TokenKind::LParen, "`(`")?;
@@ -124,7 +128,7 @@ impl Parser {
             None
         };
         let body = self.parse_block()?;
-        Ok(Stmt::FnDecl {
+        Ok(StmtKind::FnDecl {
             name,
             params,
             ret,
@@ -132,7 +136,7 @@ impl Parser {
         })
     }
 
-    fn parse_if(&mut self) -> TResult<Stmt> {
+    fn parse_if(&mut self) -> TResult<StmtKind> {
         self.advance();
         self.expect(&TokenKind::LParen, "`(`")?;
         let cond = self.parse_expr()?;
@@ -141,38 +145,38 @@ impl Parser {
         let else_branch = if self.check(&TokenKind::Else) {
             self.advance();
             if self.check(&TokenKind::If) {
-                Some(vec![self.parse_if()?])
+                Some(vec![self.parse_stmt()?])
             } else {
                 Some(self.parse_block()?)
             }
         } else {
             None
         };
-        Ok(Stmt::If {
+        Ok(StmtKind::If {
             cond,
             then_branch,
             else_branch,
         })
     }
 
-    fn parse_while(&mut self) -> TResult<Stmt> {
+    fn parse_while(&mut self) -> TResult<StmtKind> {
         self.advance();
         self.expect(&TokenKind::LParen, "`(`")?;
         let cond = self.parse_expr()?;
         self.expect(&TokenKind::RParen, "`)`")?;
         let body = self.parse_block()?;
-        Ok(Stmt::While { cond, body })
+        Ok(StmtKind::While { cond, body })
     }
 
-    fn parse_return(&mut self) -> TResult<Stmt> {
+    fn parse_return(&mut self) -> TResult<StmtKind> {
         self.advance();
         if self.check(&TokenKind::Semi) {
             self.advance();
-            Ok(Stmt::Return(None))
+            Ok(StmtKind::Return(None))
         } else {
             let expr = self.parse_expr()?;
             self.expect(&TokenKind::Semi, "`;`")?;
-            Ok(Stmt::Return(Some(expr)))
+            Ok(StmtKind::Return(Some(expr)))
         }
     }
 
@@ -258,10 +262,14 @@ impl Parser {
             }
             self.advance();
             let rhs = self.parse_binary(prec + 1)?;
-            lhs = Expr::Binary {
-                op,
-                lhs: Box::new(lhs),
-                rhs: Box::new(rhs),
+            let pos = lhs.pos.clone();
+            lhs = Expr {
+                pos,
+                kind: ExprKind::Binary {
+                    op,
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(rhs),
+                },
             };
         }
         Ok(lhs)
@@ -274,11 +282,15 @@ impl Parser {
             _ => None,
         };
         if let Some(op) = op {
+            let pos = self.peek().pos.clone();
             self.advance();
             let expr = self.parse_unary()?;
-            return Ok(Expr::Unary {
-                op,
-                expr: Box::new(expr),
+            return Ok(Expr {
+                pos,
+                kind: ExprKind::Unary {
+                    op,
+                    expr: Box::new(expr),
+                },
             });
         }
         self.parse_primary()
@@ -286,40 +298,62 @@ impl Parser {
 
     fn parse_primary(&mut self) -> TResult<Expr> {
         let tok = self.peek().clone();
+        let pos = tok.pos.clone();
         match &tok.kind {
             TokenKind::Int(v) => {
                 self.advance();
-                Ok(Expr::Int(*v))
+                Ok(Expr {
+                    pos,
+                    kind: ExprKind::Int(*v),
+                })
             }
             TokenKind::Float(v) => {
                 self.advance();
-                Ok(Expr::Float(*v))
+                Ok(Expr {
+                    pos,
+                    kind: ExprKind::Float(*v),
+                })
             }
             TokenKind::Str(s) => {
                 self.advance();
-                Ok(Expr::Str(s.clone()))
+                Ok(Expr {
+                    pos,
+                    kind: ExprKind::Str(s.clone()),
+                })
             }
             TokenKind::True => {
                 self.advance();
-                Ok(Expr::Bool(true))
+                Ok(Expr {
+                    pos,
+                    kind: ExprKind::Bool(true),
+                })
             }
             TokenKind::False => {
                 self.advance();
-                Ok(Expr::Bool(false))
+                Ok(Expr {
+                    pos,
+                    kind: ExprKind::Bool(false),
+                })
             }
             TokenKind::Ident(name) => {
                 self.advance();
                 if self.check(&TokenKind::LParen) {
-                    self.parse_call_args(name.clone())
+                    self.parse_call_args(name.clone(), pos)
                 } else if self.check(&TokenKind::Assign) {
                     self.advance();
                     let value = self.parse_expr()?;
-                    Ok(Expr::Assign {
-                        name: name.clone(),
-                        value: Box::new(value),
+                    Ok(Expr {
+                        pos,
+                        kind: ExprKind::Assign {
+                            name: name.clone(),
+                            value: Box::new(value),
+                        },
                     })
                 } else {
-                    Ok(Expr::Var(name.clone()))
+                    Ok(Expr {
+                        pos,
+                        kind: ExprKind::Var(name.clone()),
+                    })
                 }
             }
             TokenKind::LParen => {
@@ -335,7 +369,7 @@ impl Parser {
         }
     }
 
-    fn parse_call_args(&mut self, callee: String) -> TResult<Expr> {
+    fn parse_call_args(&mut self, callee: String, pos: Position) -> TResult<Expr> {
         self.advance();
         let mut args = Vec::new();
         if !self.check(&TokenKind::RParen) {
@@ -348,7 +382,10 @@ impl Parser {
             }
         }
         self.expect(&TokenKind::RParen, "`)`")?;
-        Ok(Expr::Call { callee, args })
+        Ok(Expr {
+            pos,
+            kind: ExprKind::Call { callee, args },
+        })
     }
 }
 
@@ -363,38 +400,52 @@ mod tests {
     #[test]
     fn let_declaration() {
         let prog = parse_ok("let x: int = 42;");
-        match &prog.stmts[0] {
-            Stmt::Let { name, ty, value } => {
+        match &prog.stmts[0].kind {
+            StmtKind::Let { name, ty, value } => {
                 assert_eq!(name, "x");
                 assert_eq!(ty.as_deref(), Some(T_INT));
-                assert_eq!(*value, Expr::Int(42));
+                assert_eq!(value.kind, ExprKind::Int(42));
             }
             other => panic!("unexpected {other:?}"),
         }
     }
 
     #[test]
-    fn precedence() {
-        let prog = parse_ok("let x: int = 1 + 2 * 3;");
-        let Stmt::Let { value, .. } = &prog.stmts[0] else {
+    fn positions_recorded() {
+        let prog = parse_ok("let x: int = 42;\nlet y = x + 1;");
+        assert_eq!(prog.stmts[0].pos, Position::new(1, 1));
+        let StmtKind::Let { value, .. } = &prog.stmts[1].kind else {
             panic!()
         };
-        let Expr::Binary { op: add, lhs, rhs } = value else {
+        assert_eq!(value.pos, Position::new(2, 9)); // `x` 的起始列
+        let ExprKind::Binary { lhs, .. } = &value.kind else {
+            panic!()
+        };
+        assert_eq!(lhs.pos, Position::new(2, 9));
+    }
+
+    #[test]
+    fn precedence() {
+        let prog = parse_ok("let x: int = 1 + 2 * 3;");
+        let StmtKind::Let { value, .. } = &prog.stmts[0].kind else {
+            panic!()
+        };
+        let ExprKind::Binary { op: add, lhs, rhs } = &value.kind else {
             panic!()
         };
         assert_eq!(*add, OP_ADD);
-        assert_eq!(**lhs, Expr::Int(1));
-        let Expr::Binary { op: mul, .. } = **rhs else {
+        assert_eq!(lhs.kind, ExprKind::Int(1));
+        let ExprKind::Binary { op: mul, .. } = &rhs.kind else {
             panic!()
         };
-        assert_eq!(mul, OP_MUL);
+        assert_eq!(*mul, OP_MUL);
     }
 
     #[test]
     fn function_declaration() {
         let prog = parse_ok("fn add(a: int, b: int) -> int { return a + b; }");
-        match &prog.stmts[0] {
-            Stmt::FnDecl {
+        match &prog.stmts[0].kind {
+            StmtKind::FnDecl {
                 name,
                 params,
                 ret,
@@ -417,12 +468,12 @@ mod tests {
         let prog = parse_ok(
             "if (x > 0) { print(1); } else if (x < 0) { print(-1); } else { print(0); }",
         );
-        match &prog.stmts[0] {
-            Stmt::If {
+        match &prog.stmts[0].kind {
+            StmtKind::If {
                 else_branch: Some(branch),
                 ..
-            } => match &branch[0] {
-                Stmt::If { .. } => {}
+            } => match &branch[0].kind {
+                StmtKind::If { .. } => {}
                 other => panic!("unexpected {other:?}"),
             },
             other => panic!("unexpected {other:?}"),
@@ -432,10 +483,13 @@ mod tests {
     #[test]
     fn call_and_assignment() {
         let prog = parse_ok("x = f(1, 2);");
-        match &prog.stmts[0] {
-            Stmt::Expr(Expr::Assign { name, value }) => {
+        match &prog.stmts[0].kind {
+            StmtKind::Expr(Expr {
+                kind: ExprKind::Assign { name, value },
+                ..
+            }) => {
                 assert_eq!(name, "x");
-                let Expr::Call { callee, args } = &**value else {
+                let ExprKind::Call { callee, args } = &value.kind else {
                     panic!()
                 };
                 assert_eq!(callee, "f");

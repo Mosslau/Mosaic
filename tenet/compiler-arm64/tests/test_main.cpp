@@ -181,6 +181,51 @@ static void test_backend() {
     CHECK_THROWS(asm_of("print(unknown);"), "未定义的变量");
     CHECK_THROWS(asm_of("fn f() { } let x = f();"), "无法推断");
     CHECK_THROWS(asm_of("break;"), "循环之外");
+
+    // ---- 混合类型（string × 非 string）：前端报错，带 [行:列] ----
+
+    {
+        bool threw = false;
+        try {
+            asm_of("let a: string = \"x\";\nlet b = a + 1;");
+        } catch (const TenetError& e) {
+            threw = true;
+            CHECK(e.message == "运算符 `+` 不能作用于 string 和 int");
+            CHECK(e.pos.has_value() && e.pos->line == 2 && e.pos->col == 9);
+        }
+        CHECK(threw);
+    }
+    {
+        bool threw = false;
+        try {
+            asm_of("let a: string = \"x\";\nlet b: int = a + 1;");
+        } catch (const TenetError& e) {
+            threw = true;
+            CHECK(e.message == "运算符 `+` 不能作用于 string 和 int");
+            CHECK(e.pos.has_value() && e.pos->line == 2 && e.pos->col == 14);
+        }
+        CHECK(threw);
+    }
+    CHECK_THROWS(asm_of("let a: string = \"x\";\nlet b = a < 1;"), "运算符 `<` 不能作用于 string 和 int");
+
+    // ---- bool 不能参与数值/比较运算 ----
+
+    CHECK_THROWS(asm_of("let b = true + 1;"), "运算符 `+` 不能作用于 bool 和 int");
+    CHECK_THROWS(asm_of("let b = 1 && true;"), "运算符 `&&` 只能作用于 bool，实际为 int");
+    CHECK_THROWS(asm_of("let b = !5;"), "运算符 `!` 只能作用于 bool，实际为 int");
+    CHECK_THROWS(asm_of("let b = 5.5 % 2;"), "运算符 `%` 只能作用于 int");
+    CHECK_THROWS(asm_of("if (1) { print(1); }"), "条件表达式需要 bool");
+
+    // ---- 声明 / 赋值 / 调用 / 返回类型核对 ----
+
+    CHECK_THROWS(asm_of("let b: int = \"x\";"), "`b` 初始化类型不匹配：标注 int，实际 string");
+    CHECK_THROWS(asm_of("let b: int = 1;\nb = \"x\";"), "赋值类型不匹配：`b` 是 int，右侧是 string");
+    CHECK_THROWS(asm_of("fn f(x: int) -> int { return x; }\nf(\"s\");"),
+                 "函数 `f` 参数 0 类型不匹配：期望 int，实际 string");
+    CHECK_THROWS(asm_of("fn f(x: int) -> int { return x; }\nf(1, 2);"),
+                 "函数 `f` 需要 1 个参数，实际传入 2 个");
+    CHECK_THROWS(asm_of("fn f() -> int { return \"s\"; }"), "函数 `f` 返回类型不匹配：声明 int，实际 string");
+    CHECK_THROWS(asm_of("fn f() { return 1; }"), "函数 `f` 没有返回类型，不能 return 值");
 }
 
 int main() {

@@ -1,5 +1,6 @@
 //! 抽象语法树（AST）：语法分析器的输出，代码生成器的输入。
 //! 与十亿级编译器的 AST 设计一致：表达式/语句/程序。
+//! 每个节点携带源码位置 `[行:列]`，供代码生成阶段的错误定位。
 
 use crate::error::Position;
 
@@ -26,8 +27,15 @@ pub const OP_OR: &str = "||";
 pub const OP_NEG: &str = "-";
 pub const OP_NOT: &str = "!";
 
+/// 表达式节点：语法种类 + 起始位置。
 #[derive(Debug, Clone, PartialEq)]
-pub enum Expr {
+pub struct Expr {
+    pub pos: Position,
+    pub kind: ExprKind,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ExprKind {
     Int(i64),
     Float(f64),
     Str(String),
@@ -39,8 +47,15 @@ pub enum Expr {
     Call { callee: String, args: Vec<Expr> },
 }
 
+/// 语句节点：语法种类 + 起始位置。
 #[derive(Debug, Clone, PartialEq)]
-pub enum Stmt {
+pub struct Stmt {
+    pub pos: Position,
+    pub kind: StmtKind,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum StmtKind {
     Let {
         name: String,
         ty: Option<String>,
@@ -66,11 +81,4 @@ pub enum Stmt {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Program {
     pub stmts: Vec<Stmt>,
-}
-
-/// 带位置的语句，供代码生成器定位报错。
-#[derive(Debug, Clone)]
-pub struct StmtNode {
-    pub stmt: Stmt,
-    pub pos: Position,
 }

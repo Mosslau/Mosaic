@@ -89,6 +89,7 @@ private:
 
     // 当前函数状态
     std::string fn_;
+    std::optional<std::string> current_ret_;   // 当前函数声明返回类型（None = void）
     std::vector<std::unordered_map<std::string, int>> flat_maps_;  // 所有块作用域的槽位表
     std::vector<int> scope_stack_;                                 // 当前作用域链（索引）
     std::vector<int> scope_queue_;                                 // 预计算的块索引（按遍历序）
@@ -164,9 +165,11 @@ private:
             if (stmt->kind != Stmt::Kind::FnDecl) continue;
             const auto& name = stmt->name;
             if (name == "main" || name == "printf" || name == "tenet_concat" || name == "tenet_strcmp") {
-                throw TenetError("函数名 `" + name + "` 为编译器保留");
+                throw TenetError::at_pos("函数名 `" + name + "` 为编译器保留", stmt->pos);
             }
-            if (functions_.count(name)) throw TenetError("函数 `" + name + "` 重复定义");
+            if (functions_.count(name)) {
+                throw TenetError::at_pos("函数 `" + name + "` 重复定义", stmt->pos);
+            }
             std::vector<std::string> params;
             for (const auto& [pn, pt] : stmt->params) {
                 (void)pn;
@@ -238,7 +241,8 @@ private:
         const auto& name = stmt->name;
         if (stmt->ret.has_value() && !stmt->body.empty() &&
             stmt->body.back()->kind != Stmt::Kind::Return) {
-            throw TenetError("函数 `" + name + "` 声明了返回类型，但函数末尾没有 return");
+            throw TenetError::at_pos("函数 `" + name + "` 声明了返回类型，但函数末尾没有 return",
+                                     stmt->pos);
         }
         // 规划：参数槽 + 局部槽（作用域索引按遍历序进队列）
         flat_maps_.clear();
@@ -258,6 +262,7 @@ private:
         frame_ = ((next_slot * 8) + 15) / 16 * 16;
 
         fn_ = name;
+        current_ret_ = stmt->ret;
         scope_stack_.clear();
         scope_stack_.push_back(0);
         scope_cursor_ = 1;  // 0 号块（fn body）已进入
@@ -284,16 +289,18 @@ private:
         emit("ldp x29, x30, [sp], #16");
         emit("ret");
         fn_.clear();
+        current_ret_ = std::nullopt;
     }
 
     void emit_main(const Program& program) {
         fn_ = "main";
+        current_ret_ = std::nullopt;
         int next_slot = 0;
         std::vector<StmtPtr> body;
         for (const auto& s : program.stmts) {
             if (s->kind == Stmt::Kind::FnDecl) continue;
             if (s->kind == Stmt::Kind::Return) {
-                throw TenetError("顶层不能使用 `return`（main 自动返回 0）");
+                throw TenetError::at_pos("顶层不能使用 `return`（main 自动返回 0）", s->pos);
             }
             body.push_back(s);
         }
@@ -339,12 +346,18 @@ private:
                 } else {
                     auto inf = infer_type(stmt->value);
                     if (!inf.has_value())
-                        throw TenetError("无法推断 `" + stmt->name + "` 的类型，请显式标注");
+                        throw TenetError::at_pos("无法推断 `" + stmt->name + "` 的类型，请显式标注",
+                                                 stmt->pos);
                     t = *inf;
                 }
                 types_[stmt->name] = t;
-                gen_expr(stmt->value);
-                int off = lookup_slot(stmt->name);
+                std::string vt = gen_expr(stmt->value);
+                if (vt != t) {
+                    throw TenetError::at_pos("`" + stmt->name + "` 初始化类型不匹配：标注 " + t +
+                                                 "，实际 " + vt,
+                                             stmt->pos);
+                }
+                int off = lookup_slot(stmt->name, stmt->pos);
                 pop_reg(is_float(t) ? "d9" : "x9");
                 emit("str " + std::string(is_float(t) ? "d9" : "x9") + ", [x29, #" +
                      std::to_string(off) + "]");
@@ -356,7 +369,10 @@ private:
                 return;
             }
             case Stmt::Kind::If: {
-                gen_expr(stmt->cond);
+                std::string ct = gen_expr(stmt->cond);
+                if (ct != T_BOOL) {
+                    throw TenetError::at_pos("条件表达式需要 bool，实际为 " + ct, stmt->cond->pos);
+                }
                 pop_reg("x9");
                 emit("cmp x9, #0");
                 auto else_l = new_label("else");
@@ -379,7 +395,10 @@ private:
                 auto cond_l = new_label("cond");
                 auto exit_l = new_label("exit");
                 label(cond_l);
-                gen_expr(stmt->cond);
+                std::string ct = gen_expr(stmt->cond);
+                if (ct != T_BOOL) {
+                    throw TenetError::at_pos("条件表达式需要 bool，实际为 " + ct, stmt->cond->pos);
+                }
                 pop_reg("x9");
                 emit("cmp x9, #0");
                 emit("b.eq " + exit_l);
@@ -394,15 +413,25 @@ private:
             }
             case Stmt::Kind::Return: {
                 if (stmt->expr) {
-                    std::string t = infer_type(stmt->expr).value_or(T_INT);
-                    gen_expr(stmt->expr);
-                    pop_reg(is_float(t) ? "d0" : "x0");
+                    std::string vt = gen_expr(stmt->expr);
+                    if (!current_ret_.has_value()) {
+                        throw TenetError::at_pos("函数 `" + fn_ + "` 没有返回类型，不能 return 值",
+                                                 stmt->expr->pos);
+                    }
+                    if (vt != *current_ret_) {
+                        throw TenetError::at_pos("函数 `" + fn_ + "` 返回类型不匹配：声明 " +
+                                                     *current_ret_ + "，实际 " + vt,
+                                                 stmt->expr->pos);
+                    }
+                    pop_reg(is_float(vt) ? "d0" : "x0");
                 }
                 emit("b L." + fn_ + ".ret");
                 return;
             }
             case Stmt::Kind::Break: {
-                if (break_stack_.empty()) throw TenetError("`break` 出现在循环之外");
+                if (break_stack_.empty()) {
+                    throw TenetError::at_pos("`break` 出现在循环之外", stmt->pos);
+                }
                 emit("b " + break_stack_.back());
                 return;
             }
@@ -411,12 +440,12 @@ private:
         }
     }
 
-    int lookup_slot(const std::string& name) const {
+    int lookup_slot(const std::string& name, const Position& pos) const {
         for (auto it = scope_stack_.rbegin(); it != scope_stack_.rend(); ++it) {
             auto f = flat_maps_[*it].find(name);
             if (f != flat_maps_[*it].end()) return f->second;
         }
-        throw TenetError("未定义的变量 `" + name + "`");
+        throw TenetError::at_pos("未定义的变量 `" + name + "`", pos);
     }
 
     /// 进入一个块作用域（消费预计算索引）。
@@ -427,10 +456,10 @@ private:
 
     void exit_scope() { scope_stack_.pop_back(); }
 
-    std::string var_type(const std::string& name) const {
+    std::string var_type(const std::string& name, const Position& pos) const {
         auto it = types_.find(name);
         if (it != types_.end()) return it->second;
-        throw TenetError("未定义的变量 `" + name + "`");
+        throw TenetError::at_pos("未定义的变量 `" + name + "`", pos);
     }
 
     // ---- 表达式 ----
@@ -466,8 +495,8 @@ private:
                 return T_BOOL;
             }
             case Expr::Kind::Var: {
-                std::string t = var_type(e->name);
-                int off = lookup_slot(e->name);
+                std::string t = var_type(e->name, e->pos);
+                int off = lookup_slot(e->name, e->pos);
                 if (is_float(t)) {
                     emit("ldr d9, [x29, #" + std::to_string(off) + "]");
                     push_reg("d9");
@@ -478,9 +507,14 @@ private:
                 return t;
             }
             case Expr::Kind::Assign: {
-                std::string t = var_type(e->name);
-                gen_expr(e->value);
-                int off = lookup_slot(e->name);
+                std::string t = var_type(e->name, e->pos);
+                std::string vt = gen_expr(e->value);
+                if (vt != t) {
+                    throw TenetError::at_pos("赋值类型不匹配：`" + e->name + "` 是 " + t + "，右侧是 " +
+                                                 vt,
+                                             e->pos);
+                }
+                int off = lookup_slot(e->name, e->pos);
                 pop_reg(is_float(t) ? "d9" : "x9");
                 emit("str " + std::string(is_float(t) ? "d9" : "x9") + ", [x29, #" +
                      std::to_string(off) + "]");
@@ -490,6 +524,9 @@ private:
             case Expr::Kind::Unary: {
                 std::string t = gen_expr(e->value);
                 if (e->op == OP_NEG) {
+                    if (t == T_BOOL) {
+                        throw TenetError::at_pos("运算符 `-` 不能作用于 bool", e->value->pos);
+                    }
                     pop_reg(is_float(t) ? "d10" : "x10");
                     if (is_float(t)) {
                         emit("fneg d9, d10");
@@ -501,6 +538,9 @@ private:
                     return t;
                 }
                 // !
+                if (t != T_BOOL) {
+                    throw TenetError::at_pos("运算符 `!` 只能作用于 bool，实际为 " + t, e->value->pos);
+                }
                 pop_reg("x10");
                 emit("cmp x10, #0");
                 emit("cset x9, eq");
@@ -510,7 +550,7 @@ private:
             case Expr::Kind::Binary:
                 return gen_binary(e);
             case Expr::Kind::Call:
-                return gen_call(e->name, e->args);
+                return gen_call(e->name, e->args, e->pos);
         }
         throw TenetError("未知的表达式类型");
     }
@@ -532,10 +572,18 @@ private:
 
     std::string gen_binary(const ExprPtr& e) {
         const std::string& op = e->op;
+        // 逻辑运算先处理：操作数必须 bool
+        if (op == OP_AND || op == OP_OR) return gen_logic(op, e);
+
         bool is_compare = op == OP_EQ || op == OP_NEQ || op == OP_LT || op == OP_LTE ||
                           op == OP_GT || op == OP_GTE;
-        std::string lt = infer_type(e->lhs).value_or(T_INT);
-        std::string rt = infer_type(e->rhs).value_or(T_INT);
+        auto lt_opt = infer_type(e->lhs);
+        auto rt_opt = infer_type(e->rhs);
+        if (!lt_opt.has_value() || !rt_opt.has_value()) {
+            throw TenetError::at_pos("无法推断操作数的类型（void 调用不能参与运算）", e->pos);
+        }
+        std::string lt = *lt_opt;
+        std::string rt = *rt_opt;
 
         // 字符串拼接 / 比较：先都入栈，再弹（嵌套调用不破坏寄存器）
         if (lt == T_STR && rt == T_STR) {
@@ -557,14 +605,16 @@ private:
                 push_reg("x9");
                 return T_BOOL;
             }
-            throw TenetError("运算符 `" + op + "` 不能作用于 string 和 string");
+            throw TenetError::at_pos("运算符 `" + op + "` 不能作用于 string 和 string", e->pos);
         }
-
-        if (op == OP_AND || op == OP_OR) return gen_logic(op, e);
 
         // 字符串与非字符串混合 → 类型错误（不得静默按数值处理）
         if ((lt == T_STR) != (rt == T_STR)) {
-            throw TenetError("运算符 `" + op + "` 不能作用于 " + lt + " 和 " + rt);
+            throw TenetError::at_pos("运算符 `" + op + "` 不能作用于 " + lt + " 和 " + rt, e->pos);
+        }
+        // bool 不能参与数值与比较运算
+        if (lt == T_BOOL || rt == T_BOOL) {
+            throw TenetError::at_pos("运算符 `" + op + "` 不能作用于 " + lt + " 和 " + rt, e->pos);
         }
 
         // 数值：先 lhs 后 rhs 入栈，再逆序弹出
@@ -620,6 +670,14 @@ private:
     }
 
     std::string gen_logic(const std::string& op, const ExprPtr& e) {
+        auto lt = infer_type(e->lhs);
+        auto rt = infer_type(e->rhs);
+        if (lt.has_value() && *lt != T_BOOL) {
+            throw TenetError::at_pos("运算符 `" + op + "` 只能作用于 bool，实际为 " + *lt, e->lhs->pos);
+        }
+        if (rt.has_value() && *rt != T_BOOL) {
+            throw TenetError::at_pos("运算符 `" + op + "` 只能作用于 bool，实际为 " + *rt, e->rhs->pos);
+        }
         gen_expr(e->lhs);
         pop_reg("x9");
         emit("cmp x9, #0");
@@ -648,16 +706,29 @@ private:
         return T_BOOL;
     }
 
-    std::string gen_call(const std::string& callee, const std::vector<ExprPtr>& args) {
-        if (callee == "print") return gen_print(args);
+    std::string gen_call(const std::string& callee, const std::vector<ExprPtr>& args,
+                         const Position& pos) {
+        if (callee == "print") return gen_print(args, pos);
         auto it = functions_.find(callee);
-        if (it == functions_.end()) throw TenetError("未定义的函数 `" + callee + "`");
+        if (it == functions_.end()) {
+            throw TenetError::at_pos("未定义的函数 `" + callee + "`", pos);
+        }
         const FnSig& sig = it->second;
         if (sig.params.size() != args.size()) {
-            throw TenetError("函数 `" + callee + "` 需要 " + std::to_string(sig.params.size()) +
-                             " 个参数，实际传入 " + std::to_string(args.size()) + " 个");
+            throw TenetError::at_pos("函数 `" + callee + "` 需要 " + std::to_string(sig.params.size()) +
+                                         " 个参数，实际传入 " + std::to_string(args.size()) + " 个",
+                                     pos);
         }
-        if (args.size() > 8) throw TenetError("暂不支持超过 8 个参数");
+        if (args.size() > 8) throw TenetError::at_pos("暂不支持超过 8 个参数", pos);
+        // 参数类型核对（print 除外）：期望类型 vs 实际类型
+        for (size_t i = 0; i < args.size(); ++i) {
+            std::string at = infer_type(args[i]).value_or("?");
+            if (at != sig.params[i]) {
+                throw TenetError::at_pos("函数 `" + callee + "` 参数 " + std::to_string(i) +
+                                             " 类型不匹配：期望 " + sig.params[i] + "，实际 " + at,
+                                         args[i]->pos);
+            }
+        }
         for (const auto& a : args) gen_expr(a);
         for (int i = (int)args.size() - 1; i >= 0; --i) {
             pop_reg(is_float(sig.params[i]) ? "d" + std::to_string(i) : "x" + std::to_string(i));
@@ -673,7 +744,7 @@ private:
     }
 
     /// print(a, b, ...)：Apple 变参约定——fmt 在 x0，变参全部压栈（实测与 clang 一致）。
-    std::string gen_print(const std::vector<ExprPtr>& args) {
+    std::string gen_print(const std::vector<ExprPtr>& args, const Position& pos) {
         std::string fmt;
         std::vector<std::string> types;
         for (size_t i = 0; i < args.size(); ++i) {
@@ -684,14 +755,14 @@ private:
             else if (t == T_FLOAT) fmt += "%g";
             else if (t == T_STR) fmt += "%s";
             else if (t == T_BOOL) fmt += "%s";
-            else throw TenetError("print 不支持该类型的值");
+            else throw TenetError::at_pos("print 不支持该类型的值", pos);
         }
         fmt += "\n";
         std::string fmt_name = "L.fmt." + std::to_string(str_c_++);
         data_string(fmt, fmt_name);
 
         int n = (int)args.size();
-        if (n > 7) throw TenetError("print 暂不支持超过 7 个参数");
+        if (n > 7) throw TenetError::at_pos("print 暂不支持超过 7 个参数", pos);
         // 逆序弹出到暂存寄存器 x9..x15（bool 转 true/false 串）
         for (int i = n - 1; i >= 0; --i) {
             std::string reg = "x" + std::to_string(9 + (n - 1 - i));
@@ -734,19 +805,61 @@ private:
             case Expr::Kind::Float: return T_FLOAT;
             case Expr::Kind::Str: return T_STR;
             case Expr::Kind::Bool: return T_BOOL;
-            case Expr::Kind::Var: return var_type(e->name);
-            case Expr::Kind::Assign: return var_type(e->name);
+            case Expr::Kind::Var: return var_type(e->name, e->pos);
+            case Expr::Kind::Assign: return var_type(e->name, e->pos);
             case Expr::Kind::Unary:
-                if (e->op == OP_NOT) return T_BOOL;
-                return infer_type(e->value);
+                if (e->op == OP_NOT) {
+                    auto t = infer_type(e->value);
+                    if (t.has_value() && *t != T_BOOL) {
+                        throw TenetError::at_pos("运算符 `!` 只能作用于 bool，实际为 " + *t, e->value->pos);
+                    }
+                    return T_BOOL;
+                }
+                {
+                    auto t = infer_type(e->value);
+                    if (t.has_value() && *t == T_BOOL) {
+                        throw TenetError::at_pos("运算符 `-` 不能作用于 bool", e->value->pos);
+                    }
+                    return t;
+                }
             case Expr::Kind::Binary: {
                 auto lt = infer_type(e->lhs);
                 auto rt = infer_type(e->rhs);
                 const std::string& op = e->op;
-                if (op == OP_AND || op == OP_OR) return T_BOOL;
-                if (op == OP_EQ || op == OP_NEQ || op == OP_LT || op == OP_LTE || op == OP_GT || op == OP_GTE) return T_BOOL;
+                if (op == OP_AND || op == OP_OR) {
+                    if (lt.has_value() && *lt != T_BOOL) {
+                        throw TenetError::at_pos("运算符 `" + op + "` 只能作用于 bool，实际为 " + *lt,
+                                                 e->lhs->pos);
+                    }
+                    if (rt.has_value() && *rt != T_BOOL) {
+                        throw TenetError::at_pos("运算符 `" + op + "` 只能作用于 bool，实际为 " + *rt,
+                                                 e->rhs->pos);
+                    }
+                    return T_BOOL;
+                }
+                // 字符串与任何非字符串混合 → 编译错误
+                if ((lt == T_STR) != (rt == T_STR)) {
+                    if (lt.has_value() && rt.has_value()) {
+                        throw TenetError::at_pos("运算符 `" + op + "` 不能作用于 " + *lt + " 和 " + *rt,
+                                                 e->pos);
+                    }
+                }
+                // bool 不能参与数值与比较运算
+                if ((lt.has_value() && *lt == T_BOOL) || (rt.has_value() && *rt == T_BOOL)) {
+                    throw TenetError::at_pos(
+                        "运算符 `" + op + "` 不能作用于 " + lt.value_or("?") + " 和 " + rt.value_or("?"),
+                        e->pos);
+                }
+                if (op == OP_EQ || op == OP_NEQ || op == OP_LT || op == OP_LTE || op == OP_GT || op == OP_GTE) {
+                    if (!lt.has_value() || !rt.has_value()) return std::nullopt;
+                    return T_BOOL;
+                }
                 if (op == OP_MOD) {
-                    return (lt == T_INT && rt == T_INT) ? std::optional<std::string>(T_INT) : std::nullopt;
+                    if (lt == T_INT && rt == T_INT) return T_INT;
+                    if (lt.has_value() && rt.has_value()) {
+                        throw TenetError::at_pos("运算符 `%` 只能作用于 int", e->pos);
+                    }
+                    return std::nullopt;
                 }
                 if (op == OP_ADD) {
                     if (lt == T_STR && rt == T_STR) return T_STR;
@@ -759,8 +872,12 @@ private:
                 return std::nullopt;
             }
             case Expr::Kind::Call: {
+                if (e->name == "print") return std::nullopt;
                 auto it = functions_.find(e->name);
-                if (it == functions_.end() || !it->second.ret.has_value()) return std::nullopt;
+                if (it == functions_.end()) {
+                    throw TenetError::at_pos("未定义的函数 `" + e->name + "`", e->pos);
+                }
+                if (!it->second.ret.has_value()) return std::nullopt;
                 return it->second.ret;
             }
         }

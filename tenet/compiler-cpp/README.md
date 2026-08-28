@@ -11,7 +11,7 @@
 | 后端方式 | **LLVM 后端库（进程内）**：IRBuilder 内存构建 IR → TargetMachine 产出机器码（rustc 方式） |
 | 产出 | 原生可执行二进制（Mach-O / ELF） |
 | 特点 | 进程内完整控制（常量折叠自动生效）；真正的"链接 LLVM 库"路线实证 |
-| 测试 | 56 项检查 |
+| 测试 | 74 项检查 |
 
 ## 管线
 
@@ -42,7 +42,7 @@ compiler-cpp/
 │   ├── lexer.hpp     # 词法分析
 │   ├── ast.hpp       # 抽象语法树（标签结构体）
 │   ├── parser.hpp    # 语法分析
-│   ├── codegen.hpp   # 类型推断 + LLVM C++ API 代码生成（含 56 项测试的断言对象）
+│   ├── codegen.hpp   # 类型推断 + LLVM C++ API 代码生成（含 74 项测试的断言对象）
 │   └── main.cpp      # CLI + 进程内后端（TargetMachine）+ 内嵌 runtime.c
 ├── examples/         # hello / fib / fizzbuzz
 └── tests/            # test_main.cpp
@@ -56,7 +56,7 @@ compiler-cpp/
 cd tenet/compiler-cpp
 
 make                    # 构建 tenet 与 test_tenet 并跑测试
-make test               # 56 项检查
+make test               # 74 项检查
 ./tenet build examples/hello.tenet -o hello && ./hello   # 编译为二进制并运行
 ./tenet run examples/fib.tenet          # 编译 + 运行一步到位
 ./tenet ir examples/hello.tenet         # 打印 LLVM IR（Module::print）
@@ -113,7 +113,7 @@ add 含 Add 指令、fib 递归自调用、短路含 phi、混合提升含 sitof
 | 语言 | Rust | C++17 | C++17 |
 | 后端 | clang 驱动（.ll 文本） | LLVM 库进程内（rustc 方式） | 手写 AArch64 后端（零 LLVM） |
 | 链接 | clang | 系统 `cc` | 系统 `as` + `ld` |
-| 测试 | 22 | 56 | 50 |
+| 测试 | 41 | 74 | 68 |
 | 产物 | 原生二进制，输出逐字节一致 | 同左 | 同左 |
 
 compiler-cpp 证明了"从 clang 驱动切换到链接 LLVM 库"的路线：前端产物不变，

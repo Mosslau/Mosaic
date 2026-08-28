@@ -11,7 +11,7 @@
 | 后端方式 | **clang 驱动**：生成 LLVM IR 文本（.ll）→ clang 子进程汇编 + 链接 |
 | 产出 | 原生可执行二进制（Mach-O / ELF） |
 | 特点 | `.ll` 文本可读可调试（`tenet ir` 即文档）；编译秒级；无 LLVM 开发库依赖 |
-| 测试 | 22 个单元测试 |
+| 测试 | 41 个单元测试 |
 
 ## 管线
 
@@ -52,7 +52,7 @@ compiler-rs/
 ```bash
 cd tenet/compiler-rs
 
-cargo test                                   # 22 个单元测试
+cargo test                                   # 41 个单元测试
 cargo run -- build examples/hello.tenet -o hello && ./hello   # 编译为二进制并运行
 cargo run -- run examples/fib.tenet          # 编译 + 运行一步到位
 cargo run -- ir examples/hello.tenet         # 只看 LLVM IR（调试）
@@ -104,7 +104,7 @@ cargo test
 | 语言 | Rust | C++17 | C++17 |
 | 后端 | clang 驱动（.ll 文本） | LLVM 库进程内（rustc 方式） | 手写 AArch64 后端（零 LLVM） |
 | 链接 | clang | 系统 `cc` | 系统 `as` + `ld` |
-| 测试 | 22 | 56 | 50 |
+| 测试 | 41 | 74 | 68 |
 | 产物 | 原生二进制，输出逐字节一致 | 同左 | 同左 |
 
 三套实现共享同一套语言设计，行为一致——「万语归宗」的验证：同一门语言，三种自主度级别的编译器。

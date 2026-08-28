@@ -51,6 +51,7 @@ private:
     }
 
     StmtPtr parse_stmt() {
+        Position p = peek().pos;
         switch (peek().kind) {
             case Kind::Let: return parse_let();
             case Kind::Fn: return parse_fn_decl();
@@ -61,11 +62,13 @@ private:
                 advance();
                 expect(Kind::Semi, "`;`");
                 auto s = std::make_shared<Stmt>();
+                s->pos = p;
                 s->kind = Stmt::Kind::Break;
                 return s;
             }
             default: {
                 auto s = std::make_shared<Stmt>();
+                s->pos = p;
                 s->kind = Stmt::Kind::Expr;
                 s->expr = parse_expr();
                 expect(Kind::Semi, "`;`");
@@ -75,8 +78,10 @@ private:
     }
 
     StmtPtr parse_let() {
+        Position p = peek().pos;
         advance();
         auto s = std::make_shared<Stmt>();
+        s->pos = p;
         s->kind = Stmt::Kind::Let;
         s->name = expect_ident("变量名");
         if (check(Kind::Colon)) {
@@ -90,8 +95,10 @@ private:
     }
 
     StmtPtr parse_fn_decl() {
+        Position p = peek().pos;
         advance();
         auto s = std::make_shared<Stmt>();
+        s->pos = p;
         s->kind = Stmt::Kind::FnDecl;
         s->name = expect_ident("函数名");
         expect(Kind::LParen, "`(`");
@@ -115,8 +122,10 @@ private:
     }
 
     StmtPtr parse_if() {
+        Position p = peek().pos;
         advance();
         auto s = std::make_shared<Stmt>();
+        s->pos = p;
         s->kind = Stmt::Kind::If;
         expect(Kind::LParen, "`(`");
         s->cond = parse_expr();
@@ -134,8 +143,10 @@ private:
     }
 
     StmtPtr parse_while() {
+        Position p = peek().pos;
         advance();
         auto s = std::make_shared<Stmt>();
+        s->pos = p;
         s->kind = Stmt::Kind::While;
         expect(Kind::LParen, "`(`");
         s->cond = parse_expr();
@@ -145,8 +156,10 @@ private:
     }
 
     StmtPtr parse_return() {
+        Position p = peek().pos;
         advance();
         auto s = std::make_shared<Stmt>();
+        s->pos = p;
         s->kind = Stmt::Kind::Return;
         if (check(Kind::Semi)) {
             advance();
@@ -234,6 +247,7 @@ private:
             advance();
             ExprPtr rhs = parse_binary(prec + 1);
             auto e = std::make_shared<Expr>();
+            e->pos = lhs->pos;
             e->kind = Expr::Kind::Binary;
             e->op = op;
             e->lhs = std::move(lhs);
@@ -245,16 +259,20 @@ private:
 
     ExprPtr parse_unary() {
         if (check(Kind::Minus)) {
+            Position p = peek().pos;
             advance();
             auto e = std::make_shared<Expr>();
+            e->pos = p;
             e->kind = Expr::Kind::Unary;
             e->op = OP_NEG;
             e->value = parse_unary();
             return e;
         }
         if (check(Kind::Not)) {
+            Position p = peek().pos;
             advance();
             auto e = std::make_shared<Expr>();
+            e->pos = p;
             e->kind = Expr::Kind::Unary;
             e->op = OP_NOT;
             e->value = parse_unary();
@@ -266,6 +284,7 @@ private:
     ExprPtr parse_primary() {
         const Token& tok = peek();
         auto e = std::make_shared<Expr>();
+        e->pos = tok.pos;
         switch (tok.kind) {
             case Kind::Int: advance(); e->kind = Expr::Kind::Int; e->int_val = tok.int_val; return e;
             case Kind::Float: advance(); e->kind = Expr::Kind::Float; e->float_val = tok.float_val; return e;
@@ -274,7 +293,7 @@ private:
             case Kind::False: advance(); e->kind = Expr::Kind::Bool; e->bool_val = false; return e;
             case Kind::Ident: {
                 advance();
-                if (check(Kind::LParen)) return parse_call_args(tok.str_val);
+                if (check(Kind::LParen)) return parse_call_args(tok.str_val, tok.pos);
                 if (check(Kind::Assign)) {
                     advance();
                     e->kind = Expr::Kind::Assign;
@@ -297,9 +316,10 @@ private:
         }
     }
 
-    ExprPtr parse_call_args(const std::string& callee) {
+    ExprPtr parse_call_args(const std::string& callee, Position pos) {
         advance();
         auto e = std::make_shared<Expr>();
+        e->pos = pos;
         e->kind = Expr::Kind::Call;
         e->name = callee;
         if (!check(Kind::RParen)) {

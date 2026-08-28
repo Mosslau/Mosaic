@@ -39,6 +39,22 @@ inline const char* llvm_type(const std::string& ty) {
     throw TenetError("未知类型 `" + ty + "`");
 }
 
+/// LLVM 类型 → Tenet 类型名（错误信息用）。
+inline const char* tenet_name(const std::string& ll) {
+    if (ll == "i64") return T_INT;
+    if (ll == "double") return T_FLOAT;
+    if (ll == "i1") return T_BOOL;
+    if (ll == "ptr") return T_STR;
+    return "?";
+}
+
+/// 用户函数信息：LLVM Function + 参数/返回类型（参数核对用）。
+struct FnInfo {
+    llvm::Function* fn;
+    std::optional<std::string> ret;
+    std::vector<std::string> params;
+};
+
 /// 编译产物：LLVMContext 与 Module 一起转移（Module 持有 Context 引用，
 /// 二者生命周期必须一致——这是进程内 LLVM 后端的核心约束）。
 struct CompiledModule {
@@ -72,8 +88,11 @@ private:
 
     // 变量作用域栈：name -> (Tenet 类型, alloca)
     std::vector<std::unordered_map<std::string, std::pair<std::string, llvm::AllocaInst*>>> symbols_;
-    // 函数表：name -> (Function*, 返回类型)
-    std::unordered_map<std::string, std::pair<llvm::Function*, std::optional<std::string>>> functions_;
+    // 函数表：name -> FnInfo（Function + 参数/返回类型）
+    std::unordered_map<std::string, FnInfo> functions_;
+    // 当前函数上下文（返回类型核对用）
+    std::string current_fn_;
+    std::optional<std::string> current_ret_;
     // break 目标栈
     std::vector<llvm::BasicBlock*> break_stack_;
 
@@ -104,17 +123,21 @@ private:
             if (stmt->kind != Stmt::Kind::FnDecl) continue;
             const auto& name = stmt->name;
             if (name == "main" || name == "printf" || name == "tenet_concat" || name == "tenet_strcmp") {
-                throw TenetError("函数名 `" + name + "` 为编译器保留");
+                throw TenetError::at_pos("函数名 `" + name + "` 为编译器保留", stmt->pos);
             }
             if (functions_.count(name)) {
-                throw TenetError("函数 `" + name + "` 重复定义");
+                throw TenetError::at_pos("函数 `" + name + "` 重复定义", stmt->pos);
             }
             std::vector<llvm::Type*> params;
-            for (const auto& [_, pt] : stmt->params) params.push_back(ty(llvm_type(pt)));
+            std::vector<std::string> param_tys;
+            for (const auto& [_, pt] : stmt->params) {
+                params.push_back(ty(llvm_type(pt)));
+                param_tys.push_back(pt);
+            }
             auto ret_ll = stmt->ret.has_value() ? ty(llvm_type(*stmt->ret)) : llvm::Type::getVoidTy(ctx_);
             auto fty = llvm::FunctionType::get(ret_ll, params, false);
             auto fn = llvm::Function::Create(fty, llvm::Function::ExternalLinkage, name, &mod_);
-            functions_[name] = {fn, stmt->ret};
+            functions_[name] = {fn, stmt->ret, param_tys};
         }
     }
 
@@ -127,13 +150,17 @@ private:
         auto entry = llvm::BasicBlock::Create(ctx_, "entry", main_fn);
         builder_.SetInsertPoint(entry);
         symbols_.emplace_back();
+        current_fn_ = "main";
+        current_ret_ = std::nullopt;
         for (const auto& stmt : program.stmts) {
             if (stmt->kind == Stmt::Kind::FnDecl) continue;
             if (stmt->kind == Stmt::Kind::Return) {
-                throw TenetError("顶层不能使用 `return`（main 自动返回 0）");
+                throw TenetError::at_pos("顶层不能使用 `return`（main 自动返回 0）", stmt->pos);
             }
             emit_stmt(stmt);
         }
+        current_fn_.clear();
+        current_ret_ = std::nullopt;
         if (!builder_.GetInsertBlock()->getTerminator()) builder_.CreateRet(llvm::ConstantInt::get(ctx_, llvm::APInt(32, 0)));
         symbols_.pop_back();
 
@@ -148,9 +175,12 @@ private:
         const auto& name = stmt->name;
         if (stmt->ret.has_value() && !stmt->body.empty() &&
             stmt->body.back()->kind != Stmt::Kind::Return) {
-            throw TenetError("函数 `" + name + "` 声明了返回类型，但函数末尾没有 return");
+            throw TenetError::at_pos("函数 `" + name + "` 声明了返回类型，但函数末尾没有 return",
+                                     stmt->pos);
         }
-        auto fn = functions_[name].first;
+        auto fn = functions_[name].fn;
+        current_fn_ = name;
+        current_ret_ = stmt->ret;
         auto entry = llvm::BasicBlock::Create(ctx_, "entry", fn);
         builder_.SetInsertPoint(entry);
         symbols_.emplace_back();
@@ -164,6 +194,8 @@ private:
         }
         for (const auto& s : stmt->body) emit_stmt(s);
         symbols_.pop_back();
+        current_fn_.clear();
+        current_ret_ = std::nullopt;
         if (!builder_.GetInsertBlock()->getTerminator() && !stmt->ret.has_value()) {
             builder_.CreateRetVoid();
         }
@@ -180,13 +212,16 @@ private:
                 } else {
                     auto inf = infer_type(stmt->value);
                     if (!inf.has_value()) {
-                        throw TenetError("无法推断 `" + stmt->name + "` 的类型，请显式标注");
+                        throw TenetError::at_pos("无法推断 `" + stmt->name + "` 的类型，请显式标注",
+                                                 stmt->pos);
                     }
                     t = *inf;
                 }
                 auto [vt, v] = gen_expr(stmt->value);
                 if (vt != llvm_type(t)) {
-                    throw TenetError("`" + stmt->name + "` 初始化类型不匹配：标注 " + t + "，实际 " + vt);
+                    throw TenetError::at_pos(
+                        "`" + stmt->name + "` 初始化类型不匹配：标注 " + t + "，实际 " + tenet_name(vt),
+                        stmt->pos);
                 }
                 auto addr = builder_.CreateAlloca(ty(llvm_type(t)), nullptr, stmt->name);
                 builder_.CreateStore(v, addr);
@@ -198,7 +233,10 @@ private:
                 return;
             case Stmt::Kind::If: {
                 auto [ct, c] = gen_expr(stmt->cond);
-                if (ct != "i1") throw TenetError("条件表达式需要 bool，实际为 " + ct);
+                if (ct != "i1") {
+                    throw TenetError::at_pos("条件表达式需要 bool，实际为 " + std::string(tenet_name(ct)),
+                                             stmt->cond->pos);
+                }
                 auto then_bb = llvm::BasicBlock::Create(ctx_, "then");
                 auto else_bb = llvm::BasicBlock::Create(ctx_, "else");
                 auto merge_bb = llvm::BasicBlock::Create(ctx_, "merge");
@@ -235,7 +273,10 @@ private:
                 cond_bb->insertInto(fn);
                 builder_.SetInsertPoint(cond_bb);
                 auto [ct, c] = gen_expr(stmt->cond);
-                if (ct != "i1") throw TenetError("条件表达式需要 bool，实际为 " + ct);
+                if (ct != "i1") {
+                    throw TenetError::at_pos("条件表达式需要 bool，实际为 " + std::string(tenet_name(ct)),
+                                             stmt->cond->pos);
+                }
                 builder_.CreateCondBr(c, body_bb, exit_bb);
 
                 body_bb->insertInto(fn);
@@ -254,6 +295,16 @@ private:
             case Stmt::Kind::Return: {
                 if (stmt->expr) {
                     auto [t, v] = gen_expr(stmt->expr);
+                    if (!current_ret_.has_value()) {
+                        throw TenetError::at_pos("函数 `" + current_fn_ + "` 没有返回类型，不能 return 值",
+                                                 stmt->expr->pos);
+                    }
+                    if (std::string(tenet_name(t)) != *current_ret_) {
+                        throw TenetError::at_pos(
+                            "函数 `" + current_fn_ + "` 返回类型不匹配：声明 " + *current_ret_ +
+                                "，实际 " + tenet_name(t),
+                            stmt->expr->pos);
+                    }
                     builder_.CreateRet(v);
                 } else {
                     builder_.CreateRetVoid();
@@ -261,7 +312,9 @@ private:
                 return;
             }
             case Stmt::Kind::Break: {
-                if (break_stack_.empty()) throw TenetError("`break` 出现在循环之外");
+                if (break_stack_.empty()) {
+                    throw TenetError::at_pos("`break` 出现在循环之外", stmt->pos);
+                }
                 builder_.CreateBr(break_stack_.back());
                 return;
             }
@@ -286,14 +339,16 @@ private:
             case Expr::Kind::Bool:
                 return {"i1", llvm::ConstantInt::get(ctx_, llvm::APInt(1, e->bool_val ? 1 : 0))};
             case Expr::Kind::Var: {
-                auto [t, addr] = lookup_var(e->name);
+                auto [t, addr] = lookup_var(e->name, e->pos);
                 return {llvm_type(t), builder_.CreateLoad(ty(llvm_type(t)), addr, e->name)};
             }
             case Expr::Kind::Assign: {
-                auto [t, addr] = lookup_var(e->name);
+                auto [t, addr] = lookup_var(e->name, e->pos);
                 auto [vt, v] = gen_expr(e->value);
                 if (vt != llvm_type(t)) {
-                    throw TenetError("赋值类型不匹配：`" + e->name + "` 是 " + t + "，右侧是 " + vt);
+                    throw TenetError::at_pos(
+                        "赋值类型不匹配：`" + e->name + "` 是 " + t + "，右侧是 " + tenet_name(vt),
+                        e->pos);
                 }
                 builder_.CreateStore(v, addr);
                 return {vt, v};
@@ -301,35 +356,46 @@ private:
             case Expr::Kind::Unary: {
                 auto [t, v] = gen_expr(e->value);
                 if (e->op == OP_NEG) {
+                    if (t == "i1") {
+                        throw TenetError::at_pos("运算符 `-` 不能作用于 bool", e->value->pos);
+                    }
                     if (t == "i64") return {t, builder_.CreateNeg(v)};
                     return {t, builder_.CreateFNeg(v)};
                 }
                 // !
+                if (t != "i1") {
+                    throw TenetError::at_pos("运算符 `!` 只能作用于 bool，实际为 " + std::string(tenet_name(t)),
+                                             e->value->pos);
+                }
                 return {"i1", builder_.CreateXor(llvm::ConstantInt::getTrue(ctx_), v)};
             }
             case Expr::Kind::Binary: {
                 if (e->op == OP_AND || e->op == OP_OR) return gen_logic(e->op, e->lhs, e->rhs);
                 auto [lt, lv] = gen_expr(e->lhs);
                 auto [rt, rv] = gen_expr(e->rhs);
-                return gen_arith(e->op, lt, lv, rt, rv);
+                return gen_arith(e->op, lt, lv, rt, rv, e->pos);
             }
             case Expr::Kind::Call:
-                return gen_call(e->name, e->args);
+                return gen_call(e->name, e->args, e->pos);
         }
         throw TenetError("未知的表达式类型");
     }
 
-    std::pair<std::string, llvm::AllocaInst*> lookup_var(const std::string& name) {
+    std::pair<std::string, llvm::AllocaInst*> lookup_var(const std::string& name, const Position& pos) {
         for (auto it = symbols_.rbegin(); it != symbols_.rend(); ++it) {
             auto f = it->find(name);
             if (f != it->end()) return {f->second.first, f->second.second};
         }
-        throw TenetError("未定义的变量 `" + name + "`");
+        throw TenetError::at_pos("未定义的变量 `" + name + "`", pos);
     }
 
     /// 短路 && / ||：基本块 + phi（IRBuilder 下 phi 最简洁）。
     std::pair<std::string, llvm::Value*> gen_logic(const std::string& op, const ExprPtr& lhs, const ExprPtr& rhs) {
-        auto [_, lv] = gen_expr(lhs);
+        auto [lt, lv] = gen_expr(lhs);
+        if (lt != "i1") {
+            throw TenetError::at_pos("运算符 `" + op + "` 只能作用于 bool，实际为 " + std::string(tenet_name(lt)),
+                                     lhs->pos);
+        }
         auto fn = builder_.GetInsertBlock()->getParent();
         auto rhs_bb = llvm::BasicBlock::Create(ctx_, "l.rhs");
         auto short_bb = llvm::BasicBlock::Create(ctx_, "l.short");
@@ -344,7 +410,11 @@ private:
         builder_.CreateBr(end_bb);
         rhs_bb->insertInto(fn);
         builder_.SetInsertPoint(rhs_bb);
-        auto [_, rv] = gen_expr(rhs);
+        auto [rt, rv] = gen_expr(rhs);
+        if (rt != "i1") {
+            throw TenetError::at_pos("运算符 `" + op + "` 只能作用于 bool，实际为 " + std::string(tenet_name(rt)),
+                                     rhs->pos);
+        }
         builder_.CreateBr(end_bb);
         end_bb->insertInto(fn);
         builder_.SetInsertPoint(end_bb);
@@ -356,7 +426,8 @@ private:
     }
 
     std::pair<std::string, llvm::Value*> gen_arith(const std::string& op, const std::string& lt,
-                                                   llvm::Value* lv, const std::string& rt, llvm::Value* rv) {
+                                                   llvm::Value* lv, const std::string& rt, llvm::Value* rv,
+                                                   const Position& pos) {
         auto is_compare = op == OP_EQ || op == OP_NEQ || op == OP_LT || op == OP_LTE || op == OP_GT || op == OP_GTE;
 
         // 字符串拼接 / 比较
@@ -377,7 +448,20 @@ private:
                           :               llvm::CmpInst::ICMP_SGE;
                 return {"i1", builder_.CreateICmp(pred, c, llvm::ConstantInt::get(i32, 0))};
             }
-            throw TenetError("运算符 `" + op + "` 不能作用于 string 和 string");
+            throw TenetError::at_pos("运算符 `" + op + "` 不能作用于 string 和 string", pos);
+        }
+
+        // 字符串与任何非字符串混合 → 编译错误（不得静默按数值处理）
+        if ((lt == "ptr") != (rt == "ptr")) {
+            std::string s = (lt == "ptr") ? std::string(T_STR) : tenet_name(lt);
+            std::string o = (lt == "ptr") ? tenet_name(rt) : std::string(T_STR);
+            throw TenetError::at_pos("运算符 `" + op + "` 不能作用于 " + s + " 和 " + o, pos);
+        }
+        // bool 不能参与数值与比较运算
+        if (lt == "i1" || rt == "i1") {
+            throw TenetError::at_pos("运算符 `" + op + "` 不能作用于 " + tenet_name(lt) + " 和 " +
+                                         tenet_name(rt),
+                                     pos);
         }
 
         // 混合数值提升
@@ -411,7 +495,7 @@ private:
 
         // 算术
         if (lt2 == "double") {
-            if (op == OP_MOD) throw TenetError("运算符 `%` 只能作用于 int");
+            if (op == OP_MOD) throw TenetError::at_pos("运算符 `%` 只能作用于 int", pos);
             auto instr = op == OP_ADD ? llvm::Instruction::FAdd
                        : op == OP_SUB ? llvm::Instruction::FSub
                        : op == OP_MUL ? llvm::Instruction::FMul
@@ -426,22 +510,39 @@ private:
         return {"i64", builder_.CreateBinOp(instr, lv, rv)};
     }
 
-    std::pair<std::string, llvm::Value*> gen_call(const std::string& callee, const std::vector<ExprPtr>& args) {
-        if (callee == "print") return gen_print(args);
+    std::pair<std::string, llvm::Value*> gen_call(const std::string& callee, const std::vector<ExprPtr>& args,
+                                                  const Position& pos) {
+        if (callee == "print") return gen_print(args, pos);
         auto it = functions_.find(callee);
-        if (it == functions_.end()) throw TenetError("未定义的函数 `" + callee + "`");
+        if (it == functions_.end()) {
+            throw TenetError::at_pos("未定义的函数 `" + callee + "`", pos);
+        }
+        const FnInfo& info = it->second;
+        if (info.params.size() != args.size()) {
+            throw TenetError::at_pos("函数 `" + callee + "` 需要 " + std::to_string(info.params.size()) +
+                                         " 个参数，实际传入 " + std::to_string(args.size()) + " 个",
+                                     pos);
+        }
         std::vector<llvm::Value*> vals;
-        for (const auto& a : args) vals.push_back(gen_expr(a).second);
-        auto fn = it->second.first;
+        for (size_t i = 0; i < args.size(); ++i) {
+            auto [t, v] = gen_expr(args[i]);
+            if (std::string(tenet_name(t)) != info.params[i]) {
+                throw TenetError::at_pos("函数 `" + callee + "` 参数 " + std::to_string(i) +
+                                             " 类型不匹配：期望 " + info.params[i] + "，实际 " + tenet_name(t),
+                                         args[i]->pos);
+            }
+            vals.push_back(v);
+        }
+        auto fn = info.fn;
         auto call = builder_.CreateCall(fn, vals);
-        if (it->second.second.has_value()) {
-            return {llvm_type(*it->second.second), call};
+        if (info.ret.has_value()) {
+            return {llvm_type(*info.ret), call};
         }
         return {"void", call};
     }
 
     /// print(a, b, ...) → 编译期按类型拼 printf 格式串。
-    std::pair<std::string, llvm::Value*> gen_print(const std::vector<ExprPtr>& args) {
+    std::pair<std::string, llvm::Value*> gen_print(const std::vector<ExprPtr>& args, const Position& pos) {
         std::string fmt;
         std::vector<llvm::Value*> vals;
         for (size_t i = 0; i < args.size(); ++i) {
@@ -462,7 +563,7 @@ private:
                 auto gfalse = builder_.CreateGlobalStringPtr("false", ".str.false");
                 vals.push_back(builder_.CreateSelect(v, gtrue, gfalse));
             } else {
-                throw TenetError("print 不支持该类型的值");
+                throw TenetError::at_pos("print 不支持该类型的值", pos);
             }
         }
         fmt.push_back('\n');
@@ -483,31 +584,63 @@ private:
             case Expr::Kind::Float: return T_FLOAT;
             case Expr::Kind::Str: return T_STR;
             case Expr::Kind::Bool: return T_BOOL;
-            case Expr::Kind::Var: {
-                try {
-                    return lookup_var(e->name).first;
-                } catch (...) {
-                    return std::nullopt;
-                }
-            }
-            case Expr::Kind::Assign: {
-                try {
-                    return lookup_var(e->name).first;
-                } catch (...) {
-                    return std::nullopt;
-                }
-            }
+            case Expr::Kind::Var:
+                return lookup_var(e->name, e->pos).first;
+            case Expr::Kind::Assign:
+                return lookup_var(e->name, e->pos).first;
             case Expr::Kind::Unary:
-                if (e->op == OP_NOT) return T_BOOL;
-                return infer_type(e->value);
+                if (e->op == OP_NOT) {
+                    auto t = infer_type(e->value);
+                    if (t.has_value() && *t != T_BOOL) {
+                        throw TenetError::at_pos("运算符 `!` 只能作用于 bool，实际为 " + *t, e->value->pos);
+                    }
+                    return T_BOOL;
+                }
+                {
+                    auto t = infer_type(e->value);
+                    if (t.has_value() && *t == T_BOOL) {
+                        throw TenetError::at_pos("运算符 `-` 不能作用于 bool", e->value->pos);
+                    }
+                    return t;
+                }
             case Expr::Kind::Binary: {
                 auto lt = infer_type(e->lhs);
                 auto rt = infer_type(e->rhs);
                 const std::string& op = e->op;
-                if (op == OP_AND || op == OP_OR) return T_BOOL;
-                if (op == OP_EQ || op == OP_NEQ || op == OP_LT || op == OP_LTE || op == OP_GT || op == OP_GTE) return T_BOOL;
+                if (op == OP_AND || op == OP_OR) {
+                    if (lt.has_value() && *lt != T_BOOL) {
+                        throw TenetError::at_pos("运算符 `" + op + "` 只能作用于 bool，实际为 " + *lt,
+                                                 e->lhs->pos);
+                    }
+                    if (rt.has_value() && *rt != T_BOOL) {
+                        throw TenetError::at_pos("运算符 `" + op + "` 只能作用于 bool，实际为 " + *rt,
+                                                 e->rhs->pos);
+                    }
+                    return T_BOOL;
+                }
+                // 字符串与任何非字符串混合 → 编译错误
+                if ((lt == T_STR) != (rt == T_STR)) {
+                    if (lt.has_value() && rt.has_value()) {
+                        throw TenetError::at_pos("运算符 `" + op + "` 不能作用于 " + *lt + " 和 " + *rt,
+                                                 e->pos);
+                    }
+                }
+                // bool 不能参与数值与比较运算
+                if ((lt.has_value() && *lt == T_BOOL) || (rt.has_value() && *rt == T_BOOL)) {
+                    throw TenetError::at_pos(
+                        "运算符 `" + op + "` 不能作用于 " + lt.value_or("?") + " 和 " + rt.value_or("?"),
+                        e->pos);
+                }
+                if (op == OP_EQ || op == OP_NEQ || op == OP_LT || op == OP_LTE || op == OP_GT || op == OP_GTE) {
+                    if (!lt.has_value() || !rt.has_value()) return std::nullopt;
+                    return T_BOOL;
+                }
                 if (op == OP_MOD) {
-                    return (lt == T_INT && rt == T_INT) ? std::optional<std::string>(T_INT) : std::nullopt;
+                    if (lt == T_INT && rt == T_INT) return T_INT;
+                    if (lt.has_value() && rt.has_value()) {
+                        throw TenetError::at_pos("运算符 `%` 只能作用于 int", e->pos);
+                    }
+                    return std::nullopt;
                 }
                 if (op == OP_ADD) {
                     if (lt == T_STR && rt == T_STR) return T_STR;
@@ -520,9 +653,13 @@ private:
                 return std::nullopt;
             }
             case Expr::Kind::Call: {
+                if (e->name == "print") return std::nullopt;
                 auto it = functions_.find(e->name);
-                if (it == functions_.end() || !it->second.second.has_value()) return std::nullopt;
-                return it->second.second;
+                if (it == functions_.end()) {
+                    throw TenetError::at_pos("未定义的函数 `" + e->name + "`", e->pos);
+                }
+                if (!it->second.ret.has_value()) return std::nullopt;
+                return it->second.ret;
             }
         }
         return std::nullopt;

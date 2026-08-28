@@ -30,21 +30,26 @@ while (i < 10) {
 
 | 维度 | 设计 |
 |------|------|
-| 类型系统 | 标量 `int`/`float`/`bool`/`string`（完整设计含 `array<T>`/`struct`/`Option`/`Result`，见 Tenet架构设计.md §2） |
+| 类型系统 | ✅ **已实现**：标量 `int`/`float`/`bool`/`string`；⏳ 设计已定稿未实现：`array<T>`/`struct`/`Option`/`Result`（见下方「能力边界」） |
 | 变量 | `let` 声明，类型标注可选（局部静态推断）；赋值 `=`（值语义） |
-| 函数 | `fn f(a: int) -> int`，显式返回类型，递归 |
-| 控制流 | `if/else`、`while`（唯一循环）、`break`、`return` |
+| 函数 | `fn f(a: int) -> int`，显式返回类型，递归；调用参数/返回类型严格核对 |
+| 控制流 | `if/else`、`while`（唯一循环）、`break`、`return`；条件必须 `bool` |
 | 注释 | `//` 行注释、`/* */` 块注释 |
 | 内建 | `print(...)`（任意类型、任意数量） |
 | 执行 | **编译为原生二进制**：`tenet build` → 可执行文件，直接运行 |
+| 错误 | 类型错误（混合类型 / 声明·赋值·参数·返回不匹配）在前端报 `[行:列]`，三实现消息一致 |
+
+> ⚠️ **能力边界**：三个编译器目前只实现**标量 + 字符串 + 递归**，定位为纯计算的算法语言。
+> `array<T>` / `struct` / `Option` / `Result` / `match` / `?` 已在设计文档定稿但**尚未实现**——
+> 不要按速览表把它们当作可用特性。完整边界见 [`Tenet架构设计.md`](./Tenet架构设计.md) §2.7。
 
 ## 三个编译器（自主度阶梯）
 
 | 实现 | 前端 | 后端方式 | 测试 |
 |---|---|---|---|
-| [`compiler-rs/`](./compiler-rs/) | Rust | clang 驱动（.ll 文本） | 22 |
-| [`compiler-cpp/`](./compiler-cpp/) | C++17 | LLVM 库进程内（rustc 方式） | 56 |
-| [`compiler-arm64/`](./compiler-arm64/) | C++17 | **手写 AArch64 后端（零 LLVM）** | 50 |
+| [`compiler-rs/`](./compiler-rs/) | Rust | clang 驱动（.ll 文本） | 41 |
+| [`compiler-cpp/`](./compiler-cpp/) | C++17 | LLVM 库进程内（rustc 方式） | 74 |
+| [`compiler-arm64/`](./compiler-arm64/) | C++17 | **手写 AArch64 后端（零 LLVM）** | 68 |
 
 三套实现共享同一套语言设计，编译产物**输出逐字节一致**。
 

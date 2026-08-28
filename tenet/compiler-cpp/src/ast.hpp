@@ -1,4 +1,5 @@
 // 抽象语法树（与 compiler-rs/src/ast.rs 对应）：标签结构体。
+// 每个节点携带起始位置 `[行:列]`，供代码生成阶段全链路报错。
 #pragma once
 
 #include <memory>
@@ -6,6 +7,8 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+#include "error.hpp"
 
 namespace tenet {
 
@@ -35,6 +38,7 @@ using ExprPtr = std::shared_ptr<Expr>;
 
 struct Expr {
     enum class Kind { Int, Float, Str, Bool, Var, Assign, Unary, Binary, Call };
+    Position pos;
     Kind kind;
     int64_t int_val = 0;
     double float_val = 0.0;
@@ -52,6 +56,7 @@ using StmtPtr = std::shared_ptr<Stmt>;
 
 struct Stmt {
     enum class Kind { Let, Expr, If, While, Return, Break, FnDecl };
+    Position pos;
     Kind kind;
     std::string name;
     std::optional<std::string> ty;

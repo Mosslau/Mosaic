@@ -11,7 +11,7 @@
 | 后端方式 | **手写 AArch64 汇编后端**：AST 直接生成 arm64 汇编文本（.s）→ 系统 `as` 汇编 → `ld` 链接 |
 | 产出 | 原生可执行二进制（Mach-O arm64） |
 | 特点 | 全链路零 LLVM/clang（仅用系统 as/ld 作"手"）；类似 TCC / 早期 GCC 的做法 |
-| 测试 | 50 项检查 |
+| 测试 | 68 项检查 |
 
 ## 管线
 
@@ -34,7 +34,7 @@ compiler-arm64/
 ├── Makefile          # 纯 clang++ -std=c++17，无 LLVM 库
 ├── src/
 │   ├── error.hpp / token.hpp / lexer.hpp / ast.hpp / parser.hpp   # 前端（与 compiler-cpp 同构）
-│   ├── backend.hpp   # ★手写 AArch64 后端（含 50 项检查的断言对象）
+│   ├── backend.hpp   # ★手写 AArch64 后端（含 68 项检查的断言对象）
 │   └── main.cpp      # CLI + as/ld 驱动 + 内嵌 arm64 运行时
 ├── examples/         # hello / fib / fizzbuzz
 └── tests/            # test_main.cpp
@@ -48,7 +48,7 @@ compiler-arm64/
 cd tenet/compiler-arm64
 
 make                    # 构建 tenet 与 test_tenet 并跑测试
-make test               # 50 项检查
+make test               # 68 项检查
 ./tenet build examples/hello.tenet -o hello && ./hello   # 编译为二进制并运行
 ./tenet run examples/fib.tenet          # 编译 + 运行一步到位
 ./tenet asm examples/hello.tenet        # 看生成的 arm64 汇编（调试）
@@ -110,7 +110,7 @@ scvtf 混合提升、tenet_concat/strcmp 调用、条件分支、.globl）。
 | 语言 | Rust | C++17 | C++17 |
 | 后端 | clang 驱动（.ll 文本） | LLVM 库进程内（rustc 方式） | **手写 AArch64 后端（零 LLVM）** |
 | 链接 | clang | 系统 `cc` | 系统 `as` + `ld` |
-| 测试 | 22 | 56 | 50 |
+| 测试 | 41 | 74 | 68 |
 | LLVM/clang | 有（clang） | 有（LLVM 库） | **零** |
 | 产物 | 原生二进制，输出逐字节一致 | 同左 | 同左 |
 
