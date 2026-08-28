@@ -58,7 +58,8 @@ hello.tenet
 - [`tenet/LLVM后端`](tenet/LLVM后端.md) — **后端文档**：IR 生成全貌、clang 驱动、指令映射、调试工具
 - [`tenet/实现`](tenet/Tenet实现.md) — **实现文档**：逐模块实现要点、测试策略、如何扩展
 - [`tenet/README`](tenet/README.md) — 语言与编译器入口（速览、文档导航、演进）
-- [`tenet/compiler-rs/`](tenet/compiler-rs/) — **实现代码**（Rust 前端 + LLVM 后端）：`tenet build` / `tenet run`
+- [`tenet/compiler-rs/`](tenet/compiler-rs/) — **实现 · Rust**（clang 驱动 LLVM）：`tenet build` / `tenet run`
+- [`tenet/compiler-cpp/`](tenet/compiler-cpp/) — **实现 · C++17**（进程内调用 LLVM 后端库，rustc 方式）：`make && ./tenet build`
 
 「万语归宗」的实践闭环：学习 → 分析 → 合成 → 固化 → 实现 → 运行。
 

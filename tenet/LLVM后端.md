@@ -70,6 +70,22 @@ rustc 需要深度控制：LTO、增量编译、codegen 并行、JIT、自定义
 现阶段外包更省事、更好教学；哪天需要精细控制，再签正式合同（链接库）也不迟，
 **前端一行都不用改**。
 
+### 2.5 两种方式都已实现（实测对照）
+
+本仓库两个编译器前端分别走了两条路，共享同一套语言与前端设计：
+
+| | compiler-rs | compiler-cpp |
+|---|---|---|
+| 前端 | Rust（lexer/parser/typecheck） | C++17（lexer/parser/typecheck） |
+| IR 构建 | 生成 `.ll` 文本 | LLVM C++ API（IRBuilder 内存构建） |
+| IR → 机器码 | clang 驱动（外部进程） | **LLVM 后端库（进程内 TargetMachine）** |
+| 链接 | clang 驱动 | 系统 `cc` |
+| 实测 | ✅ 原生二进制运行正确 | ✅ 原生二进制运行正确，输出一致 |
+
+compiler-cpp 证明了"切换成链接 LLVM 库"的路线：前端产物不变（都是同一套
+AST/类型逻辑），后端从外部驱动换成进程内库，编译出的二进制行为一致。
+
+
 ## 3. 后端管线（compiler 如何驱动 LLVM）
 
 ```text

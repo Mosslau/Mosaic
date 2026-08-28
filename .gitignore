@@ -40,3 +40,7 @@ tenet-cpp/demos/02_move
 tenet-cpp/demos/03_multiparadigm
 tenet-cpp/demos/04_stl
 tenet-cpp/demos/05_constexpr
+
+# compiler-cpp 构建产物
+tenet/compiler-cpp/tenet
+tenet/compiler-cpp/test_tenet

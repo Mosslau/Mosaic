@@ -53,18 +53,22 @@ while (i < 10) {
 
 | 模块 | 位置 | 状态 |
 |------|------|------|
-| 词法 / 语法 / 类型 / LLVM IR 代码生成 | [`compiler-rs/`](./compiler-rs/) | ✅ 已实现（核心子集） |
-| 命令行 | `tenet build` / `tenet run` / `tenet ir` | ✅ 已实现 |
+| 词法 / 语法 / 类型 / LLVM IR 代码生成 | [`compiler-rs/`](./compiler-rs/)（clang 驱动）· [`compiler-cpp/`](./compiler-cpp/)（LLVM 库，进程内） | ✅ 已实现（核心子集） |
+| 命令行 | `tenet build` / `tenet run` / `tenet ir`（两实现相同） | ✅ 已实现 |
 | 示例 | `compiler-rs/examples/`（hello / fib / fizzbuzz） | ✅ 编译为原生二进制运行正确 |
 | 复合类型 / Option / Result / match | 设计已定（语言规范），代码生成待扩展 | 演进 |
 
 ## 快速开始
 
 ```bash
+# Rust 实现（clang 驱动 LLVM 后端）
 cd compiler-rs
-cargo run -- build examples/hello.tenet -o hello && ./hello   # 编译为二进制并运行
-cargo run -- run examples/fib.tenet                            # 编译+运行一步到位
-cargo test                                                     # 22 个单元测试
+cargo run -- build examples/hello.tenet -o hello && ./hello
+
+# C++17 实现（进程内调用 LLVM 后端库，rustc 方式）
+cd ../compiler-cpp
+make
+./tenet build examples/hello.tenet -o hello && ./hello
 ```
 
 ## 后续演进方向
