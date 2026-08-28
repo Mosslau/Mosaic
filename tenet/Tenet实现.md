@@ -1,7 +1,7 @@
 # 🔧 Tenet 实现文档
 
 > 实现细节：compiler/ 每个模块怎么写的、测试怎么组织的、如何扩展。
-> 架构总览见 [架构](./架构.md)，代码在 [`compiler/`](./compiler/)。
+> 架构总览见 [架构](./Tenet架构.md)，代码在 [`compiler/`](./compiler/)。
 
 ## 1. 模块实现要点
 

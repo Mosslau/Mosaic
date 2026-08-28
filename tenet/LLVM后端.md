@@ -1,7 +1,7 @@
 # ⚙️ LLVM 后端文档
 
 > LLVM 后端：如何把前端生成的 LLVM IR 变成原生二进制，以及我们生成的 IR 长什么样。
-> 前端设计见 [架构](./架构.md)，语言规范见 [语言规范](./语言规范.md)。
+> 前端设计见 [架构](./Tenet架构.md)，语言规范见 [语言规范](./Tenet语言规范.md)。
 
 ## 1. 为什么用 LLVM
 
@@ -16,7 +16,29 @@ lexer → parser → typecheck → LLVM IR → clang 驱动 → 汇编 → 链�
 分工：**前端体现语言设计，后端复用成熟基础设施**。这也意味着——
 前端的产物（LLVM IR）是标准格式，任何支持 LLVM 的工具链都能消费。
 
-## 2. 后端管线（compiler 如何驱动 LLVM）
+## 2. 为什么用 clang 驱动，而不是链接 LLVM 库
+
+LLVM 后端的复用有两种集成方式，背后是**同一套后端**：
+
+```text
+链接 LLVM 库（rustc 方式）      clang 驱动（我们的方式）
+rustc 进程内调用 LLVM 后端       clang 进程调用 LLVM 后端
+        ↓                               ↓
+        └───── 同一个 LLVM 后端 ─────┘
+```
+
+| 维度 | 链接 LLVM 库（rustc） | clang 驱动（我们） |
+|------|----------------------|-------------------|
+| 依赖 | LLVM 开发库 + 头文件 | 只需 clang 可执行文件 |
+| IR 生成 | LLVM C++ API 内存构建 | `.ll` 文本（可读可调试） |
+| 集成 | 进程内调用 | 子进程 + 文件 |
+| 版本兼容 | C++ API 每年变动需维护 | IR 文本格式稳定 |
+| 重心 | 后端深度控制（LTO/JIT/自定义 pass） | 前端语言设计 |
+
+**取舍**：现阶段聚焦前端，机器码生成完整外包给 clang（它是"打包好的 LLVM 后端"）；
+产品化/自举后期需要 JIT、LTO、自定义 pass 时，再切换为链接 LLVM 库——前端产物（IR）不变，切换成本低。
+
+## 3. 后端管线（compiler 如何驱动 LLVM）
 
 ```text
 tenet build hello.tenet
@@ -36,7 +58,7 @@ tenet build hello.tenet
 
 clang 路径可用环境变量 `TENET_CLANG` 覆盖；默认用 PATH 上的 `clang`。
 
-## 3. 我们生成的 IR 长什么样（hello.tenet 实测）
+## 4. 我们生成的 IR 长什么样（hello.tenet 实测）
 
 ```llvm
 ; Tenet 编译器生成（前端自写 → LLVM IR → clang 链接）
@@ -61,13 +83,13 @@ entry:
 }
 ```
 
-## 4. IR 核心概念（结合我们的实际输出）
+## 5. IR 核心概念（结合我们的实际输出）
 
 | 概念 | 说明 | 我们的用法 |
 |------|------|-----------|
 | **类型** | `i64`/`double`/`i1`/`ptr` | int/float/bool/string 一一映射 |
 | **SSA + 基本块** | 每个值定值一次；块以终止指令结尾 | 变量走内存模型，指令临时名 `%vN` 天然 SSA |
-| **终止指令** | `ret`/`br` 必须是块的最后一条指令 | `terminated` 标志保证（见 [架构](./架构.md) §4） |
+| **终止指令** | `ret`/`br` 必须是块的最后一条指令 | `terminated` 标志保证（见 [架构](./Tenet架构.md) §4） |
 | **全局常量** | `private unnamed_addr constant` | 字符串字面量、`true`/`false` 串 |
 | **内存模型** | `alloca`/`load`/`store` | 变量、短路结果——免 phi |
 | **外部声明** | `declare` | `printf`、运行时库函数 |
@@ -78,7 +100,7 @@ entry:
 - **phi 节点**：汇合点（if/while 合并）不需要——变量都在栈槽里，`load` 即取值
 - **手写汇编/机器码**：交给 LLVM，我们只生成可读的 IR 文本
 
-## 5. 类型与指令映射
+## 6. 类型与指令映射
 
 | Tenet | IR | 示例 |
 |-------|-----|------|
@@ -87,11 +109,11 @@ entry:
 | `bool` | `i1` | `icmp slt`、`fcmp olt`、`xor i1 true`（取反） |
 | `string` | `ptr` | 拼接 `call @tenet_concat`、比较 `call @tenet_strcmp + icmp` |
 | `let` | `alloca + store` | 使用处 `load` |
-| `if/while/break` | `br` 基本块 | 见 [架构](./架构.md) §4 |
+| `if/while/break` | `br` 基本块 | 见 [架构](./Tenet架构.md) §4 |
 | `&&`/`\|\|` | 短路跳转 + alloca | 右侧只在需要时求值 |
 | `print` | 拼格式串 + `printf` | `%lld`/`%g`/`%s`/bool 用 `select` 选 true/false 串 |
 
-## 6. 调试与检查工具
+## 7. 调试与检查工具
 
 ```bash
 cd tenet/compiler
@@ -105,7 +127,7 @@ clang -S -O2 /tmp/f.ll -o /tmp/f.opt.s       # 看优化后的汇编
 对照三份文件（IR → 汇编 → 优化汇编），能直观看到 LLVM 后端如何把
 我们的 IR 变成真实机器码。
 
-## 7. 兼容性注记（本机实测）
+## 8. 兼容性注记（本机实测）
 
 - **gep 语法**：本机 Homebrew LLVM 21 的 IR 解析器对
   `getelementptr inbounds (聚合类型, ...)` 报 `expected type`，
@@ -115,7 +137,7 @@ clang -S -O2 /tmp/f.ll -o /tmp/f.opt.s       # 看优化后的汇编
   `overriding the module target triple`——无害警告（IR 未写死平台，
   clang 按本机默认平台编译，反而更可移植）
 
-## 8. 演进方向（LLVM 侧）
+## 9. 演进方向（LLVM 侧）
 
 | 特性 | LLVM 表达 |
 |------|-----------|
