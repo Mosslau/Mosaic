@@ -32,14 +32,14 @@ venv/
 
 # C++
 *.o
+*.d
 
-
-# 语言设计分析 demo 构建产物
-tenet-cpp/demos/01_raii
-tenet-cpp/demos/02_move
-tenet-cpp/demos/03_multiparadigm
-tenet-cpp/demos/04_stl
-tenet-cpp/demos/05_constexpr
+# 语言设计分析 demo 构建产物（analyze/cpp/demos 下与 .cpp 同名的可执行文件）
+analyze/cpp/demos/01_raii
+analyze/cpp/demos/02_move
+analyze/cpp/demos/03_multiparadigm
+analyze/cpp/demos/04_stl
+analyze/cpp/demos/05_constexpr
 
 # compiler-cpp 构建产物
 tenet/compiler-cpp/tenet
