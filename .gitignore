@@ -49,4 +49,4 @@ tenet/compiler-cpp/test_tenet
 tenet/compiler-arm64/tenet
 tenet/compiler-arm64/test_tenet
 
-.workbuddy
+.workbuddy/memory
