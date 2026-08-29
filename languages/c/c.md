@@ -4,7 +4,7 @@
 
 ## 1. 基础语法阶段
 
-> 📖 详细展开版见 [Ph01-basic-syntax/01-basic-syntax.md](./Ph01-basic-syntax/01-basic-syntax.md)
+> 📖 详细展开版见 [ph01-basic-syntax/01-basic-syntax.md](./ph01-basic-syntax/01-basic-syntax.md)
 
 ### 目标
 能读懂并写出简单 C 程序，理解编译、链接和可执行文件的基本关系。
@@ -49,7 +49,7 @@ int main(void) {
 
 ## 2. 函数与模块化阶段
 
-> 📖 详细展开版见 [Ph02-func-module/02-func-module.md](./Ph02-func-module/02-func-module.md)
+> 📖 详细展开版见 [ph02-func-module/02-func-module.md](./ph02-func-module/02-func-module.md)
 
 ### 目标
 把代码拆成函数和模块，避免所有逻辑堆在 main 中。
@@ -92,7 +92,7 @@ project/
 
 ## 3. 数组、字符串、指针阶段
 
-> 📖 详细展开版见 [Ph03-array-str-ptr/](Ph03-array-str-ptr/03-array-str-ptr.md)
+> 📖 详细展开版见 [ph03-array-str-ptr/](ph03-array-str-ptr/03-array-str-ptr.md)
 
 ### 目标
 真正理解 C 的内存模型，掌握数组、字符串和指针的关系。
@@ -135,7 +135,7 @@ printf("%d\n", *(p + 1));
 
 ## 4. 内存管理阶段
 
-> 📖 详细展开版见 [Ph04-memory-mgmt/](Ph04-memory-mgmt/04-memory-mgmt.md)
+> 📖 详细展开版见 [ph04-memory-mgmt/](ph04-memory-mgmt/04-memory-mgmt.md)
 
 ### 目标
 能安全使用堆内存，避免泄漏、越界、悬空指针和野指针。
@@ -181,7 +181,7 @@ p = NULL;
 
 ## 5. 结构体与数据结构阶段
 
-> 📖 详细展开版见 [Ph05-struct-datastruct/](Ph05-struct-datastruct/05-struct-datastruct.md)
+> 📖 详细展开版见 [ph05-struct-datastruct/](ph05-struct-datastruct/05-struct-datastruct.md)
 
 ### 目标
 用 C 表达复杂数据，并实现常用数据结构。

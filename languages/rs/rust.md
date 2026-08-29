@@ -4,7 +4,7 @@
 
 ## 1. Rust 基础语法阶段
 
-> 📖 详细展开版见 [Ph01-basic-syntax/01-basic-syntax.md](./Ph01-basic-syntax/01-basic-syntax.md)
+> 📖 详细展开版见 [ph01-basic-syntax/01-basic-syntax.md](./ph01-basic-syntax/01-basic-syntax.md)
 
 ### 目标
 能写简单 Rust 程序，理解 Rust 与 C/C++ 在类型、表达式和安全模型上的基础差异。
@@ -31,10 +31,14 @@ fn main() {
 ```
 
 ### 练习
+- 写 Hello Rust
 - 猜数字游戏（基础版）
 - 温度转换器
 - 九九乘法表
 - 素数判断
+- 把 `if`/`else` 分支改写成 `match`
+- 对比 `let x = 5;` 与 `x = 5;` 的行为差异
+- 命令行计算器
 
 ### 阶段验收
 - 能独立创建并运行 cargo 项目
@@ -46,7 +50,7 @@ fn main() {
 
 ## 2. 所有权 Ownership 阶段
 
-> 📖 详细展开版见 [Ph02-ownership/02-ownership.md](./Ph02-ownership/02-ownership.md)
+> 📖 详细展开版见 [ph02-ownership/02-ownership.md](./ph02-ownership/02-ownership.md)
 
 ### 目标
 掌握 Rust 最核心的内存管理规则，能写出不依赖 GC 且不手动释放内存的安全代码。
@@ -91,7 +95,7 @@ fn main() {
 
 ## 3. 基础数据结构阶段
 
-> 📖 详细展开版见 [Ph03-data-structure/](Ph03-data-structure/03-data-structure.md)
+> 📖 详细展开版见 [ph03-data-structure/](ph03-data-structure/03-data-structure.md)
 
 ### 目标
 能使用结构体、枚举和集合表达真实业务数据。
@@ -137,7 +141,7 @@ fn main() {
 
 ## 4. Option 和 Result 阶段
 
-> 📖 详细展开版见 [Ph04-option-result/](Ph04-option-result/04-option-result.md)
+> 📖 详细展开版见 [ph04-option-result/](ph04-option-result/04-option-result.md)
 
 ### 目标
 用类型系统表达缺失值和错误，让失败路径可见、可处理。
@@ -178,7 +182,7 @@ fn parse_port(input: &str) -> Result<u16, std::num::ParseIntError> {
 
 ## 5. 模式匹配与枚举阶段
 
-> 📖 详细展开版见 [Ph05-pattern-match/](Ph05-pattern-match/05-pattern-match.md)
+> 📖 详细展开版见 [ph05-pattern-match/](ph05-pattern-match/05-pattern-match.md)
 
 ### 目标
 用 enum 和 match 表达状态、协议类型和业务分支。

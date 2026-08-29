@@ -4,7 +4,7 @@
 
 ## 1. Java 基础语法阶段
 
-> 📖 详细展开版见 [Ph01-basic-syntax/01-basic-syntax.md](./Ph01-basic-syntax/01-basic-syntax.md)
+> 📖 详细展开版见 [ph01-basic-syntax/01-basic-syntax.md](./ph01-basic-syntax/01-basic-syntax.md)
 
 ### 目标
 能写简单 Java 程序，理解 JDK、JRE、JVM 和 Java 程序结构。
@@ -52,7 +52,7 @@ public class Main {
 
 ## 2. 面向对象 OOP 阶段
 
-> 📖 详细展开版见 [Ph02-oop/02-oop.md](./Ph02-oop/02-oop.md)
+> 📖 详细展开版见 [ph02-oop/02-oop.md](./ph02-oop/02-oop.md)
 
 ### 目标
 理解类、对象、封装、继承、多态和接口。
@@ -105,7 +105,7 @@ class TemperatureSensor implements Sensor {
 
 ## 3. Java 常用类阶段
 
-> 📖 详细展开版见 [Ph03-common-classes/](Ph03-common-classes/03-common-classes.md)
+> 📖 详细展开版见 [ph03-common-classes/](ph03-common-classes/03-common-classes.md)
 
 ### 目标
 熟悉标准库中最常用的基础类。
@@ -148,7 +148,7 @@ System.out.println(sb.toString());
 
 ## 4. 集合框架阶段
 
-> 📖 详细展开版见 [Ph04-collections/](Ph04-collections/04-collections.md)
+> 📖 详细展开版见 [ph04-collections/](ph04-collections/04-collections.md)
 
 ### 目标
 熟练使用 Java 常用集合。
@@ -190,7 +190,7 @@ scores.put("Bob", 85);
 
 ## 5. 泛型阶段
 
-> 📖 详细展开版见 [Ph05-generics/](Ph05-generics/05-generics.md)
+> 📖 详细展开版见 [ph05-generics/](ph05-generics/05-generics.md)
 
 ### 目标
 理解类型安全和通用代码设计。

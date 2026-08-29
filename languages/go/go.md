@@ -4,7 +4,7 @@
 
 ## 1. Go 基础语法阶段
 
-> 📖 详细展开版见 [Ph01-basic-syntax/01-basic-syntax.md](./Ph01-basic-syntax/01-basic-syntax.md)
+> 📖 详细展开版见 [ph01-basic-syntax/01-basic-syntax.md](./ph01-basic-syntax/01-basic-syntax.md)
 
 ### 目标
 能写简单 Go 程序，理解 Go 的简洁语法和工程风格。
@@ -49,7 +49,7 @@ func main() {
 
 ## 2. 函数与错误处理阶段
 
-> 📖 详细展开版见 [Ph02-func-error/02-func-error.md](./Ph02-func-error/02-func-error.md)
+> 📖 详细展开版见 [ph02-func-error/02-func-error.md](./ph02-func-error/02-func-error.md)
 
 ### 目标
 掌握 Go 的函数设计和显式错误处理习惯。
@@ -93,7 +93,7 @@ func divide(a, b int) (int, error) {
 
 ## 3. Slice、Map、Struct 阶段
 
-> 📖 详细展开版见 [Ph03-slice-map-struct/](Ph03-slice-map-struct/03-slice-map-struct.md)
+> 📖 详细展开版见 [ph03-slice-map-struct/](ph03-slice-map-struct/03-slice-map-struct.md)
 
 ### 目标
 掌握 Go 最常用的数据组织方式。
@@ -136,7 +136,7 @@ type Motor struct {
 
 ## 4. 方法与接口阶段
 
-> 📖 详细展开版见 [Ph04-method-interface/](Ph04-method-interface/04-method-interface.md)
+> 📖 详细展开版见 [ph04-method-interface/](ph04-method-interface/04-method-interface.md)
 
 ### 目标
 理解 Go 的面向接口编程，用小接口降低耦合。
@@ -177,7 +177,7 @@ type Sensor interface {
 
 ## 5. 包管理与工程结构阶段
 
-> 📖 详细展开版见 [Ph05-pkg-structure/](Ph05-pkg-structure/05-pkg-structure.md)
+> 📖 详细展开版见 [ph05-pkg-structure/](ph05-pkg-structure/05-pkg-structure.md)
 
 ### 目标
 能组织真实 Go 工程项目。
