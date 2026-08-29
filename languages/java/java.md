@@ -277,6 +277,8 @@ try {
 
 ## 7. IO 与文件操作阶段
 
+> 📖 详细展开版见 [ph07-io-file/07-io-file.md](./ph07-io-file/07-io-file.md)
+
 ### 目标
 能读写文件并处理数据流。
 

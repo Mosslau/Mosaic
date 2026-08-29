@@ -300,6 +300,8 @@ std::string msg = std::format("sensor {} value={}", id, val);
 
 ## 7. 异常、安全与工程规范阶段
 
+> 📖 详细展开版见 [ph07-exception-safety/07-exception-safety.md](./ph07-exception-safety/07-exception-safety.md)
+
 ### 目标
 写出可维护、可诊断、异常安全的 C++ 工程代码。
 

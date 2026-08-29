@@ -594,4 +594,4 @@ func main() {
 
 ### 下一阶段
 
-**标准库阶段**（`ph07-stdlib`，文档规划中）—— os/path/filepath、encoding/json、net/http、testing 深入等。
+[标准库阶段](../ph07-stdlib/07-stdlib.md) —— os/path/filepath、encoding/json、net/http、testing 深入等。

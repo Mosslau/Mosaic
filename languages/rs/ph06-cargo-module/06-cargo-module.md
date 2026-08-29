@@ -650,4 +650,4 @@ workspace 的价值：三个 crate 共享一份 `Cargo.lock` 与编译缓存；`
 - **多模块日志分析工具**：parser（解析日志行为结构化记录）、aggregator（按级别/来源聚合统计）、cli（命令行入口与输出）三层分层清楚。示例 1 是单包三层结构，示例 5 是 workspace 多 crate 版本——建议先按示例 1 落地，再迁移到示例 5，体会两种组织方式的取舍。
 
 ### 下一阶段
-**Trait 与泛型阶段**（`ph07-trait-generics`，文档规划中）—— trait 定义与实现、泛型、trait 对象、关联类型。模块化解决"代码怎么组织"，trait 与泛型解决"行为怎么抽象"，两者结合才构成真实库工程的骨架。
+[Trait 与泛型阶段](../ph07-trait-generics/07-trait-generics.md) —— trait 定义与实现、泛型、trait 对象、关联类型。模块化解决"代码怎么组织"，trait 与泛型解决"行为怎么抽象"，两者结合才构成真实库工程的骨架。

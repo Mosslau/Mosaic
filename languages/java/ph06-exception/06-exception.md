@@ -547,4 +547,4 @@ public class ExceptionChainDemo {
 
 ### 下一阶段
 
-**IO 与文件操作阶段**（`ph07-io-file`，文档规划中）—— InputStream/OutputStream、Reader/Writer、NIO 基础、序列化。
+[IO 与文件操作阶段](../ph07-io-file/07-io-file.md) —— InputStream/OutputStream、Reader/Writer、NIO 基础、序列化。

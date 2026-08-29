@@ -259,6 +259,8 @@ for file in Path("data").glob("*.txt"):
 
 ## 7. 虚拟环境与包管理阶段
 
+> 📖 详细展开版见 [ph07-venv-packaging/07-venv-packaging.md](./ph07-venv-packaging/07-venv-packaging.md)
+
 ### 目标
 能管理 Python 项目依赖和运行环境。
 

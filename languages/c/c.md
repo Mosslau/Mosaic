@@ -273,6 +273,8 @@ fclose(fp);
 
 ## 7. 编译、调试与工程化阶段
 
+> 📖 详细展开版见 [ph07-build-debug/07-build-debug.md](./ph07-build-debug/07-build-debug.md)
+
 ### 目标
 像工程项目一样组织、构建和调试 C 代码。
 

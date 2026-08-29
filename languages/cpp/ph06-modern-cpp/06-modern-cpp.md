@@ -567,4 +567,4 @@ int main() {
 - **配置管理模块**：`Config` 类用 `std::unordered_map<std::string, Value>` 存键值，`optional` 表达缺失配置项，`std::format` 输出配置清单，`unique_ptr` 管理底层缓冲——覆盖本阶段一半以上知识点
 - **状态类型建模 demo**：用 `variant` 建模设备状态/消息类型（如 Running/Faulted/Offline），`std::visit` 统一处理，`enum class` 定义状态码，`<=>` 定义状态优先级比较——roadmap 指定项目，直接服务状态机类工程
 ### 下一阶段
-**异常、安全与工程规范阶段**（ph07-exception-safety，文档规划中）——try/catch、异常安全等级（基本/强/不抛）、错误码体系、RAII 与异常安全资源封装。
+[异常、安全与工程规范阶段](../ph07-exception-safety/07-exception-safety.md) ——try/catch、异常安全等级（基本/强/不抛）、错误码体系、RAII 与异常安全资源封装。

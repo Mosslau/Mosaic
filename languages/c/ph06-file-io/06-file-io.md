@@ -540,4 +540,4 @@ C 的模型最"裸露"：没有 RAII、没有异常、没有自动关闭——**
 - **CSV 解析器**：完整实现空行/注释/字段校验/坏行报告，支持输出统计结果，为后续"日志系统"提供数据输入
 - **append-only 数据文件**：带时间戳的追加写入 + 回放读取 + 损坏行检测，为 ph13 的 append-only log 与 ph17 的 WAL 打基础
 ### 下一阶段
-**编译、调试与工程化阶段**（ph07-build-debug，文档规划中）— gcc/clang、Makefile/CMake、GDB 调试、静态库动态库。
+[编译、调试与工程化阶段](../ph07-build-debug/07-build-debug.md) — gcc/clang、Makefile/CMake、GDB 调试、静态库动态库。

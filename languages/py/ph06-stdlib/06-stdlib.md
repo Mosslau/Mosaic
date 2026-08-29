@@ -535,4 +535,4 @@ with tempfile.TemporaryDirectory() as d:
 
 ### 下一阶段
 
-**虚拟环境与包管理阶段**（ph07-venv-packaging，文档规划中）—— pip/venv、requirements.txt、pyproject.toml、poetry/uv。
+[虚拟环境与包管理阶段](../ph07-venv-packaging/07-venv-packaging.md) —— pip/venv、requirements.txt、pyproject.toml、poetry/uv。

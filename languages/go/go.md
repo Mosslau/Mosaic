@@ -267,6 +267,8 @@ wg.Wait()
 
 ## 7. 标准库阶段
 
+> 📖 详细展开版见 [ph07-stdlib/07-stdlib.md](./ph07-stdlib/07-stdlib.md)
+
 ### 目标
 熟悉 Go 标准库，优先用标准库完成常见任务。
 

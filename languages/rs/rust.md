@@ -274,6 +274,8 @@ pub fn parse(input: &str) -> Vec<&str> {
 
 ## 7. Trait 与泛型阶段
 
+> 📖 详细展开版见 [ph07-trait-generics/07-trait-generics.md](./ph07-trait-generics/07-trait-generics.md)
+
 ### 目标
 用 trait 和泛型抽象行为，同时保持类型安全和零成本抽象。
 
