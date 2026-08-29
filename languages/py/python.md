@@ -346,6 +346,8 @@ print(resp.status_code)
 
 ## 9. 数据分析阶段
 
+> 📖 详细展开版见 [ph09-data-analysis/09-data-analysis.md](./ph09-data-analysis/09-data-analysis.md)
+
 ### 目标
 能用 Python 做数据清洗、统计和可视化。
 

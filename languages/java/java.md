@@ -370,6 +370,8 @@ List<Integer> result = nums.stream()
 
 ## 9. 多线程与并发阶段
 
+> 📖 详细展开版见 [ph09-concurrency/09-concurrency.md](./ph09-concurrency/09-concurrency.md)
+
 ### 目标
 能写安全的并发 Java 程序。
 

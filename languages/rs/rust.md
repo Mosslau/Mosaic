@@ -358,6 +358,8 @@ fn longest<'a>(a: &'a str, b: &'a str) -> &'a str {
 
 ## 9. 集合、迭代器与函数式写法阶段
 
+> 📖 详细展开版见 [ph09-collections-iterators/09-collections-iterators.md](./ph09-collections-iterators/09-collections-iterators.md)
+
 ### 目标
 用迭代器写出简洁、可组合的数据处理代码。
 

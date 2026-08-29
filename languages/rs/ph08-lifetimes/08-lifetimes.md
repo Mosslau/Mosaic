@@ -656,4 +656,4 @@ fn main() {
 
 ### 下一阶段
 
-**集合、迭代器与函数式写法阶段**（`ph09-collections-iterators`，文档规划中）—— Vec/HashMap/BTreeMap 深入、迭代器链、collect/闭包组合、函数式风格。生命周期解决了"引用能活多久"，迭代器阶段则大量出现"返回引用 + 迭代器 + 闭包"的组合：`iter()` 的生命周期、`collect` 的拥有/借用选择、闭包捕获与 `move`，都需要本阶段的约束功底。
+[集合、迭代器与函数式写法阶段](../ph09-collections-iterators/09-collections-iterators.md) —— Vec/HashMap/BTreeMap 深入、迭代器链、collect/闭包组合、函数式风格。生命周期解决了"引用能活多久"，迭代器阶段则大量出现"返回引用 + 迭代器 + 闭包"的组合：`iter()` 的生命周期、`collect` 的拥有/借用选择、闭包捕获与 `move`，都需要本阶段的约束功底。

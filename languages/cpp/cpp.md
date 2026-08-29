@@ -393,6 +393,8 @@ t.join();
 
 ## 9. 文件、网络与系统编程阶段
 
+> 📖 详细展开版见 [ph09-files-network/09-files-network.md](./ph09-files-network/09-files-network.md)
+
 ### 目标
 能用 C++ 写真实系统程序。
 

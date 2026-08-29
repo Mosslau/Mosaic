@@ -654,4 +654,4 @@ int main() {
 - **异步日志系统**：业务线程产生日志 → 内存有界缓冲（生产者消费者）→ 后台日志线程批量刷盘；支持级别过滤、定时 flush、jthread + stop_token 优雅关闭——覆盖 cv 等待通知、线程安全队列、线程池、原子计数与协作取消几乎全部知识点，roadmap 指定项目，也是存储引擎可观测性的地基
 - **多线程任务调度器**：任务队列 + 线程池 + 任务优先级/延迟执行 + 结果回调（future）+ 取消支持（stop_token）——覆盖线程池、semaphore 限流、promise/future 结果传递，是多线程执行框架的雏形，直接服务存储引擎的异步任务体系
 ### 下一阶段
-**文件、网络与系统编程阶段**（ph09-files-network，文档规划中）——std::filesystem、socket 编程、进程间通信、异步 IO。
+[文件、网络与系统编程阶段](../ph09-files-network/09-files-network.md) ——std::filesystem、socket 编程、进程间通信、异步 IO。

@@ -640,4 +640,4 @@ public class SwitchModern {
 
 ### 下一阶段
 
-**多线程与并发阶段**（`ph09-concurrency`，文档规划中）—— Thread/Runnable、ExecutorService、synchronized/volatile、并发集合、CompletableFuture。
+[多线程与并发阶段](../ph09-concurrency/09-concurrency.md) —— Thread/Runnable、ExecutorService、synchronized/volatile、并发集合、CompletableFuture。

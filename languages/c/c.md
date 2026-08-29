@@ -362,6 +362,8 @@ close(fd);
 
 ## 9. C 标准、编译器与可移植性
 
+> 📖 详细展开版见 [ph09-portability/09-portability.md](./ph09-portability/09-portability.md)
+
 ### 目标
 理解不同 C 标准和编译器差异，写出更可移植的代码。
 

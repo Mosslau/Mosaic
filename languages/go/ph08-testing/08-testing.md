@@ -902,4 +902,4 @@ go tool cover -html=cover.out     # 浏览器打开，红色标出未覆盖行
 
 ### 下一阶段
 
-**Web 后端开发阶段**（`ph09-web-backend`，文档规划中）——net/http 深入（路由、中间件、模板）、REST API 设计、参数校验、JWT 认证与 Cookie/Session、CORS 与限流；本阶段的 httptest 测试、依赖注入与质量工具链，将直接用于验证 ph09 的每一个接口。
+[Web 后端开发阶段](../ph09-web-backend/09-web-backend.md) ——net/http 深入（路由、中间件、模板）、REST API 设计、参数校验、JWT 认证与 Cookie/Session、CORS 与限流；本阶段的 httptest 测试、依赖注入与质量工具链，将直接用于验证 ph09 的每一个接口。

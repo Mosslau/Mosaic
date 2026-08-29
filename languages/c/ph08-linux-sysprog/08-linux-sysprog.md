@@ -686,4 +686,4 @@ C 的模型最"裸"：没有语言级并发原语、没有安全网，线程的�
 - **TCP echo server**：完整版支持多客户端（epoll 版示例 5）、半包处理（长度前缀协议）、超时（SO_RCVTIMEO）、优雅关闭（收到 `bye` 断开）
 - **多线程任务队列**：生产者-消费者模型，mutex + condvar 实现环形缓冲，支持多生产者多消费者，可扩展为日志采集器
 ### 下一阶段
-**C 标准、编译器与可移植性**（ph09-portability，文档规划中）—— C89~C23 差异、GCC/Clang/MSVC、条件编译、stdint.h 固定宽度类型；届时把本阶段学到的 POSIX/Linux API 放到"标准 C 与平台 API 的边界"下重新审视。
+[C 标准、编译器与可移植性](../ph09-portability/09-portability.md) —— C89~C23 差异、GCC/Clang/MSVC、条件编译、stdint.h 固定宽度类型；届时把本阶段学到的 POSIX/Linux API 放到"标准 C 与平台 API 的边界"下重新审视。

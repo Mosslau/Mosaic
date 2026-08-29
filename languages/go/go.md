@@ -353,6 +353,8 @@ func TestAdd(t *testing.T) {
 
 ## 9. Web 后端开发阶段
 
+> 📖 详细展开版见 [ph09-web-backend/09-web-backend.md](./ph09-web-backend/09-web-backend.md)
+
 ### 目标
 能用 Go 写后端 API 服务。
 

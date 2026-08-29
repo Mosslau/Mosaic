@@ -672,4 +672,4 @@ mypy calc.py             # 类型检查通过
 
 ### 下一阶段
 
-**数据分析阶段**（ph09-data-analysis，文档规划中）—— NumPy/Pandas 深入、数据清洗、时间序列、可视化报告。
+[数据分析阶段](../ph09-data-analysis/09-data-analysis.md) —— NumPy/Pandas 深入、数据清洗、时间序列、可视化报告。
