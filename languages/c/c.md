@@ -315,6 +315,8 @@ gdb ./app
 
 ## 8. Linux 系统编程阶段
 
+> 📖 详细展开版见 [ph08-linux-sysprog/08-linux-sysprog.md](./ph08-linux-sysprog/08-linux-sysprog.md)
+
 ### 目标
 能写系统级程序，理解进程、线程、文件描述符和 socket。
 

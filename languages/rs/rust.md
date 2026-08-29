@@ -318,6 +318,8 @@ fn print_encoded<T: Encode>(value: &T) {
 
 ## 8. 生命周期 Lifetime 阶段
 
+> 📖 详细展开版见 [ph08-lifetimes/08-lifetimes.md](./ph08-lifetimes/08-lifetimes.md)
+
 ### 目标
 理解引用有效期，能处理函数、结构体和泛型中的生命周期约束。
 

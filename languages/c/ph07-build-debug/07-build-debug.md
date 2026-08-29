@@ -543,4 +543,4 @@ C 的工具链最"手工"：没有内建包管理、没有统一的构建 DSL，
 - **多模块命令行工具**：如"文件统计工具"，拆成 io/parse/report 多模块，Makefile 构建，`-Wall -Wextra` 保持零警告，用 GDB 验证边界输入（空文件、超长行）
 - **静态库形式的数据结构库**：把 ph05 的链表/动态数组封装成 `libds.a`，提供 `ds.h` 接口，另写测试程序链接使用，用 GDB 调试增删查越界
 ### 下一阶段
-**Linux 系统编程阶段**（ph08-linux-sysprog，文档规划中）—— 文件描述符、open/read/write/close、fork/exec/wait、pthread、socket、epoll；届时把本阶段的 Makefile/GDB 能力应用到系统级程序上。
+[Linux 系统编程阶段](../ph08-linux-sysprog/08-linux-sysprog.md) —— 文件描述符、open/read/write/close、fork/exec/wait、pthread、socket、epoll；届时把本阶段的 Makefile/GDB 能力应用到系统级程序上。

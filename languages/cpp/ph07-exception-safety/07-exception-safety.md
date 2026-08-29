@@ -547,4 +547,4 @@ int main() {
 - **工程化配置库**：INI/键值解析、类型转换与默认值、错误码体系 + 异常分层、日志接入、头文件规范与命名空间分层——覆盖本阶段几乎全部知识点，roadmap 指定项目
 - **异常安全资源封装**：把文件/连接/内存池封装成 RAII 类，禁拷贝允移动、copy-and-swap 强保证赋值、异常路径自动释放——直接服务存储引擎的连接与 WAL 管理
 ### 下一阶段
-**并发编程阶段**（ph08-concurrency，文档规划中）——std::thread、mutex、condition_variable、async/future、atomic。
+[并发编程阶段](../ph08-concurrency/08-concurrency.md) ——std::thread、mutex、condition_variable、async/future、atomic。

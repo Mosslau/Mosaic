@@ -309,6 +309,8 @@ http.ListenAndServe(":8080", nil)
 
 ## 8. 测试与工程质量阶段
 
+> 📖 详细展开版见 [ph08-testing/08-testing.md](./ph08-testing/08-testing.md)
+
 ### 目标
 写可维护、可测试的 Go 代码。
 

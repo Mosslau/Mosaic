@@ -462,4 +462,4 @@ uv python install 3.12 && uv venv --python 3.12   # 指定 Python 版本
 
 ### 下一阶段
 
-**第三方库阶段**（ph08-third-party，文档规划中）—— requests/httpx、numpy/pandas、FastAPI、pytest 等生态选型。
+[第三方库阶段](../ph08-third-party/08-third-party.md) —— requests/httpx、numpy/pandas、FastAPI、pytest 等生态选型。

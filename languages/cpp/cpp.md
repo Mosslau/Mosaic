@@ -344,6 +344,8 @@ try {
 
 ## 8. 并发编程阶段
 
+> 📖 详细展开版见 [ph08-concurrency/08-concurrency.md](./ph08-concurrency/08-concurrency.md)
+
 ### 目标
 能写安全的多线程 C++ 程序。
 

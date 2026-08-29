@@ -302,6 +302,8 @@ pip install requests
 
 ## 8. 第三方库阶段
 
+> 📖 详细展开版见 [ph08-third-party/08-third-party.md](./ph08-third-party/08-third-party.md)
+
 ### 目标
 掌握常用生态，快速完成工程任务。
 

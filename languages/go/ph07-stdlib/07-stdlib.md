@@ -659,4 +659,4 @@ func TestWordCount(t *testing.T) {
 
 ### 下一阶段
 
-**测试与工程质量阶段**（`ph08-testing`，文档规划中）——单元测试深入（表格驱动、t.Run 子测试）、mock 依赖隔离、覆盖率、benchmark 与 benchmem、race detector 与 CI 集成。
+[测试与工程质量阶段](../ph08-testing/08-testing.md) ——单元测试深入（表格驱动、t.Run 子测试）、mock 依赖隔离、覆盖率、benchmark 与 benchmem、race detector 与 CI 集成。

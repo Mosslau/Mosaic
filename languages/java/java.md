@@ -319,6 +319,8 @@ for (String line : lines) {
 
 ## 8. Lambda 与 Stream 阶段
 
+> 📖 详细展开版见 [ph08-lambda-stream/08-lambda-stream.md](./ph08-lambda-stream/08-lambda-stream.md)
+
 ### 目标
 掌握现代 Java 的函数式数据处理方式。
 

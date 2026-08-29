@@ -589,4 +589,4 @@ public class ObjectSerialization {
 
 ### 下一阶段
 
-**Lambda 与 Stream 阶段**（`ph08-lambda-stream`，文档规划中）—— 函数式接口、lambda 表达式、Stream API 与 Optional 链式处理。
+[Lambda 与 Stream 阶段](../ph08-lambda-stream/08-lambda-stream.md) —— 函数式接口、lambda 表达式、Stream API 与 Optional 链式处理。
