@@ -4,7 +4,7 @@
 demo 里对比"启发式到底省了多少扩展节点"。
 """
 
-from impl import SearchResult
+from impl import SearchResult, solve
 
 
 def dijkstra(
@@ -14,10 +14,10 @@ def dijkstra(
 ) -> SearchResult:
     """Dijkstra 最短路径，接口与 A* 对齐（没有 heuristic 参数）。
 
-    逻辑 = A* 去掉启发式：先实现 A*，再删掉 h 这一项即可。
+    逻辑 = A* 去掉启发式：直接复用 solve，令 h ≡ 0。
+    这个写法本身就是论点：Dijkstra = h≡0 的 A*。
     """
-    # TODO: 手写 Dijkstra（可先复用 A* 的框架，令 h ≡ 0）
-    raise NotImplementedError("TODO: 手写 Dijkstra（h ≡ 0 的 A*）")
+    return solve(grid, start, goal, heuristic=lambda a, b: 0)
 
 
 if __name__ == "__main__":
