@@ -459,4 +459,4 @@ func main() {
 
 ### 下一阶段
 
-**并发编程 Goroutine 与 Channel 阶段**（`ph06-concurrency`，文档规划中）—— goroutine 调度、channel 通信、select 多路复用、WaitGroup/Mutex 同步、context 取消传播、worker pool 模式。
+[并发编程 Goroutine 与 Channel 阶段](../ph06-concurrency/06-concurrency.md) —— goroutine 调度、channel 通信、select 多路复用、WaitGroup/Mutex 同步、context 取消传播、worker pool 模式。

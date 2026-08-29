@@ -17,7 +17,7 @@ Python 文件操作与异常处理阶段的目标是：**能以 `with` 安全打
 | 异常处理 | `try`/`except`/`else`/`finally` 四段式、捕获具体异常、`raise from` 保留链 |
 | 自定义异常 | 继承 `Exception`、定义错误码和消息 |
 
-**范围边界**：本阶段聚焦文件读写与异常处理核心机制，不涉及 `asyncio` 异步文件 I/O、`mmap` 内存映射、二进制序列化（`pickle`/`struct`）、`pathlib` 路径操作（归入 ph06 标准库阶段）。下一阶段为 **Python 标准库阶段**（ph06-stdlib，文档规划中）。
+**范围边界**：本阶段聚焦文件读写与异常处理核心机制，不涉及 `asyncio` 异步文件 I/O、`mmap` 内存映射、二进制序列化（`pickle`/`struct`）、`pathlib` 路径操作（归入 ph06 标准库阶段）。下一阶段为 **Python 标准库阶段**（ph06-stdlib）。
 
 ## 2. 来源与演变
 
@@ -487,4 +487,4 @@ with tempfile.TemporaryDirectory() as d:
 
 ### 下一阶段
 
-**Python 标准库阶段**（ph06-stdlib，文档规划中）—— `os`/`sys`/`pathlib`/`shutil`、`datetime`/`re`/`logging`/`argparse`/`subprocess`、`collections`/`itertools`/`functools`。
+[Python 标准库阶段](../ph06-stdlib/06-stdlib.md) —— `os`/`sys`/`pathlib`/`shutil`、`datetime`/`re`/`logging`/`argparse`/`subprocess`、`collections`/`itertools`/`functools`。

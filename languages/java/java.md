@@ -233,6 +233,8 @@ class Box<T> {
 
 ## 6. 异常处理阶段
 
+> 📖 详细展开版见 [ph06-exception/06-exception.md](./ph06-exception/06-exception.md)
+
 ### 目标
 写出稳定、可维护的错误处理代码。
 

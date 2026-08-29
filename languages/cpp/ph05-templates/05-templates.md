@@ -592,4 +592,4 @@ int main() {
 
 ### 下一阶段
 
-**异常、安全与工程规范阶段**（ph06-exception-safety，文档规划中）——try/catch/throw、异常安全等级（基本/强/不抛）、assert 与错误码体系、RAII 与异常安全资源封装。
+[现代 C++（C++11~C++23）阶段](../ph06-modern-cpp/06-modern-cpp.md) —— auto/智能指针/lambda/optional/variant/std::format 等现代写法；异常安全与错误码体系将随后在 ph07 展开。

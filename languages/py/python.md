@@ -217,6 +217,8 @@ with open("data.txt", "r", encoding="utf-8") as f:
 
 ## 6. Python 标准库阶段
 
+> 📖 详细展开版见 [ph06-stdlib/06-stdlib.md](./ph06-stdlib/06-stdlib.md)
+
 ### 目标
 熟悉 Python 自带工具库，提高脚本和工程效率。
 

@@ -224,6 +224,8 @@ typedef struct {
 
 ## 6. 文件操作阶段
 
+> 📖 详细展开版见 [ph06-file-io/06-file-io.md](./ph06-file-io/06-file-io.md)
+
 ### 目标
 能读写文件并处理持久化数据。
 

@@ -221,6 +221,8 @@ myapp/
 
 ## 6. 并发编程 Goroutine 与 Channel 阶段
 
+> 📖 详细展开版见 [ph06-concurrency/06-concurrency.md](./ph06-concurrency/06-concurrency.md)
+
 ### 目标
 掌握 Go 的核心并发模型。
 

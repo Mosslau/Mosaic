@@ -497,4 +497,4 @@ fn main() {
 
 ### 下一阶段
 
-**模块化与 Cargo 阶段**（`ph06-cargo-module`，文档规划中）—— mod/pub/use 可见性控制、lib.rs 与 main.rs、Cargo.toml 依赖管理、workspace 多 crate 组织。
+[模块化与 Cargo 阶段](../ph06-cargo-module/06-cargo-module.md) —— mod/pub/use 可见性控制、lib.rs 与 main.rs、Cargo.toml 依赖管理、workspace 多 crate 组织。

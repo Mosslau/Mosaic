@@ -230,6 +230,8 @@ fn handle(event: Event) {
 
 ## 6. 模块化与 Cargo 阶段
 
+> 📖 详细展开版见 [ph06-cargo-module/06-cargo-module.md](./ph06-cargo-module/06-cargo-module.md)
+
 ### 目标
 能组织多文件 Rust 项目，掌握 Cargo 的日常工程工作流。
 

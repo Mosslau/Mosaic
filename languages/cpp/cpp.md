@@ -250,6 +250,8 @@ struct Factorial<0> {
 
 ## 6. 现代 C++（C++11~C++23）阶段
 
+> 📖 详细展开版见 [ph06-modern-cpp/06-modern-cpp.md](./ph06-modern-cpp/06-modern-cpp.md)
+
 ### 目标
 掌握 C++11 之后的现代写法，覆盖 C++17/20 关键特性，减少裸资源和样板代码。
 

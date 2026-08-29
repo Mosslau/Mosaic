@@ -498,4 +498,4 @@ Java 的类型擦除是「用运行期能力换向后兼容」的权衡——旧
 
 ### 下一阶段
 
-**异常处理阶段**（`ph06-exception`，文档规划中）— checked/unchecked exception、try-with-resources、异常链与自定义异常。
+[异常处理阶段](../ph06-exception/06-exception.md) — checked/unchecked exception、try-with-resources、异常链与自定义异常。

@@ -549,4 +549,4 @@ C struct 的本质是**精确控制内存布局的聚合类型**——没有语�
 
 ### 下一阶段
 
-**文件操作阶段**（ph06-file-io，文档规划中）— `fopen/fclose/fread/fwrite`、文本/二进制文件读写、`fseek/ftell`、CSV 解析、append-only log。
+[文件操作阶段](../ph06-file-io/06-file-io.md) — `fopen/fclose/fread/fwrite`、文本/二进制文件读写、`fseek/ftell`、CSV 解析、append-only log。
