@@ -671,4 +671,4 @@ def get_device(device_id: int):
 
 ### 下一阶段
 
-**数据库与缓存阶段**（ph11-database，文档规划中）—— SQL 深入、PostgreSQL/MySQL、Redis 缓存、事务与迁移。
+[数据库与缓存阶段](../ph11-database/11-database.md) —— SQL 深入、PostgreSQL/MySQL、Redis 缓存、事务与迁移。

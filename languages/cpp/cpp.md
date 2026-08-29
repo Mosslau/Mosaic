@@ -480,6 +480,8 @@ add_executable(app main.cpp)
 
 ## 11. C++ 标准、编译器与可移植性
 
+> 📖 详细展开版见 [ph11-portability/11-portability.md](./ph11-portability/11-portability.md)
+
 ### 目标
 理解 C++ 标准演进和编译器差异，避免不可移植写法。
 

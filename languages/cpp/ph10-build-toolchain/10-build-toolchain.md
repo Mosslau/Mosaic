@@ -543,4 +543,4 @@ genhtml coverage.info --output-directory html
 - **C++ 工程模板**：示例 1 的完整形态——core 库 + app + tests 三层骨架、Debug/Release/RelWithDebInfo 构建类型、`-Wall -Wextra` 零警告、clang-format + .clang-format 格式化门禁、clang-tidy 规则集、ctest 测试注册、README 写清"怎么配置/构建/测试"——roadmap 指定项目，后续所有阶段项目都从它起步，是"能构建多目标项目"验收的直接产物
 - **带 CI 的小型库**：在工程模板上挑一个 ph07-ph09 的模块（如日志库）做成可复用库，GitHub Actions/GitLab CI 里跑"cmake 配置构建 → ctest → clang-tidy 静态检查 → clang-format 校验 → gcov/lcov 覆盖率报告（设阈值）"，任一环节失败即红灯——把本阶段全部工具链串成一条流水线，正是"能配置基础质量工具链"验收的完整答案，也是未来存储引擎等系统软件质量的雏形
 ### 下一阶段
-**C++ 标准、编译器与可移植性**（ph11-portability，文档规划中）—— 标准演进（C++11~C++23）、编译器差异（GCC/Clang/MSVC）、ABI 稳定性、跨平台构建；届时把本阶段的 CMake/工具链能力应用到"同一份代码多编译器多平台都能构建"上。
+[C++ 标准、编译器与可移植性](../ph11-portability/11-portability.md) —— 标准演进（C++11~C++23）、编译器差异（GCC/Clang/MSVC）、ABI 稳定性、跨平台构建；届时把本阶段的 CMake/工具链能力应用到"同一份代码多编译器多平台都能构建"上。

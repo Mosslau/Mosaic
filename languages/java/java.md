@@ -463,6 +463,8 @@ java -Xms512m -Xmx512m -XX:+UseG1GC -jar app.jar
 
 ## 11. Maven / Gradle 与工程化阶段
 
+> 📖 详细展开版见 [ph11-build-tooling/11-build-tooling.md](./ph11-build-tooling/11-build-tooling.md)
+
 ### 目标
 能管理真实 Java 项目。
 

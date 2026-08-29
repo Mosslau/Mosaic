@@ -440,6 +440,8 @@ defer db.Close()
 
 ## 11. 微服务与 RPC 阶段
 
+> 📖 详细展开版见 [ph11-microservice-rpc/11-microservice-rpc.md](./ph11-microservice-rpc/11-microservice-rpc.md)
+
 ### 目标
 能写可扩展的服务系统。
 

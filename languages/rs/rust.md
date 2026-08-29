@@ -441,6 +441,8 @@ println!("{} {}", shared, another);
 
 ## 11. 错误处理与工程质量阶段
 
+> 📖 详细展开版见 [ph11-error-handling/11-error-handling.md](./ph11-error-handling/11-error-handling.md)
+
 ### 目标
 建立可维护的错误模型和基础工程质量习惯。
 

@@ -548,4 +548,4 @@ Exception in thread "main" java.lang.OutOfMemoryError: Java heap space
 
 ### 下一阶段
 
-**Maven / Gradle 与工程化阶段**（`ph11-build-tooling`，文档规划中）—— 构建工具、依赖管理、多模块工程、CI 集成。
+[Maven / Gradle 与工程化阶段](../ph11-build-tooling/11-build-tooling.md) —— 构建工具、依赖管理、多模块工程、CI 集成。

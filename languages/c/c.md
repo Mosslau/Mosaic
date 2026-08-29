@@ -444,6 +444,8 @@ int arr[3] = {1, 2, 3};
 
 ## 11. Sanitizer / 静态分析 / 单元测试
 
+> 📖 详细展开版见 [ph11-sanitizer-testing/11-sanitizer-testing.md](./ph11-sanitizer-testing/11-sanitizer-testing.md)
+
 ### 目标
 建立 C 代码质量工具链，减少运行时事故。
 

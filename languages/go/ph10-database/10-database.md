@@ -848,4 +848,4 @@ func markDone(c *gin.Context) {
 
 ### 下一阶段
 
-**微服务与 RPC 阶段**（`ph11-microservice-rpc`，文档规划中）——gRPC、protobuf、服务发现、API 网关、分布式基础；本阶段"单体 + 单库 + 单 Redis"将拆分为多服务，服务间通信从 HTTP JSON 升级为 gRPC 二进制协议，数据库访问下沉为各服务的独立数据层。
+[微服务与 RPC 阶段](../ph11-microservice-rpc/11-microservice-rpc.md) —— gRPC、protobuf、服务发现、API 网关、分布式基础；本阶段"单体 + 单库 + 单 Redis"将拆分为多服务，服务间通信从 HTTP JSON 升级为 gRPC 二进制协议，数据库访问下沉为各服务的独立数据层。
