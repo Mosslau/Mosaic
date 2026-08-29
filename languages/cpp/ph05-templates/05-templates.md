@@ -182,6 +182,52 @@ int main() {
 }
 ```
 
+#### 3.5.1 编译期递归与 typelist（类型列表）
+
+模板元编程没有循环——**编译期"迭代"靠递归实例化**：
+
+```cpp
+// 编译期阶乘：经典递归实例化
+template<int N> struct Factorial { static constexpr int value = N * Factorial<N-1>::value; };
+template<>      struct Factorial<0> { static constexpr int value = 1; };
+
+static_assert(Factorial<5>::value == 120);   // 编译期计算，零运行时代码
+```
+
+**typelist** 把一组类型打包为一个类型，是元编程的"容器"：
+
+```cpp
+#include <type_traits>
+
+// 类型列表：空模板结构体做标签
+template<typename... Ts> struct TypeList {};
+
+// 基本变换 1：count —— 列表长度（变参包展开）
+template<typename List> struct Length;
+template<typename... Ts>
+struct Length<TypeList<Ts...>> { static constexpr size_t value = sizeof...(Ts); };
+
+// 基本变换 2：contains —— 类型是否在列表中（C++17 折叠表达式）
+template<typename T, typename List> struct Contains;
+template<typename T, typename... Ts>
+struct Contains<T, TypeList<Ts...>>
+    : std::bool_constant<(std::is_same_v<T, Ts> || ...)> {};
+
+using MyTypes = TypeList<int, double, char>;
+
+static_assert(Length<MyTypes>::value == 3);
+static_assert(Contains<double, MyTypes>::value);
+static_assert(!Contains<float, MyTypes>::value);
+```
+
+| 变换 | 手段 | 说明 |
+|------|------|------|
+| `Length` | 偏特化 + `sizeof...` | 数变参包长度 |
+| `Contains` | 折叠表达式 `|| ...` | C++17 前要写递归偏特化 |
+| push/pop/concat | 偏特化重组变参包 | 类型层面的"容器操作" |
+
+typelist 的用途：**编译期类型分发**（序列化框架按类型列表注册处理器）、**变体类型的受支持类型清单**（`std::variant` 底层思想）、SFINAE 时代的"类型集合运算"。现代 C++ 里很多场景被 concept + 变参模板取代，但理解 typelist 是读懂 STL 与老牌元编程库（Boost.MPL）的前提。
+
 ### 3.6 concept + requires：C++20 约束编程
 
 上一代用 SFINAE + `enable_if` 做泛型约束，错误信息灾难级（数百行回溯）。concept 让约束声明式、错误可读。

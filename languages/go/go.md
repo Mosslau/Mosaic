@@ -93,7 +93,7 @@ func divide(a, b int) (int, error) {
 
 ## 3. Slice、Map、Struct 阶段
 
-> 📖 详细展开版见 [ph03-slice-map-struct/](ph03-slice-map-struct/03-slice-map-struct.md)
+> 📖 详细展开版见 [ph03-slice-map-struct/](./ph03-slice-map-struct/03-slice-map-struct.md)
 
 ### 目标
 掌握 Go 最常用的数据组织方式。
@@ -136,7 +136,7 @@ type Motor struct {
 
 ## 4. 方法与接口阶段
 
-> 📖 详细展开版见 [ph04-method-interface/](ph04-method-interface/04-method-interface.md)
+> 📖 详细展开版见 [ph04-method-interface/](./ph04-method-interface/04-method-interface.md)
 
 ### 目标
 理解 Go 的面向接口编程，用小接口降低耦合。
@@ -177,7 +177,7 @@ type Sensor interface {
 
 ## 5. 包管理与工程结构阶段
 
-> 📖 详细展开版见 [ph05-pkg-structure/](ph05-pkg-structure/05-pkg-structure.md)
+> 📖 详细展开版见 [ph05-pkg-structure/](./ph05-pkg-structure/05-pkg-structure.md)
 
 ### 目标
 能组织真实 Go 工程项目。

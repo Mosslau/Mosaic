@@ -112,6 +112,73 @@ go work init ./lib/shared ./services/collector ./services/reporter
 
 工作区内模块可直接 import 彼此，无需 replace。**go.work 只用于本地开发，不应提交到版本控制**。
 
+### 3.6 配置加载与日志规范（internal/config + log）
+
+`internal/config` 包的实际职责：从环境变量/JSON 文件读配置，集中校验，向上返回一个不可变的 Config 结构体。
+
+```go
+// internal/config/config.go
+package config
+
+import (
+    "encoding/json"
+    "fmt"
+    "os"
+)
+
+type Config struct {
+    Port    int    `json:"port"`
+    DataDir string `json:"data_dir"`
+}
+
+func Load(path string) (*Config, error) {
+    data, err := os.ReadFile(path)
+    if err != nil {
+        return nil, fmt.Errorf("read config %s: %w", path, err)
+    }
+    var cfg Config
+    if err := json.Unmarshal(data, &cfg); err != nil {
+        return nil, fmt.Errorf("parse config %s: %w", path, err)
+    }
+    // 集中校验：宁可启动时失败，不要运行到一半才暴露配置错误
+    if cfg.Port <= 0 || cfg.Port > 65535 {
+        return nil, fmt.Errorf("invalid port: %d", cfg.Port)
+    }
+    return &cfg, nil
+}
+```
+
+| 约定 | 做法 | 理由 |
+|------|------|------|
+| 错误用 `%w` 包装 | `fmt.Errorf("...: %w", err)` | 保留错误链，上层可 `errors.Is/As` |
+| 配置结构体不可变 | 返回 `*Config` 后不再改 | 多 goroutine 读无竞态 |
+| 启动时校验 | Load 内检查合法性 | fail fast，错误前置 |
+| 环境变量覆盖 | 先读文件再读 env 覆盖（可选） | 12-factor 惯例，容器化部署友好 |
+
+日志方面，标准库 `log` 包的工程约定：
+
+```go
+import "log"
+
+func main() {
+    log.SetFlags(log.LstdFlags | log.Lshortfile)   // 时间戳 + 文件名:行号
+
+    cfg, err := config.Load("config.json")
+    if err != nil {
+        log.Fatalf("load config: %v", err)          // 打印后 os.Exit(1)，仅用于 main 启动期
+    }
+    log.Printf("server starting on :%d", cfg.Port)  // 常规运行日志
+}
+```
+
+| 函数 | 行为 | 适用位置 |
+|------|------|---------|
+| `log.Print/Printf` | 打印后继续运行 | 业务运行日志 |
+| `log.Fatal/Fatalf` | 打印后 `os.Exit(1)` | **仅限 main 启动失败**——库代码里 Fatal 会让调用方无法优雅处理 |
+| `log.Panic` | 打印后 panic | 几乎不用 |
+
+**约定**：库代码（internal/ 下的包）返回 `error` 不打印日志——打日志是 main 层（cmd/）的职责，否则同一错误在每一层被重复打印。结构化日志（`log/slog`，Go 1.21+）在 ph07 标准库展开。
+
 ## 4. 底层原理
 
 ### 4.1 最小版本选择算法（MVS）

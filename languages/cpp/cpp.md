@@ -97,7 +97,7 @@ private:
 
 ## 3. C++ 内存模型阶段
 
-> 📖 详细展开版见 [ph03-memory-model/](ph03-memory-model/03-memory-model.md)
+> 📖 详细展开版见 [ph03-memory-model/](./ph03-memory-model/03-memory-model.md)
 
 ### 目标
 理解对象生命周期、拷贝、移动和资源管理。
@@ -144,7 +144,7 @@ private:
 
 ## 4. STL 标准库阶段
 
-> 📖 详细展开版见 [ph04-stl/](ph04-stl/04-stl.md)
+> 📖 详细展开版见 [ph04-stl/](./ph04-stl/04-stl.md)
 
 ### 目标
 熟练使用 STL 容器、算法和迭代器写高效代码。
@@ -189,7 +189,7 @@ std::sort(nums.begin(), nums.end());
 
 ## 5. 模板与泛型编程、元编程阶段
 
-> 📖 详细展开版见 [ph05-templates/](ph05-templates/05-templates.md)
+> 📖 详细展开版见 [ph05-templates/](./ph05-templates/05-templates.md)
 
 ### 目标
 理解 C++ 的通用库能力，能写类型安全的泛型组件，能进行元编程代码编写。

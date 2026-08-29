@@ -91,7 +91,7 @@ print(user.get("name"))
 
 ## 3. 函数与模块化阶段
 
-> 📖 详细展开版见 [ph03-func-module/](ph03-func-module/03-func-module.md)
+> 📖 详细展开版见 [ph03-func-module/](./ph03-func-module/03-func-module.md)
 
 ### 目标
 能把代码拆成函数、模块和包。
@@ -131,7 +131,7 @@ def add(a: int, b: int) -> int:
 
 ## 4. 面向对象 OOP 阶段
 
-> 📖 详细展开版见 [ph04-oop/](ph04-oop/04-oop.md)
+> 📖 详细展开版见 [ph04-oop/](./ph04-oop/04-oop.md)
 
 ### 目标
 理解类和对象，用对象组织复杂业务。
@@ -176,7 +176,7 @@ class Motor:
 
 ## 5. 文件操作与异常处理阶段
 
-> 📖 详细展开版见 [ph05-file-exception/](ph05-file-exception/05-file-exception.md)
+> 📖 详细展开版见 [ph05-file-exception/](./ph05-file-exception/05-file-exception.md)
 
 ### 目标
 能读写文件并处理错误。

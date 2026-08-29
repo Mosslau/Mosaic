@@ -12,7 +12,7 @@
 | 成员访问 | `.` 访问栈对象成员、`->` 通过指针间接访问 |
 | 特殊类型 | enum（替代魔术数字）、union（节省内存）、位域（压缩标志位） |
 | 内存布局 | 对齐规则、padding、`offsetof`、`#pragma pack` |
-| 数据结构 | 单链表（核心）、栈（数组实现+链表实现对比）、队列、哈希表（链地址法） |
+| 数据结构 | 单链表（核心）、栈（数组实现+链表实现对比）、队列、哈希表（链地址法）、二叉搜索树、二叉堆、图（邻接表） |
 | 生命周期 | init → 操作 → destroy 三段式接口设计 |
 
 本阶段直接承接 ph03+ph04：ph03 的指针操作对象从 `int` 变成 `struct Node`，ph04 的 malloc/free 用来在堆上创建/销毁节点。链表节点的 `next` 指针就是 ph03 的核心遗产——**指针指向同类型的下一个节点**，这是所有链式结构的基础。
@@ -501,6 +501,202 @@ int main(void) {
 
 **所有权**：哈希表存储动态分配 key（`malloc+strcpy`），不依赖调用者字符串生命周期。销毁时先 `free(tmp->key)` 再 `free(tmp)`。
 
+### 示例 5：二叉搜索树 BST — 有序字典
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+
+typedef struct BSTNode {
+    int             key;
+    struct BSTNode *left, *right;
+} BSTNode;
+
+BSTNode *bst_insert(BSTNode *root, int key) {
+    if (root == NULL) {
+        BSTNode *n = malloc(sizeof(BSTNode));
+        if (n == NULL) return NULL;
+        n->key = key; n->left = n->right = NULL;
+        return n;
+    }
+    if (key < root->key)      root->left  = bst_insert(root->left, key);
+    else if (key > root->key) root->right = bst_insert(root->right, key);
+    return root;                    /* 相等则忽略（无重复键） */
+}
+
+BSTNode *bst_find(BSTNode *root, int key) {
+    while (root != NULL) {
+        if (key < root->key)      root = root->left;
+        else if (key > root->key) root = root->right;
+        else                      return root;
+    }
+    return NULL;
+}
+
+void bst_inorder(BSTNode *root) {           /* 中序遍历 = 有序输出 */
+    if (root == NULL) return;
+    bst_inorder(root->left);
+    printf("%d ", root->key);
+    bst_inorder(root->right);
+}
+
+void bst_destroy(BSTNode *root) {           /* 后序释放：先子后父 */
+    if (root == NULL) return;
+    bst_destroy(root->left);
+    bst_destroy(root->right);
+    free(root);
+}
+
+int main(void) {
+    BSTNode *root = NULL;
+    int keys[] = {50, 30, 70, 20, 40, 60, 80};
+    for (int i = 0; i < 7; i++) root = bst_insert(root, keys[i]);
+
+    printf("中序遍历: "); bst_inorder(root); printf("\n");
+    printf("查找 40: %s\n", bst_find(root, 40) ? "找到" : "未找到");
+    printf("查找 45: %s\n", bst_find(root, 45) ? "找到" : "未找到");
+    bst_destroy(root);
+    return 0;
+}
+```
+
+**关键**：查找/插入复杂度 O(h)，h 为树高——平衡时 log n，退化成链时 n（本例未做平衡，那是 AVL/红黑树的范畴）。递归释放必须**后序**：先释放子树再释放父节点，否则先 free 父节点后左右指针全部悬空。
+
+### 示例 6：二叉堆 — 任务优先级队列
+
+```c
+#include <stdio.h>
+
+#define HEAP_MAX 256
+
+typedef struct { int data[HEAP_MAX]; int size; } MinHeap;
+
+void heap_init(MinHeap *h) { h->size = 0; }
+
+static void swap(int *a, int *b) { int t = *a; *a = *b; *b = t; }
+
+int heap_push(MinHeap *h, int x) {
+    if (h->size >= HEAP_MAX) return -1;
+    int i = h->size++;
+    h->data[i] = x;
+    while (i > 0) {                         /* 上浮：比父小就换 */
+        int parent = (i - 1) / 2;
+        if (h->data[i] >= h->data[parent]) break;
+        swap(&h->data[i], &h->data[parent]);
+        i = parent;
+    }
+    return 0;
+}
+
+int heap_pop(MinHeap *h, int *out) {
+    if (h->size == 0) return -1;
+    *out = h->data[0];
+    h->data[0] = h->data[--h->size];
+    int i = 0;
+    for (;;) {                              /* 下沉：与较小子比 */
+        int l = 2 * i + 1, r = 2 * i + 2, smallest = i;
+        if (l < h->size && h->data[l] < h->data[smallest]) smallest = l;
+        if (r < h->size && h->data[r] < h->data[smallest]) smallest = r;
+        if (smallest == i) break;
+        swap(&h->data[i], &h->data[smallest]);
+        i = smallest;
+    }
+    return 0;
+}
+
+int main(void) {
+    MinHeap h; heap_init(&h);
+    int tasks[] = {5, 1, 9, 3, 7};          /* 数字小 = 优先级高 */
+    for (int i = 0; i < 5; i++) heap_push(&h, tasks[i]);
+
+    printf("按优先级出队: ");
+    int t;
+    while (heap_pop(&h, &t) == 0) printf("%d ", t);   /* 1 3 5 7 9 */
+    printf("\n");
+    return 0;
+}
+```
+
+**关键**：堆用**数组**存完全二叉树——父 `i` 的子在 `2i+1`/`2i+2`，免指针、缓存友好、无 malloc。push 上浮、pop 下沉均 O(log n)。普通队列 FIFO 出队，堆每次出**最小**元素——调度器、定时器、Top-K 的基石。
+
+### 示例 7：图（邻接表）— BFS 最短跳数
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+
+typedef struct AdjNode { int v; struct AdjNode *next; } AdjNode;
+
+typedef struct {
+    AdjNode **heads;    /* 每个顶点一条邻接链表 */
+    int       n;        /* 顶点数 */
+} Graph;
+
+Graph *graph_create(int n) {
+    Graph *g = malloc(sizeof(Graph));
+    if (g == NULL) return NULL;
+    g->n = n;
+    g->heads = calloc((size_t)n, sizeof(AdjNode *));
+    if (g->heads == NULL) { free(g); return NULL; }
+    return g;
+}
+
+void graph_add_edge(Graph *g, int u, int v) {     /* 无向图：双向加边 */
+    for (int a = u, b = v;;) {
+        AdjNode *node = malloc(sizeof(AdjNode));
+        if (node == NULL) return;
+        node->v = b;
+        node->next = g->heads[a];
+        g->heads[a] = node;
+        if (a == v) break;
+        a = v; b = u;
+    }
+}
+
+/* BFS：返回 src 到 dst 的最短跳数，不可达返回 -1 */
+int graph_bfs(Graph *g, int src, int dst) {
+    int *dist = malloc((size_t)g->n * sizeof(int));
+    int *queue = malloc((size_t)g->n * sizeof(int));
+    if (dist == NULL || queue == NULL) { free(dist); free(queue); return -1; }
+    for (int i = 0; i < g->n; i++) dist[i] = -1;
+    int head = 0, tail = 0;
+    dist[src] = 0; queue[tail++] = src;
+    while (head < tail) {
+        int u = queue[head++];
+        for (AdjNode *p = g->heads[u]; p != NULL; p = p->next)
+            if (dist[p->v] == -1) {
+                dist[p->v] = dist[u] + 1;
+                queue[tail++] = p->v;
+            }
+    }
+    int result = dist[dst];
+    free(dist); free(queue);
+    return result;
+}
+
+void graph_destroy(Graph *g) {
+    for (int i = 0; i < g->n; i++) {
+        AdjNode *cur = g->heads[i];
+        while (cur != NULL) { AdjNode *tmp = cur; cur = cur->next; free(tmp); }
+    }
+    free(g->heads); free(g);
+}
+
+int main(void) {
+    Graph *g = graph_create(6);
+    if (g == NULL) return 1;
+    graph_add_edge(g, 0, 1); graph_add_edge(g, 0, 2);
+    graph_add_edge(g, 1, 3); graph_add_edge(g, 2, 4);
+    graph_add_edge(g, 3, 5); graph_add_edge(g, 4, 5);
+    printf("0 -> 5 最短跳数: %d\n", graph_bfs(g, 0, 5));   /* 3 */
+    printf("1 -> 4 最短跳数: %d\n", graph_bfs(g, 1, 4));   /* 3 */
+    graph_destroy(g);
+    return 0;
+}
+```
+
+**关键**：邻接表 = 指针数组 + 每顶点一条链表，稀疏图 O(V+E) 空间（邻接矩阵要 O(V²)）。BFS 借队列按层扩展，**第一次到达即最短跳数**——无权图最短路径的标准解法。
+
 ## 7. 总结
 
 ### 关键要点
@@ -533,6 +729,9 @@ C struct 的本质是**精确控制内存布局的聚合类型**——没有语�
 - 能用 `offsetof` 和 `sizeof` 验证布局，解释 padding 产生的原因
 - 能实现单链表（增删查改+完整释放），用二级指针正确修改头节点
 - 能用数组栈解决括号匹配，能用链表队列实现 FIFO 调度
+- 能实现 BST 插入/查找/中序遍历，并用后序遍历正确释放整棵树
+- 能用数组实现二叉堆的上浮/下沉，说明堆与队列出队顺序的差异
+- 能用邻接表建图并写出 BFS 最短跳数
 - 能说明 union/位域的使用场景和限制
 
 ### 进入下一阶段前
@@ -542,6 +741,9 @@ C struct 的本质是**精确控制内存布局的聚合类型**——没有语�
 - 数组栈实现括号匹配（可扩展表达式求值：中缀转后缀）
 - 队列模拟任务调度（FIFO，打印入队/出队时间戳）
 - 哈希表统计词频（读取文本统计单词出现次数）
+- BST 插入一组数后中序遍历验证有序，并用后序遍历释放
+- 二叉堆实现优先任务队列（小数字=高优先级）
+- 邻接表建一个小图，BFS 求两点间最短跳数
 
 ### 推荐项目
 

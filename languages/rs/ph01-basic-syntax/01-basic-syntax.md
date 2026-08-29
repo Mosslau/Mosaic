@@ -32,7 +32,33 @@ Rust 由 Graydon Hoare 于 2006 年开始设计，Mozilla 于 2009 年赞助，2
 
 ## 3. 语法与参数
 
-### 3.1 第一个程序：Hello Rust
+### 3.1 工具链：rustup、cargo、rustc
+
+安装 Rust 的官方方式是 **rustup**（工具链管理器）：
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+rustup --version        # 验证安装
+rustc --version         # 查看编译器版本
+cargo --version         # 查看包管理器版本
+```
+
+三者分工：
+
+| 工具 | 角色 | 常用命令 |
+|------|------|---------|
+| `rustup` | 工具链管理器 | `rustup update`（升级）、`rustup component add clippy rustfmt`（装组件） |
+| `cargo` | 包管理器 + 构建系统 | `cargo new hello`（建项目）、`cargo run`（编译并运行）、`cargo check`（只检查不产出二进制，最快） |
+| `rustc` | 编译器本体 | `rustc main.rs`（直接编译单文件，日常不用） |
+
+```bash
+cargo new hello && cd hello   # 生成 Cargo.toml + src/main.rs
+cargo run                     # 编译并运行，输出 Hello, world!
+```
+
+学习阶段的日常节奏：改代码 → `cargo check` 秒级验证类型 → `cargo run` 看效果。**不要直接调用 rustc 管理多文件项目**——那是 cargo 的职责。
+
+### 3.2 第一个程序：Hello Rust
 
 ```rust
 fn main() {
@@ -43,7 +69,7 @@ fn main() {
 
 每个 Rust 程序都有 `fn main()` 作为入口。`println!` 后跟 `!` 表示它是**宏（Macro）**而非普通函数——宏在编译时展开为代码。
 
-### 3.2 变量：let、mut、Shadowing
+### 3.3 变量：let、mut、Shadowing
 
 ```rust
 let x = 5;           // 默认不可变（Immutable）
@@ -67,7 +93,7 @@ let z = "hello";     // 甚至可以改变类型！
 
 **关键概念**：`let x = 5` 的 `=` 是**绑定（Binding）**——将值绑定到名称，而不是给已存在的变量赋值。Rust 的术语中更常说"绑定"而非"变量"。
 
-### 3.3 基本类型
+### 3.4 基本类型
 
 | 类型 | 示例 | 说明 |
 |------|------|------|
@@ -86,7 +112,7 @@ let flag = true;           // 类型推导
 let heart_eyed_cat = '😻'; // Rust char 支持 Unicode（4 字节）
 ```
 
-### 3.4 复合类型：元组与数组
+### 3.5 复合类型：元组与数组
 
 ```rust
 // 元组（Tuple）：固定长度，元素类型可不同
@@ -106,7 +132,7 @@ println!("{} {}", arr[0], arr.len());
 | 数组 `[T; N]` | 固定 | 必须相同 | 栈 |
 | `Vec<T>` | 动态 | 必须相同 | 堆（第三阶段学） |
 
-### 3.5 运算符
+### 3.6 运算符
 
 | 类别 | 运算符 | 示例 |
 |------|--------|------|
@@ -122,7 +148,7 @@ println!("{} {}", arr[0], arr.len());
 - 没有三元运算符——`if` 本身就是表达式：`let max = if a > b { a } else { b };`
 - debug 模式下整数溢出会 panic，release 模式下静默回绕（wrapping）
 
-### 3.6 控制流：if、loop、while、for、match
+### 3.7 控制流：if、loop、while、for、match
 
 **if 是表达式**——它有返回值：
 
@@ -188,7 +214,7 @@ let grade = match 85 {
 };
 ```
 
-### 3.7 函数：表达式与语句
+### 3.8 函数：表达式与语句
 
 ```rust
 // 语句（Statement）：不返回值，以分号结尾

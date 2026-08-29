@@ -85,6 +85,27 @@ constexpr int SIZE = 256;  // constexpr 保证编译期求值（C++11）
 
 `auto` 几乎总是对的，但要注意它**不会推导引用和 const 限定符**——`auto s = "hi"` 推导为 `const char*`，不是 `std::string`。
 
+**const 是接口设计的一部分**（本阶段只需建立直觉，完整规则见 ph14 const 正确性）：
+
+```cpp
+// 1. const 引用参数：承诺"只读不修改"，避免大对象拷贝
+void print(const std::string& s);   // 传引用零拷贝，const 保证不改
+
+// 2. const 成员函数：承诺"不修改对象状态"，const 对象只能调 const 成员函数
+class Counter {
+    int count_ = 0;
+public:
+    int  value() const { return count_; }  // 只读：尾部 const
+    void increment()   { ++count_; }       // 可改：无 const
+};
+
+const Counter c;
+// c.increment();   // 编译错误：const 对象不能调非 const 成员函数
+int v = c.value();  // 合法
+```
+
+看到函数签名里的 `const`，先读成"承诺"——`const std::string&` 承诺不修改参数，成员函数尾部的 `const` 承诺不修改对象。这套约定让调用方不看实现就知道函数的副作用边界。
+
 ### 3.3 引用（Reference）— 不是指针语法糖
 
 ```cpp

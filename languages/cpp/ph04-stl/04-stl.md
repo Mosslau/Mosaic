@@ -151,6 +151,43 @@ auto it = std::ranges::find(v, 42);
 
 ranges 还支持管道操作符（`|`）组合过滤和变换（`views::filter` / `views::transform`），且编译错误信息比传统算法清晰——传统 `std::sort` 传错迭代器时模板错误长达数百行，ranges 用 concept 约束在调用点直接报错。
 
+#### 3.6.1 三个高频算法：count / for_each / accumulate
+
+```cpp
+#include <algorithm>
+#include <numeric>
+#include <vector>
+#include <iostream>
+
+int main() {
+    std::vector<int> v = {1, 5, 3, 5, 7, 5};
+
+    // count：统计等于某值的元素个数（count_if 按条件统计）
+    int fives = std::count(v.begin(), v.end(), 5);
+    int evens = std::count_if(v.begin(), v.end(), [](int x){ return x % 2 == 0; });
+
+    // for_each：对每个元素执行操作（C++20 ranges 更常用 views/transform）
+    std::for_each(v.begin(), v.end(), [](int& x){ x *= 2; });   // 就地翻倍
+
+    // accumulate：归约求和（在 <numeric> 而非 <algorithm>！）
+    int sum = std::accumulate(v.begin(), v.end(), 0);           // 初始值 0
+    int product = std::accumulate(v.begin(), v.end(), 1,
+                                  [](int a, int b){ return a * b; });
+
+    std::cout << "fives=" << fives << " evens=" << evens
+              << " sum=" << sum << " product=" << product << "\n";
+    return 0;
+}
+```
+
+| 算法 | 头文件 | 返回值 | 典型陷阱 |
+|------|--------|--------|---------|
+| `count` / `count_if` | `<algorithm>` | 元素个数 | 统计"存在与否"别手写循环 |
+| `for_each` | `<algorithm>` | 传入的函数对象 | 带状态 lambda 需注意返回值使用 |
+| `accumulate` | `<numeric>` | 归约结果 | **初始值类型决定结果类型**——`accumulate(v.begin(), v.end(), 0)` 对 `double` 容器会截断为 int，应写 `0.0` |
+
+注意 `accumulate` 的初始值陷阱：`std::accumulate(dv.begin(), dv.end(), 0)` 对 `vector<double>` 会把每次累加截断成 int——初始值类型即归约类型，浮点容器务必传 `0.0`。
+
 ### 3.7 迭代器类别与失效规则
 
 | 类别 | 支持操作 | 典型容器 |

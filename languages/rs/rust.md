@@ -95,7 +95,7 @@ fn main() {
 
 ## 3. 基础数据结构阶段
 
-> 📖 详细展开版见 [ph03-data-structure/](ph03-data-structure/03-data-structure.md)
+> 📖 详细展开版见 [ph03-data-structure/](./ph03-data-structure/03-data-structure.md)
 
 ### 目标
 能使用结构体、枚举和集合表达真实业务数据。
@@ -141,7 +141,7 @@ fn main() {
 
 ## 4. Option 和 Result 阶段
 
-> 📖 详细展开版见 [ph04-option-result/](ph04-option-result/04-option-result.md)
+> 📖 详细展开版见 [ph04-option-result/](./ph04-option-result/04-option-result.md)
 
 ### 目标
 用类型系统表达缺失值和错误，让失败路径可见、可处理。
@@ -182,7 +182,7 @@ fn parse_port(input: &str) -> Result<u16, std::num::ParseIntError> {
 
 ## 5. 模式匹配与枚举阶段
 
-> 📖 详细展开版见 [ph05-pattern-match/](ph05-pattern-match/05-pattern-match.md)
+> 📖 详细展开版见 [ph05-pattern-match/](./ph05-pattern-match/05-pattern-match.md)
 
 ### 目标
 用 enum 和 match 表达状态、协议类型和业务分支。

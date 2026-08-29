@@ -74,6 +74,29 @@ async def main():
 - **坑（requests 默认无超时）**：不传 `timeout` 会**无限等待**——上游挂起时脚本永久卡死；所有网络请求必须显式 `timeout=`（秒）。
 - **选库原则**：优先成熟、维护活跃的库（roadmap 必会概念）——看 PyPI 下载量、GitHub 最近提交、文档质量、Python 版本支持；脚本/自动化用 requests，涉及异步或 HTTP/2 用 httpx，aiohttp 留给 ph14 的纯 asyncio 项目。
 
+aiohttp 最小用法（并发抓 3 个页面，对比同步串行写法）：
+
+```python
+import asyncio
+import aiohttp   # pip install aiohttp
+
+URLS = ["https://httpbin.org/uuid"] * 3     # 并发抓 3 次
+
+async def fetch(session, url):
+    async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as r:
+        return (await r.json())["uuid"]
+
+async def main():
+    async with aiohttp.ClientSession() as session:
+        uuids = await asyncio.gather(*(fetch(s, u) for s, u in
+                                       [(session, u) for u in URLS]))
+    print(len(uuids), "个响应并发完成")
+
+asyncio.run(main())
+```
+
+要点：`ClientSession` 复用连接（类比 requests.Session）；`async with` 确保响应体被释放；`asyncio.gather` 并发调度——同步 requests 串行要 3×RTT，这里只花 1×RTT。大规模并发采集（限速、重试、代理池）见 ph14。
+
 ### 3.2 网页抓取：beautifulsoup4·selenium·playwright 选型
 
 ```python
@@ -100,6 +123,34 @@ print(len(soup.select("p")))               # CSS 选择器：统计 p 标签
 - 优先级：**先 requests + bs4，拿不到数据再上浏览器自动化**；抓取前遵守目标站点 robots.txt 与服务条款。
 - **坑（selenium 环境依赖）**：selenium 要求浏览器与 WebDriver **版本匹配**，换机器/CI 常报 `WebDriverException: SessionNotCreated`；playwright 一条 `playwright install` 自带浏览器，无驱动匹配问题，但首次下载约百 MB。
 - 解析优先 CSS 选择器 `soup.select("div.item > a")`；数据由 JS 动态渲染的页面 requests 拿不到，改用 playwright（本阶段会最小用法即可）。
+
+浏览器自动化最小用法（selenium 与 playwright 二选一，都只做"打开页面、等 JS 渲染完、取数据"这一件事）：
+
+```python
+# selenium：pip install selenium，并准备与浏览器版本匹配的 WebDriver
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+
+driver = webdriver.Chrome()                  # 驱动版本不匹配会在这一步抛 SessionNotCreated
+driver.get("https://example.com")
+driver.implicitly_wait(5)                    # 等 JS 渲染
+print(driver.find_element(By.TAG_NAME, "h1").text)
+driver.quit()                                # 必须 quit，否则浏览器进程残留
+```
+
+```python
+# playwright：pip install playwright && playwright install chromium
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=True)
+    page = browser.new_page()
+    page.goto("https://example.com")
+    print(page.locator("h1").inner_text())   # locator 自动等待元素出现
+    browser.close()
+```
+
+要点：playwright 的 `locator` 内置自动等待，selenium 需要 `implicitly_wait` 或显式 `WebDriverWait`——这是两者 API 风格最大的差异。登录态维持、截图、拦截请求等进阶用法见 ph14。
 
 ### 3.3 numpy 数组基础（ndarray·广播·向量化）
 

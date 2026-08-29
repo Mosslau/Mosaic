@@ -470,7 +470,7 @@ if __name__ == "__main__":
 | `**kwargs` 打包 | 无 | 无 | 无 |
 | `lambda` | 匿名函数 | `(x) -> x * 2` | `\|x\| x * 2` |
 | 模块系统 | `import` | `import` | `use` / `mod` |
-| 入口模式 | `if __name__ == "__main__"` | `package main` | `main` 方法 | `fn main()` |
+| 入口模式 | `if __name__ == "__main__"` | `package main` + `func main()` | `main` 方法 | `fn main()` |
 
 ### 阶段验收标准
 

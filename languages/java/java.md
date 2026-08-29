@@ -105,7 +105,7 @@ class TemperatureSensor implements Sensor {
 
 ## 3. Java 常用类阶段
 
-> 📖 详细展开版见 [ph03-common-classes/](ph03-common-classes/03-common-classes.md)
+> 📖 详细展开版见 [ph03-common-classes/](./ph03-common-classes/03-common-classes.md)
 
 ### 目标
 熟悉标准库中最常用的基础类。
@@ -148,7 +148,7 @@ System.out.println(sb.toString());
 
 ## 4. 集合框架阶段
 
-> 📖 详细展开版见 [ph04-collections/](ph04-collections/04-collections.md)
+> 📖 详细展开版见 [ph04-collections/](./ph04-collections/04-collections.md)
 
 ### 目标
 熟练使用 Java 常用集合。
@@ -190,7 +190,7 @@ scores.put("Bob", 85);
 
 ## 5. 泛型阶段
 
-> 📖 详细展开版见 [ph05-generics/](ph05-generics/05-generics.md)
+> 📖 详细展开版见 [ph05-generics/](./ph05-generics/05-generics.md)
 
 ### 目标
 理解类型安全和通用代码设计。

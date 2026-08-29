@@ -21,7 +21,7 @@ Python 标准库阶段的目标是：**能用 `pathlib` 熟练处理路径与文
 
 Python 标准库的核心哲学是 **"batteries included"（自带电池）**：解释器发行时捆绑大量实用模块，让开发者"开箱即用"。这一口号由 Guido van Rossum 在 1999 年提出——`http.server`、`sqlite3`、`email` 等模块让很多小需求零依赖解决。
 
-标准库持续把社区实践收编进来：早期 `os`/`sys` 承袭 Unix 接口；2.3 加入 `logging`；2.6/3.0 加入 `json`（源自 simplejson）；3.4 年 `pathlib` 实验性进入（PEP 428），3.6 转正并引入 f-string（PEP 498）；3.9 的 `zoneinfo` 带来 IANA 时区；3.11 的 `tomllib` 原生解析 TOML。
+标准库持续把社区实践收编进来：早期 `os`/`sys` 承袭 Unix 接口；2.3 加入 `logging`；2.6/3.0 加入 `json`（源自 simplejson）；3.4 `pathlib` 实验性进入（PEP 428），3.6 转正并引入 f-string（PEP 498）；3.9 的 `zoneinfo` 带来 IANA 时区；3.11 的 `tomllib` 原生解析 TOML。
 
 | 版本 | 标准库里程碑 |
 |------|-------------|

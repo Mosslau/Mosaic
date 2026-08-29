@@ -327,7 +327,7 @@ int arr[3] = {1, 2, 3};
 
 ## 6. 代码示例
 
-### 示例 1：手写 strlen、strcpy、strcmp（带测试）
+### 示例 1：手写 strlen、strcpy、strcmp、strcat（带测试）
 
 ```c
 #include <stdio.h>
@@ -353,6 +353,15 @@ int my_strcmp(const char *s1, const char *s2) {
     return (unsigned char)*s1 - (unsigned char)*s2;
 }
 
+/* 把 src 追加到 dst 末尾（覆盖 dst 的 \0），返回 dst */
+char *my_strcat(char *dst, const char *src) {
+    char *d = dst;
+    while (*d) d++;                    /* 走到 dst 的 \0 */
+    while ((*d++ = *src++) != '\0')    /* 从这里开始追加 src */
+        ;
+    return dst;
+}
+
 int main(void) {
     const char *test = "hello world";
     printf("my_strlen(\"%s\") = %zu  (期望 11)\n", test, my_strlen(test));
@@ -361,12 +370,18 @@ int main(void) {
     my_strcpy(buf, "C pointer");
     printf("my_strcpy: \"%s\"  (期望 \"C pointer\")\n", buf);
 
+    my_strcat(buf, " is power");
+    printf("my_strcat: \"%s\"  (期望 \"C pointer is power\")\n", buf);
+
     printf("my_strcmp(\"abc\",\"abc\") = %d  (期望 0)\n", my_strcmp("abc", "abc"));
     printf("my_strcmp(\"abc\",\"abd\") = %d  (期望 <0)\n", my_strcmp("abc", "abd"));
     printf("my_strcmp(\"xyz\",\"abc\") = %d  (期望 >0)\n", my_strcmp("xyz", "abc"));
     return 0;
 }
 ```
+
+**strcat 的两个坑**：① 目标缓冲区必须有足够剩余空间（`dst` 容量 ≥ `strlen(dst) + strlen(src) + 1`），否则溢出是未定义行为；② `dst` 必须已有 `\0` 结尾——未初始化的 `char buf[64]` 直接 strcat 会从随机位置开始追加。工程代码用 `strncat(dst, src, sizeof(dst) - strlen(dst) - 1)` 限定追加长度。
+
 ### 示例 2：数组反转与字符串反转
 
 ```c
