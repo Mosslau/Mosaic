@@ -436,6 +436,8 @@ if (!in) {
 
 ## 10. 构建、调试与工具链阶段
 
+> 📖 详细展开版见 [ph10-build-toolchain/10-build-toolchain.md](./ph10-build-toolchain/10-build-toolchain.md)
+
 ### 目标
 能管理 C++ 工程项目并定位复杂问题。
 

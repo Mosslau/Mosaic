@@ -389,6 +389,8 @@ print(df.groupby("vehicle_id")["speed"].mean())
 
 ## 10. Web 后端开发阶段
 
+> 📖 详细展开版见 [ph10-web-backend/10-web-backend.md](./ph10-web-backend/10-web-backend.md)
+
 ### 目标
 能用 Python 写 API 服务。
 

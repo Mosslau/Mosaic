@@ -423,6 +423,8 @@ try (var vtExecutor = Executors.newVirtualThreadPerTaskExecutor()) {
 
 ## 10. JVM 阶段
 
+> 📖 详细展开版见 [ph10-jvm/10-jvm.md](./ph10-jvm/10-jvm.md)
+
 ### 目标
 理解 Java 程序运行机制并具备性能分析能力。
 

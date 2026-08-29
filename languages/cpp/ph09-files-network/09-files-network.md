@@ -726,4 +726,4 @@ int main(int argc, char** argv) {
 - **配置中心客户端**：通过 HTTP 从远程配置中心拉取配置（JSON）→ 本地文件缓存（校验和 + 时间戳）→ 启动加载与热更新回调——覆盖 HTTP 请求、JSON 解析、文件读写与配置模块设计几乎全部知识点，roadmap 指定项目
 - **文件同步工具**：std::filesystem 递归扫描 → 按大小/修改时间/校验和做差异比对 → 分块复制 + 校验验证 → 日志记录与错误恢复——覆盖文件系统、二进制读写、校验与错误处理，roadmap 指定项目，也是存储引擎数据搬迁的雏形
 ### 下一阶段
-**构建、调试与工具链阶段**（ph10-build-toolchain，文档规划中）—— CMake 深入、vcpkg/conan 依赖管理、Sanitizer、性能分析工具。
+[构建、调试与工具链阶段](../ph10-build-toolchain/10-build-toolchain.md) —— CMake 深入、vcpkg/conan 依赖管理、Sanitizer、性能分析工具。

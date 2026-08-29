@@ -397,6 +397,8 @@ r.Run(":8080")
 
 ## 10. 数据库阶段
 
+> 📖 详细展开版见 [ph10-database/10-database.md](./ph10-database/10-database.md)
+
 ### 目标
 掌握 Go 操作数据库和缓存。
 

@@ -575,4 +575,4 @@ public class VirtualThreadDemo {
 
 ### 下一阶段
 
-**JVM 阶段**（`ph10-jvm`，文档规划中）—— 类加载机制、内存区域与 GC、JVM 参数调优、性能诊断。
+[JVM 阶段](../ph10-jvm/10-jvm.md) —— 类加载机制、内存区域与 GC、JVM 参数调优、性能诊断。

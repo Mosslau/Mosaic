@@ -864,4 +864,4 @@ func main() {
 
 ### 下一阶段
 
-**数据库阶段**（`ph10-database`，文档规划中）——SQL 与 database/sql / sqlx / gorm、事务与连接池、MySQL/PostgreSQL、Redis 缓存与 go-redis、索引与慢查询、迁移；本阶段"内存 map 存数据"的全部接口将换成真实数据库，JWT 用户存储与设备状态写入也会落库。
+[数据库阶段](../ph10-database/10-database.md) ——SQL 与 database/sql / sqlx / gorm、事务与连接池、MySQL/PostgreSQL、Redis 缓存与 go-redis、索引与慢查询、迁移；本阶段"内存 map 存数据"的全部接口将换成真实数据库，JWT 用户存储与设备状态写入也会落库。

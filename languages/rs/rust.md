@@ -398,6 +398,8 @@ println!("{}", sum);
 
 ## 10. 智能指针阶段
 
+> 📖 详细展开版见 [ph10-smart-pointers/10-smart-pointers.md](./ph10-smart-pointers/10-smart-pointers.md)
+
 ### 目标
 掌握常见智能指针，能表达堆分配、共享所有权和内部可变性。
 
