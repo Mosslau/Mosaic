@@ -93,7 +93,7 @@ func divide(a, b int) (int, error) {
 
 ## 3. Slice、Map、Struct 阶段
 
-> 📖 详细展开版见 [ph03-slice-map-struct/](./ph03-slice-map-struct/03-slice-map-struct.md)
+> 📖 详细展开版见 [ph03-slice-map-struct/03-slice-map-struct.md](./ph03-slice-map-struct/03-slice-map-struct.md)
 
 ### 目标
 掌握 Go 最常用的数据组织方式。
@@ -136,7 +136,7 @@ type Motor struct {
 
 ## 4. 方法与接口阶段
 
-> 📖 详细展开版见 [ph04-method-interface/](./ph04-method-interface/04-method-interface.md)
+> 📖 详细展开版见 [ph04-method-interface/04-method-interface.md](./ph04-method-interface/04-method-interface.md)
 
 ### 目标
 理解 Go 的面向接口编程，用小接口降低耦合。
@@ -177,7 +177,7 @@ type Sensor interface {
 
 ## 5. 包管理与工程结构阶段
 
-> 📖 详细展开版见 [ph05-pkg-structure/](./ph05-pkg-structure/05-pkg-structure.md)
+> 📖 详细展开版见 [ph05-pkg-structure/05-pkg-structure.md](./ph05-pkg-structure/05-pkg-structure.md)
 
 ### 目标
 能组织真实 Go 工程项目。
@@ -599,7 +599,7 @@ func Max[T ~int | ~float64](a, b T) T {
 - 泛型工具库
 - Go runtime 机制实验笔记
 
-## 15. Go 版本、工具链
+## 15. Go 版本、工具链阶段
 
 ### 目标
 理解 Go 版本演进、工具链和模块兼容策略。
@@ -638,7 +638,7 @@ go work init ./service-a ./service-b
 - 多服务 workspace 示例
 - Go 工具链检查脚本
 
-## 16. PGO 与高级性能优化
+## 16. PGO 与高级性能优化阶段
 
 ### 目标
 了解生产流量指导优化和更高级的性能调优方法。
@@ -675,7 +675,7 @@ go build -pgo=cpu.pprof ./cmd/server
 - API 服务 PGO 实验
 - 性能回归测试脚本
 
-## 17. 架构设计与代码分层
+## 17. 架构设计与代码分层阶段
 
 ### 目标
 能组织中大型 Go 服务代码，避免业务逻辑混乱。
@@ -712,7 +712,7 @@ handler → service → repository → database
 - 分层 Web API 模板
 - 车联网设备管理服务
 
-## 18. API 设计与兼容性
+## 18. API 设计与兼容性阶段
 
 ### 目标
 设计稳定、清晰、可演进的 API。
@@ -752,7 +752,7 @@ handler → service → repository → database
 - 设备管理 API 规范
 - gRPC 兼容性实验
 
-## 19. 消息队列与事件驱动深入
+## 19. 消息队列与事件驱动深入阶段
 
 ### 目标
 掌握异步解耦和高吞吐数据处理设计。
@@ -790,7 +790,7 @@ handler → service → repository → database
 - 车辆遥测消费服务
 - 日志采集流水线
 
-## 20. 配置管理与发布策略
+## 20. 配置管理与发布策略阶段
 
 ### 目标
 让服务在多环境中安全发布和运行。
@@ -828,47 +828,7 @@ APP_ENV=prod ./server
 - 多环境配置模块
 - 服务发布 checklist
 
-## 21. 阶段性项目验收标准
-
-### 目标
-用项目验证 Go 学习成果。
-
-### 学习内容
-- 功能验收、测试验收、部署验收
-- README、Makefile、Dockerfile
-- 单元测试、集成测试、压测
-- 日志、指标、追踪
-
-### 必会概念
-- Go 项目交付不仅是 go run 成功
-- 服务需要可观测和可部署
-- 测试和 CI 是质量底线
-
-### 示例
-```text
-验收项：
-- go test ./... 通过
-- go test -race ./... 通过
-- Docker 镜像可启动
-- /healthz 可用
-```
-
-### 练习
-- 给项目补测试
-- 给项目补 Dockerfile
-- 给项目补 health check
-- 接入基础指标
-
-### 阶段验收
-- 初级：CLI 工具可运行可测试
-- 中级：HTTP API 可测试可部署
-- 高级：服务可观测可压测可回滚
-
-### 推荐项目
-- Go 服务模板
-- 车联网数据接入服务
-
-## 22. IoT / 车联网 / 嵌入式相关 Go 阶段
+## 21. IoT / 车联网 / 嵌入式相关 Go 阶段
 
 ### 目标
 用 Go 构建车联网后端、边缘网关和数据平台。
@@ -904,7 +864,47 @@ APP_ENV=prod ./server
 - 车联网数据平台
 - 边缘网关转发服务
 
-# 推荐学习顺序
+## 附录：阶段性项目验收标准
+
+### 目标
+用项目验证 Go 学习成果。
+
+### 学习内容
+- 功能验收、测试验收、部署验收
+- README、Makefile、Dockerfile
+- 单元测试、集成测试、压测
+- 日志、指标、追踪
+
+### 必会概念
+- Go 项目交付不仅是 go run 成功
+- 服务需要可观测和可部署
+- 测试和 CI 是质量底线
+
+### 示例
+```text
+验收项：
+- go test ./... 通过
+- go test -race ./... 通过
+- Docker 镜像可启动
+- /healthz 可用
+```
+
+### 练习
+- 给项目补测试
+- 给项目补 Dockerfile
+- 给项目补 health check
+- 接入基础指标
+
+### 阶段验收
+- 能交付可运行可测试的 CLI 工具（初级）
+- 能交付可测试可部署的 HTTP API（中级）
+- 能交付可观测可压测可回滚的服务（高级）
+
+### 推荐项目
+- Go 服务模板
+- 车联网数据接入服务
+
+## 推荐学习顺序
 
 ```text
 Go 基础语法
@@ -925,7 +925,7 @@ Go 基础语法
 → 车联网 / IoT / 云原生项目
 ```
 
-# Go 和 C / C++ / Rust 的区别
+## Go 和 C / C++ / Rust 的区别
 
 | 方向 | C | C++ | Rust | Go |
 | --- | --- | --- | --- | --- |
@@ -935,37 +935,37 @@ Go 基础语法
 | 工程效率 | 中等 | 中等 | 中等 | 高 |
 | 适合方向 | 系统/底层 | 系统/高性能 | 系统/安全 | 后端/云原生/工具 |
 
-# 项目路线
+## 项目路线
 
-## 初级项目
+### 初级项目
 - 计算器
 - Todo CLI
 - 通讯录
 - 文件统计工具
 - JSON 格式化工具
 
-## 中级项目
+### 中级项目
 - HTTP API 服务
 - 用户登录注册系统
 - Redis 缓存服务
 - MySQL CRUD 系统
 - Worker Pool 任务系统
 
-## 高级项目
+### 高级项目
 - 微服务电商 demo
 - gRPC 服务框架
 - API Gateway
 - 日志采集系统
 - Prometheus 监控服务
 
-## 车联网 / IoT 项目
+### 车联网 / IoT 项目
 - MQTT 设备接入平台
 - 车辆数据上报服务
 - OTA 升级管理服务
 - CAN 数据解析后端
 - 边缘网关数据转发服务
 
-# 对你最推荐的 Go 路线
+## 对你最推荐的 Go 路线
 
 ```text
 Go 基础

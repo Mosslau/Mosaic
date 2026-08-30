@@ -91,7 +91,7 @@ print(user.get("name"))
 
 ## 3. 函数与模块化阶段
 
-> 📖 详细展开版见 [ph03-func-module/](./ph03-func-module/03-func-module.md)
+> 📖 详细展开版见 [ph03-func-module/03-func-module.md](./ph03-func-module/03-func-module.md)
 
 ### 目标
 能把代码拆成函数、模块和包。
@@ -131,7 +131,7 @@ def add(a: int, b: int) -> int:
 
 ## 4. 面向对象 OOP 阶段
 
-> 📖 详细展开版见 [ph04-oop/](./ph04-oop/04-oop.md)
+> 📖 详细展开版见 [ph04-oop/04-oop.md](./ph04-oop/04-oop.md)
 
 ### 目标
 理解类和对象，用对象组织复杂业务。
@@ -176,7 +176,7 @@ class Motor:
 
 ## 5. 文件操作与异常处理阶段
 
-> 📖 详细展开版见 [ph05-file-exception/](./ph05-file-exception/05-file-exception.md)
+> 📖 详细展开版见 [ph05-file-exception/05-file-exception.md](./ph05-file-exception/05-file-exception.md)
 
 ### 目标
 能读写文件并处理错误。
@@ -724,7 +724,7 @@ def count():
 - 流式日志处理器
 - 可复用装饰器库
 
-## 18. 车联网 / 数据平台 / 自动化方向
+## 18. 车联网 / 数据平台 / 自动化方向阶段
 
 ### 目标
 用 Python 支撑车联网数据分析、自动化测试和 AI 原型。
@@ -763,7 +763,7 @@ def count():
 - 车辆遥测 Dashboard
 - 传感器异常检测模型
 
-# 推荐学习顺序
+## 推荐学习顺序
 
 ```text
 Python 基础语法
@@ -784,7 +784,7 @@ Python 基础语法
 → 高级 Python
 ```
 
-# Python 和 C / C++ / Rust / Go 的区别
+## Python 和 C / C++ / Rust / Go 的区别
 
 | 方向 | C/C++ | Rust | Go | Python |
 | --- | --- | --- | --- | --- |
@@ -795,37 +795,37 @@ Python 基础语法
 | 类型系统 | 静态 | 静态 | 静态 | 动态 |
 | 适合方向 | 底层/高性能 | 系统安全 | 后端/云原生 | 自动化/数据/AI/Web |
 
-# 项目路线
+## 项目路线
 
-## 初级项目
+### 初级项目
 - 计算器
 - 猜数字游戏
 - 通讯录
 - Todo CLI
 - 批量重命名工具
 
-## 中级项目
+### 中级项目
 - CSV 数据分析工具
 - 日志分析工具
 - Excel 报表生成器
 - Web API 服务
 - 自动化测试工具
 
-## 高级项目
+### 高级项目
 - FastAPI 后端服务
 - 异步爬虫系统
 - 数据分析 Dashboard
 - 自动化测试平台
 - RAG 问答系统
 
-## 车联网 / 智能电动车项目
+### 车联网 / 智能电动车项目
 - CAN 日志解析器
 - 车辆数据分析平台
 - 电池健康状态分析
 - MQTT 数据接入服务
 - 传感器异常检测模型
 
-# 对你最推荐的 Python 路线
+## 对你最推荐的 Python 路线
 
 ```text
 Python 基础

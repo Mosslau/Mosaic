@@ -86,9 +86,7 @@ class TemperatureSensor implements Sensor {
 ```
 
 ### 练习
-- 学生类
-- 车辆类
-- 电机类
+- 学生类 / 车辆类 / 电机类建模
 - 用 record 定义设备状态
 - 用 sealed class 限制状态继承层次
 - 设备管理系统
@@ -105,7 +103,7 @@ class TemperatureSensor implements Sensor {
 
 ## 3. Java 常用类阶段
 
-> 📖 详细展开版见 [ph03-common-classes/](./ph03-common-classes/03-common-classes.md)
+> 📖 详细展开版见 [ph03-common-classes/03-common-classes.md](./ph03-common-classes/03-common-classes.md)
 
 ### 目标
 熟悉标准库中最常用的基础类。
@@ -148,7 +146,7 @@ System.out.println(sb.toString());
 
 ## 4. 集合框架阶段
 
-> 📖 详细展开版见 [ph04-collections/](./ph04-collections/04-collections.md)
+> 📖 详细展开版见 [ph04-collections/04-collections.md](./ph04-collections/04-collections.md)
 
 ### 目标
 熟练使用 Java 常用集合。
@@ -190,7 +188,7 @@ scores.put("Bob", 85);
 
 ## 5. 泛型阶段
 
-> 📖 详细展开版见 [ph05-generics/](./ph05-generics/05-generics.md)
+> 📖 详细展开版见 [ph05-generics/05-generics.md](./ph05-generics/05-generics.md)
 
 ### 目标
 理解类型安全和通用代码设计。
@@ -350,9 +348,8 @@ List<Integer> result = nums.stream()
 ```
 
 ### 练习
-- 过滤学生成绩
+- 过滤学生成绩并统计平均分
 - 按班级分组
-- 统计平均分
 - 设备状态筛选
 - 用 Switch Expressions 重写 if-else 分支
 - 用 Pattern Matching 改写 instanceof 判断
@@ -857,48 +854,7 @@ ThreadPoolExecutor executor = new ThreadPoolExecutor(core, max, 60, TimeUnit.SEC
 - 简易 IOC 容器
 - Netty 网关 demo
 
-## 21. 阶段性项目验收标准
-
-### 目标
-用项目验收 Java 学习成果。
-
-### 学习内容
-- 功能验收、测试验收、部署验收
-- README、接口文档、数据库脚本
-- 单元测试、集成测试、覆盖率
-- 日志、监控、错误码
-
-### 必会概念
-- 能运行不等于可交付
-- 接口、数据表和配置都要可说明
-- 测试覆盖核心业务和错误路径
-- 服务必须可观测
-
-### 示例
-```text
-验收项：
-- mvn test 通过
-- 接口文档完整
-- Docker 镜像可启动
-- 日志和健康检查可用
-```
-
-### 练习
-- 给项目补 README
-- 给 Service 补测试
-- 补 Dockerfile
-- 补接口文档
-
-### 阶段验收
-- 初级：完成控制台项目
-- 中级：完成 Spring Boot CRUD 服务
-- 高级：完成可部署微服务或车联网模块
-
-### 推荐项目
-- Java 学习项目集
-- Spring Boot 服务模板
-
-## 22. 车联网 / 智能电动车方向 Java 路线
+## 21. 车联网 / 智能电动车方向 Java 阶段
 
 ### 目标
 用 Java 构建车联网后端、设备管理、OTA 和数据服务。
@@ -937,7 +893,48 @@ ThreadPoolExecutor executor = new ThreadPoolExecutor(core, max, 60, TimeUnit.SEC
 - 车联网后台平台
 - OTA 管理系统
 
-# 推荐学习顺序
+## 附录：阶段性项目验收标准
+
+### 目标
+用项目验收 Java 学习成果。
+
+### 学习内容
+- 功能验收、测试验收、部署验收
+- README、接口文档、数据库脚本
+- 单元测试、集成测试、覆盖率
+- 日志、监控、错误码
+
+### 必会概念
+- 能运行不等于可交付
+- 接口、数据表和配置都要可说明
+- 测试覆盖核心业务和错误路径
+- 服务必须可观测
+
+### 示例
+```text
+验收项：
+- mvn test 通过
+- 接口文档完整
+- Docker 镜像可启动
+- 日志和健康检查可用
+```
+
+### 练习
+- 给项目补 README
+- 给 Service 补测试
+- 补 Dockerfile
+- 补接口文档
+
+### 阶段验收
+- 能完成控制台项目（初级）
+- 能完成 Spring Boot CRUD 服务（中级）
+- 能完成可部署微服务或车联网模块（高级）
+
+### 推荐项目
+- Java 学习项目集
+- Spring Boot 服务模板
+
+## 推荐学习顺序
 
 ```text
 Java 基础语法（含 var、Text Blocks）
@@ -953,7 +950,7 @@ Java 基础语法（含 var、Text Blocks）
 → JVM 调优 / 高并发 / 车联网项目
 ```
 
-# Java 和 C / C++ / Rust / Go / Python 的区别
+## Java 和 C / C++ / Rust / Go / Python 的区别
 
 | 方向 | Java |
 | --- | --- |
@@ -963,36 +960,36 @@ Java 基础语法（含 var、Text Blocks）
 | 主要方向 | 后端、企业系统、Android、大数据 |
 | 工程能力 | 很强 |
 
-# 项目路线
+## 项目路线
 
-## 初级项目
+### 初级项目
 - 计算器
 - 学生管理系统
 - 通讯录
 - 文件统计工具
 
-## 中级项目
+### 中级项目
 - 图书管理系统
 - 用户登录注册系统
 - REST API 服务
 - MySQL CRUD 系统
 - Redis 缓存系统
 
-## 高级项目
+### 高级项目
 - Spring Boot 电商系统
 - 权限管理系统
 - 微服务订单系统
 - API Gateway
 - Kafka 日志采集系统
 
-## 车联网 / 智能电动车项目
+### 车联网 / 智能电动车项目
 - 设备管理后台
 - 车辆实时状态平台
 - OTA 升级平台
 - 车辆告警规则引擎
 - 车辆轨迹查询服务
 
-# 对你最推荐的 Java 路线
+## 对你最推荐的 Java 路线
 
 ```text
 Java 基础（含 var、Text Blocks）

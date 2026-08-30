@@ -92,7 +92,7 @@ project/
 
 ## 3. 数组、字符串、指针阶段
 
-> 📖 详细展开版见 [ph03-array-str-ptr/](./ph03-array-str-ptr/03-array-str-ptr.md)
+> 📖 详细展开版见 [ph03-array-str-ptr/03-array-str-ptr.md](./ph03-array-str-ptr/03-array-str-ptr.md)
 
 ### 目标
 真正理解 C 的内存模型，掌握数组、字符串和指针的关系。
@@ -135,7 +135,7 @@ printf("%d\n", *(p + 1));
 
 ## 4. 内存管理阶段
 
-> 📖 详细展开版见 [ph04-memory-mgmt/](./ph04-memory-mgmt/04-memory-mgmt.md)
+> 📖 详细展开版见 [ph04-memory-mgmt/04-memory-mgmt.md](./ph04-memory-mgmt/04-memory-mgmt.md)
 
 ### 目标
 能安全使用堆内存，避免泄漏、越界、悬空指针和野指针。
@@ -181,7 +181,7 @@ p = NULL;
 
 ## 5. 结构体与数据结构阶段
 
-> 📖 详细展开版见 [ph05-struct-datastruct/](./ph05-struct-datastruct/05-struct-datastruct.md)
+> 📖 详细展开版见 [ph05-struct-datastruct/05-struct-datastruct.md](./ph05-struct-datastruct/05-struct-datastruct.md)
 
 ### 目标
 用 C 表达复杂数据，并实现常用数据结构。
@@ -360,7 +360,7 @@ close(fd);
 - TCP echo server
 - 多线程任务队列
 
-## 9. C 标准、编译器与可移植性
+## 9. C 标准、编译器与可移植性阶段
 
 > 📖 详细展开版见 [ph09-portability/09-portability.md](./ph09-portability/09-portability.md)
 
@@ -401,7 +401,7 @@ uint32_t id = 0x12345678u;
 - 跨平台日志库
 - 协议字段类型定义库
 
-## 10. 未定义行为 UB 与常见坑
+## 10. 未定义行为 UB 与常见坑阶段
 
 > 📖 详细展开版见 [ph10-ub/10-ub.md](./ph10-ub/10-ub.md)
 
@@ -442,7 +442,7 @@ int arr[3] = {1, 2, 3};
 - C 常见坑示例库
 - 安全字符串工具库
 
-## 11. Sanitizer / 静态分析 / 单元测试
+## 11. Sanitizer / 静态分析 / 单元测试阶段
 
 > 📖 详细展开版见 [ph11-sanitizer-testing/11-sanitizer-testing.md](./ph11-sanitizer-testing/11-sanitizer-testing.md)
 
@@ -484,7 +484,7 @@ gcc -fsanitize=address,undefined -g main.c -o app
 - 带 Sanitizer 构建选项的 CMake 模板
 - 带测试的 WAL / buffer 库
 
-## 12. 字节序、内存对齐与二进制格式解析
+## 12. 字节序、内存对齐与二进制格式解析阶段
 
 ### 目标
 能处理数据库文件、WAL 日志、SSTable block、网络 frame 和跨平台二进制数据布局。
@@ -531,8 +531,6 @@ typedef struct {
 - 实现 length-prefix frame 解析器
 - 实现 varint 编码和解码
 - 为 WAL record 设计 header 和 checksum
-- 解析 SSTable block header
-- 设计二进制文件 magic number 和版本字段
 
 ### 阶段验收
 - 能解释结构体 padding
@@ -587,7 +585,7 @@ typedef struct {
 - append-only log
 - mmap 只读索引文件
 
-## 14. C 与 C++ / Python / Rust 互操作
+## 14. C 与 C++ / Python / Rust 互操作阶段
 
 ### 目标
 理解 C ABI 的边界，用 C 作为跨语言接口层。
@@ -637,46 +635,7 @@ int add(int a, int b);
 - Python 调用 C buffer 解析库
 - Rust 调用 C WAL 库
 
-## 15. 阶段性项目验收标准
-
-### 目标
-用项目验证学习成果，而不是只背语法点。
-
-### 学习内容
-- 阶段项目拆解
-- 功能验收、质量验收、测试验收
-- README、构建脚本、运行说明
-- 错误路径与边界条件
-
-### 必会概念
-- 好项目要能构建、能运行、能测试、能说明
-- 阶段验收应包括代码质量，而不只是功能完成
-- 每个项目都应有最小可复现用例
-
-### 示例
-```text
-验收项：
-- make test 通过
-- ASan 无错误
-- README 写明构建和运行方式
-- 错误输入有明确处理
-```
-
-### 练习
-- 给已有项目补 README
-- 给已有项目补测试用例
-- 给已有项目开启警告和 Sanitizer
-
-### 阶段验收
-- 初级：完成单文件工具并处理错误输入
-- 中级：完成多文件项目、Makefile、测试
-- 高级：完成网络 / 存储 / 二进制格式类项目并通过工具检查
-
-### 推荐项目
-- C 学习项目集
-- 可复用 C 工程模板
-
-## 16. 高级 C 与代码质量阶段
+## 15. 高级 C 与代码质量阶段
 
 ### 目标
 写出稳定、可维护、可移植的 C 代码。
@@ -716,7 +675,7 @@ typedef void (*event_handler_t)(int event, void *ctx);
 - 状态机框架
 - 系统级日志库
 
-## 17. 数据库存储引擎基础阶段
+## 16. 数据库存储引擎基础阶段
 
 ### 目标
 面向 KV 库、数据库内核和时序存储原型，理解 WAL、MemTable、SSTable、B+Tree、LSM 和 Buffer Pool 的基础实现。
@@ -764,7 +723,46 @@ typedef void (*event_handler_t)(int event, void *ctx);
 - 简化 LSM KV 文件层
 - Buffer Pool toy
 
-# 推荐学习顺序
+## 附录：阶段性项目验收标准
+
+### 目标
+用项目验证学习成果，而不是只背语法点。
+
+### 学习内容
+- 阶段项目拆解
+- 功能验收、质量验收、测试验收
+- README、构建脚本、运行说明
+- 错误路径与边界条件
+
+### 必会概念
+- 好项目要能构建、能运行、能测试、能说明
+- 阶段验收应包括代码质量，而不只是功能完成
+- 每个项目都应有最小可复现用例
+
+### 示例
+```text
+验收项：
+- make test 通过
+- ASan 无错误
+- README 写明构建和运行方式
+- 错误输入有明确处理
+```
+
+### 练习
+- 给已有项目补 README
+- 给已有项目补测试用例
+- 给已有项目开启警告和 Sanitizer
+
+### 阶段验收
+- 能完成单文件工具并处理错误输入（初级）
+- 能完成多文件项目、Makefile、测试（中级）
+- 能完成网络 / 存储 / 二进制格式类项目并通过工具检查（高级）
+
+### 推荐项目
+- C 学习项目集
+- 可复用 C 工程模板
+
+## 推荐学习顺序
 
 ```text
 基础语法
@@ -783,16 +781,16 @@ typedef void (*event_handler_t)(int event, void *ctx);
 → SIMD / CUDA C 基础
 ```
 
-# 项目路线
+## 项目路线
 
-## 初级项目
+### 初级项目
 - 计算器
 - 文本文件统计工具
 - 字符串处理库
 - 动态数组库
 - 二进制 buffer 工具库
 
-## 中级项目
+### 中级项目
 - 动态数组库
 - 链表库
 - HashMap KV 表
@@ -801,7 +799,7 @@ typedef void (*event_handler_t)(int event, void *ctx);
 - 简单 shell
 - append-only log
 
-## 高级项目
+### 高级项目
 - HTTP server
 - 多线程任务队列
 - 内存池
@@ -814,7 +812,7 @@ typedef void (*event_handler_t)(int event, void *ctx);
 - 简化 LSM 文件层
 - C ABI 插件接口
 
-# 对你最有用的路线
+## 对你最有用的路线
 
 如果目标是数据库内核、KV 库、向量库、AI 推理训练引擎和跨语言高性能组件，优先路线是：
 

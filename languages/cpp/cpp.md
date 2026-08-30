@@ -97,7 +97,7 @@ private:
 
 ## 3. C++ 内存模型阶段
 
-> 📖 详细展开版见 [ph03-memory-model/](./ph03-memory-model/03-memory-model.md)
+> 📖 详细展开版见 [ph03-memory-model/03-memory-model.md](./ph03-memory-model/03-memory-model.md)
 
 ### 目标
 理解对象生命周期、拷贝、移动和资源管理。
@@ -144,7 +144,7 @@ private:
 
 ## 4. STL 标准库阶段
 
-> 📖 详细展开版见 [ph04-stl/](./ph04-stl/04-stl.md)
+> 📖 详细展开版见 [ph04-stl/04-stl.md](./ph04-stl/04-stl.md)
 
 ### 目标
 熟练使用 STL 容器、算法和迭代器写高效代码。
@@ -189,7 +189,7 @@ std::sort(nums.begin(), nums.end());
 
 ## 5. 模板与泛型编程、元编程阶段
 
-> 📖 详细展开版见 [ph05-templates/](./ph05-templates/05-templates.md)
+> 📖 详细展开版见 [ph05-templates/05-templates.md](./ph05-templates/05-templates.md)
 
 ### 目标
 理解 C++ 的通用库能力，能写类型安全的泛型组件，能进行元编程代码编写。
@@ -233,7 +233,6 @@ struct Factorial<0> {
 ### 练习
 - 泛型 Max
 - 泛型 Stack
-- 泛型 Queue
 - 用 concept 约束泛型函数
 - 简单 Optional
 - 简单 TMP 模板元编程库
@@ -478,7 +477,7 @@ add_executable(app main.cpp)
 - C++ 工程模板
 - 带 CI 的小型库
 
-## 11. C++ 标准、编译器与可移植性
+## 11. C++ 标准、编译器与可移植性阶段
 
 > 📖 详细展开版见 [ph11-portability/11-portability.md](./ph11-portability/11-portability.md)
 
@@ -521,7 +520,7 @@ add_executable(app main.cpp)
 - 跨平台文件工具库
 - 编译器兼容性实验项目
 
-## 12. 对象生命周期、值类别与所有权深入
+## 12. 对象生命周期、值类别与所有权深入阶段
 
 ### 目标
 深入理解对象何时创建、移动、销毁，以及表达式值类别。
@@ -560,7 +559,7 @@ std::string MakeName() {
 - 值语义配置对象
 - 所有权关系重构练习
 
-## 13. Rule of 0 / 3 / 5 与 RAII 进阶
+## 13. Rule of 0 / 3 / 5 与 RAII 进阶阶段
 
 ### 目标
 掌握资源类设计，优先写 Rule of 0 的现代 C++。
@@ -598,7 +597,7 @@ FilePtr fp(fopen("data.txt", "r"), fclose);
 - RAII 系统资源库
 - 安全句柄封装
 
-## 14. const 正确性与接口设计
+## 14. const 正确性与接口设计阶段
 
 ### 目标
 用 const 表达接口承诺，提高可读性和可维护性。
@@ -640,7 +639,7 @@ private:
 - 配置读取只读接口
 - 设备状态快照模型
 
-## 15. 未定义行为 UB 与内存安全
+## 15. 未定义行为 UB 与内存安全阶段
 
 ### 目标
 识别 C++ 中常见 UB，写出更安全的底层代码。
@@ -679,7 +678,7 @@ v.push_back(4); // p 可能失效
 - C++ UB 示例集
 - 安全容器使用指南
 
-## 16. 测试、静态分析与代码规范
+## 16. 测试、静态分析与代码规范阶段
 
 ### 目标
 建立 C++ 工程质量闭环。
@@ -719,7 +718,7 @@ TEST(CalculatorTest, Add) {
 - 带测试的 STL 工具库
 - C++ CI 模板
 
-## 17. 设计模式与架构能力
+## 17. 设计模式与架构能力阶段
 
 ### 目标
 用恰当抽象组织中大型 C++ 项目。
@@ -761,7 +760,7 @@ public:
 - 存储引擎模块分层 demo
 - 查询执行器接口设计 demo
 
-## 18. 性能优化与 Profiling
+## 18. 性能优化与 Profiling 阶段
 
 ### 目标
 能基于数据定位性能瓶颈，而不是凭感觉优化。
@@ -803,7 +802,7 @@ perf report
 - 列式扫描性能优化实验
 - 高性能日志 / 数据文件解析器
 
-## 19. ABI、动态库与插件机制
+## 19. ABI、动态库与插件机制阶段
 
 ### 目标
 理解二进制边界，能设计稳定插件接口。
@@ -843,7 +842,7 @@ extern "C" void DestroyPlugin(Plugin* plugin);
 - 查询执行算子插件 demo
 - TensorRT plugin 接口阅读 demo
 
-## 20. C++ 与 C / Python / Rust 互操作
+## 20. C++ 与 C / Python / Rust 互操作阶段
 
 ### 目标
 能在跨语言系统中安全暴露 C++ 能力。
@@ -884,47 +883,7 @@ extern "C" int add(int a, int b) {
 - Rust 调用 C++ 距离计算模块
 - pybind11 包装 C++ 查询执行组件
 
-## 21. 阶段性项目验收标准
-
-### 目标
-用项目验证 C++ 能力，从语法使用走向工程交付。
-
-### 学习内容
-- 功能验收、性能验收、测试验收
-- README、构建脚本、CI
-- Sanitizer 和静态分析
-- 项目分层和接口说明
-
-### 必会概念
-- 可构建、可运行、可测试、可维护才算完成
-- 公共接口要有示例和错误说明
-- 工程质量工具应自动化
-
-### 示例
-```text
-验收项：
-- cmake --build 通过
-- ctest 通过
-- ASan/UBSan 无错误
-- clang-tidy 无高优先级问题
-```
-
-### 练习
-- 给已有项目补 CI
-- 给公共 API 补文档
-- 用 Sanitizer 跑全量测试
-
-### 阶段验收
-- 初级：完成类和 STL 项目
-- 中级：完成多模块 CMake 项目
-- 高级：完成并发、网络、存储引擎、查询执行或向量检索方向项目
-
-### 推荐项目
-- C++ 工程模板
-- Mini KV 工程模板
-- 向量检索库工程模板
-
-## 22. 数据结构与算法阶段
+## 21. 数据结构与算法阶段
 
 ### 目标
 具备面试、工程建模和性能优化所需的数据结构基础。
@@ -965,22 +924,16 @@ tasks.push(3);
 - SkipList MemTable
 - HNSW toy implementation
 
-## 23. 存储引擎与数据库内核专项
+## 22. 存储引擎与数据库内核专项阶段
 
 ### 目标
 理解 C++ 在数据库内核、KV 存储和高性能存储引擎中的使用方式，能实现 Mini KV / Mini LSM 的核心模块。
 
 ### 学习内容
-- WAL 日志
-- MemTable
-- SSTable
-- Bloom Filter
-- Compaction
-- B+Tree
-- Buffer Pool
-- LRU / Clock Cache
-- Snapshot
-- MVCC 基础
+- WAL 日志、MemTable、SSTable
+- Bloom Filter、Compaction
+- B+Tree、Buffer Pool、LRU / Clock Cache
+- Snapshot、MVCC 基础
 - Iterator 抽象
 - RocksDB / LevelDB 源码阅读
 
@@ -1024,15 +977,11 @@ public:
 ```
 
 ### 练习
-- 实现 append-only WAL 写入
-- 实现 WAL replay，把日志恢复到内存 HashMap
-- 设计 SSTable block header
-- 实现 Mini SSTable writer / reader
+- 实现 append-only WAL 写入与 replay
+- 设计 SSTable block header 并实现 Mini SSTable writer / reader
 - 为 SSTable 增加 Bloom Filter
 - 实现 LRU Cache
-- 实现简化 B+Tree 的 insert / search
 - 用 Iterator 抽象 MemTable 和 SSTable 的 range scan
-- 阅读 LevelDB 的 log、table、iterator 模块
 
 ### 阶段验收
 - 能解释 WAL、MemTable、SSTable、Compaction 的关系
@@ -1051,7 +1000,7 @@ public:
 - Buffer Pool toy
 - LevelDB 源码分析
 
-## 24. 向量检索与 AI 推理引擎方向 C++ 阶段
+## 23. 向量检索与 AI 推理引擎方向 C++ 阶段
 
 ### 目标
 面向向量数据库、RAG 检索、Faiss、CUDA/TensorRT 和推理服务，掌握 C++ 在 AI Infra 底层的使用方式。
@@ -1059,13 +1008,10 @@ public:
 ### 学习内容
 - L2 / Inner Product / Cosine 距离
 - SIMD 距离计算
-- HNSW
-- IVF / PQ 基础
+- HNSW、IVF / PQ 基础
 - Faiss 使用与源码阅读
-- metadata filter
-- 向量索引持久化 / 向量检索
-- CUDA C++ 基础
-- TensorRT plugin 基础
+- metadata filter、向量索引持久化
+- CUDA C++ 基础、TensorRT plugin 基础
 - KV Cache / batching / serving runtime 概念
 
 ### 必会概念
@@ -1108,14 +1054,9 @@ public:
 ### 练习
 - 实现 brute-force vector search
 - 实现 L2 / cosine / inner product 三种距离计算
-- 对比 AoS 与 SoA 的向量存储布局
-- 为距离计算写 benchmark
-- 尝试用 SIMD 优化 L2Distance
+- 为距离计算写 benchmark 并尝试 SIMD 优化
 - 实现 HNSW 的节点、邻接表和基础搜索流程
 - 使用 Faiss 建立 IVF / HNSW 索引并测试召回率
-- 设计向量索引文件格式并支持加载
-- 阅读 Faiss 的 IndexFlat 或 HNSW 相关代码
-- 写一个 TensorRT plugin hello demo 或阅读 plugin 示例
 
 ### 阶段验收
 - 能解释 L2、Cosine、Inner Product 的适用场景
@@ -1137,7 +1078,47 @@ public:
 - 推理服务 batching 原型
 - Python 调用 C++ 向量检索库
 
-# 推荐学习顺序
+## 附录：阶段性项目验收标准
+
+### 目标
+用项目验证 C++ 能力，从语法使用走向工程交付。
+
+### 学习内容
+- 功能验收、性能验收、测试验收
+- README、构建脚本、CI
+- Sanitizer 和静态分析
+- 项目分层和接口说明
+
+### 必会概念
+- 可构建、可运行、可测试、可维护才算完成
+- 公共接口要有示例和错误说明
+- 工程质量工具应自动化
+
+### 示例
+```text
+验收项：
+- cmake --build 通过
+- ctest 通过
+- ASan/UBSan 无错误
+- clang-tidy 无高优先级问题
+```
+
+### 练习
+- 给已有项目补 CI
+- 给公共 API 补文档
+- 用 Sanitizer 跑全量测试
+
+### 阶段验收
+- 能完成类和 STL 项目（初级）
+- 能完成多模块 CMake 项目（中级）
+- 能完成并发、网络、存储引擎、查询执行或向量检索方向项目（高级）
+
+### 推荐项目
+- C++ 工程模板
+- Mini KV 工程模板
+- 向量检索库工程模板
+
+## 推荐学习顺序
 
 ```text
 C++ 基础语法
@@ -1161,7 +1142,7 @@ C++ 基础语法
 → CUDA C++ / TensorRT / 推理引擎
 ```
 
-# C++ 和 C 的重点区别
+## C++ 和 C 的重点区别
 
 | 方向 | C | C++ |
 | --- | --- | --- |
@@ -1172,16 +1153,16 @@ C++ 基础语法
 | 复用方式 | 函数、宏 | 类、模板、组合 |
 | 错误处理 | 错误码 | 错误码 + 异常 |
 
-# 项目路线
+## 项目路线
 
-## 初级项目
+### 初级项目
 - 计算器
 - 学生管理系统
 - 通讯录
 - 文件统计工具
 - 简单日志类
 
-## 中级项目
+### 中级项目
 - 动态数组类
 - 简单 String 类
 - 线程安全队列
@@ -1189,7 +1170,7 @@ C++ 基础语法
 - CSV/JSON 配置管理
 - TCP echo server
 
-## 高级项目
+### 高级项目
 - 线程池
 - HTTP server
 - 内存池
@@ -1203,7 +1184,7 @@ C++ 基础语法
 - Faiss benchmark
 - TensorRT plugin demo
 
-# 对你最推荐的路线
+## 对你最推荐的路线
 
 如果目标是数据库内核、KV 库、向量库、AI 推理训练引擎和 Agent 高性能扩展，建议路线是：
 

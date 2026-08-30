@@ -34,10 +34,7 @@ fn main() {
 - 写 Hello Rust
 - 猜数字游戏（基础版）
 - 温度转换器
-- 九九乘法表
-- 素数判断
 - 把 `if`/`else` 分支改写成 `match`
-- 对比 `let x = 5;` 与 `x = 5;` 的行为差异
 - 命令行计算器
 
 ### 阶段验收
@@ -84,6 +81,8 @@ fn main() {
 ### 练习
 - 把会移动所有权的函数改成借用参数
 - 练习 String、&str、slice 的转换
+- 修复一组典型借用检查错误（E0382 / E0502）
+- 用借用重写一个频繁 clone 的函数，对比改动前后的所有权流向
 
 ### 阶段验收
 - 能解释 move 后变量为什么不可用
@@ -95,7 +94,7 @@ fn main() {
 
 ## 3. 基础数据结构阶段
 
-> 📖 详细展开版见 [ph03-data-structure/](./ph03-data-structure/03-data-structure.md)
+> 📖 详细展开版见 [ph03-data-structure/03-data-structure.md](./ph03-data-structure/03-data-structure.md)
 
 ### 目标
 能使用结构体、枚举和集合表达真实业务数据。
@@ -141,7 +140,7 @@ fn main() {
 
 ## 4. Option 和 Result 阶段
 
-> 📖 详细展开版见 [ph04-option-result/](./ph04-option-result/04-option-result.md)
+> 📖 详细展开版见 [ph04-option-result/04-option-result.md](./ph04-option-result/04-option-result.md)
 
 ### 目标
 用类型系统表达缺失值和错误，让失败路径可见、可处理。
@@ -175,14 +174,14 @@ fn parse_port(input: &str) -> Result<u16, std::num::ParseIntError> {
 ### 阶段验收
 - 能判断何时使用 Option 或 Result
 - 能解释问号运算符如何传播错误
-- 业务代码中避免无理由 panic
+- 能在业务代码中避免无理由 panic
 
 ### 推荐项目
 配置解析器：读取端口、超时、开关项，输出结构化配置或明确错误。
 
 ## 5. 模式匹配与枚举阶段
 
-> 📖 详细展开版见 [ph05-pattern-match/](./ph05-pattern-match/05-pattern-match.md)
+> 📖 详细展开版见 [ph05-pattern-match/05-pattern-match.md](./ph05-pattern-match/05-pattern-match.md)
 
 ### 目标
 用 enum 和 match 表达状态、协议类型和业务分支。
@@ -391,7 +390,7 @@ println!("{}", sum);
 ### 阶段验收
 - 能选择 iter、iter_mut、into_iter
 - 能读懂常见链式迭代器
-- 不会因闭包捕获造成意外移动
+- 能避免因闭包捕获造成意外移动
 
 ### 推荐项目
 - 日志数据聚合器：过滤异常记录并计算错误分布、延迟分布和来源统计。
@@ -475,9 +474,9 @@ enum AppError {
 - 补充正常路径和异常路径测试
 
 ### 阶段验收
-- 错误信息能定位问题
-- 测试覆盖核心分支
-- 日志便于排查且不泄露敏感信息
+- 能让错误信息定位问题
+- 能用测试覆盖核心分支
+- 能让日志便于排查且不泄露敏感信息
 
 ### 推荐项目
 - 可靠 CLI：读取文件、解析数据、输出报告，并提供清晰错误提示。
@@ -560,14 +559,14 @@ fn main() -> std::io::Result<()> {
 - 写一个 TCP echo server
 
 ### 阶段验收
-- I/O 错误处理清晰
-- 路径处理不依赖硬编码分隔符
-- 网络程序能处理断连和超时
+- 能写出清晰的 I/O 错误处理
+- 能让路径处理不依赖硬编码分隔符
+- 能让网络程序处理断连和超时
 
 ### 推荐项目
 - 日志转发器：读取文件尾部变化并通过 TCP 发送到服务端。
 
-## 14. Unsafe Rust 阶段与安全抽象
+## 14. Unsafe Rust 与安全抽象阶段
 
 ### 目标
 理解 unsafe 的能力边界，只在必要时封装最小不安全代码。
@@ -602,13 +601,13 @@ unsafe {
 
 ### 阶段验收
 - 能说明每个 unsafe 块的必要性和不变量
-- 不会用 unsafe 绕过普通编译错误
+- 能避免用 unsafe 绕过普通编译错误
 - 能识别 UB 风险
 
 ### 推荐项目
 - 受控缓冲区封装：提供安全 API，内部用少量 unsafe 操作切片。
 
-## 15. 宏与元编程
+## 15. 宏与元编程阶段
 
 ### 目标
 能使用声明宏和常见 derive 宏减少重复代码，并知道宏的维护成本。
@@ -645,12 +644,12 @@ say!("rust");
 ### 阶段验收
 - 能判断函数、泛型和宏的取舍
 - 能调试基本宏匹配错误
-- 宏生成代码仍保持可读边界
+- 能让宏生成代码仍保持可读边界
 
 ### 推荐项目
 - 事件结构体宏：为多类事件生成统一打印、校验或序列化辅助代码。
 
-## 16. Rust Edition、工具链与版本管理
+## 16. Rust Edition、工具链与版本管理阶段
 
 ### 目标
 能管理 Rust 版本、Edition 和项目工具链，保证团队环境一致。
@@ -683,13 +682,13 @@ components = ["rustfmt", "clippy"]
 
 ### 阶段验收
 - 能说明 Edition 与 toolchain 的区别
-- CI 与本地工具链一致
-- 依赖升级有版本记录和回退方案
+- 能保持 CI 与本地工具链一致
+- 能为依赖升级记录版本并提供回退方案
 
 ### 推荐项目
 - 团队模板仓库：包含工具链文件、CI、格式化、lint 和 README 约定。
 
-## 17. Crate 生态选择与常用库
+## 17. Crate 生态选择与常用库阶段
 
 ### 目标
 能评估并选择可靠 crate，避免盲目引入依赖。
@@ -720,14 +719,14 @@ tracing = "0.1"
 - 用 cargo tree 观察依赖树
 
 ### 阶段验收
-- 引入依赖前能说明理由
+- 能在引入依赖前说明理由
 - 能控制 feature 范围
 - 能发现高风险或无人维护 crate
 
 ### 推荐项目
 - 依赖评审报告：列出核心 crate、用途、风险和替代方案。
 
-## 18. Borrow Checker 调试专项
+## 18. Borrow Checker 调试专项阶段
 
 ### 目标
 系统掌握借用检查错误的定位与重构方法。
@@ -762,13 +761,13 @@ items.push(4);
 
 ### 阶段验收
 - 能根据错误提示找到真实冲突
-- 修复时不会过度 clone
+- 能在修复时避免过度 clone
 - 能解释重构后的所有权流向
 
 ### 推荐项目
 - 借用错误练习集：每个案例包含错误版、修复版和解释。
 
-## 19. 内存布局、零拷贝与协议解析
+## 19. 内存布局、零拷贝与协议解析阶段
 
 ### 目标
 理解数据布局和字节处理，能实现高效、安全的协议解析。
@@ -796,23 +795,22 @@ fn read_u16_be(buf: &[u8]) -> Option<u16> {
 ```
 
 ### 练习
-- 解析固定头部二进制协议
-- 处理大端和小端字段
+- 解析固定头部二进制协议（含大端/小端字段）
 - 用切片返回借用数据
 - 解析 WAL record
 - 解析 SSTable block header
 - 实现 length-prefix frame parser
 
 ### 阶段验收
-- 不会直接把不可信字节转成结构体引用
+- 能避免直接把不可信字节转成结构体引用
 - 能处理长度不足和非法字段
-- 解析过程尽量少复制
+- 能让解析过程尽量少复制
 
 ### 推荐项目
 - 二进制 record 解析器：解析消息头、时间戳、record ID 和 payload 字段。
 - WAL record 解析器：解析 record header、sequence、key、value 和 checksum 字段。
 
-## 20. 测试体系进阶
+## 20. 测试体系进阶阶段
 
 ### 目标
 建立覆盖单元、集成、属性和基准的测试体系。
@@ -844,14 +842,14 @@ fn parses_number() {
 - 用 criterion 对比优化前后性能
 
 ### 阶段验收
-- 核心逻辑有正反测试
-- bug 修复伴随回归测试
-- 性能结论有可重复基准
+- 能让核心逻辑有正反测试
+- 能让 bug 修复伴随回归测试
+- 能让性能结论有可重复基准
 
 ### 推荐项目
 - record 解析测试套件：包含真实样例、错误样例、基准测试。
 
-## 21. Clippy、rustfmt、CI 与代码质量
+## 21. Clippy、rustfmt、CI 与代码质量阶段
 
 ### 目标
 用工具链自动化保持代码风格、质量和可交付性。
@@ -883,14 +881,14 @@ steps:
 - 配置 pre-commit 或本地检查脚本
 
 ### 阶段验收
-- PR 必须通过格式化、lint 和测试
-- lint 例外有明确理由
-- CI 输出便于定位失败
+- 能让 PR 通过格式化、lint 和测试
+- 能为 lint 例外给出明确理由
+- 能让 CI 输出便于定位失败
 
 ### 推荐项目
 - Rust CI 模板：可复用于 CLI、服务端和库项目。
 
-## 22. 性能优化与 Profiling
+## 22. 性能优化与 Profiling 阶段
 
 ### 目标
 能基于测量进行优化，而不是凭感觉修改代码。
@@ -922,14 +920,14 @@ codegen-units = 1
 - 比较 Vec、HashMap、BTreeMap 的性能
 
 ### 阶段验收
-- 优化前后有数据对比
-- 没有牺牲正确性和可维护性
+- 能在优化前后给出数据对比
+- 能在优化中不牺牲正确性和可维护性
 - 能定位主要瓶颈而非微调冷路径
 
 ### 推荐项目
 - 日志聚合性能优化：从基准出发降低处理延迟和内存占用。
 
-## 23. Rust FFI 与跨语言接口设计
+## 23. Rust FFI 与跨语言接口设计阶段
 
 ### 目标
 能安全地把 Rust 与 C、C++、Python 或其他语言集成。
@@ -961,14 +959,14 @@ pub extern "C" fn add(a: i32, b: i32) -> i32 {
 - 把 Rust 函数包装成 Python 扩展
 
 ### 阶段验收
-- 接口只暴露 ABI 稳定类型
-- 跨语言内存释放规则明确
-- 错误处理不跨 FFI 直接 panic
+- 能让接口只暴露 ABI 稳定类型
+- 能让跨语言内存释放规则明确
+- 能让错误处理不跨 FFI 直接 panic
 
 ### 推荐项目
 - Rust 加速库：为 Python 提供高性能解析、向量距离计算或 RAG chunk 处理函数，并附带测试。
 
-## 24. 安全、供应链与发布
+## 24. 安全、供应链与发布阶段
 
 ### 目标
 能发布可信 Rust 软件，并管理依赖、漏洞和制品。
@@ -1000,14 +998,84 @@ allow = ["MIT", "Apache-2.0"]
 - 编写 CHANGELOG 和 release notes
 
 ### 阶段验收
-- 依赖漏洞有处理策略
-- 发布包内容可审查
-- 版本号和变更说明一致
+- 能为依赖漏洞制定处理策略
+- 能让发布包内容可审查
+- 能让版本号和变更说明一致
 
 ### 推荐项目
 - 安全发布流水线：自动测试、审计、构建、打包和生成发布说明。
 
-## 25. 阶段性项目验收标准
+## 25. Rust 数据基础设施专项阶段
+
+### 目标
+面向 KV 存储、LSM Tree、Raft KV、向量检索和 Agent 工具后端，构建安全、高性能、可测试的数据基础设施组件。
+
+### 学习内容
+- WAL append / replay、MemTable、SSTable
+- Bloom Filter、Compaction、Snapshot
+- MVCC 简化模型、Raft 日志复制基础
+- HNSW 向量检索基础
+- Axum / Tonic 数据服务、pyo3 Python 加速模块
+
+### 必会概念
+- WAL 用于崩溃恢复
+- SSTable 是不可变有序文件
+- LSM 通过顺序写提升写入吞吐，但会引入 compaction 成本
+- Raft 通过日志复制保证多副本状态一致
+- HNSW 用图结构提升近似最近邻搜索效率
+- Rust 的所有权模型适合封装安全的存储和并发抽象
+- Agent 工具后端要关注权限、超时、审计和可观测性
+
+### 示例
+为聚焦接口设计，示例省略了依赖声明；实际项目需在 Cargo.toml 中引入 `anyhow`、`serde_json`、`async-trait`。
+
+```rust
+#[derive(Debug, Clone)]
+pub enum WalRecord {
+    Put { key: Vec<u8>, value: Vec<u8> },
+    Delete { key: Vec<u8> },
+}
+
+pub trait KvStore {
+    fn put(&mut self, key: Vec<u8>, value: Vec<u8>) -> anyhow::Result<()>;
+    fn get(&self, key: &[u8]) -> anyhow::Result<Option<Vec<u8>>>;
+    fn delete(&mut self, key: &[u8]) -> anyhow::Result<()>;
+}
+
+#[async_trait::async_trait]
+pub trait Tool {
+    async fn call(&self, input: serde_json::Value) -> anyhow::Result<serde_json::Value>;
+}
+```
+
+### 练习
+- 实现 WAL append / replay 与 MemTable
+- 实现 Mini SSTable writer / reader 并增加 Bloom Filter
+- 实现基础 compaction 与 Mini Raft KV 的单节点状态机
+- 实现 HNSW toy version 并输出 recall / QPS 指标
+- 用 Axum 暴露 KV / 检索 API，并用 pyo3 暴露一个解析函数给 Python
+
+### 阶段验收
+- 能通过 WAL 恢复 put / delete 操作
+- 能按 key 查询 SSTable
+- 能完成基础 range scan
+- 能解释 LSM 的读放大、写放大和空间放大
+- 能解释 Raft 的 leader election 和 log replication
+- 能输出向量检索 recall、QPS、P95 延迟和内存占用
+- 能设计可被 Agent 调用的稳定工具 API
+- 能构建 Python 调用 Rust 的加速模块
+
+### 推荐项目
+- Rust KV Store
+- Mini LSM
+- Mini Raft KV
+- Time-series KV 原型
+- HNSW toy implementation
+- RAG vector index benchmark
+- Agent 工具服务
+- Python 调用 Rust 加速库
+
+## 附录：阶段性项目验收标准
 
 ### 目标
 用项目验收串联 Rust 能力，形成可展示作品集。
@@ -1037,95 +1105,16 @@ allow = ["MIT", "Apache-2.0"]
 - 建立项目验收表
 
 ### 阶段验收
-- 项目能从零构建运行
-- 核心路径有测试
-- 错误处理清楚
-- 性能和安全风险有记录
+- 能让项目从零构建运行
+- 能让核心路径有测试
+- 能让错误处理清楚
+- 能记录性能和安全风险
 
 ### 推荐项目
 - 异步数据基础设施网关，包含二进制解析、缓存、HTTP API、日志、测试和 CI。
 - Agent 工具网关，包含工具注册、权限校验、HTTP API、日志、测试和 CI。
 
-## 26. Rust 数据基础设施专项
-
-### 目标
-面向 KV 存储、LSM Tree、Raft KV、向量检索和 Agent 工具后端，构建安全、高性能、可测试的数据基础设施组件。
-
-### 学习内容
-- WAL append / replay
-- MemTable
-- SSTable
-- Bloom Filter
-- Compaction
-- Snapshot
-- MVCC 简化模型
-- Raft 日志复制基础
-- HNSW 向量检索基础
-- Axum / Tonic 数据服务
-- pyo3 Python 加速模块
-
-### 必会概念
-- WAL 用于崩溃恢复
-- SSTable 是不可变有序文件
-- LSM 通过顺序写提升写入吞吐，但会引入 compaction 成本
-- Raft 通过日志复制保证多副本状态一致
-- HNSW 用图结构提升近似最近邻搜索效率
-- Rust 的所有权模型适合封装安全的存储和并发抽象
-- Agent 工具后端要关注权限、超时、审计和可观测性
-
-### 示例
-```rust
-#[derive(Debug, Clone)]
-pub enum WalRecord {
-    Put { key: Vec<u8>, value: Vec<u8> },
-    Delete { key: Vec<u8> },
-}
-
-pub trait KvStore {
-    fn put(&mut self, key: Vec<u8>, value: Vec<u8>) -> anyhow::Result<()>;
-    fn get(&self, key: &[u8]) -> anyhow::Result<Option<Vec<u8>>>;
-    fn delete(&mut self, key: &[u8]) -> anyhow::Result<()>;
-}
-
-#[async_trait::async_trait]
-pub trait Tool {
-    async fn call(&self, input: serde_json::Value) -> anyhow::Result<serde_json::Value>;
-}
-```
-
-### 练习
-- 实现 WAL append / replay
-- 实现 MemTable
-- 实现 Mini SSTable writer / reader
-- 为 SSTable 增加 Bloom Filter
-- 实现基础 compaction
-- 实现 Mini Raft KV 的单节点状态机
-- 实现 brute-force vector search
-- 实现 HNSW toy version
-- 用 Axum 暴露 KV / 检索 API
-- 用 pyo3 暴露 Rust 解析函数给 Python
-
-### 阶段验收
-- 能通过 WAL 恢复 put / delete 操作
-- 能按 key 查询 SSTable
-- 能完成基础 range scan
-- 能解释 LSM 的读放大、写放大和空间放大
-- 能解释 Raft 的 leader election 和 log replication
-- 能输出向量检索 recall、QPS、P95 延迟和内存占用
-- 能设计可被 Agent 调用的稳定工具 API
-- 能构建 Python 调用 Rust 的加速模块
-
-### 推荐项目
-- Rust KV Store
-- Mini LSM
-- Mini Raft KV
-- Time-series KV 原型
-- HNSW toy implementation
-- RAG vector index benchmark
-- Agent 工具服务
-- Python 调用 Rust 加速库
-
-# 推荐学习顺序
+## 推荐学习顺序
 
 ```text
 → Rust 基础语法
@@ -1152,7 +1141,7 @@ pub trait Tool {
 
 ---
 
-# Rust 和 C / C++ 的核心区别
+## Rust 和 C / C++ 的核心区别
 
 | 方向   | C                | C++         | Rust           |
 | ---- | ---------------- | ----------- | -------------- |
@@ -1168,9 +1157,9 @@ pub trait Tool {
 
 ---
 
-# 项目路线
+## 项目路线
 
-## 初级项目
+### 初级项目
 - 猜数字游戏
 - 计算器
 - 通讯录
@@ -1178,7 +1167,7 @@ pub trait Tool {
 - 简单日志工具
 - Todo CLI
 
-## 中级项目
+### 中级项目
 - CSV 解析器
 - JSON 配置读取器
 - 命令行工具
@@ -1188,7 +1177,7 @@ pub trait Tool {
 - Ring Buffer
 - 线程安全队列
 
-## 高级项目
+### 高级项目
 - 多线程任务队列
 - 异步 HTTP 服务
 - 日志采集系统
@@ -1202,7 +1191,7 @@ pub trait Tool {
 - Agent 工具服务
 - FFI / pyo3 加速库
 
-## 数据基础设施 / AI Infra 项目
+### 数据基础设施 / AI Infra 项目
 - Rust KV Store
 - Mini LSM
 - Time-series KV 原型
@@ -1214,7 +1203,7 @@ pub trait Tool {
 
 ---
 
-# 对你最推荐的 Rust 路线
+## 对你最推荐的 Rust 路线
 
 如果你的目标是 **KV 库、数据库内核、向量库、AI Agent 工具后端和 Python/RAG 加速模块**，建议走这条线：
 
@@ -1239,7 +1228,7 @@ Rust 基础
 
 重点掌握：所有权、借用检查、Option、Result、match、struct、enum、trait、lifetime、Vec、HashMap、Arc、Mutex、Tokio、Axum、Tonic、bytes、mmap、unsafe、WAL、SSTable、LSM、Raft、HNSW、criterion、tracing、pyo3、maturin。
 
-# 从 C/C++ 转 Rust 的学习建议
+## 从 C/C++ 转 Rust 的学习建议
 
 - 不要用 unsafe 模拟 C 指针写法，先用所有权、借用和类型系统解决问题。
 - 少用全局可变状态，多用结构体、trait 和明确的数据流。
