@@ -230,8 +230,11 @@ void func(void) {
 ## 6. 代码示例
 
 > **说明**：示例 2 起会用到自定义函数——函数将在下一阶段（ph02 函数与模块化）详解，此处模仿写法即可。
+> 完整可运行文件见 [`examples/`](./examples/)，每个示例对应一个 `ex0*-*.c`，已在本环境用 `gcc -Wall -Wextra -std=c99` 验证。
 
 ### 示例 1：命令行计算器
+
+完整文件：`examples/ex01-calculator.c`
 
 ```c
 #include <stdio.h>
@@ -261,6 +264,8 @@ int main(void) {
 
 ### 示例 2：判断素数
 
+完整文件：`examples/ex02-is-prime.c`
+
 ```c
 #include <stdio.h>
 #include <stdbool.h>
@@ -284,6 +289,8 @@ int main(void) {
 
 ### 示例 3：数组统计
 
+完整文件：`examples/ex03-array-stats.c`
+
 ```c
 #include <stdio.h>
 
@@ -306,6 +313,8 @@ int main(void) {
 ```
 
 ### 示例 4：九九乘法表
+
+完整文件：`examples/ex04-multiplication-table.c`
 
 ```c
 #include <stdio.h>
@@ -343,25 +352,23 @@ int main(void) {
 | 动态数组 | `malloc` / `free` | `std::vector` | 定长数组 + `ArrayList` | `list` |
 | 布尔 | `_Bool`（C99 `stdbool.h` 提供 `bool`） | `bool` | `boolean` | `bool`（`True`/`False`） |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能独立编译并运行单文件 C 程序（`gcc main.c -o app && ./app`）
-- 能解释 `main` 返回值的含义
-- 能用循环和条件分支解决基础算法题
-- 能调试基础编译错误（漏分号、未声明变量等）
+- [ ] 能独立编译并运行单文件 C 程序（`gcc main.c -o app && ./app`）
+- [ ] 能解释 `main` 返回值的含义
+- [ ] 能用循环和条件分支解决基础算法题
+- [ ] 能调试基础编译错误（漏分号、未声明变量等）
 
-### 进入下一阶段前
+### 动手练习
 
-确保能完成以下练习：
-- 计算器（支持 `+ - * /`）
-- 九九乘法表
-- 判断素数
-- 数组最大值、最小值、平均值
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）。完成 4 题后继续。
 
-### 推荐项目
+### 阶段项目
 
-- **命令行计算器**：处理基本四则运算和除零错误
-- **成绩等级判断工具**：输入分数输出 A/B/C/D/F
+本阶段综合项目见 [`project/`](./project/)：命令行计算器（支持四则运算与除零错误处理）。建议完成练习后再动手。
+
+- [ ] 完成 exercises/ 全部练习并对照参考实现复盘
+- [ ] 独立完成 project/ 并通过其验收标准
 
 ### 下一阶段
 

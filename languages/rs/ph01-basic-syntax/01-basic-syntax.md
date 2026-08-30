@@ -317,6 +317,8 @@ println!("{:#?}", complex_struct);  // 美化调试输出
 
 ## 6. 代码示例
 
+> 本节每个示例的完整可运行文件在 [`examples/`](./examples/) 目录，验证环境 rustc 1.92.0，用 `rustc` 直接编译（命令见 examples/README.md）。示例 1 演示了不 panic 的输入解析写法（`match parse` + 提示后继续），替代了常见教程里的 `expect`——避免在学习初期养成"出错就 panic"的习惯。
+
 ### 示例 1：猜数字游戏（基础版）
 
 ```rust
@@ -331,11 +333,19 @@ fn main() {
         println!("请输入你的猜测：");
 
         let mut guess = String::new();
-        io::stdin()
-            .read_line(&mut guess)
-            .expect("读取失败");
+        if io::stdin().read_line(&mut guess).is_err() {
+            println!("读取输入失败");
+            continue;
+        }
 
-        let guess: i32 = guess.trim().parse().expect("请输入数字");
+        // 解析失败给出提示后继续，而不是 panic
+        let guess: i32 = match guess.trim().parse() {
+            Ok(n) => n,
+            Err(_) => {
+                println!("请输入数字");
+                continue;
+            }
+        };
 
         match guess.cmp(&secret) {
             std::cmp::Ordering::Less    => println!("太小！"),
@@ -348,6 +358,8 @@ fn main() {
     }
 }
 ```
+
+完整文件：`examples/ex01-guessing-game.rs`
 
 ### 示例 2：温度转换器
 
@@ -384,6 +396,8 @@ fn main() {
 }
 ```
 
+完整文件：`examples/ex02-temperature-converter.rs`
+
 ### 示例 3：九九乘法表
 
 ```rust
@@ -396,6 +410,8 @@ fn main() {
     }
 }
 ```
+
+完整文件：`examples/ex03-multiplication-table.rs`
 
 ### 示例 4：素数判断
 
@@ -425,6 +441,8 @@ fn main() {
 }
 ```
 
+完整文件：`examples/ex04-is-prime.rs`
+
 ## 7. 总结
 
 ### 关键要点
@@ -447,29 +465,24 @@ fn main() {
 | 包管理 | 无 | 无内置 | **cargo** |
 | 代码格式化 | 手动 | 手动 | **cargo fmt** |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能独立创建并运行 cargo 项目（`cargo new` / `cargo run`）
-- 能解释 `mut`、shadowing、表达式返回值的含义
-- 能写出使用 `if`、`loop`、`for`、`match` 的程序
-- 能根据编译错误定位基础语法问题并修复
-- 能使用 `println!` 进行格式化输出和调试
+- [ ] 能独立创建并运行 cargo 项目（`cargo new` / `cargo run`）
+- [ ] 能解释 `mut`、shadowing、表达式返回值的含义
+- [ ] 能写出使用 `if`、`loop`、`for`、`match` 的程序
+- [ ] 能根据编译错误定位基础语法问题并修复
+- [ ] 能使用 `println!` 进行格式化输出和调试
 
-### 进入下一阶段前
+### 动手练习
 
-确保能完成以下练习：
-- 写 Hello Rust
-- 猜数字游戏（基础版）
-- 温度转换器
-- 九九乘法表
-- 素数判断
-- 把 `if`/`else` 分支改写成 `match`
-- 对比 `let x = 5;` 与 `x = 5;` 的行为差异
-- 命令行计算器（支持加减乘除、错误输入提示）
+本阶段练习见 [exercises/](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）。完成 5 题后继续。
 
-### 推荐项目
+### 阶段项目
 
-- **命令行计算器**：支持加减乘除、错误输入提示和基础测试
+本阶段综合项目见 [project/](./project/)：命令行计算器——循环读入算式，支持加减乘除、错误输入提示和基础单元测试。建议完成练习后再动手。
+
+- [ ] 完成 exercises/ 全部练习并对照参考实现复盘
+- [ ] 独立完成 project/ 并通过其验收标准
 
 ### 下一阶段
 

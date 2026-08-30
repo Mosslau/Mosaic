@@ -16,6 +16,8 @@ Java 基础语法阶段的目标是：**能写简单 Java 程序，理解 JDK、
 
 Java 基础语法阶段是进入 OOP（面向对象编程）之前的必要铺垫——你写的第一行 Java 代码就已经在 `class` 里面了。
 
+这个阶段只涉及单类、单 `main` 方法的程序，**不涉及继承、接口、封装设计、集合框架和异常体系** — 那些是 ph02 面向对象、ph04 集合框架、ph06 异常处理阶段的内容。
+
 ## 2. 来源与演变
 
 Java 由 James Gosling 于 1995 年在 Sun Microsystems 发布，最初的设计目标是为消费电子设备创建一种**可移植、安全**的编程语言。其核心理念"Write Once, Run Anywhere"（一次编写，到处运行）影响了整个软件开发产业。
@@ -318,8 +320,11 @@ JVM 运行时主要分为两大区域：**堆**（Heap，存放所有对象实�
 ## 6. 代码示例
 
 > **说明**：示例 2 起会用到自定义静态方法——方法将在下一阶段（ph02 面向对象 OOP）详解，此处模仿写法即可。
+> 完整可运行文件见 [`examples/`](./examples/)，每个示例对应一个 `ex0*-*.java`。已在本环境用 OpenJDK 17（`javac` / `java`）编译运行验证；文件名与 `public class` 名不同，是为保持示例命名统一，编译方式见 examples/README.md。
 
 ### 示例 1：命令行计算器
+
+完整文件：`examples/ex01-calculator.java`
 
 ```java
 import java.util.Scanner;
@@ -352,6 +357,8 @@ public class Calculator {
 
 ### 示例 2：判断素数
 
+完整文件：`examples/ex02-prime-check.java`
+
 ```java
 public class PrimeCheck {
     static boolean isPrime(int n) {
@@ -376,6 +383,8 @@ public class PrimeCheck {
 
 ### 示例 3：数组统计
 
+完整文件：`examples/ex03-array-stats.java`
+
 ```java
 public class ArrayStats {
     public static void main(String[] args) {
@@ -398,6 +407,8 @@ public class ArrayStats {
 
 ### 示例 4：九九乘法表
 
+完整文件：`examples/ex04-multiplication-table.java`
+
 ```java
 public class MultiplicationTable {
     public static void main(String[] args) {
@@ -412,6 +423,8 @@ public class MultiplicationTable {
 ```
 
 ### 示例 5：猜数字游戏
+
+完整文件：`examples/ex05-guess-number.java`
 
 ```java
 import java.util.Random;
@@ -468,25 +481,23 @@ public class GuessNumber {
 | 边界检查 | 无 | 无（裸数组） | 有，抛异常 |
 | 代码组织 | 函数 | 函数 + 类 | 强制在类中 |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能编译并运行单文件 Java 程序（`javac` + `java`）
-- 能解释 JDK、JRE、JVM 的区别
-- 能用循环和数组完成基础练习
-- 能区分基本类型和引用类型的行为差异
+- [ ] 能编译并运行单文件 Java 程序（`javac` + `java`）
+- [ ] 能解释 JDK、JRE、JVM 的区别
+- [ ] 能区分基本类型和引用类型的行为差异
+- [ ] 能说出比较字符串内容为什么必须用 `equals()` 而不是 `==`
 
-### 进入下一阶段前
+### 动手练习
 
-确保能完成以下练习：
-- 计算器（支持 `+ - * /`）
-- 判断素数
-- 九九乘法表
-- 数组最大值、最小值、平均值
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）。完成 4 题后继续。
 
-### 推荐项目
+### 阶段项目
 
-- **成绩统计工具**：录入多个成绩，计算平均分、最高分、最低分和等级分布
-- **猜数字游戏**：随机生成 1-100 的数字，提示"太大"/"太小"
+本阶段综合项目见 [`project/`](./project/)：成绩统计工具——录入多个成绩，计算平均分、最高分、最低分和等级分布。建议完成练习后再动手。
+
+- [ ] 完成 exercises/ 全部练习并对照参考实现复盘
+- [ ] 独立完成 project/ 并通过其验收标准
 
 ### 下一阶段
 

@@ -17,6 +17,8 @@ C++ 基础语法阶段的定位是：**能写简单 C++ 程序，理解 C++ 相�
 
 这个阶段的目标不是学完 C with Classes，而是建立**现代 C++ 的初始心智模型**。
 
+这个阶段只涉及单文件、过程式写法加少量标准库类型，**不涉及类与对象、继承多态、模板和智能指针** — 那些是 ph02 面向对象、ph05 模板与泛型、ph06 现代 C++ 阶段的内容。
+
 ## 2. 来源与演变
 
 C++ 由 Bjarne Stroustrup 于 1979 年在贝尔实验室开始设计，最初名为"C with Classes"，1983 年更名为 C++。其设计哲学是**零成本抽象（Zero-cost Abstraction）**——你不用的特性不应该为它付出代价。
@@ -31,6 +33,8 @@ C++ 由 Bjarne Stroustrup 于 1979 年在贝尔实验室开始设计，最初名
 | C++23 | 2023 | `std::expected`、`std::flat_map`、deducing this |
 
 基础语法阶段同时涉及 C++98 的根基和 C++11/17 的现代写法——后者是你应该优先使用的。
+
+本文示例以 **C++17** 为基线（`auto`、range-for、结构化绑定、`string_view` 均可用），现代编译器（GCC 7+ / Clang 5+ / MSVC 2017+）默认或加 `-std=c++17` 即可编译，无需额外选项。这个阶段的语法是现代 C++ 最稳定的部分。
 
 ## 3. 语法与参数
 
@@ -265,9 +269,14 @@ auto s = "hello";    // const char*（不是 std::string）
 
 ## 6. 代码示例
 
+> 完整可运行文件见 [`examples/`](./examples/)，每个示例对应一个 `ex0*-*.cpp`，已在本环境用 `g++ -Wall -Wextra -std=c++17` 验证（零警告）。
+
 ### 示例 1：通讯录（string + vector）
 
+完整文件：`examples/ex01-contacts.cpp`
+
 ```cpp
+// examples/ex01-contacts.cpp —— 通讯录：用 struct + vector 组织数据，按名字查找
 #include <iostream>
 #include <string>
 #include <vector>
@@ -290,7 +299,7 @@ int main() {
     std::string query = "Bob";
     for (const auto& c : contacts) {
         if (c.name == query) {
-            std::cout << c.name << ": " << c.phone << std::endl;
+            std::cout << c.name << ": " << c.phone << '\n';
         }
     }
     return 0;
@@ -299,7 +308,10 @@ int main() {
 
 ### 示例 2：词频统计
 
+完整文件：`examples/ex02-word-frequency.cpp`
+
 ```cpp
+// examples/ex02-word-frequency.cpp —— 词频统计：排序后按相邻相同词计数
 #include <iostream>
 #include <string>
 #include <vector>
@@ -318,19 +330,22 @@ int main() {
         if (words[i] == current) {
             count++;
         } else {
-            std::cout << current << ": " << count << std::endl;
+            std::cout << current << ": " << count << '\n';
             current = words[i];
             count = 1;
         }
     }
-    std::cout << current << ": " << count << std::endl;
+    std::cout << current << ": " << count << '\n';
     return 0;
 }
 ```
 
 ### 示例 3：用 auto 和 range-for 简化
 
+完整文件：`examples/ex03-auto-range-for.cpp`
+
 ```cpp
+// examples/ex03-auto-range-for.cpp —— CTAD、range-for 与迭代器遍历对比
 #include <iostream>
 #include <vector>
 
@@ -341,7 +356,7 @@ int main() {
     for (const auto& n : nums) {
         std::cout << n << " ";
     }
-    std::cout << std::endl;
+    std::cout << '\n';
 
     // auto 避免重复写类型名
     auto it = nums.begin();
@@ -349,6 +364,7 @@ int main() {
     while (it != end) {
         std::cout << *it++ << " ";
     }
+    std::cout << '\n';
     return 0;
 }
 ```
@@ -376,26 +392,23 @@ int main() {
 | 默认参数 | 不支持 | 支持 |
 | 引用 | 无 | `T&` / `const T&` |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能写出基础 C++ 程序，正确使用 `std::cout`/`std::cin`
-- 能说明引用、指针和值传递的区别及选择依据
-- 能使用 `std::string` 和 `std::vector` 解决数据处理问题
-- 能阅读和理解简单的 C++ 编译错误
+- [ ] 能写出基础 C++ 程序，正确使用 `std::cout`/`std::cin`
+- [ ] 能说明引用、指针和值传递的区别及选择依据
+- [ ] 能使用 `std::string` 和 `std::vector` 解决数据处理问题
+- [ ] 能阅读和理解简单的 C++ 编译错误
 
-### 进入下一阶段前
+### 动手练习
 
-确保能完成以下练习：
-- 输入输出练习：读入姓名和年龄，格式化输出
-- 字符串处理：拼接、查找、截取子串
-- 用 `std::vector` 改写数组程序
-- 用 `std::string` 改写 C 风格字符串
-- 给函数添加引用参数和默认参数
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）。完成 4 题后继续。
 
-### 推荐项目
+### 阶段项目
 
-- **简单通讯录**：增删查改联系人，使用 `std::vector<Contact>`
-- **词频统计工具**：对一组单词排序并统计词频（基于示例 2 扩展）
+本阶段综合项目见 [`project/`](./project/)：简单通讯录——命令行交互式增删查改联系人，数据用 `std::vector<Contact>` 存储。建议完成练习后再动手。
+
+- [ ] 完成 exercises/ 全部练习并对照参考实现复盘
+- [ ] 独立完成 project/ 并通过其验收标准
 
 ### 下一阶段
 

@@ -16,6 +16,8 @@ Python 基础语法阶段的目标是：**能写简单 Python 程序，理解解
 
 与其他语言不同，Python 在基础阶段就可以写**完整可用的工具脚本**——这得益于动态类型和丰富的内置功能。
 
+这个阶段只涉及单脚本的顺序、分支、循环和简单函数，**不涉及类与面向对象、模块分包、文件读写和第三方库** — 那些是 ph03 函数与模块化、ph04 面向对象、ph05 文件操作阶段的内容。
+
 ## 2. 来源与演变
 
 Python 由 Guido van Rossum 于 1991 年发布。设计目标是一门**易读、表达力强**的脚本语言，名字来源于英国喜剧团体 Monty Python。
@@ -284,7 +286,11 @@ Python 在基础阶段就能写出很多实用的脚本——这是动态语言�
 
 ## 6. 代码示例
 
+> **说明**：本节展示完整可运行示例的关键片段，完整可运行文件见 [`examples/`](./examples/)，每个示例对应一个 `ex0*-*.py`，已在本环境用 Python 3.13.12 验证。
+
 ### 示例 1：猜测数字游戏
+
+完整文件：`examples/ex01-guess-number.py`
 
 ```python
 import random
@@ -309,6 +315,8 @@ while True:
 
 ### 示例 2：成绩等级判定
 
+完整文件：`examples/ex02-grade-judge.py`
+
 ```python
 def get_grade(score):
     """根据分数返回等级。"""
@@ -330,6 +338,8 @@ for i, s in enumerate(scores):
 
 ### 示例 3：词频统计
 
+完整文件：`examples/ex03-word-count.py`
+
 ```python
 text = "apple banana apple orange banana apple"
 words = text.split()
@@ -344,6 +354,8 @@ for word, count in sorted(freq.items()):
 
 ### 示例 4：九九乘法表
 
+完整文件：`examples/ex04-multiplication-table.py`
+
 ```python
 for i in range(1, 10):
     for j in range(1, i + 1):
@@ -352,6 +364,8 @@ for i in range(1, 10):
 ```
 
 ### 示例 5：简单的命令行工具脚本
+
+完整文件：`examples/ex05-text-stats.py`
 
 ```python
 import sys
@@ -401,27 +415,24 @@ if __name__ == "__main__":
 | 空值 | `NULL` / `nullptr` / `null` | `None` |
 | 布尔 | `true`/`false` | `True`/`False`（首字母大写） |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能独立运行 Python 脚本和 REPL
-- 能用条件和循环解决基础问题
-- 能写带有参数的函数
-- 能使用 `list`、`str` 的常用方法
-- 能读和写 f-string 格式化输出
+- [ ] 能独立运行 Python 脚本和 REPL
+- [ ] 能用条件和循环解决基础问题
+- [ ] 能写带有参数的函数
+- [ ] 能使用 `list`、`str` 的常用方法
+- [ ] 能读和写 f-string 格式化输出
 
-### 进入下一阶段前
+### 动手练习
 
-确保能完成以下练习：
-- 猜数字游戏
-- 成绩等级判定
-- 词频统计
-- 九九乘法表
-- 简单命令行脚本（字符 / 单词 / 行数统计）
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）。完成 5 题后继续。
 
-### 推荐项目
+### 阶段项目
 
-- **成绩等级判断工具**：输入成绩输出等级，批处理多个成绩
-- **命令行小脚本**：文本统计、简单计算
+本阶段综合项目见 [`project/`](./project/)：成绩等级判断工具——输入成绩输出等级，支持批处理多个成绩。建议完成练习后再动手。
+
+- [ ] 完成 exercises/ 全部练习并对照参考实现复盘
+- [ ] 独立完成 project/ 并通过其验收标准
 
 ### 下一阶段
 

@@ -16,6 +16,8 @@ Go 基础语法阶段的目标是：**能写简单 Go 程序，理解 Go 的简�
 
 这个阶段涵盖的内容比其他语言的基础语法阶段**更丰富**——Go 在基础阶段就引入了 slice 和 map，因为它们是用 Go 写任何实际程序的必需品。
 
+这个阶段只涉及单文件的命令行程序，**不涉及方法（Method）、接口（Interface）、结构体嵌套和 goroutine 并发** — 那些是 ph04 方法与接口、ph06 并发编程阶段的内容。
+
 ## 2. 来源与演变
 
 Go 由 Robert Griesemer、Rob Pike 和 Ken Thompson 于 2007 年在 Google 设计，2009 年开源，2012 年发布 1.0 版本。设计动机是解决 Google 内部大规模软件开发中的痛点：编译慢、依赖管理复杂、并发编程困难。
@@ -329,8 +331,11 @@ Go 社区不会争论代码格式——`gofmt` 是**强制标准**。所有标�
 ## 6. 代码示例
 
 > **说明**：示例 3 起会用到自定义函数——函数与错误处理是下一阶段（ph02）的主题，此处模仿写法即可。
+> 完整可运行文件见 [`examples/`](./examples/)，每个示例对应一个 `ex0*-*.go`，用 `go run ex0X-*.go` 即可运行，已在本环境（Go 1.22.2）验证。
 
 ### 示例 1：命令行计算器
+
+完整文件：`examples/ex01-calculator.go`
 
 ```go
 package main
@@ -365,6 +370,8 @@ func main() {
 
 ### 示例 2：词频统计
 
+完整文件：`examples/ex02-word-frequency.go`
+
 ```go
 package main
 
@@ -389,6 +396,8 @@ func main() {
 ```
 
 ### 示例 3：判断素数
+
+完整文件：`examples/ex03-is-prime.go`
 
 ```go
 package main
@@ -419,6 +428,8 @@ func main() {
 ```
 
 ### 示例 4：Todo CLI（用 slice 和 map）
+
+完整文件：`examples/ex04-todo-cli.go`
 
 ```go
 package main
@@ -474,25 +485,23 @@ func main() {
 | 未初始化变量 | 不确定 | 零值保证 |
 | 指针运算 | 支持 | 不支持 |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能独立运行 `go run` 和 `go build`
-- 能写出基础控制流（`if`、`for`、`switch`）和函数
-- 能使用 slice 和 map 处理数据
-- 能使用 `gofmt` 格式化代码
+- [ ] 能独立运行 `go run` 和 `go build`
+- [ ] 能写出基础控制流（`if`、`for`、`switch`）和函数
+- [ ] 能使用 slice 和 map 处理数据
+- [ ] 能使用 `gofmt` 格式化代码
 
-### 进入下一阶段前
+### 动手练习
 
-确保能完成以下练习：
-- 计算器（支持 `+ - * /`）
-- 判断素数
-- 字符串反转（注意 Unicode 处理）
-- 用 map 统计词频
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）。完成 4 题后继续。
 
-### 推荐项目
+### 阶段项目
 
-- **Todo CLI**：增删查改待办事项，使用 slice 存储
-- **简单通讯录**：用 map 按名字查找信息
+本阶段综合项目见 [`project/`](./project/)：Todo CLI——增删查改待办事项，用 slice 存储、命令行交互。建议完成练习后再动手。
+
+- [ ] 完成 exercises/ 全部练习并对照参考实现复盘
+- [ ] 独立完成 project/ 并通过其验收标准
 
 ### 下一阶段
 
