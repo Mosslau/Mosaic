@@ -182,7 +182,7 @@ phXX-<主题>/
 规则：
 - 练习题的参考实现必须与题目分离存放（README 出题，sol-* 给解），方便学习者先自己做
 - `project/` 对应 Roadmap 该阶段「推荐项目」小节，选 1 个落地即可，不求全
-- 代码风格与该语言社区主流规范对齐（如 C 用 `-Wall -Wextra` 零警告、Rust 过 `clippy`、Python 过 `ruff`），具体规则以对应的外部语言规范 skill（L3，见上节）为准
+- 代码风格与该语言社区主流规范对齐（如 C 用 `-Wall -Wextra` 零警告、Rust 过 `clippy`、Python 过 `ruff`），具体规则以对应的外部语言规范 skill（L3，见上节）为准；C 无外部 L3 skill，其 L3 规范即本 skill 第 51 行的要求（`-Wall -Wextra` 零警告 + 语言社区主流惯例）
 - 编译型语言的 examples/project 附构建说明（Makefile/CMakeLists.txt/Cargo.toml 或 README 中的单行编译命令）
 
 ## 写作风格约定
