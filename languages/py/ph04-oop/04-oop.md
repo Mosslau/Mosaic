@@ -20,6 +20,8 @@ Python OOP 阶段的目标是：**能设计职责清晰的类，理解实例变�
 
 Python OOP 融合 Smalltalk（一切皆对象）、C++（运算符重载灵感）和 Modula-3（命名约定访问控制）。关键节点：Python 2.2 新式类统一 `type`/`class`；2.6/3.0 `@property`/`@staticmethod`/`@classmethod` 成熟。Python 不用 `public`/`private`/`protected` 关键字，靠命名约定封装——"我们都是成年用户"哲学。
 
+本文示例以 **Python 3.10+** 为基线（`match` 语句、`|` 类型联合可用），验证解释器 3.13.12。
+
 ## 3. 语法与参数
 
 ### 3.1 类定义与 `__init__`
@@ -320,6 +322,8 @@ print(D().who())     # B —— 按 MRO 顺序第一个找到
 
 ## 6. 代码示例
 
+> 本节每个示例的完整可运行文件在 [`examples/`](./examples/) 目录，验证环境 Python 3.13.12，运行命令统一 `python3 <文件名>`（命令见 examples/README.md）。
+
 ### 示例 1：类变量共享陷阱
 
 ```python
@@ -335,6 +339,8 @@ print(f"类:{Counter.count} c1:{c1.count} c2:{c2.count}")  # 类:2 c1:2 c2:2
 c1.bad_inc(); c1.bad_inc(); c2.bad_inc()
 print(f"类:{Counter.count} c1:{c1.count} c2:{c2.count}")  # 类:2 c1:4 c2:3
 ```
+
+完整文件：`examples/ex01-class-var.py`
 
 ### 示例 2：继承链与多态 —— 电机控制
 
@@ -359,6 +365,8 @@ for m in [DCMotor("驱动电机", 8000), StepperMotor("转向电机", 1000)]:
     print(m.control_signal(50))
 print(isinstance(StepperMotor("x", 100), Motor))  # True
 ```
+
+完整文件：`examples/ex02-inherit-polymorphism.py`
 
 ### 示例 3：@property —— 电池 SOC 边界保护
 
@@ -387,6 +395,8 @@ try: b.discharge(200)
 except ValueError as e: print(f"失败: {e}")
 ```
 
+完整文件：`examples/ex03-property-battery.py`
+
 ### 示例 4：魔术方法 —— 设备容器支持 len/索引/比较
 
 ```python
@@ -414,6 +424,8 @@ for sn, st in [("T-01","温度"), ("V-02","电压"), ("C-03","电流")]:
 print(dev, f"len={len(dev)} [0]={dev[0]}")  # Device(VCU-001, 3模块) len=3 ...
 print("T-01" in dev, dev == Device("VCU-001"))  # True True
 ```
+
+完整文件：`examples/ex04-magic-methods.py`
 
 ### 示例 5：车联网设备管理系统
 
@@ -457,6 +469,8 @@ mgr.add(Actuator("M-001", "驱动电机", 5000))
 mgr.online_all(); mgr.comps[2].control(60); mgr.report()
 ```
 
+完整文件：`examples/ex05-device-manager.py`
+
 ## 7. 总结
 
 ### 关键要点
@@ -486,24 +500,25 @@ mgr.online_all(); mgr.comps[2].control(60); mgr.report()
 | 运算符重载 | 魔术方法 | 不支持 | operator+ 等 |
 | 属性控制 | `@property` | getter/setter | getter/setter |
 
-### 阶段验收标准
-- 能设计职责清晰的类，合理划分实例/类变量；用继承（is-a）和组合（has-a）
-- 能写 `super().__init__()` 继承链；能利用多态；能用 `@property` 校验不变量
-- 能区分 `@staticmethod`/`@classmethod`；能实现 `__str__`/`__repr__`/`__eq__`/`__hash__`
+### 阶段验收清单
 
-### 进入下一阶段前
+- [ ] 能设计职责清晰的类，合理划分实例变量与类变量，说清赋值遮蔽陷阱
+- [ ] 能写 `super().__init__()` 继承链，用 `isinstance` / `issubclass` 校验类型关系
+- [ ] 能利用多态（含鸭子类型）让同一入口函数处理不同类型的对象
+- [ ] 能用 `@property` + setter 校验不变量，区分只读属性与可写属性
+- [ ] 能区分 `@staticmethod` / `@classmethod`，说明各自典型用途
+- [ ] 能实现 `__str__` / `__repr__` / `__eq__` / `__hash__`，并说清 `__eq__` 与 `__hash__` 必须成对定义
 
-确保能完成以下练习：
-- 学生类（平均分 / `__lt__`）
-- 车辆类（`Vehicle` + `ElectricVehicle`）
-- 传感器类（`Sensor` 基类 + 多态 `read()`）
-- 配置管理类（`@property` 校验）
-- 设备管理器（组合 + `__len__` / `__getitem__`）
+### 动手练习
 
-### 推荐项目
+本阶段练习见 [exercises/](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）：学生类、车辆类、传感器类、配置管理类共 4 题。完成 4 题后继续。
 
-- **设备管理系统**（`Device` + `Sensor` + `Actuator` 三层）
-- **配置管理器**（`@property` + dict 加载导出）
+### 阶段项目
+
+本阶段综合项目见 [project/](./project/)：**设备管理系统**（`Component` + `Sensor`/`Actuator` 子类多态 + `Device` 组合 + `DeviceManager` 统一管理，支持 JSON 持久化）。
+
+- [ ] 完成 exercises 全部练习并对照参考实现复盘
+- [ ] 独立完成 project 并通过其验收标准
 
 ### 下一阶段
 

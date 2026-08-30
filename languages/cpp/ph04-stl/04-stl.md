@@ -16,7 +16,7 @@ STL 标准库阶段的定位是：**从"手写数据结构"推进到"选对容�
 | 现代算法 | std::ranges（C++20 管道式操作） |
 | 迭代器 | 五种迭代器类别、迭代器失效规则、erase 返回值惯用法 |
 
-本阶段不涉及自定义分配器、PMR 和多线程并发容器。目标是为模板与泛型编程打好"会用标准库"的基础。
+本阶段只使用默认的 `std::allocator`，**不涉及自定义分配器、PMR 多态分配器和多线程并发容器** — 那些是 ph05/ph08 阶段的内容。目标是为模板与泛型编程打好"会用标准库"的基础。
 
 ## 2. 来源与演变
 
@@ -30,6 +30,8 @@ STL 标准库阶段的定位是：**从"手写数据结构"推进到"选对容�
 | C++20 | ISO C++20 | std::span 零开销数组视图、std::ranges 管道式算法、erase_if 统一容器删除 |
 
 STL 的设计哲学是"正交分解"：容器只管存储，算法只管逻辑，迭代器是二者之间的协议。这一思想影响了 Java Collections、Rust std::collections 和 Python itertools。
+
+本文示例以 **C++17** 为基线（`string_view`、结构化绑定、`std::optional` 等本阶段主力特性均已就绪），现代工具链（gcc 10+、Apple clang 15+、MSVC 2019 16.10+）默认支持 C++17，编译时加 `-std=c++17` 即可；C++20 的 `std::span` / `std::ranges` 单独在示例 6 用 `-std=c++20` 演示。STL 的容器与算法是标准库中最稳定的部分——C++98 时代的 `vector`/`map`/`sort` 到今天语义基本不变，可以放心学。
 
 ## 3. 语法与参数
 
@@ -277,6 +279,8 @@ STL 的核心设计：算法通过迭代器操作数据，不依赖具体容器�
 
 ## 6. 代码示例
 
+> 每个示例的完整可运行文件在 [`examples/`](./examples/) 目录，对应 `ex0*-*.cpp`。验证环境 Apple clang 17.0.0（g++ 兼容），示例 1~5 编译命令统一 `g++ -Wall -Wextra -std=c++17`（本环境零警告已验证）；示例 6 使用 C++20 的 `std::span` / `std::ranges`，编译命令为 `g++ -Wall -Wextra -std=c++20`。完整命令见 examples/README.md。
+
 ### 示例 1：词频统计（map vs unordered_map）
 
 ```cpp
@@ -319,6 +323,8 @@ int main() {
 }
 ```
 
+完整文件：`examples/ex01-word-freq.cpp`
+
 ### 示例 2：ID 查询表（unordered_map 带 struct 值）
 
 ```cpp
@@ -350,6 +356,8 @@ int main() {
     return 0;
 }
 ```
+
+完整文件：`examples/ex02-id-table.cpp`
 
 ### 示例 3：优先级任务调度（priority_queue + 自定义比较）
 
@@ -384,6 +392,8 @@ int main() {
     return 0;
 }
 ```
+
+完整文件：`examples/ex03-priority-tasks.cpp`
 
 ### 示例 4：用 STL 重写链表操作（list vs vector 对比）
 
@@ -426,6 +436,8 @@ int main() {
 }
 ```
 
+完整文件：`examples/ex04-stl-list.cpp`
+
 ### 示例 5：迭代器失效演示与安全模式
 
 ```cpp
@@ -460,6 +472,8 @@ int main() {
     return 0;
 }
 ```
+
+完整文件：`examples/ex05-iterator-invalidation.cpp`
 
 ### 示例 6：string_view / span / ranges 组合（C++20）
 
@@ -511,6 +525,8 @@ int main() {
 }
 ```
 
+完整文件：`examples/ex06-views-ranges.cpp`
+
 ## 7. 总结
 
 ### 关键要点
@@ -535,22 +551,23 @@ int main() {
 | 算法方式 | 自由函数（`std::sort`） | `Collections.sort()` | `sort` 包函数 | `Vec::sort()` 方法 |
 | 失效处理 | 手动遵守规则 | `ConcurrentModificationException` | 不适用（无迭代器对象） | 编译器借用检查防止悬垂 |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能按场景（随机访问/头插/有序遍历/纯查找）选择正确容器并解释复杂度
-- 能写出遍历 vector 时安全删除元素的正确写法（`it = erase(it)`）
-- 能解释 deque 分段数组与 vector 连续内存的本质差异，以及 `string_view` 为何值传递
-- 能用 `priority_queue` + 自定义比较器实现任务调度，用 `std::ranges` 写现代 C++ 风格代码
+- [ ] 能按场景（随机访问/头插/有序遍历/纯查找）选择正确容器并解释复杂度
+- [ ] 能写出遍历 vector 时安全删除元素的正确写法（`it = erase(it)`）
+- [ ] 能解释 deque 分段数组与 vector 连续内存的本质差异，以及 `string_view` 为何值传递
+- [ ] 能用 `priority_queue` + 自定义比较器实现任务调度，用 `std::ranges` 写现代 C++ 风格代码
 
-### 进入下一阶段前
+### 动手练习
 
-词频统计（map vs unordered_map）、ID 查询表、优先级任务调度、用 STL 重写 ph02 手动链表、迭代器失效实验（验证 vector 扩容失效 + erase 返回值模式）。
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）：词频统计、ID 查询表、优先级任务调度、用 STL 重写链表、迭代器失效实验共 5 题。完成 5 题后继续。
 
-### 推荐项目
+### 阶段项目
 
-- **词频统计与排序工具**：读文本 → 分词 → unordered_map 统计 → vector 排序输出 Top-K
-- **LRU Cache**：list（访问序）+ unordered_map（key → list::iterator）O(1) 读写
-- **简易任务调度器**：priority_queue 驱动，Task 含优先级、回调、延迟字段
+本阶段综合项目见 [`project/`](./project/)：**LRU Cache**（`std::list` 维护访问序 + `std::unordered_map` 定位节点，get/put 均 O(1)）。建议完成练习后再动手。
+
+- [ ] 完成 exercises/ 全部练习并对照参考实现复盘
+- [ ] 独立完成 project/ 并通过其验收标准
 
 ### 下一阶段
 

@@ -15,7 +15,7 @@
 | 检测工具 | Valgrind（`--leak-check=full`）、ASan（`-fsanitize=address`） |
 | 实践项目 | 动态数组（含扩容/缩容）、动态字符串、简单内存池 |
 
-本阶段呼应 ph03：ph03 的指针一直指向栈上的数组，本阶段进入堆内存——指针指向**运行期确定大小、跨函数生命周期**的内存。结构体与数据结构（链表/树/哈希表）将在 ph05 展开。
+本阶段呼应 ph03：ph03 的指针一直指向栈上的数组，本阶段进入堆内存——指针指向**运行期确定大小、跨函数生命周期**的内存。本阶段只涉及栈/堆与 malloc/calloc/realloc/free 族，**不涉及结构体与数据结构（链表/树/哈希表）— 那些是 ph05 阶段的内容**。
 
 ## 2. 来源与演变
 
@@ -30,6 +30,8 @@
 **malloc 不是系统调用**：它是 brk/sbrk + mmap 之上的用户态分配器。小块（< 128KB）调 brk 移动堆顶，大块通过 mmap 匿名映射。分配器维护空闲链表，只有不够时才向内核要内存。
 
 **C 选择手动管理而非 GC 的根源**：PDP-11 上内存只有几十 KB，GC 不可承受。更深层的原因：C 是"可移植的汇编"——每一条内存操作应对程序员可见、可控。指针让你**看到**地址，malloc/free 让你**管理**地址背后的生命周期。
+
+本文示例以 **C99** 为基线（编译加 `-Wall -Wextra -std=c99`），验证工具链 Apple clang 17（gcc 兼容）。
 
 ## 3. 语法与参数
 
@@ -268,7 +270,10 @@ malloc 不每次调用都发起系统调用——它维护用户态空闲链表�
 
 ## 6. 代码示例
 
+> 本节每个示例的完整可运行文件在 [`examples/`](./examples/) 目录，验证环境 Apple clang 17（gcc 兼容），编译命令统一 `gcc -Wall -Wextra -std=c99`（命令见 examples/README.md）。
+
 ### 示例 1：动态数组（含扩容与缩容）
+
 ```c
 #include <stdio.h>
 #include <stdlib.h>
@@ -335,6 +340,8 @@ int main(void) {
 }
 ```
 
+完整文件：`examples/ex01-dyn-array.c`
+
 ### 示例 2：动态字符串（append 操作）
 
 ```c
@@ -393,6 +400,8 @@ int main(void) {
     return 0;
 }
 ```
+
+完整文件：`examples/ex02-dyn-str.c`
 
 ### 示例 3：简单固定块内存池
 
@@ -474,6 +483,8 @@ int main(void) {
 }
 ```
 
+完整文件：`examples/ex03-mem-pool.c`
+
 ## 7. 总结
 
 ### 关键要点
@@ -498,29 +509,27 @@ int main(void) {
 
 C 给程序员最大控制权和最小安全网——这使它适合 OS、数据库内核和嵌入式，也使它必须用 Valgrind/ASan 托底。
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能画出栈和堆在进程地址空间中的位置，解释两者生命周期、大小限制差异
-- 能说明 malloc/calloc/realloc/free 四个 API 的参数、返回值、失败处理
-- 能写出包含错误处理的"分配 → 使用 → 扩容 → 释放"完整路径
-- 能识别并修复内存泄漏、double-free、use-after-free、野指针和越界访问
-- 能解释 `sizeof(ptr)` vs `sizeof(*ptr)` 的含义差异，动态数组为何必须单独记录长度
-- 能使用 `gcc -fsanitize=address -g` 编译定位越界和 use-after-free
-- 能使用 `valgrind --leak-check=full ./a.out` 并确认 `definitely lost` 为 0
+- [ ] 能画出栈和堆在进程地址空间中的位置，解释两者生命周期、大小限制差异
+- [ ] 能说明 malloc/calloc/realloc/free 四个 API 的参数、返回值、失败处理
+- [ ] 能写出包含错误处理的"分配 → 使用 → 扩容 → 释放"完整路径
+- [ ] 能识别并修复内存泄漏、double-free、use-after-free、野指针和越界访问
+- [ ] 能解释 `sizeof(ptr)` vs `sizeof(*ptr)` 的含义差异，动态数组为何必须单独记录长度
+- [ ] 能使用 `gcc -fsanitize=address -g` 编译定位越界和 use-after-free
+- [ ] 能使用 `valgrind --leak-check=full ./a.out` 并确认 `definitely lost` 为 0
 
-### 进入下一阶段前
+### 动手练习
 
-确保能完成以下练习：
-- 动态数组（支持 `push/pop`、2x 自动扩容、手动缩容，realloc 失败路径不丢数据）
-- 动态字符串（`DynStr`）：支持 `append`、赋值、清空，处理 `\0` 结尾
-- 简单内存池（32 或 64 字节固定块，对比 malloc/free 的速度差异）
-- 用 Valgrind 检查动态数组代码，确认 `definitely lost` 为 0
-- 写一个故意越界的程序（`p[len] = 0`），用 `gcc -fsanitize=address -g` 编译运行，读懂 ASan 输出中的源码行号
+本阶段练习见 [exercises/](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）：动态数组、动态字符串、简单内存池、用 ASan 检查内存问题共 4 题。完成 4 题后继续。
 
-### 推荐项目
+### 阶段项目
 
-- **动态数组库**（`darray.h` + `darray.c`）：支持 `push/pop`、2x 自动扩容、手动缩容，realloc 失败路径不丢数据
-- **固定块内存池**：32 或 64 字节块，演示 O(1) 分配/释放，对比与 malloc/free 的速度差异（`clock()` 计时）
+本阶段综合项目见 [project/](./project/)：**动态数组库**（darray.h + darray.c，支持 push/pop、2x 扩容、缩容、越界保护）。
+
+- [ ] 完成 exercises 全部练习并复盘
+- [ ] 独立完成 project（通过 README 验收标准）
 
 ### 下一阶段
+
 [结构体与数据结构阶段](../ph05-struct-datastruct/05-struct-datastruct.md)— `struct`/`union`/`enum`、结构体内存对齐与 padding、链表/栈/队列/哈希表在 C 中的实现。

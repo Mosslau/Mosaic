@@ -24,6 +24,8 @@ Option 和 Result 阶段的定位是：**能判断何时用 Option 或 Result、
 
 核心哲学差异：C/Go 的错误码可以被调用方忽略；Java/C++ 异常是隐式控制流，调用方不知道函数可能抛什么；Rust 的 `Result<T, E>` 把错误可能性写进函数签名，编译器保证调用方必须处理。详细跨语言对照见第七节总结表。
 
+本文示例以 **rustc 1.92.0**（edition 2021）为基线（本机验证工具链），`Option`/`Result`、`?` 运算符、组合子等语法在该版本长期稳定，示例全部零依赖，无需额外 crate。
+
 ## 3. 语法与参数
 
 ### 3.1 Option\<T\>：空值显式化
@@ -303,9 +305,12 @@ fn main() {
 
 ## 6. 代码示例
 
+> 本节每个示例的完整可运行文件在 [`examples/`](./examples/) 目录，验证环境 rustc 1.92.0，零第三方依赖，编译/运行命令见 examples/README.md。
+
 ### 示例 1：把随意 unwrap 改为 Result 返回
 
 ```rust
+// examples/ex01-unwrap-to-result.rs —— 把随意 unwrap 改为 Result 返回
 fn parse_and_validate(s: &str) -> Result<u16, String> {
     // 不良风格：s.parse::<u16>().unwrap() —— 解析失败直接 panic
     // 良好风格：用 ? 传播错误，交给调用方决定
@@ -324,9 +329,12 @@ fn main() {
 }
 ```
 
+完整文件：`examples/ex01-unwrap-to-result.rs`
+
 ### 示例 2：用 Option 处理可选配置项
 
 ```rust
+// examples/ex02-option-config.rs —— 用 Option 处理可选配置项
 #[derive(Debug)]
 #[allow(dead_code)]
 struct AppConfig {
@@ -360,11 +368,14 @@ fn main() {
 }
 ```
 
+完整文件：`examples/ex02-option-config.rs`
+
 ### 示例 3：解析函数串联 ? 运算符
 
 一组解析函数各自返回 `Result`，用 `?` 串联——Rust"管线式"数据处理的最常见模式：
 
 ```rust
+// examples/ex03-parse-pipeline.rs —— 一组解析函数用 ? 串联
 fn parse_port(s: &str) -> Result<u16, String> {
     s.parse::<u16>().map_err(|_| format!("'{}' is not a valid port number", s))
 }
@@ -396,11 +407,14 @@ fn main() {
 }
 ```
 
+完整文件：`examples/ex03-parse-pipeline.rs`
+
 ### 示例 4：配置解析器——端口、超时、开关项
 
 综合运用本阶段所有知识：Option 处理可选值、Result 处理可恢复错误、组合子链式转换、? 传播错误。
 
 ```rust
+// examples/ex04-config-parser.rs —— 配置解析器：Option/Result 贯穿 + ? 传播
 use std::collections::HashMap;
 
 #[derive(Debug)]
@@ -452,6 +466,8 @@ fn main() {
 }
 ```
 
+完整文件：`examples/ex04-config-parser.rs`
+
 ## 7. 总结
 
 ### 关键要点
@@ -474,23 +490,25 @@ fn main() {
 | 编译期强制 | 是（两种） | 否 | 异常不强制 | 否（可忽略 error） | 受检异常部分强制 |
 | panic 语义 | `unwrap` 会 panic | `assert` / segfault | 未捕获异常 terminate | `panic` | 未捕获异常传播 |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能判断何时用 `Option<T>`（缺失正常）还是 `Result<T, E>`（带错误原因）。
-- 能解释 `?` 运算符如何传播错误（展开为 match + return Err）。
-- 能用 `map` / `and_then` / `unwrap_or_else` 链式处理 `Option`。
-- 能用 `map_err` 转换错误类型、`.ok()` 把 `Result` 转 `Option`。
-- 能把一组解析函数用 `?` 串联成完整管线。
-- 业务代码中避免无理由 `unwrap()`，用 `Result` 返回 + `?` 传播。
+- [ ] 能判断何时用 `Option<T>`（缺失正常）还是 `Result<T, E>`（带错误原因）
+- [ ] 能解释 `?` 运算符如何传播错误（展开为 match + return Err）
+- [ ] 能用 `map` / `and_then` / `unwrap_or_else` 链式处理 `Option`
+- [ ] 能用 `map_err` 转换错误类型、`.ok()` 把 `Result` 转 `Option`
+- [ ] 能把一组解析函数用 `?` 串联成完整管线
+- [ ] 业务代码中避免无理由 `unwrap()`，用 `Result` 返回 + `?` 传播
 
-### 进入下一阶段前
+### 动手练习
 
-完成以下练习：把 ph02 猜数字的 `trim().parse().expect()` 改为返回 `Result` 并用 `match` 处理；为 `AppConfig` 添加 `max_connections: Option<u32>` 等可选配置项；写端口/IP/协议的解析函数，用 `?` 串联为 `parse_endpoint`；故意写 `unwrap()` 在 `None` 上 panic 的代码然后改为 `match`/`unwrap_or`；为示例 4 添加 `host`（必需）和 `max_connections`（可选）字段及校验逻辑。
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）：猜数字输入改造、AppConfig 可选配置项、parse_endpoint 解析管线、unwrap 灾难现场、扩展配置解析器共 5 题，难度 ★~★★★。完成 5 题后继续。
 
-### 推荐项目
+### 阶段项目
 
-- **配置解析器**：读取端口（必需）、超时（可选）、调试开关（可选，默认 false）、日志级别（可选，默认 "info"），输出结构化 `Config` 或带字段名的明确错误。示例 4 已给出核心实现，可扩展为支持更多字段和校验规则。
-- **文件内容查找器**：读取文件，按行号或关键词查找，用 `Option` 处理"未找到"，用 `Result` 处理"文件不可读"。
+本阶段综合项目见 [`project/`](./project/)：**配置解析器**（读取端口、超时、开关项，输出结构化 `Config` 或带字段名的明确错误；示例 4 给出核心实现，项目扩展为带自定义错误类型与单元测试的完整 Cargo 工程）。建议完成练习后再动手。
+
+- [ ] 完成 exercises 全部练习并对照参考实现复盘
+- [ ] 独立完成 project 并通过其验收标准
 
 ### 下一阶段
 

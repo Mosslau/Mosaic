@@ -14,7 +14,7 @@ Java 集合框架阶段的目标是：**接口与实现分离——List 是接�
 | 并发集合 | ConcurrentHashMap（读无锁、CAS 写） |
 | 遍历陷阱 | ConcurrentModificationException、Iterator.remove()、removeIf |
 
-本阶段不涉及 Stream API、泛型原理和自定义集合实现。
+本阶段不涉及 Stream API、泛型原理和自定义集合实现 — 那些是 ph08/ph05 阶段及后续的内容。
 
 ## 2. 来源与演变
 
@@ -27,6 +27,8 @@ Java 集合框架的设计演进反映了对类型安全、性能和并发模型
 - **Java 7（2011）— 钻石语法**：`new ArrayList<>()` 省略泛型参数重复，编译器从左侧推断。
 - **Java 8（2014）— 函数式增强与并发重写**：HashMap 引入红黑树优化哈希冲突（桶链表长度 >= 8 且数组长度 >= 64 时树化，回退阈值 6）。新增 forEach、replaceAll、computeIfAbsent、merge 等默认方法。ConcurrentHashMap 完全重写——废弃分段锁，改为 CAS + synchronized 细粒度锁，读操作完全无锁。
 - **Java 9（2017）— 不可变工厂方法**：`List.of()`、`Set.of()`、`Map.of()` 成为创建不可变集合的标准方式——返回的集合调用 add/put 直接抛 UnsupportedOperationException。
+
+本文示例以 **Java 17** 为基线（record/sealed 需 16/17），验证工具链 OpenJDK 17.0.16。
 
 ## 3. 语法与参数
 
@@ -275,6 +277,8 @@ PriorityQueue 内部用 `Object[] queue` 存储二叉堆（完全二叉树），
 
 ## 6. 代码示例
 
+> 本节每个示例的完整可运行文件在 [`examples/`](./examples/) 目录，验证环境 OpenJDK 17.0.16，编译命令统一 `javac <文件名>.java`（命令见 examples/README.md）。示例文件用**非 public 类**——Java 规定 public 类必须与文件名同名，kebab-case 文件名无法匹配大驼峰类名，非 public 类无此限制；因此编译用文件名、运行用类名（如 `javac ex01-student-manager.java` + `java StudentManager`）。
+
 ### 示例 1：List 管理学生
 
 ```java
@@ -310,6 +314,8 @@ public class StudentManager {
 }
 ```
 
+完整文件：`examples/ex01-student-manager.java`
+
 ### 示例 2：Map 统计词频
 
 ```java
@@ -338,6 +344,8 @@ public class WordFrequency {
 }
 ```
 
+完整文件：`examples/ex02-word-freq.java`
+
 ### 示例 3：Set 去重
 
 ```java
@@ -362,6 +370,8 @@ public class SetDedup {
     }
 }
 ```
+
+完整文件：`examples/ex03-set-dedup.java`
 
 ### 示例 4：PriorityQueue 任务调度
 
@@ -411,6 +421,8 @@ public class TaskScheduler {
 }
 ```
 
+完整文件：`examples/ex04-task-scheduler.java`
+
 ### 示例 5：LRU Cache（基于 LinkedHashMap）
 
 ```java
@@ -447,6 +459,8 @@ public class LRUCache<K, V> extends LinkedHashMap<K, V> {
 }
 ```
 
+完整文件：`examples/ex05-lru-cache.java`
+
 ## 7. 总结
 
 ### 关键要点
@@ -473,27 +487,24 @@ public class LRUCache<K, V> extends LinkedHashMap<K, V> {
 | 二叉堆 | `PriorityQueue` | `heapq` | `container/heap` | `std::priority_queue` | `BinaryHeap` |
 | 并发映射 | `ConcurrentHashMap` | N/A（无内置） | `sync.Map` | N/A（需外部锁） | `DashMap`（第三方） |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能按场景选择 List/Set/Map 的正确实现，并能解释 O() 复杂度依据
-- 能解释 HashMap 的哈希桶 + 链表 + 红黑树结构和树化条件
-- 能解释 ConcurrentHashMap（Java 8+）的 CAS 设计和读无锁原理
-- 能避免遍历修改的错误，熟练使用 removeIf 和 Iterator.remove()
-- 能用 PriorityQueue 实现任务调度和 TopK
+- [ ] 能按场景选择 List/Set/Map 的正确实现，并能解释 O() 复杂度依据
+- [ ] 能解释 HashMap 的哈希桶 + 链表 + 红黑树结构和树化条件
+- [ ] 能解释 ConcurrentHashMap（Java 8+）的 CAS 设计和读无锁原理
+- [ ] 能避免遍历修改的错误，熟练使用 removeIf 和 Iterator.remove()
+- [ ] 能用 PriorityQueue 实现任务调度和 TopK
 
-### 进入下一阶段前
+### 动手练习
 
-确保能完成以下练习：
-- List 管理学生（ArrayList 增删改查、排序、安全删除）
-- Map 统计词频（HashMap + getOrDefault，找最高频词）
-- Set 去重（LinkedHashSet / TreeSet / HashSet 三选一，理解区别）
-- PriorityQueue 任务调度（自定义比较器，理解最小堆/最大堆）
-- LRU Cache（基于 LinkedHashMap accessOrder + removeEldestEntry）
+本阶段练习见 [exercises/](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）：List 管理学生、Map 统计词频、Set 去重、PriorityQueue 任务调度共 4 题。完成 4 题后继续。
 
-### 推荐项目
+### 阶段项目
 
-- **LRU Cache**：基于 LinkedHashMap，accessOrder 模式 + removeEldestEntry，用于设备状态缓存
-- **设备状态表**：ConcurrentHashMap 存储设备 ID → DeviceStatus，支持多线程并发读写
+本阶段综合项目见 [project/](./project/)：**LRU Cache**（基于 LinkedHashMap 的 accessOrder 模式 + removeEldestEntry，实现最近最少使用淘汰的设备状态缓存）。
+
+- [ ] 完成 exercises 全部练习并对照参考实现复盘
+- [ ] 独立完成 project 并通过其验收标准
 
 ### 下一阶段
 

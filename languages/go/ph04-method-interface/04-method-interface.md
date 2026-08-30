@@ -15,7 +15,7 @@ Go 方法与接口阶段的目标是：**掌握方法定义、接收者抉择、
 
 Go 的 OOP 靠 **struct + method + interface** 三者组合，不靠类和继承。隐式实现是核心贡献：方法匹配即满足接口，使用方定义接口无需实现方感知——依赖反转自然、mock 零成本。
 
-范围边界：不涉及 goroutine/channel（ph06）、泛型、`go mod`（ph05）；错误处理已在 ph02 覆盖。
+> 这个阶段只涉及方法、接口与类型断言，**不涉及 goroutine/channel、泛型和 go mod 依赖管理** — 那些是 ph06/ph05 及后续阶段的内容；错误处理已在 ph02 覆盖。
 
 ## 2. 来源与演变
 
@@ -33,6 +33,8 @@ Go 从 C、Java、Smalltalk 中提炼出一个更克制的 OOP 模型：
 **隐式实现**：Java 要求声明 `implements`，Go 只需方法匹配。使用方定义接口无需实现方感知——`io.Reader`（1 个方法）能成为全生态通用抽象正因如此。
 
 **小接口传统**：`io.Reader`、`io.Writer`、`fmt.Stringer`、`error` 都只有 1 个方法。
+
+本文示例以 **Go 1.22** 为基线（广泛使用的稳定版本，涵盖 `any` 别名与 `math/rand` 全局函数自动随机化），验证工具链 Go 1.22.2（darwin/arm64）。本阶段的方法、接口、类型断言是 Go 1.0 起就存在的最稳定语法，版本差异影响极小。
 
 ## 3. 语法与参数
 
@@ -201,6 +203,8 @@ var t *TempSensor = nil; s = t
 
 ## 6. 代码示例
 
+> 本节每个示例的完整可运行文件在 [`examples/`](./examples/) 目录，验证环境 Go 1.22.2（darwin/arm64），运行命令统一 `go run examples/ex0X-*.go`（单文件模式，命令见 examples/README.md）。
+
 ### 示例 1：值接收者与指针接收者对比
 
 ```go
@@ -225,6 +229,8 @@ func main() {
     // Counter{Count: 10}.PtrInc() // 编译错误：字面量不可寻址
 }
 ```
+
+完整文件：`examples/ex01-receiver.go`
 
 ### 示例 2：Sensor 接口——CAN / UART 数据采集
 
@@ -277,6 +283,8 @@ func main() {
     collect([]Sensor{can, uart})
 }
 ```
+
+完整文件：`examples/ex02-sensor.go`
 
 ### 示例 3：Storage 接口——可替换存储层的 Todo 服务
 
@@ -335,6 +343,8 @@ func main() {
 }
 ```
 
+完整文件：`examples/ex03-storage-todo.go`
+
 ### 示例 4：nil 接口陷阱
 
 ```go
@@ -368,6 +378,8 @@ func main() {
     fmt.Println(s.Speak())
 }
 ```
+
+完整文件：`examples/ex04-nil-interface.go`
 
 核心教训：接口值 =（类型, 数据指针），类型非 nil 时接口就不为 nil。返回接口时永远 `return nil`，不写 `return (*Dog)(nil)`。
 
@@ -413,6 +425,8 @@ func main() {
 }
 ```
 
+完整文件：`examples/ex05-type-switch.go`
+
 ## 7. 总结
 
 ### 关键要点
@@ -437,24 +451,22 @@ func main() {
 | 继承 | 无（组合嵌入） | 单继承+多接口 | 多继承 | 无（trait组合） | 多继承 |
 | 运行时开销 | 2 指针(16B) | vtable | vtable | trait object 2指针 | 无静态检查 |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能区分值/指针接收者场景，定义小而清晰的接口并写出多实现
-- 能解释隐式实现的工程优势，通过接口 mock 依赖
-- 能正确使用 ok 断言和 type switch，识别 nil 接口陷阱
+- [ ] 能区分值/指针接收者的适用场景，定义小而清晰的接口并写出多个实现
+- [ ] 能解释隐式实现的工程优势，通过接口 mock 依赖
+- [ ] 能正确使用 ok 模式断言和 type switch，识别 nil 接口陷阱
 
-### 进入下一阶段前
+### 动手练习
 
-确保能完成以下练习：
-- **Sensor 接口**（CANSensor + UARTSensor）
-- **Storage 接口**（可替换存储层 Todo 服务）
-- **Logger 接口**（ConsoleLogger + NilLogger）
-- **nil 接口实验**（验证 `s==nil` 行为）
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）：Sensor 接口、Storage 接口、Logger 接口、用接口模拟 CAN/UART 数据读取共 4 题。完成 4 题后继续。
 
-### 推荐项目
+### 阶段项目
 
-- **可替换存储层的 Todo 服务**：Storage 接口 + MemStorage（ph05 扩展 FileStorage）
-- **设备采集抽象层**：Sensor 接口统一 CAN/UART，可扩展 MQTT/WebSocket
+本阶段综合项目见 [`project/`](./project/)：**可替换存储层的 Todo 服务**（Storage 接口 + MemStorage + FileStorage，一条命令切换存储后端）。
+
+- [ ] 完成 exercises 全部练习并对照参考实现复盘
+- [ ] 独立完成 project 并通过其 README 验收标准
 
 ### 下一阶段
 
