@@ -1,0 +1,5 @@
+Python is a dynamic language.
+Functions are first-class objects.
+Modules organize reusable code.
+A CLI tool parses sys.argv.
+This is the last line for tail demo.

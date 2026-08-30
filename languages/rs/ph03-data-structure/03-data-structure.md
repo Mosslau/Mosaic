@@ -22,6 +22,8 @@ Rust 基础数据结构阶段的定位是：**能用结构体和枚举表达业�
 
 Rust 数据结构融合两种传统：`struct` 来自 C/C++ 但加入所有权语义——字段的拥有者是结构体本身；`enum` 来自 ML/Haskell 的代数数据类型（ADT），每个变体可携带不同类型的数据。`Vec`/`HashMap` 对标其他语言的标准容器，但元素移入集合后所有权归集合。
 
+本文示例以 **Edition 2021** 为基线（数组 `IntoIterator`、闭包捕获规则按 2021 版次），本环境验证工具链为 rustc 1.92.0（默认 Edition 2021）。struct、enum、`Vec`、`HashMap` 的核心语义自 Rust 1.0 起稳定。
+
 | 概念 | C | C++ | Java | Go | Rust |
 |------|---|-----|------|----|------|
 | 复合数据 | `struct` | `struct`/`class` | `class` | `struct` | `struct`（所有权） |
@@ -341,6 +343,8 @@ fn main() {
 
 ## 6. 代码示例
 
+> 完整可运行文件见 [`examples/`](./examples/)，每个示例对应一个 `ex0*-*.rs`，已在本环境用 `rustc 1.92.0` 验证（零警告）。
+
 ### 示例 1：三种结构体 + derive
 
 ```rust
@@ -363,6 +367,8 @@ fn main() {
     println!("{:?} -> {:.1}C", temp, temp.0);
 }
 ```
+
+完整文件：`examples/ex01-three-structs.rs`
 
 ### 示例 2：impl 方法 + 构建器模式
 
@@ -408,6 +414,8 @@ fn main() {
 }
 ```
 
+完整文件：`examples/ex02-builder.rs`
+
 ### 示例 3：Vec 操作与排序过滤
 
 ```rust
@@ -438,6 +446,8 @@ fn main() {
 }
 ```
 
+完整文件：`examples/ex03-vec-ops.rs`
+
 ### 示例 4：HashMap 分组统计
 
 ```rust
@@ -465,6 +475,8 @@ fn main() {
     println!("counts: {:?}", count);
 }
 ```
+
+完整文件：`examples/ex04-hashmap-group.rs`
 
 ### 示例 5：索引注册表（struct + Vec + HashMap 综合）
 
@@ -525,6 +537,8 @@ fn main() {
 }
 ```
 
+完整文件：`examples/ex05-index-registry.rs`
+
 ## 7. 总结
 
 ### 关键要点
@@ -547,28 +561,25 @@ fn main() {
 | 哈希表 | `HashMap`（SipHash） | 无标准 | `unordered_map` | `map`（内置） | `HashMap` |
 | 方法 | `impl` + `&self` | 函数指针 | 成员函数 | receiver 函数 | 实例方法 |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能定义 struct（named field、tuple、unit）并用 `impl` 封装方法。
-- 能解释 `&self`、`&mut self`、`self` 的所有权区别。
-- 能根据场景选择 `for x in v`、`for x in &v` 或 `for x in &mut v`。
-- 能用 `HashMap` entry API 做分组统计，而不是 contains_key + insert 两步走。
-- 能看到 `#[derive(Debug, Clone, PartialEq)]` 并理解每项的作用。
-- 能区分 struct 字段应持有 `String` 还是 `&str`。
+- [ ] 能定义 struct（named field、tuple、unit）并用 `impl` 封装方法。
+- [ ] 能解释 `&self`、`&mut self`、`self` 的所有权区别。
+- [ ] 能根据场景选择 `for x in v`、`for x in &v` 或 `for x in &mut v`。
+- [ ] 能用 `HashMap` entry API 做分组统计，而不是 contains_key + insert 两步走。
+- [ ] 能看到 `#[derive(Debug, Clone, PartialEq)]` 并理解每项的作用。
+- [ ] 能区分 struct 字段应持有 `String` 还是 `&str`。
 
-### 进入下一阶段前
+### 动手练习
 
-完成以下练习：
-- 定义 `User`、`Device`、`Order` 三个结构体并添加 derive 宏。
-- 用 `Vec` 保存 `Order` 记录，实现按金额排序和按状态过滤。
-- 用 `HashMap` + entry API 对 `Order` 记录按产品名称分组统计总金额。
-- 故意写出会触发 E0382（move 后使用）的 Vec 遍历代码，然后修复。
-- 把示例 5 的 `IndexRegistry` 扩展为支持按类型列出所有索引名称。
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）。完成 4 题后继续。
 
-### 推荐项目
+### 阶段项目
 
-- **索引注册表**：支持新增索引（名称、类型、列数），按名称查询，按类型统计数量。示例 5 已给出核心实现，可扩展删除和排序。
-- **数据源注册表**：支持注册数据源（名称、类型如 MySQL/Kafka/Redis、连接地址），按名称查询，按类型分组列出数据源名称。
+本阶段综合项目见 [`project/`](./project/)：索引注册表——支持新增索引、按名称查询、按类型统计。建议完成练习后再动手。
+
+- [ ] 完成 exercises/ 全部练习并对照参考实现复盘
+- [ ] 独立完成 project/ 并通过其验收标准
 
 ### 下一阶段
 

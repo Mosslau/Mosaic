@@ -14,7 +14,7 @@ C++ 内存模型阶段的定位是：**从"怎么用 OOP"推进到"对象怎么�
 | 资源管理 | RAII、异常安全、Rule of 5 / Rule of 0 |
 | 底层机制 | noexcept 与 vector 扩容、RVO/NRVO、编译器自动生成规则 |
 
-本阶段**不涉及**模板、allocator 和多线程内存模型。目标是为 STL 容器和智能指针打下对象生命周期管理基础。
+本阶段**不涉及**模板、allocator 和多线程内存模型 — 那些是 **ph05 模板与泛型编程**、**ph04 STL 标准库**、**ph08 并发编程**阶段的内容。目标是为 STL 容器和智能指针打下对象生命周期管理基础。
 
 ## 2. 来源与演变
 
@@ -26,6 +26,8 @@ C++ 内存模型阶段的定位是：**从"怎么用 OOP"推进到"对象怎么�
 | 现代 C++ | C++14/17/20 | 拷贝省略强制化、std::optional 等值语义类型、Rule of 0 成为默认 |
 
 C 的 malloc/free 把资源管理全部压在程序员身上。C++98 通过确定性构造/析构将释放绑定到对象生命周期，但临时对象拷贝代价高。C++11 移动语义让临时资源可被"窃取"。Rule of 3 → Rule of 5 → Rule of 0，复杂度逐步收敛到库作者。
+
+本文示例以 **C++17** 为基线（拷贝省略、`std::move`、`noexcept` 移动语义均可用），现代编译器（GCC 7+ / Clang 5+ / MSVC 2017+）默认或加 `-std=c++17` 即可编译。对象生命周期、拷贝/移动与 RAII 是 C++ 自 C++11 起就稳定的核心机制。
 
 ## 3. 语法与参数
 
@@ -209,7 +211,11 @@ Rule of 0 是目标，Rule of 5 是手段。业务代码遵循 Rule of 0；底�
 
 ## 6. 代码示例
 
+> 完整可运行文件见 [`examples/`](./examples/)，每个示例对应一个 `ex0*-*.cpp`，已在本环境用 `g++ -Wall -Wextra -std=c++17` 验证（零警告）。示例 1 是故意演示 double-free 的教学性示例，运行会崩溃，建议用 `-fsanitize=address` 编译观察。
+
 ### 示例 1：浅拷贝危害演示（double-free）
+
+完整文件：`examples/ex01-shallow-copy.cpp`
 
 ```cpp
 #include <cstring>
@@ -239,6 +245,8 @@ int main() {
 ```
 
 ### 示例 2：完整 String 类（五函数 + 测试）
+
+完整文件：`examples/ex02-string.cpp`
 
 ```cpp
 #include <cstring>
@@ -323,6 +331,8 @@ int main() {
 
 ### 示例 3：动态数组类（布隆过滤器位数组语义）
 
+完整文件：`examples/ex03-dyn-array.cpp`
+
 ```cpp
 #include <algorithm>
 #include <cstring>
@@ -390,6 +400,8 @@ int main() {
 
 ### 示例 4：RAII 文件句柄（WAL 日志管理）
 
+完整文件：`examples/ex04-wal-writer.cpp`
+
 ```cpp
 #include <cstdio>
 #include <iostream>
@@ -441,6 +453,8 @@ int main() {
 ```
 
 ### 示例 5：RVO 与 noexcept 综合演示
+
+完整文件：`examples/ex05-rvo-noexcept.cpp`
 
 ```cpp
 #include <iostream>
@@ -496,26 +510,25 @@ int main() {
 | 异常安全 | RAII + 栈展开 | 无异常机制 | try-with-resources | Drop 在 panic 时执行 |
 | 默认策略 | Rule of 0 | 无 | 依赖 GC | 编译期所有权检查 |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能解释深拷贝/浅拷贝风险，用手写 String 类演示
-- 能说清五函数签名、调用时机和自动生成条件
-- 能把 fopen/fclose 改造成 RAII 封装类
-- 能解释 std::move 的实际作用、移动后源对象状态
-- 能说明 noexcept 移动为何影响 vector 扩容
-- 能演示 RVO/NRVO 并解释"不要给 return 加 std::move"
+- [ ] 能解释深拷贝/浅拷贝风险，用手写 String 类演示
+- [ ] 能说清五函数签名、调用时机和自动生成条件
+- [ ] 能把 fopen/fclose 改造成 RAII 封装类
+- [ ] 能解释 std::move 的实际作用、移动后源对象状态
+- [ ] 能说明 noexcept 移动为何影响 vector 扩容
+- [ ] 能演示 RVO/NRVO 并解释"不要给 return 加 std::move"
 
-### 进入下一阶段前
+### 动手练习
 
-确保完成以下练习：
-- 实现简单 String 类（含五函数）、动态数组类、支持移动的 Buffer 类
-- 用 RAII 封装文件句柄，实现 WAL 日志追加与自动关闭
-- 将 ph02 中裸 new/delete 改造成 RAII 风格
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）。完成 4 题后继续。
 
-### 推荐项目
+### 阶段项目
 
-- **RAII 文件类**：封装 std::FILE*，追加写入、flush、自动关闭，禁拷贝允移动
-- **动态数组类**：push、at、size + 五函数，布隆过滤器位数组/缓存缓冲区语义
+本阶段综合项目见 [`project/`](./project/)：RAII 文件类（封装 std::FILE*，追加写入、flush、自动关闭，禁拷贝允移动）。建议完成练习后再动手。
+
+- [ ] 完成 exercises/ 全部练习并对照参考实现复盘
+- [ ] 独立完成 project/ 并通过其验收标准
 
 ### 下一阶段
 

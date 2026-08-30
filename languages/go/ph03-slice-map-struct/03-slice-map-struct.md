@@ -32,6 +32,8 @@ Go 的设计者在 C 的基础上重新权衡了数据结构的设计取舍：
 
 **Struct 的组合哲学**：Go 没有继承，通过结构体嵌入（匿名字段）实现字段提升和组合复用。这呼应了 Go 设计者 Rob Pike 的名言："Design the data structures, and the algorithms will be obvious."
 
+本文示例以 **Go 1.21+** 为基线（`slices`/`maps` 标准库包可用），本环境验证工具链为 Go 1.22.2。slice、map、struct 的核心语义自 Go 1.0 起稳定。
+
 ## 3. 语法与参数
 
 ### 3.1 数组与 Slice 对比
@@ -243,7 +245,11 @@ func main() {
 
 ## 6. 代码示例
 
+> 完整可运行文件见 [`examples/`](./examples/)，每个示例对应一个 `ex0*-*.go`，已在本环境用 Go 1.22.2 验证（gofmt 无差异、go vet 通过、go run 输出符合预期）。逐文件 `go run` 运行，详见 examples/README.md。
+
 ### 示例 1：Slice 扩容实验
+
+完整文件：`examples/ex01-slice-grow.go`
 
 ```go
 package main
@@ -260,6 +266,8 @@ func main() {
 ```
 
 ### 示例 2：子切片共享底层数组
+
+完整文件：`examples/ex02-subslices-share.go`
 
 ```go
 package main
@@ -294,6 +302,8 @@ func main() {
 ```
 
 ### 示例 3：Map 安全操作与遍历
+
+完整文件：`examples/ex03-map-ops.go`
 
 ```go
 package main
@@ -333,6 +343,8 @@ func main() {
 ```
 
 ### 示例 4：Struct 嵌入——车辆实体
+
+完整文件：`examples/ex04-struct-embed.go`
 
 ```go
 package main
@@ -377,6 +389,8 @@ func main() {
 ```
 
 ### 示例 5：设备状态管理（Map + Struct）
+
+完整文件：`examples/ex05-device-status.go`
 
 ```go
 package main
@@ -470,27 +484,24 @@ func main() {
 | 扩容控制 | 自动、不可配置 | 自动 | 可指定 initialCapacity | `Vec::with_capacity` |
 | 遍历确定性 | Map 不确定 | dict 3.7+ 插入序 | LinkedHashMap 保持序 | HashMap 不确定 |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能解释 Slice 的 len 与 cap 区别，描述 append 扩容时底层数组的变化
-- 能正确使用 `v, ok := m[key]` 判断 map key 是否存在，区分"零值"与"缺失"
-- 能用 struct 组合表达业务实体（如车辆 VIN + Motor + Battery）
-- 能写出 Map + Struct 组合的管理程序（设备状态表、车辆缓存等）
-- 能说明子切片共享底层数组的场景与陷阱，知道何时需要 copy
+- [ ] 能解释 Slice 的 len 与 cap 区别，描述 append 扩容时底层数组的变化
+- [ ] 能正确使用 `v, ok := m[key]` 判断 map key 是否存在，区分"零值"与"缺失"
+- [ ] 能用 struct 组合表达业务实体（如车辆 VIN + Motor + Battery）
+- [ ] 能写出 Map + Struct 组合的管理程序（设备状态表、车辆缓存等）
+- [ ] 能说明子切片共享底层数组的场景与陷阱，知道何时需要 copy
 
-### 进入下一阶段前
+### 动手练习
 
-确保能完成以下练习：
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）。完成 4 题后继续。
 
-- **Slice 扩容实验**：观察并记录 append 过程中 len/cap 的变化规律
-- **学生管理系统**：用 map[int]Student 实现 ID 索引的增删改查
-- **设备状态表**：用 map + struct 管理设备 ID、类型、状态和资源利用率
-- **车辆数据缓存**：用 struct 表达车辆信息（VIN、型号、电机、电池），map 做 VIN 快速索引
+### 阶段项目
 
-### 推荐项目
+本阶段综合项目见 [`project/`](./project/)：设备状态管理 CLI——用 map + struct 管理设备列表、查询单设备状态、更新资源指标、按状态筛选。建议完成练习后再动手。
 
-- **设备状态管理 CLI**：读取设备列表、查询单设备状态、更新资源指标、按状态筛选
-- **车辆数据缓存结构**：VIN → Vehicle struct 的内存缓存，支持增删改查和字段统计
+- [ ] 完成 exercises/ 全部练习并对照参考实现复盘
+- [ ] 独立完成 project/ 并通过其验收标准
 
 ### 下一阶段
 

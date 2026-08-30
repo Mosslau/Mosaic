@@ -13,7 +13,7 @@ Java 常用类阶段的目标是：**能正确选择 String/StringBuilder，用 
 | 日期时间 | LocalDate、LocalDateTime、DateTimeFormatter |
 | 包装类型 | Integer/Long/Double 等、自动装箱与拆箱 |
 
-本阶段不涉及集合框架、Stream API 和 IO 操作。
+本阶段只涉及常用基础类，**不涉及集合框架、Stream API 和 IO 操作** — 那些是 **ph04 集合框架**、**ph08 Lambda 与 Stream**、**ph07 IO 与文件操作**阶段的内容。
 
 ## 2. 来源与演变
 
@@ -22,6 +22,8 @@ Java 标准库的设计一直在演进，常用类的变迁尤其能体现这一
 - **String 的不可变设计**：Java 1.0 起 String 就是不可变对象。动机有三——安全（字符串常量可共享，不会被意外修改）、哈希缓存（hashCode 只需计算一次）、线程安全（不可变对象天然安全）。代价是拼接操作会产生大量中间临时对象，因此 Java 1.0 就提供了 StringBuffer，Java 5 又引入非线程安全的 StringBuilder 以消除同步开销。
 - **旧 Date 的缺陷**：`java.util.Date` 和 `Calendar` 从 Java 1.0/1.1 起就存在，但设计糟糕——可变对象（线程不安全）、月份从 0 开始、API 混乱。Java 8（2014）引入 `java.time` 包，借鉴 Joda-Time 设计，提供不可变、线程安全、API 清晰的日期时间类。
 - **BigDecimal 的精度需求**：浮点数遵循 IEEE 754，无法精确表示大多数十进制小数（如 0.1 在二进制中是无限循环小数）。在金融计算中，`0.1 + 0.2` 不等于 `0.3` 是不可接受的，因此需要 BigDecimal 提供任意精度的十进制运算。
+
+本文示例以 **Java 17**（LTS）为基线（`java.time` 需 Java 8+、Text Blocks 需 Java 15+），本环境验证工具链为 OpenJDK 17.0.16。String、BigDecimal、`java.time` 的核心语义自 Java 8 起稳定。
 
 ## 3. 语法与参数
 
@@ -247,7 +249,11 @@ BigDecimal 的 `equals` 同时比较 unscaledValue 和 scale，因此 `new BigDe
 
 ## 6. 代码示例
 
+> 完整可运行文件见 [`examples/`](./examples/)，每个示例对应一个 `ex0*-*.java`，已在本环境用 OpenJDK 17.0.16 验证（编译零错误、输出符合预期）。
+
 ### 示例 1：字符串反转（利用 StringBuilder.reverse）
+
+完整文件：`examples/ex01-StringReverse.java`
 
 ```java
 public class StringReverse {
@@ -264,6 +270,8 @@ public class StringReverse {
 ```
 
 ### 示例 2：字符频次统计（用数组做计数器）
+
+完整文件：`examples/ex02-CharFrequency.java`
 
 ```java
 public class CharFrequency {
@@ -288,6 +296,8 @@ public class CharFrequency {
 ```
 
 ### 示例 3：金额计算——浮点陷阱与 BigDecimal 正确用法
+
+完整文件：`examples/ex03-MoneyCalc.java`
 
 ```java
 import java.math.BigDecimal;
@@ -316,6 +326,8 @@ public class MoneyCalc {
 ```
 
 ### 示例 4：日期格式化、计算与解析
+
+完整文件：`examples/ex04-DateDemo.java`
 
 ```java
 import java.time.LocalDate;
@@ -347,6 +359,8 @@ public class DateDemo {
 ```
 
 ### 示例 5：验证码生成器 + Integer 缓存演示
+
+完整文件：`examples/ex05-CaptchaDemo.java`
 
 ```java
 import java.util.Random;
@@ -407,28 +421,24 @@ public class CaptchaDemo {
 | 拼接风格 | `sb.append("x")` | `b.WriteString("x")` | `"-".join(parts)` | `s.push_str("x")` |
 | 多行字符串 | `"""..."""`（JDK 15+） | 反引号 raw string | `"""..."""` | `r#"..."#` |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能正确选择 String/StringBuilder，解释不可变性的性能影响
-- 能用 BigDecimal 做金额运算，理解浮点构造陷阱
-- 能用 java.time 完成日期格式化与计算
-- 能解释 Integer 缓存机制和 `==` vs `equals` 的区别
-- 能用 Text Blocks 写多行文本（SQL/JSON 等）
+- [ ] 能正确选择 String/StringBuilder，解释不可变性的性能影响
+- [ ] 能用 BigDecimal 做金额运算，理解浮点构造陷阱
+- [ ] 能用 java.time 完成日期格式化与计算
+- [ ] 能解释 Integer 缓存机制和 `==` vs `equals` 的区别
+- [ ] 能用 Text Blocks 写多行文本（SQL/JSON 等）
 
-### 进入下一阶段前
+### 动手练习
 
-确保能完成以下练习：
-- 字符串反转（用 StringBuilder.reverse）
-- 字符频次统计（用 int[] 数组计数）
-- 金额计算（double 陷阱 + BigDecimal 正确用法）
-- 日期格式化（DateTimeFormatter.ofPattern + LocalDate/LocalDateTime）
-- 验证码生成器（StringBuilder + Random，可配置长度和字符集）
-- 日期工具类（计算两个日期之间的天数、判断是否为工作日）
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）。完成 5 题后继续。
 
-### 推荐项目
+### 阶段项目
 
-- **验证码生成器**：可配置长度、字符集（纯数字/纯字母/混合），批量生成
-- **日期工具类**：封装格式化、工作日判断、日期范围计算等常用操作
+本阶段综合项目见 [`project/`](./project/)：验证码生成器（可配置长度、字符集，批量生成）。建议完成练习后再动手。
+
+- [ ] 完成 exercises/ 全部练习并对照参考实现复盘
+- [ ] 独立完成 project/ 并通过其验收标准
 
 ### 下一阶段
 

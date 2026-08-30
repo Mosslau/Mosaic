@@ -32,6 +32,8 @@ C 指针的设计直接反映了 PDP-11 的寻址硬件。
 
 **数组退化是"免费"抽象的代价**：C 的设计哲学是"不隐藏机器细节"。传递整个数组的副本太昂贵，所以 C 选择只传首地址——这在汇编层面是零开销的，但在语义上把"数组"和"首元素指针"搅在了一起。理解这一点，就理解了 C 指针设计中最核心的权衡。
 
+本文示例以 **C99** 为基线（`//` 注释、`for` 循环内声明变量、`stdint.h` 均可用），现代编译器（GCC / Clang / MSVC）默认支持，编译统一加 `-Wall -Wextra -std=c99`。数组、指针与字符串的语义自 C89 起就是 C 语言最稳定的部分。
+
 ## 3. 语法与参数
 
 ### 3.1 一维数组
@@ -59,6 +61,7 @@ int main(void) {
 | 访问 | `a[2]` 或 `2[a]` | 等价于 `*(a+2)` |
 | 数组大小 | `sizeof(a)` | 整个数组的字节数，不是元素个数 |
 | 元素个数 | `sizeof(a) / sizeof(a[0])` | 编译期常量时可这样算 |
+
 ### 3.2 二维数组
 
 C 的二维数组是"数组的数组"：`int arr[2][3]` 是 2 个元素，每个元素是一个 `int[3]`。内存中按**行优先（Row-Major）**连续存放。
@@ -80,6 +83,7 @@ int main(void) {
 `matrix[i][j]` 的寻址公式：`*(*(matrix + i) + j)` — 先定位第 i 行，再在该行中找第 j 个元素。
 
 ### 3.3 字符数组与字符串
+
 C 没有内置字符串类型。字符串本质是**以 `\0`（NUL，ASCII 值 0）结尾的字符数组**。
 
 ```c
@@ -327,7 +331,11 @@ int arr[3] = {1, 2, 3};
 
 ## 6. 代码示例
 
+> 完整可运行文件见 [`examples/`](./examples/)，每个示例对应一个 `ex0*-*.c`，已在本环境用 `gcc -Wall -Wextra -std=c99` 验证（零警告）。
+
 ### 示例 1：手写 strlen、strcpy、strcmp、strcat（带测试）
+
+完整文件：`examples/ex01-strlib.c`
 
 ```c
 #include <stdio.h>
@@ -384,6 +392,8 @@ int main(void) {
 
 ### 示例 2：数组反转与字符串反转
 
+完整文件：`examples/ex02-reverse.c`
+
 ```c
 #include <stdio.h>
 
@@ -428,6 +438,8 @@ int main(void) {
 
 ### 示例 3：子串查找（朴素匹配）
 
+完整文件：`examples/ex03-strstr.c`
+
 ```c
 #include <stdio.h>
 
@@ -456,6 +468,8 @@ int main(void) {
 
 ### 示例 4：简单文本统计工具（推荐项目雏形）
 
+完整文件：`examples/ex04-text-stats.c`
+
 ```c
 #include <stdio.h>
 
@@ -468,8 +482,9 @@ void text_stats(const char *text) {
             in_word = 0;
         else if (!in_word) { in_word = 1; words++; }
     }
-    printf("字符数: %d\n单词数: %d\n行数: %d\n",
-           chars, words, lines + 1);  // 最后一行可能没有 \n
+    /* 若最后一行没有换行符结尾，行数要 +1；否则 lines 已经等于行数 */
+    int total_lines = (chars > 0 && text[chars - 1] != '\n') ? lines + 1 : lines;
+    printf("字符数: %d\n单词数: %d\n行数: %d\n", chars, words, total_lines);
 }
 
 int main(void) {
@@ -507,28 +522,25 @@ int main(void) {
 | 数组越界 | 未定义行为 | 抛异常 | panic | panic |
 | 修改调用者变量 | 传指针 | 基本类型不可 | 传指针 | `&mut T` |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能画出数组和指针在内存中的关系图
-- 能解释 `arr` 与 `&arr` 在类型和步长上的区别
-- 能手写 `strlen`、`strcpy`、`strcmp`，不是调用 API
-- 能写出不越界的数组遍历和字符串处理代码
-- 能用双指针技巧实现数组反转 / 字符串反转，并解释 `left < right` 终止条件
-- 能说明二维数组 Row-Major 布局和 `matrix[i][j]` 的寻址展开过程
+- [ ] 能画出数组和指针在内存中的关系图
+- [ ] 能解释 `arr` 与 `&arr` 在类型和步长上的区别
+- [ ] 能手写 `strlen`、`strcpy`、`strcmp`，不是调用 API
+- [ ] 能写出不越界的数组遍历和字符串处理代码
+- [ ] 能用双指针技巧实现数组反转 / 字符串反转，并解释 `left < right` 终止条件
+- [ ] 能说明二维数组 Row-Major 布局和 `matrix[i][j]` 的寻址展开过程
 
-### 进入下一阶段前
+### 动手练习
 
-确保能完成以下练习：
-- 手写 `strlen`、`strcpy`、`strcmp`，并写测试用例验证正确性
-- 手写 `strcat`，处理目标缓冲区不能越界
-- 实现数组反转、字符串反转、子串查找（朴素匹配）
-- 实现一个单词计数程序，统计文本的总字符数、单词数、行数
-- 用纸和笔画出以下代码的内存布局：`int arr[3] = {1,2,3}; int *p = arr; p++;`
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）。完成 4 题后继续。
 
-### 推荐项目
+### 阶段项目
 
-- **字符串处理库**：实现 `my_strlen`、`my_strcpy`、`my_strcmp`、`my_strcat`、`my_strstr`，头文件 + 源文件的多文件组织
-- **简单文本统计工具**：读取标准输入，统计字符数、单词数、行数、最长行长度、词频 Top-N
+本阶段综合项目见 [`project/`](./project/)：字符串处理库（`my_strlen`/`my_strcpy`/`my_strcmp`/`my_strcat`/`my_strstr`，多文件组织）。建议完成练习后再动手。
+
+- [ ] 完成 exercises/ 全部练习并对照参考实现复盘
+- [ ] 独立完成 project/ 并通过其验收标准
 
 ### 下一阶段
 

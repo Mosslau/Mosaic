@@ -14,7 +14,7 @@ Python 函数与模块化阶段的目标是：**能设计清晰的函数参数�
 | 作用域 | LEGB 规则：Local → Enclosing → Global → Built-in |
 | 模块与包 | `import` 四种写法、`__init__.py`、`if __name__ == "__main__"` |
 
-**范围边界**：本阶段聚焦函数基础、参数体系和模块化组织，不涉及闭包深入、装饰器、生成器（`yield`）、迭代器协议、`functools` 等高级特性；这些会在 OOP 阶段和高级 Python 阶段展开。
+**范围边界**：本阶段聚焦函数基础、参数体系和模块化组织，不涉及闭包深入、装饰器、生成器（`yield`）、迭代器协议、`functools` 等高级特性 — 那些是 **ph17 高级 Python**、**ph06 标准库** 阶段的内容。
 
 ## 2. 来源与演变
 
@@ -29,6 +29,8 @@ Python 的函数设计从 ABC 语言继承而来，同时吸收了函数式语�
 | PEP 570（Python 3.8） | 仅限位置参数：`def f(a, b, /)`，`/` 之前禁止用关键字传参 |
 
 PEP 3102 解决了"调用时参数名写错但位置碰巧对上"的隐蔽 bug；PEP 570 让内置函数（如 `len(obj, /)`）的参数语义在纯 Python 中也能表达。两个 PEP 共同定义了 Python 的完整参数传递模型。
+
+本文示例以 **Python 3.10+** 为基线（f-string、海象运算符、仅位置参数标记 `/` 均可用），本环境验证解释器为 Python 3.13.12。函数定义、参数传递与模块导入的核心语义自 Python 3.0 起稳定。
 
 ## 3. 语法与参数
 
@@ -294,7 +296,11 @@ print(items)   # [1, 2, 3, 4] —— 已改变
 
 ## 6. 代码示例
 
+> 完整可运行文件见 [`examples/`](./examples/)，每个示例对应一个 `ex0*-*.py`（多文件示例 3 用子目录 `ex03-math-module/` 组织），已在本环境用 python3 验证。
+
 ### 示例 1：可变默认参数 —— 从错误到纠正
+
+完整文件：`examples/ex01-mutable-default.py`
 
 ```python
 # 错误：每次不传 target 都共享同一个 list
@@ -317,6 +323,8 @@ print("正确:", good_append(1), good_append(2), good_append(3))
 ```
 
 ### 示例 2：*args/**kwargs 打包与拆包综合演示
+
+完整文件：`examples/ex02-args-kwargs.py`
 
 ```python
 def create_report(title, *sections, **options):
@@ -345,6 +353,8 @@ print(create_report(*headers, **details))
 ### 示例 3：数学工具模块
 
 本示例演示多文件组织：工具模块 + 入口脚本。
+
+完整文件：`examples/ex03-math-module/`（`math_utils.py` + `main_math.py`）
 
 ```python
 # === math_utils.py ===
@@ -387,6 +397,8 @@ if __name__ == "__main__":
 
 ### 示例 4：LEGB 作用域完整追踪
 
+完整文件：`examples/ex04-legb-scope.py`
+
 ```python
 name = "Global"              # G: Global
 PI = 3.14159                 # G: Global
@@ -408,6 +420,8 @@ print(f"[{name}] after outer")
 ```
 
 ### 示例 5：CLI 字符串工具
+
+完整文件：`examples/ex05-strtools.py`
 
 ```python
 """字符串处理 CLI。用法：python3 strtools.py <count\|reverse\|stats> "text" """
@@ -472,28 +486,25 @@ if __name__ == "__main__":
 | 模块系统 | `import` | `import` | `use` / `mod` |
 | 入口模式 | `if __name__ == "__main__"` | `package main` + `func main()` | `main` 方法 | `fn main()` |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能设计函数参数和返回值，合理选择参数类型（何时用仅限位置/仅限关键字）
-- 能组织多文件项目，正确使用 `import` 和 `if __name__ == "__main__"`
-- 能避免可变默认参数问题，并解释根本原因（默认值在 `def` 时计算一次）
-- 能解释 LEGB 作用域查找规则，在嵌套函数中追踪变量归属
-- 能写出 `*args`/`**kwargs` 的打包和拆包语句
-- 能判断何时用 `lambda`、何时用 `def`
+- [ ] 能设计函数参数和返回值，合理选择参数类型（何时用仅限位置/仅限关键字）
+- [ ] 能组织多文件项目，正确使用 `import` 和 `if __name__ == "__main__"`
+- [ ] 能避免可变默认参数问题，并解释根本原因（默认值在 `def` 时计算一次）
+- [ ] 能解释 LEGB 作用域查找规则，在嵌套函数中追踪变量归属
+- [ ] 能写出 `*args`/`**kwargs` 的打包和拆包语句
+- [ ] 能判断何时用 `lambda`、何时用 `def`
 
-### 进入下一阶段前
+### 动手练习
 
-确保能完成以下练习：
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）。完成 4 题后继续。
 
-- 数学工具模块：质数判断、阶乘、斐波那契，拆分到独立模块并编写入口脚本
-- 字符串工具模块：反转、统计、大小写转换，支持命令行调用
-- 文件处理模块：用函数封装文件读写，模块可导入也可直接运行
-- 拆分通讯录程序：把 ph02 的通讯录功能拆分为数据操作模块 + UI 入口脚本
+### 阶段项目
 
-### 推荐项目
+本阶段综合项目见 [`project/`](./project/)：CLI 工具（`txtool` 文本文件工具箱，用 `sys.argv` 解析子命令，命令处理函数按模块组织，支持 `--help` 和子命令）。建议完成练习后再动手。
 
-- **CLI 工具**：用 `sys.argv` 解析命令，用模块组织命令处理函数，支持 `--help` 和子命令
-- **工具函数库**：把日常常用函数（数学、字符串、校验）组织为包，支持 `from mylib.math_utils import is_prime`
+- [ ] 完成 exercises/ 全部练习并对照参考实现复盘
+- [ ] 独立完成 project/ 并通过其验收标准
 
 ### 下一阶段
 
