@@ -16,6 +16,8 @@ Go 函数与错误处理阶段的目标是：**掌握 Go 的函数设计、显�
 
 这个阶段的核心不是语法本身，而是**错误处理习惯**：普通错误必须返回 `error` 值，`panic` 只用于不可恢复场景，`defer` 负责释放资源，错误信息要携带足够上下文。
 
+这个阶段只涉及函数、闭包、`defer`/`panic`/`recover` 与错误值处理，**不涉及方法（Method）与接口（Interface）、包与模块组织、goroutine 并发** — 那些是 **ph04 方法与接口**、**ph05 包管理与工程结构**、**ph06 并发编程**阶段的内容。
+
 ## 2. 来源与演变
 
 Go 设计者 Rob Pike 在 2014 年演讲《Errors are values》中提出：错误是值，不是控制流。
@@ -28,6 +30,8 @@ Go 设计者 Rob Pike 在 2014 年演讲《Errors are values》中提出：错�
 | Result 类型 | Rust | `Result<T, E>` | 类型安全、强制处理 |
 
 **Go 1.13（2019）** 增强了错误处理能力：引入 `fmt.Errorf` 的 `%w` 动词和 `errors.Is`/`errors.As`。
+
+本文示例以 **Go 1.21+** 为基线（`errors.Is`/`As`、`%w` 均可直接使用），本环境验证工具链为 Go 1.22.2。错误处理范式自 Go 1.13 起稳定，1.21+ 默认支持全部本文特性。
 
 ## 3. 语法与参数
 
@@ -230,7 +234,11 @@ func main() {
 
 ## 6. 代码示例
 
+> 完整可运行文件见 [`examples/`](./examples/)，每个示例对应一个 `ex0*-*.go`（各自独立的 package main，逐文件 `go run` 运行），已在本环境用 Go 1.22.2 验证（`gofmt -l` 无差异、`go vet` 通过）。
+
 ### 示例 1：安全除法
+
+完整文件：`examples/ex01-safe-divide.go`
 
 ```go
 package main
@@ -260,6 +268,8 @@ func main() {
 ```
 
 ### 示例 2：文件读取与 defer
+
+完整文件：`examples/ex02-read-file-defer.go`
 
 ```go
 package main
@@ -300,6 +310,8 @@ func main() {
 ```
 
 ### 示例 3：配置加载器（自定义错误 + errors.Is）
+
+完整文件：`examples/ex03-config-errors-is.go`
 
 ```go
 package main
@@ -369,6 +381,8 @@ max_conn=100
 
 ### 示例 4：命令行参数校验工具
 
+完整文件：`examples/ex04-cli-validator.go`
+
 ```go
 package main
 
@@ -426,6 +440,8 @@ func main() {
 
 ### 示例 5：panic 与 recover 的边界演示
 
+完整文件：`examples/ex05-panic-recover.go`
+
 ```go
 package main
 
@@ -473,27 +489,24 @@ func main() {
 | Go error 值 | 多返回值 `error` 接口 | 显式返回与包装 | 低 |
 | Rust Result | `Result<T, E>` | `?` 传播 + 类型约束 | 低 |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能写清晰错误返回路径，正确使用 `if err != nil` 处理错误
-- 能正确使用 `defer` 释放资源，理解 LIFO 顺序和参数即时求值
-- 能避免用 `panic` 控制业务流程
-- 能使用 `fmt.Errorf` 的 `%w` 包装错误，并用 `errors.Is`/`errors.As` 判定
-- 能设计简单的自定义错误类型
+- [ ] 能写清晰错误返回路径，正确使用 `if err != nil` 处理错误
+- [ ] 能正确使用 `defer` 释放资源，理解 LIFO 顺序和参数即时求值
+- [ ] 能避免用 `panic` 控制业务流程
+- [ ] 能使用 `fmt.Errorf` 的 `%w` 包装错误，并用 `errors.Is`/`errors.As` 判定
+- [ ] 能设计简单的自定义错误类型
 
-### 进入下一阶段前
+### 动手练习
 
-确保能完成以下练习：
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）：安全除法、文件读取错误处理、配置解析错误处理、自定义业务错误、defer 执行顺序，共 5 题。完成 5 题后继续。
 
-- **安全除法**：实现带错误返回的整数除法
-- **文件读取错误处理**：读取文件并用 `defer` 关闭，包装每一层错误
-- **配置解析错误处理**：解析 key=value 配置，返回自定义错误类型
-- **自定义业务错误**：为车辆/设备等业务对象定义错误码或错误类型
+### 阶段项目
 
-### 推荐项目
+本阶段综合项目见 [`project/`](./project/)：配置加载器——读取配置文件、解析 `key=value`、校验必填项、返回带上下文的错误链。建议完成练习后再动手。
 
-- **配置加载器**：读取配置文件、解析 key=value、校验必填项、返回带上下文的错误链
-- **命令行参数校验工具**：支持必填校验、范围校验、类型转换和错误聚合
+- [ ] 完成 exercises/ 全部练习并对照参考实现复盘
+- [ ] 独立完成 project/ 并通过其验收标准
 
 ### 下一阶段
 

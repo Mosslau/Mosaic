@@ -14,7 +14,7 @@ Python 数据结构阶段的目标是：**熟练使用 Python 最常用的内置
 | 集合与去重 | set、集合运算、集合推导式 |
 | 遍历技巧 | enumerate、zip、dict.items |
 
-**范围边界**：本阶段聚焦 Python 内置容器的基础与常用技巧，不涉及 `collections` 模块（如 `Counter`、`defaultdict`、`deque`）、生成器表达式深入、自定义类作为 dict key 的 `__hash__` 实现；这些会在函数与模块化、标准库和 OOP 阶段展开。
+**范围边界**：本阶段聚焦 Python 内置容器的基础与常用技巧，不涉及 `collections` 模块（如 `Counter`、`defaultdict`、`deque`）、生成器表达式深入、自定义类作为 dict key 的 `__hash__` 实现 — 那些是 **ph06 标准库**、**ph17 高级 Python**、**ph04 面向对象 OOP** 阶段的内容。
 
 ## 2. 来源与演变
 
@@ -28,6 +28,8 @@ Python 的数据结构深受 ABC 语言影响：ABC 用 `PUT` / `GET` 等自然�
 | 哈希表 | dict 和 set 的 O(1) 平均查找效率来源 |
 
 Python 3.7 起，`dict` 保持插入顺序成为语言规范；3.6 只是在 CPython 实现中恰巧如此，不应依赖。`set` 是无序集合，不保证任何迭代顺序。
+
+本文示例以 **Python 3.10+** 为基线（f-string、海象运算符、`dict` 插入有序均可用），本环境验证解释器为 Python 3.13.12。内置容器的核心语义自 Python 3.0 起稳定。
 
 ## 3. 语法与参数
 
@@ -304,7 +306,11 @@ set 没有这种保证；如果需要有序且不重复，应使用 `dict.fromke
 
 ## 6. 代码示例
 
+> 完整可运行文件见 [`examples/`](./examples/)，每个示例对应一个 `ex0*-*.py`，已在本环境用 Python 3.13.12 验证通过（示例 5 需要输入，验证时通过管道喂入）。
+
 ### 示例 1：成绩管理
+
+完整文件：`examples/ex01-scores.py`
 
 ```python
 scores = [78, 92, 85, 67, 88, 91, 73]
@@ -328,6 +334,8 @@ print(f"加分后: {bonus}")
 ```
 
 ### 示例 2：通讯录
+
+完整文件：`examples/ex02-contacts.py`
 
 ```python
 contacts = {
@@ -353,6 +361,8 @@ for name, info in contacts.items():
 
 ### 示例 3：购物车
 
+完整文件：`examples/ex03-cart.py`
+
 ```python
 # 购物车：列表中的每个元素是一个 dict，表示一条记录
 cart = [
@@ -372,6 +382,8 @@ for item in sorted_cart:
 ```
 
 ### 示例 4：词频统计
+
+完整文件：`examples/ex04-word-freq.py`
 
 ```python
 text = "apple banana apple orange banana apple"
@@ -393,6 +405,8 @@ print(f"不重复词数: {len(unique_words - stopwords)}")
 ```
 
 ### 示例 5：读取多行输入并分组
+
+完整文件：`examples/ex05-group-input.py`
 
 ```python
 # 输入格式：每行 "姓名 分数"，以空行结束（或用 EOF 结束）
@@ -449,29 +463,25 @@ for level, names in groups.items():
 | 列表推导式 | 无 | Stream API | iterator + collect |
 | 动态类型 | 静态 | 静态 | 静态 |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能按场景选择 list、tuple、dict、set
-- 能熟练使用完整切片 `[start:stop:step]`
-- 能处理嵌套 dict 和 list of dict
-- 能写出清晰的列表、字典、集合推导式
-- 能用 `sorted` 的 `key` 按属性排序
-- 能用 `enumerate`、`zip`、`dict.items` 完成常见遍历
+- [ ] 能按场景选择 list、tuple、dict、set
+- [ ] 能熟练使用完整切片 `[start:stop:step]`
+- [ ] 能处理嵌套 dict 和 list of dict
+- [ ] 能写出清晰的列表、字典、集合推导式
+- [ ] 能用 `sorted` 的 `key` 按属性排序
+- [ ] 能用 `enumerate`、`zip`、`dict.items` 完成常见遍历
 
-### 进入下一阶段前
+### 动手练习
 
-确保能完成以下练习：
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）。完成 4 题后继续。
 
-- 用 list 管理一组成绩：计算平均分、排序、取前几名、加分处理
-- 用 dict 做通讯录：增删改查、遍历、嵌套信息
-- 用 set 去重：从列表中去掉重复元素，并做集合运算
-- 统计词频：读取一段文本，输出每个词出现的次数
-- 处理嵌套结构：如购物车 list of dict、班级学生记录
+### 阶段项目
 
-### 推荐项目
+本阶段综合项目见 [`project/`](./project/)：购物车 —— 用 list of dict 管理商品，支持添加/删除商品、计算总价、按价格排序、交互式操作。建议完成练习后再动手。
 
-- **购物车**：用 list of dict 管理商品，支持计算总价、按价格排序、添加/删除商品
-- **通讯录**：用 dict 管理联系人，支持查询、修改、列出所有联系人
+- [ ] 完成 exercises/ 全部练习并对照参考实现复盘
+- [ ] 独立完成 project/ 并通过其验收标准
 
 ### 下一阶段
 

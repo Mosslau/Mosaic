@@ -15,7 +15,7 @@ Java 面向对象 OOP 阶段的目标是：**能设计清晰的类模型，理�
 | 方法关系 | 重写（Override）与重载（Overload） |
 | 现代特性 | `record`（Java 16+）、`sealed class`（Java 17+） |
 
-本阶段不涉及泛型、注解、反射与设计模式。
+本阶段只涉及类、对象、封装、继承、多态与接口设计，**不涉及泛型、注解、反射与设计模式** — 那些是 **ph05 泛型**、**ph15 Spring 全家桶**（注解）、**ph20 高级 Java**（反射与设计模式）阶段的内容。
 
 ## 2. 来源与演变
 
@@ -29,6 +29,8 @@ OOP 思想起源于 1960 年代的 Simula，成熟于 Smalltalk。C++ 在 C 的�
 | Java（1995） | 单继承 + 接口、GC、引用语义、跨平台字节码 |
 
 Java 的 OOP 取舍：单继承避免 C++ 菱形问题；接口多实现保留行为组合能力；GC 自动回收降低内存风险；引用语义让变量统一指向堆上对象。
+
+本文示例以 **Java 17**（LTS）为基线（`record` 需 Java 16+、`sealed class` 需 Java 17），本环境验证工具链为 OpenJDK 17.0.16。OOP 基础语法自 Java 8 起稳定，本文涉及的新特性全部为 Java 17 已正式发布的特性。
 
 ## 3. 语法与参数
 
@@ -281,6 +283,8 @@ s.read();  // 运行时绑定到 TemperatureSensor.read()
 
 ## 6. 代码示例
 
+> 以下每个示例都是完整可运行程序，完整文件见 [`examples/`](./examples/)。验证环境：OpenJDK 17.0.16。因文件名保留 `ex0X-主题` 前缀，入口类为非 public（Java 强制 public 类名与文件名一致），编译用文件名、运行用入口类名，详见 examples/README.md。
+
 ### 示例 1：封装与学生类
 
 ```java
@@ -317,6 +321,8 @@ class Student {
     }
 }
 ```
+
+完整文件：`examples/ex01-student.java`（编译 `javac ex01-student.java`，运行 `java StudentDemo`）
 
 ### 示例 2：继承、多态与重写
 
@@ -365,6 +371,8 @@ class GasCar extends Vehicle {
 }
 ```
 
+完整文件：`examples/ex02-vehicle.java`（编译 `javac ex02-vehicle.java`，运行 `java VehicleDemo`）
+
 ### 示例 3：接口解耦
 
 ```java
@@ -394,6 +402,8 @@ class PressureSensor implements Sensor {
 }
 ```
 
+完整文件：`examples/ex03-sensor.java`（编译 `javac ex03-sensor.java`，运行 `java SensorDemo`）
+
 ### 示例 4：record 表达设备状态
 
 ```java
@@ -414,6 +424,8 @@ record DeviceStatus(String deviceId, double temperature, long timestamp) {
     }
 }
 ```
+
+完整文件：`examples/ex04-record.java`（编译 `javac ex04-record.java`，运行 `java RecordDemo`）
 
 ### 示例 5：sealed class 限制状态继承
 
@@ -454,6 +466,8 @@ non-sealed class FaultState extends VehicleState {
 }
 ```
 
+完整文件：`examples/ex05-sealed.java`（编译 `javac ex05-sealed.java`，运行 `java SealedDemo`）
+
 ## 7. 总结
 
 ### 关键要点
@@ -478,28 +492,24 @@ non-sealed class FaultState extends VehicleState {
 | 运行时多态 | `invokevirtual` 动态分派 | 虚函数表 |
 | 重写标记 | `@Override` 注解 | `override` 关键字 |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能设计清晰的类模型，字段私有化并提供 getter/setter
-- 能用 `record` 表达不可变数据
-- 能解释重载和重写的区别
-- 能用接口解耦依赖
-- 能用 `sealed class` 限制继承层次
+- [ ] 能设计清晰的类模型，字段私有化并提供 getter/setter
+- [ ] 能用 `record` 表达不可变数据
+- [ ] 能解释重载和重写的区别
+- [ ] 能用接口解耦依赖
+- [ ] 能用 `sealed class` 限制继承层次
 
-### 进入下一阶段前
+### 动手练习
 
-确保能完成以下练习：
-- 学生类：封装字段，提供构造方法与 getter/setter
-- 车辆与电动车/燃油车子类：继承 + 多态 + 方法重写
-- 电机类：构造方法链、`this` 使用
-- 用 `record` 定义设备状态：不可变数据、自定义方法
-- 用 `sealed class` 限制车辆状态层次：`permits` 子类
-- 设备管理系统：组合多个类的完整小项目
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）。完成 5 题后继续。
 
-### 推荐项目
+### 阶段项目
 
-- **学生管理系统**：学生/班级/成绩统计
-- **设备管理系统**：设备基类、传感器接口、`record` 状态、`sealed class` 状态层次
+本阶段综合项目见 [`project/`](./project/)：学生管理系统——封装学生与成绩、班级统计、注册表增删查。建议完成练习后再动手。
+
+- [ ] 完成 exercises/ 全部练习并对照参考实现复盘
+- [ ] 独立完成 project/ 并通过其验收标准
 
 ### 下一阶段
 

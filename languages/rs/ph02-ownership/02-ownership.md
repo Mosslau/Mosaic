@@ -22,6 +22,8 @@ Rust 所有权阶段的定位是：**理解一个值何时被创建、移动、�
 
 内存管理大致经历过三条路线：完全手动、垃圾回收、RAII + 编译期约束。Rust 的所有权模型来自后两者的融合，并借用了线性类型（linear/affine type）和区域推导（region inference）的思想：资源只能被使用一次或按规则借用。
 
+本文示例以 **Edition 2021** 为基线（闭包捕获规则、数组 `IntoIterator` 等行为均按 2021 版次），本环境验证工具链为 rustc 1.92.0（默认 Edition 2021）。所有权、借用与 move 语义是 Rust 自 1.0 起就确立的核心规则，Edition 变化不影响本阶段内容。
+
 | 范式 | 代表语言 | 释放时机 | 运行时开销 | 典型风险 |
 |------|---------|---------|-----------|---------|
 | 手动管理 | C | 程序员调用 `free` | 无 | 重复释放、内存泄漏、悬垂指针、UAF |
@@ -96,6 +98,7 @@ fn main() {
 | trait 类型 | marker trait | 普通 trait |
 
 `String`、`Vec<T>`、自定义包含堆分配字段的结构体**不实现 Copy**，但可以实现 `Clone`。
+
 ### 3.4 借用 borrowing 与引用
 
 **借用**允许函数在不获取 ownership 的情况下使用值。函数结束后，ownership 仍归原变量，值不会被 drop。
@@ -226,11 +229,13 @@ fn main() {
 对 `String`、`Vec<T>` 等带堆分配的类型，move 在机器层面只复制栈上的元数据（指针、长度、容量），**不会复制堆数据**。但 Rust 在编译期将旧变量标记为“未初始化”，禁止后续访问。
 
 这与 C++ 的移动语义相似，但 Rust 的 move 由编译器保证旧变量不可再访问，无需像 C++ 那样把源指针置空。
+
 ### 4.2 Drop 与 RAII
 
 Rust 中类型可以实现 `Drop` trait，定义值离开作用域时的清理逻辑。`String` 的 `Drop` 释放堆内存，`File` 的 `Drop` 关闭文件句柄，与 C++ RAII 理念一致，但不需要手动调用析构函数。
 
 例如 `String` 在离开作用域时会自动释放其堆内存，无需手动调用 `free`。
+
 ### 4.3 借用检查如何避免悬垂引用
 
 C/C++ 中常见的错误是让引用指向已经离开作用域的值，导致悬垂引用（dangling reference）。Rust 编译器会拒绝这种代码：
@@ -260,6 +265,7 @@ fn main() {
     println!("{}", result);
 }
 ```
+
 ### 4.4 编译错误示范
 
 学会阅读借用检查错误是本章的核心能力。下面是两个最常见的错误。
@@ -324,6 +330,7 @@ error[E0499]: cannot borrow `s` as mutable more than once at a time
 ```
 
 解读：第 4 行已经借了 `s` 的可变引用；第 5 行在 `r1` 仍然活跃时再次申请可变引用，违反 xor 规则。修复方法：让 `r1` 在申请 `r2` 之前结束使用，或把两次修改合并到同一个可变引用里。
+
 ## 5. 使用场景
 
 | 场景 | 推荐方式 | 原因 |
@@ -340,9 +347,14 @@ error[E0499]: cannot borrow `s` as mutable more than once at a time
 - 多个 owner 共享堆数据（需要 `Rc`/`Arc`，ph10）。
 - 在不可变结构内部修改状态（需要内部可变性，ph10）。
 - 复杂自引用结构（需要 `Pin` 等高级主题）。
+
 ## 6. 代码示例
 
+> 完整可运行文件见 [`examples/`](./examples/)，每个示例对应一个 `ex0*-*.rs`，已在本环境用 `rustc 1.92.0` 编译运行验证（零警告）。
+
 ### 示例 1：move、Copy 与 Clone 对比
+
+完整文件：`examples/ex01-move-copy-clone.rs`
 
 ```rust
 fn main() {
@@ -365,6 +377,8 @@ fn main() {
 ```
 
 ### 示例 2：函数传参与借用选择
+
+完整文件：`examples/ex02-borrow-choice.rs`
 
 ```rust
 fn show(s: &str) {
@@ -394,6 +408,8 @@ fn main() {
 
 ### 示例 3：String、&str 与 slice 转换
 
+完整文件：`examples/ex03-string-str-slice.rs`
+
 ```rust
 fn pick_word(text: &str, idx: usize) -> Option<&str> {
     text.split_whitespace().nth(idx)
@@ -421,6 +437,8 @@ fn main() {
 
 ### 示例 4：可变借用与 NLL
 
+完整文件：`examples/ex04-mut-borrow-nll.rs`
+
 ```rust
 fn double_first(nums: &mut [i32]) {
     if let Some(first) = nums.first_mut() {
@@ -440,6 +458,8 @@ fn main() {
 ```
 
 ### 示例 5：文本统计器（零 clone）
+
+完整文件：`examples/ex05-text-stats.rs`
 
 ```rust
 use std::io::{self, Read};
@@ -475,6 +495,7 @@ fn main() {
 ```
 
 这个程序接收任意文本，统计行数、单词数和最长单词；所有统计函数都接受 `&str` 或返回 `&str`，全程没有调用 `.clone()`。
+
 ## 7. 总结
 
 ### 关键要点
@@ -495,25 +516,24 @@ fn main() {
 | Java / Go / Python GC | 垃圾回收器 | 暂停、内存开销 | 有（无悬垂） | 依赖运行时/锁 |
 | Rust 所有权 | 编译期决定 + Drop | 无 GC | 编译期禁止 | 编译期限制 |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能解释 `let t = s;` 后为什么 `s` 不可用（因为 move）。
-- 能说明 `i32` 赋值后仍可用、`String` 赋值后不可用（因为 Copy 与 move 的区别）。
-- 能在函数参数中选择传值 `T`、不可变借用 `&T` 或可变借用 `&mut T`。
-- 能根据 E0382 / E0499 等错误提示定位冲突并修复，修复时优先缩短借用作用域而不是立刻 clone。
-- 能把 `String` 转换为 `&str`，并理解 `&str`、`&[T]` 作为零拷贝视图的用法。
+- [ ] 能解释 `let t = s;` 后为什么 `s` 不可用（因为 move）
+- [ ] 能说明 `i32` 赋值后仍可用、`String` 赋值后不可用（因为 Copy 与 move 的区别）
+- [ ] 能在函数参数中选择传值 `T`、不可变借用 `&T` 或可变借用 `&mut T`
+- [ ] 能根据 E0382 / E0499 等错误提示定位冲突并修复，修复时优先缩短借用作用域而不是立刻 clone
+- [ ] 能把 `String` 转换为 `&str`，并理解 `&str`、`&[T]` 作为零拷贝视图的用法
 
-### 进入下一阶段前
+### 动手练习
 
-完成以下练习：
-- 把示例 2 中 `take_and_upper(msg)` 改成不转移 ownership 的版本（提示：返回新 `String`，参数用 `&str`）。
-- 写一个函数 `fn truncate(s: &mut String)`，把字符串截断到只剩前 3 个字符。
-- 练习 `String::from("...")`、`&str`、`&String`、`.as_str()`、`.to_string()` 之间的转换。
-- 尝试制造并修复一个 E0502（不可变借用期间申请可变借用）错误。
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）。完成 4 题后继续。
 
-### 推荐项目
+### 阶段项目
 
-- **文本统计器**：读取标准输入或文件，统计行数、单词数、最长单词，并尽量减少 clone。本阶段示例 5 已给出核心实现，可扩展为支持命令行参数和文件路径。
+本阶段综合项目见 [`project/`](./project/)：文本统计器——从标准输入统计行数、单词数、最长单词，全程零 clone。建议完成练习后再动手。
+
+- [ ] 完成 exercises/ 全部练习并对照参考实现复盘
+- [ ] 独立完成 project/ 并通过其验收标准
 
 ### 下一阶段
 

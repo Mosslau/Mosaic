@@ -15,7 +15,7 @@ C++ 面向对象阶段的定位是：**能设计清晰的类接口，用封装�
 | 多态机制 | `virtual`、`override`、纯虚函数、抽象类 |
 | 设计取舍 | 组合优于继承、接口与实现分离 |
 
-本阶段**不涉及**模板元编程、多重继承深入、智能指针与移动语义，这些内容归入后续阶段。目标是为 C++ 内存模型与 RAII 阶段打下类与对象生命周期的基础。
+本阶段**不涉及**模板元编程、多重继承深入、智能指针与移动语义 — 那些是 **ph05 模板与泛型编程**、**ph06 现代 C++**、**ph13 Rule of 0/3/5 与 RAII 进阶**阶段的内容。目标是为 C++ 内存模型与 RAII 阶段打下类与对象生命周期的基础。
 
 ## 2. 来源与演变
 
@@ -26,6 +26,8 @@ C++ 面向对象阶段的定位是：**能设计清晰的类接口，用封装�
 | 现代 C++ | C++11/14/17 | `override`、默认/删除函数 |
 
 C++ 的 OOP 强调**零成本抽象**：多态通过 vptr/vtable 实现，运行时开销仅一次间接调用；同时保留值语义与确定性析构，这是它与 Java、C# 等托管语言的本质差异。
+
+本文示例以 **C++17** 为基线（`override`、默认/删除函数、成员初始化列表均可用），现代编译器（GCC 7+ / Clang 5+ / MSVC 2017+）默认或加 `-std=c++17` 即可编译。类与对象的语法是 C++ 最稳定的核心部分。
 
 ## 3. 语法与参数
 
@@ -236,7 +238,12 @@ Derived()
 
 ## 6. 代码示例
 
+> 完整可运行文件见 [`examples/`](./examples/)，每个示例对应一个 `ex0*-*.cpp`，已在本环境用 `g++ -Wall -Wextra -std=c++17` 验证（零警告）。
+
 ### 示例 1：Student 类
+
+完整文件：`examples/ex01-student.cpp`
+
 ```cpp
 #include <iostream>
 #include <string>
@@ -266,6 +273,9 @@ int main() {
 ```
 
 ### 示例 2：Page / Block / Segment 建模（组合优先）
+
+完整文件：`examples/ex02-page-block-segment.cpp`
+
 ```cpp
 #include <iostream>
 #include <string>
@@ -317,6 +327,9 @@ int main() {
 ```
 
 ### 示例 3：Logger 与 static 成员
+
+完整文件：`examples/ex03-logger-static.cpp`
+
 ```cpp
 #include <iostream>
 #include <string>
@@ -348,6 +361,9 @@ int main() {
 ```
 
 ### 示例 4：IStorage / IExecutor 抽象接口
+
+完整文件：`examples/ex04-istorage-iexecutor.cpp`
+
 ```cpp
 #include <iostream>
 #include <string>
@@ -400,6 +416,9 @@ int main() {
 ```
 
 ### 示例 5：学生管理系统
+
+完整文件：`examples/ex05-student-manager.cpp`（阶段项目见 [`project/`](./project/)，含菜单交互的完整版）
+
 ```cpp
 #include <iostream>
 #include <string>
@@ -474,26 +493,24 @@ int main() {
 | 析构 | 确定性析构，离开作用域即调用 | GC finalization，不可预测 |
 | 内存管理 | 手动/RAII/智能指针 | 垃圾回收器 |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能设计清晰的类接口，正确选择 `public`/`private`/`protected`
-- 能解释构造函数、析构函数和虚函数的作用与调用时机
-- 能用成员初始化列表初始化对象，并说明初始化顺序
-- 能用组合减少不必要的继承，用抽象类定义接口
-- 能解释 vptr/vtable 与动态分派的基本原理
+- [ ] 能设计清晰的类接口，正确选择 `public`/`private`/`protected`
+- [ ] 能解释构造函数、析构函数和虚函数的作用与调用时机
+- [ ] 能用成员初始化列表初始化对象，并说明初始化顺序
+- [ ] 能用组合减少不必要的继承，用抽象类定义接口
+- [ ] 能解释 vptr/vtable 与动态分派的基本原理
 
-### 进入下一阶段前
-确保能完成以下练习：
-- 实现 `Student` 类，支持构造、打印、及格判断
-- 用 `Page`/`Block`/`Segment`/`VectorIndex` 为存储引擎做简单建模
-- 实现带 `static` 计数器的 `Logger` 类
-- 设计 `IStorage`/`IIndex`/`IExecutor` 接口并给出实现
-- 在管理类中用 `std::vector` 组合多个对象
-- 给多态基类添加虚析构函数，并通过基类指针释放派生类对象
+### 动手练习
 
-### 推荐项目
-- **学生管理系统**：增删查改学生记录，使用 `std::vector<Student>` 和简单菜单
-- **存储对象管理系统**：管理 Page/Block/Segment，支持按 ID 查询总大小，体验组合与类的设计
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）。完成 4 题后继续。
+
+### 阶段项目
+
+本阶段综合项目见 [`project/`](./project/)：学生管理系统——增删查改学生记录，使用 `std::vector<Student>` 和简单菜单。建议完成练习后再动手。
+
+- [ ] 完成 exercises/ 全部练习并对照参考实现复盘
+- [ ] 独立完成 project/ 并通过其验收标准
 
 ### 下一阶段
 
