@@ -26,6 +26,8 @@ Python 虚拟环境与包管理阶段的目标是：**能为每个项目创建�
 
 工具侧同样在演进：2018 年 **poetry** 用 `pyproject.toml` 统一"依赖声明 + 锁定 + 打包"，引入 `poetry.lock` 精确锁定；2024 年 **uv**（Rust 编写）以极速和自带 Python 版本管理成为新宠，一条命令完成建环境、装依赖、加锁。依赖解析也从早期 pip 的"贪心装最新版"演变为 2020 年 pip 引入的 **resolver（依赖解析器）**——冲突主动报错，而不是悄悄装坏。
 
+本文示例以 **Python 3.10+** 为基线（`pyproject.toml` PEP 621 自 3.11 起、`src` 布局推荐、`uv` 可选），验证解释器 3.13.12。
+
 | 时间 | 里程碑 |
 |------|-------|
 | 2007 | virtualenv 诞生——环境隔离的先行者 |
@@ -256,6 +258,8 @@ wheel 本质是**预构建的 zip 包**，文件名中的兼容标记（platform
 
 ## 6. 代码示例
 
+> 说明：示例 1/2/5 是命令序列（bash），示例 3 是配置文件，示例 4 是完整可安装包——每个示例的完整可运行/可复现版本在 [`examples/`](./examples/) 目录（示例 4 为 `examples/ex04-hello-cli/` 包目录），运行命令见 examples/README.md。
+
 ### 示例 1：创建并激活 venv + 安装依赖（完整命令序列）
 
 呼应"创建虚拟环境"练习：完整走一遍"建环境 → 激活 → 装依赖 → 验证隔离"。
@@ -272,6 +276,8 @@ deactivate                            # 6. 退出
 python -c "import requests" 2>&1 | head -1   # 7. 验证隔离：系统环境没有 requests
 # ModuleNotFoundError: No module named 'requests'
 ```
+
+完整文件：`examples/ex01-venv-create.sh`
 
 ### 示例 2：生成与使用 requirements.txt（freeze 快照 + 从零复现）
 
@@ -293,6 +299,8 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 python -c "import requests, pandas; print('复现成功')"
 ```
+
+完整文件：`examples/ex02-requirements-freeze.sh`
 
 要点：`pip freeze` 会包含**所有间接依赖**（如 `numpy`），锁得最全、复现最稳；只想锁直接依赖可用 `pip-tools` 的 `pip-compile`（本阶段了解即可）。
 
@@ -332,6 +340,8 @@ include = ["can_toolkit*"]
 pip install -e ".[dev]"     # 运行依赖 + 开发依赖一次装齐（开发环境）
 pip install .               # 仅运行依赖（生产/用户场景）
 ```
+
+完整文件：`examples/ex03-pyproject.toml`
 
 ### 示例 4：可安装 CLI 工具包（pyproject + console_scripts 入口点 + pip install -e）
 
@@ -388,6 +398,8 @@ pip install build && python -m build     # 构建 sdist + wheel 到 dist/
 pip install dist/hello_cli-0.1.0-py3-none-any.whl   # 安装构建产物
 ```
 
+完整文件：`examples/ex04-hello-cli/`（包目录：`pyproject.toml` + `src/hello/`）
+
 注意 **src 布局**：源码放 `src/hello/`，避免"从仓库根目录 import"的隐式路径问题，是社区推荐的打包布局，打包配置里用 `where = ["src"]` 告诉 setuptools 去哪里找包。
 
 ### 示例 5：用 uv 快速管理环境（uv venv / uv add / uv lock 对比 pip）
@@ -411,6 +423,8 @@ uv python install 3.12 && uv venv --python 3.12   # 指定 Python 版本
 | 锁定 | `pip freeze > requirements.txt` | `uv add`/`uv lock` 自动生成 `uv.lock` |
 | 复现 | `pip install -r requirements.txt` | `uv sync` |
 | 速度 | 慢（纯 Python 实现） | 快（Rust 实现） |
+
+完整文件：`examples/ex05-uv-quickstart.sh`
 
 要点：uv 的"自动写清单 + 自动锁定"把 pyproject 用法变得规范；本阶段 pip 路线必须熟练（它是基础），uv 作为提效工具了解其命令对应关系即可。
 
@@ -439,26 +453,23 @@ uv python install 3.12 && uv venv --python 3.12   # 指定 Python 版本
 | 环境隔离 | venv 虚拟环境 | 无（全局模块缓存） | 无（JVM 级） | 无（target/ 构建） | node_modules/ |
 | 分发产物 | wheel / sdist | 编译二进制 | jar / war | crate | npm 包 |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能为项目创建并激活独立虚拟环境，能说明隔离原理（site-packages 重定向）（对应 roadmap"能隔离项目依赖"）
-- 能用 `pip freeze` 生成 requirements.txt，并在全新环境一键复现（对应 roadmap"能复现安装环境"）
-- 能说清运行依赖与开发依赖的区别，并用 `[project.optional-dependencies]` 分组管理（对应 roadmap"能说明运行和开发依赖"）
-- 能用 `pyproject.toml` 声明项目元数据与依赖，并解释 PEP 517/621 的作用
+- [ ] 能为项目创建并激活独立虚拟环境，能说明隔离原理（site-packages 重定向）（对应 roadmap"能隔离项目依赖"）
+- [ ] 能用 `pip freeze` 生成 requirements.txt，并在全新环境一键复现（对应 roadmap"能复现安装环境"）
+- [ ] 能说清运行依赖与开发依赖的区别，并用 `[project.optional-dependencies]` 分组管理（对应 roadmap"能说明运行和开发依赖"）
+- [ ] 能用 `pyproject.toml` 声明项目元数据与依赖，并解释 PEP 517/621 的作用
 
-### 进入下一阶段前
+### 动手练习
 
-确保能完成以下练习：
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）：创建虚拟环境、生成 requirements.txt、用 pyproject 管理项目、打包小工具共 4 题，与 roadmap「练习」小节一一对应。完成 4 题后继续。
 
-- 创建虚拟环境：`python3 -m venv .venv` 后激活，`which python` 验证解释器指向（提示：换终端要重新激活；Windows 用 `Scripts\activate`）
-- 生成 requirements.txt：装 2-3 个包后 `pip freeze > requirements.txt`，删掉环境重建再 `pip install -r` 复现（提示：`pip list` 对比前后包是否一致）
-- 用 pyproject 管理项目：写 `pyproject.toml`（名称、版本、依赖、dev 分组），`pip install -e ".[dev]"` 并验证 `import`（提示：`requires-python` 别写错，否则安装直接被拒）
-- 打包小工具：把 ph06 的 argparse 工具改成包结构 + `[project.scripts]`，`pip install -e .` 后全局运行命令（提示：`.gitignore` 记得加 `.venv/`）
+### 阶段项目
 
-### 推荐项目
+本阶段综合项目见 [`project/`](./project/)：**Python 项目模板**——一个"git clone 即可开工"的骨架（`pyproject.toml` PEP 621 + dev 分组、`src/` 布局、可安装 CLI、`.gitignore`、README 写清如何建环境/装依赖/跑测试），以后每个新项目都从它复制。建议完成练习后再动手。
 
-- **Python 项目模板**：一个"git clone 即可开工"的骨架——`pyproject.toml`（PEP 621 + dev 分组）、`src/` 布局、`.gitignore`、README 写清"如何建环境、装依赖、跑测试"，以后每个新项目都从它复制
-- **可安装 CLI 包**：把 ph06 的日志/重命名工具做成包，用 `[project.scripts]` 生成全局命令，`python -m build` 产出 wheel 并在另一个环境安装验证
+- [ ] 完成 exercises/ 全部练习并对照参考实现复盘
+- [ ] 独立完成 project/ 并通过其验收标准
 
 ### 下一阶段
 

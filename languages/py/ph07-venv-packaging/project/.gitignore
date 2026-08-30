@@ -1,0 +1,9 @@
+# project/.gitignore —— Python 项目模板忽略清单
+.venv/
+__pycache__/
+*.pyc
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/

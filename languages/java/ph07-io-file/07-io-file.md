@@ -27,6 +27,8 @@ Java 1.0 的 `java.io` 包沿袭 C 语言 stdio 的思想——以**流（stream
 
 此后演进趋于便利性：Java 11 的 `Path.of` 与 `Files.readString`/`writeString` 让最常用的文本读写缩成一行。但底层模型二十年未变——**字节流处理字节、字符流处理文本、NIO 提供现代文件 API**，三者并存至今，理解这一模型才能在读写、编码、性能、异常之间做出正确取舍。
 
+本文示例以 **Java 17** 为基线（NIO.2 `Files`/`Path` 自 7 起、try-with-resources 自 7 起、`Path.of`/`Files.readString` 自 11 起），验证工具链 OpenJDK 17.0.16。
+
 | 版本 | 演进 |
 |------|------|
 | Java 1.0（1996） | `java.io` 字节流 `InputStream`/`OutputStream`、`File` 类 |
@@ -288,6 +290,8 @@ JSON 解析**不要手写**（字符串转义、嵌套结构极易出错），�
 
 ## 6. 代码示例
 
+> 本节每个示例的完整可运行文件在 [`examples/`](./examples/) 目录（非 public 类，编译用文件名、运行用类名）。验证环境 OpenJDK 17.0.16，命令见 examples/README.md。
+
 ### 示例 1：读取配置文件（Files.readAllLines + 解析 key=value）
 
 对应 roadmap 练习「读取配置文件」：解析 `key=value` 格式，忽略空行与 `#` 注释。
@@ -329,6 +333,8 @@ public class ReadConfig {
     }
 }
 ```
+
+完整文件：`examples/ex01-read-config.java`
 
 提示：JDK 自带 `java.util.Properties` 也支持 key=value 解析（`props.load(reader)`），但建议先手写一遍，理解「读行 → 切分 → 清理」的解析逻辑；配置文件通常很小，`Files.readAllLines` 完全够用。
 
@@ -382,6 +388,8 @@ public class LogAnalyzer {
 }
 ```
 
+完整文件：`examples/ex02-log-analyzer.java`
+
 ### 示例 3：CSV 解析（Scanner 按行 + split，处理引号简单情况）
 
 对应 roadmap 练习「CSV 解析」：解析学生成绩表并计算平均分，简单处理引号字段。
@@ -431,6 +439,8 @@ public class CsvParser {
     }
 }
 ```
+
+完整文件：`examples/ex03-csv-parser.java`
 
 ### 示例 4：批量重命名（Files.walk + move）
 
@@ -484,6 +494,8 @@ public class BatchRename {
 }
 ```
 
+完整文件：`examples/ex04-batch-rename.java`
+
 提示：这里用到的 `filter`/`forEach` 只是 `Files.walk` 返回 `Stream` 的配套用法，Stream 的完整能力（map/reduce/collect）将在 ph08 系统学习。
 
 ### 示例 5：对象序列化与反序列化（Serializable + ObjectOutputStream）
@@ -536,6 +548,8 @@ public class ObjectSerialization {
 }
 ```
 
+完整文件：`examples/ex05-object-serialization.java`
+
 提示：反序列化**不调用构造器**，直接按字段赋值（`transient` 字段为默认值）；后续类增加字段时，只要 `serialVersionUID` 不变，旧数据仍可读取，新字段取默认值。
 
 ## 7. 总结
@@ -565,27 +579,24 @@ public class ObjectSerialization {
 
 对比结论：所有语言都把「文件 = 字节序列 + 句柄 + 释放时机」抽象成类似模型，差异在错误处理与资源释放机制——C 最原始（手动 `fclose` + `errno`），Go/Rust 把错误当**值**显式返回，Java 用受检异常在编译期强制处理，Python 靠异常与 `with` 约定；而字符流的**编码显式化**是 Java 的特色（Go/Python 默认 UTF-8，C/Rust 编码完全自理）。
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能读写文本文件：字符流 + 缓冲 + 显式 UTF-8 编码，读回内容与写入一致
-- 能处理文件异常：`IOException` 的捕获与传播，try-with-resources 保证流不泄漏
-- 能用 NIO 简化文件操作：用 `Files` 读写/复制/移动/遍历替代手工流
-- 能区分字节流与字符流：二进制文件用字节流，文本用字符流，并解释编码转换过程
-- 能完成对象序列化与反序列化：`Serializable` + `transient` + `serialVersionUID`
+- [ ] 能读写文本文件：字符流 + 缓冲 + 显式 UTF-8 编码，读回内容与写入一致
+- [ ] 能处理文件异常：`IOException` 的捕获与传播，try-with-resources 保证流不泄漏
+- [ ] 能用 NIO 简化文件操作：用 `Files` 读写/复制/移动/遍历替代手工流
+- [ ] 能区分字节流与字符流：二进制文件用字节流，文本用字符流，并解释编码转换过程
+- [ ] 能完成对象序列化与反序列化：`Serializable` + `transient` + `serialVersionUID`
 
-### 进入下一阶段前
+### 动手练习
 
-确保能完成以下练习：
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）：读取配置文件、日志分析、CSV 解析、批量重命名共 4 题。完成 4 题后继续。
 
-- **读取配置文件**：解析 `key=value`，忽略空行与 `#` 注释（提示：先用 `Files.readAllLines` 读入，再手写「去空白 → 跳过注释 → 按 `=` 切分」；也可对比 `Properties.load` 的写法）
-- **日志分析**：统计 ERROR/WARN 行数与关键词出现次数（提示：`BufferedReader.readLine` 逐行 + `contains`/正则提取信息，输出排序后的统计结果）
-- **CSV 解析**：解析成绩表，计算平均分、按列筛选（提示：Scanner 或字符流按行 + `split(",")`；字段含逗号时了解 OpenCSV 即可，不必深究）
-- **批量重命名**：目录树中所有 `.log` 改为 `.txt`，或批量加前缀/序号（提示：`Files.walk` + `Files.move(REPLACE_EXISTING)`，注意流关闭与重名覆盖）
+### 阶段项目
 
-### 推荐项目
+本阶段综合项目见 [`project/`](./project/)：**文件复制工具**（支持文件/目录复制、进度显示、覆盖确认，字节流 + 缓冲实现并与 `Files.copy` 对比）。
 
-- **文件复制工具**：支持文件/目录复制、按字节数显示进度、覆盖确认；用字节流 + 缓冲实现复制逻辑，再对比 `Files.copy` 的写法，统计耗时与复制字节数
-- **目录统计工具**：递归统计目录下的文件总数、总大小、各扩展名数量与占比；用 `Files.walk` 遍历 + `Files.size` 汇总，输出表格形式的统计报告
+- [ ] 完成 exercises/ 全部练习并对照参考实现复盘
+- [ ] 独立完成 project/ 并通过其验收标准
 
 ### 下一阶段
 

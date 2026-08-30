@@ -1,0 +1,35 @@
+# project/pyproject.toml —— Python 项目模板：PEP 621 元数据 + dev 分组 + console_scripts
+# 来源：07-venv-packaging.md 第 7 章「阶段项目」/ roadmap 推荐项目「Python 项目模板」
+# 验证环境：Python 3.13.12，setuptools>=68
+# 验证：python3 -m venv .venv && .venv/bin/pip install -e ".[dev]" && .venv/bin/pyproj --version
+# 验证状态：已验证
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyproject-template"
+version = "0.1.0"
+description = "Python 项目模板：git clone 即可开工的骨架（src 布局 + dev 分组 + 可安装 CLI）"
+readme = "TEMPLATE_README.md"
+requires-python = ">=3.10"
+dependencies = []                        # 运行依赖写在这里，如 "requests>=2.28,<3"
+
+[project.optional-dependencies]          # 开发期工具分组，生产环境不装
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+]
+
+[project.scripts]                        # console_scripts：pip install 后全局可用 pyproj 命令
+pyproj = "pyproject_template.cli:main"
+
+[tool.setuptools.packages.find]          # src 布局：去 src/ 下找包
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

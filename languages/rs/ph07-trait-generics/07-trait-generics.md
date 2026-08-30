@@ -3,6 +3,7 @@
 > 从"具体类型"到"行为抽象"的跨越：trait 定义"能做什么"，泛型把同一份逻辑复用到任意满足约束的类型上——面向数据基础设施与异步网络服务方向，本阶段用 trait 和泛型抽象行为，同时保持类型安全和零成本抽象。
 
 ## 1. 概述
+
 Trait 与泛型阶段的定位是：**能用 trait 定义行为契约（"能做什么"）并为多个类型实现它，用泛型函数与泛型结构体写出适用于多种类型的一次性代码，用 trait bound / where 子句约束类型参数的能力边界，理解静态分发与动态分发的取舍，并保持类型安全与零成本抽象**。
 
 | 核心维度 | 覆盖内容 |
@@ -19,11 +20,14 @@ Trait 与泛型阶段的定位是：**能用 trait 定义行为契约（"能做�
 **本阶段边界**：承接 ph06 模块化与 Cargo（本阶段示例按 crate 组织，先建立模块再抽象行为）；不展开生命周期标注深入（ph08）、trait 对象与 dyn 的深入用法（ph08+）、闭包与迭代器深入（ph09）、异步 trait（ph12）、宏与过程宏（ph15，本阶段只"用"derive）。
 
 ## 2. 来源与演变
+
 trait 的设计直接继承 Haskell 的 **typeclass** 传统（为不同类型提供同一组操作，如 `Show`、`Eq`），但用**孤儿规则（Orphan Rule）与相干性（coherence）**收紧了自由度——同一对 (trait, type) 的实现全程序唯一，这是 trait 与 Java 接口最根本的差异之一。
 
 泛型部分继承 C++ 模板的静态分发思路——编译期实例化（**单态化 monomorphization**），但加上 trait bound 的编译期检查，把模板"实例化时才发现错误"提前到"声明时就检查"。2018 edition 引入 `dyn` 关键字把动态分发显式化：`Box<Trait>` 改为 `Box<dyn Trait>`。
 
 `impl Trait` 的演进值得关注：Rust 1.26 稳定参数与返回值位置的 `impl Trait`；Rust 1.75 稳定 RPITIT（trait 方法返回值位置的 impl Trait），让"返回迭代器"能写进 trait 方法，为 ph12 异步 trait 铺路。
+
+本文示例以 **Edition 2021** 为基线（`impl Trait` 自 1.26 起、`dyn` 显式化自 2018 起），验证工具链 rustc/cargo 1.92.0。
 
 | 时间 | 里程碑 | 影响 |
 |------|--------|------|
@@ -34,7 +38,9 @@ trait 的设计直接继承 Haskell 的 **typeclass** 传统（为不同类型�
 | 2023 | Rust 1.75：RPITIT | trait 方法返回值位置 impl Trait，可返回迭代器 |
 
 ## 3. 语法与参数
+
 ### 3.1 trait 定义与实现（方法、默认实现）
+
 **trait 是一组方法签名的契约**：声明"这种类型能做什么"，但不关心"怎么做"。用 `impl Trait for Type` 为具体类型实现：
 
 ```rust
@@ -71,6 +77,7 @@ fn main() {
 ```
 
 ### 3.2 泛型函数与结构体（<T>）
+
 **泛型（generics）**用类型参数 `<T>` 把"具体类型"替换成"任意类型"，一份代码适用多种类型。`Option<T>`、`Result<T, E>`、`Vec<T>`、`HashMap<K, V>` 全部是泛型：
 
 ```rust
@@ -94,6 +101,7 @@ fn main() {
 - 泛型 impl 块：`impl<A, B> Pair<A, B> { ... }`，只有涉及类型参数的方法需要写 `<A, B>`。
 
 ### 3.3 trait bound 与 where 子句
+
 泛型参数不能无约束地使用——**trait bound（trait 约束）**声明"T 必须实现了某个 trait 才能这样用"。写法两种：内联 `T: Trait` 与 **where 子句**（约束多、签名长时更可读）：
 
 ```rust
@@ -120,6 +128,7 @@ fn main() {
 - 想用 `{:?}` 打印必须加 `T: Debug` 约束——最常见的初学者错误。
 
 ### 3.4 impl Trait 参数与返回值
+
 **`impl Trait`** 是"匿名泛型"：`fn f(x: impl Display)` 等价于 `fn f<T: Display>(x: T)` 但无需命名类型参数。返回值位置的 `impl Trait` 是**不透明类型（opaque type）**：调用者只知道返回类型实现了 Trait，不知道具体类型：
 
 ```rust
@@ -142,6 +151,7 @@ fn main() {
 - `impl Trait` 不能用作结构体字段（用泛型或 `Box<dyn>`），与生命周期的组合见 ph08。
 
 ### 3.5 常见 derive trait（Debug / Clone / PartialEq / Hash）
+
 `#[derive(...)]` 让编译器**自动生成** trait 实现，省去大量 boilerplate：
 | derive trait | 生成的能力 | 必要条件 |
 |-------------|-----------|---------|
@@ -171,6 +181,7 @@ fn main() {
 - `PartialEq` 与 `Eq` 的区别：`Eq` 是自反等价关系，HashMap key 需要 `Eq + Hash`；`f64` 有 `PartialEq` 但没有 `Eq`。
 
 ### 3.6 孤儿规则（Orphan Rule）
+
 **孤儿规则**：`impl Trait for Type` 中，trait 与类型**至少有一个**必须定义在当前 crate——你不能为外部类型实现外部 trait：
 
 ```rust
@@ -196,6 +207,7 @@ fn main() {
 - 孤儿规则让 trait 的实现"有唯一归属"，避免两个 crate 对同一 (trait, type) 给出冲突实现（原理见 4.3）。
 
 ### 3.7 静态分发与单态化初步
+
 调用泛型函数时，编译器为**每一组具体类型参数生成一份专用代码**——这就是**静态分发（static dispatch）**与**单态化（monomorphization）**：
 
 ```rust
@@ -213,6 +225,7 @@ fn main() {
 - **代价是代码膨胀（code bloat）**：类型组合越多二进制越大；极端场景可用动态分发（3.8）缓解，原理对比见 4.1/4.2。
 
 ### 3.8 trait 对象与对象安全初步（dyn Trait）
+
 当需要"不同类型的值放进同一个集合、用同一套方法"时，泛型（类型编译期确定）就不够了——需要 **trait 对象（trait object）** `dyn Trait`，运行时通过 vtable 动态分发：
 
 ```rust
@@ -247,6 +260,7 @@ fn main() {
 - 何时用 dyn：确实需要异构集合/运行时多态时；能用泛型就用泛型（性能与内联更好）。
 
 ### 3.9 关联类型与运算符重载 trait 初步
+
 **关联类型（associated type）**：trait 内部声明一个"由实现者决定"的类型占位符（`Iterator` 的 `Item` 是最著名的例子）。**运算符重载**本质是标准库 trait：`+` 是 `Add`、`*` 是 `Mul`：
 
 ```rust
@@ -279,10 +293,13 @@ fn main() {
 - 常用运算符 trait：`Add`/`Sub`/`Mul`/`Div`（算术）、`Neg`（一元负）、`Index`（`v[i]`）、`Display`/`ToString`（格式化）。
 
 ## 4. 底层原理
+
 ### 4.1 单态化（monomorphization）与静态分发的零成本实现
+
 泛型代码在编译期经历"复制 + 替换"：对每一组具体类型参数，编译器把 `<T>` 替换成具体类型、生成一份专用机器码。`largest::<u32>` 与 `largest::<f64>` 是**两个不同的函数**，调用点直接调用对应版本——没有虚表、没有间接跳转，这就是"零成本"：甚至可以被内联，达到手写专用函数的性能。代价是**代码膨胀**：`HashMap<String, Vec<u8>>` 与 `HashMap<u64, f64>` 各有一份完整实现。缓解：核心逻辑放非泛型函数、泛型只做薄封装，或用 trait 对象（4.2）把类型变化推迟到运行时。
 
 ### 4.2 trait 对象（dyn）的 vtable 与动态分发
+
 `&dyn Shape` 是一个**胖指针（fat pointer）**：数据指针 + 指向 **vtable**（虚函数表）的指针。vtable 是一张函数指针表，每个方法对应一个槽位；调用 `shape.area()` 时先查 vtable 再间接调用。同一份 `print_area` 代码可以处理 Circle 和 Square，**具体调用哪个函数在运行时才确定**——这是动态分发。
 | 维度 | 静态分发（泛型） | 动态分发（dyn） |
 |------|----------------|----------------|
@@ -292,14 +309,17 @@ fn main() {
 | 适用场景 | 类型在编译期已知 | 异构集合、插件式架构 |
 
 ### 4.3 孤儿规则的动机：避免冲突实现
+
 如果允许"为外部类型实现外部 trait"，两个 crate 可能对同一个 (trait, type) 给出**冲突实现**，而编译器无法发现：每个 crate 独立编译，互相不知晓对方的存在。孤儿规则把 impl 的"归属"限定在 trait 或 type 的定义方，冲突只能发生在定义方自己内部——编译器因此总能全局检查。这与 Haskell typeclass 的取舍不同：Haskell 靠全局 coherence 检查保证唯一性，Rust 用更保守的孤儿规则换取"独立编译也安全"，代价是给外部类型补能力时只能用 newtype 模式绕行。
 
 ### 4.4 泛型与 trait bound 在编译期的检查
+
 泛型代码的检查分两步，顺序很重要：**先做类型检查（基于 bound），再做单态化**。泛型函数体只被检查一次——编译器不看你传入的具体类型，只按 `T: Display` 提供的抽象接口检查——这就是为什么错误发生在"声明处"而不是"实例化处"。
 
 每个调用点则做 bound 验证：`print_twice(vec![1, 2])` 报 `E0277`。常见错误映射：E0277（bound 不满足）、E0599（方法不在 trait 里/未引入作用域）、E0308（分支类型不一致）、E0117（孤儿规则）、E0038（对象安全）。**所有 trait 错误都在编译期暴露，运行时不存在"类型没有该方法"的崩溃**——这是 trait 相对 Python 鸭子类型的根本优势。
 
 ## 5. 使用场景
+
 | 场景 | 涉及知识点 |
 |------|-----------|
 | 多个结构体共享同一行为（日志/索引/向量统一编码） | trait 定义与实现 |
@@ -318,7 +338,11 @@ fn main() {
 - 宏与过程宏（ph15）：本阶段只"用" derive，自定义 derive 宏属于宏阶段。
 
 ## 6. 代码示例
+
+> 说明：以下 5 个示例的完整可运行文件在 [`examples/`](./examples/) 目录，均为单文件、零第三方依赖，验证环境 rustc 1.92.0，统一用 `rustc examples/ex0X-*.rs -o /tmp/ex0X && /tmp/ex0X` 编译运行（命令见 examples/README.md）。
+
 ### 示例 1：为多个结构体实现同一个 trait（Encode 编码 trait）
+
 roadmap 推荐项目"序列化接口"的核心：为**日志记录 LogRecord、索引元数据 IndexMeta、向量记录 VectorRecord** 实现统一的 `Encode` trait，再用一个泛型函数通吃三种类型：
 
 ```rust
@@ -365,7 +389,10 @@ fn main() {
 ```
 这就是"**用 trait 表达能力而不是具体类型**"：`dump_all` 只依赖 `Encode` 契约，将来新增 `StorageRecord` 只需 `impl Encode`，函数零改动。
 
+完整文件：`examples/ex01-encode-trait.rs`
+
 ### 示例 2：泛型函数 + trait bound（把重复函数改造成泛型函数）
+
 roadmap 练习"把重复函数改造成泛型函数"的标准套路：先找出两个几乎相同的函数，抽象出类型参数与 bound：
 
 ```rust
@@ -397,7 +424,10 @@ fn main() {
 ```
 要点：`max_of` 一行覆盖了 `max_score` 与 `max_ts` 两个函数；`max_by_key` 把"按什么比较"也参数化（key 函数），是 `T: Ord` 无法表达的场景——**抽象程度由 bound 决定，不要过度设计**。
 
+完整文件：`examples/ex02-generic-fn.rs`
+
 ### 示例 3：where 子句约束复杂泛型（多 trait 组合）
+
 约束超过两个时，where 子句让签名保持可读；泛型结构体的 impl 块同样支持 where：
 
 ```rust
@@ -443,7 +473,10 @@ fn main() {
 ```
 要点：where 可以出现在三处——函数签名末尾、泛型 impl 块、`impl<T: Trait>` 内联；规则是**约束超过两个就进 where**，让"签名短、约束清楚"。
 
+完整文件：`examples/ex03-where-clause.rs`
+
 ### 示例 4：impl Trait 返回值（返回迭代器/闭包）
+
 "隐藏具体返回类型"是 impl Trait 最典型的用途：迭代器链的类型签名极其冗长，用 `impl Iterator<Item = T>` 一句话盖住；工厂函数返回闭包同理（闭包深入 ph09）：
 
 ```rust
@@ -467,7 +500,10 @@ fn main() {
 - **坑：一个函数只能返回一种具体类型**——`if cond { a } else { b }` 两个分支类型不同时，改用 `Box<dyn Iterator<Item = u32>>`（3.8）。
 - `move` 闭包把 `base` 的所有权移入闭包，闭包才能独立存活（ph09 展开）。
 
+完整文件：`examples/ex04-impl-trait.rs`
+
 ### 示例 5：derive trait 与自定义 PartialEq/Hash（可哈希键结构体）
+
 HashMap 的 key 需要 `Eq + Hash`。derive 是"逐字段"语义；需要"只按部分字段比较/哈希"时手写 impl——注意**一致性**：相等的 key 必须哈希相同（反之不必）：
 
 ```rust
@@ -506,8 +542,12 @@ fn main() {
 - **坑：一致性破坏**——若手写 `Hash` 只哈希 shard，但 `PartialEq` 仍比较 label，HashMap 会把"相等"的 key 分到不同桶（或反之），查找行为错乱；`PartialEq` 与 `Hash` 必须用同一套判定逻辑。
 - derive 的 Hash 是确定性的逐字段哈希；自定义版本适用于"聚合键""分组键"这类语义（如按分片聚合）。
 
+完整文件：`examples/ex05-derive-hash.rs`
+
 ## 7. 总结
+
 ### 关键要点
+
 1. **trait 是行为契约**："能做什么"与"怎么做"分离，显式 `impl` 实现，可带默认实现。
 2. **泛型 = 一份代码适用多种类型**：类型参数在调用点推断，能力由 bound 决定。
 3. **trait bound 是类型安全的来源**：不满足约束的调用在编译期报 E0277/E0599，运行时不可能"方法不存在"。
@@ -519,6 +559,7 @@ fn main() {
 9. **对象安全限制 dyn 的使用**：泛型方法、返回 Self 等方法使 trait 不能成为 trait 对象（E0038）。
 
 ### 跨语言对比：接口与泛型抽象
+
 | 维度 | Rust trait | Go interface | Java interface | C++ 模板 | Python duck typing |
 |------|-----------|--------------|----------------|----------|-------------------|
 | 抽象单元 | trait（签名 + 默认实现） | interface（方法集） | interface（默认方法） | 模板 + concept（C++20） | 无显式声明 |
@@ -528,24 +569,25 @@ fn main() {
 | 多态集合 | `Vec<Box<dyn Trait>>` | `[]interface{}` | `List<Interface>` | 同构容器（无擦除） | list 任意混装 |
 | 零成本抽象 | 单态化零开销 | 无（vtable 间接调用） | 无（虚方法） | 零开销（内联模板） | 无（运行期查找） |
 
-### 阶段验收标准
-- 能用 trait 表达能力而不是具体类型：泛型函数/结构体只依赖 trait bound 提供的方法，不依赖具体类型。
-- 能解释泛型单态化的基本影响：每类型组合生成专用代码，零运行时开销、可内联，但存在代码膨胀。
-- 能处理常见 trait bound 编译错误：E0277、E0599、E0308、E0117、E0038 各是什么原因、怎么修。
-- 能区分静态分发与动态分发：泛型 vs `dyn Trait` 的适用场景与性能特征。
-- 能用 derive 生成常见 trait，并知道何时必须手写 impl（自定义比较/哈希逻辑）。
+### 阶段验收清单
 
-### 进入下一阶段前
-确保能完成以下练习：
-- 为多个结构体实现同一个 trait（提示：定义 `Encode` 后逐个 impl，再写一个 `T: Encode` 的泛型函数；对照示例 1）。
-- 把重复函数改造成泛型函数（提示：找两个只有类型不同的函数，抽象出 `<T>` 与 bound；对照示例 2）。
-- 练习 where 子句约束复杂泛型（提示：写 `group_and_sum<K, V>`，让 K 可哈希、V 可相加；对照示例 3）。
-- 用 impl Trait 改写一个返回迭代器的函数（提示：把冗长的 `Filter<...>` 签名替换为 `impl Iterator<Item = u32>`；对照示例 4）。
-- 为一个结构体自定义 PartialEq 和 Hash（提示：保持"相等即同哈希"的一致性，否则 HashMap 行为错乱；对照示例 5）。
+- [ ] 能用 trait 表达能力而不是具体类型：泛型函数/结构体只依赖 trait bound 提供的方法，不依赖具体类型
+- [ ] 能解释泛型单态化的基本影响：每类型组合生成专用代码，零运行时开销、可内联，但存在代码膨胀
+- [ ] 能处理常见 trait bound 编译错误：E0277、E0599、E0308、E0117、E0038 各是什么原因、怎么修
+- [ ] 能区分静态分发与动态分发：泛型 vs `dyn Trait` 的适用场景与性能特征
+- [ ] 能用 derive 生成常见 trait，并知道何时必须手写 impl（自定义比较/哈希逻辑）
 
-### 推荐项目
-- **序列化接口**：为日志记录（LogRecord）、索引元数据（IndexMeta）、向量记录（VectorRecord）实现统一编码 trait——示例 1 已给出核心，可扩展为 CSV/JSON 两种编码策略、增加 `decode` 反向解析，并用 `where` 子句写一个"可编码 + 可克隆"的批量导出函数。
-- **泛型聚合工具**：`sum_by` / `count_by` / `max_by_key` 一组泛型函数，同时服务日志、索引、向量三类记录（示例 2/3 的扩展），体会"同一份逻辑、多种类型"。
+### 动手练习
+
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）：为多个结构体实现同一个 trait、把重复函数改造成泛型函数、用 where 子句约束复杂泛型、用 impl Trait 改写返回迭代器的函数、自定义 PartialEq 与 Hash 共 5 题。完成 5 题后继续。
+
+### 阶段项目
+
+本阶段综合项目见 [`project/`](./project/)：**序列化接口**——为日志记录（LogRecord）、索引元数据（IndexMeta）、向量记录（VectorRecord）实现统一编码 trait，支持 CSV/JSON 两种编码策略与批量导出，含单元测试。建议完成练习后再动手。
+
+- [ ] 完成 exercises/ 全部练习并对照参考实现复盘
+- [ ] 独立完成 project/ 并通过其验收标准
 
 ### 下一阶段
+
 [生命周期 Lifetime 阶段](../ph08-lifetimes/08-lifetimes.md) —— 生命周期标注、省略规则、结构体中的引用、`'static`。trait 与泛型解决了"行为怎么抽象"，生命周期解决"引用能活多久"：`&str` 字段、返回引用的泛型函数、trait 方法中的生命周期参数，都将在下一阶段与泛型组合出现。

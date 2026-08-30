@@ -41,6 +41,8 @@ Go 标准库的设计哲学是"**batteries included，但不臃肿**"：语言�
 
 **设计哲学**：标准库是"默认优先"的答案——遇到需求先问"标准库能不能做"，再考虑第三方依赖。
 
+本文示例以 **Go 1.21+** 为基线（`net/http`、`encoding/json`、`flag`、`log` 稳定，context 超时可用），验证工具链 Go 1.22.2 darwin/arm64。
+
 ## 3. 语法与参数
 
 ### 3.1 fmt 格式化与字符串处理（strings/strconv）
@@ -348,6 +350,8 @@ func TestAdd(t *testing.T) {
 
 ## 6. 代码示例
 
+> 以下示例均为完整可运行 Go module，位于 [`examples/`](./examples/) 目录。每个示例一个子目录，进入对应目录后 `go run .` 即可运行；示例 5 用 `go test -v` 运行。全部示例验证环境：Go 1.22.2（darwin/arm64），仅标准库。
+
 ### 示例 1：文件统计工具（bufio 逐行统计单词/行数）
 
 ```go
@@ -380,7 +384,9 @@ func main() {
 }
 ```
 
-要点：运行 `go run wc.go 某文件.txt`；bufio.Scanner 逐行 + strings.Fields 统计单词，全程不把整个文件载入内存——roadmap 练习"文件统计工具"的标准答案。
+要点：运行 `cd examples/ex01-file-stats && go run . <文件路径>`；bufio.Scanner 逐行 + strings.Fields 统计单词，全程不把整个文件载入内存——roadmap 练习"文件统计工具"的标准答案。
+
+完整文件：`examples/ex01-file-stats/`（go.mod + main.go）
 
 ### 示例 2：JSON 配置解析器（结构体 tag + os.ReadFile + json.Unmarshal）
 
@@ -431,7 +437,9 @@ func main() {
 }
 ```
 
-要点：先准备 JSON 文件再运行 `go run config.go demo.json`；嵌套结构体对应嵌套 JSON；错误逐层 `%w` 包装（ph02 习惯）；解析后做**业务校验**（端口必须为正）——"解析成功"不等于"配置合法"。
+要点：先准备 JSON 文件再运行 `cd examples/ex02-json-config && go run . demo.json`；嵌套结构体对应嵌套 JSON；错误逐层 `%w` 包装（ph02 习惯）；解析后做**业务校验**（端口必须为正）——"解析成功"不等于"配置合法"。
+
+完整文件：`examples/ex02-json-config/`（go.mod + main.go + demo.json）
 
 ### 示例 3：HTTP API server（net/http + json 响应 + 路由）
 
@@ -484,6 +492,8 @@ func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 ```
 
 要点：`/devices` 精确路由 + `/devices/` 前缀路由取 id（Go 1.22+ 可用 `GET /devices/{id}` 通配符）；json.NewEncoder 流式写 JSON；**扩展练习：给 handler 加方法校验（非 GET 返回 405）与 IdleTimeout**；curl 验证：`curl http://127.0.0.1:8080/devices/car-001`。
+
+完整文件：`examples/ex03-http-api/`（go.mod + main.go）
 
 ### 示例 4：命令行 Todo 工具（flag 解析 + 文件持久化）
 
@@ -551,7 +561,9 @@ func main() {
 }
 ```
 
-要点：运行方式 `go run todo.go -add "写周报"`、`-list`；JSON 持久化到文件，重启不丢数据；**MarshalIndent 美化输出方便人读**；扩展练习：加 `-done N` 把第 N 条标记完成（修改 `Todo.Done` 后 `save` 回写）。
+要点：运行方式 `cd examples/ex04-todo-cli && go run . -add "写周报"`、`-list`；JSON 持久化到文件，重启不丢数据；**MarshalIndent 美化输出方便人读**；扩展练习：加 `-done N` 把第 N 条标记完成（修改 `Todo.Done` 后 `save` 回写）。
+
+完整文件：`examples/ex04-todo-cli/`（go.mod + main.go）
 
 ### 示例 5：单元测试（testing + 表驱动测试 + t.Run 子测试）
 
@@ -606,7 +618,9 @@ func TestWordCount(t *testing.T) {
 }
 ```
 
-要点：运行 `go test -v` 可见每个子测试的通过/失败；**t.Run 子测试可单独筛选**：`go test -run 'TestWordCount/多行'`；表驱动是 Go 测试的标准风格——新增用例只加一行表数据；ph08 将深入 benchmark、mock 与覆盖率。
+要点：运行 `cd examples/ex05-wordcount-test && go test -v` 可见每个子测试的通过/失败；**t.Run 子测试可单独筛选**：`go test -run 'TestWordCount/多行'`；表驱动是 Go 测试的标准风格——新增用例只加一行表数据；ph08 将深入 benchmark、mock 与覆盖率。
+
+完整文件：`examples/ex05-wordcount-test/`（go.mod + main.go + main_test.go）
 
 ## 7. 总结
 
@@ -634,28 +648,24 @@ func TestWordCount(t *testing.T) {
 | 单元测试 | testing（内置） | JUnit（第三方） | unittest/pytest | GoogleTest（第三方） | cargo test（内置） |
 | 并发与定时 | goroutine + time + context | java.util.concurrent | asyncio | std::thread | tokio（第三方） |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能用标准库读写文件和处理 JSON：os.ReadFile/WriteFile + json.Marshal/Unmarshal，全程零第三方依赖
-- 能写基础 HTTP 服务：net/http 注册路由、返回 JSON、正确处理方法错误与状态码
-- 能使用 testing 写单元测试：go test 通过，核心函数有测试覆盖
-- 能理解 io.Reader/io.Writer 抽象，用 bufio 做流式处理（大文件不整载入内存）
-- 能解释 JSON tag 与字段导出规则，说出 omitempty、"-" 等常用选项的含义
+- [ ] 能用标准库读写文件和处理 JSON：os.ReadFile/WriteFile + json.Marshal/Unmarshal，全程零第三方依赖
+- [ ] 能写基础 HTTP 服务：net/http 注册路由、返回 JSON、正确处理方法错误与状态码
+- [ ] 能使用 testing 写单元测试：go test 通过，核心函数有测试覆盖
+- [ ] 能理解 io.Reader/io.Writer 抽象，用 bufio 做流式处理（大文件不整载入内存）
+- [ ] 能解释 JSON tag 与字段导出规则，说出 omitempty、"-" 等常用选项的含义
 
-### 进入下一阶段前
+### 动手练习
 
-确保能完成以下练习：
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）：文件统计工具、JSON 配置解析器、HTTP API server、命令行 Todo 工具共 4 题，第 4 题含给工具补单元测试的要求。完成 4 题后继续。
 
-- **文件统计工具**：统计指定文件的行数、单词数（提示：bufio.Scanner 逐行 + strings.Fields——示例 1）
-- **JSON 配置解析器**：读取 JSON 配置文件并校验必填项（提示：结构体 tag + os.ReadFile + json.Unmarshal，错误用 `%w` 包装——示例 2）
-- **HTTP API server**：提供设备列表/查询接口，返回 JSON（提示：net/http 路由 + json.NewEncoder + 显式超时——示例 3）
-- **命令行 Todo 工具**：支持 add/list 动作并持久化到文件，扩展 `-done N` 标记完成（提示：flag 解析 + MarshalIndent 美化输出——示例 4）
-- **给上面的工具补单元测试**：至少覆盖 JSON 解析与 Todo 的增删逻辑（提示：表格驱动 + t.Run 子测试——示例 5）
+### 阶段项目
 
-### 推荐项目
+本阶段综合项目见 [`project/`](./project/)：**HTTP health check 工具**——给定一组 URL，周期性并发发起 GET 请求，统计状态码/延迟/失败率，超时可控，结果输出表格。建议完成练习后再动手。
 
-- **HTTP health check 工具**：给定一组 URL，周期性发起 GET 请求，统计状态码/延迟/失败率，超时与重试可控，结果输出表格或 JSON——net/http 客户端 + time + flag + encoding/json
-- **日志分析小工具**：读取服务日志文件，按级别/来源统计条数，提取关键字命中行，输出汇总报告——bufio.Scanner + strings + strconv + 可选 flag
+- [ ] 完成 exercises/ 全部练习并对照参考实现复盘
+- [ ] 独立完成 project/ 并通过其验收标准
 
 ### 下一阶段
 
