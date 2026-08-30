@@ -1,6 +1,6 @@
 ---
 name: tenetlang-notes
-description: TenetLang 仓库 languages/ 目录的学习笔记写作规范。当在 TenetLang 项目中新增语言 Roadmap、补写/重构阶段笔记（phXX）、为阶段补充代码模块（examples/exercises/project）、重构 Roadmap 或阶段划分、更新现有语言笔记、或检查笔记完成度时使用。确保任何语言（现有或新增）的笔记结构、章节模板、写作风格完全一致。本 skill 是 languages/ 写作任务的唯一权威规范，优先于对存量笔记的直接模仿。
+description: TenetLang 仓库 languages/ 目录的学习笔记写作规范。当在 TenetLang 项目中新增语言 Roadmap、补写/重构阶段笔记（phXX）、为阶段补充代码模块（examples/exercises/project）、重构 Roadmap 或阶段划分、更新现有语言笔记、或检查笔记完成度时使用。确保任何语言（现有或新增）的笔记结构、章节模板、写作风格完全一致。本 skill 是 languages/ 写作任务的唯一权威规范，优先于对存量笔记的直接模仿。本 skill 仅管辖 languages/ 目录；analysis/、tenet/、仓库根 README 等非 languages/ 文档不受本 skill 约束，禁止套用其模板结构。
 agent_created: true
 ---
 
@@ -10,13 +10,15 @@ agent_created: true
 
 TenetLang 仓库的 `languages/` 目录是多门主流语言的系统化学习笔记库，最终服务于「学习 → 分析 → 合成 Tenet 语言」的闭环。本 skill 定义每个阶段的四层交付物标准——**知识文档 + 示例代码（examples/）+ 代码练习（exercises/）+ 综合项目（project/）**——并规范 Roadmap 与阶段目录的重构流程，保证任何一门语言、任何一个阶段写出来都长一个样。本 skill 只含规范与模板，不维护任何语言的现状快照（哪门语言有几个阶段、完成到哪，以各 roadmap 文件与磁盘目录为准）。
 
+**适用范围**：本 skill 只管 `languages/` 目录（roadmap、阶段笔记、代码层 README）。`analysis/`（设计解剖）与 `tenet/`（语言合成与实现）的写作、仓库根 README 等非 languages/ 文档不受本规范约束——不要用本 skill 的章节模板去约束它们。
+
 ## 目录结构
 
 ```
 languages/<语言缩写>/                  # c, cpp, go, java, py, rs
 ├── <语言名>.md                        # Roadmap 总览（如 c.md, python.md）
 └── ph01-<主题>/ ~ phNN-<主题>/        # N 个阶段目录（N 按语言复杂度定）
-    ├── XX-<主题>.md                   # 知识文档（主文档，必含，编号与目录一致）
+    ├── 01-<主题>.md                   # 知识文档（主文档，必含，编号与目录一致）
     ├── examples/                      # 文档示例的完整可运行版本（推荐）
     ├── exercises/                     # 代码练习：题目 + 参考实现（推荐）
     └── project/                       # 阶段综合项目（推荐）
@@ -130,7 +132,7 @@ languages/<语言缩写>/                  # c, cpp, go, java, py, rs
    - **交叉引用有效性**：全部 `phXX` 提及与相对链接（含「下一阶段」导航）逐一核实指向的阶段存在且主题对得上；首尾阶段的导航边界是否正确（首阶段无"上一阶段"、末阶段无"下一阶段"或明确标注终点）
    - **格式一致性**：对照「Markdown 排版规范」核对——仓库特有规则逐项查（标题结构、中文空格、代码块笔记约定、blockquote 四用途、图、总结章节命名、`./` 相对链接）；通用语法与风格按 L2 markdown-style 的 syntax-canon（must-fix）与 style-overlay（should-fix）抽查
    - 输出格式：深检发现的问题并入缺口汇总，格式 `- <语言>/<阶段>：[深检] <问题>：<建议动作>`
-5. 记录与本规范的偏差（旧章节命名、缺失代码层等），标记为待升级项，不作为新内容的参照
+5. 记录与本规范的偏差（旧章节命名、缺失代码层等），标记为待升级项，不作为新内容的参照。登记落点统一为 `.workbuddy/memory/YYYY-MM-DD.md`（当日文件，无则新建），沿用「缺口汇总」的 `- <语言>/<阶段>：<问题>：<建议动作>` 格式，每次场景 D 执行完毕必须落盘
 
 ## Roadmap 总览规范（`<语言名>.md`）
 
@@ -180,7 +182,7 @@ phXX-<主题>/
 ```
 
 规则：
-- 练习题的参考实现必须与题目分离存放（README 出题，sol-* 给解），方便学习者先自己做
+- `exercises/` 每阶段 **3~5 题**：题目与参考实现分离——`README.md` 出题（每题含目标/要求/验收标准，不附答案），`sol-01-*.ext` 给参考解（与题目一一对应），方便学习者先自己做
 - `project/` 对应 Roadmap 该阶段「推荐项目」小节，选 1 个落地即可，不求全
 - 代码风格与该语言社区主流规范对齐（如 C 用 `-Wall -Wextra` 零警告、Rust 过 `clippy`、Python 过 `ruff`），具体规则以对应的外部语言规范 skill（L3，见上节）为准；C 无外部 L3 skill，其 L3 规范即本 skill 第 51 行的要求（`-Wall -Wextra` 零警告 + 语言社区主流惯例）
 - 编译型语言的 examples/project 附构建说明（Makefile/CMakeLists.txt/Cargo.toml 或 README 中的单行编译命令）
