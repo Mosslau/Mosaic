@@ -1,0 +1,15 @@
+# 根 Cargo.toml —— 虚拟清单：word-count 工具 workspace
+# 来源：languages/rs/ph06-cargo-module/exercises/sol-05-workspace（练习 5 参考实现）
+# 验证环境：rustc 1.92.0 + cargo 1.92.0，纯标准库
+# 编译：cargo build --workspace（在本目录执行）
+# 运行：cargo run -p word-count-cli
+# 测试：cargo test --workspace
+# 验证状态：已验证（rustc 1.92.0）
+
+[workspace]
+resolver = "2"
+members = ["crates/word-count-core", "crates/word-count-cli"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"

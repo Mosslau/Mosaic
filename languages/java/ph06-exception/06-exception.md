@@ -24,6 +24,8 @@ Java 异常处理阶段的目标是：**能写出稳定、可维护的错误处�
 
 Java 异常机制在后来的版本中持续演进：**Java 7** 引入 **try-with-resources** 与 **multi-catch**，从语法层面消灭了资源泄漏与 catch 样板代码；**Java 8** 引入 **Optional**，提供「结果可能为空」的声明式方案，与异常形成互补；**Java 14+** 起 JVM 为 `NullPointerException` 生成更详细的提示信息，帮助快速定位空指针根因。
 
+本文示例以 **Java 17** 为基线（try-with-resources 自 7 起、multi-catch 自 7 起），验证工具链 OpenJDK 17.0.16。
+
 | 版本 | 演进 |
 |------|------|
 | Java 1.0（1996） | 引入完整异常体系：`throw`/`throws`、`try`/`catch`/`finally`、`Error`/`Exception`/`RuntimeException` 层次 |
@@ -240,6 +242,8 @@ public class OrderException extends Exception {
 
 ## 6. 代码示例
 
+> 本节每个示例的完整可运行文件在 [`examples/`](./examples/) 目录，验证环境 OpenJDK 17.0.16，编译命令统一 `javac <文件名>.java`（命令见 examples/README.md）。示例文件用**非 public 类**——Java 规定 public 类必须与文件名同名，kebab-case 文件名无法匹配大驼峰类名，非 public 类无此限制；因此编译用文件名、运行用类名（如 `javac ex01-safe-division.java` + `java SafeDivision`）。
+
 ### 示例 1：安全除法（try/catch ArithmeticException）
 
 对应 roadmap 练习「安全除法」：除零不再崩溃，而是返回兜底值。
@@ -263,6 +267,8 @@ public class SafeDivision {
     }
 }
 ```
+
+完整文件：`examples/ex01-safe-division.java`
 
 ### 示例 2：文件读取异常处理（finally 关闭 → try-with-resources）
 
@@ -326,6 +332,8 @@ public class FileReadDemo {
     }
 }
 ```
+
+完整文件：`examples/ex02-file-read-demo.java`（运行生成 demo.txt，验证后清理）
 
 ### 示例 3：自定义业务异常体系（基类 + 错误码 + 异常链）
 
@@ -398,6 +406,8 @@ public class BusinessExceptionDemo {
 }
 ```
 
+完整文件：`examples/ex03-business-exception-demo.java`
+
 ### 示例 4：登录与参数校验异常（IllegalArgumentException vs 业务异常）
 
 对应 roadmap 练习「登录异常」「参数校验异常」：区分「调用方写错」（unchecked 参数异常）与「用户输入不满足业务规则」（业务异常）。
@@ -447,6 +457,8 @@ public class LoginDemo {
     }
 }
 ```
+
+完整文件：`examples/ex04-login-demo.java`
 
 ### 示例 5：异常链保留根因（cause 传递，日志打印完整堆栈）
 
@@ -499,6 +511,8 @@ public class ExceptionChainDemo {
 }
 ```
 
+完整文件：`examples/ex05-exception-chain-demo.java`
+
 ## 7. 总结
 
 ### 关键要点
@@ -523,27 +537,24 @@ public class ExceptionChainDemo {
 
 对比结论：Java 的 checked exception 是「编译期强制 + 运行期传播」的独特折中；Go 与 Rust 把错误当**值**显式传递，强制程度最高但代码更啰嗦；C++/Python 依赖运行时机制与程序员自律。企业级 Java 实践最终收敛为「边界转换 + 业务异常 + 全局处理」的模式。
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能设计业务异常体系：异常基类 + 错误码 + message/cause 构造器链
-- 能正确释放资源：优先 try-with-resources，理解 finally 的手动关闭缺陷
-- 能区分 checked/unchecked exception，并解释编译期强制机制与重写限制
-- 能用异常链保留根因（cause），日志打印完整堆栈
-- 能用 `Optional` 处理可空返回值，避免 `NullPointerException`
+- [ ] 能设计业务异常体系：异常基类 + 错误码 + message/cause 构造器链
+- [ ] 能正确释放资源：优先 try-with-resources，理解 finally 的手动关闭缺陷
+- [ ] 能区分 checked/unchecked exception，并解释编译期强制机制与重写限制
+- [ ] 能用异常链保留根因（cause），日志打印完整堆栈
+- [ ] 能用 `Optional` 处理可空返回值，避免 `NullPointerException`
 
-### 进入下一阶段前
+### 动手练习
 
-确保能完成以下练习：
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）：安全除法、文件读取异常、登录异常、参数校验异常共 4 题。完成 4 题后继续。
 
-- **安全除法**：`try/catch ArithmeticException`，测试 `10 / 0` 不崩溃（提示：除零前先校验，或捕获后返回兜底值）
-- **文件读取异常**：捕获 `FileNotFoundException`/`IOException` + finally 关闭资源，再改写为 try-with-resources（提示：对照两个版本的代码行数与健壮性）
-- **登录异常**：密码错误抛自定义业务异常，参数为空抛 `IllegalArgumentException`（提示：把「参数校验」与「业务校验」分开处理）
-- **参数校验异常**：对方法入参做防御性校验并抛 `IllegalArgumentException`（提示：校验放在方法入口最前面，用 `requireXxx` 风格的工具方法）
+### 阶段项目
 
-### 推荐项目
+本阶段综合项目见 [`project/`](./project/)：**统一异常处理 demo**（Controller/Service/DAO 三层各自抛出不同异常，顶层统一分类处理，把业务异常转换为错误码 + 统一响应结构）。Roadmap 推荐的另一个项目「业务错误码体系」不再单独立项——错误码枚举 + 业务异常基类正是本项目的前置组件，已一并落地。建议完成练习后再动手。
 
-- **统一异常处理 demo**：Controller/Service/DAO 三层各自抛出不同异常，顶层统一 `catch (Exception e)` 分类处理，把业务异常转换为错误码 + 响应结构，非法参数返回 400、业务失败返回对应业务码、未知异常记录日志后返回兜底错误
-- **业务错误码体系**：错误码枚举 + 业务异常基类（含错误码与 cause）+ 工具类（`assertNotBlank`、`assertState` 等校验方法），为 ph15 的 `@RestControllerAdvice` 全局异常处理预留语义基础
+- [ ] 完成 exercises 全部练习并复盘
+- [ ] 独立完成 project（通过 README 验收标准）
 
 ### 下一阶段
 

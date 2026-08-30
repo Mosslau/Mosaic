@@ -1,0 +1,10 @@
+1700000000	INFO	api-server	request handled: GET /health 200
+1700000001	ERROR	api-server	connection reset by peer
+1700000002	WARN	worker-1	slow task took 1250ms
+1700000003	INFO	db-layer	query ok: SELECT 1
+1700000004	ERROR	db-layer	connection timeout
+1700000005	DEBUG	worker-1	spawned job #42
+1700000006	INFO	api-server	request handled: POST /orders 201
+1700000007	WARN	api-server	rate limit nearing: 98%
+bad line without tabs
+1700000008	INFO	worker-1	completed job #42

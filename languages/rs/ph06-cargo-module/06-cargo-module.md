@@ -3,6 +3,7 @@
 > 从单文件脚本到多文件工程的分水岭：mod/pub/use 把代码组织成清晰的模块树，Cargo 把依赖、构建、测试、格式化与 lint 收敛成一条命令——面向数据基础设施与异步网络服务方向，这是每个真实项目的必修课。
 
 ## 1. 概述
+
 模块化与 Cargo 阶段的定位：**能组织多文件 Rust 项目——用 mod/pub/use 构建清晰的模块树与可见性边界，用 lib.rs 与 main.rs 划分库 crate 与二进制 crate，用 Cargo.toml 管理依赖与语义化版本，用 features 与 workspace 组织多 crate 工程，并把 cargo build/test/fmt/clippy 变成日常肌肉记忆**。
 
 | 核心维度 | 覆盖内容 |
@@ -19,9 +20,12 @@
 **本阶段边界**：承接 ph05 模式匹配（本阶段解析类代码大量使用 `Option`/`Result` 与 `match`）；不涉及 trait 与泛型抽象（ph07）、生命周期标注深入（ph08）、错误处理工程化（ph11）、异步运行时（ph12）。
 
 ## 2. 来源与演变
+
 Cargo 与 rustc 于 2015 年随 Rust 1.0 一同稳定，此前依赖 `rustc` 直接编译、手工拼装依赖。Cargo 借鉴 Ruby Bundler 与 Node npm 的锁定思想，带来标准化构建、依赖解析与 crates.io 分发，强调"一次解析、确定性构建"——同一份 `Cargo.lock` 在任何机器上产出相同的依赖版本。
 
 模块系统在 1.0 时已稳定（`mod`/`pub`/`use`），但路径规则在 2018 edition 经历重大变革：引入 `crate::` 绝对路径前缀，`use` 路径统一为 crate 内模块路径（消除与外部 crate 同名的二义性），并推荐 `foo.rs` 取代 `foo/mod.rs`。2021 edition 默认 `resolver = "2"`；workspace 则从简单成员列表演进到 `[workspace.package]` 共享元数据、`[workspace.dependencies]` 统一依赖版本。
+
+本文示例以 **Edition 2021** 为基线（`crate::` 路径、`resolver = "2"` 默认），验证工具链 rustc/cargo 1.92.0。
 
 | 时间 | 里程碑 | 影响 |
 |------|--------|------|
@@ -33,6 +37,7 @@ Cargo 与 rustc 于 2015 年随 Rust 1.0 一同稳定，此前依赖 `rustc` 直
 ## 3. 语法与参数
 
 ### 3.1 mod 模块声明与文件组织
+
 `mod` 有两种写法：**内联模块**（花括号内直接写代码）和**文件模块**（`mod foo;` 让编译器读取 `src/foo.rs` 或 `src/foo/mod.rs`）——后者是拆分多文件工程的核心机制：
 
 ```rust
@@ -54,6 +59,7 @@ fn main() {
 - 2018 edition 起优先用 `parser.rs`，旧式 `parser/mod.rs` 已不推荐。
 
 ### 3.2 pub 可见性边界
+
 Rust 可见性**默认私有**：item 默认只对定义它的模块及其子孙可见。可见性阶梯：
 
 | 可见性 | 语义 |
@@ -82,6 +88,7 @@ fn main() {
 - 库 crate 内部共享优先用 `pub(crate)`；更细粒度还有 `pub(super)` 与 `pub(in path)`——公开面越小越容易演进。
 
 ### 3.3 use 导入与路径
+
 路径分**绝对**（`crate::` 从 crate 根开始）与**相对**（`self::` 当前模块、`super::` 父模块）。2018 起 `use` 路径一律按 crate 内模块路径解析，无 2015 版的二义性：
 
 ```rust
@@ -105,6 +112,7 @@ fn main() {
 - `pub use` 是 API 设计利器：把 `crate::model::user::User` 重导出为 crate 根的 `User`，外部路径立刻变短。
 
 ### 3.4 lib.rs 与 main.rs：双 crate
+
 一个 package 可同时含 `src/lib.rs`（库 crate）与 `src/main.rs`（二进制 crate）——它们是**两个独立编译单元**，二进制通过**包名**使用库。这正是 roadmap 的示例：
 
 ```rust
@@ -128,6 +136,7 @@ fn main() {
 - 多二进制：`src/bin/tool1.rs` 各自成 crate，用 `cargo run --bin tool1` 运行；集成测试放 `tests/`，只能用公开 API。
 
 ### 3.5 Cargo.toml 依赖管理与语义化版本
+
 依赖声明在 `[dependencies]`，版本遵循**语义化版本**（Semantic Versioning）：`MAJOR.MINOR.PATCH`，`MAJOR` 变更即不兼容。
 
 | 要求写法 | 含义 |
@@ -156,6 +165,7 @@ pretty_assertions = "1.4"
 - 二进制项目务必提交 `Cargo.lock`；库项目视策略而定（ph16 展开）。
 
 ### 3.6 package、crate、module 三层概念
+
 三者是不同层面的组织单元，必须区分清楚：
 
 ```
@@ -171,6 +181,7 @@ package（发布单元：一个 Cargo.toml 描述的项目）
 - 一个 package 最多一个库 crate、可含多个二进制 crate；工程决策顺序：先定 package 边界 → 再定 crate 划分 → 最后设计模块树。
 
 ### 3.7 features 特性开关入门
+
 **features** 是 crate 级编译开关：启用某特性就多编译一部分代码（或引入一个可选依赖），默认行为由 `default` 特性决定：
 
 ```toml
@@ -195,6 +206,7 @@ pub mod json_util {
 - **features 必须"加性"**（只增能力、不改变已有行为），否则在多依赖场景互相踩踏（详见 4.4）。
 
 ### 3.8 workspace 多 crate 组织
+
 **workspace** 让多个 package（成员 crate）共享一个根清单、一份 `Cargo.lock`、一次统一构建。根清单只写 `[workspace]`（**虚拟清单**）：
 
 ```toml
@@ -213,6 +225,7 @@ edition = "2021"
 - 完整可运行示例见示例 5。
 
 ### 3.9 cargo build、test、fmt、clippy 工作流
+
 Cargo 是日常工程的唯一入口，命令要练成肌肉记忆：
 
 | 命令 | 作用 |
@@ -241,26 +254,31 @@ fn main() {}
 ## 4. 底层原理
 
 ### 4.1 模块树如何映射到编译单元
+
 **crate 是编译单元**：`cargo build` 对每个 crate 单独调用一次 `rustc`，借用检查、可见性检查、单态化都以 crate 为边界。**module 只是命名空间**：模块树在编译期展平为 crate 内的一组 item，不产生额外编译产物、零运行时开销——这与 C++ 头文件展开（每个翻译单元重新解析、重复编译）形成根本区别。
 
 模块树与文件系统的关系是"约定而非绑定"：`mod foo;` 让 rustc 按约定读 `src/foo.rs`，父子关系完全由 `mod` 声明决定——这也解释了"孤儿文件"为何不参与编译。增量编译缓存（target/debug 下的 `.fingerprint`）同样按 crate 粒度管理：只改一个模块，只有所属 crate 需要重新编译。
 
 ### 4.2 可见性在编译期的检查机制
+
 可见性检查发生在**名称解析阶段**（resolution，早于代码生成）：编译器为每个 item 记录"最近可见性"（私有、`pub`、`pub(crate)`、`pub(super)`、`pub(in path)`），再按路径逐级验证。规则只有一条：**一个 item 从模块 M 可见，当且仅当路径上每一级模块都可见**——`pub struct` 放在私有模块里，外部依然不可见。
 
 泄漏类错误全部是编译期错误：E0603（item 私有）、E0616（字段私有）、E0624（方法私有）、E0446（pub fn 返回私有类型）。可见性纯属编译期概念，对机器码零影响——`pub` 不改变数据布局或调用约定。
 
 ### 4.3 Cargo.lock 与依赖解析
+
 依赖解析器读取所有 `Cargo.toml` 的版本要求，为每个依赖选出一个满足全部约束的版本，并把精确版本与源码校验和写入 **Cargo.lock**。语义化版本约束是"候选范围"，锁文件才是"最终答案"：只要 lock 存在，任何机器、任何时间都构建出相同依赖树（可复现构建）。
 
 冲突分两种情况：要求兼容（如 `"1.2"` 与 `"1.5"`）时合并取最新；要求不兼容（如 `"=1.0.108"` 与 `"^2.0"`）时无法合并，Cargo 会**同时引入两个版本**，同名类型互不兼容，编译错误表现为"expected struct `X`, found struct `X`"——用 `cargo tree -d` 找出是谁拉了哪个版本。`cargo update` 把 lock 内版本升到兼容范围内最新，是升级依赖的标准入口。
 
 ### 4.4 features 的统一性（crate 级特性开关）
+
 features 有一个关键性质：**统一（unification）**。依赖图中同一 crate 无论被多少处引用都只编译一次，编译时启用**所有被请求特性的并集**——某个深层依赖开启 `serde_json` 的 `preserve_order`，你的代码也一并生效。因此 features 是 crate 级开关：不是"某个用法局部开"，而是"整棵依赖树统一决定"。
 
 正因如此，features 必须**加性**：新增特性只能增加能力，不能改变既有特性行为（否则开启顺序不同结果不同）。`dep:` 语法隐藏 optional 依赖的隐式特性，避免被外部依赖意外开启；`resolver = "2"`（2021 edition 默认）保证 build/dev-dependencies 的特性不泄漏进普通依赖。
 
 ## 5. 使用场景
+
 | 场景 | 涉及知识点 |
 |------|-----------|
 | 单文件程序拆分为多文件工程 | mod、文件组织、lib.rs/main.rs |
@@ -280,7 +298,10 @@ features 有一个关键性质：**统一（unification）**。依赖图中同�
 
 ## 6. 代码示例
 
+> 本节每个示例的完整可运行文件在 [`examples/`](./examples/) 目录。示例 1/2/5 为标准库实现；示例 3/4 需要从 crates.io 拉取 serde/serde_json。验证环境 rustc 1.92.0 + cargo 1.92.0，构建与运行命令见 examples/README.md。
+
 ### 示例 1：单文件拆分为 lib.rs + 多个 mod 文件（model/parser/service）
+
 "把单文件项目拆成 model、parser、service"是 roadmap 的核心练习。文件树：
 
 ```
@@ -353,7 +374,10 @@ fn main() {
 ```
 依赖方向 `main → service → parser → model`：model 不依赖任何人，parser 只依赖 model，service 聚合 parser 的结果。重构时只需调整 `lib.rs` 的模块声明，调用方不变。
 
+完整文件：`examples/log-analyzer/`（cargo 子项目，入口 `examples/log-analyzer/src/main.rs`，`cargo run` 运行）
+
 ### 示例 2：pub API 设计与可见性控制（pub、pub(crate)、私有字段）
+
 库 crate 的公开面应"小而稳定"。本示例展示每层可见性如何生效，以及**同 package 的 main.rs 与 lib.rs 是两个 crate**——`pub(crate)` 跨不过它们：
 
 ```
@@ -415,7 +439,10 @@ fn main() {
 ```
 设计原则：只暴露 `open`/`deposit`/`balance` 这类稳定操作，`balance` 无 setter，内部状态用 `pub(crate)` 共享——公开面越小，未来演进越自由。
 
+完整文件：`examples/pub-api/`（cargo 子项目，入口 `examples/pub-api/src/main.rs`，`cargo run` 运行）
+
 ### 示例 3：添加第三方 crate 并固定版本（serde_json）
+
 `cargo new json-cfg` 后执行 `cargo add serde_json@1.0.108` 与 `cargo add serde@1 --features derive`：
 
 ```toml
@@ -452,7 +479,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ```
 要点：`Cargo.lock` 记录解析出的精确版本与校验和，`cargo build` 永远按它构建——这才是"固定版本"的落点；手工调整用 `cargo update -p serde_json --precise 1.0.108`，查看依赖树用 `cargo tree`。
 
+完整文件：`examples/json-cfg/`（cargo 子项目，入口 `examples/json-cfg/src/main.rs`，需网络拉取 serde/serde_json，`cargo run` 运行）
+
 ### 示例 4：features 特性开关（可选依赖）
+
 ```
 feat-demo/
 ├── Cargo.toml
@@ -504,7 +534,10 @@ fn main() {
 ```
 命令对照：`cargo build`（默认含 json）→ `--no-default-features`（零依赖）→ `--features pretty` → `--all-features`；用 `cargo tree -e features` 查看特性开启来源。可选依赖让"轻量模式"成为可能——用户不需要 JSON 时就不拉 `serde_json`。
 
+完整文件：`examples/feat-demo/`（cargo 子项目，入口 `examples/feat-demo/src/main.rs`，需网络拉取 serde_json，`cargo run` 运行）
+
 ### 示例 5：workspace 管理多 crate（成员 crate 互相依赖）
+
 多模块日志分析工具的 workspace 形态：三个 crate 分层，`log-cli` 依赖另外两个：
 
 ```
@@ -608,9 +641,12 @@ fn main() {
 
 workspace 的价值：三个 crate 共享一份 `Cargo.lock` 与编译缓存；`log-parser` 可被其他项目单独复用（发到 crates.io 或作为 git 依赖），`log-cli` 只是薄薄一层入口——这正是 roadmap 推荐项目"多模块日志分析工具（parser、aggregator、cli 分层清楚）"的落地形态。
 
+完整文件：`examples/log-workspace/`（cargo workspace，入口 `examples/log-workspace/crates/log-cli/src/main.rs`，`cargo run -p log-cli` 运行）
+
 ## 7. 总结
 
 ### 关键要点
+
 1. **crate 是编译单元，module 是命名空间**：cargo 按 crate 编译，module 零运行时开销。
 2. **Rust 默认私有**：每一级都要显式 `pub`——与多数语言相反，却最利于 API 演进。
 3. **可见性五档**：私有、`pub`、`pub(crate)`、`pub(super)`、`pub(in path)`；库内部共享用 `pub(crate)`。
@@ -622,6 +658,7 @@ workspace 的价值：三个 crate 共享一份 `Cargo.lock` 与编译缓存；`
 9. **质量门禁三连**：`cargo fmt --check` → `cargo clippy -- -D warnings` → `cargo test`，提交前跑通。
 
 ### 跨语言对比：模块系统
+
 | 维度 | Rust mod/crate | Go package | Java package | Python module | C++ namespace |
 |------|---------------|------------|--------------|---------------|---------------|
 | 组织单元 | crate（编译单元）内嵌 module 树 | package（目录内文件同包） | package 下的 class 文件 | module = 一个 .py 文件 | namespace 块 |
@@ -630,24 +667,25 @@ workspace 的价值：三个 crate 共享一份 `Cargo.lock` 与编译缓存；`
 | 可见性与公开 API | 默认私有，`pub` + `pub use` 重导出 | 首字母大小写决定导出 | public / private 修饰符 | 下划线 `_x` + `__all__` | public / private 段 + 头文件 |
 | 编译单元 | 每个 crate 单独编译，module 零开销 | 每个 package 编译 | 每个 .java → .class | 运行期 import，无编译期检查 | 每个 .cpp 翻译单元 |
 
-### 阶段验收标准
-- 能解释 crate、package、module 三者的关系：编译单元 / 发布单元 / 命名空间。
-- 能设计清晰的 pub API：知道什么该 `pub`、什么该 `pub(crate)`、什么该私有，会用 `pub use` 重导出。
-- 能熟练使用 cargo build / test / fmt / clippy，会用 cargo tree / update 排查依赖问题。
-- 能读懂 Cargo.toml 的依赖声明与语义化版本约束，理解 Cargo.lock 的作用与提交策略。
-- 能组织一个包含多个 crate 的 workspace，并让成员通过 path 依赖协作。
+### 阶段验收清单
 
-### 进入下一阶段前
-确保能完成以下练习：
-- 把单文件项目拆成 model、parser、service 三个模块（提示：先画模块树再按文件落地；对照示例 1）。
-- 添加一个第三方 crate 并固定版本（提示：`cargo add serde_json@1.0.108`，观察 Cargo.lock 变化；对照示例 3）。
-- 创建一个 workspace 管理多个 crate（提示：虚拟清单 + crates/ 目录 + path 依赖；对照示例 5）。
-- 为库 crate 编写单元测试并跑通 cargo test（提示：`#[cfg(test)] mod tests` + `#[test]`）。
-- 跑通 `cargo fmt --check` 与 `cargo clippy -- -D warnings`，把警告清零。
-- 用 features 给项目加一个可选能力（提示：optional 依赖 + `dep:` 语法；对照示例 4）。
+- [ ] 能解释 crate、package、module 三者的关系：编译单元 / 发布单元 / 命名空间
+- [ ] 能设计清晰的 pub API：知道什么该 `pub`、什么该 `pub(crate)`、什么该私有，会用 `pub use` 重导出
+- [ ] 能熟练使用 cargo build / test / fmt / clippy，会用 cargo tree / update 排查依赖问题
+- [ ] 能读懂 Cargo.toml 的依赖声明与语义化版本约束，理解 Cargo.lock 的作用与提交策略
+- [ ] 能组织一个包含多个 crate 的 workspace，并让成员通过 path 依赖协作
 
-### 推荐项目
-- **多模块日志分析工具**：parser（解析日志行为结构化记录）、aggregator（按级别/来源聚合统计）、cli（命令行入口与输出）三层分层清楚。示例 1 是单包三层结构，示例 5 是 workspace 多 crate 版本——建议先按示例 1 落地，再迁移到示例 5，体会两种组织方式的取舍。
+### 动手练习
+
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）：把单文件项目拆成 model/parser/service、添加第三方 crate 并固定版本、为库 crate 写单元测试并跑通质量门禁、用 features 加可选能力、创建 workspace 管理多个 crate 共 5 题。完成 5 题后继续。
+
+### 阶段项目
+
+本阶段综合项目见 [`project/`](./project/)：**多模块日志分析工具**（parser、aggregator、cli 三层分明的日志解析与聚合统计命令行工具，workspace 多 crate 组织，含单元测试）。建议完成练习后再动手。
+
+- [ ] 完成 exercises/ 全部练习并对照参考实现复盘
+- [ ] 独立完成 project/ 并通过其验收标准
 
 ### 下一阶段
+
 [Trait 与泛型阶段](../ph07-trait-generics/07-trait-generics.md) —— trait 定义与实现、泛型、trait 对象、关联类型。模块化解决"代码怎么组织"，trait 与泛型解决"行为怎么抽象"，两者结合才构成真实库工程的骨架。

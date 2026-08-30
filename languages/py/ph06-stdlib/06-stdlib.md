@@ -23,6 +23,8 @@ Python 标准库的核心哲学是 **"batteries included"（自带电池）**：
 
 标准库持续把社区实践收编进来：早期 `os`/`sys` 承袭 Unix 接口；2.3 加入 `logging`；2.6/3.0 加入 `json`（源自 simplejson）；3.4 `pathlib` 实验性进入（PEP 428），3.6 转正并引入 f-string（PEP 498）；3.9 的 `zoneinfo` 带来 IANA 时区；3.11 的 `tomllib` 原生解析 TOML。
 
+本文示例以 **Python 3.10+** 为基线（`match` 语句、`|` 类型联合可用，`tomllib` 需 3.11+），验证解释器 3.13.12。
+
 | 版本 | 标准库里程碑 |
 |------|-------------|
 | Python 2.3 | `logging` 加入——日志有了"正规军" |
@@ -318,6 +320,8 @@ GIL 的完整影响（线程安全、锁、事件循环）留给 ph14，本阶�
 
 ## 6. 代码示例
 
+> 说明：示例均只用标准库、可直接运行（验证环境 Python 3.13.12，无第三方依赖）。每个示例的完整可运行文件在 [`examples/`](./examples/) 目录，运行命令见 examples/README.md。
+
 ### 示例 1：pathlib 批量整理文件（glob + 重命名）
 
 呼应"批量移动文件 / 批量重命名工具"练习：把散落的日志文件按文件名中的日期归档到 `archive/YYYY-MM-DD/` 子目录，并统一加 `backup_` 前缀。
@@ -342,6 +346,8 @@ with tempfile.TemporaryDirectory() as d:
         f.rename(target)                    # 移动 + 重命名一步完成
         print(f"{f.name} -> {target.relative_to(root)}")
 ```
+
+完整文件：`examples/ex01-organize-files.py`
 
 ### 示例 2：正则提取日志中的关键字段（re.findall，时间/IP/错误码）
 
@@ -374,6 +380,8 @@ with tempfile.TemporaryDirectory() as d:
     for t, level, ip, code in rows:
         print(f"{t} [{level}] {ip} {code}")
 ```
+
+完整文件：`examples/ex02-extract-log-fields.py`
 
 ### 示例 3：logging 配置与模块化日志（按级别输出、文件回滚）
 
@@ -409,6 +417,8 @@ with tempfile.TemporaryDirectory() as d:
     logger.error("处理失败")
     print("回滚文件数:", len(list(Path(d).glob("tool.log*"))))
 ```
+
+完整文件：`examples/ex03-logging-config.py`
 
 ### 示例 4：argparse 命令行工具（参数、默认值、--help）
 
@@ -456,6 +466,8 @@ with tempfile.TemporaryDirectory() as d:
     print("dry-run 后不变:", sorted(p.name for p in root.iterdir()))
 ```
 
+完整文件：`examples/ex04-rename-tool.py`
+
 ### 示例 5：subprocess 调用外部命令并捕获输出（含超时）
 
 呼应"subprocess 调命令"练习：调用系统命令统计行数、处理非零返回码、用超时保护防止外部命令卡死脚本。
@@ -487,6 +499,8 @@ with tempfile.TemporaryDirectory() as d:
         print("命令超过 2 秒未完成，已终止")
 ```
 
+完整文件：`examples/ex05-subprocess-call.py`
+
 ## 7. 总结
 
 ### 关键要点
@@ -511,27 +525,23 @@ with tempfile.TemporaryDirectory() as d:
 | 命令行解析 | `argparse` | `flag`/`cobra` | `picocli` | `CLI11` | `clap` |
 | 子进程 | `subprocess` | `os/exec` | `ProcessBuilder` | `fork`+`exec` | `std::process::Command` |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能用 `pathlib` 熟练处理路径和文件：拼接、遍历、glob、重命名、移动（对应 roadmap"能熟练处理路径和文件"）
-- 能用 `argparse` 写出带默认值、类型校验、`--help` 的 CLI 参数（对应 roadmap"能写 CLI 参数"）
-- 能用 `logging` 输出分级日志，控制台与文件双通道（对应 roadmap"能使用 logging"）
-- 能用 `re` 提取字段并统计；能用 `subprocess` 调用外部命令并处理失败与超时
+- [ ] 能用 `pathlib` 熟练处理路径和文件：拼接、遍历、glob、重命名、移动（对应 roadmap「能熟练处理路径和文件」）
+- [ ] 能用 `argparse` 写出带默认值、类型校验、`--help` 的 CLI 参数（对应 roadmap「能写 CLI 参数」）
+- [ ] 能用 `logging` 输出分级日志，控制台与文件双通道（对应 roadmap「能使用 logging」）
+- [ ] 能用 `re` 提取字段并统计分布；能用 `subprocess` 调用外部命令并处理失败与超时
 
-### 进入下一阶段前
+### 动手练习
 
-确保能完成以下练习：
+本阶段练习见 [exercises/](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）：批量移动文件、正则提取日志、命令行参数工具、subprocess 调命令共 4 题，另附一道升级题把 ph05 的批量重命名示例升级为 logging + argparse 版本。完成 4 题后继续。
 
-- 批量移动文件：用 `pathlib` 遍历目录，按扩展名或文件名中的日期归类到子目录（提示：先 `--dry-run` 预览）
-- 正则提取日志：用 `re.findall` + 命名分组提取时间/IP/错误码，用 `Counter` 统计分布（提示：先拿 5 行样本验证正则）
-- 命令行参数工具：用 `argparse` 给批量重命名工具加 `--dir`/`--ext`/`--prefix`/`--dry-run`（提示：`--help` 免费送）
-- subprocess 调命令：调用外部命令并捕获输出，加 `timeout` 与 `check=True` 的错误处理（提示：传参数列表，别拼 shell）
-- 把 ph05 的批量重命名示例升级为 logging + argparse 版本（提示：把 `print` 换成 `logger`）
+### 阶段项目
 
-### 推荐项目
+本阶段综合项目见 [project/](./project/)：**批量重命名工具**（pathlib + argparse + logging，支持扩展名过滤、前缀/后缀、`--dry-run`、递归目录，输出统计报告）。建议完成练习后再动手。
 
-- **批量重命名工具**：pathlib + argparse + logging，支持扩展名过滤、前缀/后缀、`--dry-run`、递归目录，输出统计报告
-- **日志提取工具**：re + datetime + collections.Counter，按时间/IP/错误码过滤，输出统计 CSV（把 json/csv 序列化一起收尾）
+- [ ] 完成 exercises/ 全部练习并对照参考实现复盘
+- [ ] 独立完成 project/ 并通过其验收标准
 
 ### 下一阶段
 

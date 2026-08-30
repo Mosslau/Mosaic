@@ -1,0 +1,11 @@
+# examples/log-analyzer/Cargo.toml —— 示例 1：单包三层结构（lib.rs 模块树 + bin 入口）
+# 来源：languages/rs/ph06-cargo-module/06-cargo-module.md 第 6 章示例 1
+# 验证环境：rustc 1.92.0 + cargo 1.92.0，纯标准库
+# 编译：cargo build；运行：cargo run；测试：cargo test（在本目录执行）
+# 验证状态：已验证（rustc 1.92.0）
+[package]
+name = "log-analyzer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]

@@ -1,0 +1,10 @@
+﻿# 样例 CSV 数据：含空行、坏行、多余列、名字过长，用于演示跳过逻辑
+
+Alice,20,88.5
+Bob,22,92.0
+
+Carol,21,79.25,extra
+Dave,abc,80.0
+Eve,23,85.0
+A-very-long-name-that-exceeds-thirty-two-bytes-ok,25,70.0
+Frank,24,91.5

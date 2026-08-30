@@ -39,6 +39,8 @@ goroutine 的设计动机是**足够便宜的并发原语**——让开发者放
 
 **设计哲学**：并发是"语言特性"而非"库能力"——与 Java（靠 java.util.concurrent 库）、Python（受 GIL 限制）根本不同。
 
+本文示例以 **Go 1.21+** 为基线（context 超时、`sync/atomic` 可用），验证工具链 Go 1.22.2 darwin/arm64。
+
 ## 3. 语法与参数
 
 ### 3.1 goroutine 与 go 语句
@@ -322,6 +324,8 @@ channel 操作构成 **happens-before（先行发生）** 关系，是 Go 内存
 
 ## 6. 代码示例
 
+> 说明：示例均可直接运行（仅标准库，无第三方依赖），验证环境 Go 1.22.2（darwin/arm64）。每个示例的完整可运行文件在 [`examples/`](./examples/) 目录，均为独立 Go module（各自子目录内自带 go.mod），运行命令见 examples/README.md；示例 5 必须用 `go run -race` 运行以演示数据竞争检测。
+
 ### 示例 1：goroutine + WaitGroup 并发求和
 
 ```go
@@ -361,6 +365,8 @@ func main() {
 }
 ```
 
+完整文件：`examples/ex01-waitgroup-sum/main.go`（`cd examples/ex01-waitgroup-sum && go run .`）
+
 要点：每个 goroutine 写入 `results` 的**不同槽位**（`&results[i]`）——无锁也安全；并行度受 `parts` 控制，最后一段收尾避免整除截断。
 
 ### 示例 2：无缓冲 channel 的同步通信（worker 协作）
@@ -385,6 +391,8 @@ func main() {
     fmt.Println("main 收到:", msg)
 }
 ```
+
+完整文件：`examples/ex02-unbuffered-channel/main.go`（`cd examples/ex02-unbuffered-channel && go run .`）
 
 要点：无缓冲 channel 的收发是**配对交接**——发送方阻塞直到接收方就绪。"采集完成"一定出现在 main 的"收到"之前，这就是同步语义。
 
@@ -424,6 +432,8 @@ func main() {
     }
 }
 ```
+
+完整文件：`examples/ex03-select-timeout/main.go`（`cd examples/ex03-select-timeout && go run .`）
 
 要点：第一个 select 触发超时分支（两个数据源都慢于 100ms）；第二个 select 等到 A 在 150ms 返回——**time.After 只放弃本次等待，不杀死 goroutine**。真实项目更推荐 `context.WithTimeout` 主动取消。
 
@@ -476,6 +486,8 @@ func main() {
     fmt.Println("worker pool 全部退出")
 }
 ```
+
+完整文件：`examples/ex04-worker-pool/main.go`（`cd examples/ex04-worker-pool && go run .`）
 
 要点：worker 同时监听 `ctx.Done()` 与任务 channel——**取消与任务处理并存**，任一条件满足即退出，杜绝泄漏；派发方同样检查 ctx。运行可见：100ms 内只完成部分任务，随后 worker 以 `context deadline exceeded` 退出。
 
@@ -541,6 +553,8 @@ func main() {
 }
 ```
 
+完整文件：`examples/ex05-race-counter/bad/main.go`（无锁版，`cd examples/ex05-race-counter && go run -race ./bad` 必现 DATA RACE）与 `examples/ex05-race-counter/good/main.go`（Mutex 版，`go run -race ./good` 无警告）
+
 验证：`go run -race counter.go` 无 DATA RACE、输出恒为 100000；`go run -race bad_counter.go` 必现竞争报告——**race detector 是并发代码的必用验收工具**。
 
 ## 7. 总结
@@ -569,28 +583,24 @@ func main() {
 | 数据竞争防护 | race detector（运行时检测） | 无（靠 JMM 自觉） | 单线程天然无竞争 | 编译器强制（Send/Sync） | 无（全靠自觉） |
 | 取消机制 | context 传播 | interrupt/标志位 | task.cancel() | CancellationToken | pthread_cancel |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能写出**无 goroutine 泄漏**的并发代码：每个 goroutine 都有明确退出路径（channel 关闭 / context 取消 / WaitGroup 等待）
-- 能使用 **context 控制生命周期**：取消与超时正确传播，worker 检查 `ctx.Done()` 优雅退出
-- 能用 **race detector 检查并发代码**：`go run -race` / `go test -race ./...` 发现并修复数据竞争
-- 能区分 **channel 与 mutex** 的适用场景，正确执行关闭规则（发送方负责关闭）
-- 能实现 **worker pool 与 fan-in/fan-out**，用 select 完成超时控制
+- [ ] 能写出**无 goroutine 泄漏**的并发代码：每个 goroutine 都有明确退出路径（channel 关闭 / context 取消 / WaitGroup 等待）
+- [ ] 能使用 **context 控制生命周期**：取消与超时正确传播，worker 检查 `ctx.Done()` 优雅退出
+- [ ] 能用 **race detector 检查并发代码**：`go run -race` / `go test -race ./...` 发现并修复数据竞争
+- [ ] 能区分 **channel 与 mutex** 的适用场景，正确执行关闭规则（发送方负责关闭）
+- [ ] 能实现 **worker pool 与 fan-in/fan-out**，用 select 完成超时控制
 
-### 进入下一阶段前
+### 动手练习
 
-确保能完成以下练习：
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）：worker pool、并发爬虫、任务超时控制、数据采集并发处理共 4 题。完成 4 题后继续。
 
-- **worker pool**：固定 N 个 worker 处理任务 channel，全部完成后安全关闭（提示：发送方 close、worker range 消费、WaitGroup 汇总）
-- **并发爬虫**：并发抓取多个 URL 并汇总（提示：fan-out 抓取 + fan-in 汇总，每请求带超时）
-- **任务超时控制**：超时未完成则放弃并降级（提示：select + time.After，或 context.WithTimeout 主动取消）
-- **数据采集并发处理**：模拟多设备并发上报，去重/聚合后统一处理（提示：每设备一个 goroutine，WaitGroup 等待，加 -race 验证）
-- **优雅停机实验**：收到取消信号后排空在途任务再退出（提示：先处理完已取任务再检查 ctx.Done）
+### 阶段项目
 
-### 推荐项目
+本阶段综合项目见 [`project/`](./project/)：**并发日志处理器**（多源日志并发写入、按级别过滤/聚合、超时刷新与优雅关闭——channel 队列 + worker pool + context）。建议完成练习后再动手。
 
-- **并发日志处理器**：多源日志并发写入、按级别过滤/聚合、超时刷新与优雅关闭——channel 队列 + worker pool + context
-- **数据采集任务池**：模拟车联网设备批量接入，并发采集、超时重试、结果汇总——worker pool + select 超时 + race detector 验证
+- [ ] 完成 exercises 全部练习并对照参考实现复盘
+- [ ] 独立完成 project（通过 README 验收标准）
 
 ### 下一阶段
 

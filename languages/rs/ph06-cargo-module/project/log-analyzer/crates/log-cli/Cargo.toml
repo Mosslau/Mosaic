@@ -1,0 +1,13 @@
+# project/log-analyzer/crates/log-cli/Cargo.toml —— 阶段项目 CLI 层：命令行入口（依赖 parser + aggregator）
+# 来源：languages/rs/ph06-cargo-module/project/log-analyzer（阶段项目源码）
+# 验证环境：rustc 1.92.0 + cargo 1.92.0，纯标准库，继承根 workspace 元数据
+# 编译：cargo build --workspace；运行：cargo run -p log-cli [文件]（在 log-analyzer/ 目录执行）
+# 验证状态：已验证（rustc 1.92.0）
+[package]
+name = "log-cli"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+log-parser = { path = "../log-parser" }
+log-aggregator = { path = "../log-aggregator" }

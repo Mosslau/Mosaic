@@ -1,0 +1,12 @@
+# exercises/sol-05-workspace/crates/word-count-cli/Cargo.toml —— 练习 5 参考实现：二进制 crate（path 依赖 core）
+# 来源：languages/rs/ph06-cargo-module/exercises/sol-05-workspace（练习 5 参考实现）
+# 验证环境：rustc 1.92.0 + cargo 1.92.0，纯标准库，继承根 workspace 元数据
+# 编译：cargo build --workspace；运行：cargo run -p word-count-cli（在 sol-05-workspace/ 目录执行）
+# 验证状态：已验证（rustc 1.92.0）
+[package]
+name = "word-count-cli"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+word-count-core = { path = "../word-count-core" }
