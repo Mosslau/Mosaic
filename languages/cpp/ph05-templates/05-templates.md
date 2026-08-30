@@ -16,7 +16,7 @@
 | 约束 | concept、requires 子句（C++20），替代 SFINAE + enable_if |
 | 消歧义 | 依赖名称的 `typename`、`template` 关键字 |
 
-ph04 中大量使用的 `vector<T>`、`sort(begin,end)` 都是模板——本章揭开幕布，讲清这些 API 背后的泛型机制。本章不涉及变参模板深入与 SFINAE 技巧。
+ph04 中大量使用的 `vector<T>`、`sort(begin,end)` 都是模板——本章揭开幕布，讲清这些 API 背后的泛型机制。本章的元编程只到 concept 约束与基础编译期计算（简单 TMP 见练习 5），**不涉及变参模板深入与 SFINAE 技巧** — 变参模板留待模板进阶，SFINAE 仅作为 concept 的对比对象提及（roadmap 承诺用 concept 替代 enable_if/SFINAE）。
 
 ## 2. 来源与演变
 
@@ -29,6 +29,8 @@ ph04 中大量使用的 `vector<T>`、`sort(begin,end)` 都是模板——本章
 | C++20 | concept + requires 约束编程、`auto` 非类型参数 | **彻底替代 SFINAE**，错误信息一行说清 |
 
 模板核心设计选择是**单态化（monomorphization）**：编译器为 `<int>`、`<double>` 各生成一份独立机器码。这是与 Java 泛型（类型擦除）的根本分歧——C++ 多占编译时间和二进制体积，换零运行时开销；Java 省体积，但付出装箱/拆箱和运行时类型检查的代价。
+
+本文示例以 **C++17** 为基线（结构化绑定、`string_view` 可用），concept 示例单独标注需 C++20（`-std=c++20`），验证工具链 Apple clang 17（g++ 兼容）。
 
 ## 3. 语法与参数
 
@@ -375,6 +377,8 @@ concept 在编译期执行**谓词检查**——编译器将 concept 展开为�
 
 ## 6. 代码示例
 
+> 本节每个示例的完整可运行文件在 [`examples/`](./examples/) 目录，验证环境 Apple clang 17（g++ 兼容）。大部分示例编译命令 `g++ -Wall -Wextra -std=c++17`；涉及 concept / requires 的示例（1、4、5）需用 `-std=c++20`（逐文件命令见 examples/README.md）。
+
 ### 示例 1：函数模板 max/min + concept 约束
 
 ```cpp
@@ -397,6 +401,8 @@ int main() {
     return 0;
 }
 ```
+
+完整文件：`examples/ex01-func-template.cpp`
 
 ### 示例 2：类模板 Stack<T> + 全特化/偏特化
 
@@ -453,6 +459,8 @@ int main() {
 }
 ```
 
+完整文件：`examples/ex02-class-template.cpp`
+
 ### 示例 3：constexpr + if constexpr 编译期计算
 
 ```cpp
@@ -479,6 +487,8 @@ int main() {
     return 0;
 }
 ```
+
+完整文件：`examples/ex03-constexpr-if.cpp`
 
 ### 示例 4：自定义 concept + requires 约束
 
@@ -511,6 +521,8 @@ int main() {
     return 0;
 }
 ```
+
+完整文件：`examples/ex04-concept-requires.cpp`
 
 ### 示例 5：RingBuffer<T, N> —— 推荐项目
 
@@ -564,6 +576,8 @@ int main() {
 }
 ```
 
+完整文件：`examples/ex05-ring-buffer.cpp`
+
 ### 示例 6：依赖名称消歧义
 
 ```cpp
@@ -598,6 +612,8 @@ int main() {
 }
 ```
 
+完整文件：`examples/ex06-dependent-name.cpp`
+
 ## 7. 总结
 
 ### 关键要点
@@ -619,22 +635,24 @@ int main() {
 | 约束演进 | enable_if → concept | extends（始终简洁） | trait bound（始终清晰） | interface（始终清晰） |
 | 核心取舍 | 编译时间换极致性能 | 编译快，运行有开销 | 安全+性能，学习陡 | 简洁+性能，能力受限 |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能写函数模板和类模板，理解单态化与类型擦除的根本差异
-- 能解释全特化与偏特化的选择规则，为特定类型编写特化版本
-- 能用 concept + requires 写出带约束的泛型函数，替代 enable_if / SFINAE
-- 能解释 if constexpr 编译期分支原理，以及两阶段名称查找
-- 能在依赖名称前正确使用 `typename` 和 `template` 关键字
+- [ ] 能写函数模板和类模板，理解单态化与类型擦除的根本差异
+- [ ] 能解释全特化与偏特化的选择规则，为特定类型编写特化版本
+- [ ] 能用 concept + requires 写出带约束的泛型函数，替代 enable_if / SFINAE
+- [ ] 能解释 if constexpr 编译期分支原理，以及两阶段名称查找
+- [ ] 能在依赖名称前正确使用 `typename` 和 `template` 关键字
 
-### 进入下一阶段前
+### 动手练习
 
-泛型 max/min（含 concept 约束）、泛型 Stack（含全特化/偏特化）、constexpr 阶乘与编译期求和、自定义 concept 约束的泛型函数、RingBuffer<T,N> 推荐项目、依赖名称消歧义实验。
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）：泛型 Max、泛型 Stack、concept 约束泛型函数、简单 Optional、简单 TMP 模板元编程共 5 题。完成 5 题后继续。
 
-### 推荐项目
+### 阶段项目
 
-- **泛型 RingBuffer<T, N>**：非类型模板参数指定容量，concept 约束元素类型，环形缓冲区经典的读写指针逻辑
-- **泛型 Stack<T> 完整实现**：含 bool 全特化（位图优化）和 T* 偏特化（自动解引用），验证分发到正确版本
+本阶段综合项目见 [`project/`](./project/)：**泛型 RingBuffer<T, N>**（非类型模板参数指定容量，concept 约束元素类型，环形缓冲区经典的读写指针逻辑）。
+
+- [ ] 完成 exercises 全部练习并复盘
+- [ ] 独立完成 project（通过 README 验收标准）
 
 ### 下一阶段
 

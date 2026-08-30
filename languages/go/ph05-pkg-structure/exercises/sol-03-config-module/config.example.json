@@ -1,0 +1,5 @@
+{
+  "port": 8080,
+  "data_dir": "/var/lib/myapp",
+  "log_level": "info"
+}

@@ -6,12 +6,12 @@
 
 Go 包管理与工程结构阶段的目标是：**掌握 go mod 依赖管理、internal 包可见性、标准项目布局与多模块 workspace**。ph01-ph04 全部以单文件 `go run main.go` 运行，本阶段正式进入多文件、多包、多模块的工程化开发——从"能跑"到"可维护"的转折点。
 
-| 核心维度 | 覆盖内容 |
-|----------|---------|
-| 模块管理 | go mod init/tidy、go.mod 指令、go.sum 校验、replace/exclude |
-| 包可见性 | 大写公开、小写私有、internal 编译器级强制 |
-| 工程布局 | cmd/internal/pkg 目录约定、单模块与多模块项目组织 |
-| 多模块协作 | go.work、workspace 本地开发、多模块联调策略 |
+| 核心维度  | 覆盖内容                                                 |
+| ----- | ---------------------------------------------------- |
+| 模块管理  | go mod init/tidy、go.mod 指令、go.sum 校验、replace/exclude |
+| 包可见性  | 大写公开、小写私有、internal 编译器级强制                            |
+| 工程布局  | cmd/internal/pkg 目录约定、单模块与多模块项目组织                    |
+| 多模块协作 | go.work、workspace 本地开发、多模块联调策略                       |
 
 Go 包管理哲学是"最小满足"——MVS 算法不选最新版本而选满足所有约束的最小版本，与 npm（最左选择最新）根本不同。工程布局上，Go 不强制但强烈暗示：`cmd/` 放入口、`internal/` 放内部包、`pkg/` 放可复用库——不是目录仪式，是可测试可替换的工程解耦。
 
@@ -31,6 +31,8 @@ Go 依赖管理经历了从"无方案"到"默认方案"的 10 年演进：
 | Workspace | 1.18 | `go.work` 多模块本地开发 | 免频繁 replace 联调 |
 
 关键转折：Go 1.16 后 `go mod init` 是所有项目的起点，项目可放在文件系统任意位置。MVS 来自 Go 团队对 npm/rust 生态的反思：不选"最新兼容版本"而选"满足所有人需求的最小版本"，避免依赖膨胀和不可复现构建。
+
+本文示例以 **Go 1.21+** 为基线（`go.work` workspace 需 1.18+），验证工具链 Go 1.22.2 darwin/arm64。
 
 ## 3. 语法与参数
 
@@ -217,6 +219,8 @@ MVS 四步：构建需求图 → 确定最小版本（需求中最高，非所�
 
 ## 6. 代码示例
 
+> 本节每个示例的完整可运行文件在 [`examples/`](./examples/) 目录，验证环境 Go 1.22.2（darwin/arm64），每个示例是独立 module，运行命令见 examples/README.md。
+
 ### 示例 1：Todo CLI —— 标准布局的最小项目
 
 ```text
@@ -293,6 +297,8 @@ func (s *Store) List() []Item    { return s.items }
 ```
 
 外部模块无法 `import ".../internal/todo"`——编译器直接拒绝，这就是 internal 的工程价值。
+
+完整文件：`examples/ex01-todo-cli/`（cmd/todo/main.go + internal/todo/todo.go）
 
 ### 示例 2：车辆数据服务 —— 车联网语义的标准布局
 
@@ -391,6 +397,8 @@ func Load() Config { return Config{Port: 8080, Protocol: "CAN"} }
 
 三个 internal 包在模块内互引无障碍，对外部不可见——Go 工程化的标准姿势。
 
+完整文件：`examples/ex02-vehicle-server/`（cmd/vehicle-server/main.go + internal/vehicle/service.go + internal/canbus/frame.go + internal/config/config.go）
+
 ### 示例 3：多模块 Workspace —— 共享库 + 多服务
 
 ```text
@@ -480,6 +488,8 @@ func main() {
 
 `go.work` 使 workspace 内模块可直接 import 彼此无需 replace；示例同时展示 replace 是为说明两种路径的完整性。
 
+完整文件：`examples/ex03-workspace/`（go.work + lib/shared/vin.go + services/collector/main.go + services/reporter/main.go）
+
 ## 7. 总结
 
 ### 关键要点
@@ -505,24 +515,24 @@ func main() {
 | lock 文件 | go.sum（校验和） | 无内置 | 无内置 | Cargo.lock | 无内置 |
 | 构建工具 | `go build` | Maven/Gradle | pip/setuptools/poetry | `cargo build` | CMake/Make/Bazel |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能使用 `go mod init/tidy` 管理依赖，解释 `go.mod` 与 `go.sum` 的区别
-- 能使用 `internal` 包并理解编译器强制机制
-- 能组织 `cmd/internal/pkg` 标准布局，创建 `go.work` 管理多模块本地开发
+- [ ] 能使用 `go mod init/tidy` 管理依赖，解释 `go.mod` 与 `go.sum` 的区别
+- [ ] 能使用 `internal` 包并理解编译器强制机制
+- [ ] 能组织 `cmd/internal/pkg` 标准布局，创建 `go.work` 管理多模块本地开发
+- [ ] 能把单文件程序拆分为 cmd+internal 多包结构
+- [ ] 能写带配置加载模块的 CLI 工具（读 JSON/环境变量，fail fast）
 
-### 进入下一阶段前
+### 动手练习
 
-确保能完成以下练习：
-- 拆分单文件程序（ph03 struct 练习拆为 cmd+internal）
-- Todo CLI 标准布局
-- 配置加载模块（internal/config 读环境变量/JSON）
-- 多模块 workspace（lib+service-a+service-b）
+本阶段练习见 [exercises/](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）：拆分单文件程序、写 CLI 工具、写配置加载模块、建立标准项目结构共 4 题。完成 4 题后继续。
 
-### 推荐项目
+### 阶段项目
 
-- **Todo CLI（标准布局）**：cmd+internal 拆分，练习 go mod init/tidy/build 完整流程
-- **车辆数据 HTTP 服务**：分 cmd/vehicle-server+internal/vehicle+internal/canbus，按职责分层
+本阶段综合项目见 [project/](./project/)：**标准 Go 项目模板**（cmd/ 入口 + internal/ 业务包 + pkg/ 公共库的标准布局骨架，内置可运行的设备状态管理示例命令，可作为新项目起点）。建议完成练习后再动手。
+
+- [ ] 完成 exercises/ 全部练习并对照参考实现复盘
+- [ ] 独立完成 project/ 并通过其验收标准
 
 ### 下一阶段
 

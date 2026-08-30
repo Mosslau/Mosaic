@@ -17,10 +17,14 @@
 | 状态建模 | 用 enum 表达设备状态、订单状态、连接状态——枚举最核心的实战用法 |
 
 **本阶段边界**：不展开 trait 对象与 enum 的取舍（ph07 trait）、`#[non_exhaustive]` API 演进策略、宏中的模式匹配。ph03 讲过 enum 基础定义和简单 match，ph04 深入过 Option/Result（本身就是枚举）——本阶段在它们之上系统讲透模式匹配的全部能力。
+
 ## 2. 来源与演变
+
 Rust 的 enum 是**代数数据类型**（Algebraic Data Type, ADT），源自 ML 语言家族（Standard ML、OCaml、Haskell）。ADT 由两部分组成：**和类型**（sum type，变体之间是"或"）和**积类型**（product type，变体内部是"与"的组合）。`Option<T>` 是最简 ADT：`None`（零数据）或 `Some(T)`（携带一个 T）。
 
 模式匹配同样来自 ML/Haskell，但 Rust 加入了**穷尽性检查**——编译器静态验证 match 覆盖所有可能情况。这是 Rust 对 ADT 的最重要增强：C 的 `switch` 漏 `default` 合法，Java 的 `switch` 穷尽性仅警告，Python 3.10 的 `match` 不做检查。Rust 的 `match` 与所有权系统并列，是"编译即正确"承诺的核心支柱。
+
+本文示例以 **Edition 2021** 为基线（`let-else` 可用），验证工具链 rustc 1.92.0。
 
 ## 3. 语法与参数
 
@@ -316,6 +320,8 @@ fn main() {
 
 ## 6. 代码示例
 
+> 本节每个示例的完整可运行文件在 [`examples/`](./examples/) 目录，验证环境 rustc 1.92.0（零第三方依赖），编译命令统一 `rustc ex0X-*.rs -o /tmp/ex0X-*`，运行命令 `/tmp/ex0X-*`（命令见 examples/README.md）。
+
 ### 示例 1：设备状态建模
 
 三种状态携带不同数据，match 一次性处理，matches! 判断可用性：
@@ -355,6 +361,8 @@ fn main() {
     }
 }
 ```
+
+完整文件：`examples/ex01-device-state.rs`
 
 ### 示例 2：字符串状态码改为 enum（消除魔法字符串）
 
@@ -404,6 +412,8 @@ fn main() {
 }
 ```
 
+完整文件：`examples/ex02-status-from-str.rs`
+
 ### 示例 3：数据事件处理器（推荐项目）
 
 五种事件类型分发——数据平台中枚举的典型用法：
@@ -451,6 +461,8 @@ fn main() {
 }
 ```
 
+完整文件：`examples/ex03-data-event.rs`
+
 如果新增 `DataEvent::Merge`，编译器标记所有 match 不穷尽——在几十个处理函数中精确标出待更新位置，if-else 或字符串分发做不到。
 
 ## 7. 总结
@@ -479,21 +491,24 @@ fn main() {
 | 循环匹配 | `while let` | — | — | — |
 | 编译期安全 | 穷尽 + 不可达检测 | 无 | sealed 部分 | 无 |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能用 enum 替代魔法字符串和数字状态码。
-- 能写出无遗漏的 match，编译器不报 E0004。
-- 能读懂 Option/Result 的 match 写法并自己实现类似匹配。
-- 能解释 if let 和 match 的取舍（简洁 vs 穷尽检查）。
-- 能用 enum 建模设备状态、订单状态或消息类型。
+- [ ] 能用 enum 替代魔法字符串和数字状态码。
+- [ ] 能写出无遗漏的 match，编译器不报 E0004。
+- [ ] 能读懂 Option/Result 的 match 写法并自己实现类似匹配。
+- [ ] 能解释 if let 和 match 的取舍（简洁 vs 穷尽检查）。
+- [ ] 能用 enum 建模设备状态、订单状态或消息类型。
 
-### 进入下一阶段前
+### 动手练习
 
-完成以下练习：把 ph02 猜数字中散布的状态变量改成单个 enum 状态机；为 `DeviceState` 新增 `Maintenance { reason: String }` 变体，观察编译器报出的待更新 match 位置；写 `DataEvent` 的定义与处理函数，用 match 为每种事件生成不同的处理日志；用 ref 改写不需要所有权的 match；用 matches! 统计事件分布。
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）：enum 订单状态建模、字符串状态码改 enum、match 消息分发、if let/while let/matches! 精简、订单状态机共 5 题。完成 5 题后继续。
 
-### 推荐项目
+### 阶段项目
 
-- **数据事件处理器**：处理 Write、Delete、Update、Expire 和 Alert 事件，输出结构化处理日志。示例 3 给出了核心框架，可扩展时间戳、事件分组统计、Merge/Snapshot 新事件类型。
+本阶段综合项目见 [`project/`](./project/)：**数据事件处理器**（处理 Write、Delete、Update、Expire 和 Alert 事件，输出结构化处理日志，含单元测试）。建议完成练习后再动手。
+
+- [ ] 完成 exercises/ 全部练习并对照参考实现复盘
+- [ ] 独立完成 project/ 并通过其验收标准
 
 ### 下一阶段
 

@@ -14,7 +14,7 @@ Java 泛型阶段的目标是：**揭开 ph04 中 `List<String>` 和 `Map<String
 | PECS 原则 | Producer Extends, Consumer Super —— 决定何时用 extends 何时用 super |
 | 限制与陷阱 | 不能 `new T()`、不能 `instanceof T`、不能创建泛型数组、原始类型警告 |
 
-本阶段不涉及注解处理、反射泛型 API 和 Kotlin/Scala 的类型系统。
+本阶段不涉及注解处理、反射泛型 API 和 Kotlin/Scala 的类型系统 — 那些是 ph15/ph20 阶段的内容。
 
 ## 2. 来源与演变
 
@@ -24,6 +24,8 @@ Java 泛型是在「编译期类型安全」与「向后兼容」之间权衡的
 - **Java 5（2004）— 泛型引入**：集合框架全面泛型化，采用**类型擦除**（erasure）而非 C# 的运行期泛型——泛型信息仅存在于编译期，编译后 `<String>` 被擦除为 `Object`。代价是运行期拿不到类型参数，收益是旧 JVM 可运行新代码。
 - **Java 7（2011）— 钻石语法**：`new ArrayList<>()` 省略右侧泛型参数，编译器从左侧推断。
 - **Java 8/10（2014/2018）— 推断增强**：Lambda/Stream 的类型推断更智能，`var list = new ArrayList<String>()` 推导为 `ArrayList<String>`。
+
+本文示例以 **Java 17** 为基线（record/sealed 需 16/17），验证工具链 OpenJDK 17.0.16。
 
 ## 3. 语法与参数
 
@@ -225,6 +227,8 @@ class StringNode extends Node<String> {
 
 ## 6. 代码示例
 
+> 本节每个示例的完整可运行文件在 [`examples/`](./examples/) 目录，验证环境 OpenJDK 17.0.16，编译命令统一 `javac <文件名>.java`（命令见 examples/README.md）。示例文件用**非 public 类**——Java 规定 public 类必须与文件名同名，kebab-case 文件名无法匹配大驼峰类名，非 public 类无此限制；因此编译用文件名、运行用类名（如 `javac ex01-generic-box.java` + `java GenericBox`）。
+
 ### 示例 1：泛型 Box
 
 ```java
@@ -252,6 +256,8 @@ public class GenericBox {
     }
 }
 ```
+
+完整文件：`examples/ex01-generic-box.java`
 
 ### 示例 2：泛型 Pair
 
@@ -288,6 +294,8 @@ public class GenericPair {
     }
 }
 ```
+
+完整文件：`examples/ex02-generic-pair.java`
 
 ### 示例 3：泛型 Stack
 
@@ -326,6 +334,8 @@ public class GenericStack {
     }
 }
 ```
+
+完整文件：`examples/ex03-generic-stack.java`
 
 ### 示例 4：泛型 Repository
 
@@ -366,6 +376,8 @@ public class GenericRepository {
     }
 }
 ```
+
+完整文件：`examples/ex04-generic-repository.java`
 
 ### 示例 5：PECS 演示
 
@@ -409,6 +421,8 @@ public class PecsDemo {
 }
 ```
 
+完整文件：`examples/ex05-pecs-demo.java`
+
 ### 示例 6：泛型 Result 封装
 
 ```java
@@ -449,6 +463,8 @@ public class ResultDemo {
 }
 ```
 
+完整文件：`examples/ex06-result-demo.java`
+
 ## 7. 总结
 
 ### 关键要点
@@ -474,27 +490,24 @@ public class ResultDemo {
 
 Java 的类型擦除是「用运行期能力换向后兼容」的权衡——旧 JVM 可直接运行泛型化库，代价是无法在运行时反射获取泛型参数。
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能写泛型类、泛型方法和泛型接口，理解 `<T>` 在三种位置的语法
-- 能解释类型擦除：擦除规则、checkcast 插入、运行期 Class 相同
-- 能使用 `? extends T`（生产者）和 `? super T`（消费者），解释 PECS 原则
-- 能识别四大限制（new T/instanceof T/new T[]/static T）并写出规避方式
-- 能识别原始类型并解释其风险
+- [ ] 能写泛型类、泛型方法和泛型接口，理解 `<T>` 在三种位置的语法
+- [ ] 能解释类型擦除：擦除规则、checkcast 插入、运行期 Class 相同
+- [ ] 能使用 `? extends T`（生产者）和 `? super T`（消费者），解释 PECS 原则
+- [ ] 能识别四大限制（new T/instanceof T/new T[]/static T）并写出规避方式
+- [ ] 能识别原始类型并解释其风险
 
-### 进入下一阶段前
+### 动手练习
 
-确保能完成以下练习：
-- 泛型 Box（单类型参数，展示运行时 Class 相同）
-- 泛型 Pair（双类型参数 + 泛型方法 swapValues）
-- 泛型 Stack（Object[] 规避泛型数组 + pop 强转）
-- 泛型 Repository（泛型接口 + 实现类绑定具体类型）
-- PECS 演示（`? extends` 只读 + `? super` 只写 + copyAll 组合）
+本阶段练习见 [exercises/](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）：泛型 Box、泛型 Pair、泛型 Stack、泛型 Repository 共 4 题。完成 4 题后继续。
 
-### 推荐项目
+### 阶段项目
 
-- **泛型 Repository\<T\>**：定义 `save`/`findById`/`findAll`/`deleteById` 契约，对 User、Device、Vehicle 等实体各实现一个具体 Repository
-- **泛型结果封装 Result\<T\>**：成功/失败统一封装，含 `map`/`flatMap` 方法，替代 null 返回和异常过抛
+本阶段综合项目见 [project/](./project/)：**泛型缓存容器**（泛型 TTL 缓存——put 时记录过期时间，get 命中则返回、过期则惰性删除，支持批量清理过期条目）。
+
+- [ ] 完成 exercises 全部练习并对照参考实现复盘
+- [ ] 独立完成 project 并通过其验收标准
 
 ### 下一阶段
 

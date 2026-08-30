@@ -1,0 +1,6 @@
+{
+  "port": 8080,
+  "data_dir": "./data",
+  "data_file": "./data/devices.json",
+  "log_level": "info"
+}

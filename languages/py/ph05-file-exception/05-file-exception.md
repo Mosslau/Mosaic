@@ -23,6 +23,8 @@ Python 文件操作与异常处理阶段的目标是：**能以 `with` 安全打
 
 Python 文件 I/O 继承 C 标准库 `fopen`/`fclose` 模型，Python 2.5（PEP 343）引入 `with` 语句和上下文管理器协议。异常方面：3.0 将 `except Exception, e:` 改为 `except Exception as e:`，并引入 `raise X from Y`（PEP 3134）异常链。
 
+本文示例以 **Python 3.10+** 为基线（`match` 语句、`|` 类型联合可用），验证解释器 3.13.12。
+
 ## 3. 语法与参数
 
 ### 3.1 `open()` 基础与文件模式
@@ -264,6 +266,8 @@ f.close()                  # 自动 flush 后关闭
 
 ## 6. 代码示例
 
+> 本节每个示例的完整可运行文件在 [`examples/`](./examples/) 目录，验证环境 Python 3.13.12，运行命令统一 `python3 ex0X-*.py`（各示例说明与运行命令见 examples/README.md）。
+
 ### 示例 1：读取车辆配置文件
 
 ```python
@@ -295,6 +299,8 @@ with tempfile.TemporaryDirectory() as d:
         print(f"配置解析成功: {config}")
 ```
 
+完整文件：`examples/ex01-read-config.py`
+
 ### 示例 2：CAN 日志 CSV 解析
 
 ```python
@@ -323,6 +329,8 @@ with tempfile.TemporaryDirectory() as d:
     except csv.Error as e:
         print(f"CSV 解析错误: {e}")
 ```
+
+完整文件：`examples/ex02-can-log-csv.py`
 
 ### 示例 3：车辆配置 JSON 读写
 
@@ -356,6 +364,8 @@ with tempfile.TemporaryDirectory() as d:
     except KeyError as e:
         print(f"缺少字段: {e}")
 ```
+
+完整文件：`examples/ex03-vehicle-json.py`
 
 ### 示例 4：诊断日志分析
 
@@ -400,6 +410,8 @@ with tempfile.TemporaryDirectory() as d:
         print(f"最需关注部件: {worst[0]} (共 {worst[1]} 次)")
 ```
 
+完整文件：`examples/ex04-diag-log.py`
+
 ### 示例 5：批量重命名 + 自定义异常 + `raise from`
 
 ```python
@@ -439,6 +451,8 @@ with tempfile.TemporaryDirectory() as d:
     print(f"dry_run 后仍有 {len(remaining_logs)} 个 .log 文件（未实际修改）")
 ```
 
+完整文件：`examples/ex05-batch-rename.py`
+
 ## 7. 总结
 
 ### 关键要点
@@ -464,26 +478,23 @@ with tempfile.TemporaryDirectory() as d:
 | 编码默认 | 系统 locale 依赖（坑） | 显式 UTF-8（安全） | 平台默认 | `std::locale` 全局影响 |
 | 文件关闭保底 | `with` 保证 `__exit__` 必调 | `defer` 保证 | `finally` / try-with-resources | 析构函数保证 |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能用 `with open()` 安全读写文件并显式指定编码，区分文本与二进制模式
-- 能读写 txt/csv/json 三种核心格式，了解 yaml/xml/log/excel 的入口方法
-- 能写 `try`/`except`/`else`/`finally` 四段式；捕获具体异常不裸写 `except`
-- 能用 `raise from` 保留异常链；能定义带错误码的自定义异常
+- [ ] 能用 `with open()` 安全读写文件并显式指定编码，区分文本与二进制模式
+- [ ] 能读写 txt/csv/json 三种核心格式，了解 yaml/xml/log/excel 的入口方法
+- [ ] 能写 `try`/`except`/`else`/`finally` 四段式；捕获具体异常不裸写 `except`
+- [ ] 能用 `raise from` 保留异常链；能定义带错误码的自定义异常
 
-### 进入下一阶段前
+### 动手练习
 
-确保能完成以下练习：
-- 读配置文件（ini 格式手动解析）
-- 解析 CSV（CAN 日志统计 CAN ID 出现次数）
-- 读取 JSON（车辆配置 round-trip）
-- 日志分析（正则提取错误行统计故障频率）
-- 批量重命名（扩展名批量修改 + dry-run）
+本阶段练习见 [exercises/](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）：读配置文件、解析 CSV、读取 JSON、日志分析、批量重命名共 5 题。完成 5 题后继续。
 
-### 推荐项目
+### 阶段项目
 
-- **日志分析工具**（按部件 + 级别统计输出 CSV）
-- **文件批处理工具**（按扩展名分类移动/重命名，dry-run 预览）
+本阶段综合项目见 [project/](./project/)：**日志分析工具**（读取车联网诊断日志，按级别/部件统计、时间分布、错误 Top-N，输出分析报告，可选导出 CSV）。
+
+- [ ] 完成 exercises 全部练习并复盘
+- [ ] 独立完成 project（通过 README 验收标准）
 
 ### 下一阶段
 
