@@ -498,7 +498,9 @@ println!("{} {}", shared, another);
 
 - 用 Box 构建递归链表
 - 用 Rc 共享只读配置
+- 用 RefCell 实现内部可变性并制造一次借用冲突（BorrowMutError）
 - 用 Arc<Mutex<_>> 做线程间计数
+- 用 Weak 打破循环引用
 
 ### 阶段验收
 

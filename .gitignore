@@ -64,3 +64,8 @@ languages/py/ph08-third-party/vehicle_analysis.png
 languages/c/ph09-portability/project/app.log*
 languages/c/ph09-portability/project/logdemo
 languages/cpp/ph09-files-network/project/file_sync
+
+# ph10 示例/项目构建产物（build/ 子目录，正常 make clean 会清掉，此处兜底）
+languages/cpp/ph10-build-toolchain/examples/ex05-make/build/
+languages/cpp/ph10-build-toolchain/exercises/sol-05-make/build/
+languages/cpp/ph10-build-toolchain/project/build/
