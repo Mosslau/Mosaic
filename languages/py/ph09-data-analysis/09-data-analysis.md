@@ -36,6 +36,8 @@ Python 数据分析阶段的目标是：**能用 NumPy/Pandas 读取并清洗 CS
 | 2020 | pandas 1.0（API 稳定） |
 | 2023 | pandas 2.0（PyArrow 后端、copy-on-write 演进） |
 
+本文示例以 **numpy 2.3.5 / pandas 2.3.3 / matplotlib 3.10.6** 为基线（本机验证工具链实测版本，2025 年初当前稳定版），验证工具链为 Python 3.13.9 + numpy 2.3.5 + pandas 2.3.3 + matplotlib 3.10.6（openpyxl 3.1.5 / tabulate 0.9.0 用于导出；plotly 6.3.0 为可选的交互图，本文不展开其 API）。pandas 2.x 的这套 API 是数据科学生态中最稳定的部分，个别差异以官方文档为准——比如 pandas 3.0 起 copy-on-write 成为默认（见 4.3），链式赋值将彻底失效。
+
 ## 3. 语法与参数
 
 ### 3.1 NumPy 数组基础（ndarray·形状·索引·广播·向量化）
@@ -222,6 +224,9 @@ print(ts["speed"].rolling(2).mean())                 # 滚动均值
 ### 3.8 Matplotlib 与 Plotly 可视化（折线·柱状·散点·分布）
 
 ```python
+import tempfile
+from pathlib import Path
+
 import matplotlib
 matplotlib.use("Agg")                       # 无显示环境也能 savefig
 import matplotlib.pyplot as plt
@@ -240,7 +245,8 @@ axes[1, 0].set_title("Relation")
 axes[1, 1].hist(np.random.normal(70, 10, 500), bins=20)   # 分布
 axes[1, 1].set_title("Distribution")
 plt.tight_layout()
-plt.savefig("charts.png", dpi=150)
+out = Path(tempfile.mkdtemp(prefix="ph09-charts-")) / "charts.png"
+plt.savefig(out, dpi=150)      # 产物写临时目录，防污染仓库（examples/ 的统一产物纪律）
 ```
 
 要点：
@@ -304,16 +310,49 @@ numpy 的切片返回**共享内存的视图**——修改视图会改动原数�
 
 ## 6. 代码示例
 
-### 示例 1：销售数据分析（读取 + 清洗 + 分组统计 + 柱状图）
+本节展示完整可运行示例的关键片段，完整文件（含文件头验证环境与运行命令）在 [`examples/`](./examples/) 目录，对照 [`examples/README.md`](./examples/README.md) 逐条运行。全部示例**离线可跑**（数据均在脚本内自造），产物一律写到系统临时目录（`tempfile.mkdtemp`），不在仓库残留任何 CSV/PNG——运行后用 `git status` 可确认工作区干净。
 
-呼应"销售数据分析"练习：自造一份门店销售 CSV，走"读取 → 清洗 → 分组统计 → 柱状图"的完整链路。
+### 前置示例：NumPy 数组基础（3.1 的完整版）
+
+完整文件 `examples/ex01-numpy-basics.py`：向量化、形状/索引、广播、随机数统计四件事一次跑通。
 
 ```python
-# 依赖：pip install pandas matplotlib
+# examples/ex01-numpy-basics.py —— NumPy 数组基础
+# 验证环境：Python 3.13.9，numpy 2.3.5；运行：python3 ex01-numpy-basics.py（离线可跑，已验证）
+import numpy as np
+
+arr = np.array([1, 2, 3, 4, 5])
+print("arr + 10:", arr + 10)          # 向量化：整数组运算，无 for 循环
+print("mean:", np.mean(arr), " std:", round(np.std(arr), 4))
+
+m = np.arange(12).reshape(3, 4)       # 0..11 排成 3 行 4 列
+print("m.shape:", m.shape, " m.dtype:", m.dtype)
+print("m[1, 2]:", m[1, 2])            # 第 2 行第 3 列的元素 = 6
+print("m[:, 1]:", m[:, 1])            # 第 2 列整列切片
+
+a = np.array([[1], [2], [3]])         # 形状 (3,1)
+b = np.array([10, 20, 30])            # 形状 (3,)
+print("broadcast a + b:\n", a + b)    # 广播成 (3,3)，不复制数据
+```
+
+实测输出（节选）：`arr + 10 → [11 12 13 14 15]`；`mean: 3.0 std: 1.4142`；`m.shape: (3, 4) m.dtype: int64`、`m[1, 2]: 6`、`m[:, 1]: [1 5 9]`；`normal(70,10,1000)` 的均值/标准差实测 69.71 / 9.89。
+
+### 示例 1：销售数据分析（读取 + 清洗 + 分组统计 + 柱状图）
+
+呼应"销售数据分析"练习：自造一份门店销售 CSV，走"读取 → 清洗 → 分组统计 → 柱状图"的完整链路。完整文件 `examples/ex02-sales-analysis.py`。
+
+```python
+# examples/ex02-sales-analysis.py —— 销售数据分析
+# 验证环境：Python 3.13.9，pandas 2.3.3，matplotlib 3.10.6；运行：python3 ex02-sales-analysis.py（离线可跑，已验证）
+import tempfile
+from pathlib import Path
+
 import matplotlib
 matplotlib.use("Agg")                       # 无显示环境也能 savefig
 import matplotlib.pyplot as plt
 import pandas as pd
+
+outdir = Path(tempfile.mkdtemp(prefix="ph09-ex02-"))   # 产物一律写临时目录
 
 # 1. 构造模拟销售数据（真实场景换成 pd.read_csv("sales.csv")）
 sales = pd.DataFrame({
@@ -321,11 +360,10 @@ sales = pd.DataFrame({
     "month": ["2024-01", "2024-02"] * 6,
     "amount": [120, 135, None, 110, 88, 92, 150, 145, 80, 95, 88, 105],
 })
-
 # 2. 清洗：缺失值填中位数 + 去重
 sales["amount"] = sales["amount"].fillna(sales["amount"].median())
 sales = sales.drop_duplicates()
-# 3. 分组统计：各门店月均销售额
+# 3. 分组统计：各门店月均销售额（降序）
 avg = sales.groupby("store")["amount"].mean().sort_values(ascending=False)
 print(avg.round(1))
 # 4. 透视表：门店 × 月份
@@ -337,21 +375,28 @@ ax = avg.plot.bar(figsize=(6, 4), color="steelblue")
 ax.set_title("门店月均销售额对比")
 ax.set_ylabel("金额（万元）")
 plt.tight_layout()
-plt.savefig("sales_summary.png", dpi=150)
-print("已保存 sales_summary.png")
+plt.savefig(outdir / "sales_summary.png", dpi=150)
 ```
+
+实测输出（节选）：缺失 1 处；月均销售额降序 `西区店 118.8 / 东区店 117.5 / 南区店 92.0`（万元）；透视表东区店 2024-01 = 112.5、2024-02 = 122.5；PNG 约 23 KB。
 
 ### 示例 2：车辆速度分析（时间序列 + 过滤异常值 + 趋势图）
 
-呼应"车辆速度分析"练习：30 秒一条遥测记录，注入 GPS 跳变异常值，过滤后看趋势。
+呼应"车辆速度分析"练习：30 秒一条遥测记录，注入 GPS 跳变异常值，过滤后看趋势。完整文件 `examples/ex03-vehicle-speed.py`。
 
 ```python
-# 依赖：pip install pandas matplotlib
+# examples/ex03-vehicle-speed.py —— 车辆速度分析
+# 验证环境：Python 3.13.9，pandas 2.3.3，numpy 2.3.5，matplotlib 3.10.6；运行：python3 ex03-vehicle-speed.py（离线可跑，已验证）
+import tempfile
+from pathlib import Path
+
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import pandas as pd
 import numpy as np
+import pandas as pd
+
+outdir = Path(tempfile.mkdtemp(prefix="ph09-ex03-"))   # 产物一律写临时目录
 
 # 1. 构造模拟遥测数据（含异常值：GPS 跳变）
 rng = np.random.default_rng(42)
@@ -361,10 +406,10 @@ df = pd.DataFrame({
     "speed": rng.normal(60, 15, n).clip(0, 120),
 })
 df.loc[50, "speed"] = 320                # 注入异常值（物理上不可能的速度）
-# 2. 时间索引 + 过滤异常值（速度物理上限 200 km/h）
+# 2. 时间索引 + 过滤异常值（速度物理范围 0~200 km/h）
 df = df.set_index("time")
 valid = df[(df["speed"] >= 0) & (df["speed"] <= 200)]
-print("原始行数:", len(df), "过滤后:", len(valid), "剔除:", len(df) - len(valid))
+print("原始行数:", len(df), " 过滤后:", len(valid), " 剔除:", len(df) - len(valid))
 # 3. 重采样到 5 分钟均值 + 滚动均值，画趋势图
 trend = valid.resample("5min")["speed"].mean()
 smooth = valid["speed"].rolling(10).mean()
@@ -376,38 +421,46 @@ ax.set_title("车辆速度趋势")
 ax.set_ylabel("km/h")
 ax.legend()
 plt.tight_layout()
-plt.savefig("speed_trend.png", dpi=150)
-print("已保存 speed_trend.png；平均速度:", round(valid["speed"].mean(), 1), "km/h")
+plt.savefig(outdir / "speed_trend.png", dpi=150)
+print("平均速度:", round(valid["speed"].mean(), 1), "km/h")
 ```
+
+实测输出（节选）：`原始行数: 200 过滤后: 199 剔除: 1`（注入的 320 km/h 被剔除）；平均速度 59.5 km/h；PNG 约 156 KB。
 
 ### 示例 3：电池数据分析（SOC/电压关联 + 缺失值处理 + 散点图）
 
-呼应"电池数据分析"练习：SOC 每下降 1% 记录一次电压，缺失值用线性插值填充，画关联散点图。
+呼应"电池数据分析"练习：SOC 每下降 1% 记录一次电压，缺失值用线性插值填充，画关联散点图。完整文件 `examples/ex04-battery-analysis.py`。
 
 ```python
-# 依赖：pip install pandas matplotlib
+# examples/ex04-battery-analysis.py —— 电池数据分析
+# 验证环境：Python 3.13.9，pandas 2.3.3，numpy 2.3.5，matplotlib 3.10.6；运行：python3 ex04-battery-analysis.py（离线可跑，已验证）
+import tempfile
+from pathlib import Path
+
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import pandas as pd
 import numpy as np
+import pandas as pd
+
+outdir = Path(tempfile.mkdtemp(prefix="ph09-ex04-"))   # 产物一律写临时目录
 
 # 1. 构造模拟电池数据（电压随 SOC 近似线性，注入缺失值）
 soc = np.arange(0, 101, 1)
 rng = np.random.default_rng(7)
 voltage = 3.0 + soc * 0.004 + rng.normal(0, 0.01, len(soc))
-voltage[[5, 20, 45]] = np.nan
+voltage[[5, 20, 45]] = np.nan            # 挖掉 3 个点模拟采集缺失
 df = pd.DataFrame({"soc": soc, "voltage": voltage})
-# 2. 缺失值处理：统计 + 线性插值（比填均值更符合物理规律）
+# 2. 缺失值处理：线性插值（比填均值更符合物理规律）
 df["voltage"] = df["voltage"].interpolate()
-print("插值后缺失:", df["voltage"].isna().sum())
+print("插值后缺失数:", int(df["voltage"].isna().sum()))
 # 3. 关联分析：SOC 与电压的相关系数
 corr = df["soc"].corr(df["voltage"])
 print("SOC 与电压相关系数:", round(corr, 4))
 # 4. 散点图 + 拟合线：服务"SOC 与电压强相关"的结论
+fit = np.polyfit(df["soc"], df["voltage"], 1)
 fig, ax = plt.subplots(figsize=(7, 5))
 ax.scatter(df["soc"], df["voltage"], s=12, alpha=0.6)
-fit = np.polyfit(df["soc"], df["voltage"], 1)
 ax.plot(df["soc"], np.polyval(fit, df["soc"]), "r-",
         label=f"拟合线 y={fit[0]:.4f}x+{fit[1]:.3f}")
 ax.set_title("电池 SOC-电压 关联")
@@ -415,21 +468,28 @@ ax.set_xlabel("SOC (%)")
 ax.set_ylabel("电压 (V)")
 ax.legend()
 plt.tight_layout()
-plt.savefig("battery_soc_voltage.png", dpi=150)
-print("已保存 battery_soc_voltage.png")
+plt.savefig(outdir / "battery_soc_voltage.png", dpi=150)
 ```
+
+实测输出（节选）：`插值后缺失数: 0`（清洗前 3 处缺失全部补齐）；`SOC 与电压相关系数: 0.9974`；PNG 约 66 KB。
 
 ### 示例 4：CAN 日志统计（字段解析 + 按 ID 分组 + 频次分布）
 
-呼应"CAN 日志统计"练习：解析 CAN 报文日志文本，按报文 ID 分组统计频次并画分布图。
+呼应"CAN 日志统计"练习：解析 CAN 报文日志文本，按报文 ID 分组统计频次并画分布图。完整文件 `examples/ex05-can-log-stats.py`。
 
 ```python
-# 依赖：pip install pandas matplotlib
+# examples/ex05-can-log-stats.py —— CAN 日志统计
+# 验证环境：Python 3.13.9，pandas 2.3.3，matplotlib 3.10.6；运行：python3 ex05-can-log-stats.py（离线可跑，已验证）
 import re
+import tempfile
+from pathlib import Path
+
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
+
+outdir = Path(tempfile.mkdtemp(prefix="ph09-ex05-"))   # 产物一律写临时目录
 
 # 1. 模拟 CAN 日志（真实场景换成 open("can.log").readlines()）
 log_text = """\
@@ -437,16 +497,22 @@ log_text = """\
 2024-06-01 08:00:00.125 CAN 0x456 DLC 8 00 00 50 00 00 00 00 00
 2024-06-01 08:00:00.140 CAN 0x789 DLC 8 01 02 03 04 05 06 07 08
 2024-06-01 08:00:00.155 CAN 0x123 DLC 8 80 5C 00 10 00 00 00 00
+2024-06-01 08:00:01.000 CAN 0x123 DLC 8 82 5C 00 10 00 00 00 00
+2024-06-01 08:00:01.020 CAN 0x456 DLC 8 00 00 50 00 00 00 00 00
+2024-06-01 08:00:01.040 CAN 0x789 DLC 8 02 02 03 04 05 06 07 08
+2024-06-01 08:00:02.000 CAN 0x123 DLC 8 84 5C 00 10 00 00 00 00
 """
 pattern = re.compile(r"(\d{4}-\d{2}-\d{2} [\d:.]+) CAN (0x[0-9A-Fa-f]+) DLC \d (.*)")
 rows = []
 for line in log_text.strip().splitlines():
     m = pattern.match(line)
+    if m is None:                        # 解析失败的脏行直接跳过（真实日志中常见）
+        continue
     ts, can_id, data = m.group(1), m.group(2), m.group(3)
     rows.append({"time": ts, "can_id": can_id,
                  "byte0": int(data.split()[0], 16)})    # 提取首字节（十六进制）
 df = pd.DataFrame(rows)
-# 2. 按报文 ID 分组统计频次
+# 2. 按报文 ID 分组统计频次（size 统计组内行数）
 freq = df.groupby("can_id").size().sort_values(ascending=False)
 print("各 CAN ID 报文频次:")
 print(freq)
@@ -456,17 +522,24 @@ freq.plot.bar(figsize=(6, 4), color="seagreen")
 plt.title("CAN 报文频次分布")
 plt.ylabel("条数")
 plt.tight_layout()
-plt.savefig("can_freq.png", dpi=150)
-print("已保存 can_freq.png")
+plt.savefig(outdir / "can_freq.png", dpi=150)
 ```
+
+实测输出（节选）：频次 `0x123 = 4、0x456 = 2、0x789 = 2`；`总报文数: 8 不同 ID 数: 3`；PNG 约 26 KB。
 
 ### 示例 5：数据合并与透视（多表 join + pivot_table + 汇总报告导出）
 
-呼应练习综合与"推荐项目：电池健康分析报表"：合并车辆档案与遥测记录，透视汇总后导出 Excel + Markdown 报告。
+呼应练习综合与"推荐项目：车辆遥测分析脚本"：合并车辆档案与遥测记录，透视汇总后导出 Excel + Markdown 报告。完整文件 `examples/ex06-report-export.py`。
 
 ```python
-# 依赖：pip install pandas openpyxl tabulate
+# examples/ex06-report-export.py —— 数据合并与透视
+# 验证环境：Python 3.13.9，pandas 2.3.3，openpyxl 3.1.5，tabulate 0.9.0；运行：python3 ex06-report-export.py（离线可跑，已验证）
+import tempfile
+from pathlib import Path
+
 import pandas as pd
+
+outdir = Path(tempfile.mkdtemp(prefix="ph09-ex06-"))   # 产物一律写临时目录
 
 # 1. 两张表：车辆档案 + 遥测记录
 fleet = pd.DataFrame({
@@ -489,19 +562,22 @@ report = merged.groupby("vehicle_id").agg(
     trips=("day", "count"),
 )
 report["energy_per_100km"] = report["total_energy"] / report["total_mileage"] * 100
-print(report.round(2))
-# 4. 透视表：车辆 × 日期的里程
+report = report.round(2)
+print(report)
+# 4. 透视表：车辆 × 日期的里程（长表变宽表，fill_value=0 防 NaN）
 pt = pd.pivot_table(merged, values="mileage", index="day",
                     columns="vehicle_id", aggfunc="sum", fill_value=0)
 print(pt)
-# 5. 导出报告：Excel 多 Sheet + Markdown 摘要
-with pd.ExcelWriter("fleet_report.xlsx") as writer:
+# 5. 导出报告：Excel 多 Sheet + Markdown 摘要（index=False 防多余行号列）
+with pd.ExcelWriter(outdir / "fleet_report.xlsx") as writer:
     report.to_excel(writer, sheet_name="汇总")
     pt.to_excel(writer, sheet_name="里程透视")
-print("已导出 fleet_report.xlsx")
-print("汇总报告（Markdown）:")
-print(report.round(2).to_markdown())
+md = outdir / "fleet_report.md"
+md.write_text("# 车队能耗报告\n\n" + report.to_markdown(), encoding="utf-8")
+print("已导出:", outdir / "fleet_report.xlsx", "与", md)
 ```
+
+实测输出（节选）：每车汇总 `V001 255.5 km / 38.3 kWh / 14.99 kWh/100km`、`V002 98.0 / 15.5 / 15.82`、`V003 384.4 / 57.3 / 14.91`；里程透视表（周一/周二/周三 × V001/V002/V003）；Excel 与 Markdown 均生成。
 
 ## 7. 总结
 
@@ -516,6 +592,13 @@ print(report.round(2).to_markdown())
 7. **脚本画图必须 `savefig()`、导出 `index=False` 几乎必写**：`matplotlib.use("Agg")` 防无显示环境报错，`utf-8-sig` 防 Excel 中文乱码，文件名带日期防覆盖
 8. **向量化优先于逐行循环**：`apply(axis=1)`/for 循环慢几十倍，能用数组表达式就绝不逐行（原理见 4.1）
 
+### 阶段验收清单
+
+- [ ] 能读取并清洗 CSV：`read_csv` + `dtype`/`parse_dates`/编码参数，缺失值、重复、异常值、类型转换四步清洗（对应 roadmap「能读取并清洗 CSV」）
+- [ ] 能做分组统计：`groupby` + `agg`/`transform`，并解释结果含义（对应 roadmap「能做分组统计」）
+- [ ] 能画趋势图和柱状图：`savefig` 输出 PNG，图能服务结论（对应 roadmap「能画趋势图和柱状图」）
+- [ ] 能做筛选排序与 join（布尔掩码、`sort_values`、`merge`），并能解释四个必会概念：清洗比建模耗时、关注索引、分组统计是核心、图表服务结论
+
 ### 跨语言对比：数据分析栈
 
 | 维度 | Python（pandas） | R（tidyverse） | Julia | SQL | Excel |
@@ -527,28 +610,22 @@ print(report.round(2).to_markdown())
 | 时间序列 | `resample`/`rolling` | `tsibble`/`fable` | TimeSeries.jl | `DATE_TRUNC`/窗口函数 | 趋势线/切片器 |
 | 可视化 | matplotlib / plotly | ggplot2 | Plots.jl | （配合 BI 工具） | 内置图表 |
 
-### 阶段验收标准
+### 动手练习
 
-- 能读取并清洗 CSV：`read_csv` + `dtype`/`parse_dates`/编码参数，缺失值、重复、异常值、类型转换四步清洗（对应 roadmap"能读取并清洗 CSV"）
-- 能做分组统计：`groupby` + `agg`/`transform`，并解释结果含义（对应 roadmap"能做分组统计"）
-- 能画趋势图和柱状图：`savefig` 输出 PNG，图能服务结论（对应 roadmap"能画趋势图和柱状图"）
-- 能做筛选排序与 join（布尔掩码、`sort_values`、`merge`），并解释四个必会概念：清洗比建模耗时、关注索引、分组统计是核心、图表服务结论
+本阶段练习见 [`exercises/`](./exercises/)（题目在 [exercises/README.md](./exercises/README.md)，参考实现 sol-* 先别看）。完成 4 题后继续：
 
-### 进入下一阶段前
+- 销售数据分析（★★）：自造或下载一份 CSV，做缺失值处理 + 门店/品类分组统计 + 柱状图（提示：先 `info()` 看类型；`groupby` 后 `reset_index()` 恢复普通列）
+- 车辆速度分析（★★）：时间序列 + 过滤异常值（>200 km/h 的 GPS 跳变）+ 折线趋势图（提示：`set_index` 后 `resample("5min")` 看趋势更清晰）
+- 电池数据分析（★★★）：SOC 与电压散点图 + 相关系数 + 缺失值处理（提示：`interpolate()` 比填均值更符合物理规律）
+- CAN 日志统计（★★★）：解析日志字段 → 按 CAN ID 分组 → 频次分布图（提示：先写正则验证样本；`size()` 统计组内行数）
 
-确保能完成以下练习：
+### 阶段项目
 
-- 销售数据分析：自造或下载一份 CSV，做缺失值处理 + 门店/品类分组统计 + 柱状图（提示：先 `info()` 看类型；`groupby` 后 `reset_index()` 恢复普通列）
-- 车辆速度分析：时间序列 + 过滤异常值（>200 km/h 的 GPS 跳变）+ 折线趋势图（提示：`set_index` 后 `resample("5min")` 看趋势更清晰）
-- 电池数据分析：SOC 与电压散点图 + 相关系数 + 缺失值处理（提示：`interpolate()` 比填均值更符合物理规律）
-- CAN 日志统计：解析日志字段 → 按 CAN ID 分组 → 频次分布图（提示：先写正则验证 5 行样本；`size()` 统计组内行数）
-- 数据合并与透视：两张表 `merge` 后 `pivot_table` 汇总，导出 Excel 与 Markdown 报告（提示：`how="left"` 保留主表；`index=False` 防多余行号列）
+本阶段综合项目见 [`project/`](./project/)：**车辆遥测分析脚本**——读取遥测 CSV → 清洗（缺失/异常值）→ 按车辆分组统计（均速、里程、能耗）→ 折线趋势 + 柱状对比图 → 导出 Excel 报表（对应 roadmap「推荐项目」第一个「车辆遥测分析脚本」）。建议完成练习后再动手；roadmap 的另一个「电池健康分析报表」可作扩展改造目标（把统计对象换成 SOC/电压/温度）。
 
-### 推荐项目
-
-- **车辆遥测分析脚本**：读取遥测 CSV → 清洗（缺失/异常值）→ 按车辆分组统计（均速、里程、能耗）→ 折线趋势 + 柱状对比图 → 导出 Excel 报表（呼应 roadmap"车辆遥测分析脚本"）
-- **电池健康分析报表**：SOC/电压/温度数据分析 → 缺失值插值 → 关联散点图与相关性 → 生成 Markdown/Excel 健康报表（呼应 roadmap"电池健康分析报表"）
+- [ ] 完成 exercises/ 全部 4 题并对照参考实现复盘
+- [ ] 独立完成 project/ 并通过其验收标准
 
 ### 下一阶段
 
-[Web 后端开发阶段](../ph10-web-backend/10-web-backend.md) —— FastAPI 深入、认证鉴权、SQLAlchemy、中间件与部署准备。
+[Web 后端开发阶段](../ph10-web-backend/10-web-backend.md) — FastAPI 深入、认证鉴权、SQLAlchemy、中间件与部署准备。

@@ -447,6 +447,8 @@ println!("{}", sum);
 - 用迭代器重写 for 循环统计
 - 练习 collect 到 Vec 和 HashMap
 - 用 fold 实现聚合
+- 闭包捕获三种模式（Fn/FnMut/FnOnce 与意外移动）
+- 迭代器与借用冲突（复现 E0502 并修复）
 
 ### 阶段验收
 

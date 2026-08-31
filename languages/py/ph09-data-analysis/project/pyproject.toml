@@ -1,0 +1,29 @@
+# project/pyproject.toml —— 依赖声明 + ruff / pytest 配置
+[project]
+name = "telemetry-analyzer"
+version = "0.1.0"
+description = "ph09 阶段项目：车辆遥测分析脚本"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=2.0",
+    "pandas>=2.0",
+    "matplotlib>=3.8",
+    "openpyxl>=3.1",
+    "tabulate>=0.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

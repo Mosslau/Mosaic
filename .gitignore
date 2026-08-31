@@ -56,3 +56,6 @@ languages/py/ph08-third-party/vehicle_analysis.png
 
 # pytest/运行缓存
 .pytest_cache/
+
+# ruff 缓存
+.ruff_cache/

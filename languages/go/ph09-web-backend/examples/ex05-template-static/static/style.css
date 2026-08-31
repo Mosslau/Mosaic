@@ -1,0 +1,27 @@
+/* 来源：09-web-backend.md 第 6 章示例 5 —— 静态文件服务演示样式 */
+body {
+  font-family: system-ui, sans-serif;
+  max-width: 720px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th, td {
+  border: 1px solid #ccc;
+  padding: 0.4rem 0.8rem;
+  text-align: left;
+}
+
+form {
+  margin-top: 1rem;
+}
+
+form input, form select {
+  padding: 0.3rem 0.5rem;
+  margin-right: 0.5rem;
+}

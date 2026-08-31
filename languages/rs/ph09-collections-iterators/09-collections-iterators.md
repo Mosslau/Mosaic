@@ -33,6 +33,8 @@ Rust 迭代器的设计直接继承**函数式语言的列表处理传统**：Ha
 | 2018 | edition 2018：`impl Trait` 稳定 | 迭代器链可直接作为返回值（`impl Iterator`），无需装箱成 `Box<dyn Iterator>` |
 | 2021 | edition 2021：数组 `into_iter` 语义修正 | `[T; N].into_iter()` 按值产出元素，与 `Vec` 行为统一 |
 
+本文示例以 **Rust 2021 edition（rustc 1.92.0）** 为基线（2021 edition 修正了数组 `into_iter` 的按值语义，且 `impl Trait` 稳定让迭代器链可直接作返回值——本阶段部分示例依赖这两个行为），现代工具链（rustc 1.60+）默认 edition 2021，无需额外选项。代码层全部用 `rustc --edition 2021` 单文件编译验证。集合与迭代器的核心 API（`Iterator`/`IntoIterator`/`FromIterator`）自 1.0 起即稳定，是本阶段语法中最稳定的部分。
+
 ## 3. 语法与参数
 
 ### 3.1 Iterator trait 与三种迭代方式（iter · iter_mut · into_iter）
@@ -230,7 +232,7 @@ fn main() {
 ```
 
 要点与坑：
-- **坑：collect 类型推断失败（E0282）**——不写目标类型直接 `let x = ...collect();` 会报"无法推断类型"；在 `let` 标注或写 `::<Vec<_>>`。看到 E0282 先补类型标注。
+- **坑：collect 类型推断失败（E0283）**——不写目标类型直接 `let x = ...collect();` 会报 `error[E0283]: type annotations needed`（实测 rustc 1.92.0）；在 `let` 标注或写 `::<Vec<_>>`。看到 E0283 先补类型标注。
 - **坑：`iter()` collect 出引用集合**——`nums.iter().collect::<Vec<_>>()` 得到 `Vec<&i32>`，想要拥有值用 `into_iter()` 或 `.copied()`/`.cloned()`；**collect 到 HashMap 的前提是产出 `(K, V)` 元组**，重复键后到者覆盖先者，所以词频统计要用 `entry` API（见 3.9）。
 
 ### 3.7 自定义迭代器（实现 Iterator）简介
@@ -374,7 +376,7 @@ fn main() {
 | 按可变引用 | `&mut T` | `FnMut` |
 | 按值（move） | `T` | `FnOnce`（若 move 出则仅此） |
 
-`map`/`filter` 等适配器要求闭包参数是 `FnMut`（要多次调用）；`Fn` 自动满足 `FnMut`，所以只读谓词随便写；一旦闭包**把捕获值 move 出环境**（如 `|| name`），它只能实现 `FnOnce`，传给要求 `FnMut` 的适配器会报 E0525。所有权转移的完整链条是：`into_iter()` 把元素所有权移进迭代器 → 消费器逐元素取出 → 闭包按需捕获/移动——**每一步的"谁拥有数据"都由类型系统钉死**，这正是"所有权进入迭代器的方式"（必会概念）的含义。
+`map`/`filter` 等适配器要求闭包参数是 `FnMut`（要多次调用）；`Fn` 自动满足 `FnMut`，所以只读谓词随便写；一旦闭包**把捕获值 move 出环境**（如 `|| name`），它只能实现 `FnOnce`，传给要求 `FnMut` 的适配器会报 E0507（实测 rustc 1.92.0：`cannot move out of 'name', a captured variable in an 'FnMut' closure`）。所有权转移的完整链条是：`into_iter()` 把元素所有权移进迭代器 → 消费器逐元素取出 → 闭包按需捕获/移动——**每一步的"谁拥有数据"都由类型系统钉死**，这正是"所有权进入迭代器的方式"（必会概念）的含义。
 
 ### 4.4 collect 的 FromIterator 机制
 
@@ -410,27 +412,38 @@ fn main() {
 
 ## 6. 代码示例
 
+本节展示完整可运行示例的关键片段，完整文件在 [`examples/`](./examples/) 目录，全部为零第三方依赖的单文件，可用 `rustc --edition 2021` 直接编译运行（已验证：rustc 1.92.0）。
+
 ### 示例 1：用迭代器重写 for 循环统计（map/filter/fold 版本）
 
 roadmap 练习"用迭代器重写 for 循环统计"的标准题：统计及格人数与平均分，先写命令式版本再替换成迭代器：
 
 ```rust
+// examples/ex01-rewrite-stats.rs —— 用迭代器重写 for 循环统计（已验证：rustc 1.92.0，rustc --edition 2021 单文件编译）
 fn main() {
     let scores = vec![72, 88, 95, 41, 60, 100, 33];
 
-    // 命令式版本：for 循环 + 可变累加器
+    // 命令式版本：for 循环 + 可变累加器（mut 是命令式风格的标志）
     let mut pass_count = 0;
     let mut total = 0;
-    for &s in &scores { if s >= 60 { pass_count += 1; total += s; } }
+    for &s in &scores {
+        if s >= 60 {
+            pass_count += 1;
+            total += s;
+        }
+    }
     println!("命令式: 及格 {pass_count} 人, 平均 {:.1}", total as f64 / pass_count as f64);
 
-    // 迭代器版本 1：filter + count / sum
+    // 迭代器版本 1：filter + count / sum（同一谓词写两遍，遍历两次）
     let pass_count2 = scores.iter().filter(|&&s| s >= 60).count();
     let total2: i32 = scores.iter().filter(|&&s| s >= 60).sum();
     println!("迭代器: 及格 {pass_count2} 人, 平均 {:.1}", total2 as f64 / pass_count2 as f64);
 
     // 迭代器版本 2：一个 fold 同时算两个统计量（只遍历一次）
-    let (cnt, sum) = scores.iter().filter(|&&s| s >= 60)
+    // 注意闭包收到的是 &i32（iter() 元素），用 |&s| 解构；filter 收到的是 &&i32，用 |&&s|
+    let (cnt, sum) = scores
+        .iter()
+        .filter(|&&s| s >= 60)
         .fold((0, 0), |(cnt, sum), &s| (cnt + 1, sum + s));
     println!("fold:   及格 {cnt} 人, 平均 {:.1}", sum as f64 / cnt as f64);
 }
@@ -445,15 +458,17 @@ fn main() {
 roadmap 练习"练习 collect 到 Vec 和 HashMap"：`(K, V)` 对可直接收集成 `HashMap`，重复键需要 `entry` API 累加：
 
 ```rust
+// examples/ex02-collect-word-freq.rs —— collect 到 Vec 和 HashMap：分词、长度映射、词频统计（已验证：rustc 1.92.0）
 use std::collections::HashMap;
 
 fn main() {
     let text = "the quick brown fox jumps over the lazy dog the fox";
 
-    // collect 到 Vec：分词
+    // collect 到 Vec：分词（split_whitespace 产出 &str 迭代器）
     let words: Vec<&str> = text.split_whitespace().collect();
 
-    // (键, 值) 对组成的迭代器可以直接 collect 到 HashMap
+    // (键, 值) 对组成的迭代器可以直接 collect 到 HashMap：
+    // 元素是 (&str, usize)，目标类型 HashMap<&str, usize> 由 let 标注决定
     let lengths: HashMap<&str, usize> = words.iter().map(|w| (*w, w.len())).collect();
     println!("lengths: {lengths:?}");
 
@@ -463,7 +478,7 @@ fn main() {
         *freq.entry(w).or_insert(0) += 1;
     }
 
-    // 按词频降序输出
+    // 按词频降序输出：HashMap -> 迭代器 -> 可排序的 Vec
     let mut ranking: Vec<(&str, u32)> = freq.into_iter().collect();
     ranking.sort_by(|a, b| b.1.cmp(&a.1));
     for (word, count) in &ranking {
@@ -481,12 +496,14 @@ fn main() {
 roadmap 练习"用 fold 实现聚合"：`fold` 是万能聚合器，`sum`/`count`/`max` 都是它的特例；自定义聚合（同时算多个统计量、构建集合）用 `fold`：
 
 ```rust
+// examples/ex03-fold-aggregate.rs —— 用 fold 实现聚合：一个 fold 求多统计量、fold 构建 HashMap（已验证：rustc 1.92.0）
 use std::collections::HashMap;
 
 fn main() {
     let nums = [3, 1, 4, 1, 5, 9, 2, 6];
 
-    // 自定义聚合：一个 fold 同时求最大、最小、个数
+    // 自定义聚合：一个 fold 同时求最大、最小、个数——累加器是三元组
+    // 初始值 (i32::MIN, i32::MAX, 0) 决定累加器类型与极值起点
     let (max, min, count) = nums.iter().fold(
         (i32::MIN, i32::MAX, 0),
         |(mx, mn, cnt), &n| (mx.max(n), mn.min(n), cnt + 1),
@@ -494,6 +511,7 @@ fn main() {
     println!("max={max} min={min} count={count}");
 
     // 用 fold 构建 HashMap：词频统计的纯函数式版本
+    // 累加器是集合——闭包修改后必须把 acc "还回去"（作为最后一行表达式）
     let words = ["rust", "go", "rust", "c", "rust", "go"];
     let freq: HashMap<&str, u32> = words.iter().fold(HashMap::new(), |mut acc, w| {
         *acc.entry(w).or_insert(0) += 1;
@@ -516,6 +534,7 @@ fn main() {
 roadmap 推荐项目"**日志数据聚合器**"：过滤异常记录，并计算错误分布、延迟分布和来源统计。综合运用 filter/map/fold/entry API：
 
 ```rust
+// examples/ex04-log-aggregator.rs —— 日志数据聚合器：过滤异常 + 错误分布 + 延迟分档 + 来源统计（已验证：rustc 1.92.0）
 use std::collections::HashMap;
 
 // 一条日志：来源、级别、耗时（毫秒）
@@ -538,20 +557,21 @@ fn main() {
     ];
 
     // 1) 过滤异常记录：非 INFO 级别，或延迟超过 500ms
+    // collect 目标是 Vec<&LogEntry>——零拷贝借用，filter 谓词收到 &&LogEntry
     let abnormal: Vec<&LogEntry> = logs
         .iter()
         .filter(|e| e.level != "INFO" || e.latency_ms > 500)
         .collect();
     println!("异常记录 {} 条", abnormal.len());
 
-    // 2) 错误分布：按级别分组计数（entry API）
+    // 2) 错误分布：按级别分组计数（entry API，一次哈希查找完成"取到可变引用"）
     let mut by_level: HashMap<&str, u32> = HashMap::new();
     for e in &abnormal {
         *by_level.entry(e.level).or_insert(0) += 1;
     }
     println!("错误分布: {by_level:?}");
 
-    // 3) 延迟分布：map 把延迟映射到分档，再分组计数
+    // 3) 延迟分布：map 把延迟映射到分档标签，再分组计数
     let mut lat_dist: HashMap<&str, u32> = HashMap::new();
     for b in abnormal.iter().map(|e| match e.latency_ms {
         ..=100 => "<=100ms",
@@ -563,6 +583,7 @@ fn main() {
     println!("延迟分布: {lat_dist:?}");
 
     // 4) 来源统计：fold 聚合每个来源的异常条数与平均延迟
+    // 累加器是 HashMap<&str, (u32, u64)>——闭包修改 entry 后必须返回 acc
     let source_stats: HashMap<&str, (u32, u64)> = abnormal
         .iter()
         .fold(HashMap::new(), |mut acc, e| {
@@ -571,6 +592,7 @@ fn main() {
             stat.1 += e.latency_ms as u64;
             acc
         });
+    // 排序输出：HashMap -> 迭代器 -> Vec<(&str, u32, f64)>，按异常条数降序
     let mut rows: Vec<(&str, u32, f64)> = source_stats
         .into_iter()
         .map(|(src, (cnt, total))| (src, cnt, total as f64 / cnt as f64))
@@ -591,6 +613,7 @@ fn main() {
 roadmap 必会概念"闭包 Fn/FnMut/FnOnce"与阶段验收"不会因闭包捕获造成意外移动"的验证题。用三个泛型函数把三种 trait 约束"钉死"，观察编译行为：
 
 ```rust
+// examples/ex05-closure-capture.rs —— 闭包捕获三种模式 Fn/FnMut/FnOnce（已验证：rustc 1.92.0）
 // 三个泛型函数把三种闭包 trait 约束"钉死"：
 fn run_once<F: FnOnce() -> String>(f: F) -> String { f() } // 可 move 出捕获值，只能一次
 fn run_mut<F: FnMut()>(mut f: F) { f(); f(); }             // 可改捕获变量，可多次
@@ -600,10 +623,10 @@ fn main() {
     // FnOnce：|| tag2 按值捕获——调用后 tag2 的所有权被移出（意外移动的现场）
     let tag2 = String::from("v2");
     let moved = run_once(|| tag2);
-    // println!("{tag2}"); // E0382：use of moved value
+    // println!("{tag2}"); // 故意不通过编译（E0382）：use of moved value——tag2 已被 move 出，请勿取消注释
     println!("{moved}");
 
-    // FnMut：计数器闭包被调用两次
+    // FnMut：计数器闭包被调用两次，内部可变捕获生效
     let mut counter = 0;
     run_mut(|| counter += 1);
     println!("counter = {counter}"); // 2
@@ -618,7 +641,47 @@ fn main() {
 
 要点与坑：
 - **同一条 `println!("{tag2}")` 报 E0382**：`|| tag2` 把 `tag2` 按值捕获（move 进闭包环境），调用时所有权跟着返回值移出——之后任何使用都失败。**想只读就写 `|| tag2.len()` 或 `|| tag2.clone()`**。
-- 三种 trait 是"能力"而非"标签"：编译器按闭包体对捕获变量的使用方式自动归类；`Fn` 闭包能传给要求 `FnMut`/`FnOnce` 的位置（子集关系），反之不行（把 `FnOnce` 闭包传给要求 `FnMut` 的 `map` 会报 E0525）。
+- 三种 trait 是"能力"而非"标签"：编译器按闭包体对捕获变量的使用方式自动归类；`Fn` 闭包能传给要求 `FnMut`/`FnOnce` 的位置（子集关系），反之不行（把 `FnOnce` 闭包传给要求 `FnMut` 的 `map` 会报 E0507，实测 rustc 1.92.0）。
+
+### 示例 6：迭代器与借用冲突（复现 E0502 + 三种解法）
+
+主文档 3.8 小节的完整可运行版本：先复现"边遍历边 push"的编译错误（保持注释），再给出三种安全解法：
+
+```rust
+// examples/ex06-borrow-conflict.rs —— 迭代器与借用冲突 E0502 的复现与三种解法（已验证：rustc 1.92.0）
+// ===== 故意不通过编译（E0502），请勿取消注释 =====
+// 运行前提：以下代码取消注释后无法通过 rustc 编译，报 error[E0502]:
+// "cannot borrow `nums` as mutable because it is also borrowed as immutable"。
+// 想看真实报错请复制到独立文件执行 rustc --edition 2021，不要指望本文件编译通过。
+// let mut nums = vec![1, 2, 3];
+// for n in &nums {          // &nums 不可变借用贯穿整个循环（迭代器持有借用）
+//     nums.push(*n);        // push 需要可变借用——与已存在的不可变借用冲突
+// }
+
+fn main() {
+    let mut nums = vec![1, 2, 3, 4, 5, 6];
+
+    // 方案 1：先收集要加的数据，循环结束后再修改（把"算"和"改"分成两步）
+    let extra: Vec<i32> = nums.iter().map(|n| n * 10).collect();
+    nums.extend(extra);
+    println!("{nums:?}"); // [1, 2, 3, 4, 5, 6, 10, 20, 30, 40, 50, 60]
+
+    // 方案 2：原地修改每个元素用 iter_mut（可变借用与迭代器共存是允许的）
+    for n in nums.iter_mut() {
+        *n += 1;
+    }
+    println!("{nums:?}"); // [2, 3, 4, 5, 6, 7, 11, 21, 31, 41, 51, 61]
+
+    // 方案 3：按条件删除用 retain（内部封装了安全的"边遍历边删"）
+    let mut words = vec![String::from("a"), String::from("bb"), String::from("ccc")];
+    words.retain(|w| w.len() >= 2);
+    println!("{words:?}"); // ["bb", "ccc"]
+}
+```
+
+要点与坑：
+- 复现块演示了 E0502 的本质：**`for n in &nums` 的不可变借用贯穿整个循环体**，循环体内 `nums.push(*n)` 的可变借用必然冲突——这不是"迭代器失效"（Rust 在编译期就拦住了），而是借用规则的直接后果。
+- 三种解法对应三个不同的"改集合"意图：**追加数据先收集再 `extend`、改每个元素用 `iter_mut`、删元素用 `retain`**——没有一种解法需要手写索引循环。
 
 ## 7. 总结
 
@@ -627,7 +690,7 @@ fn main() {
 1. **迭代器 = `Item` + `next`**：`Iterator` trait 只有这两个必需元素，其余几十个方法全是基于 `next` 的默认实现——自定义迭代器只需写 `next`。
 2. **三种迭代方式对应三种所有权**：`iter()`（`&T`，集合保留）、`iter_mut()`（`&mut T`，原地改）、`into_iter()`（`T`，集合被消耗）；`for x in v` 等价于 `for x in v.into_iter()`。
 3. **适配器惰性、消费器触发**：`map`/`filter`/`take` 只组合"执行计划"，`collect`/`sum`/`fold` 才真正求值；无限迭代器必须用 `take` 限界；`filter` 谓词收到 `&Self::Item`（`iter()` 时是 `&&T`）。
-4. **collect 的目标类型由标注决定**（E0282 补标注）；产出 `(K, V)` 对才能收集成 `HashMap`，重复键会覆盖，词频用 `entry` API。
+4. **collect 的目标类型由标注决定**（不写标注报 E0283，补 `::<Vec<_>>` 或 `let` 标注）；产出 `(K, V)` 对才能收集成 `HashMap`，重复键会覆盖，词频用 `entry` API。
 5. **fold 是万能聚合器**：`sum`/`count`/`max` 都是特例；累加器可以是数值、元组（多统计量）或集合（fold 构建 HashMap），闭包记得返回 `acc`。
 6. **闭包捕获三模式**：`Fn`（`&` 捕获）、`FnMut`（`&mut` 捕获）、`FnOnce`（按值捕获），且 `Fn ⊆ FnMut ⊆ FnOnce`；`|| name` 会把 `name` move 出环境（意外移动）。
 7. **借用冲突在迭代器中同样成立**：迭代器持有集合借用期间不能 push/remove；先收集后修改、`iter_mut` 原地改、`retain` 安全删除是三种解法。
@@ -645,27 +708,34 @@ fn main() {
 | 运行时开销 | 零成本（单态化内联） | 解释执行 | 中间对象/装箱开销 | 零成本 | 函数调用开销 |
 | 典型聚合 | `fold`/`sum`/`collect` | `sum`/推导式 | `reduce`/`collect` | `fold` | `reduce`/`join` |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能根据场景选择 `iter`、`iter_mut`、`into_iter`，并说出各自的元素类型与集合的去留。
-- 能读懂常见链式迭代器（map/filter/fold/collect 组合）：说出每一步的输入、输出与是否消耗。
-- 不会因闭包捕获造成意外移动：能判断闭包是按值、`&mut` 还是 `&` 捕获，以及调用后捕获变量是否还能用。
-- 能解释惰性求值与零成本抽象：适配器不执行、消费器触发；迭代器链编译后与手写循环等价。
-- 能说出 `filter` 谓词收到 `&Self::Item`（`&&T`）与 `collect` 需要类型标注的原因。
+- [ ] 能根据场景选择 `iter`、`iter_mut`、`into_iter`，并说出各自的元素类型与集合的去留。
+- [ ] 能读懂常见链式迭代器（map/filter/fold/collect 组合）：说出每一步的输入、输出与是否消耗。
+- [ ] 不会因闭包捕获造成意外移动：能判断闭包是按值、`&mut` 还是 `&` 捕获，以及调用后捕获变量是否还能用。
+- [ ] 能解释惰性求值与零成本抽象：适配器不执行、消费器触发；迭代器链编译后与手写循环等价。
+- [ ] 能说出 `filter` 谓词收到 `&Self::Item`（`&&T`）与 `collect` 需要类型标注的原因。
 
-### 进入下一阶段前
+### 动手练习
 
-确保能完成以下练习：
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看），共 5 题，覆盖本章示例 1~6 的主题（示例 4 的日志聚合器是阶段项目核心，不单独出题）：
 
-- 用迭代器重写 for 循环统计（提示：`for` 累加 → `iter().filter().sum()/count()`，一个 `fold` 同时算多统计量；对照示例 1）。
-- 练习 collect 到 Vec 和 HashMap（提示：`(K, V)` 对组成的迭代器可直接 collect 到 `HashMap`；词频统计用 `entry` API 而非裸 collect；对照示例 2）。
-- 用 fold 实现聚合（提示：`fold(初始值, |acc, x| ...)`，累加器可以是元组或集合；对照示例 3）。
-- 制造并修复一次"闭包意外移动"（提示：闭包里写 `|| name` 而不是 `|| name.len()`，观察 E0382 与 E0525；对照示例 5）。
-- 口述一段迭代器链的行为（提示：从示例 4 的日志聚合器任选一段，说出 filter/map/fold 每一步的输入输出与所有权）。
+- 用迭代器重写 for 循环统计（提示：`for` 累加 → `iter().filter().sum()/count()`，一个 `fold` 同时算多统计量；对照示例 1）
+- 练习 collect 到 Vec 和 HashMap（提示：`(K, V)` 对组成的迭代器可直接 collect 到 `HashMap`；词频统计用 `entry` API 而非裸 collect；对照示例 2）
+- 用 fold 实现聚合（提示：`fold(初始值, |acc, x| ...)`，累加器可以是元组或集合；对照示例 3）
+- 制造并修复一次"闭包意外移动"（提示：闭包里写 `|| name` 而不是 `|| name.len()`，观察 E0382 与 E0507；对照示例 5）
+- 复现并修复迭代器借用冲突（提示：`for n in &v { v.push(*n); }` 报 E0502，用"先收集后修改 / `iter_mut` / `retain`"三种解法修复；对照示例 6）
 
-### 推荐项目
+完成 5 题后继续。
 
-- **日志数据聚合器**（roadmap 推荐项目）：过滤异常记录，并计算错误分布、延迟分布和来源统计。示例 4 已给出核心实现。扩展方向：改用 `lines()` 解析真实日志文件（ph13）、把来源统计做成"来源 → 异常条数 / 平均延迟"的排序报表、增加时间窗口滑动聚合。
+### 阶段项目
+
+本阶段综合项目见 [`project/`](./project/)：**日志数据聚合器**——过滤异常记录并计算错误分布、延迟分布和来源统计（roadmap 推荐项目；示例 4 给出核心，project/ 扩展为"文本解析 + 四类报告 + 12 个单元测试"的完整版本，全程迭代器链、零第三方依赖）。建议完成练习后再动手。
+
+- [ ] 完成 exercises/ 全部练习并对照参考实现复盘
+- [ ] 独立完成 project/ 并通过其验收标准
+
+扩展方向（可选）：**日志流式处理**——用 `lines()` 读真实日志文件、增加时间窗口滑动聚合、按来源+时间窗口输出异常率报表（衔接 ph13 文件、网络与系统编程阶段）。
 
 ### 下一阶段
 
