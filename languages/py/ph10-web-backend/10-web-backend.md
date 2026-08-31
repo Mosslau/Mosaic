@@ -118,7 +118,7 @@ print(v.model_dump())                       # 序列化（v1 的 .dict() 已改�
 
 要点：
 
-- **校验失败自动返回 422**，错误结构化（`loc`/`msg`/`type`），无需手写 if——这是「能做参数校验」的核心体现（project 的 `/telemetry/stats` 实测 422 的 `detail[0].loc` 与 `type`）。
+- **校验失败自动返回 422**，错误结构化（`loc`/`msg`/`type`），无需手写 if——这是「能做参数校验」的核心体现（project 的 `POST /telemetry` 实测 422 的 `detail[0].loc` 与 `type`）。
 - **坑（Pydantic v2 API 变化）**：`@validator` → `@field_validator`、`.dict()` → `model_dump()`、`class Config` → `model_config`、`orm_mode` → `from_attributes`——照抄 v1 旧教程会直接报错。
 - **坑（宽松转换与共享默认值）**：默认宽松模式 `"1"` 会被静默转成 int 1，要严格用 `ConfigDict(strict=True)`；可变默认值必须 `Field(default_factory=list)`，写 `= []` 会让所有实例共享同一列表。
 - 从 ORM 对象构造模型：`model_config = {"from_attributes": True}`（见 3.7、练习 4）。
@@ -314,7 +314,7 @@ def get_device(device_id: int):
 
 ### 3.10 OpenAPI 文档（自动生成·Swagger UI）
 
-FastAPI 从**类型注解与模型定义**自动生成 OpenAPI 3 规范：交互式 `/docs`（Swagger UI）、`/redoc`、机器可读的 `/openapi.json`。**OpenAPI 文档是交付物**（roadmap 必会概念）——它既是前端对接契约，也是联调、测试（ph13）与客户端代码生成的输入。
+FastAPI 从**类型注解与模型定义**自动生成 OpenAPI 3 规范：交互式 `/docs`（Swagger UI）、`/redoc`、机器可读的 `/openapi.json`。**OpenAPI 文档是交付物**（roadmap 必会概念）——它既是前端对接契约，也是联调、测试（ph13 测试与工程质量阶段，roadmap 第 13 节，目录待建）与客户端代码生成的输入。
 
 ```python
 from fastapi import FastAPI
@@ -438,7 +438,7 @@ JWT 是「**自包含、可验证、无状态**」的三段式令牌 `header.pay
 **不适合此阶段的事项**：
 
 - 数据库与缓存深入（SQL 优化、事务隔离、索引、Redis 缓存、连接池）：ph11 数据库与缓存阶段
-- 大规模异步与消息（Kafka、MQ、百万级并发连接）：ph14 并发阶段（roadmap 第 14 节，目录待建）——本阶段 async 只做入门
+- 大规模异步与消息（Kafka、MQ、百万级并发连接）：ph14 并发、并行与异步阶段（roadmap 第 14 节，目录待建）——本阶段 async 只做入门
 - 生产部署（Nginx、Docker、K8s、CI/CD、日志收集、监控告警）：ph16 部署与 DevOps 阶段（roadmap 第 16 节，目录待建）
 - 前端工程化（SPA、Vue/React 脚手架、前后端一体化框架）：不在本路线范围内——本阶段只做服务端模板入门
 

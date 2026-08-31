@@ -2,6 +2,9 @@
 // 一句话说明：转账的 Begin/Commit/Rollback 三阶段 + defer tx.Rollback() 防悬挂事务；
 // 并发扣款用"条件更新"（UPDATE ... WHERE balance >= ?）原子防超扣——
 // SQLite 不支持 MySQL 的 SELECT ... FOR UPDATE，条件更新是跨库通用的替代方案。
+// 陷阱：禁止裸写 db.Exec("BEGIN") 手开事务——连接池不知道连接处于事务中，
+// 可能把事务中的连接还回池子被其他请求复用，并发下相互踩踏导致死锁；
+// 一律用 db.Begin()（本文件 Transfer 的做法），让连接池感知事务边界。
 // 验证环境：go1.25.6（darwin/arm64），驱动：modernc.org/sqlite v1.57.0（纯 Go 无 cgo）
 // 运行：
 //

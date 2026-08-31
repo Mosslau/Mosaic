@@ -466,6 +466,9 @@ print(df.groupby("vehicle_id")["speed"].mean())
 - 认证鉴权、JWT
 - SQLAlchemy、Alembic
 - Middleware、日志、错误处理
+- OpenAPI 自动文档
+- 模板渲染与静态文件（入门）
+- 异步接口（入门）
 
 ### 必会概念
 

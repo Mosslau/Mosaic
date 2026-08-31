@@ -35,13 +35,13 @@ redis-cli -p 16379 shutdown nosave
 | ex03-transaction | 52.2% | 5 个用例全过（提交/回滚/非法金额/缺失账户/并发防超扣） |
 | ex04-sqlx-gorm | 41.7% | 6 个用例全过（database/sql + sqlx + GORM CRUD/唯一约束/计数 + via* 全流程） |
 | ex05-concurrent | 62.2% | 4 个用例全过；`go test -race ./...` 干净（无数据竞争） |
-| ex06-redis-cache | 46.0% | 4 个用例全过（命中/未命中空值缓存/删缓存/TTL）；Redis 实测可达 |
+| ex06-redis-cache | 48.0% | 5 个用例全过（命中/未命中空值缓存/删缓存/TTL + Redis 故障降级查库）；Redis 实测可达 |
 
-> ⚠️ ex06 的覆盖率是 Redis 可达时实测的；Redis 不可达时相关用例自动 t.Skip，覆盖率会下降——以「验证状态」列的标注为准。
+> ⚠️ ex06 的覆盖率是 Redis 可达时实测的；Redis 不可达时 Redis 相关用例自动 t.Skip（降级用例指向 127.0.0.1:1、不依赖本机 Redis，任何环境都执行），覆盖率会下降——以「验证状态」列的标注为准。
 
 ## 注意事项
 
 - 文件库示例（ex02/ex03/ex04/ex05）把数据库文件写到 `/tmp/`（`exXX-*.db`），不污染仓库；内存库示例（ex01/ex06）用 `:memory:`。测试一律用 `t.TempDir()`。
-- 全部示例的驱动版本：**modernc.org/sqlite v1.57.0**（ex04 另含 sqlx v1.4.0、gorm.io/gorm v1.31.2 + glebarez/sqlite v1.11.0；ex06 另含 go-redis v9.22.0）。
+- 驱动版本：**ex01-03/ex05-06 用 modernc.org/sqlite v1.57.0**；**ex04 经 glebarez/sqlite v1.11.0（GORM 纯 Go 驱动）实际使用 modernc.org/sqlite v1.23.1**（glebarez/go-sqlite v1.21.2 依赖的版本），另含 sqlx v1.4.0、gorm.io/gorm v1.31.2；ex06 另含 go-redis v9.22.0。
 - 依赖拉取环境：`GOPROXY=https://goproxy.cn,direct GOSUMDB=off GOCACHE=/tmp/gocache`（本机默认 proxy.golang.org 不可达，goproxy.cn 可达）。
 - 六个示例的验证状态均为：**已验证（go1.25.6 + modernc.org/sqlite v1.57.0）**，ex06 额外要求 Redis。

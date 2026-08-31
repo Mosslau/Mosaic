@@ -44,7 +44,7 @@ project/
 
 - `go test ./...` 全部通过、`go vet ./...` 零告警、`go test -race ./...` 无数据竞争
 - `go test -cover ./...` 覆盖率：internal/api 80.8%、internal/cache 84.0%、internal/store 78.3%（实测，go1.25.6；cache 的 84.0% 含 Redis 实测用例）
-- `go run ./cmd/api -addr 127.0.0.1:18080` 启动后（本环境实测通过，测完已 kill、无残留进程与二进制）：
+- `go run ./cmd/api -addr 127.0.0.1:18080` 启动后（本环境实测通过，测完已 kill、无残留进程与二进制）。注：**优雅关闭"退出码 0"需用编译产物验证**（`go build -o /tmp/vehicle-api ./cmd/api && /tmp/vehicle-api -addr 127.0.0.1:18080` 再 `kill -TERM`）——经 `go run` 包装启动时 SIGTERM 由 go run 转发给子进程，进程退出码为 143、优雅关闭日志不显示，这是 go run 的信号包装行为，非代码缺陷：
 
 ```text
 GET  /healthz                                  → ok
@@ -82,6 +82,6 @@ kill -TERM <pid>
 
 - **认证接入**：把 ph09 项目的手写 HS256 JWT 鉴权中间件挂到上报接口（token 归属设备 == 路径设备）
 - **迁移管理**：用 golang-migrate/goose 把建表 SQL 改成版本化迁移文件（3.9 小节；本环境未安装 CLI，未验证）
-- **Redis 分布式限流**：每设备每分钟 N 次上报，用 Redis INCR + TTL 实现（3.8 小节）
+- **Redis 分布式限流**：每设备每分钟 N 次上报，用 Redis INCR + TTL 实现（3.10/3.11 小节）
 - **轨迹抽样**：超长时间段轨迹按时间抽稀（如每 5 分钟取一点），避免大数据量响应
 - **微服务化**：把 store 拆成独立数据服务、走 gRPC 暴露查询——属 ph11 微服务与 RPC 阶段

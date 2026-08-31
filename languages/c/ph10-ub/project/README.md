@@ -28,7 +28,7 @@
 
 本项目的坏版本全部是**故意写错的 UB 演示**，设计上依赖 Sanitizer 中止：构建默认 `-fsanitize=address,undefined -fno-sanitize-recover=all`，坏版本一触发即报错退出，**禁止去掉 Sanitizer 后运行**（裸跑可能崩溃或静默损坏数据）。验证环境：Apple clang 21.0.0（`cc`），macOS（Darwin arm64）。构建用 `-O0`——实测在 `-O1` 下 clang 会把被测试的内存访问常量折叠/死代码消除掉（如 strcpy 折叠成常量 printf），ASan 因此抓不到 stack-buffer-overflow；`-O0` 下全部报告稳定触发。
 
-各坏版本的实测报告关键行（本环境实测，`make demos` 可见完整输出；本环境缺 llvm-symbolizer，ASan 栈帧未符号化）：
+各坏版本的实测报告关键行（本环境实测，`make demos` 可见完整输出；本环境 ASan 无法启动外部符号器（llvm-symbolizer 存在但 spawn 失败 errno 9），ASan 栈帧未符号化）：
 
 | 名字 | 检测工具 | 实测报告关键行 |
 |------|---------|---------------|

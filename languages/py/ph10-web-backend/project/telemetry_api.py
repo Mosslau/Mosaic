@@ -15,6 +15,7 @@ import logging
 import sys
 import tempfile
 import time
+from collections.abc import Iterator
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -85,7 +86,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
         )
         return response
 
-    def get_session():                        # 依赖注入：每请求一个 Session，用完自动关
+    def get_session() -> Iterator[Session]:   # 依赖注入：每请求一个 Session，用完自动关
         with Session(engine) as session:      # 防连接池泄漏（主文档 4.4）
             yield session
 

@@ -29,6 +29,7 @@
   - 实现 `Cache`：字段 `value: RefCell<Option<i32>>`，`get(&self, compute: impl Fn() -> i32) -> i32` 第一次调用执行 `compute` 并缓存，之后直接返回缓存值（**证明 `compute` 只执行一次**：闭包内 `println!` 只应打印一次）
   - 制造借用冲突：`let _r = cell.borrow();` 存活时调 `cell.borrow_mut()`——**编译能通过**，运行期 panic；用 `panic::catch_unwind` 捕获并打印捕获结果
   - 在代码注释中写明 panic 消息文本（实测是 `RefCell already borrowed`）
+  - 注意：运行本练习时 **stderr 会打印一行 `RefCell already borrowed`**，这是被 `catch_unwind` 捕获的 panic 消息（panic 钩子仍会输出，程序退出码为 0，正常继续）——与主文档第 6 章示例 4 的说明一致
 - **验收**：`rustc --edition 2021 sol-03-refcell-cache.rs -o /tmp/sol03 && /tmp/sol03` 编译零警告；`compute 执行` 只出现一次；输出 `v1 = 42, v2 = 42` 与「借用冲突：BorrowMutError panic 已被 catch_unwind 捕获」
 
 ## 练习 4：用 Arc\<Mutex\<_\>\> 做线程间计数（★★）

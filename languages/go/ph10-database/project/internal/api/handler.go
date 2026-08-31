@@ -82,7 +82,7 @@ func (s *Service) handleReport(w http.ResponseWriter, r *http.Request) {
 		}
 		points = append(points, store.Point{DeviceID: deviceID, Lat: p.Lat, Lng: p.Lng, Speed: p.Speed, TS: ts})
 	}
-	if err := s.store.BatchInsert(points); err != nil {
+	if err := s.store.BatchInsert(r.Context(), points); err != nil {
 		writeError(w, http.StatusInternalServerError, "INTERNAL", "批量写入失败")
 		return
 	}
@@ -101,7 +101,7 @@ func (s *Service) handleLatest(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, e)
 		return
 	}
-	p, err := s.store.Latest(deviceID)
+	p, err := s.store.Latest(r.Context(), deviceID)
 	if errors.Is(err, store.ErrDeviceNotFound) {
 		writeError(w, http.StatusNotFound, "NOT_FOUND", "设备不存在或未上报过")
 		return
@@ -133,7 +133,7 @@ func (s *Service) handleTrajectory(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_PARAM", "to 必须晚于 from")
 		return
 	}
-	points, err := s.store.Trajectory(deviceID, from, to)
+	points, err := s.store.Trajectory(r.Context(), deviceID, from, to)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "INTERNAL", "查询失败")
 		return

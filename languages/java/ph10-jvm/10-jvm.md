@@ -21,9 +21,9 @@ JVM 阶段的目标是：**能理解 Java 程序从源码到字节码再到运�
 
 ## 2. 来源与演变
 
-Java 诞生时 JVM 采用**解释执行**（interpreter）——逐条翻译字节码指令，简单但慢。真正的转折是 **HotSpot VM**：Sun 在 1999 年收购 Longview Technologies 获得该技术，JDK 1.3（2000）起 HotSpot 成为默认 JVM。它得名于「热点检测」——运行时统计方法调用次数，只对**热点代码（hot code）**做深度编译优化，避免「把所有代码都编译一遍」的启动代价。早期 JIT 编译器分两套：**C1（Client Compiler）**编译快、优化浅，**C2（Server Compiler）**编译慢、优化深；后来用**分层编译（tiered compilation）**把两者串起来：解释执行起步，热点方法先升 C1 再升 C2，兼顾启动速度与峰值性能（JDK 8 起默认开启）。
+Java 诞生时 JVM 采用**解释执行**（interpreter）——逐条翻译字节码指令，简单但慢。真正的转折是 **HotSpot VM**：Sun 在 1997 年收购 Longview Technologies 获得该技术（HotSpot 于 1999 年 4 月正式发布），JDK 1.3（2000）起 HotSpot 成为默认 JVM。它得名于「热点检测」——运行时统计方法调用次数，只对**热点代码（hot code）**做深度编译优化，避免「把所有代码都编译一遍」的启动代价。早期 JIT 编译器分两套：**C1（Client Compiler）**编译快、优化浅，**C2（Server Compiler）**编译慢、优化深；后来用**分层编译（tiered compilation）**把两者串起来：解释执行起步，热点方法先升 C1 再升 C2，兼顾启动速度与峰值性能（JDK 8 起默认开启）。
 
-GC 的演进是「吞吐 → 停顿 → 可预测停顿」的路线。**Serial**（串行）最简单；**Parallel** 用多线程并行回收、吞吐优先，是 JDK 8 的默认收集器；**CMS**（Concurrent Mark Sweep）引入并发标记以降低停顿，但碎片化与浮动垃圾问题突出，JDK 9 弃用、JDK 14 移除；**G1（Garbage First）**把堆切成 Region，可设置停顿目标（`-XX:MaxGCPauseMillis`，实测默认值 200ms），JDK 9 起成为默认；**ZGC** 用染色指针与读屏障把停顿压到**亚毫秒级**，JDK 15 正式化，JDK 21 又推出分代 ZGC。内存结构同步演进：JDK 8 移除永久代（PermGen），类元数据移入**元空间（Metaspace，本地内存）**，字符串常量池移入堆。
+GC 的演进是「吞吐 → 停顿 → 可预测停顿」的路线。**Serial**（串行）最简单；**Parallel** 用多线程并行回收、吞吐优先，是 JDK 8 的默认收集器；**CMS**（Concurrent Mark Sweep）引入并发标记以降低停顿，但碎片化与浮动垃圾问题突出，JDK 9 弃用、JDK 14 移除；**G1（Garbage First）**把堆切成 Region，可设置停顿目标（`-XX:MaxGCPauseMillis`，实测默认值 200ms），JDK 9 起成为默认；**ZGC** 用染色指针与读屏障把停顿压到**亚毫秒级**，JDK 15 正式化，JDK 21 又推出分代 ZGC。内存结构同步演进：JDK 7 把字符串常量池移入堆，JDK 8 移除永久代（PermGen），类元数据移入**元空间（Metaspace，本地内存）**。
 
 诊断工具链随之成熟。JDK 5/6 起 jps、jstack、jmap、jstat 陆续进入标准 JDK，jcmd（JDK 7）把 VM 级诊断统一到一个入口；JFR（Java Flight Recorder）JDK 11 开源进 OpenJDK，成为低开销的在线采样工具（jcmd/jfr 在本机 OpenJDK 17 均可直接用）。真正改变线上排查体验的是**阿里巴巴 Arthas**（2018 年开源）——基于 Java Agent 的在线诊断工具，不需要重启进程即可 dashboard 看全局、thread 查线程、jad 反编译线上代码、watch/trace 观测方法入参与返回值，成为国内排查线上问题的标配。
 
@@ -97,7 +97,7 @@ public class Hello {
 - **栈帧（stack frame）**是执行方法的骨架：局部变量表（参数与局部变量）、操作数栈（运算的工作台，`iload`/`iadd` 等指令在它上面进出栈）、动态链接（指向常量池中的类/方法引用）
 - 典型指令（示例 1 反汇编实测）：`aload_0`（取 this）、`getstatic`/`putstatic`（读写静态字段）、`getfield`（读实例字段）、`invokevirtual`（调用实例方法）、`if_icmpgt`（整数比较跳转）
 - **字节码是「半编译」产物**：与 C++ 的机器码不同，它不针对任何 CPU，由执行引擎解释或 JIT 编译执行
-- **`javac -g` 影响调试信息（实测）**：`-g` 编译后 `javap -l` 有 `LineNumberTable`（源码行号 ↔ 字节码偏移）；`javac -g:none` 编译后行号表消失——生产要留异常堆栈与可调试性，别关掉 `-g`（构建工具默认行为见 ph11）
+- **`javac -g` 影响调试信息（实测）**：默认编译即生成 `LineNumberTable`（源码行号 ↔ 字节码偏移），`-g` 额外生成 `LocalVariableTable`（局部变量名）；`javac -g:none` 编译后行号表消失——异常堆栈行号依赖 LineNumberTable，生产别用 `-g:none`（构建工具默认行为见 ph11）
 
 ### 3.4 JIT 编译与分层编译（解释·C1·C2）
 
@@ -108,7 +108,7 @@ java -Xint Demo && java -Xcomp Demo   # 纯解释 / 纯编译执行（对比性�
 java -XX:+PrintCompilation Demo       # 打印 JIT 编译了哪些方法（看热点方法）
 ```
 
-- **JIT 的提速是数量级的（实测）**：同一热点方法（每批 500 万次迭代）默认分层编译下约 1~3ms/批，`-Xint` 纯解释下约 150~160ms/批——**解释执行比 JIT 慢约 50 倍**（示例 4，数字随机器波动，结论稳定）
+- **JIT 的提速是数量级的（实测）**：同一热点方法（每批 500 万次迭代）默认分层编译下约 1~4ms/批，`-Xint` 纯解释下约 165~346ms/批——**解释执行比 JIT 慢约 50 倍（数量级）**（示例 4，数字随机器波动，结论稳定）
 - **线上服务刚启动「慢热」**：热点方法还没编译完，性能低于稳态——压测前先预热，这是「压测数字忽高忽低」的常见原因；`-XX:+PrintCompilation` 实测可见方法经历 `% 3` → `% 4`（C1 → C2）与 `made not entrant`（旧编译版本失效）
 - JIT 优化包括**方法内联**、**逃逸分析**（4.4）、**循环展开**、**锁消除**——同一份代码在 JVM 上跑得比解释型语言快，主要靠 C2 的这些优化
 - JDK 17 起移除了实验性 AOT（`jaotc`），提前编译方向转向 **GraalVM Native Image**（构建期编译为原生镜像，启动毫秒级，但失去动态能力）
@@ -147,7 +147,7 @@ public class GcRootsDemo {
 
 - **GC 是「停止世界（Stop-The-World, STW）」的**：回收期间业务线程全部暂停——Minor GC 停顿毫秒级，Full GC 可能秒级；线上「服务卡顿」第一嫌疑就是 Full GC
 - 触发 Full GC 的常见原因：老年代空间不足、元空间不足、`System.gc()` 被显式调用（含某些框架）、`-XX:+DisableExplicitGC` 可关闭显式 GC
-- G1 下新生代回收叫 **Young GC**，老年代回收是**混合回收（Mixed GC）**——没有传统意义上的 Full GC 语义；示例 3 / 练习 4 用 `-Xlog:gc*` 实测了 `Pause Young (Normal) (G1 Evacuation Pause)` 行
+- G1 下新生代回收叫 **Young GC**，老年代回收是**混合回收（Mixed GC）**——正常路径不按传统「Minor/Full」划分；但仍有 **Pause Full（G1 Compaction Pause）** 兜底（如显式 `System.gc()`、老年代分配失败，实测 `-Xlog:gc` 见 `Pause Full (System.gc())` 行）；示例 3 / 练习 4 用 `-Xlog:gc*` 实测了 `Pause Young (Normal) (G1 Evacuation Pause)` 行
 
 ### 3.7 常见收集器对比（Serial·Parallel·CMS·G1·ZGC）
 
@@ -217,7 +217,7 @@ jmap -dump:format=b,file=heap.hprof <pid>   # 4. 导出堆快照（大堆会暂�
 
 - **Arthas 的核心价值是「免重启」**：`thread -n 3` 找 CPU 最高线程、`watch com.x.Service method` 观测方法入参返回值、`jad com.x.Service` 反编译线上代码、`trace` 打方法耗时——改不了代码的线上问题它都能看
 - 工具需要目标进程的**同用户权限**；容器里先 `docker exec` 再执行；`jcmd <pid> GC.heap_dump h.hprof` 可替代 jmap 导出
-- **平台小坑（实测）**：本机 macOS 上 `jstat -gcutil` 的 M（元空间）/CCS 列显示 `-`——该平台构建未向 PerfData 暴露这两个指标，元空间使用率改用 `jcmd <pid> VM.metaspace` 查看；其他列正常
+- **平台小坑（实测）**：本机 macOS 上 `jstat -gcutil` 的 M（元空间）/CCS 列在**进程尚未发生 GC、元空间未扩展时可能显示 `-`**，发生 GC 后即出现真实数值（如 MemoryLeakLab 在 YGC=0 时即显示 M=85.16/CCS=56.98）；若目标进程长期显示 `-`，元空间使用率改用 `jcmd <pid> VM.metaspace` 查看；其他列正常
 - 三个工具的实操（练习 1~3）：`jps` 找进程 → `jstat` 看 GC 健康度 → `jstack` 定位死锁 → `jmap` 找可疑类与导出快照，见 exercises/
 
 ### 3.10 线程 dump 与死锁分析
@@ -272,9 +272,9 @@ jmap -histo <pid> | head -20                  # 先快速看对象直方图：�
 
 JDK 9 起的类加载器层级：**启动类加载器（Bootstrap）**（C++ 实现，加载 `java.base` 等核心模块）→ **平台类加载器（Platform）**（替代旧扩展类加载器，加载 `java.sql` 等平台模块）→ **应用类加载器（Application）**（加载 classpath 下的应用类）。**双亲委派（parent delegation）**：类加载请求沿层级**自下而上**委托，父加载器能加载就交给父，父加载不了才由自己加载。
 
-```
-请求加载 com.example.Demo → 委托 Application → Platform → Bootstrap
-  → Bootstrap 能加载 java.base 核心类则由其加载 → 找不到则逐级回退 → Application 从 classpath 加载
+```text
+请求加载 com.example.Demo ──▶ 委托 Application ──▶ Platform ──▶ Bootstrap
+  ──▶ Bootstrap 能加载 java.base 核心类则由其加载 ──▶ 找不到则逐级回退 ──▶ Application 从 classpath 加载
 ```
 
 - **双亲委派的意义**：避免同一个类被不同加载器重复加载（**类身份 = 类名 + 定义它的加载器**，示例 2 实测：两个自定义加载器各自 defineClass 同一份字节 → 两个 `Class` 对象不相等、`instanceof` 为 false）；**保护核心类**——自定义的 `java.lang.String` 永远不会被 Bootstrap 之外的加载器加载，防止污染核心库
@@ -301,8 +301,8 @@ JDK 9 起的类加载器层级：**启动类加载器（Bootstrap）**（C++ 实
 - **灰色**：已被访问，但引用的子对象还没扫完（扫描的「工作前沿」）
 - **黑色**：已扫描完其所有引用——确定存活
 
-```
-初始：GC Roots 染灰 → 循环：取灰色对象，其引用的白色对象染灰、自身变黑 → 无灰色对象时，剩余白色即垃圾
+```text
+初始：GC Roots 染灰 ──▶ 循环：取灰色对象，其引用的白色对象染灰、自身变黑 ──▶ 无灰色对象时，剩余白色即垃圾
 ```
 
 - **并发标记的致命问题——漏标**：标记线程与业务线程并发，业务线程可能把「黑色对象指向白色对象」的引用改掉，导致**存活对象被误回收**——所以并发收集器必须保证「黑色对象不再指向白色对象」或「新增引用被重新记录」
@@ -355,7 +355,7 @@ public class EscapeDemo {
 
 > JMM（Java 内存模型）的规则体系（happens-before 五条规则、volatile 语义）属于 ph09 多线程与并发阶段，这里不重复展开；本节从 JVM 运行时视角实证「没有同步时的不可见是真实存在的，同步保证可见性」。
 
-**实证 1：非 volatile 标志的可见性失败（示例 5 实测）**——工作线程 `while (!plainStop) counter++;`，主线程 2 秒后置 `plainStop = true`。本机（x86 强内存模型 + HotSpot）多次实测工作线程**均未在超时内退出**：JIT 把标志读提升到循环外，主线程的写入对工作线程不可见。这是「无同步时读线程可能永远看不到写线程的修改」的运行时证据——注意它依赖硬件与编译时机（换架构/编译器可能不同），程序如实打印而不作硬断言，**不违反 JMM 正是因为它「不保证」**。
+**实证 1：非 volatile 标志的可见性失败（示例 5 实测）**——工作线程 `while (!plainStop) counter++;`，主线程 2 秒后置 `plainStop = true`。本机（Apple Silicon/arm64，弱内存模型 + HotSpot）多次实测工作线程**均未在超时内退出**：JIT 把标志读提升到循环外，弱内存模型下写线程的修改对读线程不保证可见。这是「无同步时读线程可能永远看不到写线程的修改」的运行时证据——注意它依赖硬件与编译时机（换架构/编译器可能不同），程序如实打印而不作硬断言，**不违反 JMM 正是因为它「不保证」**。
 
 **实证 2：volatile 的可见性由 JMM 保证（示例 5 实测）**——同样的循环把 `plainStop` 换成 `volatile boolean volStop`，主线程置位后工作线程**总是及时退出**。volatile 写 happens-before 后续对同一 volatile 的读，HotSpot 用内存屏障实现——与硬件无关，断言稳定成立。
 
@@ -491,7 +491,7 @@ for (int round = 0; round < 200; round++) {
 [0.051s][info][gc,heap,exit] garbage-first heap   total 65536K, used 13538K ...
 ```
 
-解读：`Pause Young (Normal)` = Young GC；`25M->3M(64M)` = 回收前 25M → 回收后 3M（堆上限 64M）；末尾 `0.350ms` = STW 停顿；`Humongous regions` = 1MB 大对象直接以巨型区域分配（G1 中 ≥ 区域大小一半的对象为 humongous，直接进老年代区）。**输出随机器/GC 时机波动，观察模式即可，不要断言精确数字**（ph08 教训：别把一次运行的数字当规律）。
+解读：`Pause Young (Normal)` = Young GC；`25M->3M(64M)` = 回收前 25M → 回收后 3M（堆上限 64M）；末尾 `0.350ms` = STW 停顿；`Humongous regions` = 1MB 大对象直接以巨型区域分配（G1 中 ≥ 区域大小一半的对象为 humongous，直接进老年代区）。**输出随机器/GC 时机波动，观察模式即可，不要断言精确数字**（工程经验：别把一次运行的数字当规律）。
 
 ### 示例 4：JIT 与逃逸分析—— Java 8+
 
@@ -528,7 +528,7 @@ static long pointSumEscaping(int n) {
 
 ```text
 === 1. JIT 预热（每批 5000000 次迭代 new Point, 单位 ms）===
-  第 1 批:    3 ms   ← 含类加载/解释执行/JIT 编译开销
+  第 1 批:    4 ms   ← 含类加载/解释执行/JIT 编译开销
   第 2 批:    2 ms   ← 热点方法已编译, 进入稳态
   第 3 批:    1 ms
   第 4 批:    1 ms
@@ -537,7 +537,7 @@ static long pointSumEscaping(int n) {
   逃逸   pointSumEscaping(8×5000000) 触发 GC 63 次
 ```
 
-`-Xint` 纯解释运行同一程序：每批约 150~160ms——**解释执行比 JIT 慢约 50 倍**；`-XX:+PrintCompilation` 实测可见 `Ex04JitEscapeAnalysis::pointSum @ 4 (43 bytes)` 出现 `% 3` / `% 4` 层级与 `made not entrant`。提示：`-XX:+PrintEscapeAnalysis` 在 OpenJDK 17 发布版不可用（仅 debug 版），别用；`-XX:+DoEscapeAnalysis` / `-XX:-DoEscapeAnalysis` 可开关（默认开启）。
+`-Xint` 纯解释运行同一程序：每批约 165~346ms（首批约 195ms，与 JIT 首批约 4ms 相比≈49 倍）——**解释执行比 JIT 慢约 50 倍（数量级）**；`-XX:+PrintCompilation` 实测可见 `Ex04JitEscapeAnalysis::pointSum @ 4 (43 bytes)` 出现 `% 3` / `% 4` 层级与 `made not entrant`。提示：`-XX:+PrintEscapeAnalysis` 在 OpenJDK 17 发布版不可用（仅 debug 版），别用；`-XX:+DoEscapeAnalysis` / `-XX:-DoEscapeAnalysis` 可开关（默认开启）。
 
 ### 示例 5：JMM 可见性实证—— Java 8+
 
@@ -555,7 +555,7 @@ Thread worker = new Thread(() -> {
 }, "worker-plain");
 ```
 
-实测输出（本机 x86 强内存模型 + HotSpot）：
+实测输出（本机 Apple Silicon/arm64，弱内存模型 + HotSpot）：
 
 ```text
 === 1. 非 volatile 标志可见性实验（观察类输出, 结论随平台波动）===

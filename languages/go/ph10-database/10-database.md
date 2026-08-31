@@ -21,7 +21,7 @@ Go 数据库阶段的目标是：**能用 Go 操作数据库和缓存**——掌
 
 本阶段的核心信念是"**先理解 database/sql，再选择 ORM**"（必会概念）：database/sql 是标准库底座，连接池、事务、参数化、预处理的原理都在这里，sqlx/gorm 只是语法糖；**事务边界要由业务定义**——一个业务操作（如"下单减库存"）跨几条 SQL，就要包进同一个事务；**SQL 注入必须通过参数化避免**——动态值一律走占位符，绝不拼接 SQL 字符串；**连接是惰性建立的、用完必须归还**——`sql.Open` 不建连接、`Rows/Stmt/Tx` 用完即关，否则连接池被耗尽。
 
-这个阶段只涉及单体服务 + 单数据库 + 单缓存的数据库编程（承接 ph09 Web 后端的接口，把内存 map 换成真实存储），**不涉及微服务与 RPC（gRPC、服务发现属 ph11 微服务与 RPC 阶段）、云原生部署（容器与 Kubernetes 属 ph12 云原生与部署阶段，roadmap 第 12 节，目录待建）、分布式事务与强一致（两阶段提交属 ph16，roadmap 第 16 节，目录待建）、消息队列与异步解耦（Kafka/MQTT 属 ph19 消息队列与事件驱动深入阶段，roadmap 第 19 节，目录待建）** — 本阶段是"单体服务 + 单库 + 单缓存"。
+这个阶段只涉及单体服务 + 单数据库 + 单缓存的数据库编程（承接 ph09 Web 后端的接口，把内存 map 换成真实存储），**不涉及微服务与 RPC（gRPC、服务发现属 ph11 微服务与 RPC 阶段）、云原生部署（容器与 Kubernetes 属 ph12 云原生与部署阶段，roadmap 第 12 节，目录待建）、分布式事务与强一致（两阶段提交、Saga 属后续阶段，roadmap 未单列）、消息队列与异步解耦（Kafka/MQTT 属 ph19 消息队列与事件驱动深入阶段，roadmap 第 19 节，目录待建）** — 本阶段是"单体服务 + 单库 + 单缓存"。
 
 ## 2. 来源与演变
 
@@ -31,7 +31,7 @@ Go 数据库阶段的目标是：**能用 Go 操作数据库和缓存**——掌
 
 **ORM 生态的演进**：2013 年 **gorm** 出现（最流行的全功能 ORM，链式 API + 自动迁移）；2014 年 **sqlx** 出现（轻量增强，把 Rows.Scan 样板代码压缩成 `StructScan`）；2019 年 Facebook 开源 **ent**（图状 schema 定义 + 代码生成，类型安全）；2020 年 **bun** 出现（SQL 优先，支持 raw SQL 与 query builder）。选型路线：**database/sql 学原理 → sqlx 提效率 → 复杂模型用 gorm/ent**。
 
-**Redis 与迁移工具**：Redis 2009 年发布，以"**单线程 + 内存数据结构 + 持久化**"成为缓存、锁与热点数据的标配；Go 客户端从 **redigo**（2012）演进到 **go-redis**（github.com/redis/go-redis，2021 年迁移组织名，v9 成主流），支持连接池、pipeline、pub/sub 与分布式锁。**迁移工具 golang-migrate（2017）与 goose（2013）** 把 schema 变更版本化：迁移文件进 git、CI 自动执行，是"数据库即代码"的基础。
+**Redis 与迁移工具**：Redis 2009 年发布，以"**单线程 + 内存数据结构 + 持久化**"成为缓存、锁与热点数据的标配；Go 客户端从 **redigo**（2012）演进到 **go-redis**（github.com/redis/go-redis，2021 年迁移组织名，v9 于 2023 年发布成为主流），支持连接池、pipeline、pub/sub 与分布式锁。**迁移工具 golang-migrate（2017）与 goose（2013）** 把 schema 变更版本化：迁移文件进 git、CI 自动执行，是"数据库即代码"的基础。
 
 | 版本/里程碑 | 年份 | 主要变化 |
 |------|------|---------|
@@ -44,7 +44,8 @@ Go 数据库阶段的目标是：**能用 Go 操作数据库和缓存**——掌
 | golang-migrate | 2017 | 版本化迁移工具 |
 | ent | 2019 | Facebook 开源（代码生成 ORM） |
 | bun | 2020 | SQL 优先 ORM |
-| go-redis v9 | 2021 | 迁移至 github.com/redis/go-redis，v9 成主流 |
+| go-redis 组织迁移 | 2021 | 仓库迁至 github.com/redis/go-redis |
+| go-redis v9 | 2023 | v9 发布、成为主流版本 |
 | modernc.org/sqlite | 2021~ | 纯 Go 无 cgo 的 SQLite 驱动（本阶段示例基线） |
 
 本文示例以 **modernc.org/sqlite v1.57.0** 为基线（本环境网络经 `GOPROXY=https://goproxy.cn` 拉取依赖并实际跑通——SQLite 纯 Go 驱动无需 cgo，可完整验证 database/sql 的连接池、事务、预处理行为；MySQL/PostgreSQL 生产驱动需独立服务器，本环境未启动，方言差异在文中点出），验证工具链 go1.25.6（darwin/arm64）。database/sql 的 API 自 Go 1.0 至今保持向后兼容，是本阶段最稳定的部分——把标准库原理学透后，换驱动只是改一行 import。
@@ -196,7 +197,7 @@ func Transfer(db *sql.DB, from, to string, amount int64) error {
 }
 ```
 
-要点：**事务边界由业务定义**（必会概念）——"转账"跨"扣款 + 加款"两条 SQL，必须包进同一个事务：全部成功 Commit、任一步失败 Rollback；**`defer tx.Rollback()` 是防泄漏标配**——Commit 成功后它是空操作，但中间任何 return 都保证回滚。**坑：只 Commit 不处理错误 / 忘记 Rollback**——留下"悬挂事务"占用连接与行锁；**坑：禁止裸写 `db.Exec("BEGIN")`**——database/sql 的连接池不知道你在裸开事务，可能把处于事务中的连接还回池子导致死锁（实测会 deadlock，见 ex03 注释）；**防超扣方案对比**：MySQL 用 `SELECT ... FOR UPDATE` 行级悲观锁（ex03 注释点出），SQLite 不支持 FOR UPDATE，改用**条件更新** `UPDATE ... SET balance = balance - ? WHERE balance >= ?`——条件在 SQL 里原子判断，并发下也不会超扣（ex03 的并发用例实测 10 goroutine 转 1000 余额零超扣）。
+要点：**事务边界由业务定义**（必会概念）——"转账"跨"扣款 + 加款"两条 SQL，必须包进同一个事务：全部成功 Commit、任一步失败 Rollback；**`defer tx.Rollback()` 是防泄漏标配**——Commit 成功后它是空操作，但中间任何 return 都保证回滚。**坑：只 Commit 不处理错误 / 忘记 Rollback**——留下"悬挂事务"占用连接与行锁；**坑：禁止裸写 `db.Exec("BEGIN")`**——database/sql 的连接池不知道你在裸开事务，可能把处于事务中的连接还回池子被其他请求复用，事务中的连接在并发下会相互踩踏导致死锁（ex03 注释有说明）；**防超扣方案对比**：MySQL 用 `SELECT ... FOR UPDATE` 行级悲观锁（ex03 注释点出），SQLite 不支持 FOR UPDATE，改用**条件更新** `UPDATE ... SET balance = balance - ? WHERE balance >= ?`——条件在 SQL 里原子判断，并发下也不会超扣（ex03 的并发用例实测 10 goroutine 转 1000 余额零超扣）。
 
 ### 3.7 并发访问数据库（goroutine·busy_timeout·WAL·race）
 
@@ -250,11 +251,17 @@ gdb.First(&u, "username = ?", "carol")
 ### 3.9 迁移（golang-migrate / goose）
 
 ```bash
-# go install github.com/golang-migrate/migrate/v4/cmd/migrate@latest
-# migrate create -ext sql -dir migrations -seq create_users   # 生成 .up.sql 与 .down.sql
-# migrate -path migrations -database "sqlite://app.db" up
-# migrate -path migrations -database "sqlite://app.db" down 1
-# migrate -path migrations -database "sqlite://app.db" version
+# 本节全部命令未在本环境验证（本环境未安装 migrate/goose CLI，未实跑）
+# 1. 安装 CLI
+go install github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+# 2. 生成 create_users 迁移（.up.sql 与 .down.sql 成对）
+migrate create -ext sql -dir migrations -seq create_users
+# 3. 应用全部迁移
+migrate -path migrations -database "sqlite://app.db" up
+# 4. 回滚 1 个版本
+migrate -path migrations -database "sqlite://app.db" down 1
+# 5. 查看当前版本
+migrate -path migrations -database "sqlite://app.db" version
 ```
 
 ```sql
@@ -312,7 +319,8 @@ func getUser(ctx context.Context, db *sql.DB, rdb *redis.Client, id int64) (*Use
 			return &u, nil
 		}
 	} else if !errors.Is(err, redis.Nil) {
-		return nil, err // ② Redis 故障：降级查库，缓存不致命
+		// ② Redis 故障：降级查库（缓存不致命）——记日志后继续走下面的查库分支
+		log.Printf("Redis 故障（%v），降级查库", err)
 	}
 	var u User // ③ 未命中：查库
 	if err := db.QueryRow("SELECT id, username FROM users WHERE id = ?", id).
@@ -360,7 +368,7 @@ SEARCH users USING COVERING INDEX sqlite_autoindex_users_1 (username=?)
 ### 4.2 事务的隔离级别与并发控制
 
 - **ACID**：原子性（全成或全撤）、一致性（约束不破）、隔离性（并发互不干扰）、持久性（提交不丢）——Go 的 tx 把多条 SQL 绑到同一条连接上，是"原子性 + 隔离性"的最小单元
-- **隔离级别**（松→严）：Read Uncommitted（脏读）→ Read Committed（防脏读）→ Repeatable Read（防不可重复读）→ Serializable（串行最严最慢）；**MySQL 默认 RR、PostgreSQL 默认 RC**——选级别是"一致性 vs 并发度"的权衡
+- **隔离级别**（松→严）：Read Uncommitted（脏读）→ Read Committed（防脏读）→ Repeatable Read（防不可重复读）→ Serializable（串行最严最慢）；**MySQL 默认 RR、PostgreSQL 默认 RC**——选级别是"一致性 vs 并发度"的权衡。Go 侧用 `db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})` 显式指定隔离级别（不指定则用驱动默认值）；`BeginTx` 相比 `Begin` 还能把 context 的取消/超时传进事务（project 的 BatchInsert 即用 `BeginTx(ctx, nil)`）
 - **并发控制**：悲观锁（MySQL 的 `SELECT ... FOR UPDATE` 行锁）与乐观锁/条件更新（`UPDATE ... SET v=v-? WHERE v>=?`，冲突重试）——SQLite 不支持 FOR UPDATE，本阶段示例统一用条件更新，它在 MySQL/PostgreSQL 上同样成立（ex03 并发用例实测零超扣）；**坑：锁要尽早释放**——事务里锁的行越多越久并发越低，还容易死锁（全库保持一致的加锁顺序）
 
 ### 4.3 参数化查询的预编译（server-side prepare）
@@ -390,7 +398,7 @@ SEARCH users USING COVERING INDEX sqlite_autoindex_users_1 (username=?)
 | 转账/库存等资金操作 | 事务、条件更新防超扣、回滚 |
 | 用户资料缓存加速 | Redis Hash、旁路缓存、TTL |
 | 在线设备列表/去重 | Redis Set、SCard/SIsMember |
-| 计数与限流 | Redis INCR + 过期（ph09 限流的 Redis 实现） |
+| 计数与限流 | Redis INCR + 过期（ph09 是内存滑动窗口限流，本阶段可升级为 Redis 分布式限流） |
 | 接口热点数据加速 | 旁路缓存、击穿/雪崩防护 |
 | 车联网轨迹存储 | 批量写入 + 设备时间复合索引 + 最新位置缓存（见 project/） |
 | schema 演进 | golang-migrate/goose 版本化迁移 |
@@ -404,7 +412,7 @@ SEARCH users USING COVERING INDEX sqlite_autoindex_users_1 (username=?)
 
 ## 6. 代码示例
 
-> 以下示例均为完整可运行 Go module，位于 [`examples/`](./examples/) 目录（每个示例一个子目录，先进入对应目录再运行）。验证环境：go1.25.6（darwin/arm64），驱动 **modernc.org/sqlite v1.57.0**（纯 Go 无 cgo）；全部示例已通过 `go vet ./...` 与 `go test ./...`，覆盖率实测见 examples/README.md 数据表。ex06 需要本机 Redis（127.0.0.1:16379，临时实例）。
+> 以下示例均为完整可运行 Go module，位于 [`examples/`](./examples/) 目录（每个示例一个子目录，先进入对应目录再运行）。验证环境：go1.25.6（darwin/arm64），驱动 **modernc.org/sqlite v1.57.0**（纯 Go 无 cgo；ex04 经 glebarez/sqlite v1.11.0 实际使用 v1.23.1，详见 examples/README.md）；全部示例已通过 `go vet ./...` 与 `go test ./...`，覆盖率实测见 examples/README.md 数据表。ex06 需要本机 Redis（127.0.0.1:16379，临时实例）。
 
 ### 示例 1：SQL 基础 + database/sql CRUD（ex01-sql-crud）
 
@@ -476,10 +484,10 @@ db, err := sql.Open("sqlite", "file:app.db?_pragma=busy_timeout(5000)&_pragma=jo
 ```go
 // examples/ex06-redis-cache/main.go —— 旁路缓存三件套 + 空值缓存防穿透 + TTL 抖动
 // 验证环境：go1.25.6 + go-redis v9.22.0 + 本机 Redis 16379，命令：先起 Redis，go test -v ./...
-if err == nil { ... } else if !errors.Is(err, redis.Nil) { return nil, err } // 命中/未命中/故障三分支
+if err == nil { ... } else if !errors.Is(err, redis.Nil) { log.Printf("Redis 故障…降级查库") } // 命中/未命中/故障三分支
 ```
 
-要点：查缓存 → 未命中查库 → 回填带 TTL；`errors.Is(err, redis.Nil)` 区分未命中与故障（故障降级查库）；空值缓存防穿透；写后删缓存；TTL 随机抖动防雪崩。`go test -cover` 实测 **46.0%**（Redis 可达时；不可达自动跳过）。**完整文件**：`examples/ex06-redis-cache/`。
+要点：查缓存 → 未命中查库 → 回填带 TTL；`errors.Is(err, redis.Nil)` 区分未命中与故障（故障降级查库，ex06 有 Redis 不可达时的降级用例）；空值缓存防穿透；写后删缓存；TTL 随机抖动防雪崩。`go test -cover` 实测 **48.0%**（Redis 可达时；不可达时 Redis 用例自动跳过）。**完整文件**：`examples/ex06-redis-cache/`。
 
 ## 7. 总结
 
@@ -526,7 +534,7 @@ if err == nil { ... } else if !errors.Is(err, redis.Nil) { return nil, err } // 
 本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）。完成 4 题后继续。四题与 roadmap「练习」小节一一对应：
 
 1. **用户表 CRUD**（★）：参数化增删改查 + ErrNoRows/RowsAffected 判定（提示：示例 1）
-2. **设备状态存储**（★★）：批量 UPSERT + 事务整体回滚（提示：示例 3 的事务骨架 + 3.6 的 ON CONFLICT）
+2. **设备状态存储**（★★）：批量 UPSERT + 事务整体回滚（提示：示例 3 的事务骨架 + 3.1 的 ON CONFLICT）
 3. **Redis 缓存用户信息**（★★）：旁路缓存三件套 + TTL + 空值缓存（提示：示例 6）
 4. **数据库事务处理**（★★★）：转账提交/回滚双路径 + 并发防超扣 + race（提示：示例 3）
 

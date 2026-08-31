@@ -15,7 +15,7 @@
 - 用完把进程杀掉（`kill <pid>`），不许留僵尸进程
 
 **验收**：能给出 jps / jstat / jstack 三份真实输出；能说出 `jstat -gcutil` 各列含义（S0/S1/E/O/M 分区使用率、YGC/FGC 次数、YGCT/FGCT/GCT 累计耗时）；jstack 中能认出 main 线程及其状态——计算时为 `RUNNABLE`、`Thread.sleep` 时为 `TIMED_WAITING`（本机实测 sleep 期间为 `TIMED_WAITING (sleeping)`）。
-**注意**：本机（macOS / OpenJDK 17.0.18）实测 `jstat -gcutil` 的 M（元空间）与 CCS 列显示 `-`——该平台构建未向 PerfData 暴露这两个指标，属工具平台差异，其余列正常；若你的环境同样显示 `-`，元空间使用率用 `jcmd <pid> VM.metaspace` 查看。
+**注意**：本机（macOS / OpenJDK 17.0.18）实测 `jstat -gcutil` 的 M（元空间）与 CCS 列在**进程尚未发生 GC、元空间未扩展时显示 `-`**，发生 GC 后即出现真实数值（如 MemoryLeakLab 在 YGC=0 时即显示 M=85.16/CCS=56.98）——属工具平台差异而非数据缺失，其余列正常；若目标进程长期显示 `-`，元空间使用率用 `jcmd <pid> VM.metaspace` 查看。
 
 ## 练习 2：分析线程死锁（★★）
 
@@ -36,7 +36,7 @@
 **要求**：
 
 - 程序每轮向**静态集合**（`static List<byte[]>`，静态字段是 GC Root）添加一个 1MB 的 `byte[]`，少量 `sleep` 保持进程存活，每 10MB 打印一次累计量——泄漏对象永远可达，堆必然持续上涨直至 OOM
-- 用 `-Xmx128m` 限制堆运行，程序支持上限参数：`java -Xms128m -Xmx128m 你的类名 80`（分配到 80MB 后保持存活约 60 秒供诊断，然后继续分配直至 OOM——不设这一档会很快 OOM 来不及观察）；观察路径：`jstat -gcutil` 看老年代持续上涨 → `jmap -histo <pid> | head -20` 看 `byte[]` 实例数与字节数异常突出 → `jmap -dump:format=b,file=heap.hprof <pid>` 导出快照（或 `jcmd <pid> GC.heap_dump heap.hprof`）
+- 用 `-Xmx128m` 限制堆运行，程序支持上限参数：`java -Xms128m -Xmx128m 你的类名 40`（分配到 40MB 后保持存活约 60 秒供诊断，然后继续分配直至 OOM——实测 128m 堆下 cap 设 80 会在 ~60MB 提前 OOM、到不了保持档位，故建议 40~50；不设这一档会很快 OOM 来不及观察）；观察路径：`jstat -gcutil` 看老年代持续上涨 → `jmap -histo <pid> | head -20` 看 `byte[]` 实例数与字节数异常突出 → `jmap -dump:format=b,file=heap.hprof <pid>` 导出快照（或 `jcmd <pid> GC.heap_dump heap.hprof`）
 - 用 MAT 打开 hprof，走 Leak Suspects / Dominator Tree / Path to GC Roots 沿引用链找到持有者，把「持有者是谁」写进结论
 - 修复思路（把静态集合换局部变量 / 定期清理 / 换带淘汰的缓存）写进注释；验证后清理进程与 hprof 文件
 

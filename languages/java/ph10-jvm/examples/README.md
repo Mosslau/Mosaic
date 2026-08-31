@@ -44,7 +44,7 @@ Constant pool:
 ```
 
 - `javap -c` 反汇编（`add` 方法，本机实测）：`getstatic calls / iconst_1 / iadd / putstatic` 与 `aload_0 / getfield base / iadd / ireturn` 清晰可见
-- **`javac -g` 差异（实测）**：`javac -g` 编译后 `javap -l` 有 `LineNumberTable`（如 `line 20: 0`）；`javac -g:none` 编译后 `javap -l` 只剩方法签名、无行号表——调试信息默认不生成，异常堆栈与 IDE 调试依赖 `-g`
+- **`javac -g` 差异（实测）**：默认编译即生成 `LineNumberTable` 与源码文件名（`-g:lines,source`），`javac -g` 额外生成 `LocalVariableTable`（如 `line 20: 0`）；`javac -g:none` 编译后 `javap -l` 只剩方法签名、无行号表——异常堆栈行号依赖 LineNumberTable，构建时别用 `-g:none` 关掉调试信息
 - class 文件版本（实测）：`minor version: 0, major version: 61`（61 = Java 17）
 
 ### ex02：类加载器
@@ -70,15 +70,15 @@ Constant pool:
 
 ### ex04：JIT 与逃逸分析
 
-- 默认配置预热（实测）：第 1 批 3ms → 第 2 批 2ms → 第 3/4 批 1ms（本机预热差异小，因为 JIT 很快）
-- `-Xint` 纯解释（实测）：每批稳定约 150~160ms——**解释执行比 JIT 慢约 50 倍**，这是「JIT 编译热点方法」最直观的证据
+- 默认配置预热（实测）：第 1 批约 4ms → 第 2 批约 2ms → 第 3/4 批约 1ms（本机预热差异小，因为 JIT 很快；数字随机器波动）
+- `-Xint` 纯解释（实测）：每批约 165~346ms（首批约 195ms，与 JIT 首批约 4ms 相比≈49 倍）——**解释执行比 JIT 慢约 50 倍（数量级）**，这是「JIT 编译热点方法」最直观的证据
 - `-XX:+PrintCompilation`（实测片段）：`Ex04JitEscapeAnalysis::pointSum @ 4 (43 bytes)` 出现 `% 3` / `% 4`（OSR 与 C2 编译层级）与 `made not entrant`（旧编译版本失效）
 - 逃逸分析（实测）：同样 8×500 万次 `new Point`，非逃逸写法触发 GC **0 次**，逃逸写法（存入 ArrayList）触发 GC **63 次**——逃逸分析把不逃逸的对象标量替换掉，堆分配几乎为零；数字随机器波动，但「逃逸版本 GC 明显更多」稳定复现
 - 说明：`-XX:+PrintEscapeAnalysis` 在 OpenJDK 17 发布版**不可用**（仅 debug 版 JVM，实测报 `notproduct` 错误），观察逃逸分析效果用上面的 GC 次数对比；`-XX:+DoEscapeAnalysis` / `-XX:-DoEscapeAnalysis` 开关可用（默认开启）
 
 ### ex05：JMM 内存模型
 
-- 非 volatile 标志（实测）：主线程置 `plainStop=true` 后，工作线程 **2 秒内未退出**（JIT 把标志读提升到循环外）——可见性失败真实存在；**但这是平台/编译相关的观察结果**，x86 强内存模型下本机多次实测一致，换架构/编译器不一定复现，程序如实打印而不作硬断言
+- 非 volatile 标志（实测）：主线程置 `plainStop=true` 后，工作线程 **2 秒内未退出**（JIT 把标志读提升到循环外）——可见性失败真实存在；**但这是平台/编译相关的观察结果**，本机（Apple Silicon/arm64，弱内存模型）多次实测一致，换架构/编译器不一定复现，程序如实打印而不作硬断言
 - volatile 标志（实测）：工作线程及时退出（`volatile` 写 happens-before 后续读，JMM 保证，与硬件无关）——断言稳定成立
 - synchronized 安全发布（实测）：读线程在锁内读到完整 `payload=[11,22,33]`——监视器锁规则保证写线程解锁前的写入全部可见
 
@@ -90,10 +90,10 @@ Constant pool:
 | -Xss | 最大递归深度（本机实测） |
 |------|--------------------------|
 | 256k | 1,478 |
-| 默认（约 1m） | 45,662 |
+| 默认（本机 2048KB） | 45,662 |
 | 4m | 126,154 |
 
-- 结论：**递归深度随 `-Xss` 增大而增大**（单调）；每帧实际消耗 ≈ 栈大小 / 深度，约 56~100 字节/帧量级（含 JIT 帧布局差异）
+- 结论：**递归深度随 `-Xss` 增大而增大**（单调）；每帧实际消耗 ≈ 栈大小 / 深度，约 33~177 字节/帧量级（256k 时解释帧较大、栈大时 JIT 帧更小，含 JIT 帧布局差异）
 
 ## 产物清理
 

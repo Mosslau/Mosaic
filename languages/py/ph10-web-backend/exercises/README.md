@@ -26,7 +26,7 @@
   - `POST /auth/register`（201）：用户名重复返回 409；**密码绝不存明文**——用 `hashlib.pbkdf2_hmac("sha256", ...)` 加盐哈希后存储（盐随机、100_000 次迭代，格式自定如 `salt$digest`）
   - `POST /auth/login`（200）：验证哈希后签发 JWT（`pyjwt`，HS256，`sub` 放用户名、**必须带 `exp`**）；用户名或密码错误返回 401
   - `GET /auth/me`：`Depends(get_current_user)` 从 `Authorization: Bearer <token>` 解出用户名返回；无 token / 过期 / 被篡改统一 401
-  - 用 `TestClient` 断言：注册 201 → 重复 409 → 登录 200 拿到 token → 带 token 调 `/auth/me` 200 → 不带 token 401 → 篡改过的 token 401
+  - 用 `TestClient` 断言：注册 201 → 重复 409 → 登录 200 拿到 token → 带 token 调 `/auth/me` 200 → 不带 token 401 → 篡改过的 token 401 → 过期 token 401
 - **验收**：内存注册表里存的是哈希不是明文（打印出来肉眼确认）；错误 token 三种情况（缺失/过期/篡改）都返回 401
 
 ## 练习 3：文件上传（★★）

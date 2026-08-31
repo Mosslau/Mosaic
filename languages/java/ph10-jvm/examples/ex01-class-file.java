@@ -29,9 +29,11 @@ class Ex01ClassFile {
 
     public static void main(String[] args) throws Exception {
         // 1. 从自身 classpath 读取本类的 .class 字节，验证魔数 0xCAFEBABE（class 文件的固定开头）
-        InputStream in = Ex01ClassFile.class.getResourceAsStream("Ex01ClassFile.class");
-        if (in == null) throw new IllegalStateException("找不到 Ex01ClassFile.class，请从 .class 所在目录运行");
-        byte[] magic = in.readNBytes(4);
+        byte[] magic;
+        try (InputStream in = Ex01ClassFile.class.getResourceAsStream("Ex01ClassFile.class")) {
+            if (in == null) throw new IllegalStateException("找不到 Ex01ClassFile.class，请从 .class 所在目录运行");
+            magic = in.readNBytes(4);
+        }
         long magicInt = ((magic[0] & 0xffL) << 24) | ((magic[1] & 0xffL) << 16)
                 | ((magic[2] & 0xffL) << 8) | (magic[3] & 0xffL);
         // 注意：必须写成 0xCAFEBABEL（long 字面量）——若写 0xCAFEBABE 它是 int 字面量，因最高位为 1 而为负数，

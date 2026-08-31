@@ -7,8 +7,9 @@
 // 验证环境：Apple clang 21.0.0（cc），macOS（Darwin arm64）
 // 编译：cc -Wall -Wextra -std=c11 -fsanitize=address -g ex01-oob.c -o ex01
 // 运行：./ex01（ASan 报 stack-buffer-overflow 并中止, 退出码非 0）
-// 验证状态：已验证（实测报告见主文档 6 章示例 1; 本环境缺 llvm-symbolizer,
-//           栈帧未符号化, 但错误类型/读写大小/越界行号信息完整）
+// 验证状态：已验证（实测报告见主文档 6 章示例 1; 本环境 ASan 无法启动外部
+//           符号器(llvm-symbolizer 存在但 spawn 失败 errno 9), 栈帧未符号化,
+//           但错误类型/读写大小/越界行号信息完整）
 #include <stdio.h>
 
 int main(void) {

@@ -10,9 +10,11 @@
  * 已在 Makefile 里用 -Wno-* 抑制)。
  */
 // 验证环境：Apple clang 21.0.0（cc），macOS（Darwin arm64）
-// 编译：make（构建命令见 Makefile; 也可 cc -Wall -Wextra -std=c11 -O1 -g
+// 编译：make（构建命令见 Makefile; 也可 cc -Wall -Wextra -std=c11 -O0 -g
 //       -fsanitize=address,undefined -fno-sanitize-recover=all pitfall_catalog.c
 //       bad_demos.c -o pitfall_catalog）
+//       （必须 -O0: -O1 下 clang 会把坏版本"被测的那次内存访问"常量折叠/死代码
+//       消除, ASan 漏报 stack-buffer-overflow —— 见 Makefile 与 README 说明）
 // 运行/测试：make check（自检退出码 0）; make demos（逐个演示坏版本）
 // 验证状态：已验证（构建零警告; make check 通过、退出码 0; 10 个坏版本报告
 //           全部实测, 见 README 表格）
@@ -115,7 +117,7 @@ const pitfall_t g_pitfalls[] = {
     {"uninit",   "未初始化变量",      "编译期 -Wuninitialized",           "读栈垃圾值: 不确定值, 优化器可按任意值推理",            bad_uninit,   good_uninit},
     {"alias",    "类型双关/严格别名", "代码评审(工具抓不到)",             "*(float*)&u32 是 UB; 位模式搬运一律 memcpy",            bad_alias,    good_alias},
     {"align",    "未对齐访问",        "UBSan(-fsanitize=alignment)",      "从字节流偏移处强转读字段是 UB",                        bad_align,    good_align},
-    {"divzero",  "整数除零/INT_MIN/-1", "UBSan",                          "整数除零是 UB(浮点除零是定义行为, 得 ±inf)",           bad_divzero,  good_divzero},
+    {"divzero",  "整数除零/INT_MIN/-1", "UBSan",                          "整数除零是 UB(6.5.5p5: / 与 % 除零一律 UB, 含浮点; ±inf 仅当声明 __STDC_IEC_559__ 才定义)", bad_divzero,  good_divzero},
     {"shift",    "非法移位",          "UBSan",                            "移位位数 ≥ 位宽或为负是 UB",                           bad_shift,    good_shift},
     {"strbuf",   "字符串缓冲区溢出",  "ASan + 编译期 -Wfortify-source",   "strcpy 不检查容量: 历史漏洞重灾区",                    bad_strbuf,   good_strbuf},
 };

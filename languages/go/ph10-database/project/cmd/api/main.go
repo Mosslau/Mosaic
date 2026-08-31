@@ -44,7 +44,7 @@ func main() {
 	}
 	defer s.Close()
 
-	// 2. 缓存层：优先 Redis，探测失败降级内存缓存（缓存不致命，呼应 3.9）
+	// 2. 缓存层：优先 Redis，探测失败降级内存缓存（缓存不致命，呼应 3.11）
 	var c cache.Cache
 	if rc := cache.NewRedis(*redisAddr); pingRedis(*redisAddr) {
 		c = rc

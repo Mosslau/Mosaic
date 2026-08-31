@@ -4,6 +4,7 @@
 # 验证状态：已验证 —— 实测输出：POST 201（含 id/online）；重复 vin 409；GET 列表 200；
 #           GET 单个 200 / 不存在 404；PUT 200；DELETE 204；数据库文件在临时目录
 import tempfile
+from collections.abc import Iterator
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -47,7 +48,7 @@ class DeviceOut(DeviceIn):                 # 输出契约：含 id/online，不�
 app = FastAPI(title="设备管理 API")
 
 
-def get_session():                         # 依赖注入：每请求一个 Session，用完自动关
+def get_session() -> Iterator[Session]:      # 依赖注入：每请求一个 Session，用完自动关
     with Session(engine) as session:       # 防连接池泄漏（主文档 4.4）
         yield session
 

@@ -4,7 +4,7 @@
 // 编译：javac ex05-jmm-demo.java
 // 运行：java Ex05JmmDemo（注意是类名不是文件名）
 // 验证状态：已验证：OpenJDK 17.0.18
-// 说明：可见性实验的「非 volatile 是否能看到写」随硬件/编译器/JIT 时机波动（x86 强内存模型下本机多次实测均
+// 说明：可见性实验的「非 volatile 是否能看到写」随硬件/编译器/JIT 时机波动（本机 Apple Silicon/arm64, 弱内存模型下多次实测均
 //       未看到, 但这不是语言保证）；volatile 与 synchronized 的可见性是 JMM 保证的, 断言稳定成立。
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -21,7 +21,7 @@ class Ex05JmmDemo {
     }
 
     /** 非 volatile 标志实验：主线程 2 秒后置 stop, 看工作线程能否及时看到。
-     *  注意: x86 强内存模型 + 本机 JIT 下多次实测工作线程都看不到（循环被编译优化, 标志读被提升到循环外）,
+     *  注意: 本机（Apple Silicon/arm64, 弱内存模型）+ JIT 下多次实测工作线程都看不到（循环被编译优化, 标志读被提升到循环外）,
      *  但这依赖硬件与编译时机——本段输出如实打印, 不作硬断言 */
     static void demoPlainVisibility() throws Exception {
         System.out.println("\n=== 1. 非 volatile 标志可见性实验（观察类输出, 结论随平台波动）===");
@@ -40,7 +40,7 @@ class Ex05JmmDemo {
         boolean exited = !worker.isAlive();
         System.out.println("  主线程置 plainStop=true 后, 工作线程在 2 秒内退出: " + exited
                 + "  (counter=" + counter[0] + ")");
-        System.out.println("  本机（x86 强内存模型）多次实测均未退出——JIT 把标志读提升到循环外, 可见性失败是真实存在的");
+        System.out.println("  本机（Apple Silicon/arm64, 弱内存模型）多次实测均未退出——JIT 把标志读提升到循环外, 可见性失败是真实存在的");
         if (exited) {
             System.out.println("  注意: 本次运行看到了写——非 volatile 不保证可见, 看到与否都不违反 JMM");
         }

@@ -4,13 +4,16 @@
  * 抑制"故意触发的编译期警告"——这些警告本身就是教学点(编译期能拦一部分坑),
  * 详见 README「关于故意出错的代码」; 主文件 pitfall_catalog.c 保持零警告。
  * 验证环境：Apple clang 21.0.0（cc），macOS（Darwin arm64）
- * 编译：make（或 cc -Wall -Wextra -std=c11 -O1 -g -fsanitize=address,undefined
+ * 编译：make（或 cc -Wall -Wextra -std=c11 -O0 -g -fsanitize=address,undefined
  *       -fno-sanitize-recover=all -Wno-array-bounds -Wno-uninitialized
  *       -Wno-fortify-source -c bad_demos.c -o bad_demos.o）
+ *       （必须 -O0: -O1 下 clang 会把坏版本"被测的那次内存访问"常量折叠/死代码
+ *       消除, ASan 漏报 stack-buffer-overflow —— 见 Makefile 与 README 说明）
  * 运行：./pitfall_catalog <名字>（每个坏版本都会被对应 Sanitizer 中止并报告;
  *       uninit/alias 两个坑工具抓不到, 会"跑完"——见 README 对应说明）
  * 验证状态：已验证（10 个坏版本全部实测, 报告关键行见 README 表格;
- *           本环境缺 llvm-symbolizer, ASan 栈帧未符号化）
+ *           本环境 ASan 无法启动外部符号器(llvm-symbolizer 存在但 spawn
+ *           失败 errno 9), ASan 栈帧未符号化）
  */
 #include "pitfall.h"
 

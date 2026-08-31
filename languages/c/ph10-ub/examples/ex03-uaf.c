@@ -8,7 +8,8 @@
 // 编译：cc -Wall -Wextra -std=c11 -fsanitize=address -g ex03-uaf.c -o ex03
 // 运行：./ex03（ASan 报 heap-use-after-free 并中止, 退出码非 0）
 // 验证状态：已验证（heap-use-after-free 与 attempting double-free 两个报告均实测,
-//           见主文档 6 章示例 3; 本环境缺 llvm-symbolizer, 栈帧未符号化）
+//           见主文档 6 章示例 3; 本环境 ASan 无法启动外部符号器(llvm-symbolizer
+//           存在但 spawn 失败 errno 9), 栈帧未符号化）
 #include <stdio.h>
 #include <stdlib.h>
 

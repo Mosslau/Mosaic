@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"errors"
 	"path/filepath"
 	"testing"
@@ -20,10 +21,10 @@ func newTestStore(t *testing.T) *sqliteStore {
 
 func TestUpsertDeviceIdempotent(t *testing.T) {
 	s := newTestStore(t)
-	if err := s.UpsertDevice("car-001"); err != nil {
+	if err := s.UpsertDevice(context.Background(), "car-001"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.UpsertDevice("car-001"); err != nil { // 二次注册幂等
+	if err := s.UpsertDevice(context.Background(), "car-001"); err != nil { // 二次注册幂等
 		t.Fatalf("重复注册应幂等: %v", err)
 	}
 }
@@ -35,10 +36,10 @@ func TestBatchInsertAndLatest(t *testing.T) {
 		{DeviceID: "car-001", Lat: 31.1, Lng: 121.2, Speed: 60, TS: base},
 		{DeviceID: "car-001", Lat: 31.2, Lng: 121.3, Speed: 70, TS: base.Add(time.Minute)},
 	}
-	if err := s.BatchInsert(points); err != nil {
+	if err := s.BatchInsert(context.Background(), points); err != nil {
 		t.Fatalf("BatchInsert: %v", err)
 	}
-	latest, err := s.Latest("car-001")
+	latest, err := s.Latest(context.Background(), "car-001")
 	if err != nil {
 		t.Fatalf("Latest: %v", err)
 	}
@@ -51,7 +52,7 @@ func TestBatchInsertRollbackWholeBatch(t *testing.T) {
 	s := newTestStore(t)
 	base := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	// 先写入一条合法数据
-	if err := s.BatchInsert([]Point{{DeviceID: "car-001", Lat: 31, Lng: 121, Speed: 10, TS: base}}); err != nil {
+	if err := s.BatchInsert(context.Background(), []Point{{DeviceID: "car-001", Lat: 31, Lng: 121, Speed: 10, TS: base}}); err != nil {
 		t.Fatal(err)
 	}
 	// 批内第 2 条 device_id 为空 → 整批回滚
@@ -59,18 +60,18 @@ func TestBatchInsertRollbackWholeBatch(t *testing.T) {
 		{DeviceID: "car-002", Lat: 32, Lng: 122, Speed: 20, TS: base},
 		{DeviceID: "", Lat: 33, Lng: 123, Speed: 30, TS: base},
 	}
-	if err := s.BatchInsert(fail); err == nil {
+	if err := s.BatchInsert(context.Background(), fail); err == nil {
 		t.Fatal("含空 device_id 的批次应报错")
 	}
 	// car-002 不应存在（整体回滚）
-	if _, err := s.Latest("car-002"); !errors.Is(err, ErrDeviceNotFound) {
+	if _, err := s.Latest(context.Background(), "car-002"); !errors.Is(err, ErrDeviceNotFound) {
 		t.Errorf("car-002 应整体回滚: %v", err)
 	}
 }
 
 func TestLatestMissingDevice(t *testing.T) {
 	s := newTestStore(t)
-	if _, err := s.Latest("ghost"); !errors.Is(err, ErrDeviceNotFound) {
+	if _, err := s.Latest(context.Background(), "ghost"); !errors.Is(err, ErrDeviceNotFound) {
 		t.Errorf("want ErrDeviceNotFound, got %v", err)
 	}
 }
@@ -84,11 +85,11 @@ func TestTrajectoryTimeRange(t *testing.T) {
 		{DeviceID: "car-001", Lat: 31.2, Lng: 121.2, Speed: 60, TS: base.Add(10 * time.Minute)}, // 10 分
 		{DeviceID: "car-002", Lat: 39.9, Lng: 116.4, Speed: 0, TS: base},                        // 另一台车
 	}
-	if err := s.BatchInsert(points); err != nil {
+	if err := s.BatchInsert(context.Background(), points); err != nil {
 		t.Fatal(err)
 	}
 	// 只取 3~8 分钟区间：应命中 5 分那一条
-	got, err := s.Trajectory("car-001", base.Add(3*time.Minute), base.Add(8*time.Minute))
+	got, err := s.Trajectory(context.Background(), "car-001", base.Add(3*time.Minute), base.Add(8*time.Minute))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +97,7 @@ func TestTrajectoryTimeRange(t *testing.T) {
 		t.Errorf("trajectory = %+v, want 只有 55 那一条", got)
 	}
 	// 全区间升序：3 条，按时间排序
-	all, err := s.Trajectory("car-001", base, base.Add(1*time.Hour))
+	all, err := s.Trajectory(context.Background(), "car-001", base, base.Add(1*time.Hour))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +122,7 @@ func TestBatchInsertConcurrent(t *testing.T) {
 			for i := range pts {
 				pts[i] = Point{DeviceID: "car-x", Lat: float64(w), Lng: float64(i), Speed: 1, TS: base.Add(time.Duration(i) * time.Second)}
 			}
-			done <- s.BatchInsert(pts)
+			done <- s.BatchInsert(context.Background(), pts)
 		}(w)
 	}
 	for w := 0; w < 20; w++ {
@@ -129,7 +130,7 @@ func TestBatchInsertConcurrent(t *testing.T) {
 			t.Fatalf("并发写入失败: %v", err)
 		}
 	}
-	all, err := s.Trajectory("car-x", base, base.Add(time.Hour))
+	all, err := s.Trajectory(context.Background(), "car-x", base, base.Add(time.Hour))
 	if err != nil {
 		t.Fatal(err)
 	}

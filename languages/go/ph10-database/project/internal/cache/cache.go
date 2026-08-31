@@ -1,6 +1,6 @@
 // 来源：ph10-database 阶段项目 —— 车辆轨迹存储服务（internal/cache 包）
 // 一句话说明：最新位置旁路缓存——Cache 接口 + Redis 实现 + 内存实现（测试/降级用）。
-// api 层只依赖 Cache 接口；Redis 不可用时降级到内存缓存（呼应 3.9「缓存不致命」），
+// api 层只依赖 Cache 接口；Redis 不可用时降级到内存缓存（呼应 3.11「缓存不致命」），
 // 本项目测试用内存实现，Redis 实现另有独立测试（不可达则跳过）。
 // 验证环境：go1.25.6（darwin/arm64），依赖：github.com/redis/go-redis/v9 v9.22.0
 // 运行：

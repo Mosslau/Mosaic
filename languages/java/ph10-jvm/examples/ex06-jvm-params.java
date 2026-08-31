@@ -6,7 +6,7 @@
 //       java -Xms64m -Xmx256m -Xss256k Ex06JvmParams      （对比栈深）
 //       java -Xms64m -Xmx256m -Xss4m  Ex06JvmParams
 // 验证状态：已验证：OpenJDK 17.0.18
-// 说明：栈深数字随机器/JIT 时机波动（本机 256k→约 1500、默认→约 4.6 万、4m→约 9.8 万），
+// 说明：栈深数字随机器/JIT 时机波动（本机 256k→约 1500、默认→约 2.3~4.6 万、4m→约 7~17 万），
 //       断言只保证「深度为正」；「栈越大深度越大」的结论由多次运行对比得出, 不设精确数字断言。
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;

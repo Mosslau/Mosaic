@@ -2,7 +2,7 @@
 # 验证环境：Python 3.13.9；fastapi 0.139.1 / pyjwt 2.10.1 / httpx 0.28.1
 # 运行：python3 sol-02-auth-jwt.py（离线可跑，TestClient 验证，不起真实服务）
 # 验证状态：已验证 —— 实测输出：注册 201；重复注册 409；登录 200 返回 access_token；
-#           带 token 调 /auth/me 200；无 token 401；篡改 token 401；密码错误 401；
+#           带 token 调 /auth/me 200；无 token 401；篡改 token 401；过期 token 401；密码错误 401；
 #           注册表存储的是盐+摘要哈希（非明文）
 import hashlib
 import secrets
@@ -103,6 +103,13 @@ def main() -> None:
 
         r = client.get("/auth/me", headers={"Authorization": "Bearer " + token[:-2] + "xx"})
         print("篡改 token           ->", r.status_code, r.json())
+
+        expired = jwt.encode(                    # 伪造过期 token：exp 在过去（练习 2 验收：缺失/过期/篡改）
+            {"sub": "alice", "exp": datetime.now(timezone.utc) - timedelta(hours=1)},
+            SECRET_KEY, algorithm=ALGORITHM,
+        )
+        r = client.get("/auth/me", headers={"Authorization": f"Bearer {expired}"})
+        print("过期 token           ->", r.status_code, r.json())
 
 
 if __name__ == "__main__":

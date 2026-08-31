@@ -18,7 +18,7 @@
 | `ex02-overflow.c` | 有符号溢出 vs 无符号回绕（UB 演示）：先打印无符号回绕 `u=4294967295`（定义行为、UBSan 不报），再触发有符号溢出 | `cc -Wall -Wextra -std=c11 -fsanitize=undefined -fno-sanitize-recover=all -g ex02-overflow.c -o ex02` | `./ex02`（打印 `u = 4294967295` 后报 `signed integer overflow` 中止） | 已验证（UBSan 报 `signed integer overflow: 2147483647 + 1 cannot be represented in type 'int'`，退出码 134） |
 | `ex03-uaf.c` | use-after-free 与 double free（UB 演示）：free 后读取 + 重复 free | `cc -Wall -Wextra -std=c11 -fsanitize=address -g ex03-uaf.c -o ex03` | `./ex03`（报 `heap-use-after-free` 中止；删掉 printf 后单独复现 `attempting double-free`） | 已验证（ASan 报 `heap-use-after-free` + `READ of size 4`；double free 变体报 `attempting double-free`，退出码 134） |
 | `ex04-uninit.c` | 未初始化变量（UB 演示）：条件依赖栈垃圾值 | `cc -Wall -Wextra -std=c11 -O1 -g ex04-uninit.c -o ex04` | `./ex04`（输出不确定值）；Valgrind：`valgrind --track-origins=yes ./ex04` | 部分验证（编译期 `-Wuninitialized` 警告实测触发，`-O0`~`-O2` 均触发；运行时输出垃圾值；**Valgrind 运行时检测未在本环境验证**——本机无 Valgrind） |
-| `ex05-safe-str.c` | 安全字符串工具库 sstr（安全示例）：带容量 + 永远补 `\0`，超长输入截断而非溢出 | `cc -Wall -Wextra -std=c11 ex05-safe-str.c -o ex05` | `./ex05`（输出 `[hello, world!] len=13 cap=16`） | 已验证（`-Wall -Wextra` 零警告；加 `-fsanitize=address,undefined` 运行零报告） |
+| `ex05-safe-str.c` | 安全字符串工具库 sstr（安全示例）：带容量 + 永远补 `\0`，超长输入截断而非溢出 | `cc -Wall -Wextra -std=c11 ex05-safe-str.c -o ex05` | `./ex05`（输出 `[hello, world! 0] len=15 cap=16`，追加被截断、len 停在 cap-1） | 已验证（`-Wall -Wextra` 零警告；加 `-fsanitize=address,undefined` 运行零报告） |
 | `ex06-opt-levels.c` | 优化级别改变 UB 表现（UB 演示）：`(a+1)>a` 在 `-O0` 输出 0、`-O2` 输出 1 | `cc -Wall -Wextra -std=c11 -O0 ex06-opt-levels.c -o ex06o0`（`-O2` 同理）；UBSan 版见文件头 | `./ex06o0`（0）；`./ex06o2`（1）；`./ex06ub`（UBSan 报错中止） | 已验证（`-O0`→0、`-O1`/`-O2`→1；UBSan 报 `signed integer overflow` 并中止） |
 
 ## 说明

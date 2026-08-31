@@ -5,8 +5,10 @@
 #       输出/状态码/响应体均为本机实测。覆盖主文档 3.2（路由与 Depends）、
 #       3.4（路径/查询参数）、3.8（中间件）、4.3（依赖解析缓存）。
 import time
+from collections.abc import Awaitable, Callable
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
+from fastapi.responses import Response
 from fastapi.testclient import TestClient
 
 app = FastAPI(title="路由/依赖/中间件 Demo")
@@ -32,7 +34,8 @@ def require_admin(user: dict = Depends(require_token)) -> dict:   # 二级依赖
 
 
 @app.middleware("http")                            # 中间件：包在所有路由外（主文档 3.8）
-async def timing_middleware(request, call_next):
+async def timing_middleware(request: Request,
+                            call_next: Callable[[Request], Awaitable[Response]]) -> Response:
     start = time.perf_counter()
     response = await call_next(request)
     elapsed_ms = (time.perf_counter() - start) * 1000

@@ -12,7 +12,8 @@
 //   brew install lcov
 //   lcov --capture --directory . --output-file coverage.info
 //   genhtml coverage.info --output-directory html && open html/index.html
-// 验证状态：已验证（编译零警告 + gcov 输出 Lines executed: 88.89%，
+// 验证状态：已验证（编译零警告 + gcov 输出 Lines executed: 92.86% of 14——
+//           /usr/bin/gcov 与 Homebrew llvm-cov gcov（均 LLVM 21）实测一致，
 //           'return D' 一行显示 ##### 未覆盖）
 #include <cstdio>
 

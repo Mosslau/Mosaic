@@ -1,5 +1,5 @@
 # project/tests/test_telemetry_api.py —— 离线测试：上报 / 校验 / 查询 / 统计 / CLI 演示
-# 运行（在 project/ 目录下）：pytest -q（已验证，6 个用例全过，不依赖网络）
+# 运行（在 project/ 目录下）：pytest -q（已验证，7 个用例全过，不依赖网络）
 import sys
 from pathlib import Path
 

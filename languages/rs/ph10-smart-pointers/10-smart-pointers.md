@@ -32,7 +32,7 @@ Rust 智能指针阶段的定位是：**能根据场景选择 `Box<T>`（堆分�
 | 2014 | 解引用强制转换（deref coercion）稳定 | `&Rc<T>`/`&Box<T>` 自动变 `&T`，智能指针"用起来像引用" |
 | 2015 | Rust 1.0：`Box`/`Rc`/`Arc`/`RefCell`/`Mutex` 全部稳定 | 智能指针成为标准库一等公民 |
 | 2015-2016 | `Rc::downgrade`/`Weak` 稳定 | 循环引用问题有了官方解法 |
-| 2021 | edition 2021：借用检查与闭包语义更宽松（RFC 2229） | 智能指针 API 保持稳定，组合模式成为生态惯例 |
+| 2021 | edition 2021：闭包捕获更精确（RFC 2229） | 智能指针 API 保持稳定，组合模式成为生态惯例 |
 
 本文示例以 **Rust 2021 edition（rustc 1.92.0）** 为基线（2021 edition 的闭包捕获规则（RFC 2229）影响 `Rc`/`Arc` 组合示例中 `move` 闭包的写法——按路径精确捕获、未用变量不捕获，且全仓库代码层统一用 `rustc --edition 2021` 单文件编译；注意 `rustc` 直接编译单文件默认仍是 edition 2015，cargo 新建项目自 1.56 起默认最新 edition）。智能指针核心 API（`Box`/`Rc`/`Arc`/`RefCell`/`Weak`/`Deref`/`Drop`）自 1.0 起即稳定，是本阶段语法中最稳定的部分——无论 edition 如何演进，这些类型的语义都不会变。
 
@@ -48,6 +48,8 @@ fn main() {
     println!("{}", *b);
 
     // 递归类型：没有 Box 时 List 大小无限，编译不过（E0072，已实测）
+    // #[allow(dead_code)]：教学示例，字段仅供 derive(Debug) 打印读取，rustc 仍报「字段未读」
+    #[allow(dead_code)]
     #[derive(Debug)]
     enum List {
         Cons(i32, Box<List>),
@@ -150,7 +152,7 @@ fn main() {
 
 要点与坑：
 - **`Rc::clone` 是浅的**：只增计数不拷贝数据，O(1)；对比 `String::clone` 深拷贝 O(n)——这是共享的收益来源。
-- **坑：`Rc` 跨线程（E0277，已实测）**——`Rc` 没实现 `Send`，`thread::spawn` 里移动 `Rc` 报 "`Rc<String>` cannot be sent between threads safely"，提示改用 `Arc`。演示时注意闭包内要**真正使用** `Rc` 变量（`let _ = r` 这种写法不捕获变量、闭包为空，会绕开报错）。
+- **坑：`Rc` 跨线程（E0277，已实测）**——`Rc` 没实现 `Send`，`thread::spawn` 里移动 `Rc` 报 "`Rc<String>` cannot be sent between threads safely"（rustc 1.92.0 的 help 仅为 "the trait `Send` is not implemented for `Rc<String>`"，并不提示换类型；改用 `Arc` 是工程上的解法，不是编译器输出）。演示时注意闭包内要**真正使用** `Rc` 变量（`let _ = r` 这种写法不捕获变量、闭包为空，会绕开报错）。
 - `Rc` 默认不可变：`rc.value = 5` 直接改会报 E0594（cannot assign to data in an `Rc`，已实测）；想"多 owner 且能改"要配 `RefCell`（见 3.9）。
 
 ### 3.5 Arc\<T\>（线程安全引用计数 · 原子操作）
@@ -253,6 +255,8 @@ fn main() {
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
+// #[allow(dead_code)]：教学示例，children 字段只写入未读取，rustc 报「字段未读」
+#[allow(dead_code)]
 #[derive(Debug)]
 struct Node {
     value: i32,
@@ -323,7 +327,7 @@ fn main() {
 - **借用路径与修改路径分离**：`counter.borrow_mut()` 里 `counter` 是 `&Rc<...>`，靠 deref coercion 一路解到 `RefCell`。
 - **坑：组合层的借用冲突更隐蔽**——两个视图同时 `borrow_mut` 同样运行时 panic；排查时先确认"谁还握着 guard"。
 - 多线程版只需把 `Rc<RefCell<T>>` 换成 `Arc<Mutex<T>>`，`lock()` 替代 `borrow_mut()`——结构同构，是"先单线程写对、再换并发"的迁移路径。
-- **坑：`Arc<RefCell<T>>` 编译失败（E0277，已实测）**——`RefCell` 非 `Sync`，跨线程共享报 "`RefCell<i32>` cannot be shared between threads safely"；编译器在提醒"这是并发场景，换 `Mutex`"。
+- **坑：`Arc<RefCell<T>>` 编译失败（E0277，已实测）**——`RefCell` 非 `Sync`，跨线程共享报 "`RefCell<i32>` cannot be shared between threads safely"；rustc 1.92.0 的实际 note 是 "required for `Arc<RefCell<i32>>` to implement `Send`"，并无 `Mutex` 建议——换 `Mutex` 是工程上的解法，不是编译器提示。
 
 ### 3.10 与裸指针对比
 
@@ -372,11 +376,11 @@ fn main() {
 
 ### 4.4 Weak 如何打破循环（weak count 与强引用升级）
 
-循环引用的成因：两个强引用互相持有，各自"最后释放"都依赖对方先释放。`Weak` 的解法是把环上**至少一条边降级为非拥有引用**：创建 `Weak` 不增加 `strong_count`，所以环上强引用计数能正常归零；归零时 `T` 被 drop、内存被回收，`Weak` 变成"悬空"状态（`strong_count == 0`）。`upgrade()` 的语义是"**如果还活着，临时借一个强引用**"：它把 `strong_count` 原子加 1，成功返回 `Some(Rc)`，失败（已释放）返回 `None`。这条"先检查再升级"的路径让 `Weak` 无法复活已释放的数据，`Option` 返回值就是这层安全性的接口表达。设计准则：**有环的共享结构里至少一条边必须用 `Weak`**，且选在"从属方向"（子→父、观察者→主体）。实测验证：父先释放后，子的 `upgrade()` 返回 `None`（示例 6 前半段）；不用 `Weak` 时两个 `Rc` 互指，句柄 drop 后 `Drop` 不触发、计数停留 1/1（示例 6 后半段，故意泄漏演示）。
+循环引用的成因：两个强引用互相持有，各自"最后释放"都依赖对方先释放。`Weak` 的解法是把环上**至少一条边降级为非拥有引用**：创建 `Weak` 不增加 `strong_count`，所以环上强引用计数能正常归零；归零时 `T` 被 drop、内存被回收，`Weak` 变成"悬空"状态（`strong_count == 0`）。`upgrade()` 的语义是"**如果还活着，临时借一个强引用**"：它把 `strong_count` 加 1（Rc 的计数器是 `Cell<usize>`，非原子；仅 `Arc::upgrade` 才是原子 `fetch_add`），成功返回 `Some(Rc)`，失败（已释放）返回 `None`。这条"先检查再升级"的路径让 `Weak` 无法复活已释放的数据，`Option` 返回值就是这层安全性的接口表达。设计准则：**有环的共享结构里至少一条边必须用 `Weak`**，且选在"从属方向"（子→父、观察者→主体）。实测验证：父先释放后，子的 `upgrade()` 返回 `None`（示例 6 前半段）；不用 `Weak` 时两个 `Rc` 互指，句柄 drop 后 `Drop` 不触发、计数停留 1/1（示例 6 后半段，故意泄漏演示）。
 
 ### 4.5 Deref 解引用在编译器中的展开
 
-`*x` 在 `x: Box<T>` 时展开为 `*(x.deref())`；deref coercion 是编译器在"类型不匹配但可转换"时的**隐式插入**：把 `&U` 变成 `&T` 需要 `U: Deref<Target = T>`，可连续多跳（`&Rc<String>` → `&String` → `&str`）。`x.method()` 的方法解析同样走 deref 链：在 `x`、`*x`、`**x`……逐层查找方法直到找到。**不对称性值得注意**：不可变解引用可以多跳，可变解引用只跳一层（`&mut U` 转 `&mut T` 需 `U: DerefMut`，且不能跨过不可变层）——这是借用规则在类型层的投影：`&mut` 不能"穿过"只读层。deref coercion 不是运行时转换，**编译期就展开成普通方法调用**，零成本。
+`*x` 在 `x: Box<T>` 时展开为 `*(x.deref())`；deref coercion 是编译器在"类型不匹配但可转换"时的**隐式插入**：把 `&U` 变成 `&T` 需要 `U: Deref<Target = T>`，可连续多跳（`&Rc<String>` → `&String` → `&str`）。`x.method()` 的方法解析同样走 deref 链：在 `x`、`*x`、`**x`……逐层查找方法直到找到。**不对称性值得注意**：可变解引用同样可以多跳——链上每一层都实现 `DerefMut` 即可（实测 `&mut Box<Box<i32>>` → `&mut i32` 编译通过）；但不能穿过只实现 `Deref` 的层（如 `Rc`），`&mut Rc<T>` 无法解到 `&mut T`——这是借用规则在类型层的投影：`&mut` 不能"穿过"只读层。deref coercion 不是运行时转换，**编译期就展开成普通方法调用**，零成本。
 
 ## 5. 使用场景
 
@@ -762,7 +766,7 @@ fn main() {
 ### 关键要点
 
 1. **`Box<T>` 是最基础的智能指针**：堆分配、单指针宽度、`Drop` 自动释放；三大用途是堆上大对象、递归类型（E0072 的解法）、trait 对象 `Box<dyn Trait>`；移动后旧绑定失效（E0382）。
-2. **`Deref`/`DerefMut` 决定"像引用一样用"**：`*x` 展开为 `x.deref()`，deref coercion 让 `&Rc<T>`/`&Box<T>` 自动变 `&T`；可变解引用只跳一层，不可变可多跳。
+2. **`Deref`/`DerefMut` 决定"像引用一样用"**：`*x` 展开为 `x.deref()`，deref coercion 让 `&Rc<T>`/`&Box<T>` 自动变 `&T`；可变解引用同样可多跳（每层需 `DerefMut`），但不能穿过只实现 `Deref` 的层（如 `Rc`）。
 3. **`Drop` 保证"走时必清"**：声明逆序 drop、结构体先 `impl Drop` 体再按字段声明顺序 drop；实现 `Drop` 的类型不能把字段 move 出 `&mut self`（E0507，已实测），也不能解构整个值（E0509，已实测），还不能实现 `Copy`。
 4. **`Rc` 是单线程引用计数**：`clone` O(1) 只增计数不拷贝数据，`strong_count` 归零才释放；非原子计数导致非 `Send`，跨线程编译报 E0277（已实测）。
 5. **`Arc` 是线程安全引用计数**：原子计数（`fetch_add`/`fetch_sub`）使其 `Send + Sync`；只解决共享，可变要配 `Mutex`/`RwLock`；多线程 drop 顺序不定，只断言确定性结果。

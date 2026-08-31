@@ -18,16 +18,17 @@
 | 依赖声明 | 每个 `.o` 显式列出源文件与头文件：头文件改动才触发重编 |
 | 增量构建 | `touch` 实测：改 `app/main.cpp` 只重编 app.o、改 `core/*.cpp` 只重编 stats_utils.o、改 `stats_utils.h` 三个 .o 都重编 |
 | 测试目标 | `make test` 构建并运行断言自测 |
-| Debug/Release 双轨 | `make`（默认 `-O0` 级别）与 `make release`（追加 `-O2 -DNDEBUG`），对比见主文档 3.7 |
+| Debug/Release 双轨 | `make`（默认级别，产物在 `build/`）与 `make release`（`-O2 -DNDEBUG`，产物在独立 `build-release/`，互不污染），对比见主文档 3.7 |
 | 零警告 | `-std=c++20 -Wall -Wextra` 全目标编译零警告 |
 
 ## 验收标准
 
-- [ ] `make` 构建成功且零警告；`./build/app 1 2 3 4` 输出 `mean=2.500000 median=2.500000 stddev=1.118034 min=1.000000 max=4.000000`；无参数退出码 1
+- [ ] `make` 构建成功且零警告；`./build/app 1 2 3 4` 输出 `n=4  mean=2.500000  median=2.500000  stddev=1.118034  min=1.000000  max=4.000000`；无参数退出码 1
 - [ ] `make test` 全部断言通过、退出码 0（含空输入抛异常 4 项）
 - [ ] 增量实测：`sleep 1 && touch app/main.cpp && make` 只重编 `build/app.o`；`sleep 1 && touch core/stats_utils.h && make` 三个 `.o` 都重编；无改动时输出 `Nothing to be done`
-- [ ] `make release` 零警告且行为一致（`./build/app 2 4 4 4 5 5 7 9` 的 `stddev=2.000000`）
-- [ ] `make clean` 后仓库只剩源码与 Makefile（无 `.o`/可执行文件残留）
+- [ ] `make release` 在独立 `build-release/` 产出且零警告（`./build-release/app 2 4 4 4 5 5 7 9` 的 `stddev=2.000000`）；`make release` 每次先清空 `build-release/` 再全量重建，**重跑时编译命令确实含 `-O2 -DNDEBUG`**（命令行可见，也可 `make -n OBJDIR=build-release CXXFLAGS='-std=c++20 -Wall -Wextra -O2 -DNDEBUG' all` 复核）
+- [ ] 双轨互不污染：`make && make release` 后 `build/` 与 `build-release/` 同时存在、互不触发重建（`make` 只认 `build/`，`make release` 只认 `build-release/`）
+- [ ] `make clean` 后仓库只剩源码与 Makefile（`build/` 与 `build-release/` 均无残留）
 - [ ] 仅用标准库，无第三方依赖；无裸 new/delete（R.11）；传参与返回值遵循 F.16/F.20；空输入用异常（E.2）
 
 ## 扩展方向
@@ -40,6 +41,6 @@
 
 ## 验证环境
 
-- Apple clang 21（g++ 兼容），`-std=c++20 -Wall -Wextra`，GNU Make 3.81，全部产物在 `build/`
+- Apple clang 21（g++ 兼容），`-std=c++20 -Wall -Wextra`，GNU Make 3.81，产物在 `build/`（Release 在 `build-release/`）
 - 构建：`make`；测试：`make test`；Release：`make release`；清理：`make clean`
-- 验证状态：已验证（编译零警告 + 全部断言通过 + 增量/头依赖 touch 实测 + 双轨构建通过；验证在 /tmp 副本中进行，仓库无产物残留）
+- 验证状态：已验证（编译零警告 + 全部断言通过 + 增量/头依赖 touch 实测 + Debug/Release 双轨互不污染；验证在 /tmp 副本中进行，仓库无产物残留）

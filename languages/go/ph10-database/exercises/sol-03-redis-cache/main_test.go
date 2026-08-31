@@ -102,3 +102,29 @@ func TestInvalidateDeletesKey(t *testing.T) {
 		t.Error("删缓存后 key 应不存在")
 	}
 }
+
+// TestGetUserDegradesWhenRedisDown Redis 不可达（非 redis.Nil 故障）：降级查库，
+// 返回 DB 数据而非错误——"缓存不致命"路径的断言（与本机 Redis 是否可达无关，
+// 指向必然不可达的 127.0.0.1:1，任何环境都执行本用例）
+func TestGetUserDegradesWhenRedisDown(t *testing.T) {
+	db, err := newUserDB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	rdb := redis.NewClient(&redis.Options{Addr: "127.0.0.1:1"})
+	defer rdb.Close()
+	// 探活确认真的不可达；若意外可达则跳过（避免环境差异误报）
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := rdb.Ping(ctx).Err(); err == nil {
+		t.Skip("127.0.0.1:1 意外可达，跳过降级用例")
+	}
+	u, err := GetUser(context.Background(), db, rdb, 1)
+	if err != nil {
+		t.Fatalf("Redis 不可达时应降级查库成功，got %v", err)
+	}
+	if u.Username != "alice" {
+		t.Errorf("降级应返回 DB 数据 alice，got %q", u.Username)
+	}
+}

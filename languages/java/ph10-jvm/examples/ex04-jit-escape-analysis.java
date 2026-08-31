@@ -34,7 +34,7 @@ class Ex04JitEscapeAnalysis {
             System.out.printf("  第 %d 批: %4d ms (结果 %016x)  %s%n", batch, ms, r,
                     batch == 1 ? "← 含类加载/解释执行/JIT 编译开销" : "← 热点方法已编译, 进入稳态");
         }
-        System.out.println("  提示: 默认分层编译下预热差异小（本机实测 ~2ms → ~1ms）；用 -Xint 运行本程序, 每批约 150ms——解释执行比 JIT 慢约 50 倍");
+        System.out.println("  提示: 默认分层编译下预热差异小（本机实测 ~4ms → ~1ms）；用 -Xint 运行本程序, 每批约 165~346ms——解释执行比 JIT 慢约 50 倍（数量级）");
     }
 
     /** 逃逸对比：非逃逸 Point（可标量替换/栈上分配）vs 逃逸 Point（必须真实堆分配），用 GC 次数做证据 */

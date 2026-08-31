@@ -130,7 +130,8 @@ nm -gU /tmp/libex03.dylib      # 导出符号
 c++ -std=c++20 -Wall -Wextra ex03-main.cpp -L/tmp -lex03 -o /tmp/ex03-app
 # 3. 直接运行 → 失败：找不到库（本机实测报错如下，这是教学点不是 bug）
 /tmp/ex03-app
-#    dyld: Library not loaded: @rpath/libex03.dylib
+#    dyld[PID]: Library not loaded: @rpath/libex03.dylib
+#      Referenced from: <...> /tmp/ex03-app
 #    Reason: no LC_RPATH's found    （Linux 对应 error while loading shared libraries）
 # 4. 运行时指定查找路径 → 成功（Linux 用 LD_LIBRARY_PATH）
 DYLD_LIBRARY_PATH=/tmp /tmp/ex03-app
@@ -307,6 +308,8 @@ c++ -std=c++20 -Wall -Wextra -g -O0 main.cpp -o app_debug       # Debug
 c++ -std=c++20 -Wall -Wextra -O2 -DNDEBUG main.cpp -o app_rel   # Release
 c++ -std=c++20 -O2 -pg main.cpp -o app_prof && ./app_prof        # -pg 配 gprof（ph18 深入）
 gprof app_prof gmon.out
+# 注：-pg/gprof 是 GNU/Linux 传统链路；本机（macOS）无 gprof、-pg 不产 gmon.out，
+#     未在本环境验证——性能剖析实操到 Linux 环境或 ph18 阶段进行
 clang++ -std=c++20 -Wall -Wextra -O2 main.cpp -o app_clang       # clang 与 gcc 基本兼容
 ```
 
@@ -346,6 +349,8 @@ ulimit -c unlimited      # 默认常为 0（禁止 core），先开启
 ./app                    # 段错误 → 生成 core 文件
 gdb ./app core           # 离线分析，无需重跑
 (gdb) bt                 # 直接看崩溃时调用栈
+# 注：GDB/core dump 流程为 Linux 链路，本机（macOS）无 gdb、默认不产 core，
+#     未在本环境验证；macOS 断点调试用系统自带 lldb（命令对照见上表）
 ```
 
 要点：
@@ -361,6 +366,8 @@ gdb ./app core           # 离线分析，无需重跑
 ```bash
 c++ -std=c++20 -g leak.cpp -o leak
 valgrind --leak-check=full ./leak      # 越界/未初始化/泄漏/double-free 全报
+# 注：本机未安装 valgrind（macOS 支持滞后），未在本环境验证——内存检测在本阶段
+#     以 ASan/UBSan 为主（见下），Valgrind 建议在 Linux 环境实操
 ```
 
 **ASan（AddressSanitizer）** 是编译期插桩：编译器在每次内存访问前后插入检查，配合影子内存（见 4.5）抓越界、use-after-free、泄漏——比 Valgrind 快一个数量级，CI 标配：
@@ -540,7 +547,7 @@ UBSan 走另一条路：**检查点插桩**——在可能触发 UB 的操作（
 
 ## 6. 代码示例
 
-> 每个示例的完整文件在 [`examples/`](./examples/) 目录（ex01~ex06），验证环境 Apple clang 21（g++ 兼容），编译命令统一 `c++ -std=c++20 -Wall -Wextra`，构建产物全部输出到 /tmp 或 build/ 目录，验证后清理。全部示例已在本环境实际编译运行验证（已验证）；示例 2/3/4 是故意构造的观察对象（符号、按需抽取、运行时库查找），不是"错误代码"。调试与质量工具（GDB/ASan/tidy/coverage）的实操练习见 [`exercises/`](./exercises/) 练习 2~4，本节只放构建工具链核心的 6 个示例。
+> 每个示例的完整文件在 [`examples/`](./examples/) 目录（ex01~ex06），验证环境 Apple clang 21（g++ 兼容），编译命令统一 `c++ -std=c++20 -Wall -Wextra`，构建产物全部输出到 /tmp 或 build/ 目录，验证后清理。全部示例已在本环境实际编译运行验证（已验证）；示例 2/3/4 是故意构造的观察对象（符号、按需抽取、运行时库查找），不是"错误代码"。调试与质量工具（ASan/tidy/coverage）的实操练习见 [`exercises/`](./exercises/) 练习 2~4（GDB/LLDB 未配练习，可对照 3.11 命令对照表自行实验），本节只放构建工具链核心的 6 个示例。
 
 ### 示例 1：编译流水线四阶段（ex01-pipeline.cpp）
 
@@ -708,7 +715,7 @@ rm -rf build build-rel
 
 ### 阶段项目
 
-本阶段综合项目见 [`project/`](./project/)：**C++ 工程模板（Makefile 版）**——core 库 + app 可执行 + tests 测试三层骨架、显式源/头依赖、产物隔离 build/、`make`/`make test`/`make release`/`make clean`、增量与头文件依赖 touch 实测——roadmap 推荐项目，也是"能构建多目标项目"验收的直接产物，后续所有阶段项目都可以从它起步。roadmap 的另一个推荐项目「带 CI 的小型库」依赖远程 CI 平台（GitHub Actions/GitLab CI），本机无法验证未在 project/ 落地，作为扩展方向（见 project/README.md 扩展方向）。建议完成练习后再动手。
+本阶段综合项目见 [`project/`](./project/)：**C++ 工程模板（Makefile 版）**——core 库 + app 可执行 + tests 测试三层骨架、显式源/头依赖、产物隔离 build/（Release 独立 build-release/）、`make`/`make test`/`make release`/`make clean`、增量与头文件依赖 touch 实测——roadmap 推荐项目，也是"能构建多目标项目"验收的直接产物，后续所有阶段项目都可以从它起步。roadmap 的另一个推荐项目「带 CI 的小型库」依赖远程 CI 平台（GitHub Actions/GitLab CI），本机无法验证未在 project/ 落地，作为扩展方向（见 project/README.md 扩展方向）。建议完成练习后再动手。
 
 - [ ] 完成 exercises/ 全部练习并对照参考实现复盘
 - [ ] 独立完成 project/ 并通过其验收标准

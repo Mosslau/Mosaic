@@ -1,8 +1,9 @@
 // exercises/sol-03-memory-leak-demo.java —— 练习 3 参考实现：静态集合内存泄漏 + jmap 定位
 // 验证环境：OpenJDK 17.0.18；诊断工具 jstat/jmap/jcmd 为 JDK 自带
 // 编译：javac sol-03-memory-leak-demo.java
-// 运行：java -Xms128m -Xmx128m MemoryLeakDemoSol 80
-//       （80 = 分配到 80MB 后保持存活约 60 秒供诊断，然后继续分配直至 OOM；不传则默认 80）
+// 运行：java -Xms128m -Xmx128m MemoryLeakDemoSol 40
+//       （40 = 分配到 40MB 后保持存活约 60 秒供诊断，然后继续分配直至 OOM；不传则默认 40。
+//        实测 128m 堆下 cap 设 80 会在 ~60MB 提前 OOM、到不了保持档位，故默认取 40）
 // 验证状态：已验证：OpenJDK 17.0.18（jmap -histo 实测 byte[] 实例数/字节数远超其他类, 见 README 与下方注释）
 // 运行前提：本程序故意泄漏（静态集合持有对象, 永不释放）, 仅供诊断练习; 验证完 kill 清理进程与 hprof
 import java.util.ArrayList;
@@ -13,7 +14,7 @@ class MemoryLeakDemoSol {
     static final List<byte[]> CACHE = new ArrayList<>();
 
     public static void main(String[] args) throws Exception {
-        int capMB = args.length > 0 ? Integer.parseInt(args[0]) : 80;
+        int capMB = args.length > 0 ? Integer.parseInt(args[0]) : 40;
         int i = 0;
         while (true) {
             CACHE.add(new byte[1024 * 1024]);          // 每轮 1MB, 一直被静态集合持有

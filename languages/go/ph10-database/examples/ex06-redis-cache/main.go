@@ -68,7 +68,9 @@ func getUser(ctx context.Context, db *sql.DB, rdb *redis.Client, id int64) (*Use
 			return &u, nil
 		}
 	} else if !errors.Is(err, redis.Nil) {
-		return nil, err // Redis 故障：降级查库，缓存不致命
+		// Redis 故障：降级查库（缓存不致命）——记日志后继续走下面的查库分支，
+		// 与 project/internal/cache 的降级策略一致；回填 Set 失败同样无害（错误被忽略）
+		log.Printf("Redis 故障（%v），降级查库", err)
 	}
 	// 未命中：查库
 	var u User

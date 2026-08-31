@@ -4,6 +4,8 @@
 //       （消息实测为 "RefCell already borrowed"，payload 类型是 BorrowMutError），
 //       用 catch_unwind 捕获避免程序崩溃。
 // 注意：被注释的「裸跑」块故意运行会 panic，保持注释。
+//       运行本文件时 stderr 会打印一行 "RefCell already borrowed"（panic 钩子仍会输出，
+//       这是被 catch_unwind 捕获的 panic 消息，程序退出码为 0，正常继续）。
 // 验证环境：rustc 1.92.0（macOS arm64），零第三方依赖
 // 编译：rustc --edition 2021 sol-03-refcell-cache.rs -o /tmp/sol03
 // 运行：/tmp/sol03

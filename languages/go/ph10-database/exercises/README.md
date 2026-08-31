@@ -37,7 +37,7 @@
 
 **验收**：`go test -v` 覆盖：合法批量写入全部生效、含非法条目的批次整体回滚（事务前 COUNT == 事务后 COUNT）、重复 device_id 的 upsert 更新旧值；`go vet ./...` 零报告。
 
-> 提示：参考 examples/ex03-transaction 的事务骨架 + SQLite 的 `ON CONFLICT(device_id) DO UPDATE`（MySQL 对应 `ON DUPLICATE KEY UPDATE`，方言差异见阶段笔记 3.6）。
+> 提示：参考 examples/ex03-transaction 的事务骨架 + SQLite 的 `ON CONFLICT(device_id) DO UPDATE`（MySQL 对应 `ON DUPLICATE KEY UPDATE`，方言差异见阶段笔记 3.1）。
 
 ## 练习 3：Redis 缓存用户信息（★★）
 

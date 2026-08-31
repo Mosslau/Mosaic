@@ -1,5 +1,5 @@
 // sol-03-tidy.cpp —— 练习 3 参考实现：clang-tidy 静态检查后的"修复版"
-// 题目给出的 sloppy.cpp 含 4 处反模式（下标循环 / 冗长迭代器 / NULL / 值拷贝循环），
+// 练习 3 描述的反模式（下标循环 / 冗长迭代器 / NULL / 值拷贝循环，可自建 sloppy.cpp 复现），
 // clang-tidy 一跑即现形；本文件是 --fix 自动修复（+ 人工微调）后的干净版本，
 // 复检零警告。修复前的警告输出与命令见文件末尾注释。
 // 验证环境：Apple clang 21（g++ 兼容），clang-tidy（Homebrew LLVM 21）

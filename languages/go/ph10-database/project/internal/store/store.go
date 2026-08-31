@@ -12,6 +12,7 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -32,16 +33,16 @@ type Point struct {
 	TS       time.Time `json:"ts"`
 }
 
-// Store 轨迹数据访问接口：api 层只依赖它
+// Store 轨迹数据访问接口：api 层只依赖它（ctx 贯穿，取消/超时可传进每条 SQL）
 type Store interface {
 	// UpsertDevice 注册设备（已存在则幂等）
-	UpsertDevice(id string) error
+	UpsertDevice(ctx context.Context, id string) error
 	// BatchInsert 一批轨迹点写入（事务：全部成功才提交）
-	BatchInsert(points []Point) error
+	BatchInsert(ctx context.Context, points []Point) error
 	// Latest 查询设备最新位置（未上报过返回 ErrDeviceNotFound）
-	Latest(deviceID string) (Point, error)
+	Latest(ctx context.Context, deviceID string) (Point, error)
 	// Trajectory 查询设备某时间段的轨迹（按时间升序）
-	Trajectory(deviceID string, from, to time.Time) ([]Point, error)
+	Trajectory(ctx context.Context, deviceID string, from, to time.Time) ([]Point, error)
 }
 
 // sqliteStore SQLite 实现
@@ -76,12 +77,12 @@ func Open(path string) (*sqliteStore, error) {
 	return &sqliteStore{db: db}, nil
 }
 
-func (s *sqliteStore) UpsertDevice(id string) error {
-	_, err := s.db.Exec("INSERT INTO devices (id) VALUES (?) ON CONFLICT(id) DO NOTHING", id)
+func (s *sqliteStore) UpsertDevice(ctx context.Context, id string) error {
+	_, err := s.db.ExecContext(ctx, "INSERT INTO devices (id) VALUES (?) ON CONFLICT(id) DO NOTHING", id)
 	return err
 } // BatchInsert 事务批量写入：任一点失败整体回滚（呼应 3.6「事务边界由业务定义」）
-func (s *sqliteStore) BatchInsert(points []Point) error {
-	tx, err := s.db.Begin()
+func (s *sqliteStore) BatchInsert(ctx context.Context, points []Point) error {
+	tx, err := s.db.BeginTx(ctx, nil) // BeginTx：context 的取消/超时贯穿事务
 	if err != nil {
 		return err
 	}
@@ -91,10 +92,10 @@ func (s *sqliteStore) BatchInsert(points []Point) error {
 			return errors.New("device_id 不能为空")
 		}
 		// 设备不存在则先注册（简化：允许隐式建设备）
-		if _, err := tx.Exec("INSERT INTO devices (id) VALUES (?) ON CONFLICT(id) DO NOTHING", p.DeviceID); err != nil {
+		if _, err := tx.ExecContext(ctx, "INSERT INTO devices (id) VALUES (?) ON CONFLICT(id) DO NOTHING", p.DeviceID); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(
+		if _, err := tx.ExecContext(ctx,
 			"INSERT INTO gps_points (device_id, lat, lng, speed, ts) VALUES (?, ?, ?, ?, ?)",
 			p.DeviceID, p.Lat, p.Lng, p.Speed, p.TS.Format(time.RFC3339)); err != nil {
 			return fmt.Errorf("insert point: %w", err)
@@ -103,10 +104,10 @@ func (s *sqliteStore) BatchInsert(points []Point) error {
 	return tx.Commit()
 }
 
-func (s *sqliteStore) Latest(deviceID string) (Point, error) {
+func (s *sqliteStore) Latest(ctx context.Context, deviceID string) (Point, error) {
 	var p Point
 	var ts string
-	err := s.db.QueryRow(
+	err := s.db.QueryRowContext(ctx,
 		"SELECT device_id, lat, lng, speed, ts FROM gps_points WHERE device_id = ? ORDER BY ts DESC, id DESC LIMIT 1",
 		deviceID).Scan(&p.DeviceID, &p.Lat, &p.Lng, &p.Speed, &ts)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -119,8 +120,8 @@ func (s *sqliteStore) Latest(deviceID string) (Point, error) {
 	return p, err
 }
 
-func (s *sqliteStore) Trajectory(deviceID string, from, to time.Time) ([]Point, error) {
-	rows, err := s.db.Query(
+func (s *sqliteStore) Trajectory(ctx context.Context, deviceID string, from, to time.Time) ([]Point, error) {
+	rows, err := s.db.QueryContext(ctx,
 		"SELECT device_id, lat, lng, speed, ts FROM gps_points WHERE device_id = ? AND ts >= ? AND ts <= ? ORDER BY ts ASC",
 		deviceID, from.Format(time.RFC3339), to.Format(time.RFC3339))
 	if err != nil {

@@ -27,11 +27,11 @@ int main() {
     return 0;
 }
 
-// 本机实测 ASan 报告要点（已验证，未修符号化版）：
+// 本机实测 ASan 报告要点（已验证，Apple clang 21 + -fsanitize=address 重跑记录）：
 //   ERROR: AddressSanitizer: heap-buffer-overflow on address ...
 //   WRITE of size 4 at ... thread T0
-//   #0 ... in main+0x19c (.../sol-02-asan:arm64+0x1000009b4)
-//   Address ... is located 0 bytes to the right of 32-byte region ...
+//   #0 ... in main+0xb0 (.../sol-02-asan:arm64+0x1000008c8)
+//   Address ... is located 0 bytes after 16-byte region ...（new int[4] 即 16 字节）
 // 修复：把第 22 行循环条件 i <= n 改为 i < n；重新编译后 ASan 不再报错。
 // 注：常规环境（Linux CI 等）报告会带 file:line（如 main.cpp:25）；本机因验证
 // 沙箱限制外部符号化器无法启动，函数名与偏移仍可定位到 main。

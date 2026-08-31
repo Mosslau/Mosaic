@@ -6,7 +6,7 @@
  */
 // 验证环境：Apple clang 21.0.0（cc），macOS（Darwin arm64）
 // 编译：cc -Wall -Wextra -std=c11 ex05-safe-str.c -o ex05
-// 运行：./ex05（输出 [hello, world!] len=13 cap=16）
+// 运行：./ex05（输出 [hello, world! 0] len=15 cap=16 —— 追加被截断, len 停在 cap-1）
 // 验证状态：已验证（-Wall -Wextra 零警告; 加 -fsanitize=address,undefined 运行零报告）
 #include <stdio.h>
 #include <string.h>
@@ -45,7 +45,7 @@ int main(void) {
     sstr_t s;
     sstr_init(&s, storage, sizeof storage);
     sstr_copy(&s, "hello");
-    sstr_append(&s, ", world!");   /* 超出容量 → 被截断, 但不越界、不丢 \0 */
+    sstr_append(&s, ", world! 0123456789"); /* 19 字符 > 剩余 10 → 被截断, 但不越界、不丢 \0 */
     printf("[%s] len=%zu cap=%zu\n", s.buf, s.len, s.cap);
     return 0;
 }
