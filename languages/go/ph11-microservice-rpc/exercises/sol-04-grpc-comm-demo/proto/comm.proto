@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+// gRPC 通信 demo：两个服务互相调用——订单服务（A）在处理 GetOrder 时调用
+// 用户服务（B）拿用户名，组装完整订单响应。生成命令见 generate.sh。
+package comm;
+
+option go_package = "tenetlang/go/ph11-microservice-rpc/exercises/sol-04-grpc-comm-demo/proto;pb";
+
+// 用户服务（服务 B）
+service UserService {
+  rpc GetUser(GetUserRequest) returns (User);
+}
+
+// 订单服务（服务 A，内部调用 B）
+service OrderService {
+  rpc GetOrder(GetOrderRequest) returns (Order);
+}
+
+message GetUserRequest {
+  int64 id = 1;
+}
+
+message User {
+  int64  id = 1;
+  string name = 2;
+  string email = 3;
+}
+
+message GetOrderRequest {
+  int64 id = 1;
+}
+
+message Order {
+  int64  id = 1;
+  int64  user_id = 2;
+  string user_name = 3; // 由订单服务调用用户服务组装
+  int64  amount = 4;
+}

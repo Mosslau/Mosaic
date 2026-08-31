@@ -1,0 +1,25 @@
+# project/pyproject.toml —— 依赖声明 + ruff / pytest 配置
+[project]
+name = "device-manager"
+version = "0.1.0"
+description = "ph11 阶段项目：设备管理后端（数据层）"
+requires-python = ">=3.11"
+# 核心零第三方依赖：sqlite3 标准库 + 进程内 TTLCache；
+# redis 缓存变体见 README「扩展方向」（redis-py 已在验证环境安装）
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
