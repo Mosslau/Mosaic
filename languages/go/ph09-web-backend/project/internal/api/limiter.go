@@ -1,5 +1,6 @@
 // 来源：ph09-web-backend 阶段项目 —— 车辆数据上报 API（internal/api 包）
-// 一句话说明：每设备固定窗口限流器——单机实现（map + Mutex），分布式（Redis 令牌桶）见 ph10。
+// 一句话说明：每设备窗口限流器（滑动时间窗日志：按时间戳剪枝计数）——单机实现（map + Mutex），
+// 分布式（Redis 令牌桶）见 ph10。
 // 验证环境：go1.25.6（darwin/arm64），仅标准库
 // 运行：
 //
@@ -13,7 +14,7 @@ import (
 	"time"
 )
 
-// deviceLimiter 按设备 ID 的固定窗口限流器
+// deviceLimiter 按设备 ID 的窗口限流器（滑动时间窗日志）
 type deviceLimiter struct {
 	mu     sync.Mutex
 	hits   map[string][]time.Time // key: device_id → 窗口内上报时间戳

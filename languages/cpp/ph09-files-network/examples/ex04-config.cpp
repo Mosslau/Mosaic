@@ -23,6 +23,7 @@ public:
         std::ifstream in(path);
         if (!in) throw ConfigError(path, 0, "cannot open file");
         Config cfg;
+        cfg.file_ = path;
         std::string raw;
         int line_no = 0;
         while (std::getline(in, raw)) {
@@ -36,6 +37,7 @@ public:
             const std::string key = trim(line.substr(0, eq));
             const std::string val = trim(line.substr(eq + 1));
             cfg.values_[key] = val;
+            cfg.lines_[key] = line_no;          // 记录键定义行号（类型错误报错用）
         }
         return cfg;
     }
@@ -45,8 +47,10 @@ public:
         try {
             return std::stoi(it->second);
         } catch (const std::exception&) {
-            throw ConfigError("", 0, "key '" + key + "' value '" + it->second +
-                                         "' is not an int");
+            const auto ln = lines_.find(key);
+            throw ConfigError(file_, ln == lines_.end() ? 0 : ln->second,
+                              "key '" + key + "' value '" + it->second +
+                                  "' is not an int");   // 类型错误同样带 文件:行号
         }
     }
     std::string get_str(const std::string& key, std::string def) const {
@@ -60,6 +64,8 @@ private:
         const size_t e = s.find_last_not_of(" \t\r\n");
         return s.substr(b, e - b + 1);
     }
+    std::string file_;                          // 配置文件路径（错误消息用）
+    std::map<std::string, int> lines_;          // 键 → 定义行号
     std::map<std::string, std::string> values_;
 };
 

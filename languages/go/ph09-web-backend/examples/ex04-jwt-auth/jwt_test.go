@@ -76,11 +76,17 @@ func TestVerifyMalformed(t *testing.T) {
 	}
 }
 
+// benchSink 包级变量承接 benchmark 结果，防止编译器把无副作用的签发循环整体优化掉
+// （ph08 示例 5 的包级 sink 做法，见 ph08-testing/examples/ex05-benchmark-cover）
+var benchSink string
+
 // BenchmarkSignJWT 签发性能：记录 ns/op 与 allocs/op（教学对照用，见 examples/README.md）
 func BenchmarkSignJWT(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		if _, err := signJWT(map[string]any{"username": "admin"}, []byte(testSecret), time.Hour); err != nil {
+		token, err := signJWT(map[string]any{"username": "admin"}, []byte(testSecret), time.Hour)
+		if err != nil {
 			b.Fatal(err)
 		}
+		benchSink = token
 	}
 }

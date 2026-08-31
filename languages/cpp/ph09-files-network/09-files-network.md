@@ -17,11 +17,11 @@
 | 进程与线程 | fork/exec/waitpid、与 std::thread 的取舍 |
 | 动态库与插件 | dlopen/dlsym、extern "C"、稳定接口与 ABI |
 
-**范围边界**：本阶段承接 ph08 并发阶段——多线程程序要把日志刷盘、socket 收发放进独立线程；这个阶段只涉及文件 IO、文件系统、配置解析、阻塞 socket 网络编程、进程与动态库插件机制，**不涉及构建调试工具链（ph10）、C++ 标准/编译器可移植性（ph11）、对象生命周期深入（ph12）、ABI 与插件机制深入（ph19）和性能优化（ph18）** — 那些是后续阶段的内容；epoll/io_uring 异步 IO 与高性能网络框架也不展开——本阶段用阻塞 socket + 超时把协议写对，是异步化的前提，异步化留给 ph18 性能优化阶段与 ph22 存储引擎阶段的 IO 密集场景。
+**范围边界**：本阶段承接 ph08 并发阶段——多线程程序要把日志刷盘、socket 收发放进独立线程；这个阶段只涉及文件 IO、文件系统、配置解析、阻塞 socket 网络编程、进程与动态库插件机制，**不涉及构建调试工具链（ph10）、C++ 标准/编译器可移植性（ph11）、对象生命周期深入（ph12，目录待建）、ABI 与插件机制深入（ph19，目录待建）和性能优化（ph18，目录待建）** — 那些是后续阶段的内容；epoll/io_uring 异步 IO 与高性能网络框架也不展开——本阶段用阻塞 socket + 超时把协议写对，是异步化的前提，异步化留给 ph18 性能优化阶段与 ph22 存储引擎阶段（目录待建）的 IO 密集场景。
 
 ## 2. 来源与演变
 
-文件 IO 是 C++ 最老的能力之一：C++98 把 iostream 家族（源自 AT&T 实验室的 streams 库）纳入标准，`fstream` 在 C stdio 之上提供类型安全的流式读写；但路径操作、目录遍历长期缺席，只能回到 POSIX 或平台 API。转折在 C++17：**`std::filesystem` 正式入标准**（源于 Boost.Filesystem），路径拼接、遍历、复制第一次有了跨平台标准写法。网络与配置的标准化走了另一条路：**POSIX socket（BSD sockets，1983 年）**至今仍是 Linux 系统编程的事实标准，C++ 标准迟迟没有网络库，社区用 **Boost.Asio**（2003 年起）填补跨平台异步 IO 空白；JSON 同样不在标准内，**nlohmann/json**（2013 年起）凭"单头文件 + 现代 C++ 风格"成为事实标准，HTTP 客户端常直接依赖 libcurl。主线是：**标准库管文件与流，系统调用与成熟生态管网络与配置**——网络库（std::net，基于 Asio）至今仍在 C++26 提案中推进。
+文件 IO 是 C++ 最老的能力之一：C++98 把 iostream 家族（源自 AT&T 实验室的 streams 库）纳入标准，`fstream` 在 C stdio 之上提供类型安全的流式读写；但路径操作、目录遍历长期缺席，只能回到 POSIX 或平台 API。转折在 C++17：**`std::filesystem` 正式入标准**（源于 Boost.Filesystem），路径拼接、遍历、复制第一次有了跨平台标准写法。网络与配置的标准化走了另一条路：**POSIX socket（BSD sockets，1983 年）**至今仍是 Linux 系统编程的事实标准，C++ 标准迟迟没有网络库，社区用 **Boost.Asio**（2003 年起）填补跨平台异步 IO 空白；JSON 同样不在标准内，**nlohmann/json**（2013 年起）凭"单头文件 + 现代 C++ 风格"成为事实标准，HTTP 客户端常直接依赖 libcurl。主线是：**标准库管文件与流，系统调用与成熟生态管网络与配置**——网络库（std::net，基于 Asio）未随 C++26（2026 年发布）落地，标准化仍在推进（目标 C++29）。
 
 | 阶段 | 代表 | 贡献 |
 |------|------|------|
@@ -30,7 +30,7 @@
 | 2003 | Boost.Asio | 跨平台异步 IO 库，成为 std::net 提案的基础 |
 | 2013 | nlohmann/json | 单头文件 JSON 库，C++ JSON 生态事实标准 |
 | C++17 | ISO C++17 | std::filesystem 入标准（源自 Boost.Filesystem） |
-| C++26 提案 | std::net | 基于 Asio 的 TCP 原语，网络库标准化推进中 |
+| C++29 提案 | std::net | 基于 Asio 的 TCP 原语，未入 C++26（2026 发布），标准化推进中 |
 
 本文示例以 **C++20** 为基线（std::filesystem 自 C++17 引入、C++20 下已稳定成熟；socket/系统调用为 POSIX API，不随 C++ 版本变化），验证工具链 Apple clang 21（g++ 兼容），编译选项统一 `-std=c++20 -Wall -Wextra`。文件 IO 与 socket 的接口自定形以来高度稳定——这个阶段的语法是 C++ 中最稳定的部分，示例代码用 C++17 特性也能编译，统一按 C++20 编译是为了与 ph08/ph10 阶段保持一致。
 
@@ -41,7 +41,7 @@
 `std::ifstream` / `std::ofstream` / `std::fstream` 是文件流三件套，RAII 设计——构造即打开、析构自动关闭。**流对象携带错误状态**（goodbit/failbit/badbit/eofbit），打开失败不抛异常而是置 failbit，必须显式检查。
 
 ```cpp
-// 完整可运行版见 examples/ex01-logfs.cpp（已验证：Apple clang 21，-std=c++20 -Wall -Wextra）
+// 文件流读写最小演示；LogFile 追加写的完整实现见 examples/ex01-logfs.cpp（已验证：Apple clang 21，-std=c++20 -Wall -Wextra）
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
@@ -73,7 +73,7 @@ int main() {
 二进制 IO 用 `read(char*, n)` / `write(const char*, n)`，把**内存字节原样搬进文件**，适合序列化紧凑结构、索引文件、WAL 日志。注意结构体存在**内存填充（padding）**，多字节整数有**字节序（endianness）**问题。
 
 ```cpp
-// 完整可运行版见 examples/ex05-filexfer.cpp（已验证：Apple clang 21，-std=c++20 -Wall -Wextra）
+// Record 二进制读写演示（本片段可直接编译运行）；分块读写与校验的完整实现见 examples/ex05-filexfer.cpp（已验证：Apple clang 21，-std=c++20 -Wall -Wextra）
 #include <cstdint>
 #include <fstream>
 #include <iostream>
@@ -91,8 +91,11 @@ int main() {
     in.seekg(0, std::ios::end);
     std::streamsize size = in.tellg();
     in.seekg(0);
-    std::vector<Record> loaded(static_cast<size_t>(size) / sizeof(Record));
-    in.read(reinterpret_cast<char*>(loaded.data()), size);
+    const size_t count = static_cast<size_t>(size) / sizeof(Record);  // 只读完整记录数
+    std::vector<Record> loaded(count);
+    // 按 count*sizeof(Record) 读：文件尾部的不完整记录直接忽略，避免 read 越过缓冲
+    in.read(reinterpret_cast<char*>(loaded.data()),
+            static_cast<std::streamsize>(count * sizeof(Record)));
     std::cout << "records=" << loaded.size() << "\n";
     return 0;
 }
@@ -109,7 +112,7 @@ int main() {
 `std::filesystem` 提供跨平台路径与目录操作：路径拼接用 `operator/`、`create_directories` 递归建目录、`directory_iterator` 遍历、`copy`/`remove_all` 复制删除。每个操作都有**抛异常版**和 **`std::error_code` 版**两个重载。
 
 ```cpp
-// 完整可运行版见 examples/ex06-fswalk.cpp（已验证：Apple clang 21，-std=c++20 -Wall -Wextra）
+// filesystem 最小演示；目录遍历与复制的完整实现见 examples/ex06-fswalk.cpp（已验证：Apple clang 21，-std=c++20 -Wall -Wextra）
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -157,6 +160,7 @@ public:
         std::ifstream in(path);
         if (!in) throw ConfigError(path, 0, "cannot open file");
         Config cfg;
+        cfg.file_ = path;
         std::string raw;
         int line_no = 0;
         while (std::getline(in, raw)) {
@@ -166,7 +170,9 @@ public:
             auto eq = line.find('=');
             if (eq == std::string::npos)
                 throw ConfigError(path, line_no, "expected key=value, got: " + line);
-            cfg.values_[trim(line.substr(0, eq))] = trim(line.substr(eq + 1));
+            const std::string key = trim(line.substr(0, eq));
+            cfg.values_[key] = trim(line.substr(eq + 1));
+            cfg.lines_[key] = line_no;                        // 记录键定义行号
         }
         return cfg;
     }
@@ -175,8 +181,10 @@ public:
         if (it == values_.end()) return def;
         try { return std::stoi(it->second); }
         catch (const std::exception&) {
-            throw ConfigError("", 0, "key '" + key + "' value '" + it->second +
-                                     "' is not an int");
+            const auto ln = lines_.find(key);
+            throw ConfigError(file_, ln == lines_.end() ? 0 : ln->second,
+                              "key '" + key + "' value '" + it->second +
+                                  "' is not an int");        // 类型错误同样带 文件:行号
         }
     }
 private:
@@ -186,6 +194,8 @@ private:
         size_t e = s.find_last_not_of(" \t\r\n");
         return s.substr(b, e - b + 1);
     }
+    std::string file_;                          // 配置文件路径（错误消息用）
+    std::map<std::string, int> lines_;          // 键 → 定义行号
     std::map<std::string, std::string> values_;
 };
 ```
@@ -201,7 +211,7 @@ private:
 POSIX socket 用裸 `int fd` 表达连接，**必须用 RAII 类封装**：构造时拿 fd、析构时 `close()`、禁拷贝允移动。核心流程：服务端 `socket → bind → listen → accept`，客户端 `socket → connect`，之后双方 `recv`/`send`（完整流程见 examples/ex02-echo.cpp）。
 
 ```cpp
-// 完整可运行版见 examples/ex02-echo.cpp（已验证：Apple clang 21，-std=c++20 -Wall -Wextra）
+// Socket RAII 封装最小演示；完整 echo 流程见 examples/ex02-echo.cpp（已验证：Apple clang 21，-std=c++20 -Wall -Wextra）
 #include <iostream>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -296,9 +306,11 @@ int main() {
     hints.ai_socktype = SOCK_STREAM;
     struct addrinfo* res = nullptr;
     if (::getaddrinfo("example.com", "80", &hints, &res) != 0) return 1;  // DNS
-    int fd = ::socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-    if (fd < 0 || ::connect(fd, res->ai_addr, res->ai_addrlen) < 0) return 1;
-    ::freeaddrinfo(res);
+    const int fd = ::socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+    if (fd < 0) { ::freeaddrinfo(res); return 1; }        // 出错路径同样要释放 res
+    const int ok = ::connect(fd, res->ai_addr, res->ai_addrlen);
+    ::freeaddrinfo(res);                                   // 用完即释放
+    if (ok < 0) { ::close(fd); return 1; }
     std::string req = "GET / HTTP/1.1\r\nHost: example.com\r\nConnection: close\r\n\r\n";
     ::send(fd, req.data(), req.size(), 0);
     char buf[4096];
@@ -313,7 +325,7 @@ int main() {
 
 - **请求行三要素**：方法、路径（含查询串）、版本，行尾 `\r\n`；头部以空行（`\r\n\r\n`）结束
 - **响应体长度看 `Content-Length` 头**——要读完整响应必须解析头部、按长度循环 recv（粘包实战）；`Connection: close` 可简化：读到关闭即结束
-- **坑：一次 recv 拿不到完整响应**——上面只读一次是教学简化；**生产用 libcurl**（`-lcurl`）处理重定向、TLS、超时、cookie，手写 HTTP 只用于学习和极简内部协议（server 侧见 examples/ex03-http.cpp）
+- **坑：一次 recv 拿不到完整响应**——上面只读一次是教学简化（服务端同样为聚焦解析主题只读一次请求，见 §6 示例 3 代码注释）；**生产用 libcurl**（`-lcurl`）处理重定向、TLS、超时、cookie，手写 HTTP 只用于学习和极简内部协议（server 侧见 examples/ex03-http.cpp）
 
 ### 3.8 Linux 系统调用封装（open/read/write RAII）
 
@@ -427,7 +439,7 @@ iostream 的读写不直接碰系统调用，而是走**内存缓冲（streambuf
 | `sync_with_stdio(true)` | true | 允许与 C stdio（printf/scanf）混用，代价是每次操作同步、性能大降 |
 | `std::endl` | — | 输出换行 + flush；高频输出用它性能差一个数量级 |
 
-性能关键：**`std::ios::sync_with_stdio(false)` + 用 `'\n'` 代替 `endl`** 让 iostream 吞吐接近 C stdio。flush 语义要分清：`flush()` 把用户缓冲交给内核（page cache），**不等于落盘**——要保证断电不丢数据必须 `fsync`（POSIX 封装里做，见 3.8）。此外流状态（failbit/badbit）是**粘滞的**：一旦置位后续操作全部短路，必须 `clear()` 才恢复——"IO 失败必须显式处理"的底层原因：错误会静默扩散到所有后续读写。
+性能关键：**`std::ios::sync_with_stdio(false)` + 用 `'\n'` 代替 `endl`** 让 iostream 吞吐接近 C stdio。flush 语义要分清：`flush()` 把用户缓冲交给内核（page cache），**不等于落盘**——要保证断电不丢数据必须 `fsync`（可仿照 3.8 的 PosixFile 自行封装 `fsync(fd)` 调用）。此外流状态（failbit/badbit）是**粘滞的**：一旦置位后续操作全部短路，必须 `clear()` 才恢复——"IO 失败必须显式处理"的底层原因：错误会静默扩散到所有后续读写。
 
 ### 4.2 socket 的阻塞与超时（SO_RCVTIMEO、非阻塞 + poll）
 
@@ -468,7 +480,7 @@ length-prefix 的收包状态机：**读满 4 字节头 → 解析长度 L → �
 
 ### 4.4 动态库符号解析与 ABI 稳定性
 
-`dlopen` 的底层是 **ELF 动态链接**：可执行文件与 .so 各自携带**动态符号表**（.dynsym），符号引用在**加载时/首次调用时**解析——`RTLD_LAZY` 首次调用才解析（经 GOT/PLT 跳板），`RTLD_NOW` 加载即全部解析（失败立即可报）。C++ 函数名经过**名字修饰**变成 `_Z…` 形式，`extern "C"` 就是告诉编译器"别修饰"。
+`dlopen` 的底层是 **ELF 动态链接**：可执行文件与 .so 各自携带**动态符号表**（.dynsym），符号引用在**加载时/首次调用时**解析——`RTLD_LAZY` 首次调用才解析（经 GOT/PLT 跳板），`RTLD_NOW` 加载即全部解析（失败立即可报）。macOS 为 Mach-O 格式、由 dyld 负责加载与符号解析，机制同理。C++ 函数名经过**名字修饰**变成 `_Z…` 形式，`extern "C"` 就是告诉编译器"别修饰"。
 
 **ABI（Application Binary Interface）**是比源码接口更脆弱的契约：源码兼容（重编译能过）≠ 二进制兼容（不重编译直接换 .so 能跑）。常见 ABI 破坏因素：
 
@@ -499,8 +511,8 @@ length-prefix 的收包状态机：**读满 4 字节头 → 解析长度 L → �
 
 - **构建、调试与工具链**（ph10 构建、调试与工具链阶段）：CMake 深入、vcpkg/conan 依赖管理、Sanitizer、性能分析工具——本阶段示例全部单文件 `c++` 编译即可
 - **C++ 标准、编译器与可移植性**（ph11 C++ 标准、编译器与可移植性阶段）：平台宏、条件编译、标准库实现差异——本阶段只用 POSIX，不展开跨平台
-- **ABI 与插件机制深入**（ph19 ABI、动态库与插件机制阶段）：符号版本控制、visibility 精细管理、跨语言异常边界——本阶段掌握"接口要稳定 + 版本号"的纪律
-- **异步 IO 与高性能网络**（ph18 性能优化与 Profiling 阶段、ph22 存储引擎与数据库内核专项阶段）：epoll 事件驱动、io_uring、Boost.Asio 异步模型——本阶段用阻塞 socket + 超时把协议写对，是异步化的前提
+- **ABI 与插件机制深入**（ph19 ABI、动态库与插件机制阶段，目录待建）：符号版本控制、visibility 精细管理、跨语言异常边界——本阶段掌握"接口要稳定 + 版本号"的纪律
+- **异步 IO 与高性能网络**（ph18 性能优化与 Profiling 阶段、ph22 存储引擎与数据库内核专项阶段，均目录待建）：epoll 事件驱动、io_uring、Boost.Asio 异步模型——本阶段用阻塞 socket + 超时把协议写对，是异步化的前提
 
 ## 6. 代码示例
 
@@ -651,7 +663,7 @@ static TreeStats scan_tree(const fs::path& root) {
 7. **动态库接口要稳定**：extern "C" 关名字修饰、固定签名与结构体布局、导出版本号、跨 .so 边界只传 C 类型
 8. **系统调用要封装并处理 EINTR**：open/read/write 走 RAII 类，被信号打断要重试，errno 转可读消息
 9. **进程与线程按场景取舍**：隔离/外部程序用 fork/exec，共享数据高频协作用 std::thread；waitpid 防僵尸
-10. **阻塞模型先写对再谈性能**：本阶段用阻塞 socket + 超时把协议写对，epoll/io_uring 是 ph18/ph22 阶段的事
+10. **阻塞模型先写对再谈性能**：本阶段用阻塞 socket + 超时把协议写对，epoll/io_uring 是 ph18 性能优化与 Profiling 阶段、ph22 存储引擎与数据库内核专项阶段的事
 
 ### 跨语言对比：文件与网络编程
 

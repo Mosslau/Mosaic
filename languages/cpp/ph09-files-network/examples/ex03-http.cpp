@@ -52,6 +52,7 @@ static std::string make_response(const std::string& status,
 // 解析一个连接：读请求 → 解析请求行 → 按路径回 200 或 404
 static void handle_connection(int fd) {
     char buf[4096];
+    // 教学简化：为聚焦 HTTP 解析主题，省略 recv 循环与 Content-Length 读取（单次 recv 只够极短请求）
     ssize_t n = ::recv(fd, buf, sizeof(buf) - 1, 0);
     if (n <= 0) return;
     const std::string req(buf, static_cast<size_t>(n));

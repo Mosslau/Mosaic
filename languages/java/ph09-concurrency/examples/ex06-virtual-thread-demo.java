@@ -1,7 +1,7 @@
 // examples/ex06-virtual-thread-demo.java —— 虚拟线程 vs 平台线程：阻塞 IO 场景的并发能力对比
 // 对应主文档 6. 示例 6：1 万个各阻塞 10ms 的任务，固定 200 线程的平台池 vs 每任务一线程的虚拟线程
-// 验证环境：需 JDK 21+（newVirtualThreadPerTaskExecutor / Thread.sleep(Duration) /
-//           ExecutorService 实现 AutoCloseable 均为 Java 21 特性）
+// 验证环境：需 JDK 21+（newVirtualThreadPerTaskExecutor 为 Java 21 特性；Thread.sleep(Duration) 与
+//           ExecutorService 实现 AutoCloseable 为 Java 19 特性）
 // 编译：javac ex06-virtual-thread-demo.java
 // 运行：java VirtualThreadDemo（注意是类名不是文件名）
 // 验证状态：已验证：OpenJDK 25.0.2（Homebrew openjdk@25；虚拟线程 API 自 Java 21 正式化，

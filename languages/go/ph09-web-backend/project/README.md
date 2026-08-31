@@ -10,7 +10,7 @@
 
 - **鉴权（设备 token）**：设备用预置密钥换 JWT（HS256，24h 有效），上报接口要求 `Authorization: Bearer <token>`，且 token 归属的设备必须与路径一致（设备只能上报自己的数据）
 - **参数校验**：速度范围（0~300 km/h）、坐标合法（lat ∈ [-90,90]、lng ∈ [-180,180]）
-- **限流（每设备每分钟 N 次）**：固定窗口限流器，超限 429
+- **限流（每设备每分钟 N 次）**：窗口限流器（滑动时间窗日志），超限 429
 - **统一错误码**：全部错误走 `{code, message}`（UNAUTHORIZED / FORBIDDEN / RATE_LIMITED / INVALID_PARAM / NOT_FOUND / INVALID_JSON）
 - 数据暂存内存 map（RWMutex 保护），ph10 换真实数据库
 
@@ -40,7 +40,7 @@ project/
 - [x] 设备认证：预置密钥换 JWT（24h 有效），错误密钥 401
 - [x] 上报接口：JWT 鉴权 + 归属校验（token 设备 == 路径设备）+ 速度/坐标校验 + 限流
 - [x] 列表 / 详情只读接口（无鉴权，产品可自行加策略）
-- [x] 每设备固定窗口限流（默认每设备每分钟 10 次，可配置）
+- [x] 每设备窗口限流（滑动时间窗日志，默认每设备每分钟 10 次，可配置）
 - [x] 统一错误结构 `{code, message}`
 - [x] 内存存储并发安全（RWMutex），`go test -race ./...` 通过
 - [x] http.Server 显式超时 + SIGINT/SIGTERM 优雅关闭（实测退出码 0）

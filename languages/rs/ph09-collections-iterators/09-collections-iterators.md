@@ -13,11 +13,11 @@ Rust 集合、迭代器与函数式写法阶段的定位是：**能用 `Iterator
 | 消费器（consumer） | `collect`、`sum`、`fold`、`count`、`any`、`all`、`find`、`max`、`min` |
 | 闭包捕获 | `Fn` / `FnMut` / `FnOnce`、`move` 闭包、意外移动的坑 |
 | 惰性求值 | 适配器只构建"执行计划"，消费器触发执行 |
-| collect 的目标类型 | `Vec`、`HashMap`、`HashSet`、`String`（`FromIterator`） |
+| collect 的目标类型 | `Vec`、`HashMap`、`HashSet`、`String`、`BTreeMap`（`FromIterator`） |
 | 自定义迭代器 | 实现 `Iterator` trait 的 `next` 与 `Item` |
 | 常见函数式模式 | grouping（entry API）、折叠聚合（fold） |
 
-**本阶段边界**：承接 ph08 生命周期（迭代器与闭包中大量出现引用与生命周期，链式写法常见 `&T`、`&&T` 双层引用）；不深入智能指针与内部可变性（ph10，`Box`/`Rc`/`Arc`/`RefCell` 让共享可变成为可能）、错误处理工程化（ph11，`collect::<Result<Vec<_>,_>>` 等错误组合子）、并发与异步（ph12，rayon 并行迭代器与 `Stream` 是迭代器的并发/异步延伸）。
+这个阶段只涉及集合（Vec/HashMap/HashSet/BTreeMap）的迭代器链式处理、闭包捕获与惰性求值，**不涉及智能指针与内部可变性（`Box`/`Rc`/`Arc`/`RefCell` 让共享可变成为可能）、错误处理工程化（`collect::<Result<Vec<_>,_>>` 等错误组合子）和并发与异步（rayon 并行迭代器与 `Stream` 是迭代器的并发/异步延伸）** — 那些是 ph10/ph11/ph12 阶段的内容（ph12 目录待建）。承接 ph08 生命周期：迭代器与闭包中大量出现引用与生命周期，链式写法常见 `&T`、`&&T` 双层引用。
 
 ## 2. 来源与演变
 
@@ -30,10 +30,10 @@ Rust 迭代器的设计直接继承**函数式语言的列表处理传统**：Ha
 | 2009 | Rust 早期设计将迭代器列为核心抽象 | 函数式 list 处理（map/filter/fold）成为语言目标 |
 | 2014 | RFC 流程下 `std::iter` 与 `Iterator`/`IntoIterator` trait 定型 | for 循环与适配器链获得统一、可组合的接口 |
 | 2015 | Rust 1.0：标准库集合全部实现 `IntoIterator` | "可迭代"成为语言级约定，自定义类型可实现 `Iterator` 接入生态 |
-| 2018 | edition 2018：`impl Trait` 稳定 | 迭代器链可直接作为返回值（`impl Iterator`），无需装箱成 `Box<dyn Iterator>` |
+| 2018 | Rust 1.26：`impl Trait` 稳定（同年 edition 2018 落地） | 迭代器链可直接作为返回值（`impl Iterator`），无需装箱成 `Box<dyn Iterator>` |
 | 2021 | edition 2021：数组 `into_iter` 语义修正 | `[T; N].into_iter()` 按值产出元素，与 `Vec` 行为统一 |
 
-本文示例以 **Rust 2021 edition（rustc 1.92.0）** 为基线（2021 edition 修正了数组 `into_iter` 的按值语义，且 `impl Trait` 稳定让迭代器链可直接作返回值——本阶段部分示例依赖这两个行为），现代工具链（rustc 1.60+）默认 edition 2021，无需额外选项。代码层全部用 `rustc --edition 2021` 单文件编译验证。集合与迭代器的核心 API（`Iterator`/`IntoIterator`/`FromIterator`）自 1.0 起即稳定，是本阶段语法中最稳定的部分。
+本文示例以 **Rust 2021 edition（rustc 1.92.0）** 为基线（2021 edition 修正了数组 `into_iter` 的按值语义，且 `impl Trait` 稳定让迭代器链可直接作返回值——本阶段部分示例依赖这两个行为）。注意 `rustc` 直接编译单文件默认仍是 edition 2015，代码层统一用 `rustc --edition 2021` 编译（cargo 新建项目自 1.56 起默认最新 edition）。集合与迭代器的核心 API（`Iterator`/`IntoIterator`/`FromIterator`）自 1.0 起即稳定，是本阶段语法中最稳定的部分。
 
 ## 3. 语法与参数
 
@@ -179,7 +179,7 @@ fn main() {
 
 要点与坑：
 - **包含关系：`Fn` ⊆ `FnMut` ⊆ `FnOnce`**：能当 `Fn` 用的闭包也能传给要求 `FnMut`/`FnOnce` 的地方，反之不行——编译器按"闭包实际怎么用捕获变量"自动归类。
-- **坑：闭包意外移动**——闭包体内写 `|| name`（返回 `name` 本身）就会按值捕获并 move 出，调用后 `name` 不可再用；只想读它就写 `|| name.len()` 或 `|| name.clone()`；`move` 关键字强制按值捕获（常用于 ph12 跨线程场景）。
+- **坑：闭包意外移动**——闭包体内写 `|| name`（返回 `name` 本身）就会按值捕获并 move 出，调用后 `name` 不可再用；只想读它就写 `|| name.len()` 或 `|| name.clone()`；`move` 关键字强制按值捕获（常用于 ph12 跨线程场景，ph12 目录待建）。
 
 ### 3.5 惰性求值与链式组合
 
@@ -209,7 +209,7 @@ fn main() {
 - **链式组合的本质是"类型组合"**：每加一个适配器，迭代器类型就嵌套一层（见 4.2）；写长链时关注"每一步输入输出是什么"而不是"中间有多少个临时集合"。
 - **坑：无限迭代器**——`(0..)`、`repeat(x)`、`cycle()` 都没有终点，必须 `take(n)` 限界后再消费，否则程序挂死。
 
-### 3.6 collect 到 Vec / HashMap / HashSet / String
+### 3.6 collect 到 Vec / HashMap / HashSet / String / BTreeMap
 
 `collect` 的完整形态是 `collect::<Target>()` 或 `let target: Target = ...`：**目标类型由标注决定**（`FromIterator` 机制见 4.4）。同一个迭代器可以收集成不同集合：
 
@@ -225,8 +225,8 @@ fn main() {
     let joined: String = ['R', 'u', 's', 't'].into_iter().collect();             // String
 
     println!("{squares:?}"); // [1, 4, 9, 16, 25, 4, 9]
-    println!("{unique:?}");  // {1, 2, 3, 4, 5}
-    println!("{parity:?}");  // {0: 2, 1: 3}（键为 0/1，值为最后一个同奇偶的数）
+    println!("{unique:?}");  // 顺序不定：去重结果 {1, 2, 3, 4, 5}（HashSet 遍历顺序不保证）
+    println!("{parity:?}");  // 顺序不定：键为 0/1，值为最后一个同奇偶的数（HashMap 遍历顺序不保证）
     println!("{joined}");    // Rust
 }
 ```
@@ -234,6 +234,29 @@ fn main() {
 要点与坑：
 - **坑：collect 类型推断失败（E0283）**——不写目标类型直接 `let x = ...collect();` 会报 `error[E0283]: type annotations needed`（实测 rustc 1.92.0）；在 `let` 标注或写 `::<Vec<_>>`。看到 E0283 先补类型标注。
 - **坑：`iter()` collect 出引用集合**——`nums.iter().collect::<Vec<_>>()` 得到 `Vec<&i32>`，想要拥有值用 `into_iter()` 或 `.copied()`/`.cloned()`；**collect 到 HashMap 的前提是产出 `(K, V)` 元组**，重复键后到者覆盖先者，所以词频统计要用 `entry` API（见 3.9）。
+- **坑：HashMap 遍历顺序不确定**——`HashMap` 的哈希函数 SipHash 带**每进程随机种子**（防 HashDoS，见 ph03 4.2），迭代/打印顺序**不保证插入序、也不保证跨运行一致**：上面示例里 `parity` 的打印顺序每次运行都可能不同。需要**按序输出**时，先 `collect` 成 `Vec` 再排序（见示例 2 排行榜），或改用按键有序的 `BTreeMap`（见下）。
+
+**BTreeMap：按键有序的键值集合**（可选了解）
+
+`collect` 的目标类型不限于 `HashMap`：需要**按键序遍历**时用 `BTreeMap<K, V>`，API 与 `HashMap` 基本一致：
+
+| 维度 | `HashMap` | `BTreeMap` |
+|------|-----------|------------|
+| 遍历顺序 | 不确定（随机种子 + SipHash） | 按键从小到大有序 |
+| 底层实现 | 哈希表（SwissTable，见 ph03 4.2） | B 树（平衡搜索树） |
+| 查找复杂度 | 平均 O(1) | O(log n) |
+| 适用场景 | 默认选择：查询为主、不关心顺序 | 有序输出、区间查询（`range`） |
+
+```rust
+use std::collections::BTreeMap;
+
+fn main() {
+    let scores: BTreeMap<&str, u32> = [("bob", 85), ("alice", 90)].into_iter().collect();
+    for (name, score) in &scores {
+        println!("{name}: {score}"); // 按键序输出：alice: 90、bob: 85
+    }
+}
+```
 
 ### 3.7 自定义迭代器（实现 Iterator）简介
 
@@ -312,7 +335,7 @@ fn main() {
     for (source, _level) in logs {
         *counts.entry(source).or_insert(0) += 1;
     }
-    println!("{counts:?}"); // {"api": 3, "db": 2, "cache": 1}
+    println!("{counts:?}"); // 顺序不定：{"api": 3, "db": 2, "cache": 1} 的计数（HashMap 遍历顺序不保证）
 
     // 模式 2：折叠聚合 —— fold 把序列压成一个值
     let total = [1, 2, 3, 4].iter().fold(0, |acc, n| acc + n);
@@ -321,7 +344,7 @@ fn main() {
     // 进阶：fold 直接构建 HashMap（按首字母分组）
     let words = ["apple", "avocado", "banana", "cherry", "blueberry"];
     let buckets: HashMap<char, Vec<&str>> = words.iter().fold(HashMap::new(), |mut acc, w| {
-        let initial = w.chars().next().unwrap();
+        let initial = w.chars().next().unwrap(); // 教学简化：words 均为非空字面量，此处不会 panic；数据可能为空时应先处理 None
         acc.entry(initial).or_default().push(w);
         acc
     });
@@ -364,7 +387,7 @@ fn main() {
 
 ### 4.2 适配器的组合结构（嵌套类型，编译器优化消除）
 
-每个适配器都是一个**零大小的包装结构体**：持有"上一个迭代器 + 闭包/参数"。`(1..=20).filter(...).map(...)` 的真实类型是 `Map<Filter<RangeInclusive<i32>, 闭包A>, 闭包B>`——`map` 包住 `filter`，`filter` 包住 `RangeInclusive`。`next()` 被调用时像剥洋葱一样逐层取元素：外层 `next` 调用内层 `next`，**每一层只做自己那一点事，层与层之间没有临时存储**。优化器看到这些零大小包装与内联后的 `next`，会把嵌套"展平"成单个循环。理解这层结构的意义：**链式组合不是"先建集合 A 再建集合 B"，而是类型层面的叠加**，链条长短不增加运行时代价，只增加编译期类型复杂度。
+每个适配器都是一个**包装结构体**：持有"上一个迭代器 + 闭包/参数"；**闭包无捕获状态时包装零大小**（有捕获状态的闭包把捕获数据存进结构体，不再零大小）。`(1..=20).filter(...).map(...)` 的真实类型是 `Map<Filter<RangeInclusive<i32>, 闭包A>, 闭包B>`——`map` 包住 `filter`，`filter` 包住 `RangeInclusive`。`next()` 被调用时像剥洋葱一样逐层取元素：外层 `next` 调用内层 `next`，**每一层只做自己那一点事，层与层之间没有临时存储**。优化器看到这些零大小包装与内联后的 `next`，会把嵌套"展平"成单个循环。理解这层结构的意义：**链式组合不是"先建集合 A 再建集合 B"，而是类型层面的叠加**，链条长短不增加运行时代价，只增加编译期类型复杂度。
 
 ### 4.3 闭包捕获的三种模式与所有权转移
 
@@ -387,8 +410,9 @@ fn main() {
 | `Vec<T>` | 依次 push | 任意 `Item` |
 | `HashSet<T>` | 依次 insert（自动去重） | `Item: Hash + Eq` |
 | `HashMap<K, V>` | 依次 insert（重复键覆盖） | `Item = (K, V)` |
+| `BTreeMap<K, V>` | 按键序 insert（重复键覆盖） | `Item = (K, V)` |
 | `String` | 拼接 | `Item = char` 或 `&str` |
-| `Option<T>` / `Result<T, E>` | 短路收集 | `Item = Option<T>` / `Result<T, E>` |
+| `Option<T>` / `Result<T, E>` | 短路收集（错误组合子用法属 ph11） | `Item = Option<T>` / `Result<T, E>` |
 
 这就是为什么 `collect` 必须写类型标注：**目标类型决定语义**，编译器无法从"把元素收集起来"推断出该收集成什么。注意 `String` 的 `FromIterator<char>` 与 `Vec<char>` 的差异：同样是字符迭代器，标注不同结果不同。
 
@@ -400,7 +424,7 @@ fn main() {
 | 数据过滤与截断（保留满足条件的记录、取 Top-N） | `filter`、`take`、`skip` |
 | 统计聚合（求和、均值、最值、计数） | `sum`、`fold`、`count`、`max`/`min` |
 | 词频统计、按字段分组 | `collect` 到 HashMap + `entry` API |
-| 流式处理日志/文件行（逐行过滤 + 聚合） | `lines()` + 迭代器链（示例 4） |
+| 流式处理日志/文件行（逐行过滤 + 聚合） | `lines()` + 迭代器链（project/ 阶段项目的 `parse_log`；示例 4 用内存日志） |
 | 原地更新集合元素（批量改字段、统一加分） | `iter_mut()` |
 | 构造去重集合与映射表 | `collect` 到 `HashSet` / `HashMap` |
 | 遍历两个集合的配对关系（端口↔服务、键↔值） | `zip`、`enumerate` |
@@ -408,7 +432,7 @@ fn main() {
 **不适合**此阶段的事项：
 - 智能指针组合（`Box`/`Rc`/`Arc`/`RefCell`，ph10）：迭代器返回共享引用、内部可变等需要它们，本阶段只用借用。
 - 错误处理工程化（ph11）：`collect::<Result<Vec<_>, _>>()` 短路收集、迭代器中的 `?` 等错误组合子属于下一阶段。
-- 并发与异步流（ph12）：rayon 并行迭代器、`Stream`（迭代器的异步版）、借用跨 `.await` 的限制均未涉及；宏展开（ph15）同样不涉及。
+- 并发与异步流（ph12 目录待建）：rayon 并行迭代器、`Stream`（迭代器的异步版）、借用跨 `.await` 的限制均未涉及；宏展开（ph15 目录待建）同样不涉及。
 
 ## 6. 代码示例
 
@@ -517,7 +541,7 @@ fn main() {
         *acc.entry(w).or_insert(0) += 1;
         acc
     });
-    println!("{freq:?}"); // {"rust": 3, "go": 2, "c": 1}
+    println!("{freq:?}"); // 顺序不定：包含 rust=3、go=2、c=1（HashMap 遍历顺序不保证）
 
     // sum 只是 fold 的特例：fold(0, |acc, n| acc + n)
     let sum_fold = nums.iter().fold(0, |acc, n| acc + n);
@@ -606,7 +630,7 @@ fn main() {
 
 要点与坑：
 - 四步聚合共用一条 `abnormal`（`Vec<&LogEntry>`，零拷贝借用）：**过滤 → 分组 → 映射分档 → 折叠**，覆盖本阶段所有必会概念。
-- **`map` 产出"分档标签"再分组**是延迟分布的标准套路；`fold` 的累加器是 `HashMap<&str, (u32, u64)>`（条数 + 总延迟）。扩展方向（ph13）：`read_to_string` 读真实日志、`lines()` 逐行解析、输出 CSV。
+- **`map` 产出"分档标签"再分组**是延迟分布的标准套路；`fold` 的累加器是 `HashMap<&str, (u32, u64)>`（条数 + 总延迟）。扩展方向（ph13 目录待建）：`read_to_string` 读真实日志、`lines()` 逐行解析、输出 CSV。
 
 ### 示例 5：闭包捕获三种模式演示（Fn/FnMut/FnOnce 的编译行为）
 
@@ -690,11 +714,11 @@ fn main() {
 1. **迭代器 = `Item` + `next`**：`Iterator` trait 只有这两个必需元素，其余几十个方法全是基于 `next` 的默认实现——自定义迭代器只需写 `next`。
 2. **三种迭代方式对应三种所有权**：`iter()`（`&T`，集合保留）、`iter_mut()`（`&mut T`，原地改）、`into_iter()`（`T`，集合被消耗）；`for x in v` 等价于 `for x in v.into_iter()`。
 3. **适配器惰性、消费器触发**：`map`/`filter`/`take` 只组合"执行计划"，`collect`/`sum`/`fold` 才真正求值；无限迭代器必须用 `take` 限界；`filter` 谓词收到 `&Self::Item`（`iter()` 时是 `&&T`）。
-4. **collect 的目标类型由标注决定**（不写标注报 E0283，补 `::<Vec<_>>` 或 `let` 标注）；产出 `(K, V)` 对才能收集成 `HashMap`，重复键会覆盖，词频用 `entry` API。
+4. **collect 的目标类型由标注决定**（不写标注报 E0283，补 `::<Vec<_>>` 或 `let` 标注）；产出 `(K, V)` 对才能收集成 `HashMap`，重复键会覆盖，词频用 `entry` API；**HashMap 遍历顺序不定**，需要有序输出用 `BTreeMap` 或先排序。
 5. **fold 是万能聚合器**：`sum`/`count`/`max` 都是特例；累加器可以是数值、元组（多统计量）或集合（fold 构建 HashMap），闭包记得返回 `acc`。
 6. **闭包捕获三模式**：`Fn`（`&` 捕获）、`FnMut`（`&mut` 捕获）、`FnOnce`（按值捕获），且 `Fn ⊆ FnMut ⊆ FnOnce`；`|| name` 会把 `name` move 出环境（意外移动）。
 7. **借用冲突在迭代器中同样成立**：迭代器持有集合借用期间不能 push/remove；先收集后修改、`iter_mut` 原地改、`retain` 安全删除是三种解法。
-8. **零成本抽象**：迭代器链单态化内联成与手写循环相同的机器码，适配器是零大小嵌套类型；只有 `Box<dyn Iterator>` 才引入虚表开销。
+8. **零成本抽象**：迭代器链单态化内联成与手写循环相同的机器码，适配器是嵌套的包装类型（闭包无捕获时零大小）；只有 `Box<dyn Iterator>` 才引入虚表开销。
 9. **分组统计的标准套路**：`entry(key).or_insert(0) += 1` 一次哈希查找完成计数；`map` 分档 + `entry` 计数得到分布。
 
 ### 跨语言对比：函数式集合处理
@@ -735,7 +759,7 @@ fn main() {
 - [ ] 完成 exercises/ 全部练习并对照参考实现复盘
 - [ ] 独立完成 project/ 并通过其验收标准
 
-扩展方向（可选）：**日志流式处理**——用 `lines()` 读真实日志文件、增加时间窗口滑动聚合、按来源+时间窗口输出异常率报表（衔接 ph13 文件、网络与系统编程阶段）。
+扩展方向（可选）：**日志流式处理**——用 `lines()` 读真实日志文件、增加时间窗口滑动聚合、按来源+时间窗口输出异常率报表（衔接 ph13 文件、网络与系统编程阶段，ph13 目录待建）。
 
 ### 下一阶段
 

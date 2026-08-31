@@ -1,10 +1,12 @@
 // 来源：09-web-backend.md 第 6 章示例 1 —— 路由与 JSON API
 // 一句话说明：httptest 表驱动测试覆盖全部路由与错误路径（200/201/204/400/404/405/409）。
+// 每个请求用 newStore() 新建独立种子 store——用例间零状态污染，不依赖执行顺序（对齐 ex03/sol-01）。
 // 验证环境：go1.25.6（darwin/arm64）
 // 运行：
 //
 //	go test -v ./...
 //	go test -cover ./...
+//	go test -shuffle=on ./...   # 随机顺序下也须全过
 //
 // 验证状态：已验证（go1.25.6）
 package main
@@ -17,7 +19,7 @@ import (
 	"testing"
 )
 
-// do 辅助：构造请求并执行，返回 recorder
+// do 辅助：构造请求并执行，返回 recorder（每请求新建独立 store）
 func do(t *testing.T, method, path, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	var rdr *strings.Reader
@@ -28,7 +30,7 @@ func do(t *testing.T, method, path, body string) *httptest.ResponseRecorder {
 	}
 	req := httptest.NewRequest(method, path, rdr)
 	rec := httptest.NewRecorder()
-	newMux().ServeHTTP(rec, req)
+	newMux(newStore()).ServeHTTP(rec, req)
 	return rec
 }
 

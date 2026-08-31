@@ -59,3 +59,8 @@ languages/py/ph08-third-party/vehicle_analysis.png
 
 # ruff 缓存
 .ruff_cache/
+
+# ph09 示例/项目运行产物
+languages/c/ph09-portability/project/app.log*
+languages/c/ph09-portability/project/logdemo
+languages/cpp/ph09-files-network/project/file_sync

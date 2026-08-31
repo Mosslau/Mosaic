@@ -53,4 +53,4 @@
   - 提示：错误类继承 `std::runtime_error`，构造时拼 `file + ":" + std::to_string(line)`
 - **验收**：编译零警告；正常配置 `port=8080 workers=4` 解析正确；缺键返回默认值；含 `abc` 行的配置报 `xxx.conf:2: expected key=value` 且退出码非零
 
-> **提示**：参考实现仅作对照，先独立完成再复盘；sol-* 与 examples/ 中对应示例的实现思路不同（如级别过滤、超时、校验验证），对比两者是很好的学习材料。进阶玩法（length-prefix 帧协议、JSON 解析、fork/exec 命令执行器）见主文档第 7 章。
+> **提示**：参考实现仅作对照，先独立完成再复盘；sol-* 与 examples/ 中对应示例的实现思路不同（如 sol-01 的级别过滤、sol-04 的 verify 子命令与篡改检测、ex03 的参数化响应构造），对比两者是很好的学习材料。进阶玩法（length-prefix 帧协议、JSON 解析、fork/exec 命令执行器）见主文档第 7 章。

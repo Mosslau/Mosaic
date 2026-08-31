@@ -14,5 +14,5 @@
 
 - 五个示例一一对应主文档第 6 章的示例 1~5；文档内嵌片段摘自这些文件（为便于排版节选关键部分，完整文件以 examples/ 为准）。
 - 全部示例不含 Linux 专有 API（无 epoll、/proc 等）：ex01/03/04 纯 ISO C，ex02/05 的 POSIX 路径只用少量 POSIX 函数（usleep、getpid/access）且都收在 `#ifdef` 封装里——在 Linux/macOS/BSD 上可直接编译；`_WIN32` 分支（windows.h / process.h）需 Windows + MSVC 或 MinGW，未在本环境验证。
-- 涉及字节序的细节（ex01 中 0xCAFE 以小端序落线）不做位级处理——那是 ph12 字节序、内存对齐与二进制格式解析阶段的内容。
+- 涉及字节序的细节（ex01 中 0xCAFE 以小端序落线）不做位级处理——那是 ph12 字节序、内存对齐与二进制格式解析阶段（roadmap 第 12 节，目录待建）的内容。
 - 运行产物（`ex01`~`ex05`、app.log）一律写 /tmp 或当前运行目录，验证后清理，不入仓库。

@@ -30,7 +30,7 @@
   - 用 `fold` 构建 `HashMap<&str, u32>` 做词频统计（输入 `["rust", "go", "rust", "c", "rust", "go"]`），体会"闭包必须返回 `acc`"
   - 再写一行代码证明 `sum` 只是 `fold(0, |acc, n| acc + n)` 的特例
   - 不用裸 `unwrap`（用 `or_insert`/`or_insert(0)`）
-- **验收**：`rustc --edition 2021 sol-03-fold-aggregate.rs -o /tmp/sol03 && /tmp/sol03` 编译零警告；输出 `max=9 min=1 count=8`、`{"rust": 3, "go": 2, "c": 1}`、`sum via fold: 31`
+- **验收**：`rustc --edition 2021 sol-03-fold-aggregate.rs -o /tmp/sol03 && /tmp/sol03` 编译零警告；输出 `max=9 min=1 count=8`、`sum via fold: 31`；词频表输出包含 `rust=3`、`go=2`、`c=1` 的计数（HashMap 遍历顺序不定，不校验打印顺序）
 
 ## 练习 4：闭包捕获三种模式与意外移动（★★）
 

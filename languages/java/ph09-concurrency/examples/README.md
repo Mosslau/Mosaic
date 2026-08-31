@@ -27,7 +27,7 @@ java CounterDemo
 ## 验证状态
 
 - ex01 ~ ex05：已在本环境用 OpenJDK 17.0.18 编译运行验证（零错误，自检断言全部通过）。
-- ex06：**已验证：OpenJDK 25.0.2**（Homebrew openjdk@25）——虚拟线程 API 自 Java 21 正式化（`newVirtualThreadPerTaskExecutor`、`ExecutorService` 实现 `AutoCloseable`），OpenJDK 17 无法编译本文件，故在 JDK 25 上验证；平台池约 500ms、虚拟线程约 10~30ms，具体毫秒数随机器而异，但「虚拟线程远快于固定线程池」与完成数 10000/10000 稳定可复现。
+- ex06：**已验证：OpenJDK 25.0.2**（Homebrew openjdk@25）——虚拟线程 API 自 Java 21 正式化（`newVirtualThreadPerTaskExecutor` 为 21+；`ExecutorService` 实现 `AutoCloseable` 为 19+），OpenJDK 17 无法编译本文件，故在 JDK 25 上验证；实测平台池约 590ms、虚拟线程约 42ms（具体毫秒数随机器波动），但「虚拟线程远快于固定线程池」与完成数 10000/10000 稳定可复现。
 
 两点说明：
 

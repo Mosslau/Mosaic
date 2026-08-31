@@ -433,12 +433,14 @@ func TestAdd(t *testing.T) {
 ### 示例
 
 ```go
-r := gin.Default()
-r.GET("/ping", func(c *gin.Context) {
-    c.JSON(200, gin.H{"message": "pong"})
+mux := http.NewServeMux()
+mux.HandleFunc("GET /ping", func(w http.ResponseWriter, r *http.Request) {
+    w.Write([]byte("pong"))
 })
-r.Run(":8080")
+http.ListenAndServe(":8080", mux)
 ```
+
+本阶段示例全部用标准库 net/http（Go 1.22 方法路由）；Gin / Echo / Fiber / Chi 的选型背景与对比见阶段笔记第 2 章。
 
 ### 练习
 

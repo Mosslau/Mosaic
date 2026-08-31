@@ -36,7 +36,7 @@ Python 数据分析阶段的目标是：**能用 NumPy/Pandas 读取并清洗 CS
 | 2020 | pandas 1.0（API 稳定） |
 | 2023 | pandas 2.0（PyArrow 后端、copy-on-write 演进） |
 
-本文示例以 **numpy 2.3.5 / pandas 2.3.3 / matplotlib 3.10.6** 为基线（本机验证工具链实测版本，2025 年初当前稳定版），验证工具链为 Python 3.13.9 + numpy 2.3.5 + pandas 2.3.3 + matplotlib 3.10.6（openpyxl 3.1.5 / tabulate 0.9.0 用于导出；plotly 6.3.0 为可选的交互图，本文不展开其 API）。pandas 2.x 的这套 API 是数据科学生态中最稳定的部分，个别差异以官方文档为准——比如 pandas 3.0 起 copy-on-write 成为默认（见 4.3），链式赋值将彻底失效。
+本文示例以 **numpy 2.3.5 / pandas 2.3.3 / matplotlib 3.10.6** 为基线（本机验证工具链实测版本，2025 年发布版本），验证工具链为 Python 3.13.9 + numpy 2.3.5 + pandas 2.3.3 + matplotlib 3.10.6（openpyxl 3.1.5 / tabulate 0.9.0 用于导出；plotly 6.3.0 为可选的交互图，本文不展开其 API）。pandas 2.x 的这套 API 是数据科学生态中最稳定的部分，个别差异以官方文档为准——比如 pandas 3.0 起 copy-on-write 成为默认（见 4.3），链式赋值将彻底失效。
 
 ## 3. 语法与参数
 
@@ -110,7 +110,7 @@ print(df["speed"].astype(float))                # 类型转换
 要点：
 
 - 清洗四件事：**缺失值（NaN）、重复行、异常值、类型/格式**。缺失值处理三选：`dropna()` 删行（数据量大、缺失少）、`fillna(统计量)` 填充、保留 NaN 让统计函数自动跳过。
-- **坑（NaN 传染）**：NaN 参与运算会传染——`df["speed"].sum()` 默认跳过 NaN，但把含 NaN 的列直接丢给 `np.mean` 会返回 NaN；`df["speed"].mean()` 会跳过。统计聚合前先确认缺失处理策略。
+- **坑（NaN 传染）**：NaN 在纯 ndarray 运算里会传染，但 pandas 的 `mean`/`sum` 默认 `skipna=True`——`df["speed"].sum()` 跳过 NaN；`np.mean(含 NaN 的 Series)` 也经 `__array_function__` 委托给 `Series.mean`，返回 87.5 这类正常值；只有转成纯 ndarray（`df["speed"].to_numpy()`）再丢给 `np.mean` 才得 NaN。统计聚合前先确认缺失处理策略。
 - 异常值：先用 `describe()`/直方图看分布，再 `clip(lower, upper)` 截断或布尔条件过滤（见示例 2）。
 - 类型转换：`astype()`；"80 km/h" 这类脏字符串要先 `str.replace` 清理再转数值。
 
@@ -136,7 +136,7 @@ print(df.reset_index(drop=True))        # 恢复 0..n-1 连续索引
 
 - **DataFrame 操作要关注索引**（roadmap 必会概念）：`iloc` 按位置、`loc` 按标签——筛选后两者指向可能不同；`reset_index(drop=True)` 是筛选/排序/分组后的常规收尾。
 - 布尔掩码：`df["speed"] > 70` 生成布尔 Series，True 保留 False 丢弃；多条件用 `&`（与）、`|`（或）、`~`（非），**每个条件必须加括号**：`df[(df["speed"] > 70) & (df["soc"] < 80)]`。
-- **坑（链式赋值 SettingWithCopyWarning）**：`df[df["speed"] > 70]["soc"] = 0` 触发警告且**可能不生效**——改数据一律 `df.loc[df["speed"] > 70, "soc"] = 0` 单步完成（原理见 4.3）。
+- **坑（链式赋值不可靠）**：`df[df["speed"] > 70]["soc"] = 0` 这类链式赋值的行为**不可依赖**——在本机 pandas 2.3.3 上会触发 `SettingWithCopyWarning` 且赋值**静默丢写**（落在临时副本上，原 `df` 不变）；在部分 dtype 布局下甚至不警告直接丢写（比报错更隐蔽）；pandas 3.0 起 CoW 默认开启后彻底失效——改数据一律 `df.loc[df["speed"] > 70, "soc"] = 0` 单步完成（原理见 4.3）。
 
 ### 3.5 分组统计（groupby·agg·transform）
 
@@ -188,7 +188,7 @@ print(left.join(right2, on="vehicle_id"))              # join：按索引连接
 
 - 四种连接：`how="inner"`（默认，交集）/`"left"`/`"right"`/`"outer"`（并集）。join 是"关系型数据库思维"——**多表先想清楚主键（key）和保留方向**。
 - `concat` 管"堆叠"：`axis=0` 加行、`axis=1` 加列；`merge` 按列连接，`join` 按索引连接。
-- **坑（索引对齐陷阱）**：`merge` 按列匹配、不要求索引一致，但 `concat`/`join`/算术运算**按索引对齐**——两个 DataFrame 索引不同会错位拼出 NaN 行；拼接前统一 `reset_index(drop=True)`。
+- **坑（索引对齐陷阱）**：`merge` 按列匹配、不要求索引一致；`concat` 仅 **axis=1（横向）** 按索引对齐、索引不同会错位拼出 NaN 行（axis=0 纵向堆叠只保留原索引、不产生 NaN）；`join` 与算术运算同样按索引对齐——拼接前统一 `reset_index(drop=True)`。
 
 ### 3.7 透视表与时间序列（pivot_table·resample·日期索引）
 
@@ -218,8 +218,8 @@ print(ts["speed"].rolling(2).mean())                 # 滚动均值
 
 - 透视表把"长表"变"宽表"：`index`（行维）、`columns`（列维）、`values`（值）、`aggfunc`（聚合）；`groupby` 与 `pivot_table` 是同一能力的两种视角。
 - 时间序列三步：`pd.to_datetime` 解析 → `set_index` 变成日期索引 → `resample`（降采样聚合）/`rolling`（滚动窗口）/时间切片。
-- **坑（时区）**：`to_datetime` 解析带时区字符串（`+08:00`）得到带时区索引，与 naive 索引比较/拼接会报错——日志数据统一先转 UTC 或统一去时区再分析（呼应 ph06 时区纪律）。
-- **坑（resample 规则）**：`"2min"`/`"1H"`/`"D"`/`"W"` 是偏移别名、大小写敏感（`h` 会报错）；`resample` 要求**日期索引**且已排序。
+- **坑（时区）**：`to_datetime` 解析带时区字符串（`+08:00`）得到带时区索引，与 naive 索引**比较返回全 False（不报错）、`concat` 也不报错**，只有 `merge` 报 `ValueError`——静默错位比报错更隐蔽；日志数据统一先转 UTC 或统一去时区再分析（呼应 ph06 时区纪律）。
+- **坑（resample 规则）**：`"2min"`/`"1h"`/`"D"`/`"W"` 是偏移别名——pandas 2.x 起大写 `H`/`M` 已弃用（触发 FutureWarning），推荐小写 `h`/`ME`（`resample("1h")` 正常工作）；`resample` 要求**日期索引**（未排序也能重采样，建议先 `sort_index()` 保证顺序）。
 
 ### 3.8 Matplotlib 与 Plotly 可视化（折线·柱状·散点·分布）
 
@@ -252,7 +252,7 @@ plt.savefig(out, dpi=150)      # 产物写临时目录，防污染仓库（examp
 要点：
 
 - 四种基础图各回答一个问题：**折线看趋势、柱状看对比、散点看关联、直方图看分布**——先想清楚"这张图服务什么结论"再选图型（roadmap 必会概念"图表要服务结论"）。
-- 脚本画图**必须 `savefig()`**，`plt.show()` 在无显示环境会报错或挂起；`figsize`/`dpi`/`tight_layout` 控制出图质量。
+- 脚本画图**必须 `savefig()`**：Agg 后端下 `plt.show()` 仅发 UserWarning（FigureCanvasAgg is non-interactive）并正常返回，不报错也不挂起；`figsize`/`dpi`/`tight_layout` 控制出图质量。
 - Plotly 交互图：`pip install plotly`，`fig = px.line(df, x="time", y="speed")` 后 `fig.write_html("trend.html")` 生成可缩放、可悬停的网页图表，适合汇报与 Dashboard。
 
 ### 3.9 数据导出与报告
@@ -277,15 +277,15 @@ print(df.to_markdown())                                   # 需 tabulate，输�
 
 ### 4.1 NumPy 的连续内存与向量化（C 循环 vs Python 循环）
 
-numpy 的 **ndarray 是 C 语言实现的**：数据存放在一块**连续的同类型内存**里，元素是裸 C 数值而非 Python 对象。Python 循环慢的本质：每个元素都是 PyObject（对象头 + 引用计数 + 类型分派），解释器逐条执行字节码。向量化运算（如 `arr + 10`）把整个表达式**下沉为一层 C 循环**：一次遍历连续内存、零解释器开销，现代 numpy 还会用 **SIMD** 指令一次处理多个元素——这就是"差几十倍"的来源。**广播（broadcasting）**依赖 **strides（步长）** 机制：形状不同的数组通过扩展步长描述"逻辑形状"参与运算，不复制数据、不新建数组，几乎零成本；代价是广播结果仍是视图语义，写回时要留意（呼应 4.3 的视图问题）。
+numpy 的 **ndarray 是 C 语言实现的**：数据存放在一块**连续的同类型内存**里，元素是裸 C 数值而非 Python 对象。Python 循环慢的本质：每个元素都是 PyObject（对象头 + 引用计数 + 类型分派），解释器逐条执行字节码。向量化运算（如 `arr + 10`）把整个表达式**下沉为一层 C 循环**：一次遍历连续内存、零解释器开销，现代 numpy 还会用 **SIMD** 指令一次处理多个元素——这就是"差几十倍"的来源。**广播（broadcasting）**依赖 **strides（步长）** 机制：形状不同的数组，其**操作数**通过扩展步长描述"逻辑形状"参与运算——不复制数据、几乎零成本；但**运算结果**（如 `a + b`）是**新建数组**，写回安全、不影响原数组。视图语义只出现在切片/`np.broadcast_to` 等场景（呼应 4.3 的视图问题）。
 
 ### 4.2 DataFrame 的列式存储与索引（RangeIndex/多级索引）
 
-pandas 的 DataFrame 本质是"**列优先**"结构：每一列是一个独立的 numpy 数组（即 Series），多列共享同一个 **Index**（行标签对象）。默认的 **RangeIndex** 是 0..n-1 的惰性整数序列（不实际存储每个标签）；一旦筛选、排序、分组，索引会变成稀疏、无序或**多级索引（MultiIndex）**——`groupby` 结果的分组键就是典型的多级索引。这就是"DataFrame 操作要关注索引"的底层原因：索引是定位数据的**寻址系统**，`loc` 按标签寻址、`iloc` 按位置寻址，两者在索引被改动后不再等价。列式存储带来两个收益：**按列聚合只遍历相关列**（`mean`/`sum` 快），且同列类型统一、压缩友好；代价是**按行操作慢**（`df.apply(axis=1)` 逐行是 Python 循环），能用列式向量化就别逐行。
+pandas 的 DataFrame 本质是"**列优先**"结构：每一列是一个独立的 numpy 数组（即 Series），多列共享同一个 **Index**（行标签对象）。默认的 **RangeIndex** 是 0..n-1 的惰性整数序列（不实际存储每个标签）；一旦筛选、排序、分组，索引会变成稀疏、无序，或叠加成**多级索引（MultiIndex）**——`groupby` 按单键分组时结果索引是分组键值的**普通 Index**，多键分组才生成 MultiIndex。这就是"DataFrame 操作要关注索引"的底层原因：索引是定位数据的**寻址系统**，`loc` 按标签寻址、`iloc` 按位置寻址，两者在索引被改动后不再等价。列式存储带来两个收益：**按列聚合只遍历相关列**（`mean`/`sum` 快），且同列类型统一、压缩友好；代价是**按行操作慢**（`df.apply(axis=1)` 逐行是 Python 循环），能用列式向量化就别逐行。
 
 ### 4.3 复制 vs 视图（copy-on-write 演进，Pandas 3.0 预告）
 
-numpy 的切片返回**共享内存的视图**——修改视图会改动原数组。pandas 为安全起见多数操作返回**副本**，但 `df["col"]`、布尔掩码取出的子集可能仍是视图：**链式赋值** `df[df["a"] > 1]["b"] = 2` 先取视图再赋值，第一次取值可能已返回副本，赋值落空并触发 SettingWithCopyWarning。规则：**要修改就用 `df.loc[条件, 列] = 值` 单步完成；要独立数据就显式 `.copy()`**。pandas 2.x 引入 **copy-on-write（写时复制）** 机制（`pd.options.mode.copy_on_write = True`）：对象间共享底层数据，仅在**任一修改发生时**才真正复制——既杜绝链式赋值的悬空修改，又省内存；pandas 3.0 起 CoW 成为默认，链式赋值将彻底失效（不再有"侥幸生效"的情况），从现在起养成 `loc` 单步赋值的习惯即是面向未来。
+numpy 的切片返回**共享内存的视图**——修改视图会改动原数组。pandas 为安全起见多数操作返回**副本**，但 `df["col"]`、布尔掩码取出的子集可能仍是视图：**链式赋值** `df[df["a"] > 1]["b"] = 2` 先取视图再赋值，第一次取值可能已返回副本，赋值落空（本机 pandas 2.3.3 上会触发 `SettingWithCopyWarning`；部分 dtype 布局下不警告直接丢写）。规则：**要修改就用 `df.loc[条件, 列] = 值` 单步完成；要独立数据就显式 `.copy()`**。pandas 2.x 引入 **copy-on-write（写时复制）** 机制（`pd.options.mode.copy_on_write = True`）：对象间共享底层数据，仅在**任一修改发生时**才真正复制——既杜绝链式赋值的悬空修改，又省内存；pandas 3.0 起 CoW 成为默认，链式赋值将彻底失效（不再有"侥幸生效"的情况），从现在起养成 `loc` 单步赋值的习惯即是面向未来。
 
 ### 4.4 分块读取与内存上限（chunksize·dtype 压缩）
 
@@ -306,7 +306,6 @@ numpy 的切片返回**共享内存的视图**——修改视图会改动原数�
 
 - Web 后端深入（FastAPI 进阶、SQLAlchemy ORM、认证鉴权、中间件、部署）：ph10 Web 后端阶段
 - 机器学习建模（模型训练、特征工程、模型评估、调参）：ph15 AI/ML 阶段（本阶段只做描述性统计）
-- 大规模流式处理（Kafka、Spark、Flink、实时数仓）：后续大数据阶段（pandas 只处理内存装得下的数据）
 
 ## 6. 代码示例
 
@@ -332,7 +331,7 @@ print("m[:, 1]:", m[:, 1])            # 第 2 列整列切片
 
 a = np.array([[1], [2], [3]])         # 形状 (3,1)
 b = np.array([10, 20, 30])            # 形状 (3,)
-print("broadcast a + b:\n", a + b)    # 广播成 (3,3)，不复制数据
+print("broadcast a + b:\n", a + b)    # 广播成 (3,3)：操作数按步长复用，结果是新建数组
 ```
 
 实测输出（节选）：`arr + 10 → [11 12 13 14 15]`；`mean: 3.0 std: 1.4142`；`m.shape: (3, 4) m.dtype: int64`、`m[1, 2]: 6`、`m[:, 1]: [1 5 9]`；`normal(70,10,1000)` 的均值/标准差实测 69.71 / 9.89。
@@ -583,11 +582,11 @@ print("已导出:", outdir / "fleet_report.xlsx", "与", md)
 
 ### 关键要点
 
-1. **数据清洗通常比建模更耗时**：真实项目 60-80% 的时间在读取、去重、补缺、修格式——先 `info()`/`describe()` 摸清数据再动手；**缺失值处理要显式决策**（NaN 会传染运算，`dropna`/`fillna`/`interpolate` 三选一）（roadmap 必会概念）
+1. **数据清洗通常比建模更耗时**：真实项目 60-80% 的时间在读取、去重、补缺、修格式——先 `info()`/`describe()` 摸清数据再动手；**缺失值处理要显式决策**（NaN 在纯 ndarray 运算里会传染，pandas 聚合默认跳过；`dropna`/`fillna`/`interpolate` 三选一）（roadmap 必会概念）
 2. **DataFrame 操作要关注索引**：区分 `loc`/`iloc`，筛选/排序/groupby 后 `reset_index(drop=True)`，改数据用 `df.loc[条件, 列] = 值` 单步完成（roadmap 必会概念）
 3. **分组统计是核心能力**：`groupby("键")["指标"].agg([...])` 三步走，`transform` 保持行数做组内标准化（roadmap 必会概念）
 4. **图表要服务结论**：折线看趋势、柱状看对比、散点看关联、直方图看分布——先想清楚图回答什么问题再画（roadmap 必会概念）
-5. **合并前先想主键与连接方向**：`merge` 的 `how` 四选一，`concat`/`join`/算术按索引对齐——索引不一致会错位出 NaN
+5. **合并前先想主键与连接方向**：`merge` 的 `how` 四选一，`join`/算术与 `concat(axis=1)` 按索引对齐——索引不一致会错位出 NaN
 6. **时间序列先转日期索引**：`to_datetime` + `set_index` + `resample`/`rolling`；时区统一（UTC 或去时区）
 7. **脚本画图必须 `savefig()`、导出 `index=False` 几乎必写**：`matplotlib.use("Agg")` 防无显示环境报错，`utf-8-sig` 防 Excel 中文乱码，文件名带日期防覆盖
 8. **向量化优先于逐行循环**：`apply(axis=1)`/for 循环慢几十倍，能用数组表达式就绝不逐行（原理见 4.1）

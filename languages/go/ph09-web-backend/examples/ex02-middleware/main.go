@@ -1,6 +1,6 @@
 // 来源：09-web-backend.md 第 6 章示例 2 —— 中间件组合
-// 一句话说明：日志（状态码捕获）+ panic 恢复 + CORS + 固定窗口限流四个横切关注点
-// 组成一个服务，演示 func(http.Handler) http.Handler 洋葱模型。
+// 一句话说明：日志（log/slog 结构化 + 状态码捕获）+ panic 恢复 + CORS + 窗口限流
+// （滑动时间窗日志）四个横切关注点组成一个服务，演示 func(http.Handler) http.Handler 洋葱模型。
 // 验证环境：go1.25.6（darwin/arm64），仅标准库
 // 运行：
 //
@@ -19,12 +19,18 @@ package main
 
 import (
 	"log"
+	"log/slog"
 	"net"
 	"net/http"
+	"os"
 	"runtime/debug"
 	"sync"
 	"time"
 )
+
+// logger 结构化日志器（Go 1.21+ log/slog）：JSON 输出到 stdout，生产配日志采集系统（ph12）。
+// 示例把"业务日志"（请求日志、panic 恢复）切到 slog，进程级日志（启动、Fatal）仍用 log。
+var logger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
 func main() {
 	handler := chain(newMux(),
@@ -79,7 +85,13 @@ func withLogging(next http.Handler) http.Handler {
 		start := time.Now()
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(rec, r) // 放行：执行后续中间件与最终 handler
-		log.Printf("%s %s → %d (%s)", r.Method, r.URL.Path, rec.status, time.Since(start))
+		// 结构化日志（3.9）：key-value 对输出，配采集系统可检索
+		logger.Info("request",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"status", rec.status,
+			"duration", time.Since(start),
+		)
 	})
 }
 
@@ -113,7 +125,7 @@ func withCORS(next http.Handler) http.Handler {
 	})
 }
 
-// --- 中间件 4：固定窗口限流（每 IP 每窗口 N 次） ---
+// --- 中间件 4：窗口限流（滑动时间窗日志，每 IP 每窗口 N 次） ---
 
 type ipLimiter struct {
 	mu     sync.Mutex

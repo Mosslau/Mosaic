@@ -86,12 +86,12 @@ func main() {
 ```go
 // 路由注册（完整版见 examples/ex01-routing/main.go 的 newMux）
 // 验证环境：go1.25.6，仅标准库
-func newMux() http.Handler {
+func newMux(s *store) http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /devices", listDevices)         // 方法 + 精确路径
-	mux.HandleFunc("GET /devices/{id}", getDevice)      // 方法 + 通配符
-	mux.HandleFunc("POST /devices", createDevice)
-	mux.HandleFunc("DELETE /devices/{id}", deleteDevice)
+	mux.HandleFunc("GET /devices", listDevices(s))         // 方法 + 精确路径
+	mux.HandleFunc("GET /devices/{id}", getDevice(s))      // 方法 + 通配符
+	mux.HandleFunc("POST /devices", createDevice(s))
+	mux.HandleFunc("DELETE /devices/{id}", deleteDevice(s))
 	return mux
 }
 
@@ -135,7 +135,7 @@ func handleCreate(s *store) http.HandlerFunc {
 }
 ```
 
-要点：**json.NewDecoder(r.Body).Decode 一步把请求体变成结构体**；query 参数用 `r.URL.Query().Get("status")`，路径参数用 `r.PathValue` + `strconv.Atoi`（整数解析 + 范围判断）；枚举用白名单判断（如 status 只能是 online/offline）。**handler 四段式**（必会概念）：解析 → 校验 → 业务 → 响应，业务逻辑抽到独立函数或 service 层，handler 只做编排。**坑：字段名与 tag 不一致时绑定静默失败**——前端传 `Text` 而 tag 是 `text`，绑定得到零值且不报错，必填校验必须显式写；**坑：Decode 不会报"缺字段"**——缺 `text` 字段时结构体为零值，靠 3.3 的手写必填校验兜底。
+要点：**json.NewDecoder(r.Body).Decode 一步把请求体变成结构体**；query 参数用 `r.URL.Query().Get("status")`，路径参数用 `r.PathValue` + `strconv.Atoi`（整数解析 + 范围判断）；枚举用白名单判断（如 status 只能是 online/offline）。**handler 四段式**（必会概念）：解析 → 校验 → 业务 → 响应，业务逻辑抽到独立函数或 service 层，handler 只做编排。**坑：字段名与 tag 不一致时绑定静默失败**——前端传 `name` 而结构体只有 tag 为 `text` 的字段，绑定得到零值且不报错，必填校验必须显式写；**注意 encoding/json 的键匹配是大小写不敏感的**——传 `Text` 会命中 `json:"text"`（误绑本身也是坑），要严格区分字段名需在反序列化后显式校验；**坑：Decode 不会报"缺字段"**——缺 `text` 字段时结构体为零值，靠 3.3 的手写必填校验兜底；**坑：json 编码默认做 HTML 转义**——`<`、`>`、`&` 会输出为 `\u003c`、`\u003e`、`\u0026`（防注入的默认行为），API 返回含 HTML 的文本时前端拿到的是转义序列，业务确实信任输出时才用 `json.Encoder.SetEscapeHTML(false)` 关闭。
 
 ### 3.4 响应与统一错误结构
 
@@ -167,7 +167,13 @@ func withLogging(next http.Handler) http.Handler {
 		start := time.Now()
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(rec, r) // 放行：执行后续中间件与最终 handler
-		log.Printf("%s %s → %d (%s)", r.Method, r.URL.Path, rec.status, time.Since(start))
+		// 结构化日志（3.9）：key-value 对输出，配采集系统可检索
+		logger.Info("request",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"status", rec.status,
+			"duration", time.Since(start),
+		)
 	})
 }
 
@@ -180,7 +186,7 @@ func chain(h http.Handler, middlewares ...func(http.Handler) http.Handler) http.
 }
 ```
 
-要点：**中间件本质是 `func(http.Handler) http.Handler` 的包装**——在 ServeHTTP 前后注入逻辑再调用内层，这就是洋葱模型：请求从外到内、响应从内到外；**执行顺序 = 挂载顺序**（先挂的在最外层先执行）。**中间件适合横切逻辑**（必会概念）——日志、恢复、CORS、限流、鉴权与业务无关，全部放中间件，业务规则绝不进中间件。`statusRecorder` 包装 ResponseWriter 是为了捕获状态码（net/http 不直接暴露）。**坑：panic 恢复缺失**——不挂恢复中间件时 handler panic 会中断连接且不留日志，生产必挂；**坑：CORS 的 `Allow-Origin: *` 不能与 `Allow-Credentials: true` 并用**——带 Cookie 的跨域要按域名白名单回显 Origin。
+要点：**中间件本质是 `func(http.Handler) http.Handler` 的包装**——在 ServeHTTP 前后注入逻辑再调用内层，这就是洋葱模型：请求从外到内、响应从内到外；**执行顺序 = 挂载顺序**（先挂的在最外层先执行）。**中间件适合横切逻辑**（必会概念）——日志、恢复、CORS、限流、鉴权与业务无关，全部放中间件，业务规则绝不进中间件。`statusRecorder` 包装 ResponseWriter 是为了捕获状态码（net/http 不直接暴露）。**坑：panic 恢复缺失**——不挂恢复中间件时 handler panic 会掐断连接、客户端收不到响应；net/http 内建 recover 虽会向 server 日志写一行 `http: panic serving` + 堆栈，但没有请求上下文，生产必挂恢复中间件；**坑：CORS 的 `Allow-Origin: *` 不能与 `Allow-Credentials: true` 并用**——带 Cookie 的跨域要按域名白名单回显 Origin。
 
 ### 3.6 认证：JWT（手写 HS256）与 Cookie/Session
 
@@ -285,7 +291,7 @@ func handleList(s *store) http.HandlerFunc {
 ### 3.9 日志与错误码设计（log/slog）
 
 ```go
-// 结构化日志（Go 1.21+ 标准库）
+// 结构化日志（Go 1.21+ 标准库；请求日志的完整落地见 examples/ex02-middleware/main.go 的 withLogging）
 // 验证环境：go1.25.6，仅标准库
 var logger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
@@ -323,7 +329,7 @@ if err := srv.Shutdown(ctx); err != nil {
 }
 ```
 
-要点：**超时和限流是服务稳定性的基础**（必会概念）——超时分两层：HTTP server 的 Read/Write/IdleTimeout（防慢客户端拖死连接）+ 每请求 context 超时（`context.WithTimeout(r.Context(), d)` 中间件，下游调用自动感知）；**context 必须一路传给下游调用**，否则慢依赖拖死 goroutine（呼应 ph06 泄漏）；限流用**固定窗口**（ex02 的每 IP 实现）或**令牌桶**（生产用 `golang.org/x/time/rate`，第三方，本阶段不引入）。**优雅关闭让存量请求处理完再退出**——`srv.Shutdown(ctx)` 停止接收新连接、等待在途请求完成、超时强制退出，实测退出码 0（见 ex06 冒烟测试）。**坑：只设 server 超时不设 context**——handler 内部调用不感知超时；客户端断开后业务继续算——select 监听 `r.Context().Done()`。
+要点：**超时和限流是服务稳定性的基础**（必会概念）——超时分两层：HTTP server 的 Read/Write/IdleTimeout（防慢客户端拖死连接）+ 每请求 context 超时（`context.WithTimeout(r.Context(), d)` 中间件，下游调用自动感知）；**context 必须一路传给下游调用**，否则慢依赖拖死 goroutine（呼应 ph06 泄漏）；限流用**窗口限流**（ex02 的每 IP 实现是滑动时间窗日志：按时间戳剪枝计数，窗口内次数到上限即 429）或**令牌桶**（生产用 `golang.org/x/time/rate`，第三方，本阶段不引入）。**优雅关闭让存量请求处理完再退出**——`srv.Shutdown(ctx)` 停止接收新连接、等待在途请求完成、超时强制退出，实测退出码 0（见 ex06 冒烟测试）。**坑：只设 server 超时不设 context**——handler 内部调用不感知超时；客户端断开后业务继续算——select 监听 `r.Context().Done()`。
 
 ### 3.11 API 文档（OpenAPI 提示）
 
@@ -340,7 +346,7 @@ if err := srv.Shutdown(ctx); err != nil {
 ### 4.2 ServeMux 的路由匹配（Go 1.22 树结构与优先级）
 
 - Go 1.22 起 ServeMux 用 **trie 树**组织模式：公共前缀合并成同一节点，`{id}` 是通配节点——**匹配复杂度 O(路径长度)、与注册路由数无关**（Go 1.22 之前是线性遍历，这也是 Go 1.22 路由增强的动机）
-- 优先级规则（从高到低）：**字面量 > 通配符 > 最长前缀**；方法限定模式（`GET /devices`）比无方法模式（`/devices`）更具体；精确匹配优先于子树匹配（`GET /api/devices` 优先于 `/api/`）
+- 优先级规则（**更具体者优先**）：**字面量段 > 通配符段**；**有方法限定 > 无方法限定**（`GET /devices` 比 `/devices` 更具体）；**精确模式 > 子树模式**（`GET /api/devices` 优先于 `/api/`）。注：旧版 ServeMux 的「最长前缀匹配」概念在 Go 1.22 已废弃——两个模式都匹配时按"匹配更少请求者胜出"（集合包含）判定，无法比较时注册直接 panic
 - 方法不匹配但路径匹配时返回 **405 + Allow 头**（列出允许的方法）——这是标准库行为，ex01 测试有断言
 
 ### 4.3 请求生命周期（连接·超时·context 取消）
@@ -390,17 +396,17 @@ accept 连接 ──▶ 读请求头/体 ──▶ 路由 ──▶ 中间件链
 ```go
 // examples/ex01-routing/main.go —— 设备 API：GET/POST/DELETE + {id} 通配符 + query 过滤
 // 验证环境：go1.25.6，命令：go test -v ./...；go run . 后 curl http://127.0.0.1:18080/devices
-func newMux() http.Handler {
+func newMux(s *store) http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /devices", listDevices)
-	mux.HandleFunc("GET /devices/{id}", getDevice) // r.PathValue("id") 取通配符值
-	mux.HandleFunc("POST /devices", createDevice)
-	mux.HandleFunc("DELETE /devices/{id}", deleteDevice)
+	mux.HandleFunc("GET /devices", listDevices(s))
+	mux.HandleFunc("GET /devices/{id}", getDevice(s)) // r.PathValue("id") 取通配符值
+	mux.HandleFunc("POST /devices", createDevice(s))
+	mux.HandleFunc("DELETE /devices/{id}", deleteDevice(s))
 	return mux
 }
 ```
 
-要点：完整示例含 14 个 httptest 用例（TestRoutes 12 个子用例 + 2 个专项断言，200/201/204/400/404/405/409 全覆盖），`go test -cover` 实测覆盖率 91.4%；405 时 ServeMux 自动带 Allow 头（有断言）。**完整文件**：`examples/ex01-routing/`（go.mod + main.go + main_test.go）。
+要点：完整示例含 14 个 httptest 用例（TestRoutes 12 个子用例 + 2 个专项断言，200/201/204/400/404/405/409 全覆盖），`go test -cover` 实测覆盖率 92.1%；405 时 ServeMux 自动带 Allow 头（有断言）。**完整文件**：`examples/ex01-routing/`（go.mod + main.go + main_test.go）。
 
 ### 示例 2：中间件组合（日志 + 恢复 + CORS + 限流）
 
@@ -410,7 +416,7 @@ func newMux() http.Handler {
 handler := chain(newMux(), withLogging, withRecovery, withCORS, withRateLimit(30, time.Minute))
 ```
 
-要点：洋葱模型完整落地——执行顺序 = 挂载顺序；`statusRecorder` 捕获状态码、恢复中间件把 panic 转成 500、CORS 处理 OPTIONS 预检、固定窗口限流每 IP 每窗口 30 次（超限 429，有断言）；`go test -cover` 实测 89.7%。**完整文件**：`examples/ex02-middleware/`（go.mod + main.go + main_test.go）。
+要点：洋葱模型完整落地——执行顺序 = 挂载顺序；`statusRecorder` 捕获状态码（日志中间件用 log/slog 结构化输出）、恢复中间件把 panic 转成 500、CORS 处理 OPTIONS 预检、窗口限流（滑动时间窗日志）每 IP 每窗口 30 次（超限 429，有断言）；`go test -cover` 实测 89.7%。**完整文件**：`examples/ex02-middleware/`（go.mod + main.go + main_test.go）。
 
 ### 示例 3：Todo API（JSON + 校验 + 统一错误 + Mutex）
 
@@ -436,7 +442,7 @@ token, err := signJWT(map[string]any{"username": cred.Username}, secret, 2*time.
 claims, err := verifyJWT(token, secret) // hmac.Equal 常数时间比对 + exp 校验
 ```
 
-要点：登录签发 JWT、requireAuth 中间件验签鉴权（Bearer 解析 → 验签 → 用户名写入 context）、子 mux + StripPrefix 只保护 `/api` 分组；篡改 / 错误密钥 / 过期 / 坏格式 10 个用例全过，`go test -cover` 实测 82.4%；签发 benchmark 实测 **1299 ns/op、2236 B/op、33 allocs/op**（登录这种低频操作完全可忽略）。**完整文件**：`examples/ex04-jwt-auth/`（go.mod + jwt.go + main.go + jwt_test.go + main_test.go）。
+要点：登录签发 JWT、requireAuth 中间件验签鉴权（Bearer 解析 → 验签 → 用户名写入 context）、子 mux + StripPrefix 只保护 `/api` 分组；篡改 / 错误密钥 / 过期 / 坏格式 10 个用例全过，`go test -cover` 实测 82.4%；签发 benchmark 实测约 **1299 ns/op、2236 B/op、33 allocs/op**（同机多次运行 ns/op 有 ±10% 波动、allocs 稳定，仅量级参考；登录这种低频操作完全可忽略）。**完整文件**：`examples/ex04-jwt-auth/`（go.mod + jwt.go + main.go + jwt_test.go + main_test.go）。
 
 ### 示例 5：模板 + 静态文件（html/template + FileServer）
 

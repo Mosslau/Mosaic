@@ -1,7 +1,7 @@
 # ph09 多线程与并发练习
 
 > 先自己做，再对照 sol-* 参考实现。每题标注难度（★~★★★）。
-> 验证环境：ex 01~04 用 OpenJDK 17.0.18；练习 5 需 JDK 21+（本环境用 OpenJDK 25.0.2 验证）。参考实现均用非 public 类（文件名 `sol-0X-*.java` 与类名不同，如 `sol-01-counter.java` 的类名是 `CounterSol`），编译用文件名、运行用类名，如 `javac sol-01-counter.java` + `java CounterSol`。
+> 验证环境：练习 1~4（参考实现 sol-01~04）用 OpenJDK 17.0.18；练习 5 需 JDK 21+（本环境用 OpenJDK 25.0.2 验证）。参考实现均用非 public 类（文件名 `sol-0X-*.java` 与类名不同，如 `sol-01-counter.java` 的类名是 `CounterSol`），编译用文件名、运行用类名，如 `javac sol-01-counter.java` + `java CounterSol`。
 > 五题与 Roadmap「ph09 多线程与并发阶段」练习小节一一对应。
 
 ## 练习 1：多线程计数器（★）

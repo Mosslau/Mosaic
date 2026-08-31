@@ -59,7 +59,7 @@ func TestRecovery(t *testing.T) {
 	}
 }
 
-// TestRateLimit 固定窗口限流：同一 IP 第 limit+1 次请求返回 429
+// TestRateLimit 窗口限流（滑动时间窗日志）：同一 IP 第 limit+1 次请求返回 429
 func TestRateLimit(t *testing.T) {
 	const limit = 5
 	mw := withRateLimit(limit, time.Minute)

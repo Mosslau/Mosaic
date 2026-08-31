@@ -18,7 +18,7 @@ Java 多线程与并发阶段的目标是：**能写安全的并发 Java 程序*
 | 结构化并发与 Scoped Values | StructuredTaskScope（预览）、ScopedValue（Java 25 正式化） |
 | 并发排查 | 死锁、竞态、可见性问题定位（jstack 等） |
 
-这个阶段只涉及单机 JVM 内的线程模型与并发工具（Thread/线程池/锁/并发集合/异步编排/虚拟线程），**不涉及 JVM 内存模型底层调优、GC 参数与性能诊断**（那些是 ph10 JVM 阶段的内容）、**不涉及 Spring 的并发抽象与事务管理**（ph15 Spring 全家桶阶段）、**不涉及分布式锁、分布式事务与集群一致性**（ph16 微服务与分布式阶段）、**不涉及消息队列削峰与异步解耦**（ph17 消息队列与搜索阶段）、**不涉及 Netty 自研线程模型与 Actor 框架**（ph20 高级 Java 阶段）。本阶段承接 ph08 Lambda 与 Stream 阶段——CompletableFuture 与 Stream 一脉相承的函数式风格。
+这个阶段只涉及单机 JVM 内的线程模型与并发工具（Thread/线程池/锁/并发集合/异步编排/虚拟线程），**不涉及 JVM 内存模型底层调优、GC 参数与性能诊断**（那些是 ph10 JVM 阶段的内容）、**不涉及 Spring 的并发抽象与事务管理**（ph15 Spring 全家桶阶段，roadmap 第 15 节，目录待建）、**不涉及分布式锁、分布式事务与集群一致性**（ph16 微服务与分布式阶段，roadmap 第 16 节，目录待建）、**不涉及消息队列削峰与异步解耦**（ph17 消息队列与搜索阶段，roadmap 第 17 节，目录待建）、**不涉及 Netty 自研线程模型与 Actor 框架**（ph20 高级 Java 阶段，roadmap 第 20 节，目录待建）。本阶段承接 ph08 Lambda 与 Stream 阶段——CompletableFuture 与 Stream 一脉相承的函数式风格。
 
 ## 2. 来源与演变
 
@@ -157,7 +157,7 @@ ref.compareAndSet("init", "updated");
 
 ### 3.6 并发集合：ConcurrentHashMap / CopyOnWriteArrayList / BlockingQueue
 
-普通 HashMap、ArrayList 多线程并发读写会数据错乱甚至死循环——**共享可变集合一律用并发集合**，而不是手动加锁包一层：
+普通 HashMap、ArrayList 多线程并发读写会数据错乱（JDK 7 的 HashMap 并发 resize 甚至成环死循环）——**共享可变集合一律用并发集合**，而不是手动加锁包一层：
 
 ```java
 ConcurrentHashMap<String, Integer> stats = new ConcurrentHashMap<>();
@@ -178,7 +178,7 @@ String job = queue.take();   // 队空时阻塞等待
 | 遗留 Vector / Hashtable | 全方法 synchronized | 只读兼容旧代码，**新代码不用** |
 
 - **ConcurrentHashMap 不允许 null 键/值**——并发下无法区分「不存在」与「存为 null」；`Collections.synchronizedMap(map)` 是全表锁，性能远不如它
-- `ConcurrentLinkedQueue` 是无界非阻塞队列，适合无需限流的单生产者多消费者场景
+- `ConcurrentLinkedQueue` 是无界非阻塞队列（MPMC，多生产者多消费者均可），适合无需限流的场景
 
 ### 3.7 CompletableFuture 异步编排
 
@@ -210,7 +210,7 @@ int sum = a.thenCombine(b, Integer::sum).join(); // join() 阻塞等待最终结
 Thread vt = Thread.startVirtualThread(() -> System.out.println("虚拟线程运行"));  // 逐任务创建
 try (var vtExecutor = Executors.newVirtualThreadPerTaskExecutor()) {   // Java 21 每任务一线程
     vtExecutor.submit(() -> System.out.println("virtual thread task"));
-}   // try-with-resources 自动关闭（JDK 21 起 ExecutorService 是 AutoCloseable）
+}   // try-with-resources 自动关闭（JDK 19 起 ExecutorService 是 AutoCloseable）
 ```
 
 | 维度 | 平台线程 | 虚拟线程（Java 21） |
@@ -233,7 +233,7 @@ try (var vtExecutor = Executors.newVirtualThreadPerTaskExecutor()) {   // Java 2
 try (var scope = StructuredTaskScope.open()) {
     StructuredTaskScope.Subtask<String> user  = scope.fork(() -> fetchUser());
     StructuredTaskScope.Subtask<String> order = scope.fork(() -> fetchOrder());
-    scope.join();                 // 等待全部子任务；有子任务失败即抛 FailedException 并取消其余
+    scope.join();                 // 等待全部子任务；有子任务失败即抛 FailedException（取消其余发生在作用域 close()）
     System.out.println(user.get() + " / " + order.get());
 }   // 作用域结束：未完成的任务被自动取消，杜绝任务泄漏
 // Scoped Values（Java 25 正式化 JEP 506）：替代 ThreadLocal，子任务自动继承（已验证：OpenJDK 25.0.2）
@@ -241,7 +241,7 @@ ScopedValue<String> tenant = ScopedValue.newInstance();
 ScopedValue.where(tenant, "租户A").run(() -> System.out.println(tenant.get()));
 ```
 
-- 结构化并发解决传统线程池的**任务泄漏**：异常路径上游离的子任务不再被遗忘，作用域退出即清理；但仍是预览特性且 API 未定稿（21→25 已改两轮），**生产先别用**，3.8 的虚拟线程已正式化，能覆盖绝大多数场景
+- 结构化并发解决传统线程池的**任务泄漏**：异常路径上游离的子任务不再被遗忘，作用域退出即清理；但仍是预览特性且 API 未定稿（21→25 历经 4 轮预览迭代：JEP 453→462→480→488→505），**生产先别用**，3.8 的虚拟线程已正式化，能覆盖绝大多数场景
 - Scoped Values 优于 ThreadLocal：不可变、自动清理、子任务继承，JDK 25 起可放心尝试
 
 ### 3.10 死锁与竞态排查
@@ -352,7 +352,7 @@ ref.compareAndSet(v, 101, stamp[0], stamp[0] + 1); // 值变了但版本没变 �
 
 - **挂起/恢复（park/unpark）**：虚拟线程执行到**阻塞点**（socket 读、`Thread.sleep`、锁等待）时，JVM 保存其执行状态并把它**挂起**，载体线程立刻切换去跑其他虚拟线程；阻塞解除后虚拟线程被**恢复**，从挂起点继续执行——这就是「阻塞 IO 自动让出载体线程」的实现，无需 async/await
 - **Continuation（延续）**：字节码层面保存/恢复执行状态；调度器是 ForkJoinPool 变体，工作窃取保证载体线程满载
-- **效果**：固定 200 线程的池只能并发 200 个阻塞任务；虚拟线程下同样代码可并发十万、百万——「每请求一线程」模型成本趋近于零，且**业务代码零改造**。边界：计算密集任务不阻塞，虚拟线程没有优势；`synchronized` 内的阻塞在 Loom 下会钉住（pin）载体线程，Loom 后续版本持续优化中
+- **效果**：固定 200 线程的池只能并发 200 个阻塞任务；虚拟线程下同样代码可并发十万、百万——「每请求一线程」模型成本趋近于零，且**业务代码零改造**。边界：计算密集任务不阻塞，虚拟线程没有优势；`synchronized` 内的阻塞在早期 Loom 版本（JDK 21~23）会钉住（pin）载体线程，**JDK 24 起（JEP 491）已消除**——synchronized 不再钉住载体线程，仅 native 方法/外部调用等少数情形仍可能钉住
 
 ## 5. 使用场景
 
@@ -509,6 +509,8 @@ class ThreadPoolDemo {
         pool.shutdown();
         pool.awaitTermination(5, TimeUnit.SECONDS);
         System.out.println("由主线程（提交者）执行的任务数 = " + onMain.get() + "  (期望恰好 1 个)");
+        // 注：极端调度下（worker 恰好在三次提交的窗口内跑完任务并清空队列）该计数可能为 0——理论竞态，
+        // 实测 5/5 稳定，教学场景接受
         if (onMain.get() != 1) throw new AssertionError("CallerRunsPolicy 应恰好有 1 个任务在主线程执行");
     }
 }
@@ -744,8 +746,8 @@ class ConcurrentCollectionsDemo {
 ```java
 // examples/ex06-virtual-thread-demo.java —— 虚拟线程 vs 平台线程：阻塞 IO 场景的并发能力对比
 // 对应主文档 6. 示例 6：1 万个各阻塞 10ms 的任务，固定 200 线程的平台池 vs 每任务一线程的虚拟线程
-// 验证环境：需 JDK 21+（newVirtualThreadPerTaskExecutor / Thread.sleep(Duration) /
-//           ExecutorService 实现 AutoCloseable 均为 Java 21 特性）
+// 验证环境：需 JDK 21+（newVirtualThreadPerTaskExecutor 为 Java 21 特性；Thread.sleep(Duration) 与
+//           ExecutorService 实现 AutoCloseable 为 Java 19 特性）
 // 编译：javac ex06-virtual-thread-demo.java
 // 运行：java VirtualThreadDemo（注意是类名不是文件名）
 // 验证状态：已验证：OpenJDK 25.0.2（Homebrew openjdk@25；虚拟线程 API 自 Java 21 正式化，
@@ -791,7 +793,7 @@ class VirtualThreadDemo {
 }
 ```
 
-提示：本文件需 **JDK 21+** 编译运行（`newVirtualThreadPerTaskExecutor`、`Thread.sleep(Duration)`、`ExecutorService` 实现 `AutoCloseable` 均为 21+），本环境用 OpenJDK 25.0.2 验证（OpenJDK 17 无法编译）；把任务改成纯 CPU 计算（如大量求质数）再对比，会发现虚拟线程不再占优——这正是「虚拟线程适合 IO 密集、不适合计算密集」的实证。
+提示：本文件需 **JDK 21+** 编译运行（`newVirtualThreadPerTaskExecutor` 为 Java 21 特性；`Thread.sleep(Duration)`、`ExecutorService` 实现 `AutoCloseable` 为 Java 19 特性），本环境用 OpenJDK 25.0.2 验证（OpenJDK 17 无法编译）；把任务改成纯 CPU 计算（如大量求质数）再对比，会发现虚拟线程不再占优——这正是「虚拟线程适合 IO 密集、不适合计算密集」的实证。
 
 ## 7. 总结
 

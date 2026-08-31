@@ -17,7 +17,7 @@ C 标准、编译器与可移植性阶段是 C 学习路线中"从写 Linux 程�
 
 本阶段承接 ph08 的系统编程能力：ph08 里的 unistd.h、pthread、epoll 都是 POSIX/Linux API，本阶段把"标准 C 能做哪些、平台 API 又补了哪些"的边界彻底理清——以后写存储引擎时，凡是跨平台的部分都靠本阶段的写法兜底。
 
-这个阶段只涉及 C 标准与编译器的差异认知、条件编译、固定宽度整数与可移植写法，**不涉及未定义行为的系统化梳理、Sanitizer 工具链、字节序与二进制格式的位级处理和跨语言互操作 ABI** — 那些是 ph10 未定义行为 UB 与常见坑阶段、ph11 Sanitizer / 静态分析 / 单元测试阶段、ph12 字节序、内存对齐与二进制格式解析阶段和 ph14 C 与 C++ / Python / Rust 互操作阶段的内容。
+这个阶段只涉及 C 标准与编译器的差异认知、条件编译、固定宽度整数与可移植写法，**不涉及未定义行为的系统化梳理、Sanitizer 工具链、字节序与二进制格式的位级处理和跨语言互操作 ABI** — 那些是 ph10 未定义行为 UB 与常见坑阶段、ph11 Sanitizer / 静态分析 / 单元测试阶段、ph12 字节序、内存对齐与二进制格式解析阶段（roadmap 第 12 节，目录待建）和 ph14 C 与 C++ / Python / Rust 互操作阶段（roadmap 第 14 节，目录待建）的内容。
 
 ## 2. 来源与演变
 
@@ -71,7 +71,7 @@ cc -std=c89 -Wall -Wextra -pedantic-errors std_diff.c -o std_diff
 | `//` 注释、for 循环内声明 | C99 | 最常用的 C99 特性，C89 下编译报错 |
 | `stdint.h`、`long long`、`%zd/%zu` | C99 | 固定宽度类型与 size_t 打印 |
 | `_Static_assert`、`_Generic`、`_Atomic` | C11 | 编译期断言、泛型选择、原子操作 |
-| `nullptr`、`typeof`、`0b1010` 字面量 | C23 | 需要 GCC 13+ / Clang 16+，MSVC 尚不支持 |
+| `nullptr`、`typeof`、`0b1010` 字面量 | C23 | GCC 13+ / Clang 16+ 均已实现；MSVC 不支持 `nullptr`/`typeof`，`0b` 字面量 VS2015 起在 C++ 模式可用（C 模式不保证） |
 | VLA（变长数组） | C99，C11 起改为可选 | 现代编译器不保证支持，**尽量别用** |
 
 **要点（坑必背）**：
@@ -106,7 +106,7 @@ int main(void) {
 | 扩展体系 | `__attribute__((...))`、`__builtin_*` | 兼容 GCC 的 `__attribute__`，另有自己的内建 | `__declspec(...)`、`__pragma` |
 | 诊断质量 | 全面 | 最友好（带颜色、带修复建议） | 一般，报错信息偏长 |
 | 严格模式选项 | `-std=c11 -Wall -Wextra -pedantic` | 同左 | `/W4 /WX` |
-| C 标准支持 | 最完整（含 C23 大部分） | 紧随其后 | 长期滞后，C99 的 VLA/复合字面量至今不支持 |
+| C 标准支持 | 最完整（含 C23 大部分） | 紧随其后 | 长期滞后（VS2019 16.8 起补齐 C11/C17 的 `_Generic`、`_Static_assert` 等），VLA 与复合字面量至今不支持 |
 
 **要点（坑必背）**：
 
@@ -245,7 +245,7 @@ int main(void) {
 }
 ```
 
-**严格别名规则（strict aliasing rule）**：同一块内存只能通过"兼容类型"访问——`*(float *)&bits` 这种**类型双关（type punning）**是未定义行为，优化器按"两者无关"乱序后结果不可预测（**同样的代码，-O2 下行为可能变化**）。正解是 `memcpy`（或 C11 起用联合体搬运，但 memcpy 最无争议）。
+**严格别名规则（strict aliasing rule）**：同一块内存只能通过"兼容类型"访问——`*(float *)&bits` 这种**类型双关（type punning）**是未定义行为，优化器按"两者无关"乱序后结果不可预测（**同样的代码，-O2 下行为可能变化**）。正解是 `memcpy`（联合体搬运属实现定义、各编译器普遍支持，但 memcpy 最无争议）。
 
 **restrict**：向编译器承诺"两个指针不指向同一对象"，换取优化空间——`memcpy` 的签名就是 `void *memcpy(void *restrict dst, const void *restrict src, size_t n)`；只在确实不重叠时使用，滥用就是自造 UB。这两块都是 ph10 未定义行为与常见坑阶段的铺垫。
 
@@ -267,7 +267,7 @@ LLVM:  Clang 前端(──▶ LLVM IR)           ──▶ 优化 passes ──�
 ```
 
 - **扩展（方言）在前端进入**：`__attribute__`、`__builtin_expect` 这类扩展由**前端**解析成 IR 的特殊节点，中端和后端天然支持——所以"支持什么方言"由前端决定，这也是 Clang 能"兼容 GCC 扩展"的原因（它照抄了 GCC 的解析规则）。
-- `-std=gnu11`（默认）打开 GNU 扩展方言；`-std=c11 -pedantic` 关闭方言、只认标准——同一个源码在两种模式下可能编译出**行为不同**的程序（扩展语义、UB 假设不同）。
+- `-std=gnu17`（默认）打开 GNU 扩展方言；`-std=c11 -pedantic` 关闭方言、只认标准——同一个源码在两种模式下可能编译出**行为不同**的程序（扩展语义、UB 假设不同）。
 
 ### 4.3 预处理与条件编译的展开机制
 
@@ -307,8 +307,8 @@ LLVM:  Clang 前端(──▶ LLVM IR)           ──▶ 优化 passes ──�
 
 - 未定义行为的深入排查（ph10 未定义行为 UB 与常见坑阶段：数组越界、悬垂指针、整数溢出、严格别名案例）
 - Sanitizer 与调试工具链（ph11 Sanitizer / 静态分析 / 单元测试阶段：ASan/UBSan/TSan 的使用）
-- 字节序与二进制格式的位级处理（ph12 字节序、内存对齐与二进制格式解析阶段：大端/小端、htonl、位域布局）
-- 跨语言互操作 ABI（ph14 C 与 C++ / Python / Rust 互操作阶段：C ABI、FFI、JNI 等）
+- 字节序与二进制格式的位级处理（ph12 字节序、内存对齐与二进制格式解析阶段（roadmap 第 12 节，目录待建）：大端/小端、htonl、位域布局）
+- 跨语言互操作 ABI（ph14 C 与 C++ / Python / Rust 互操作阶段（roadmap 第 14 节，目录待建）：C ABI、FFI、JNI 等）
 
 ## 6. 代码示例
 
@@ -346,7 +346,7 @@ cc -Wall -Wextra -std=c11 examples/ex01-stdint-protocol.c -o ex01
 ./ex01
 ```
 
-要点：`uint32_t` 保证字段宽度不随 int/long 平台差异漂移；`_Static_assert` 把"尺寸契约"写进编译期（**编译不过就不许上线**）；结构体存在对齐填充，上"线"要逐字段 memcpy；**位域布局是实现定义的**，跨平台协议里应改用显式掩码位运算；字节序（大端/小端）仍随平台不同，网络传输前还需 htonl（ph12 字节序、内存对齐与二进制格式解析阶段深入）。
+要点：`uint32_t` 保证字段宽度不随 int/long 平台差异漂移；`_Static_assert` 把"尺寸契约"写进编译期（**编译不过就不许上线**）；结构体存在对齐填充，上"线"要逐字段 memcpy；**位域布局是实现定义的**，跨平台协议里应改用显式掩码位运算；字节序（大端/小端）仍随平台不同，网络传输前还需 htonl——ph12 字节序、内存对齐与二进制格式解析阶段（roadmap 第 12 节，目录待建）深入。
 
 ### 示例 2：条件编译平台抽象（Windows/Linux 路径分隔符、sleep 封装）
 
@@ -511,7 +511,7 @@ cd /tmp && /path/to/ex05 && cat app.log
 | 固定宽度类型 | stdint.h（C99 起） | `<cstdint>` | 内建 int32/int64 | 内建 | 内建 i8..i128 |
 | 指针/机器字 | intptr_t/uintptr_t | std::intptr_t | uintptr | 无指针概念 | usize/isize |
 | 打印格式 | %d/%ld 易错 → PRIx32 | 同 C | fmt 自动推导 | 类型安全 | println! 类型安全 |
-| 未定义行为 | 有（溢出、别名、越界） | 有（继承 C） | 无（溢出 wrap 或 panic） | 无（越界抛异常） | 默认无（debug panic / release wrap） |
+| 未定义行为 | 有（溢出、别名、越界） | 有（继承 C） | 无（有符号溢出按定义回绕，不 panic） | 无（越界抛异常） | 默认无（debug panic / release wrap） |
 | 跨平台策略 | 条件编译 + 宏 + 扩展 | 同 C + 模板 | GOOS/GOARCH 编译期常量 | JVM 抹平平台差异 | cfg!(target_os) 条件编译 |
 
 C 是最"裸露"的：类型宽度、未定义行为、可移植性全部暴露给程序员，没有运行时兜底——存储引擎恰好需要这种精确控制；Go/Rust/Java 用语言机制抹平宽度差异，代价是牺牲与硬件的零距离。

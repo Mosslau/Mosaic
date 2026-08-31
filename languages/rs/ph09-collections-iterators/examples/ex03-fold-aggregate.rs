@@ -25,7 +25,7 @@ fn main() {
         *acc.entry(w).or_insert(0) += 1;
         acc
     });
-    println!("{freq:?}"); // {"rust": 3, "go": 2, "c": 1}
+    println!("{freq:?}"); // 顺序不定：包含 rust=3、go=2、c=1（HashMap 遍历顺序不保证）
 
     // sum 只是 fold 的特例：fold(0, |acc, n| acc + n)
     let sum_fold = nums.iter().fold(0, |acc, n| acc + n);
