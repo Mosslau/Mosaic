@@ -18,7 +18,7 @@ Go 测试与工程质量阶段的目标是：**能写可维护、可测试的 Go
 
 本阶段的核心信念是"**测试是工程底线，不是额外负担**"：测试先行让代码天然更容易被调用和重构，质量工具链（go test / go vet / go fmt / golangci-lint）全部内置或开源，零引入成本。
 
-范围边界：承接 ph07 标准库（testing 入门、net/http handler）；不涉及 Web 框架与中间件（gin/echo、JWT 属 ph09）、数据库（真实 MySQL/Redis 集成测试属 ph10）、微服务与契约测试（ph11）、pprof 深入剖析（ph13）、CI/CD 流水线（ph12）——本阶段只做单测、基准与静态检查这一层。
+这个阶段只涉及单元测试、基准测试、race/fuzz 检测与静态检查工具链这一层（承接 ph07 标准库阶段的 testing 入门与 net/http handler），**不涉及 Web 框架与中间件（gin/echo、JWT）、真实数据库集成测试（MySQL/Redis）、微服务与契约测试、CI/CD 流水线搭建和 pprof 深入剖析** — 那些是 ph09/ph10/ph11/ph12/ph13 阶段的内容。
 
 ## 2. 来源与演变
 
@@ -36,6 +36,8 @@ go test 工具链沿"工程质量"方向持续演进：Go 1.1 集成 **ThreadSan
 | 2020 | Go 1.14：t.Cleanup、-coverpkg 补齐 |
 | 2022 | Go 1.18：testing.F 原生 fuzz testing 进入标准库 |
 | 2022 | Go 1.22：循环变量语义修复，表格测试不再需要 `tc := tc` 拷贝 |
+
+本文示例以 **Go 1.22** 为基线（本阶段用到 Go 1.22 的路由通配符 `r.PathValue` 与循环变量语义修复），验证工具链 **go1.25.6（darwin/arm64）**，仅使用标准库。testing 包的 API（TestXxx / BenchmarkXxx / FuzzXxx）是 Go 中最稳定的接口之一，从 Go 1.0 至今保持向后兼容，放心学。
 
 ## 3. 语法与参数
 
@@ -328,7 +330,7 @@ go tool cover -html=cover.out               # 浏览器可视化（红色 = 未�
 ### 3.8 fuzz testing 基础（FuzzXxx）
 
 ```go
-// wordcount.go —— 被测代码（与 strings.Fields 的空白定义一致）
+// examples/ex06-fuzz-test/wordcount.go —— 被测代码（与 strings.Fields 的空白定义一致）
 package main
 
 import "unicode"
@@ -349,7 +351,7 @@ func WordCount(s string) int {
 ```
 
 ```go
-// wordcount_fuzz_test.go —— 不变量：与参考实现 strings.Fields 结果一致
+// examples/ex06-fuzz-test/wordcount_test.go —— 不变量：与参考实现 strings.Fields 结果一致
 package main
 
 import (
@@ -452,7 +454,8 @@ gofmt -l .        # 列出需要格式化的文件（CI 里输出非空即失败
 ### 示例 1：表格驱动测试（业务函数 + 边界用例）
 
 ```go
-// speed.go —— 车辆平均速度与超速判断
+// examples/ex01-table-test/speed.go —— 车辆平均速度与超速判断
+// 验证环境：go1.25.6（darwin/arm64），测试命令：go test -v ./...（已验证）
 package main
 
 import "fmt"
@@ -481,7 +484,7 @@ func main() {
 ```
 
 ```go
-// speed_test.go —— 正常 + 边界 + 错误路径全覆盖
+// examples/ex01-table-test/speed_test.go —— 正常 + 边界 + 错误路径全覆盖
 package main
 
 import "testing"
@@ -540,7 +543,8 @@ func TestIsOverLimit(t *testing.T) {
 ### 示例 2：HTTP handler 测试（httptest + 断言 JSON）
 
 ```go
-// handler.go —— 可注入依赖的 handler 工厂（Go 1.22+ 路由通配符）
+// examples/ex02-http-test/handler.go —— 可注入依赖的 handler 工厂（Go 1.22+ 路由通配符）
+// 验证环境：go1.25.6（darwin/arm64），测试命令：go test -v ./...（已验证）
 package main
 
 import (
@@ -576,7 +580,7 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 ```
 
 ```go
-// handler_test.go —— 零网络开销的 handler 测试
+// examples/ex02-http-test/handler_test.go —— 零网络开销的 handler 测试
 package main
 
 import (
@@ -628,8 +632,9 @@ func TestGetDeviceNotFound(t *testing.T) {
 ### 示例 3：并发代码 race 检测（-race 复现并修复）
 
 ```go
-// cache.go —— 有竞争的版本：无锁 map
-package main
+// examples/ex03-race-detector/racy/cache.go —— 有竞争的版本：无锁 map
+// 故意出错示例：请用 go test -race ./racy 观察 DATA RACE 报告，勿在生产使用
+package racy
 
 type Cache struct {
 	data map[string]string
@@ -642,8 +647,8 @@ func (c *Cache) Get(k string) string { return c.data[k] }
 ```
 
 ```go
-// cache_test.go —— 制造真实并发交错
-package main
+// examples/ex03-race-detector/racy/cache_test.go —— 制造真实并发交错（仅 -race 模式运行）
+package racy
 
 import (
 	"sync"
@@ -665,8 +670,9 @@ func TestCacheConcurrent(t *testing.T) {
 运行 `go test -race ./...`：要么输出 `WARNING: DATA RACE`，要么直接 `fatal error: concurrent map writes` 崩溃。修复——加 Mutex：
 
 ```go
-// cache_fixed.go —— 修复版：Mutex 保护共享状态（ph06 必会概念落地）
-package main
+// examples/ex03-race-detector/fixed/cache.go —— 修复版：Mutex 保护共享状态（ph06 并发编程阶段必会概念落地）
+// 验证环境：go1.25.6（darwin/arm64），测试命令：go test -race ./...（fixed 包已验证通过）
+package fixed
 
 import "sync"
 
@@ -695,7 +701,8 @@ func (c *Cache) Get(k string) string {
 ### 示例 4：mock 隔离外部依赖（接口 + 手写 stub）
 
 ```go
-// reporter.go —— 遥测上报服务：依赖接口，不依赖具体通道
+// examples/ex04-mock-stub/reporter.go —— 遥测上报服务：依赖接口，不依赖具体通道
+// 验证环境：go1.25.6（darwin/arm64），测试命令：go test -v ./...（已验证）
 package main
 
 import "fmt"
@@ -723,7 +730,7 @@ func (s *TelemetryService) Publish(deviceID string, payload map[string]any) erro
 ```
 
 ```go
-// reporter_test.go —— 手写 stub：记录调用、可模拟故障
+// examples/ex04-mock-stub/reporter_test.go —— 手写 stub：记录调用、可模拟故障
 package main
 
 import (
@@ -776,7 +783,8 @@ func TestPublishEmptyID(t *testing.T) {
 ### 示例 5：benchmark + 覆盖率（benchmem 分析 + 覆盖率报告）
 
 ```go
-// jsonutil.go —— 两种 JSON 编码实现，供基准对比
+// examples/ex05-benchmark-cover/jsonutil.go —— 两种 JSON 编码实现，供基准对比
+// 验证环境：go1.25.6（darwin/arm64），命令：go test -bench=. -benchmem -run=^$（已验证）
 package main
 
 import (
@@ -802,7 +810,7 @@ func main() {
 ```
 
 ```go
-// jsonutil_test.go —— 正确性测试 + 两个 benchmark
+// examples/ex05-benchmark-cover/jsonutil_test.go —— 正确性测试 + 两个 benchmark
 package main
 
 import "testing"
@@ -846,7 +854,39 @@ go test -coverprofile=cover.out ./... && go tool cover -func=cover.out
 go tool cover -html=cover.out     # 浏览器打开，红色标出未覆盖行
 ```
 
-要点：**对比结论**——json.Marshal 慢约 6 倍且每次分配 32 字节，手写格式化零分配；"快不快"看 ns/op、"分配多不多"看 B/op 与 allocs/op（**benchmark 要结合 benchmem 看分配**，必会概念）；但**选型不能只看数字**：反射方案通用、字段多时仍正确，手写方案格式写死——低频率路径不值得手写（呼应 ph13"先 profile 再优化"）；覆盖率 66.7% 提示**错误路径（EncodePoint 的 err 分支）没测**，补一个失败用例后再对比。这是练习"给核心模块写 benchmark"的完整答案。
+要点：**对比结论**——json.Marshal 慢约 6 倍且每次分配 32 字节，手写格式化零分配；"快不快"看 ns/op、"分配多不多"看 B/op 与 allocs/op（**benchmark 要结合 benchmem 看分配**，必会概念）；但**选型不能只看数字**：反射方案通用、字段多时仍正确，手写方案格式写死——低频率路径不值得手写（呼应 ph13 性能优化阶段"先 profile 再优化"）；覆盖率 66.7% 提示**错误路径（EncodePoint 的 err 分支）没测**，补一个失败用例后再对比。这是练习"给核心模块写 benchmark"的完整答案。
+
+### 示例 6：fuzz testing + Example 文档示例（不变量断言）
+
+```go
+// examples/ex06-fuzz-test/wordcount_test.go —— 不变量断言 + Example 文档示例
+// 验证环境：go1.25.6（darwin/arm64），命令：go test -v（已验证）、go test -fuzz=FuzzWordCount -fuzztime=10s（已验证）
+package main
+
+import (
+	"fmt"
+	"strings"
+	"testing"
+)
+
+func FuzzWordCount(f *testing.F) {
+	f.Add("hello world") // 种子语料：从正常输入出发
+	f.Add("  多空格  a\tb\n")
+	f.Fuzz(func(t *testing.T, s string) {
+		if got := WordCount(s); got != len(strings.Fields(s)) {
+			t.Errorf("WordCount(%q) 结果不一致", s)
+		}
+	})
+}
+
+// Example 函数是"会被 go test 执行"的文档示例：Output 注释必须与实际输出逐字符一致
+func ExampleWordCount() {
+	fmt.Println(WordCount("hello world"))
+	// Output: 2
+}
+```
+
+要点：**fuzz 断言的是不变量**（与参考实现 `strings.Fields` 结果一致），不是具体期望值——完整被测代码见 3.8 节；Example 函数同时承担文档与测试两个角色，`go test` 会比对 `// Output:` 注释与实际输出。完整文件在 `examples/ex06-fuzz-test/`。
 
 ## 7. 总结
 
@@ -875,30 +915,32 @@ go tool cover -html=cover.out     # 浏览器打开，红色标出未覆盖行
 | 覆盖率 | go test -cover | JaCoCo | pytest-cov | tarpaulin / grcov | gcov / lcov |
 | Mock 生态 | 手写 stub（默认）/ testify | Mockito | unittest.mock | mockall | GoogleMock |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- **能一键运行测试**：`go test ./...` 全部通过，并发包用 `go test -race ./...` 验证无数据竞争
-- **能解释覆盖率结果**：说出 `go test -cover` 百分比的含义，会用 `go tool cover -func/-html` 定位未覆盖代码并补测试
-- **能解释 benchmark 结果**：读懂 ns/op、B/op、allocs/op 三个数字，能说出分配对 GC 的影响，能对比两种实现的优劣
-- **能用 mock 隔离外部依赖**：接口 + 手写 stub 让测试不依赖真实网络/数据库，能断言 stub 的调用行为
-- **能写出表格驱动测试**：表结构 + 循环 + t.Run 子测试，覆盖边界与错误路径，会用 `-run` 筛选单个用例
-- **质量工具纳入日常**：go vet / golangci-lint / go fmt 在本地与 CI 中均无告警
+- [ ] **能一键运行测试**：`go test ./...` 全部通过，并发包用 `go test -race ./...` 验证无数据竞争
+- [ ] **能解释覆盖率结果**：说出 `go test -cover` 百分比的含义，会用 `go tool cover -func/-html` 定位未覆盖代码并补测试
+- [ ] **能解释 benchmark 结果**：读懂 ns/op、B/op、allocs/op 三个数字，能说出分配对 GC 的影响，能对比两种实现的优劣
+- [ ] **能用 mock 隔离外部依赖**：接口 + 手写 stub 让测试不依赖真实网络/数据库，能断言 stub 的调用行为
+- [ ] **能写出表格驱动测试**：表结构 + 循环 + t.Run 子测试，覆盖边界与错误路径，会用 `-run` 筛选单个用例
+- [ ] **质量工具纳入日常**：go vet / golangci-lint / go fmt 在本地与 CI 中均无告警
 
-### 进入下一阶段前
+### 动手练习
 
-确保能完成以下练习：
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）。完成 4 题后继续。四题与 roadmap「练习」小节一一对应：
 
-- **给业务函数写表格驱动测试**：选 ph07 的 WordCount 或 JSON 解析器，覆盖空输入、边界值、错误路径（提示：表结构加 wantErr 字段——示例 1）
-- **给 handler 写测试**：用 httptest.NewRequest + NewRecorder 测状态码与 JSON 响应，覆盖 200 与 404 两条路径（提示：handler 写成工厂函数 + 注入依赖——示例 2）
-- **给并发代码跑 race**：给 ph06 的 worker pool / 设备状态表跑 `go test -race ./...`，修掉所有 DATA RACE（提示：Mutex 保护共享 map——示例 3）
-- **给核心模块写 benchmark**：对比两种实现（strings.Join vs +=、json.Marshal vs 手写格式化）并记录 benchmem 结果（提示：`-benchmem` 看 B/op 与 allocs/op——示例 5）
-- **用 mock 隔离外部依赖**：给遥测上报服务定义 Reporter 接口并注入 stub，测成功/通道故障/空参数三条路径（提示：stub 记录调用参数做行为断言——示例 4）
-- **跑一遍质量三件套**：`go vet ./...`、`golangci-lint run`、`go fmt ./...`（或 `gofmt -l .`）全部干净无输出
+1. **给业务函数写表格驱动测试**：覆盖空输入、边界值、错误路径（提示：表结构加 wantErr 字段——示例 1）
+2. **给 handler 写测试**：用 httptest.NewRequest + NewRecorder 测状态码与 JSON 响应，覆盖 200 与 404 两条路径（提示：handler 写成工厂函数 + 注入依赖——示例 2）
+3. **给并发代码跑 race**：修掉数据竞争后用 `go test -race ./...` 验证（提示：Mutex 保护共享 map——示例 3）
+4. **给核心模块写 benchmark**：对比两种实现并记录 benchmem 结果（提示：`-benchmem` 看 B/op 与 allocs/op——示例 5）
 
-### 推荐项目
+### 阶段项目
 
-- **带测试的 HTTP API**：在 ph07 HTTP API server 基础上重构为 NewHandler + 依赖注入，为每个路由写 httptest 测试（200/404/方法不匹配），再跑 `-cover` 生成覆盖率报告并补齐未覆盖分支——testing + httptest + 表格驱动 + -cover
-- **并发模块 benchmark**：给 ph06 的 worker pool / 数据采集任务池写 Benchmark + race 测试，对比不同池大小、缓冲 channel 与 Mutex 方案的 ns/op 与分配，产出带结论的对比报告——BenchmarkXxx + -benchmem + -race
+本阶段综合项目见 [`project/`](./project/)：**带测试的设备管理 HTTP API**——在 ph07 标准库阶段 HTTP API server 基础上重构为 NewHandler + 依赖注入，为每个路由写 httptest 测试（200/404/400/405），跑 `-race` 验证并发安全，再用 `-cover` 生成覆盖率报告并补齐未覆盖分支。建议完成练习后再动手。
+
+- [ ] 完成 exercises/ 全部练习并对照参考实现复盘
+- [ ] 独立完成 project/ 并通过其验收标准
+
+roadmap 第二个推荐项目「并发模块 benchmark」可在完成本项目后作为扩展：给 ph06 并发编程阶段的 worker pool 写 Benchmark + race 测试，对比不同池大小与同步方案的 ns/op 和分配。
 
 ### 下一阶段
 

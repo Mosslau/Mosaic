@@ -38,6 +38,8 @@ Web 侧从 **Django**（2005，"全家桶"）到 **Flask**（2010，微框架）
 | 2020 | polars 与 playwright 发布 |
 | 2022 | ruff 发布——Rust 一站式 lint + format |
 
+本文示例以 **Python 3.11+** 为基线（3.11 起内置泛型注解语法成熟，`list[str]`、`X | None` 无需 `typing` 导入，也是当前主流 CI 镜像与发行版的常见默认版本），验证工具链为 Python 3.13.9 + requests 2.32 / httpx 0.28 / pandas 2.3 / matplotlib 3.10 / FastAPI 0.139 / pytest 8.4 / ruff 0.12（`examples/` 各文件头注有各自依赖版本）。第三方库版本迭代快，但本阶段讲的"选型原则 + 核心 API + 避坑点"是生态中最稳定的部分，个别参数差异以官方文档为准。
+
 ## 3. 语法与参数
 
 ### 3.1 requests 与 httpx：同步/异步 HTTP 客户端选型
@@ -103,7 +105,7 @@ asyncio.run(main())
 import requests
 from bs4 import BeautifulSoup
 
-resp = requests.get("https://httpbin.org/html", timeout=10)   # 需联网
+resp = requests.get("https://example.com", timeout=10)   # 需联网
 soup = BeautifulSoup(resp.text, "html.parser")
 print(soup.title.get_text())               # 标题文本
 for link in soup.find_all("a"):            # 全部链接
@@ -150,7 +152,7 @@ with sync_playwright() as p:
     browser.close()
 ```
 
-要点：playwright 的 `locator` 内置自动等待，selenium 需要 `implicitly_wait` 或显式 `WebDriverWait`——这是两者 API 风格最大的差异。登录态维持、截图、拦截请求等进阶用法见 ph14。
+要点：playwright 的 `locator` 内置自动等待，selenium 需要 `implicitly_wait` 或显式 `WebDriverWait`——这是两者 API 风格最大的差异。登录态维持、截图、拦截请求等进阶用法见 ph14。（selenium 与 playwright 未在本环境安装，以上两段片段按官方 Quickstart 编写，未在本环境验证。）
 
 ### 3.3 numpy 数组基础（ndarray·广播·向量化）
 
@@ -230,7 +232,7 @@ print(df.group_by("vehicle_id").agg(pl.col("speed").mean()))
 | pandas | 通用表格分析 | 绝大多数数据分析场景 |
 | polars | 高性能 DataFrame（Rust） | 大数据量、多核并行、流式处理 |
 
-要点：openpyxl 管"文件格式"，pandas/polars 管"分析"；**第三方库引入要考虑依赖成本**（roadmap 必会概念）——csv 小任务用标准库 `csv` 就好，pandas 会连带 numpy 引入几十 MB 依赖，polars 再快也不值得为小数据引入；本阶段认识 polars/openpyxl 基本用法即可，深入在 ph09/ph12。
+要点：openpyxl 管"文件格式"，pandas/polars 管"分析"；**第三方库引入要考虑依赖成本**（roadmap 必会概念）——csv 小任务用标准库 `csv` 就好，pandas 会连带 numpy 引入几十 MB 依赖，polars 再快也不值得为小数据引入；本阶段认识 polars/openpyxl 基本用法即可，深入在 ph09/ph12。（上文 openpyxl 部分已在本环境验证；polars 未在本环境安装，其片段未在本环境验证。）
 
 ### 3.6 matplotlib·plotly·seaborn 可视化选型
 
@@ -410,12 +412,14 @@ pytest 启动后先做**收集（collection）**：递归扫描目录下 `test_*
 
 ## 6. 代码示例
 
+本节展示完整可运行示例的关键片段，完整文件（含文件头验证环境与运行命令）在 [`examples/`](./examples/) 目录，对照 [`examples/README.md`](./examples/README.md) 逐条运行。示例 1/2 需联网，示例 3/4/5 离线可跑；示例 6（httpx 同步/异步对比，呼应 3.1）见 `examples/ex06-httpx-async.py`，本文不展开。
+
 ### 示例 1：requests 请求 API（超时 + 错误处理 + JSON 解析）
 
 呼应"请求 API"练习：封装一个带超时、状态检查、JSON 解析与错误分类的请求函数。
 
 ```python
-# 依赖：pip install requests
+# examples/ex01-fetch-json.py —— 依赖：pip install requests；运行：python3 ex01-fetch-json.py（需联网，已验证）
 import requests
 
 def fetch_json(url: str, timeout: int = 10) -> dict:
@@ -423,12 +427,12 @@ def fetch_json(url: str, timeout: int = 10) -> dict:
         resp = requests.get(url, timeout=timeout)   # 显式超时，防挂起
         resp.raise_for_status()                     # 4xx/5xx 抛 HTTPError
         return resp.json()
-    except requests.Timeout:
-        raise RuntimeError(f"请求超时: {url}")
+    except requests.Timeout as e:
+        raise RuntimeError(f"请求超时: {url}") from e
     except requests.HTTPError as e:
-        raise RuntimeError(f"HTTP 错误: {e}")
+        raise RuntimeError(f"HTTP 错误: {e}") from e
     except requests.RequestException as e:
-        raise RuntimeError(f"网络错误: {e}")
+        raise RuntimeError(f"网络错误: {e}") from e
 
 if __name__ == "__main__":
     data = fetch_json("https://httpbin.org/json")   # 需联网
@@ -436,14 +440,14 @@ if __name__ == "__main__":
     print(data["slideshow"]["author"])
 ```
 
-要点：`raise_for_status()` 是"一行错误检查"；`resp.json()` 解析失败抛 `ValueError`；超时/HTTP/网络三类异常分开捕获，错误信息带 URL 方便排查。
+要点：`raise_for_status()` 是"一行错误检查"；`resp.json()` 解析失败抛 `ValueError`；超时/HTTP/网络三类异常分开捕获，`raise ... from e` 保留原始异常链，错误信息带 URL 方便排查。
 
 ### 示例 2：网页抓取（requests + BeautifulSoup 提取数据）
 
 呼应"抓取网页"练习：抓一个页面，提取标题与全部链接。
 
 ```python
-# 依赖：pip install requests beautifulsoup4
+# examples/ex02-scrape-page.py —— 依赖：pip install requests beautifulsoup4；运行：python3 ex02-scrape-page.py（需联网，已验证）
 import requests
 from bs4 import BeautifulSoup
 
@@ -457,7 +461,7 @@ def fetch_title_and_links(url: str) -> tuple[str, list[str]]:
     return title, links
 
 if __name__ == "__main__":
-    title, links = fetch_title_and_links("https://httpbin.org/html")   # 需联网
+    title, links = fetch_title_and_links("https://example.com")   # 需联网
     print("标题:", title)
     for link in links:
         print("链接:", link)
@@ -470,7 +474,7 @@ if __name__ == "__main__":
 呼应"分析 CSV / 画图"练习：本示例离线可跑，先造一份模拟 CSV 再走完整分析链路。
 
 ```python
-# 依赖：pip install pandas matplotlib
+# examples/ex03-csv-analysis.py —— 依赖：pip install pandas matplotlib；运行：python3 ex03-csv-analysis.py（离线可跑，已验证）
 import matplotlib
 matplotlib.use("Agg")            # 无显示环境也能 savefig
 import matplotlib.pyplot as plt
@@ -507,7 +511,8 @@ print("已保存 vehicle_analysis.png")
 呼应"写 FastAPI 接口"练习：保存为 `main.py`，`uvicorn main:app --reload` 启动；脚本直接运行则用 TestClient 自测。
 
 ```python
-# 依赖：pip install "fastapi[standard]"（TestClient 需要 httpx，standard 已包含）
+# examples/ex04-fastapi-crud.py —— 依赖：pip install "fastapi[standard]"（TestClient 需要 httpx，standard 已包含）
+# 运行：python3 ex04-fastapi-crud.py（TestClient 自测，离线可跑，已验证）
 from fastapi import FastAPI
 from pydantic import BaseModel
 
@@ -556,10 +561,10 @@ if __name__ == "__main__":       # 免启动服务，用 TestClient 自测
 
 ### 示例 5：pytest + ruff 质量工具（fixture + 参数化测试 + 配置示例）
 
-呼应"能配置基础质量工具"验收：一个最小项目三件套——被测代码、测试文件、工具配置。
+呼应"能配置基础质量工具"验收：一个最小项目三件套——被测代码、测试文件、工具配置。完整文件在 `examples/ex05-quality-tools/`（`pytest -q` 6 个用例全过、`ruff check .` 零告警、`mypy calc.py` 通过，均已验证）。
 
 ```python
-# calc.py —— 被测代码
+# examples/ex05-quality-tools/calc.py —— 被测代码
 def add(a: int, b: int) -> int:
     return a + b
 
@@ -572,7 +577,7 @@ def parse_speed(raw: str) -> float:
 ```
 
 ```python
-# test_calc.py —— 测试
+# examples/ex05-quality-tools/test_calc.py —— 测试
 import pytest
 from calc import add, parse_speed
 
@@ -598,7 +603,7 @@ def test_speeds_fixture(speeds):
 ```
 
 ```toml
-# pyproject.toml —— ruff / mypy 配置
+# examples/ex05-quality-tools/pyproject.toml —— ruff / mypy 配置
 [tool.ruff]
 line-length = 88
 
@@ -645,30 +650,25 @@ mypy calc.py             # 类型检查通过
 | 测试框架 | pytest | testing / testify | JUnit 5 | Jest / Vitest | cargo test / criterion |
 | 质量工具 | ruff / black / mypy | gofmt / go vet | Checkstyle / SpotBugs | ESLint / Prettier / tsc | rustfmt / clippy |
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能根据任务类型选择合适的库，并说清选型理由（对应 roadmap"能选择合适库"）
-- 能阅读库官方文档（Quickstart + API Reference）完成任务，报错能回文档定位（对应 roadmap"能阅读库文档完成任务"）
-- 能用 requests 请求 API、BeautifulSoup 抓网页、pandas 分析 CSV、matplotlib 画图、FastAPI 写最小接口（对应 roadmap 五项练习）
-- 能写 pytest fixture + 参数化测试并跑通（对应 roadmap"工程质量工具要自动化"）
-- 能配置 ruff/black/mypy 并运行检查，说明"工程质量工具要自动化"的价值（对应 roadmap"能配置基础质量工具"）
-- 能解释"同步和异步 HTTP 客户端不要混用""第三方库引入要考虑依赖成本"两个必会概念
+- [ ] 能根据任务类型选择合适的库，并说清选型理由（对应 roadmap"能选择合适库"）
+- [ ] 能阅读库官方文档（Quickstart + API Reference）完成任务，报错能回文档定位（对应 roadmap"能阅读库文档完成任务"）
+- [ ] 能用 requests 请求 API、BeautifulSoup 抓网页、pandas 分析 CSV、matplotlib 画图、FastAPI 写最小接口（对应 roadmap 五项练习）
+- [ ] 能写 pytest fixture + 参数化测试并跑通（对应 roadmap"工程质量工具要自动化"）
+- [ ] 能配置 ruff/black/mypy 并运行检查，说明"工程质量工具要自动化"的价值（对应 roadmap"能配置基础质量工具"）
+- [ ] 能解释"同步和异步 HTTP 客户端不要混用""第三方库引入要考虑依赖成本"两个必会概念
 
-### 进入下一阶段前
+### 动手练习
 
-确保能完成以下练习：
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）。5 题与 roadmap「练习」小节一一对应：请求 API（★）、抓取网页（★★）、分析 CSV（★★）、画图（★★）、写 FastAPI 接口（★★★）。完成 5 题后继续。
 
-- 请求 API：用 requests 请求一个公开 API（如 httpbin.org 或 GitHub API），带 timeout + 错误处理 + JSON 解析（提示：先 `resp.raise_for_status()` 再 `.json()`；把请求封装成函数）
-- 抓取网页：requests + BeautifulSoup 抓一个页面，提取标题与全部链接存成 CSV（提示：先看页面 HTML 结构再写 CSS 选择器；页面是 JS 渲染就换 playwright）
-- 分析 CSV：pandas 读 CSV → `info()` 看类型 → groupby 统计 → `to_csv(index=False)` 输出（提示：筛选后注意索引，`reset_index()` 恢复）
-- 画图：matplotlib 画折线图 + 柱状图并 `savefig`（提示：脚本里先 `matplotlib.use("Agg")` 防无显示环境报错）
-- 写 FastAPI 接口：Pydantic 模型 + GET/POST 路由，`uvicorn main:app --reload` 启动，浏览器打开 `/docs` 验证（提示：类型不符应返回 422；`async def` 路由里别用 `requests.get`）
-- 配置质量工具：给上面的项目加 pytest（fixture + 参数化）与 ruff，`pytest && ruff check .` 一键全绿（提示：把命令写进 README，下一步接入 pre-commit）
+### 阶段项目
 
-### 推荐项目
+本阶段综合项目见 [`project/`](./project/)：**网页数据采集器**——给一组 URL，requests + BeautifulSoup 提取标题、链接、表格数据，清洗后存 CSV，pytest 覆盖解析函数，ruff 保持整洁（呼应 roadmap「推荐项目」；另一个推荐项目「API 请求工具」可作为练手替代，思路见第 6 章示例 1 + ph06 的 argparse/logging）。建议完成练习后再动手。
 
-- **API 请求工具**：requests + argparse + logging 合体——支持 URL/参数/Headers 配置、超时与重试、错误分类输出、结果存 JSON/CSV，把 ph06 的 CLI 与日志能力用在真实 HTTP 场景（呼应 roadmap"API 请求工具"）
-- **网页数据采集器**：给一组 URL，requests + BeautifulSoup 提取结构化字段（标题、链接、表格数据），清洗后存 CSV，pytest 覆盖提取函数，ruff 保持整洁（呼应 roadmap"网页数据采集器"）
+- [ ] 完成 exercises/ 全部练习并对照参考实现复盘
+- [ ] 独立完成 project/ 并通过其验收标准
 
 ### 下一阶段
 

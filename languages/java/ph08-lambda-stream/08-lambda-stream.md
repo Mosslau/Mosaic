@@ -17,7 +17,7 @@ Java Lambda 与 Stream 阶段的目标是：**掌握现代 Java 的函数式数�
 | 并行流 | `parallelStream`、Fork/Join 模型与适用边界 |
 | 新式分支语法 | Switch Expressions（`->`/`yield`，Java 14+）、Pattern Matching（Java 16+/21+） |
 
-本阶段承接 ph07 IO 阶段——`Files.lines` 把文件读取接入 Stream 流水线；不涉及多线程与并发编程（ph09）、JVM 深入与性能调优（ph10）、Spring 框架（ph15）等。
+这个阶段只涉及 Lambda 表达式、函数式接口、方法引用、Stream 流水线、Collectors、Optional 与 Stream 的配合，以及 Switch Expressions 与 Pattern Matching 两类新式分支语法，**不涉及多线程与并发编程、JVM 深入与性能调优、Spring 框架** — 那些是 ph09 多线程与并发阶段、ph10 JVM 阶段、ph15 Spring 全家桶阶段的内容。本阶段承接 ph07 IO 与文件操作阶段——`Files.lines` 把文件读取接入 Stream 流水线；并行流只讲「何时可用、为何禁止共享可变状态」的边界，线程模型细节留给 ph09/ph10。
 
 ## 2. 来源与演变
 
@@ -35,6 +35,8 @@ Java 8 之后的演进分两条线。**Stream 线**持续补能力：Java 9 加 
 | Java 16（2021） | `Stream.toList()`；instanceof 模式匹配正式化（JEP 394） |
 | Java 17（2021） | switch 模式匹配首轮预览（JEP 406）；sealed class 正式化 |
 | Java 21（2023） | switch 模式匹配正式化（JEP 441）、`case null`、record patterns（JEP 440） |
+
+本文示例以 **Java 17（LTS）** 为基线（当前主流生产 LTS，覆盖 Lambda/Stream 全部核心 API、Switch Expressions 与 instanceof 模式匹配的正式特性），验证工具链 OpenJDK 17.0.18；switch 模式匹配（`case null`、类型模式分派）需要 Java 21+，文中与代码层单独标注。这个阶段的语法是自 Java 8 以来最稳定的部分——lambda 与 Stream 的核心 API 十年未变，写下的代码在更新的 JDK 上原样运行。
 
 ## 3. 语法与参数
 
@@ -204,12 +206,15 @@ String label = switch (day) {          // 整个 switch 是一个表达式，产
 };
 int score = 85;
 String grade = switch (score / 10) {
-    case 9, 10 -> "优秀";
+    case 9 -> "优秀";
+    case 10 -> {                            // 101~109 /10 也得 10，须再判越界
+        yield score == 100 ? "优秀" : "非法分数";
+    }
     case 8 -> "良好";
     case 7 -> "中等";
     case 6 -> "及格";
     default -> {                        // 块体分支用 yield 返回值
-        if (score < 0) yield "非法分数";
+        if (score < 0 || score > 100) yield "非法分数";
         yield "不及格";
     }
 };
@@ -331,11 +336,14 @@ Switch Expressions 和模式匹配的「安全」不只靠运行时，更靠**�
 
 ## 6. 代码示例
 
+本节展示完整可运行示例的关键片段，完整文件在 [`examples/`](./examples/) 目录（各文件的编译/运行命令与验证环境见 examples/README.md）。
+
 ### 示例 1：过滤学生成绩（filter + map + 统计）—— Java 8+
 
 对应 roadmap 练习「过滤学生成绩」「统计平均分」：过滤及格、映射姓名、统计平均分与及格率。
 
 ```java
+// examples/ex01-score-filter.java —— 过滤学生成绩：filter + map + 统计（已验证：OpenJDK 17.0.18）
 import java.util.*;
 import java.util.stream.*;
 
@@ -377,6 +385,7 @@ public class ScoreFilter {
 对应 roadmap 练习「按班级分组」「统计平均分」：`groupingBy` 分组 + `summarizingInt` 一次算出各班全部统计量。
 
 ```java
+// examples/ex02-group-by-class.java —— 按班级分组统计：groupingBy + summarizingInt（已验证：OpenJDK 17.0.18）
 import java.util.*;
 import java.util.stream.*;
 
@@ -421,6 +430,7 @@ public class GroupByClass {
 对应 roadmap 练习「设备状态筛选」：`Predicate.and` 组合条件，`findFirst` + `Optional` 处理「查无设备」。
 
 ```java
+// examples/ex03-device-filter.java —— 设备状态筛选：Predicate 组合 + Optional 兜底（已验证：OpenJDK 17.0.18）
 import java.util.*;
 import java.util.function.*;
 import java.util.stream.*;
@@ -472,6 +482,7 @@ public class DeviceFilter {
 对应 roadmap 推荐项目「日志过滤统计」，衔接 ph07：`Files.lines` 逐行读入，Stream 过滤、清洗、分组计数。
 
 ```java
+// examples/ex04-log-stream.java —— 日志过滤统计：Files.lines + Stream 流水线（已验证：OpenJDK 17.0.18）
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
@@ -510,11 +521,13 @@ public class LogStream {
 
 提示：大日志靠 `Files.lines` 的**惰性流水线**逐行处理，内存占用恒定——是 ph07「大文件禁止整读」在 Stream 世界的正解；每个 `try` 块各开一个新 Stream（Stream 不可复用）。
 
-### 示例 5：Switch Expressions 与 Pattern Matching—— Java 21+ 完整可编译（switch 模式匹配需 21+；instanceof 模式匹配 16+、Switch Expressions 14+）
+### 示例 5：Switch Expressions 与 Pattern Matching—— 传统 switch 对照 + 新语法（Switch Expressions 14+ / instanceof 模式匹配 16+ / switch 模式匹配 21+）
 
-对应 roadmap 练习「用 Switch Expressions 重写 if-else 分支」「用 Pattern Matching 改写 instanceof 判断」：先看传统 switch 的穿透问题，再看新语法如何消灭样板代码。
+对应 roadmap 练习「用 Switch Expressions 重写 if-else 分支」「用 Pattern Matching 改写 instanceof 判断」：先看传统 switch 的穿透问题，再看新语法如何消灭样板代码。完整文件拆为两个：`examples/ex05-switch-modern.java`（Java 14/16 语法，已验证）与 `examples/ex06-switch-pattern-matching.java`（switch 模式匹配，需 Java 21+）。
 
 ```java
+// examples/ex05-switch-modern.java —— Switch Expressions + instanceof 模式匹配（已验证：OpenJDK 17.0.18）
+// examples/ex06-switch-pattern-matching.java —— switch 模式匹配 + case null（Java 21+，未在本环境验证，本环境为 OpenJDK 17.0.18）
 public class SwitchModern {
     public static void main(String[] args) {
         System.out.println("传统: " + traditional(3));
@@ -550,7 +563,10 @@ public class SwitchModern {
 
     static String grade(int score) {
         return switch (score / 10) {
-            case 9, 10 -> "优秀";
+            case 9 -> "优秀";
+            case 10 -> {                        // 101~109 /10 也得 10，须再判越界
+                yield score == 100 ? "优秀" : "非法分数";
+            }
             case 8 -> "良好";
             case 7 -> "中等";
             case 6 -> "及格";
@@ -583,7 +599,7 @@ public class SwitchModern {
 }
 ```
 
-提示：本文件需 **Java 21+** 编译运行（`classify` 用了 `case null` 与 switch 类型模式）；若环境是 Java 17，删掉 `classify` 方法及其三行调用即可编译运行其余部分。输出依次为：`传统: 工作日`、`Switch Expressions: 工作日`、`成绩: 良好`、`字符串, 长度 5`、`整数, 平方 1764`、`其他: 3.14`、`字符串: abc`、`整数: 42`、`空值`。
+提示：上面片段合并展示两个示例文件——`ex05`（传统 switch 对照、Switch Expressions、`yield`、instanceof 模式匹配）在 Java 17 即可编译运行；`ex06` 的 `classify` 用了 `case null` 与 switch 类型模式，需 **Java 21+** 编译运行（本环境 OpenJDK 17.0.18 无法验证，见 examples/README.md 标注）。输出依次为：`传统: 工作日`、`Switch Expressions: 工作日`、`成绩: 良好`、`字符串, 长度 5`、`整数, 平方 1764`、`其他: 3.14`、`字符串: abc`、`整数: 42`、`空值`。
 
 ## 7. 总结
 
@@ -613,30 +629,33 @@ public class SwitchModern {
 
 对比结论：各语言都提供「过滤-映射-聚合」三件套，差异在**惰性与否**和**空值表达**——Java 用 Optional 把「可能为空」显式类型化，Kotlin 用可空类型在编译期强制处理，JS/Python 靠运行时约定；C++ ranges 与 Java Stream 一样强调惰性视图但无内置分组；Java 的 `groupingBy` 收集器是报表场景里最顺手的一档。
 
-### 阶段验收标准
+### 阶段验收清单
 
-- 能写常见 Stream 操作：`filter`/`map`/`sorted`/`distinct`/`limit` 组合出可读流水线，并用 `collect` 收尾
-- 能用 Switch Expressions 替代传统 switch：箭头语法、`yield` 返回值、穷尽性要求都理解
-- 能用 Pattern Matching 简化类型判断：instanceof 模式匹配与 switch 模式匹配消除强转样板
-- 能合理使用 Optional：`ofNullable`/`orElse`/`orElseThrow` 链式兜底，不裸调 `get()`，不用 Optional 做字段
-- 能判断何时不用 Stream：简单循环、中途跳出、复杂状态累积场景能果断回退传统控制流
-- 能解释 lambda 的 `invokedynamic` 实现与 Stream 的惰性求值（Sink 链）原理
+- [ ] 能写常见 Stream 操作：`filter`/`map`/`sorted`/`distinct`/`limit` 组合出可读流水线，并用 `collect` 收尾
+- [ ] 能用 Switch Expressions 替代传统 switch：箭头语法、`yield` 返回值、穷尽性要求都理解
+- [ ] 能用 Pattern Matching 简化类型判断：instanceof 模式匹配与 switch 模式匹配消除强转样板
+- [ ] 能合理使用 Optional：`ofNullable`/`orElse`/`orElseThrow` 链式兜底，不裸调 `get()`，不用 Optional 做字段
+- [ ] 能判断何时不用 Stream：简单循环、中途跳出、复杂状态累积场景能果断回退传统控制流
+- [ ] 能解释 lambda 的 `invokedynamic` 实现与 Stream 的惰性求值（Sink 链）原理
 
-### 进入下一阶段前
+### 动手练习
 
-确保能完成以下练习：
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）。完成 5 题后继续，题目与 roadmap「练习」小节一一对应：
 
-- **过滤学生成绩**：过滤及格、映射姓名、统计平均分与及格率（提示：`filter` → `map` → `collect(Collectors.toList())`；平均分用 `mapToInt(...).average().orElse(0)`）
+- **过滤学生成绩并统计平均分**：过滤及格、映射姓名、统计平均分与及格率（提示：`filter` → `map` → `collect(Collectors.toList())`；平均分用 `mapToInt(...).average().orElse(0)`）
 - **按班级分组**：按班级分组并输出各班人数、平均分、最高分（提示：`groupingBy(clazz, summarizingInt(score))`，再对 `entrySet()` 流排序）
-- **统计平均分**：对任意整数集合计算平均值与总和（提示：`mapToInt` + `average()`/`sum()`，注意空集合的 Optional 兜底）
 - **设备状态筛选**：按状态与电量组合筛选设备（提示：`Predicate.and`/`or` 组合，`findFirst` + `Optional.orElse` 处理查无设备）
 - **用 Switch Expressions 重写 if-else 分支**：如成绩分级、周几判断（提示：箭头语法多值合并 `case 6, 7 ->`，块体用 `yield`，注意穷尽加 `default`）
 - **用 Pattern Matching 改写 instanceof 判断**：类型分派处理（提示：`obj instanceof String s` 后直接用 `s`；Java 21 可用 switch 模式匹配 + `case null`）
 
-### 推荐项目
+### 阶段项目
 
-- **日志过滤统计**：读取日志文件（衔接 ph07），用 Stream 过滤 ERROR/WARN、清洗行内容、按错误信息分组计数并输出 TopN；大文件用 `Files.lines` + try-with-resources 逐行处理保持内存恒定；数据量大时可加 `parallelStream` 观察加速比
-- **报表分组统计**：对学生/订单/设备数据按班级/状态/地区分组，汇总人数、平均分、占比，用 `groupingBy` + `summarizingInt`/`counting` + `partitioningBy` 输出表格报表；进阶用 `joining` 生成 CSV 行、用 `sorted` 输出排名
+本阶段综合项目见 [`project/`](./project/)：**日志过滤统计**——读取日志文件（衔接 ph07），用 Stream 过滤 ERROR/WARN、清洗行内容、按错误信息分组计数并输出 TopN，大文件用 `Files.lines` + try-with-resources 逐行处理保持内存恒定。建议完成练习后再动手。
+
+- [ ] 完成 exercises/ 全部练习并对照参考实现复盘
+- [ ] 独立完成 project/ 并通过其验收标准
+
+roadmap 推荐的第二个项目「报表分组统计」（`groupingBy` + `summarizingInt`/`counting` + `partitioningBy` 输出表格报表，进阶用 `joining` 生成 CSV 行）作为扩展方向，示例 2 已给出核心句式。
 
 ### 下一阶段
 

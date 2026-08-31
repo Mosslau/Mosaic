@@ -1,0 +1,14 @@
+# examples/ex05-quality-tools/pyproject.toml —— 主文档 6.5：ruff / mypy 配置示例
+# 运行（在 ex05-quality-tools/ 目录下）：
+#   ruff check .   # lint（已验证，零告警）
+#   mypy calc.py   # 类型检查（已验证，通过）
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]  # 错误/未定义/导入排序/新语法/常见 bug
+
+[tool.mypy]
+python_version = "3.11"
