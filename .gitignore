@@ -53,3 +53,6 @@ tenet/compiler-arm64/test_tenet
 # py ph08 示例运行产物（ex03 写当前目录）
 languages/py/ph08-third-party/vehicle.csv
 languages/py/ph08-third-party/vehicle_analysis.png
+
+# pytest/运行缓存
+.pytest_cache/

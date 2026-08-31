@@ -30,6 +30,7 @@ class ScoreFilter {
                 avg, max, passedCount * 100.0 / students.size());
     }
 
+    // 教学简化：为聚焦 Stream 主题，字段未做封装（省略 private + getter）
     static class Student {
         String name;
         int score;

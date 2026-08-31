@@ -38,4 +38,4 @@
 - Python 3.13.9；依赖：requests 2.32.5、beautifulsoup4 4.13.5、pytest 8.4.2、ruff 0.12.0
 - 安装：`pip install requests beautifulsoup4 pytest ruff`（建议先在 venv 中安装，见 ph07）
 - 运行 / 测试命令见「验收标准」各条
-- 验证状态：已验证（`--demo` 离线链路、example.com 联网抓取、无效 URL 容错、pytest 4 个用例、ruff 零告警均在本环境实际执行通过）
+- 验证状态：已验证（`--demo` 离线链路、example.com 联网抓取、无效 URL 容错、pytest 5 个用例、ruff 零告警均在本环境实际执行通过）

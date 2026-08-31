@@ -31,11 +31,11 @@ go test 工具链沿"工程质量"方向持续演进：Go 1.1 集成 **ThreadSan
 | 2012 | Go 1.0：testing 包与 go test 随语言发布，测试零第三方依赖 |
 | 2012 | Go 1.1：-race 集成 ThreadSanitizer，数据竞争检测进入官方工具链 |
 | 2013 | Go 1.2：-cover 覆盖率支持；表格驱动测试风格被社区广泛推广 |
-| 2016 | Go 1.7：testing.T.Run 子测试、t.Parallel 加入 |
+| 2016 | Go 1.6：-coverpkg 支持跨包覆盖率统计；Go 1.7：testing.T.Run 子测试、t.Parallel 加入 |
 | 2018 | golangci-lint 发布：聚合 vet 与社区 linter 的常用入口 |
-| 2020 | Go 1.14：t.Cleanup、-coverpkg 补齐 |
+| 2020 | Go 1.14：t.Cleanup 注册清理函数 |
 | 2022 | Go 1.18：testing.F 原生 fuzz testing 进入标准库 |
-| 2022 | Go 1.22：循环变量语义修复，表格测试不再需要 `tc := tc` 拷贝 |
+| 2024 | Go 1.22：循环变量语义修复，表格测试不再需要 `tc := tc` 拷贝 |
 
 本文示例以 **Go 1.22** 为基线（本阶段用到 Go 1.22 的路由通配符 `r.PathValue` 与循环变量语义修复），验证工具链 **go1.25.6（darwin/arm64）**，仅使用标准库。testing 包的 API（TestXxx / BenchmarkXxx / FuzzXxx）是 Go 中最稳定的接口之一，从 Go 1.0 至今保持向后兼容，放心学。
 
@@ -233,6 +233,7 @@ func TestServiceSaveConfigEmptyKey(t *testing.T) {
 
 ```go
 // calc_test.go —— b.N 自动校准，-benchmem 看分配
+// 包级 sink：承接 benchmark 结果，防止编译器把循环整体优化掉（见下方"坑"）
 package main
 
 import (
@@ -240,10 +241,15 @@ import (
 	"testing"
 )
 
+var (
+	sinkInt    int
+	sinkString string
+)
+
 func BenchmarkSum(b *testing.B) {
 	nums := []int{1, 2, 3, 4, 5}
 	for i := 0; i < b.N; i++ {
-		Sum(nums)
+		sinkInt = Sum(nums)
 	}
 }
 
@@ -251,7 +257,7 @@ func BenchmarkJoin(b *testing.B) {
 	parts := []string{"a", "b", "c", "d", "e"}
 	b.Run("strings.Join", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			_ = strings.Join(parts, ",")
+			sinkString = strings.Join(parts, ",")
 		}
 	})
 	b.Run("手动拼接", func(b *testing.B) {
@@ -260,7 +266,7 @@ func BenchmarkJoin(b *testing.B) {
 			for _, p := range parts {
 				s += p
 			}
-			_ = s
+			sinkString = s
 		}
 	})
 }
@@ -427,7 +433,7 @@ gofmt -l .        # 列出需要格式化的文件（CI 里输出非空即失败
 - **b.N 自动校准**：从小值开始倍增（1、2、5、10、25…），直到单次运行时长达到目标（默认 1 秒）且稳定——保证每种实现都跑"足够久"而非"同样多次"
 - `-benchtime=5s` 调目标时长、`-count=3` 重复取方差；结果三列：**ns/op（每次耗时）、B/op（每次分配字节）、allocs/op（每次分配次数）**——分配多意味着 GC 压力大（ph13 详谈）
 - 计时默认覆盖整个循环体：`b.ResetTimer()` 排除 setup，`b.StopTimer()/b.StartTimer()` 精确圈定计时区间
-- **优化器风险**：计算结果未使用会被整段删除——用包级变量承接结果（示例 5 的 `_ =` 在简单场景够用，复杂场景用 `globalSink = result`）
+- **优化器风险**：计算结果未使用会被整段删除——用包级变量承接结果（示例 5 与 3.5 节的 benchmark 都用包级 sink 承接，正是这个思路的落地；复杂场景同理用 `globalSink = result`）
 
 ## 5. 使用场景
 
@@ -648,6 +654,8 @@ func (c *Cache) Get(k string) string { return c.data[k] }
 
 ```go
 // examples/ex03-race-detector/racy/cache_test.go —— 制造真实并发交错（仅 -race 模式运行）
+// raceEnabled 由同包 //go:build race 标签文件注入：不加 -race 时用例自动跳过，
+// 避免裸跑触发 concurrent map writes 崩溃（完整文件见 examples/ex03-race-detector/racy/）
 package racy
 
 import (
@@ -656,6 +664,9 @@ import (
 )
 
 func TestCacheConcurrent(t *testing.T) {
+	if !raceEnabled {
+		t.Skip("本用例演示 DATA RACE，仅在 go test -race 下运行")
+	}
 	c := NewCache()
 	var wg sync.WaitGroup
 	for i := 0; i < 50; i++ {
@@ -667,7 +678,7 @@ func TestCacheConcurrent(t *testing.T) {
 }
 ```
 
-运行 `go test -race ./...`：要么输出 `WARNING: DATA RACE`，要么直接 `fatal error: concurrent map writes` 崩溃。修复——加 Mutex：
+运行 `go test -race ./...` 会输出 `WARNING: DATA RACE`（测试"失败"是预期效果）；不加 `-race` 时用例自动跳过（`//go:build race` 探测），避免裸跑触发 `fatal error: concurrent map writes` 崩溃。修复——加 Mutex：
 
 ```go
 // examples/ex03-race-detector/fixed/cache.go —— 修复版：Mutex 保护共享状态（ph06 并发编程阶段必会概念落地）
@@ -790,6 +801,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 )
 
 type Point struct {
@@ -800,8 +812,16 @@ type Point struct {
 // EncodePoint 用 encoding/json（反射，通用但慢）
 func EncodePoint(p Point) ([]byte, error) { return json.Marshal(p) }
 
-// PointString 手写格式化（快，但格式写死）
-func PointString(p Point) string { return fmt.Sprintf(`{"x":%v,"y":%v}`, p.X, p.Y) }
+// PointString 手写格式化：strconv 直接写字节缓冲，避开反射路径（快），但格式写死
+func PointString(p Point) string {
+	b := make([]byte, 0, 64)
+	b = append(b, `{"x":`...)
+	b = strconv.AppendFloat(b, p.X, 'g', -1, 64)
+	b = append(b, `,"y":`...)
+	b = strconv.AppendFloat(b, p.Y, 'g', -1, 64)
+	b = append(b, '}')
+	return string(b)
+}
 
 func main() {
 	data, _ := EncodePoint(Point{X: 1.5, Y: 2.5})
@@ -811,9 +831,15 @@ func main() {
 
 ```go
 // examples/ex05-benchmark-cover/jsonutil_test.go —— 正确性测试 + 两个 benchmark
+// 包级 sink 承接结果，防止编译器把 benchmark 循环整体优化掉（见 4.4 优化器风险）
 package main
 
 import "testing"
+
+var (
+	sinkBytes  []byte
+	sinkString string
+)
 
 func TestEncodePoint(t *testing.T) {
 	data, err := EncodePoint(Point{X: 1.5, Y: 2.5})
@@ -825,17 +851,23 @@ func TestEncodePoint(t *testing.T) {
 	}
 }
 
+func TestPointString(t *testing.T) {
+	if got := PointString(Point{X: 1.5, Y: 2.5}); got != `{"x":1.5,"y":2.5}` {
+		t.Errorf("输出 = %s", got)
+	}
+}
+
 func BenchmarkEncodePoint(b *testing.B) {
 	p := Point{X: 1.5, Y: 2.5}
 	for i := 0; i < b.N; i++ {
-		_, _ = EncodePoint(p)
+		sinkBytes, _ = EncodePoint(p) // 赋值给包级变量，结果不可被优化消除
 	}
 }
 
 func BenchmarkPointString(b *testing.B) {
 	p := Point{X: 1.5, Y: 2.5}
 	for i := 0; i < b.N; i++ {
-		_ = PointString(p)
+		sinkString = PointString(p)
 	}
 }
 ```
@@ -844,17 +876,17 @@ func BenchmarkPointString(b *testing.B) {
 
 ```bash
 go test -bench=. -benchmem -run=^$ ./...
-# BenchmarkEncodePoint-10    ...   180 ns/op   32 B/op   1 allocs/op
-# BenchmarkPointString-10    ...    30 ns/op    0 B/op   0 allocs/op
+# BenchmarkEncodePoint-14    ...   120 ns/op   24 B/op   1 allocs/op
+# BenchmarkPointString-14    ...    61 ns/op   24 B/op   1 allocs/op
 
 go test -cover ./...
-# coverage: 66.7% of statements   ← 错误路径未被覆盖
+# coverage: 61.5% of statements   ← 未覆盖的是 main 入口，两个被测函数均 100%
 
 go test -coverprofile=cover.out ./... && go tool cover -func=cover.out
 go tool cover -html=cover.out     # 浏览器打开，红色标出未覆盖行
 ```
 
-要点：**对比结论**——json.Marshal 慢约 6 倍且每次分配 32 字节，手写格式化零分配；"快不快"看 ns/op、"分配多不多"看 B/op 与 allocs/op（**benchmark 要结合 benchmem 看分配**，必会概念）；但**选型不能只看数字**：反射方案通用、字段多时仍正确，手写方案格式写死——低频率路径不值得手写（呼应 ph13 性能优化阶段"先 profile 再优化"）；覆盖率 66.7% 提示**错误路径（EncodePoint 的 err 分支）没测**，补一个失败用例后再对比。这是练习"给核心模块写 benchmark"的完整答案。
+要点：**对比结论**——手写 strconv 版约 61 ns/op，比 json.Marshal（约 120 ns/op）**快约 2 倍**，因为它避开了反射路径；两者分配持平（24 B/op、1 allocs/op）——注意 **string(b) 转换仍需 1 次拷贝**，真正零分配需要 unsafe 技巧（超出本阶段）；"快不快"看 ns/op、"分配多不多"看 B/op 与 allocs/op（**benchmark 要结合 benchmem 看分配**，必会概念）；但**选型不能只看数字**：反射方案通用、字段多时仍正确，手写方案格式写死——低频率路径不值得手写（呼应 ph13 性能优化阶段"先 profile 再优化"）；覆盖率 61.5% 的缺口是 **main 入口（示例演示代码）没测**，两个被测函数均为 100%——覆盖率要盯核心函数，别被演示入口拖低百分比。这是练习"给核心模块写 benchmark"的完整答案。
 
 ### 示例 6：fuzz testing + Example 文档示例（不变量断言）
 
@@ -930,7 +962,7 @@ func ExampleWordCount() {
 
 1. **给业务函数写表格驱动测试**：覆盖空输入、边界值、错误路径（提示：表结构加 wantErr 字段——示例 1）
 2. **给 handler 写测试**：用 httptest.NewRequest + NewRecorder 测状态码与 JSON 响应，覆盖 200 与 404 两条路径（提示：handler 写成工厂函数 + 注入依赖——示例 2）
-3. **给并发代码跑 race**：修掉数据竞争后用 `go test -race ./...` 验证（提示：Mutex 保护共享 map——示例 3）
+3. **给并发代码跑 race**：修掉数据竞争后用 `go test -race ./...` 验证（提示：Mutex 保护共享状态——示例 3）
 4. **给核心模块写 benchmark**：对比两种实现并记录 benchmem 结果（提示：`-benchmem` 看 B/op 与 allocs/op——示例 5）
 
 ### 阶段项目

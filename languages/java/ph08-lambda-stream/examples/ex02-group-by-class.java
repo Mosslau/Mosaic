@@ -31,6 +31,7 @@ class GroupByClass {
                         + " 平均 " + e.getValue().getAverage()));
     }
 
+    // 教学简化：为聚焦 Stream 主题，字段未做封装（省略 private + getter）
     static class Student {
         String clazz, name;
         int score;

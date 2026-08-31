@@ -29,7 +29,6 @@ summary = df.groupby("vehicle_id").agg(
 print("\n按车分组统计:")
 print(summary)
 
-# 3. 输出（index 有意义时保留；本题分组结果是新表，vehicle_id 作索引合理，
-#    若题目要求纯数据列则 reset_index() 后 index=False）
-summary.to_csv("result.csv")
+# 3. 输出（题目要求 index=False：先 reset_index() 把 vehicle_id 从索引变回普通列，再写）
+summary.reset_index().to_csv("result.csv", index=False)
 print("\n已写入 result.csv")

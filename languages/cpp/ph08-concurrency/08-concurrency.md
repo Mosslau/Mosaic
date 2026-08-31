@@ -337,7 +337,7 @@ int main() {
 
 | 原语 | 用途 | 关键 API | 可重用 |
 |------|------|---------|--------|
-| std::counting_semaphore\<N\> | 资源限流（连接池、有界缓冲） | acquire() / release() | 是 |
+| `std::counting_semaphore<N>` | 资源限流（连接池、有界缓冲） | acquire() / release() | 是 |
 | std::binary_semaphore | 0/1 信号量，类似"事件" | acquire() / release() | 是 |
 | std::latch | 一次性汇合闸门 | count_down() / wait() | 否 |
 | std::barrier | 每轮到齐后放行（阶段同步） | arrive_and_wait() | 是 |
@@ -372,7 +372,7 @@ int main() {
 }
 ```
 
-要点（编译：`g++ -std=c++20 -fcoroutines`，GCC 12 前需显式开启）：
+要点（编译：GCC 10 需显式开启 `-fcoroutines`，GCC 11 起 `-std=c++20` 默认启用协程；基线 Apple clang 21 无需该 flag）：
 
 - **必会概念：C++20 协程是无栈协程，编译器将函数体转换为可恢复状态机**（见 4.5）
 - `co_await` 挂起/恢复（等一个异步结果）；`co_return` 结束并返回值；`co_yield` 逐个产出值

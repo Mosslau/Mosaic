@@ -2,7 +2,7 @@
 # 验证环境：Python 3.13.9，fastapi 0.139.1，pydantic 2.12.4，httpx 0.28.1（TestClient 依赖）
 # 运行：python3 ex04-fastapi-crud.py（TestClient 自测，离线可跑，已验证）
 #       或 uvicorn ex04-fastapi-crud:app --reload --port 8000 后浏览器开 http://127.0.0.1:8000/docs
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 app = FastAPI(title="Car API")
@@ -24,7 +24,7 @@ def list_cars():
 @app.get("/cars/{idx}")
 def get_car(idx: int):
     if idx >= len(cars):
-        return {"error": "not found"}, 404
+        raise HTTPException(status_code=404, detail="not found")
     return cars[idx]
 
 
@@ -49,6 +49,7 @@ if __name__ == "__main__":  # 免启动服务，用 TestClient 自测
     from fastapi.testclient import TestClient
 
     client = TestClient(app)
+    print("GET 空列表:", client.get("/cars/0").status_code)  # 404：越界守卫
     print(
         "POST 合法:",
         client.post("/cars", json={"vehicle_id": "V001", "speed": 80}).status_code,

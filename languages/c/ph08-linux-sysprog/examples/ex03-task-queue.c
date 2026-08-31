@@ -20,6 +20,10 @@ typedef struct {
 
 static void tq_init(TaskQueue *q) {
     q->items = malloc(QUEUE_CAP * sizeof(int));
+    if (q->items == NULL) { /* malloc 失败立即退出, 不留空指针隐患 */
+        perror("malloc");
+        exit(EXIT_FAILURE);
+    }
     q->head = q->tail = q->count = 0;
     pthread_mutex_init(&q->lock, NULL);
     pthread_cond_init(&q->not_empty, NULL);

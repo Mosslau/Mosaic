@@ -21,7 +21,7 @@ Python 第三方库阶段的目标是：**面对工程任务能先选对库、�
 
 ## 2. 来源与演变
 
-HTTP 客户端从标准库 `urllib` 起步，但 API 繁琐、连接管理原始。2011 年 **requests**（"HTTP for Humans"）以极简 API 成为事实标准，底层基于 **urllib3** 的连接池；2015 年 **aiohttp** 为 asyncio 生态提供异步客户端；2019 年 **httpx** 融合两者——同一套 API 同时提供同步与异步模式、原生支持 HTTP/2，成为现代新项目的首选。网页抓取侧，**Beautiful Soup**（2004）专注 HTML 解析，**selenium**（2004）用浏览器驱动（WebDriver）做自动化，2020 年微软的 **playwright**（源自 Puppeteer）以"自带浏览器、API 现代"成为新一代方案。
+HTTP 客户端从标准库 `urllib` 起步，但 API 繁琐、连接管理原始。2011 年 **requests**（"HTTP for Humans"）以极简 API 成为事实标准，底层基于 **urllib3** 的连接池；2015 年 **aiohttp** 为 asyncio 生态提供异步客户端；2019 年 **httpx** 融合两者——同一套 API 同时提供同步与异步模式、原生支持 HTTP/2（需安装 `httpx[http2]` 扩展才启用），成为现代新项目的首选。网页抓取侧，**Beautiful Soup**（2004）专注 HTML 解析，**selenium**（2004）用浏览器驱动（WebDriver）做自动化，2020 年微软的 **playwright**（源自 Puppeteer）以"自带浏览器、API 现代"成为新一代方案。
 
 数值与数据生态源于学术计算：**numpy** 由 1995 年的 Numeric 与 2001 年的 Numarray 于 2006 年合并而来，成为 Python 数值计算地基；**pandas**（2008，Wes McKinney）在 numpy 之上提供带标签的 DataFrame，把"数据清洗与分析"变成几行代码；2020 年 **polars**（Rust 编写）以惰性求值与多核并行挑战 pandas 的性能天花板；**openpyxl** 则是 Excel xlsx 读写的标准工具。可视化上，**matplotlib**（2003）是底层绘图标准，**seaborn**（2012）在其上提供统计图表，**plotly**（2012）提供浏览器交互图表。
 
@@ -38,7 +38,7 @@ Web 侧从 **Django**（2005，"全家桶"）到 **Flask**（2010，微框架）
 | 2020 | polars 与 playwright 发布 |
 | 2022 | ruff 发布——Rust 一站式 lint + format |
 
-本文示例以 **Python 3.11+** 为基线（3.11 起内置泛型注解语法成熟，`list[str]`、`X | None` 无需 `typing` 导入，也是当前主流 CI 镜像与发行版的常见默认版本），验证工具链为 Python 3.13.9 + requests 2.32 / httpx 0.28 / pandas 2.3 / matplotlib 3.10 / FastAPI 0.139 / pytest 8.4 / ruff 0.12（`examples/` 各文件头注有各自依赖版本）。第三方库版本迭代快，但本阶段讲的"选型原则 + 核心 API + 避坑点"是生态中最稳定的部分，个别参数差异以官方文档为准。
+本文示例以 **Python 3.11+** 为基线（`list[str]` 自 3.9、`X | None` 自 3.10 起内置可用，无需 `typing` 导入；3.11 起注解语法进一步成熟，也是当前主流 CI 镜像与发行版的常见默认版本），验证工具链为 Python 3.13.9 + requests 2.32 / httpx 0.28 / pandas 2.3 / matplotlib 3.10 / FastAPI 0.139 / pytest 8.4 / ruff 0.12（`examples/` 各文件头注有各自依赖版本）。第三方库版本迭代快，但本阶段讲的"选型原则 + 核心 API + 避坑点"是生态中最稳定的部分，个别参数差异以官方文档为准。
 
 ## 3. 语法与参数
 
@@ -67,7 +67,7 @@ async def main():
 |------|----------|-------|---------|
 | 同步 / 异步 | 仅同步 | 同步 + 异步（同一 API） | 仅异步 |
 | 底层 | urllib3 | httpcore | 自有（asyncio 原生） |
-| HTTP/2 | 否 | 是 | 否 |
+| HTTP/2 | 否 | 是（需 httpx[http2]） | 否 |
 | 适用场景 | 脚本、自动化——默认首选 | 需要异步或双模式统一 | 纯 asyncio 生态、大量并发 |
 
 要点：
@@ -372,7 +372,7 @@ mypy main.py       # 类型检查
 
 ### 4.1 requests vs httpx 的传输层（urllib3/HTTPX 连接池与 keep-alive）
 
-requests 底层是 **urllib3**：它实现了**连接池（connection pool）**与 **keep-alive**。HTTP/1.1 支持长连接，urllib3 按 `(host, port)` 把空闲 TCP 连接分桶缓存，同主机后续请求直接复用已建立（含 TLS 握手完成）的连接，避免反复"三次握手 + TLS"的开销。每次裸调 `requests.get()` 都会新建连接并随手丢弃——**循环/批量请求务必用 `requests.Session()` 复用连接池**，性能差距可达数量级。httpx 的传输层是 **httpcore**：同样维护连接池（`httpx.Client()` 复用），并原生支持 **HTTP/2 多路复用**——一条连接并发多个请求流，这是它在"并发请求同一主机"场景胜过 requests 的核心原因。**坑**：`requests.Session` 不是线程安全的，多线程共享要加锁或每线程一个；`httpx.Client` 线程安全，但所有线程共享同一连接池，注意连接池上限配置。
+requests 底层是 **urllib3**：它实现了**连接池（connection pool）**与 **keep-alive**。HTTP/1.1 支持长连接，urllib3 按 `(host, port)` 把空闲 TCP 连接分桶缓存，同主机后续请求直接复用已建立（含 TLS 握手完成）的连接，避免反复"三次握手 + TLS"的开销。每次裸调 `requests.get()` 都会新建连接并随手丢弃——**循环/批量请求务必用 `requests.Session()` 复用连接池**，性能差距可达数量级。httpx 的传输层是 **httpcore**：同样维护连接池（`httpx.Client()` 复用），并原生支持 **HTTP/2 多路复用**——一条连接并发多个请求流（需安装 `httpx[http2]` 可选依赖才实际启用），这是它在"并发请求同一主机"场景胜过 requests 的核心原因。**坑**：`requests.Session` 不是线程安全的，多线程共享要加锁或每线程一个；`httpx.Client` 线程安全，但所有线程共享同一连接池，注意连接池上限配置。
 
 ### 4.2 numpy 的 C 扩展与向量化原理
 
@@ -513,7 +513,7 @@ print("已保存 vehicle_analysis.png")
 ```python
 # examples/ex04-fastapi-crud.py —— 依赖：pip install "fastapi[standard]"（TestClient 需要 httpx，standard 已包含）
 # 运行：python3 ex04-fastapi-crud.py（TestClient 自测，离线可跑，已验证）
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 app = FastAPI(title="Car API")
@@ -531,7 +531,7 @@ def list_cars():
 @app.get("/cars/{idx}")
 def get_car(idx: int):
     if idx >= len(cars):
-        return {"error": "not found"}, 404
+        raise HTTPException(status_code=404, detail="not found")
     return cars[idx]
 
 @app.post("/cars", status_code=201)
@@ -551,13 +551,14 @@ def delete_car(idx: int):
 if __name__ == "__main__":       # 免启动服务，用 TestClient 自测
     from fastapi.testclient import TestClient
     client = TestClient(app)
+    print("GET 空列表:", client.get("/cars/0").status_code)      # 404：越界守卫
     print("POST 合法:", client.post("/cars", json={"vehicle_id": "V001", "speed": 80}).status_code)    # 201
     print("POST 非法:", client.post("/cars", json={"vehicle_id": "V001", "speed": "很快"}).status_code) # 422
     print("GET:", client.get("/cars").json())
     print("DELETE:", client.delete("/cars/0").status_code)   # 200
 ```
 
-要点：Pydantic 模型同时管校验与文档；请求体类型不符自动 422（示例里 `"很快"` 不是 float）；`{...}, 404` 元组返回可自定义状态码；真实部署用 `uvicorn main:app --reload` 启动后访问 `/docs` 查看自动文档。
+要点：Pydantic 模型同时管校验与文档；请求体类型不符自动 422（示例里 `"很快"` 不是 float）；越界访问用 `HTTPException(404)` 显式返回 404——FastAPI 不认 Flask 的 `(content, status_code)` 元组惯例；真实部署用 `uvicorn main:app --reload` 启动后访问 `/docs` 查看自动文档。
 
 ### 示例 5：pytest + ruff 质量工具（fixture + 参数化测试 + 配置示例）
 

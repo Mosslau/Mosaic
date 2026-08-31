@@ -2,6 +2,10 @@
  * 用法: ./sol-05 [日志文件]   默认 ph05 风格文件名 app.log
  * 验证: 行数 == PRODUCERS * LINES_PER, 无丢行无重复
  */
+// 验证环境：Apple clang 21.0.0（cc），macOS（Darwin arm64），-Wall -Wextra -std=c11 -pthread 零警告
+// 编译：cc -Wall -Wextra -std=c11 -pthread sol-05-log-collector.c -o sol05
+// 运行：./sol05 [日志文件]（默认 app.log）；验收 wc -l app.log 恰好 1000 行
+// 验证状态：已验证（首跑 1000 行、重跑追加不覆盖、无丢行无重复）
 #define _POSIX_C_SOURCE 200809L
 
 #include <fcntl.h>

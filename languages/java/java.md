@@ -380,7 +380,7 @@ for (String line : lines) {
 - Stream API
 - map、filter、reduce、collect、groupingBy、Optional
 - Switch Expressions（`->` / `yield`，Java 14+）
-- Pattern Matching for instanceof / switch（Java 17+/21+）
+- Pattern Matching for instanceof / switch（Java 16+/21+）
 
 ### 必会概念
 

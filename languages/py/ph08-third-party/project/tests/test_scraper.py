@@ -1,5 +1,5 @@
 # project/tests/test_scraper.py —— 离线测试：内置 HTML fixture 覆盖解析与 CSV 写出
-# 运行（在 project/ 目录下）：pytest -q（已验证，4 个用例全过，不依赖网络）
+# 运行（在 project/ 目录下）：pytest -q（已验证，5 个用例全过，不依赖网络）
 import csv
 import sys
 from pathlib import Path

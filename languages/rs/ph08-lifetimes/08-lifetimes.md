@@ -113,7 +113,7 @@ fn main() {
 - `longest<'a>` 读作："存在一个生命周期 `'a`，`x`、`y` 的引用和返回值都活不过它"——返回值与两个输入**共享同一个** `'a`，编译器取三者中最短的那个。
 - **坑：过度标注**——不需要的地方写 `<'a>` 不会报错，但会让签名难读；规则是"省略规则够用就别写"，写出来的每个 `'a` 都应该有约束作用。
 - 生命周期参数与泛型参数语法上并列：`<'a, T>`，`'a` 习惯写在前面。
-- 返回引用永远不能来自函数内部新建的局部值（E0597），只能来自输入或 `'static` 数据——这是"**输入引用与输出引用的约束**"的本质。
+- 返回引用永远不能来自函数内部新建的局部值（无输入生命周期时原样报 E0106，补上 `<'a>` 后报 E0515；借用逃出作用域才报 E0597），只能来自输入或 `'static` 数据——这是"**输入引用与输出引用的约束**"的本质。
 
 ### 3.4 结构体持有引用（&'a str 字段）
 
@@ -173,7 +173,7 @@ fn main() {
     let lit: &'static str = assert_static("literal");        // 'static 引用 ✓
     println!("{}", lit);
     // let s = String::from("tmp");
-    // let r = assert_static(&s);  // E0310：&String 的生命周期不够长，被拒绝
+    // let r = assert_static(&s);  // E0597：argument requires that s is borrowed for 'static，被拒绝
 }
 ```
 
@@ -273,10 +273,12 @@ fn main() {
 }
 ```
 
-**E0597：borrowed value does not live long enough**。返回局部值的引用，值先 drop 导致引用悬空：
+**E0597：borrowed value does not live long enough** 对应"借用逃出作用域"场景（值先 drop、引用还在用，见示例 5 的真实报错）。返回局部值的引用是另一种情况：无输入生命周期时原样报 **E0106**，补上 `<'a>` 后报 **E0515**（cannot return reference to local variable）：
 
 ```rust
-// 错误 3：返回局部值的引用 —— error[E0597]
+// 错误 3：返回局部值的引用 —— 原样报 error[E0106]（missing lifetime specifier，
+//         无输入生命周期可绑定输出）；补上 <'a> 后报 error[E0515]（cannot return
+//         reference to local variable）。借用逃出作用域才报 E0597，见示例 5
 // fn bad_label() -> &str {
 //     let label = String::from("cache-hot");
 //     &label   // label 在函数返回时被 drop，引用悬空
@@ -293,8 +295,8 @@ fn main() {
 
 要点与坑：
 - **E0106 是"写少了"**：补上 `<'a>`，把引用字段/返回引用与生命周期参数关联起来即可。
-- **E0597 是"设计错了"**：返回引用只能来自输入参数或 `'static` 数据；数据是函数内部新建的，就返回拥有值。定位与修复套路见示例 5。
-- 这两类错误是生命周期阶段最常见的编译错误，务必练到"看到报错能说出修复方向"。
+- **E0515 / E0597 是"设计错了"**：返回引用只能来自输入参数或 `'static` 数据；数据是函数内部新建的，就返回拥有值（E0515）。借用逃出作用域（E0597）则调整作用域或返回拥有值。定位与修复套路见示例 5。
+- 这几类错误（E0106 / E0515 / E0597）是生命周期阶段最常见的编译错误，务必练到"看到报错能说出修复方向"。
 
 ## 4. 底层原理
 
@@ -459,7 +461,7 @@ impl<'a> ConfigView<'a> {
 fn main() {
     let config_text = String::from("host=db-01.internal\nport=5432\nretries=5\n");
     let view = ConfigView::from_text(&config_text); // 借用 config_text，未复制任何字段
-    println!("host={} port={} retries={}", view.host(), view.port(), view.retries());
+    println!("host={} port={}", view.host(), view.port());
     println!("retries as number: {}", view.retries());
     // view 的生命周期与 config_text 绑定：config_text 存活期间 view 才有效
 }
@@ -656,7 +658,7 @@ fn main() {
 - 写一个持有引用的结构体并实现方法（提示：`impl<'a> S<'a>`，方法参数与返回自动省略；对照示例 2）
 - 整理含泛型和生命周期的 where 子句（提示：`<'a, T>` 顺序、`'a: 'b` 与 `T: Display` 同处 where；对照示例 3）
 - 把不必要的引用字段改成拥有字段（提示：字段类型 `&'a str` → `String`，观察 `<'a>` 从结构体、impl 块、所有使用处消失；对照示例 4）
-- 尝试制造并修复一个 E0597（提示：让借用逃出作用域或返回 `format!` 结果的引用，然后改为返回拥有值；对照示例 5）
+- 尝试制造并修复一个借用检查错误（提示：让借用逃出作用域报 E0597，或返回 `format!` 结果的引用——原样报 E0106、补 `<'a>` 后报 E0515——然后改为返回拥有值；对照示例 5）
 
 完成 5 题后继续。
 

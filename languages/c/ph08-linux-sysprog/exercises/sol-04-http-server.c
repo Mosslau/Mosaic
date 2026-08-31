@@ -2,6 +2,10 @@
  * 用法: ./sol-04 [docroot]   默认服务当前目录; 端口 8080
  * 每次连接处理一个请求后关闭（Connection: close）
  */
+// 验证环境：Apple clang 21.0.0（cc），macOS（Darwin arm64），-Wall -Wextra -std=c11 零警告
+// 编译：cc -Wall -Wextra -std=c11 sol-04-http-server.c -o sol04
+// 运行：./sol04 [docroot]（默认当前目录，端口 8080）；测试 curl http://127.0.0.1:8080/<文件>
+// 验证状态：已验证（curl 200 带 Content-Length/404/403 防穿越/头分两次发送的半包均正确）
 #define _POSIX_C_SOURCE 200809L
 
 #include <arpa/inet.h>
@@ -71,11 +75,20 @@ static void handle_client(int cfd, const char *docroot) {
         send_all(cfd, body, strlen(body));
         return;
     }
-    /* 200: 先发头再发文件内容 */
-    char head[128];
+    /* 200: 先取文件大小带 Content-Length, 再发头 + 文件内容 */
+    if (fseek(f, 0, SEEK_END) != 0) {
+        fclose(f);
+        return;
+    }
+    long fsize = ftell(f);
+    if (fsize < 0 || fseek(f, 0, SEEK_SET) != 0) {
+        fclose(f);
+        return;
+    }
+    char head[256];
     int hlen = snprintf(head, sizeof head,
                         "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\n"
-                        "Connection: close\r\n\r\n");
+                        "Content-Length: %ld\r\nConnection: close\r\n\r\n", fsize);
     send_all(cfd, head, (size_t)hlen);
     size_t n;
     while ((n = fread(buf, 1, sizeof buf, f)) > 0)

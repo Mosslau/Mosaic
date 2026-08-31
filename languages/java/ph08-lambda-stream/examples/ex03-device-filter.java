@@ -35,6 +35,7 @@ class DeviceFilter {
         System.out.println("d-001 电量: " + battery);
     }
 
+    // 教学简化：为聚焦 Stream 主题，字段未做封装（省略 private + getter）
     static class Device {
         String id, status;   // status: online / offline / fault
         int battery;         // 0-100

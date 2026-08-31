@@ -6,6 +6,10 @@
 //	go test -v -cover ./...
 //
 // 验证状态：已验证（go1.25.6，覆盖率 100%）
+//
+// 说明：本文件为纯测试目标，刻意不提供 main 入口——这样 go test -cover
+// 统计的就是 Median 的全部语句，覆盖率可直接达到 100%（若保留 main，演示
+// 入口会拖低整体百分比，详见 ph08 主文档示例 5 的覆盖率讨论）。
 package main
 
 import (
@@ -27,13 +31,4 @@ func Median(values []float64) (float64, error) {
 		return sorted[mid], nil
 	}
 	return (sorted[mid-1] + sorted[mid]) / 2, nil
-}
-
-func main() {
-	m, err := Median([]float64{3, 1, 2})
-	if err != nil {
-		fmt.Println("错误:", err)
-		return
-	}
-	fmt.Println("中位数:", m)
 }

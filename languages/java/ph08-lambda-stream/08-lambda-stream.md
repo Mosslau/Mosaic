@@ -34,9 +34,9 @@ Java 8 之后的演进分两条线。**Stream 线**持续补能力：Java 9 加 
 | Java 14（2020） | Switch Expressions 正式化（JEP 361）：`->` 与 `yield` |
 | Java 16（2021） | `Stream.toList()`；instanceof 模式匹配正式化（JEP 394） |
 | Java 17（2021） | switch 模式匹配首轮预览（JEP 406）；sealed class 正式化 |
-| Java 21（2023） | switch 模式匹配正式化（JEP 441）、`case null`、record patterns（JEP 440） |
+| Java 21（2023） | switch 模式匹配与 `case null` 正式化（JEP 441；17~20 预览，JEP 406）、record patterns（JEP 440） |
 
-本文示例以 **Java 17（LTS）** 为基线（当前主流生产 LTS，覆盖 Lambda/Stream 全部核心 API、Switch Expressions 与 instanceof 模式匹配的正式特性），验证工具链 OpenJDK 17.0.18；switch 模式匹配（`case null`、类型模式分派）需要 Java 21+，文中与代码层单独标注。这个阶段的语法是自 Java 8 以来最稳定的部分——lambda 与 Stream 的核心 API 十年未变，写下的代码在更新的 JDK 上原样运行。
+本文示例以 **Java 17（LTS）** 为基线（当前主流生产 LTS，覆盖 Lambda/Stream 全部核心 API、Switch Expressions 与 instanceof 模式匹配的正式特性），验证工具链 OpenJDK 17.0.18；switch 模式匹配（`case null`、类型模式分派）正式化于 Java 21+（17~20 为预览，需 `--enable-preview`，JEP 406），文中与代码层单独标注。这个阶段的语法是自 Java 8 以来最稳定的部分——lambda 与 Stream 的核心 API 十年未变，写下的代码在更新的 JDK 上原样运行。
 
 ## 3. 语法与参数
 
@@ -125,7 +125,7 @@ List<Integer> result = nums.stream()                 // 从集合创建
 终端操作（terminal operation）**触发求值**，执行后 Stream 被消费、不可复用——它是流水线的「出口」：
 
 ```java
-int sum = nums.stream().reduce(0, Integer::sum);        // 聚合：0+1+...+5
+int sum = nums.stream().reduce(0, Integer::sum);        // 聚合：0+1+2+3+4+5+6+2+3 = 26
 long count = nums.stream().count();                     // 计数
 boolean anyBig = nums.stream().anyMatch(n -> n > 4);    // 任一满足（短路）
 nums.stream().forEach(System.out::print);               // 遍历（副作用）
@@ -191,7 +191,7 @@ long sum = nums.parallelStream()               // 数据自动切分到多个线
 
 - 并行度默认 = `CPU 核数 - 1`（ForkJoinPool.commonPool，**全 JVM 共享**）；只对**大集合 + 计算密集且相互独立**有意义，小数据反而更慢
 - **禁止写共享可变状态**（如累加到外部变量）——必须用 `collect`/`reduce` 归约；顺序敏感时用 `forEachOrdered`
-- `sorted`/`distinct`/`limit` 等有状态操作在并行下需缓冲整段数据，开销大
+- `sorted`/`distinct`/`limit` 等有状态操作在并行下开销大：`sorted` 需全量缓冲、`distinct` 的去重集合随元素增长、`limit` 需跨线程协调截断（各自缓冲语义见 4.2）
 
 ### 3.9 Switch Expressions（`->` 与 `yield`，Java 14+）
 
@@ -202,7 +202,7 @@ int day = 3;
 String label = switch (day) {          // 整个 switch 是一个表达式，产出值
     case 1, 2, 3 -> "工作日";           // 箭头语法：无穿透，多值用逗号
     case 6, 7 -> "周末";
-    default -> "非法日期";              // int 取值无限，必须有 default（穷尽）
+    default -> "非法日期";              // int 取值有 2^32 种，编译器无法穷举，必须有 default（穷尽）
 };
 int score = 85;
 String grade = switch (score / 10) {
@@ -244,7 +244,7 @@ String info = switch (obj) {
 ```
 
 - 模式变量**流式作用域**：`if (obj instanceof String s && s.length() > 3)` 中 `s` 可继续用；`||` 右侧不可
-- `case null`（Java 21）免去先判空；guard 条件 `case String s when s.length() > 3` 可加分支守卫
+- `case null` 正式化于 Java 21（JEP 441；17~20 为预览，需 `--enable-preview`，JEP 406）——免去先判空；guard 条件 `case String s when s.length() > 3` 可加分支守卫
 - 对 sealed class（ph02）分派时编译器可做**穷尽性检查**：覆盖全部 permitted 子类型后无需 default；模式按**声明顺序**匹配，具体类型（子类）放前面
 
 ### 3.11 何时不用 Stream
@@ -290,12 +290,12 @@ roadmap 明确要求「能判断何时不用 Stream」，以下场景请回退�
 惰性求值靠**责任链（Sink 链）**实现：调用中间操作时不遍历数据，只是把上一个操作包装进新的 `Sink`（内部处理节点）；直到终端操作触发，元素才从源头**逐个流经整条链**，一次遍历完成全部操作——不是每个操作各遍历一遍集合：
 
 ```text
-nums.stream()  →  Sink1(过滤)  →  Sink2(映射)  →  Sink3(限额)  →  终端触发求值
+nums.stream()  ──▶  Sink1(过滤)  ──▶  Sink2(映射)  ──▶  Sink3(限额)  ──▶  终端触发求值
 元素从源头逐个穿过 Sink 链，垂直执行、水平短路
 ```
 
 - **水平短路**：`limit(3)` 在链里记录剩余额度，取满即停；`anyMatch`/`findFirst` 同理——「惰性 + 短路」是性能来源
-- **无状态 vs 有状态**：`filter`/`map` 逐元素处理；`distinct`（内部 Set 去重）、`sorted`（须收集完所有元素才能排序）、`limit` 需**缓冲**，整段数据进内存
+- **无状态 vs 有状态**：`filter`/`map` 逐元素处理、无需缓冲；`sorted` 须收集完**全部**元素才能排序、`distinct` 的内部 Set 随去重数量增长——这两者才把整段数据放进内存；`limit` 只在链里记录剩余额度、取满即停，**不缓冲全量**
 - `peek` 也是中间操作：不接终端操作**永远不会执行**
 
 ### 4.3 并行流的 Fork/Join 实现
@@ -521,7 +521,7 @@ public class LogStream {
 
 提示：大日志靠 `Files.lines` 的**惰性流水线**逐行处理，内存占用恒定——是 ph07「大文件禁止整读」在 Stream 世界的正解；每个 `try` 块各开一个新 Stream（Stream 不可复用）。
 
-### 示例 5：Switch Expressions 与 Pattern Matching—— 传统 switch 对照 + 新语法（Switch Expressions 14+ / instanceof 模式匹配 16+ / switch 模式匹配 21+）
+### 示例 5：Switch Expressions 与 Pattern Matching——传统 switch 对照 + 新语法（Switch Expressions 14+ / instanceof 模式匹配 16+ / switch 模式匹配 21+）
 
 对应 roadmap 练习「用 Switch Expressions 重写 if-else 分支」「用 Pattern Matching 改写 instanceof 判断」：先看传统 switch 的穿透问题，再看新语法如何消灭样板代码。完整文件拆为两个：`examples/ex05-switch-modern.java`（Java 14/16 语法，已验证）与 `examples/ex06-switch-pattern-matching.java`（switch 模式匹配，需 Java 21+）。
 
@@ -599,7 +599,7 @@ public class SwitchModern {
 }
 ```
 
-提示：上面片段合并展示两个示例文件——`ex05`（传统 switch 对照、Switch Expressions、`yield`、instanceof 模式匹配）在 Java 17 即可编译运行；`ex06` 的 `classify` 用了 `case null` 与 switch 类型模式，需 **Java 21+** 编译运行（本环境 OpenJDK 17.0.18 无法验证，见 examples/README.md 标注）。输出依次为：`传统: 工作日`、`Switch Expressions: 工作日`、`成绩: 良好`、`字符串, 长度 5`、`整数, 平方 1764`、`其他: 3.14`、`字符串: abc`、`整数: 42`、`空值`。
+提示：上面片段合并展示两个示例文件——`ex05`（传统 switch 对照、Switch Expressions、`yield`、instanceof 模式匹配）在 Java 17 即可编译运行；`ex06` 的 `classify` 用了 `case null` 与 switch 类型模式，需 **Java 21+** 编译运行（本环境 OpenJDK 17.0.18 无法验证，见 examples/README.md 标注）。输出依次为：`传统: 工作日`、`Switch Expressions: 工作日`、`成绩: 良好`、`字符串, 长度 5`、`整数, 平方 1764`、`其他: 3.14`、`字符串: abc`、`整数: 42`、`空值`、`其他类型`。
 
 ## 7. 总结
 
@@ -612,7 +612,7 @@ public class SwitchModern {
 5. **collect 是结果汇聚器**——`groupingBy` + 下游收集器、`partitioningBy`、`summarizingInt`、`joining` 覆盖报表统计绝大多数需求
 6. **Optional 表达可能为空**——`orElse`/`orElseGet`/`orElseThrow` 链式兜底，禁止裸调 `get()`，只用在返回值位置
 7. **Switch Expressions 消除穿透**——箭头语法天然不 fall-through，`yield` 返回值，表达式必须穷尽
-8. **Pattern Matching 消除强转样板**——instanceof 模式匹配（Java 16+）、switch 模式匹配与 `case null`（Java 21+）
+8. **Pattern Matching 消除强转样板**——instanceof 模式匹配（Java 16+）、switch 模式匹配与 `case null`（正式化于 Java 21+，17~20 为预览）
 9. **并行流慎用**——共享 `ForkJoinPool.commonPool`，禁止共享可变状态，小数据更慢
 10. **过度链式调用会降低可读性**——适时拆方法、拆中间变量，回退 for 循环不是倒退
 

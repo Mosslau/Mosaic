@@ -1,6 +1,10 @@
 /* sol-03-echo-server.c —— 多客户端 TCP echo server：fork 每连接 + SIGCHLD 回收僵尸
  * 运行: ./sol-03 后另开多个终端 nc 127.0.0.1 8888 同时连接
  */
+// 验证环境：Apple clang 21.0.0（cc），macOS（Darwin arm64），-Wall -Wextra -std=c11 零警告（fork 方案，无需 -pthread）
+// 编译：cc -Wall -Wextra -std=c11 sol-03-echo-server.c -o sol03
+// 运行：./sol03 后另开多个终端 nc 127.0.0.1 8888 同时连接
+// 验证状态：已验证（两个 nc 同时连接回显互不影响，SIGCHLD 回收无僵尸）
 #define _POSIX_C_SOURCE 200809L
 
 #include <arpa/inet.h>

@@ -22,7 +22,7 @@ Linux 系统编程阶段是 C 学习路线中"从写应用走向写系统"的节
 
 ## 2. 来源与演变
 
-Unix 从诞生起就把"访问资源"统一成四个系统调用——open/read/write/close，文件、设备、管道、socket 在程序员眼里都是"可读写的字节流"。**文件描述符（file descriptor，fd）**正是"一切皆文件"哲学的载体：一个整数句柄，背后指向内核维护的资源表项。1971 年 Unix V1 就有了 fork（复制当前进程），1988 年 **POSIX**（Portable Operating System Interface）把 open/fork/pthread 等接口标准化，让系统编程代码能在各 Unix 平台间移植——Linux 系统编程本质上就是在写"POSIX 程序"。
+Unix 从诞生起就把"访问资源"统一成四个系统调用——open/read/write/close，文件、设备、管道、socket 在程序员眼里都是"可读写的字节流"。**文件描述符（file descriptor，fd）**正是"一切皆文件"哲学的载体：一个整数句柄，背后指向内核维护的资源表项。1971 年 Unix V1 就有了 fork（复制当前进程），1988 年 **POSIX**（Portable Operating System Interface）把 open/fork 等进程与文件接口标准化（线程接口 pthread 到 1995 年 POSIX.1c 才标准化），让系统编程代码能在各 Unix 平台间移植——Linux 系统编程本质上就是在写"POSIX 程序"。
 
 进程与线程的演化是两条线。进程用 fork 复制、用 exec 换壳，早期 fork 要完整复制地址空间、代价高昂，后来引入**写时复制（Copy-On-Write，COW）**才让 fork 变便宜。线程方面：1996 年 Linux 有了第一个 pthread 实现 **LinuxThreads**，但模拟得粗糙、与 POSIX 语义有出入；2003 年 **NPTL**（Native POSIX Thread Library）重写并入 glibc，成为今天 Linux 上 pthread 的事实实现——每个线程对应一个由 clone 系统调用创建的内核线程。
 
@@ -33,7 +33,8 @@ IO 多路复用（I/O multiplexing）的演化则是"从轮询到事件回调"�
 | 1971 | Unix V1 | fork 诞生，"一切皆文件"哲学成型 |
 | 1983 | select | BSD 引入 IO 多路复用，fd 上限 1024 |
 | 1986 | poll | System V 改进，取消 fd 上限，仍是 O(n) 扫描 |
-| 1988 | POSIX | 系统接口标准化，open/fork/pthread 跨平台可移植 |
+| 1988 | POSIX | 系统接口标准化（open/fork 等），pthread 线程接口 1995 年 POSIX.1c 才标准化 |
+| 1995 | POSIX.1c | pthread 线程接口标准化 |
 | 1996 | LinuxThreads | 首个 Linux pthread 实现，与 POSIX 语义有出入 |
 | 2002 | epoll | Linux 2.5 引入，事件回调 + 就绪链表，O(1) 就绪获取 |
 | 2003 | NPTL | 重写 pthread 并入 glibc，1:1 内核线程模型定型 |
@@ -73,7 +74,7 @@ read 返回值三态：**>0 实际读到的字节数、0 到达文件末尾（EO
 **要点（坑必背）**：
 - **短读与短写是常态**：read/write 不保证一次完成请求的字节数（管道、socket、信号打断时尤其常见），**必须循环直到读满/写完或遇到 EOF/错误**——本阶段必会概念。
 - **EINTR**：read 被信号打断时返回 -1 且 `errno == EINTR`，正确做法是重试（或用 sigaction 的 `SA_RESTART` 让内核自动重试）。
-- **fd 泄漏**：每个成功返回的 open/socket 都必须 close；进程 fd 上限 `ulimit -n` 默认 1024，泄漏多了 open 返回 `EMFILE`。排查：`ls /proc/<pid>/fd/`。
+- **fd 泄漏**：每个成功返回的 open/socket 都必须 close；进程 fd 上限由 `ulimit -n` 决定（Linux 默认 soft limit 通常 1024，macOS 默认 256），泄漏多了 open 返回 `EMFILE`。排查：`ls /proc/<pid>/fd/`（Linux）。
 - 检查**每个**系统调用的返回值：`fd < 0`、`n < 0` 都要处理，这是 ph06"检查每个 IO 返回值"在系统层的延续。
 
 ### 3.2 进程：fork / exec / wait
@@ -304,7 +305,7 @@ int main(void) {
 **要点**：
 - sendto/recvfrom 每次都要带对方地址；接收方 `bind` 后 recvfrom 会填出"谁发的"。
 - **丢包要应用层自己处理**（重传、ACK、序号）——TCP 帮你做的那些事，UDP 一概不管；DNS、NTP 这类"查一次就行"的场景才适合 UDP。
-- 接收缓冲区小于数据报时**截断**（多余字节丢弃）；UDP 同样受短读影响，recvfrom 返回的是整个数据报或截断部分。
+- 接收缓冲区小于数据报时**截断**（多余字节丢弃）；UDP 保留消息边界，**没有 TCP 式的短读**——recvfrom 一次恰好取回一个完整数据报（或截断部分）。
 
 ### 3.8 select / poll / epoll 事件模型入门
 
@@ -338,7 +339,7 @@ gcc -Wall -Wextra epoll_demo.c -o epoll_demo && ./epoll_demo   # Linux 专有; �
 | 维度 | select | poll | epoll |
 |------|--------|------|-------|
 | fd 数量上限 | 1024（FD_SETSIZE） | 无硬上限 | 无硬上限 |
-| 每次调用开销 | 全量拷贝集合 + O(n) 扫描 | 同左 | 只注册一次，epoll_wait O(1) 取就绪 |
+| 每次调用开销 | 全量拷贝集合 + O(n) 扫描 | 同左 | 只注册一次，epoll_wait O(就绪数) 取就绪 |
 | 触发方式 | 水平触发 | 水平触发 | 水平（默认）+ 边缘（EPOLLET） |
 | 平台 | 几乎所有平台 | 几乎所有平台 | **Linux 专有** |
 
@@ -392,7 +393,7 @@ NPTL 的 pthread 是 1:1 模型：**每个线程是一个内核线程**，由 cl
 | 打开的文件描述符表 | **TLS**（线程局部存储，`__thread` 变量） |
 | 信号处理函数 | **errno**（所以 errno 是线程安全的） |
 
-- **栈隔离**：每个线程有自己的栈，`pthread_create` 时内核分配；栈溢出只崩当前线程（SIGSEGV），但默认 8MB × 上千线程会吃光虚拟内存——这是"每连接一线程"撑不住高并发的根源。
+- **栈隔离**：每个线程有自己的栈，`pthread_create` 时内核分配；栈溢出触发 SIGSEGV，**整个进程崩溃**（并非只崩当前线程）；默认 8MB × 上千线程会吃光虚拟内存——这是"每连接一线程"撑不住高并发的根源。
 - **互斥的底层**：`pthread_mutex_lock` 先做**原子指令**（如 `lock cmpxchg`）抢锁——无竞争时全程用户态、零系统调用（快速路径）；抢不到才陷入 **futex**（fast userspace mutex）系统调用睡眠，等持有者 unlock 时被唤醒（慢速路径）。条件变量同样建立在 futex 之上。
 - **数据竞争的本质**：多线程共享同一内存，而 `x++` 是"读-改-写"三步，两步之间线程切换就会丢更新——必须靠原子操作或锁把"读-改-写"变成不可分割的临界区。
 
@@ -699,7 +700,14 @@ int main(void) {
                     epoll_ctl(epfd, EPOLL_CTL_DEL, cfd, NULL);
                     close(cfd);                    /* fd 泄漏高发点 */
                 } else {
-                    write(cfd, buf, (size_t)r);    /* 简化: 半包/短写见 3.6 要点 */
+                    /* 简化: 半包/短写见主文档 3.6 要点 */
+                    ssize_t off = 0;
+                    while (off < r) {
+                        ssize_t w = write(cfd, buf + off, (size_t)(r - off));
+                        if (w < 0)
+                            break;
+                        off += w;
+                    }
                 }
             }
         }

@@ -13,6 +13,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 )
 
 // Point 待编码的坐标点
@@ -24,8 +25,16 @@ type Point struct {
 // EncodePoint 用 encoding/json（反射，通用但慢）
 func EncodePoint(p Point) ([]byte, error) { return json.Marshal(p) }
 
-// PointString 手写格式化（快，但格式写死）
-func PointString(p Point) string { return fmt.Sprintf(`{"x":%v,"y":%v}`, p.X, p.Y) }
+// PointString 手写格式化：strconv 直接写字节缓冲，避开反射路径（快），但格式写死
+func PointString(p Point) string {
+	b := make([]byte, 0, 64)
+	b = append(b, `{"x":`...)
+	b = strconv.AppendFloat(b, p.X, 'g', -1, 64)
+	b = append(b, `,"y":`...)
+	b = strconv.AppendFloat(b, p.Y, 'g', -1, 64)
+	b = append(b, '}')
+	return string(b)
+}
 
 func main() {
 	data, err := EncodePoint(Point{X: 1.5, Y: 2.5})

@@ -1,6 +1,10 @@
 /* sol-01-mini-shell.c —— 简单 shell：循环读命令 → fork + execvp 执行 → waitpid 回收
  * 内置命令 cd/exit 不 fork；其余命令经 PATH 查找执行
  */
+// 验证环境：Apple clang 21.0.0（cc），macOS（Darwin arm64），-Wall -Wextra -std=c11 零警告
+// 编译：cc -Wall -Wextra -std=c11 sol-01-mini-shell.c -o sol01
+// 运行：./sol01（交互式；题目与验收见 exercises/README 练习 1）
+// 验证状态：已验证（echo/ls/pwd/cd /tmp 后 pwd/badcmd 报错 127/EOF 退出均符合验收）
 #define _POSIX_C_SOURCE 200809L
 
 #include <stdio.h>

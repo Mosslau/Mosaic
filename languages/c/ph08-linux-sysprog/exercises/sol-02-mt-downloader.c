@@ -2,6 +2,10 @@
  * 主线程 join 汇总；共享的"已完成计数"用 mutex 保护
  * 用法: ./sol-02 <host> <port> <path1> [path2 ...]   结果存为 download-1, download-2, ...
  */
+// 验证环境：Apple clang 21.0.0（cc），macOS（Darwin arm64），-Wall -Wextra -std=c11 -pthread 零警告
+// 编译：cc -Wall -Wextra -std=c11 -pthread sol-02-mt-downloader.c -o sol02
+// 运行：./sol02 <host> <port> <path1> [path2 ...]（需本机回环上的 HTTP 服务，如 python3 -m http.server）
+// 验证状态：已验证（3 线程对本地 http.server 下载成功，汇总计数正确）
 #define _POSIX_C_SOURCE 200809L
 
 #include <arpa/inet.h>
