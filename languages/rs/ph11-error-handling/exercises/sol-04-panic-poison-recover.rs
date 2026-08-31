@@ -38,7 +38,7 @@ fn main() {
     });
     let _ = handle.join();
 
-    let lock_result = m.lock(); // 先绑定，避免 match 临时值生命周期问题
+    let lock_result = m.lock(); // 先绑定再 match（match m.lock() 直接写同样合法，见主文档示例 5 要点）
     match lock_result {
         Ok(guard) => println!("锁正常: {:?}", *guard),
         Err(poisoned) => {

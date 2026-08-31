@@ -52,7 +52,7 @@ fn main() {
     // and_then + or_else 的组合
     match parse_port("port = 8080") {
         Ok(p) => println!("parse_port ok   -> {p}"),
-        Err(e) => println!("parse_port ok   -> ERR {e}"),
+        Err(e) => println!("parse_port err  -> ERR {e}"),
     }
     let fallback = parse_port("port = not-a-number")
         .or_else(|e| { println!("  (port 行解析失败，记一笔: {e})"); Ok::<u16, String>(3000) })

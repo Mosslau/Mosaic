@@ -28,32 +28,40 @@ MIGRATIONS: list[tuple[int, str]] = [
 
 
 def migrate(conn: sqlite3.Connection) -> None:
-    """按版本号顺序应用未执行的迁移；每个版本一个事务，失败整体回滚。"""
+    """按版本号顺序应用未执行的迁移；每个版本一个事务、失败整体回滚，结束后恢复原隔离级别。"""
     conn.execute("CREATE TABLE IF NOT EXISTS schema_version ("
                  "version INTEGER PRIMARY KEY, applied_at TEXT)")
-    conn.isolation_level = None
+    # 迁移期间需要手动事务（每版本一个 BEGIN/COMMIT），但不能让共享连接停留在
+    # isolation_level = None（自动提交）——否则 Repo 里的 commit()/rollback() 会变成
+    # no-op，与「写操作后 commit()」的教学语义矛盾（README 功能清单）。try/finally
+    # 保证无论成败都恢复原隔离级别。
+    original = conn.isolation_level
+    conn.isolation_level = None  # 迁移期间：关闭隐式事务，BEGIN/COMMIT/ROLLBACK 全手动
     cur = conn.cursor()
+    try:
 
-    def current_version() -> int:
-        return cur.execute(
-            "SELECT COALESCE(MAX(version), 0) FROM schema_version"
-        ).fetchone()[0]
+        def current_version() -> int:
+            return cur.execute(
+                "SELECT COALESCE(MAX(version), 0) FROM schema_version"
+            ).fetchone()[0]
 
-    for version, sql in MIGRATIONS:
-        if version <= current_version():
-            continue
-        cur.execute("BEGIN")
-        try:
-            cur.execute(sql)
-            cur.execute(
-                "INSERT INTO schema_version (version, applied_at) "
-                "VALUES (?, datetime('now'))",
-                (version,),
-            )
-            cur.execute("COMMIT")
-        except Exception as e:
-            cur.execute("ROLLBACK")
-            raise RuntimeError(f"迁移 v{version} 失败: {e}") from e
+        for version, sql in MIGRATIONS:
+            if version <= current_version():
+                continue
+            cur.execute("BEGIN")
+            try:
+                cur.execute(sql)
+                cur.execute(
+                    "INSERT INTO schema_version (version, applied_at) "
+                    "VALUES (?, datetime('now'))",
+                    (version,),
+                )
+                cur.execute("COMMIT")
+            except Exception as e:
+                cur.execute("ROLLBACK")
+                raise RuntimeError(f"迁移 v{version} 失败: {e}") from e
+    finally:
+        conn.isolation_level = original  # 恢复：Repo 的 commit()/rollback() 恢复有效
 
 
 # ---------- 数据库连接与仓库层（Repository） ----------

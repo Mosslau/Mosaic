@@ -3,7 +3,7 @@
  *   （badmem/badlogic 是故意出错的演示, 裸跑行为不可预测/无意义）
  * 用法: ./ex05 safe | badmem | badlogic
  *    safe   : 正确的动态数组 push/get（含边界检查）→ 零报告, 退出码 0
- *    badmem : 越界写 → ASan 报 stack-buffer-overflow
+ *    badmem : 越界写 → ASan 报 heap-buffer-overflow
  *    badlogic: 有符号溢出 → UBSan 报 signed integer overflow
  * 编译: cc -Wall -Wextra -std=c11 -fsanitize=address,undefined -g ex05-combo.c -o ex05
  *   （CI 的标准组合: -fsanitize=address,undefined 一次编译两种都查;
@@ -26,6 +26,8 @@ typedef struct {
 
 static int vec_init(IntVec *v, size_t cap) {
     if (v == NULL) return -1;
+    cap = cap ? cap : 1;                           /* 0 容量退化为 1, 与 ex06 一致(防扩容死循环) */
+    if (cap > SIZE_MAX / sizeof(int)) return -1;   /* 字节数溢出防护(防御性) */
     v->data = malloc(cap * sizeof(int));
     if (v->data == NULL) return -1;
     v->len = 0;
@@ -45,6 +47,7 @@ static int vec_push(IntVec *v, int val) {
     if (v->len == v->cap) {                    /* 满了: 2 倍扩容 */
         if (v->cap > SIZE_MAX / 2) return -1;  /* 扩容溢出防护(防御性) */
         size_t new_cap = v->cap * 2;
+        if (new_cap > SIZE_MAX / sizeof(int)) return -1;  /* 字节数溢出防护(防御性) */
         int *tmp = realloc(v->data, new_cap * sizeof(int));
         if (tmp == NULL) return -1;            /* 扩容失败: 原数据不丢 */
         v->data = tmp;

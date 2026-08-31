@@ -160,7 +160,13 @@ struct Pragmatic { int value = 2; };
 static_assert(sizeof(int32_t) == 4, "int32_t must be exactly 4 bytes");
 
 int main() {
-    std::printf("int32_t=%zu  uint64_t=%zu\n", sizeof(int32_t), sizeof(uint64_t));
+    std::printf("int8_t=%zu  int16_t=%zu  int32_t=%zu  int64_t=%zu\n",
+                sizeof(int8_t), sizeof(int16_t), sizeof(int32_t), sizeof(int64_t));
+    std::printf("uint8_t=%zu  uint16_t=%zu  uint32_t=%zu  uint64_t=%zu\n",
+                sizeof(uint8_t), sizeof(uint16_t), sizeof(uint32_t), sizeof(uint64_t));
+    std::printf("INT32_MAX=%d  UINT32_MAX=%u\n", INT32_MAX, UINT32_MAX);
+    std::printf("int_least8_t=%zu  int_fast32_t=%zu  intmax_t=%zu\n",
+                sizeof(int_least8_t), sizeof(int_fast32_t), sizeof(intmax_t));
     std::printf("int=%zu  long=%zu  long long=%zu  void*=%zu\n",
                 sizeof(int), sizeof(long), sizeof(long long), sizeof(void*));
     return 0;
@@ -207,7 +213,7 @@ roundtrip=16909060 (OK)
 要点：
 
 - **坑：不要用 `reinterpret_cast` 直接把结构体当字节流**——结构体布局（padding/对齐）跨编译器、跨平台不同，序列化必须逐字节手动拼；`0x01020304` 序列化后字节应为 `01 02 03 04`（高位在前）
-- **大端（网络序）是跨平台约定的默认**：TCP/IP 协议头、HTTP 头长度字段、多数文件格式都用大端，任何字节序机器读同一字节流结果一致
+- **大端（网络序）是跨平台约定的默认**：TCP/IP 协议头、HTTP/2 帧头长度字段、不少二进制文件格式（如 PNG/JPEG/TIFF）都用大端，任何字节序机器读同一字节流结果一致；注意 HTTP/1.1 的 Content-Length 是 ASCII 十进制文本、不是二进制大端——字节序约定由协议/格式规范决定，写入前先查文档
 - 手写 `to_big_endian` 在 little-endian 机器上做字节反转，读回再反转一次即还原——不依赖平台字节序（`exercises/sol-04-endian-serialize.cpp`、`sol-05-bin-header.cpp` 是完整练习）
 
 ### 3.7 三大编译器差异速览：GCC、Clang、MSVC
@@ -252,8 +258,9 @@ roundtrip=16909060 (OK)
 ```
 
 ```bash
-nm mangle.o | grep " T "     # 看符号：__Z1fi __Z1fd _plain _main
-c++filt __Z1fi               # 还原：f(int)
+c++ -std=c++20 -c mangle.cpp -o mangle.o   # 1. 编译（mangle.cpp：int f(int); double f(double); extern "C" int plain(int);）
+nm mangle.o | grep " T "                   # 2. 看符号：__Z1fi __Z1fd _plain _main
+c++filt __Z1fi                             # 3. 还原：f(int)
 ```
 
 要点：
@@ -517,7 +524,7 @@ c++ -D_WIN32 -std=c++20 -Wall -Wextra ex05-path.cpp ex05-main.cpp -o /tmp/ex05-w
 ### 阶段验收清单
 
 - [ ] 能说明 **C++17 和 C++20 的主要差异**：结构化绑定/if constexpr/std::filesystem vs concepts/ranges/协程/modules/std::format，并能用 `-std=` 切换验证（6. 示例 3）
-- [ ] 能解释 `__cplusplus` 的五个版本值，知道 MSVC 默认报 199711L 的坑，会用 `__has_include`/`__cpp_lib_*` 探测特性（3.1）
+- [ ] 能解释 `__cplusplus` 的六个版本值，知道 MSVC 默认报 199711L 的坑，会用 `__has_include`/`__cpp_lib_*` 探测特性（3.1）
 - [ ] 能说清平台宏与编译器宏的区别与判序（`_WIN32` vs `_MSC_VER`/`__clang__`/`__GNUC__`），知道 Clang 的 `__GNUC__` 是兼容值（3.2、6. 示例 4）
 - [ ] 能用 `<cstdint>` 固定宽度类型与"大端序列化"写跨平台二进制格式，并解释为什么不能 `reinterpret_cast` 结构体（3.5/3.6、练习 4/5）
 - [ ] 能处理**跨平台编译问题**：平台宏分支、条件编译、适配层隔离，同一份代码在双编译器零警告通过（6. 示例 1/2/5）

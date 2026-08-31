@@ -523,8 +523,7 @@ defer db.Close()
 - 微服务基础、服务注册发现、配置中心
 - RPC、gRPC、Protocol Buffers
 - timeout、retry、熔断、限流
-- OpenTelemetry、Prometheus、Grafana、Jaeger
-- API Gateway
+- 可观测性三支柱概念（日志/指标/追踪；工具链接入属 ph12）
 
 ### 必会概念
 
@@ -550,7 +549,7 @@ protobuf → 定义 service → 生成 Go 代码 → server → client → inter
 
 - 能定义 protobuf 服务
 - 能实现 gRPC server/client
-- 能接入日志、指标和 tracing
+- 能解释可观测性三支柱与 traceparent 上下文传播（工具链接入属 ph12）
 
 ### 推荐项目
 
@@ -569,6 +568,8 @@ protobuf → 定义 service → 生成 Go 代码 → server → client → inter
 - Kubernetes、Helm
 - CI/CD、GitHub Actions/GitLab CI
 - 健康检查、日志采集、监控告警
+- 可观测性工具链接入：Prometheus、Grafana、Jaeger、OpenTelemetry
+- API Gateway 与流量入口治理
 - 灰度发布、滚动升级
 
 ### 必会概念
@@ -599,6 +600,7 @@ RUN go build -o server ./cmd/server
 - 能构建镜像并启动服务
 - 能配置环境变量和健康检查
 - 能查看日志和指标
+- 能接入 Prometheus 指标与 OpenTelemetry 追踪
 
 ### 推荐项目
 

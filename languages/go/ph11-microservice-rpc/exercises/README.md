@@ -50,7 +50,7 @@
 
 **验收**：`go test -v` 覆盖：限流内前 3 次成功、第 4 次被拒、补桶后恢复、订阅收到 5 条推送（device_id 正确）、上报与订阅共存、未知方法报错；`go vet ./...` 零报告。
 
-> 提示：参考 examples/ex05-streaming 的报文结构与订阅循环；令牌桶参考 examples/ex04 或 sol-03 参考实现。
+> 提示：参考 examples/ex05-streaming 的报文结构与订阅循环；令牌桶参考 sol-03 参考实现（examples/ex04 未含令牌桶）。
 
 ## 练习 4：gRPC 通信 demo（★★★）
 

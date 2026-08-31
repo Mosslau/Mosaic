@@ -24,7 +24,7 @@ Rust 的错误处理哲学从诞生起就与 C/Java 分道扬镳：**不用异�
 | 时间 | 里程碑 | 影响 |
 |------|--------|------|
 | 2011-2014 | `Option<T>`/`Result<T, E>` 与 `try!` 宏在 1.0 前定型 | 「错误是返回值」成为语言哲学，编译器强制处理 |
-| 2016-2017 | `?` 运算符稳定（RFC 243，Rust 1.13），随后扩展到 `Option`（Rust 1.22） | `try!` 的语法糖，错误传播一行完成 |
+| 2016-2018 | `?` 运算符稳定（RFC 243，Rust 1.13），随后扩展到 `Option`（Rust 1.22） | `try!` 的语法糖，错误传播一行完成 |
 | 2018 | `Error::source()` 可用（Rust 1.30），`Box<dyn Error>` 成为常见签名 | 错误链成为标准概念，根因可追溯 |
 | 2019 | `anyhow` 1.0（2019-10-07）与 `thiserror` 1.0（2019-10-09）发布 | 「应用 anyhow、库 thiserror」的分工成为生态惯例（发布记录来自 crates.io，本环境未安装验证） |
 | 2019 | `tracing` 0.1 发布（tokio 团队，2019-06-28） | span + 结构化事件取代字符串拼日志（本环境未安装验证） |
@@ -219,7 +219,7 @@ ERR  /tmp/ph11-ex04-missing.txt -> "读取 /tmp/ph11-ex04-missing.txt 失败: No
 
 ### 3.5 thiserror 与 anyhow（生态讲解，未在本环境验证）
 
-**`thiserror`** 用 `#[derive(thiserror::Error)]` 自动生成 `Display`、`Error`、`source()`、`From` 的实现（编译期展开，零运行时开销）——roadmap 示例即最小形态：
+**`thiserror`** 用 `#[derive(thiserror::Error)]` 自动生成 `Display`、`Error`、`source()` 的实现，`From` 仅对标注 `#[from]` 的字段自动生成（编译期展开，零运行时开销）——roadmap 示例即最小形态：
 
 ```rust
 // roadmap 示例：thiserror 派生错误枚举（生态讲解，未在本环境验证（需第三方 crate：thiserror））
@@ -261,7 +261,7 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 
 `unwrap` 在 `Err` 上的 panic 消息（已实测）：`called `Result::unwrap()` on an `Err` value: "parse failed"`。
 
-**`Mutex` 中毒（poisoned）** 是 panic 与共享状态交汇的产物（承接 ph10 伏笔）：持锁线程 panic 展开时，guard 的 `Drop` 把锁标记为中毒（内部 `poisoned: AtomicBool`），后续 `lock()` 返回 `Err`，消息实测为 `poisoned lock: another task failed inside`。工程化恢复：**日志记录后 `PoisonError::into_inner()` 取回 `MutexGuard` 读数据——数据本身未被破坏**（ph10 里 `lock().unwrap()` 会因此直接 panic，本阶段教显式处理）。`panic = "abort"`（Cargo.toml `[profile.*]` 配置）直接中止进程：不运行析构、二进制更小、行为可预测，代价是无法捕获、资源不清理。
+**`Mutex` 中毒（poisoned）** 是 panic 与共享状态交汇的产物（承接 ph10 伏笔）：持锁线程 panic 展开时，guard 的 `Drop` 把锁标记为中毒（内部 `poison::Flag`，包一个 `UnsafeCell<bool>`），后续 `lock()` 返回 `Err`，消息实测为 `poisoned lock: another task failed inside`。工程化恢复：**日志记录后 `PoisonError::into_inner()` 取回 `MutexGuard` 读数据——数据本身未被破坏**（ph10 里 `lock().unwrap()` 会因此直接 panic，本阶段教显式处理）。`panic = "abort"`（Cargo.toml `[profile.*]` 配置）直接中止进程：不运行析构、二进制更小、行为可预测，代价是无法捕获、资源不清理。
 
 ### 3.7 tracing/log（生态讲解，未在本环境验证）
 
@@ -325,7 +325,7 @@ mod tests {
 
 ### 4.4 panic 与 unwind/abort（Mutex 中毒的底层机制）
 
-panic 默认走 **unwind**：沿调用栈展开，逐层 drop 局部变量（运行析构、释放 `MutexGuard` 等 RAII 资源），触发 panic hook（默认打印到 stderr，消息格式见 3.6 实测），`catch_unwind` 可截获（`UnwindSafe` 约束防止捕获已破坏不变量）。`panic = "abort"` 直接中止进程：不运行析构、二进制更小、行为可预测，代价是无法捕获、资源不清理。**`Mutex` 中毒**正是 panic 与共享状态交汇的产物：持锁线程 panic 展开时，guard 的 `Drop` 把锁标记为中毒（内部 `poisoned: AtomicBool`），后续 `lock()` 返回 `PoisonError`——数据本身从未被破坏（锁保护的是访问，不是内容），所以 `into_inner()` 能安全取回。工程上「中毒即丢弃」还是「记录后取回」，取决于业务对数据一致性的容忍度：不可变缓存类数据（如示例 5 的 `42`）直接取回；聚合中的中间状态宁可重建。
+panic 默认走 **unwind**：沿调用栈展开，逐层 drop 局部变量（运行析构、释放 `MutexGuard` 等 RAII 资源），触发 panic hook（默认打印到 stderr，消息格式见 3.6 实测），`catch_unwind` 可截获（`UnwindSafe` 约束防止捕获已破坏不变量）。`panic = "abort"` 直接中止进程：不运行析构、二进制更小、行为可预测，代价是无法捕获、资源不清理。**`Mutex` 中毒**正是 panic 与共享状态交汇的产物：持锁线程 panic 展开时，guard 的 `Drop` 把锁标记为中毒（内部 `poison::Flag`，包一个 `UnsafeCell<bool>`），后续 `lock()` 返回 `PoisonError`——数据本身从未被破坏（锁保护的是访问，不是内容），所以 `into_inner()` 能安全取回。工程上「中毒即丢弃」还是「记录后取回」，取决于业务对数据一致性的容忍度：不可变缓存类数据（如示例 5 的 `42`）直接取回；聚合中的中间状态宁可重建。
 
 ## 5. 使用场景
 
@@ -349,7 +349,7 @@ panic 默认走 **unwind**：沿调用栈展开，逐层 drop 局部变量（运
 
 本节展示完整可运行示例，完整文件在 [`examples/`](./examples/) 目录，全部为零第三方依赖的单文件（错误处理全在 `std`），可用 `rustc --edition 2021 -D warnings` 直接编译运行（已验证：rustc 1.92.0，编译零警告；编译产物输出 /tmp，仓库无二进制残留）。
 
-> 运行前提：示例 4 带 `--fail` 运行会故意让 main 返回错误、退出码 1；示例 5 的三处 panic 都被 `catch_unwind` 包住不会崩溃，但 stderr 会打印被捕获 panic 的钩子输出——详见各文件头部注释与 examples/README.md。
+> 运行前提：示例 4 带 `--fail` 运行会故意让 main 返回错误、退出码 1；示例 5 的两处 panic 被 `catch_unwind` 捕获、第三处（子线程内）由线程边界（spawn/join）收容，程序不会崩溃，但 stderr 会打印 panic 钩子输出——详见各文件头部注释与 examples/README.md。
 
 ### 示例 1：Option/Result 组合子（map / and_then / or_else / ok_or_else / ?）
 
@@ -357,7 +357,7 @@ panic 默认走 **unwind**：沿调用栈展开，逐层 drop 局部变量（运
 // examples/ex01-option-result-combinators.rs —— Option/Result 组合子（map/and_then/or_else/ok_or_else/?），主文档第 6 章示例 1
 // 说明：Option/Result 组合子（map/and_then/or_else/ok_or_else/?）。
 //       组合子把「分支处理」压缩成链式调用；? 则让错误传播一行完成。
-//       本示例聚焦 ph04 Option/Result 基础之上的组合子用法（ph04 只用到 match 与 ?）。
+//       本示例聚焦 ph04 Option/Result 基础之上的组合子用法（ph04 已见过 match、? 与 map/and_then 等组合子；本阶段系统化，并补 or_else/ok_or_else）。
 // 验证环境：rustc 1.92.0（macOS arm64），零第三方依赖
 // 编译：rustc --edition 2021 -D warnings ex01-option-result-combinators.rs -o /tmp/ex01
 // 运行：/tmp/ex01
@@ -760,7 +760,7 @@ fn main() {
     });
     let _ = handle.join();
 
-    let lock_result = m.lock(); // 先绑定，避免 match 临时值生命周期问题（E0597 的坑）
+    let lock_result = m.lock(); // 先绑定再 match，便于在 Err 分支用 into_inner() 取回 guard（match m.lock() 直接写同样合法）
     match lock_result {
         Ok(g) => println!("锁正常: {}", *g),
         Err(poisoned) => {
@@ -799,7 +799,7 @@ thread '<unnamed>' (PID) panicked at ex05-panic-recover-boundary.rs:<行>:<列>:
 
 - **catch_unwind 是「最后防线」**：生产代码应该优先让错误走 `Result`，`catch_unwind` 只用于「第三方代码可能 panic、不能让它带崩整个进程」的边界（如插件、任务池）。
 - **panic hook 无法关闭式忽略**：被 `catch_unwind` 捕获的 panic 仍会打印钩子输出——这是正常行为，不是泄漏；真正要吞掉输出需自定义 `panic::set_hook`。
-- **坑：`match m.lock() {...}` 直接写会撞 E0597**（临时值 `PoisonError` 持有 borrow 活到 match 结束）——先绑定 `let lock_result = m.lock();` 再 match（示例 5 与练习 4 都演示了这个写法）。
+- **解包 `LockResult` 的正确姿势**：`match m.lock()` 直接写即合法——std 的 `PoisonError` 文档示例正是 `match lock.lock() { Ok(g) => g, Err(p) => p.into_inner() }`；也可用 `m.lock().unwrap_or_else(PoisonError::into_inner)` 一步取回 guard。示例 5 与练习 4 用「先绑定再 match」只是让分支体更清晰，并非 E0597 所迫。
 
 ## 7. 总结
 

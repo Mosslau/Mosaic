@@ -38,7 +38,7 @@ Sanitizer / 静态分析 / 单元测试阶段是 C 学习路线中"从定位错�
 | 2015 | CMocka 1.0、Criterion 发布 | 带 mock 与参数化的现代测试框架 |
 | 2016+ | clang-tidy 成熟 | 静态分析并入编译器生态 |
 
-ph09 埋下的"Sanitizer 与调试工具链（ASan/UBSan/TSan 的使用）"伏笔，在此兑现为可复用的工程流程：**Sanitizer 负责每次改动，静态分析负责定期全量，单元测试负责行为回归，覆盖率负责暴露测试盲区**。
+ph10 埋下的"Sanitizer 与调试工具链（ASan/UBSan/TSan 的使用）"伏笔，在此兑现为可复用的工程流程：**Sanitizer 负责每次改动，静态分析负责定期全量，单元测试负责行为回归，覆盖率负责暴露测试盲区**。
 
 本文示例以 **C11** 为基线（C99 之后、C23 普及之前，GCC/Clang/MSVC 支持度最一致的公共子集；Sanitizer 的 `-fsanitize=` 系列选项自 2013 年起在 GCC/Clang 间保持一致，与 C 标准版本无关）。验证工具链：**Apple clang 21.0.0（`cc`，macOS arm64）+ Homebrew LLVM 21.1.8（`clang-tidy`，路径 `/opt/homebrew/opt/llvm/bin/clang-tidy`）**；gcov 为 Apple 自带 `/usr/bin/gcov`；cppcheck 与 Valgrind 本机未安装（Valgrind 官方不支持 macOS Apple Silicon），涉及两者的表述已如实标注。本阶段演示的 Sanitizer 行为与报告格式是工具链工程中最稳定的部分——`-fsanitize=address,undefined` 的组合写法与报告关键行（`ERROR: AddressSanitizer: ...`、`runtime error: ...`、`WARNING: ThreadSanitizer: ...`）多年不变，本阶段讲的内容短期内不会过时。
 
@@ -142,7 +142,7 @@ cc -fsanitize=address,undefined -g main.c -o app
 | `UBSAN_OPTIONS` | `halt_on_error=1` | UBSan 从"报错后继续"变"报错即中止"（等价于编译期 `-fno-sanitize-recover=undefined`） |
 | `TSAN_OPTIONS` | `halt_on_error=1` | TSan 报错即中止 |
 
-**优化级别**：Sanitizer 构建建议 `-O1`（`-O0` 可能让部分 UB 不暴露，`-O2` 的行号映射变差，ph10 4.2 已铺垫）；但**复现/演示** UB 用 `-O0` 更稳——`-O1` 下 clang 可能把被测试的内存访问常量折叠/死代码消除，ASan 因此漏报（ph10 project/ 的实测结论）。发布构建**不带** `-fsanitize`：约 2 倍时间与内存开销、依赖 Sanitizer 运行时、且 ASan 会改变内存布局与分配器行为（可能掩盖或改变某些时序问题）。
+**优化级别**：Sanitizer 构建建议 `-O1`（`-O0` 可能让部分 UB 不暴露，`-O2` 的行号映射变差，ph10 4.2 已铺垫）；但**复现/演示** UB 用 `-O0` 更稳——`-O1` 下 clang 可能把被测试的内存访问常量折叠/死代码消除，ASan 因此漏报（ph10 project/ 的实测结论）。两类现象作用于**不同的 UB/代码路径**，并不矛盾：`-O1` 以上优化可能把"被测的越界访问"常量折叠或死代码消除、ASan 漏报——这类"优化消掉 UB"的漏报用 `-O0` 复现更稳；反向的另一类问题（如未初始化行为只在优化后的指令布局下显现）则 `-O0` 看不到——CI 构建取 `-O1` 正是为了贴近发布行为、多查这一类（与 ph10 3.6 同一口径）。发布构建**不带** `-fsanitize`：约 2 倍时间与内存开销、依赖 Sanitizer 运行时、且 ASan 会改变内存布局与分配器行为（可能掩盖或改变某些时序问题）。
 
 ### 3.6 静态分析：cppcheck 与 clang-tidy
 
@@ -155,7 +155,7 @@ clang-tidy src/*.c -checks='clang-analyzer-*,bugprone-*' -- -Iinclude   # 编译
 
 | 工具 | 原理 | 典型检查 | 误报倾向 |
 |------|------|---------|---------|
-| cppcheck | 源码解析 + 路径模拟 | 空指针解引用、越界、未初始化、资源泄漏 | 中（用 `--inconclusive` 开关控制） |
+| cppcheck | 源码解析 + 路径模拟 | 空指针解引用、越界、未初始化、资源泄漏 | 中（`--inconclusive` 是额外启用"不确定结论"检查，输出更多而非减少） |
 | clang-tidy | 编译器前端 AST | 与编译器同源，规则可自定义（clang-analyzer/bugprone 等组） | 低（基于真实语义） |
 
 本机实测 clang-tidy（Homebrew LLVM 21.1.8）对"整数除法赋给 double"的典型输出：
@@ -241,15 +241,19 @@ endif()
 
 ASan 由三部分组成：**编译期插桩**、**替换的 malloc/free**、**shadow memory 映射**。编译器在每个 load/store 前插入"查 shadow"的代码；每个栈/堆/全局对象四周铺设 **redzone（红区）**——带特殊标记的守卫字节；malloc/free 被替换成带记录的版本：记录每块内存的地址、大小与调用栈，`free` 后内存进入 **quarantine（延迟回收区）**，期间再访问即判定 use-after-free。
 
-**shadow memory** 是 ASan 的核心机制：每 8 字节用户内存对应 1 字节 shadow（地址 = 用户地址 >> 3 + 固定偏移）。shadow 为 0 表示"8 字节全部可寻址"，非 0 表示"偏移量或红区标记"。一次越界访问命中红区 shadow 值，立即中止并打印报告（本机实测 `examples/ex01-asan.c` 的 shadow 输出，`f1/f3` 是栈红区、`[04]` 是被访问的越界字节）：
+**shadow memory** 是 ASan 的核心机制：每 8 字节用户内存对应 1 字节 shadow（地址 = 用户地址 >> 3 + 固定偏移）。shadow 为 0 表示"8 字节全部可寻址"，非 0 表示"偏移量或红区标记"。一次越界访问命中红区 shadow 值，立即中止并打印报告（下图为 `examples/ex01-asan.c` 报告里 shadow 字节区的示意：`f1/f3` 是栈红区、`04` 是"该 8 字节粒内前 4 字节可寻址"的部分可寻址标记）：
 
 ```text
-用户内存: [arr[0]|arr[1]|arr[2]| REDZONE | ...]
-shadow  : [  0  |  0  |  0  |  0xfa   | ...]
-读 arr[3] → 命中 shadow=0xfa(红区) → 立即报错并打印调用栈
+用户内存: [arr[0]|arr[1]|arr[2]|  REDZONE... ]   ← int arr[3] 共 12 字节
+shadow  : [    00    |  04   |   f3... ]        ← 每 8 用户字节对应 1 shadow 字节
+写 arr[3] → 命中第 2 粒的 poison 半区(shadow=04) → 立即报错并打印调用栈
 
-实测 shadow 行: 00 00 00 00 00 00 00 00 f1 f1 f1 f1 00[04]f3 f3
-                ├─ arr[0..2] 可寻址 ─┤ ├左红区┤ └越界字节┘ └右红区┘
+示意 shadow 行（栈上 arr 附近的一段 shadow 字节区, f1/f3 是红区守卫）:
+  f1 f1 f1 f1  00  04  f3 f3
+  ├─ 左红区 ─┤            ├右红区┤
+  00: 第 1 粒整粒可寻址（arr[0]/arr[1]）
+  04: 第 2 粒前 4 字节可寻址（arr[2]）, 后 4 字节为 poison —— 越界写 arr[3]
+      命中的正是这一半, ASan 据此报 stack-buffer-overflow
 ```
 
 ### 4.2 UBSan：编译期插桩

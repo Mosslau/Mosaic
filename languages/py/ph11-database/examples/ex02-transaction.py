@@ -2,7 +2,7 @@
 # 验证环境：Python 3.13.9（stdlib，无第三方依赖）
 # 运行：python3 ex02-transaction.py（离线可跑，已验证；数据库写入系统临时目录）
 # 说明：对应主文档 3.4/4.2。手动事务用 isolation_level = None + 显式 BEGIN/COMMIT/ROLLBACK；
-#       两条 UPDATE 要么都生效、要么都不生效——这就是「事务保证一致性边界」。
+#       两条 UPDATE 要么都生效、要么都不生效——这就是「事务保证一致性边界」；失败回滚后重抛异常。
 import sqlite3
 import tempfile
 from pathlib import Path
@@ -29,9 +29,9 @@ def transfer(cur: sqlite3.Cursor, frm: str, to: str, amount: float) -> None:
         )
         cur.execute("COMMIT")  # 全部成功 → 落盘
         print(f"转账成功: {frm} -> {to} {amount}")
-    except Exception as e:
+    except Exception:
         cur.execute("ROLLBACK")  # 任一步失败 → 全部撤销
-        print(f"转账失败已回滚: {e}")
+        raise  # 回滚后重抛：调用方据此知道转账失败（与主文档 3.4/§6 片段一致）
 
 
 def balances(cur: sqlite3.Cursor) -> list[tuple[str, float]]:
@@ -53,7 +53,10 @@ def main() -> None:
     cur.execute("INSERT INTO accounts (name, balance) VALUES ('B', 0)")
 
     print("初始余额:", balances(cur))
-    transfer(cur, "A", "B", 2000)  # 失败：余额不足 → 整笔回滚
+    try:
+        transfer(cur, "A", "B", 2000)  # 失败：余额不足 → 整笔回滚
+    except ValueError as e:
+        print(f"转账失败已回滚: {e}")
     print("失败后余额:", balances(cur))
     transfer(cur, "A", "B", 300)  # 成功
     print("成功后余额:", balances(cur))  # A=700, B=300（第一次的 2000 没生效）

@@ -49,17 +49,18 @@ std::optional<FileInfo> file_info(const std::string& path) {
     return FileInfo{size, os.str(), is_dir};
 }
 
-std::vector<std::string> list_dir(const std::string& dir) {
+std::optional<std::vector<std::string>> list_dir(const std::string& dir) {
     std::vector<std::string> out;
     std::error_code ec;
     fs::directory_iterator it(dir, ec), end;
-    if (ec) return out;                    // 目录不存在/不可读：返回空
+    if (ec) return std::nullopt;             // 目录不存在/不可读：nullopt（错误）
     for (; it != end; it.increment(ec)) {
         if (ec) break;
         out.push_back(it->path().filename().string());
     }
+    if (ec) return std::nullopt;             // 遍历中途出错：nullopt
     std::sort(out.begin(), out.end());
-    return out;
+    return out;                              // 空目录：空 vector（正常，非错误）
 }
 
 }  // namespace ftool

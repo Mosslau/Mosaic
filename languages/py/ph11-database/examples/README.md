@@ -9,7 +9,7 @@
 | `ex03-index-query-plan.py` | 索引与查询优化：`EXPLAIN QUERY PLAN` + 两万行实测耗时对比（主文档 3.5/4.1） | `python3 ex03-index-query-plan.py`（离线） |
 | `ex04-sqlalchemy.py` | SQLAlchemy 2.0：Core `text()` + ORM `Mapped`/`Session` + `echo` 看 SQL + 连接池参数与池状态（主文档 3.3/3.6） | `python3 ex04-sqlalchemy.py`（离线） |
 | `ex05-migration.py` | 迁移脚本：手写 `schema_version` 迁移（版本化、幂等、失败回滚）——alembic 未安装，此为同思想等价实现（主文档 3.7） | `python3 ex05-migration.py`（离线） |
-| `ex06-redis-cache.py` | Redis 缓存：真实 redis-server（临时端口 + 临时目录）演示 string/TTL/EXPIRE + 缓存旁路命中耗时（主文档 3.7/4.5） | `python3 ex06-redis-cache.py`（离线） |
+| `ex06-redis-cache.py` | Redis 缓存：真实 redis-server（临时端口 + 临时目录）演示 string/TTL/EXPIRE + 缓存旁路命中耗时（主文档 3.8/4.5） | `python3 ex06-redis-cache.py`（离线） |
 
 说明：
 
@@ -24,4 +24,4 @@
 - `ex03`：两万行按 vin 查询——无索引执行计划 `SCAN devices`、耗时 `0.34 ms`；加索引后 `SEARCH devices USING INDEX idx_devices_vin (vin=?)`、耗时 `0.02 ms`（约 17 倍差距）
 - `ex04`：Core `text()` 查询 `[('Alice',)]`；ORM `echo=True` 打印生成的 `INSERT`/`SELECT`；池状态从「Connections in pool: 0」到「借出 1 条后 Checked out: 1」再到「归还后 pool: 1」
 - `ex05`：v1~v4 按序应用、当前版本 `4`；再次执行跳过全部（幂等）；含 v2/v4 列的数据插入成功
-- `ex06`：`SET + GET` 返回 JSON；TTL `60` 秒、`EXPIRE` 调为 `120`；缓存旁路——首次 `miss 302 ms` → 第二次 `hit 0.1 ms`（快 3086 倍）→ TTL 过期后重新 `miss 305 ms`；脚本结束打印「redis-server 已关闭，临时目录已回收」
+- `ex06`：`SET + GET` 返回 JSON；TTL `60` 秒、`EXPIRE` 调为 `120`；缓存旁路——首次 `miss 302 ms` → 第二次 `hit 0.1 ms`（快约 3000 倍量级）→ TTL 过期后重新 `miss 305 ms`；脚本结束打印「redis-server 已关闭，临时目录已回收」

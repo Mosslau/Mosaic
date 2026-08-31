@@ -9,7 +9,7 @@ Python 数据库与缓存阶段的目标是：**能开发完整业务系统—�
 | 核心维度 | 覆盖内容 |
 |----------|---------|
 | SQL 基础 | DDL/DML/DQL、数据类型与约束、JOIN、聚合、参数化查询防注入 |
-| SQLite 与关系型数据库 | `sqlite3` 标准库、事务与锁、迁移到 MySQL/PostgreSQL 的差异 |
+| SQLite 与关系型数据库 | `sqlite3` 标准库、事务与锁、了解迁移到 MySQL/PostgreSQL 的差异方向 |
 | 事务与 ACID | `BEGIN`/`COMMIT`/`ROLLBACK`、原子性与一致性边界、失败回滚 |
 | 索引与查询优化 | `CREATE INDEX`、`EXPLAIN QUERY PLAN`、B+ 树、避免全表扫描 |
 | 迁移与连接池 | `schema_version` 手写迁移、Alembic 入门、连接复用与池参数 |
@@ -46,6 +46,7 @@ Python 数据库与缓存阶段的目标是：**能开发完整业务系统—�
 # 关键片段：examples/ex01-sqlite-crud.py —— 用户 CRUD（完整版见示例 1，本机已验证）
 import sqlite3
 conn = sqlite3.connect("app.db")
+conn.row_factory = sqlite3.Row                  # 行按列名访问——dict(row) 的前提
 conn.execute("""CREATE TABLE users (                       -- DDL：建表
     id INTEGER PRIMARY KEY,                                -- 自增主键
     name TEXT NOT NULL,                                    -- 非空约束
@@ -93,7 +94,7 @@ print("总行数:", cur.execute("SELECT COUNT(*) FROM users").fetchone()[0])
 
 要点：
 
-- **`commit()` 才落盘**：`execute` 只是把 SQL 送进事务，不提交重启即丢；`with sqlite3.connect(...) as conn:` 上下文管理器会在成功时自动提交、异常时自动回滚（但**不会关闭连接**，见 3.4）。
+- **`commit()` 才落盘**：`execute` 只是把 SQL 送进事务，不提交重启即丢；`with sqlite3.connect(...) as conn:` 上下文管理器会在成功时自动提交、异常时自动回滚（但**不会关闭连接**——用完要自己 `close()`）。
 - 常用读取 API：`fetchone()`/`fetchall()`/`fetchmany(n)`；写操作看 `cur.rowcount` 影响行数、`lastrowid` 新主键。
 - **坑（连接跨线程）**：默认连接同一时刻只允许一个线程使用，多线程要 `check_same_thread=False` 并自行加锁（ph10 Web 后端阶段已用 `connect_args` 传过）。
 
@@ -155,7 +156,7 @@ except Exception:
 要点：
 
 - **ACID 四特性**：**原子性**（Atomicity，要么全成要么全无）、**一致性**（Consistency，约束与业务规则不被破坏）、**隔离性**（Isolation，并发事务互不干扰，见 4.3）、**持久性**（Durability，提交后不因崩溃丢失）。
-- `sqlite3` 默认 `isolation_level=""`：`INSERT`/`UPDATE`/`DELETE` 前自动 `BEGIN`，`commit()` 才结束——**每个写操作后都要 commit**，否则数据「看似成功实则丢失」。
+- `sqlite3` 默认 `isolation_level="DEFERRED"`（Python 3.12 起，此前默认 `""`，隐式事务行为一致）：`INSERT`/`UPDATE`/`DELETE` 前自动 `BEGIN`，`commit()` 才结束——**每个写操作后都要 commit**，否则数据「看似成功实则丢失」。（时效提示：legacy 事务控制仍是默认且未弃用，但官方推荐改用 `autocommit` 属性——`connect()` 的 `autocommit` 默认值未来将改为 `False`，届时 `isolation_level` 不再生效）
 - 手动事务用 `isolation_level = None` + 显式 `BEGIN`（示例 2 完整演示失败回滚与 SAVEPOINT 嵌套回滚）；真实项目里这个边界通常由 ORM Session 管理（ph10 Web 后端阶段的 `session.commit()`/`session.rollback()` 就是同一件事）。
 
 ### 3.5 索引（CREATE INDEX·EXPLAIN QUERY PLAN·最左前缀）
@@ -187,7 +188,7 @@ print(cur.fetchall())                    # 有索引：SEARCH ... USING INDEX id
 
 ### 3.6 连接池（Connection Pool·池参数）
 
-**连接池（Connection Pool）** 是「连接的复用仓库」：建立数据库连接是昂贵操作（TCP 握手 + 认证 + 内存分配），每次请求新建、用完销毁太浪费；连接池预先建好一批连接，请求来了**借**、用完**还**，超出的请求排队等待（原理见 4.4）。
+**连接池（Connection Pool）** 是「连接的复用仓库」：建立数据库连接是昂贵操作（TCP 握手 + 认证 + 内存分配），每次请求新建、用完销毁太浪费；连接池维护一批连接（懒创建、按需生长到 `pool_size`），请求来了**借**、用完**还**，超出的请求排队等待（原理见 4.4）。
 
 ```python
 # 依赖：pip install sqlalchemy pymysql（MySQL 场景；需 MySQL 服务，本环境未验证）
@@ -287,7 +288,7 @@ SQLite 用两种日志保证事务的**持久性与原子性**。默认的 **rol
 
 ### 4.4 连接池原理（借·还·失效）
 
-连接池本质是「**有限连接的出借队列**」（SQLAlchemy 的 `QueuePool`）：池初始化创建 `pool_size` 条连接排好队；请求来取连接（借出），用完归还（还池）；池空了且有 `max_overflow` 余量就临时新建，**超过上限则调用方阻塞等待**（可配 `timeout` 抛超时错误）。三个工程细节：一是**连接会失效**——数据库重启、网络中断后池里「看起来活着」的连接实际已死，`pool_pre_ping` 在借出前发一个轻量探活；二是**连接要回收**——`pool_recycle` 定期重建连接，规避服务端空闲超时断开和内存累积；三是**会话（Session）≠ 连接**——SQLAlchemy 里 Session 是「工作单元」（ph10 Web 后端阶段 4.4），它按需从池里借连接、事务结束归还——所以「会话泄漏」的真相是**连接借了没还**，池被占满后所有新请求排队饿死。
+连接池本质是「**有限连接的出借队列**」（SQLAlchemy 的 `QueuePool`）：连接**懒创建**、按需生长，最多常驻 `pool_size` 条；请求来取连接（借出），用完归还（还池）；池满（全部借出）且有 `max_overflow` 余量就临时新建，**超过上限则调用方阻塞等待**（可配 `timeout` 抛超时错误）。三个工程细节：一是**连接会失效**——数据库重启、网络中断后池里「看起来活着」的连接实际已死，`pool_pre_ping` 在借出前发一个轻量探活；二是**连接要回收**——`pool_recycle` 定期重建连接，规避服务端空闲超时断开和内存累积；三是**会话（Session）≠ 连接**——SQLAlchemy 里 Session 是「工作单元」（ph10 Web 后端阶段 4.4），它按需从池里借连接、事务结束归还——所以「会话泄漏」的真相是**连接借了没还**，池被占满后所有新请求排队饿死。
 
 ### 4.5 Redis 单线程事件循环与持久化（为什么快·怎么不丢）
 
@@ -414,7 +415,7 @@ def get_device(r, device_id):                # 缓存旁路：先查缓存，未
     return data, "miss"
 ```
 
-实测输出：`SET + GET` 返回 JSON、TTL `60` 秒、`EXPIRE` 调为 `120`；缓存旁路——首次 `miss 302 ms` → 第二次 `hit 0.1 ms`（快 3086 倍）→ TTL 过期后重新 `miss 305 ms`；脚本结束打印「redis-server 已关闭，临时目录已回收」。
+实测输出：`SET + GET` 返回 JSON、TTL `60` 秒、`EXPIRE` 调为 `120`；缓存旁路——首次 `miss 302 ms` → 第二次 `hit 0.1 ms`（快约 3000 倍量级）→ TTL 过期后重新 `miss 305 ms`；脚本结束打印「redis-server 已关闭，临时目录已回收」。
 
 ## 7. 总结
 

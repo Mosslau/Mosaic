@@ -5,7 +5,7 @@
 ## 需求
 
 - `path_util.h` / `path_util.cpp` —— 平台适配层：`separator()` / `join()` / `normalize()` / `extension()`，**接口头零平台宏**，全部 `#if defined(_WIN32)` 只出现在 .cpp 实现里
-- `file_info.h` / `file_info.cpp` —— 基于 `std::filesystem` 的可移植层：`file_info()`（大小/修改时间/是否目录）、`list_dir()`（目录条目排序）；失败返回 `std::optional`/空 vector（E.2：失败用返回值表达）
+- `file_info.h` / `file_info.cpp` —— 基于 `std::filesystem` 的可移植层：`file_info()`（大小/修改时间/是否目录）、`list_dir()`（目录条目排序）；失败统一返回 `std::optional`（E.2：失败用返回值表达），`list_dir()` 对空目录返回空 vector 而非错误
 - `main.cpp` —— CLI 入口：`join` / `normalize` / `ext` / `info` / `ls` 五个子命令，错误走 stderr 且退出码非零
 - `test_path.cpp` —— path_util 自测：**同一份测试代码编译两个平台分支**（POSIX 与 `-D_WIN32` 模拟 Windows），期望值用 `separator()` 动态构造，两个分支都成立
 - `Makefile` —— 构建 + 测试 + 清理，产物隔离 `build/`
@@ -29,7 +29,7 @@
 - [ ] `make test` 全部断言通过、退出码 0；`-D_WIN32` 分支输出 `separator = '\'`（POSIX 分支是 `'/'`），同一份测试代码两分支都过
 - [ ] `./build/ftool normalize data//sub///x.txt` 输出 `data/sub/x.txt`；`ext data/config.json` 输出 `.json`
 - [ ] `./build/ftool info build/ftool` 输出大小与修改时间；对不存在的路径输出 stderr 错误且退出码 1
-- [ ] `./build/ftool ls build` 列出目录条目（排序）
+- [ ] `./build/ftool ls build` 列出目录条目（排序）；`ls` 空目录输出空列表、退出码 0（非错误）
 - [ ] `make clean` 后目录只剩源码与 Makefile，无 build/ 残留
 - [ ] 仅用标准库（`std::filesystem` + `<cstdint>`），无第三方依赖；无裸 new/delete（R.11）；失败用返回值表达（E.2）；接口头零平台宏
 
@@ -45,4 +45,4 @@
 
 - Apple clang 21.0.0（`c++`，g++ 兼容）+ Homebrew clang 21.1.8（`clang++`），`-std=c++20 -Wall -Wextra`
 - 构建：`make`；测试：`make test`；示例运行：`make run`；清理：`make clean`
-- 验证状态：已验证（编译零警告 + 22 条断言双分支通过 + CLI 各子命令实测 + clean 无残留；验证在 /tmp 副本与 build/ 中进行，仓库无产物残留；Windows 分支为 `-D_WIN32` 模拟验证，真 Windows/MSVC 未在本环境验证）
+- 验证状态：已验证（编译零警告 + 24 条断言双分支通过（12 个测试 × POSIX/_WIN32 双分支）+ CLI 各子命令实测 + clean 无残留；验证在 /tmp 副本与 build/ 中进行，仓库无产物残留；Windows 分支为 `-D_WIN32` 模拟验证，真 Windows/MSVC 未在本环境验证）

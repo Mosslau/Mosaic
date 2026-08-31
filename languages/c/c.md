@@ -525,6 +525,7 @@ int arr[3] = {1, 2, 3};
 ### 学习内容
 
 - AddressSanitizer、UndefinedBehaviorSanitizer
+- ThreadSanitizer（衔接 ph08 线程，工具级使用）
 - Valgrind
 - cppcheck、clang-tidy
 - 单元测试框架：Unity、CMocka、Criterion

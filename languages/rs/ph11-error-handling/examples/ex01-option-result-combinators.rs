@@ -1,7 +1,7 @@
 // examples/ex01-option-result-combinators.rs —— Option/Result 组合子（map/and_then/or_else/ok_or_else/?），主文档第 6 章示例 1
 // 说明：Option/Result 组合子（map/and_then/or_else/ok_or_else/?）。
 //       组合子把「分支处理」压缩成链式调用；? 则让错误传播一行完成。
-//       本示例聚焦 ph04 Option/Result 基础之上的组合子用法（ph04 只用到 match 与 ?）。
+//       本示例聚焦 ph04 Option/Result 基础之上的组合子用法（ph04 已见过 match、? 与 map/and_then 等组合子；本阶段系统化，并补 or_else/ok_or_else）。
 // 验证环境：rustc 1.92.0（macOS arm64），零第三方依赖
 // 编译：rustc --edition 2021 -D warnings ex01-option-result-combinators.rs -o /tmp/ex01
 // 运行：/tmp/ex01

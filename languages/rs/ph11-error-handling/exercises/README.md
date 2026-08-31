@@ -10,7 +10,7 @@
   - 实现 `lookup(lines, key) -> Result<&str, String>`：用 `find_map` + `match` 只做"key 是否匹配"判断，坏行忽略，找不到返回错误消息
   - 实现 `parse_port(line) -> Result<u16, String>`：用 `and_then` 链式「先解析行、再解析数字」；用 `or_else` 给失败提供默认端口 3000
   - 用 `assert_eq!` 断言关键结果；不写裸 `unwrap` 之外的 panic 路径
-- **验收**：`rustc --edition 2021 -D warnings sol-01-combinator-refactor.rs -o /tmp/sol01 && /tmp/sol01` 编译零警告；输出含 `lookup host -> 127.0.0.1`、`lookup nope -> ERR 配置项 "nope" 不存在`、`parse_port ok -> 8080`、`parse_port fallback -> 3000`、`全部断言通过`
+- **验收**：`rustc --edition 2021 -D warnings sol-01-combinator-refactor.rs -o /tmp/sol01 && /tmp/sol01` 编译零警告；输出含 `lookup host -> 127.0.0.1`、`lookup nope -> ERR 配置项 "nope" 不存在`、`parse_port ok   -> 8080`、`parse_port fallback -> 3000`、`全部断言通过`
 
 ## 练习 2：为解析模块定义错误枚举（★★）
 
@@ -38,7 +38,7 @@
 - **要求**：
   - `catch_unwind` 截获一个 `panic!`，用 `downcast_ref::<&str>()` 拿回 payload 并 `assert_eq!` 断言消息
   - 开一个线程：持锁时 `panic!`（guard 存活到 panic），主线程 `m.lock()` 应得到 `Err`；打印中毒消息，用 `PoisonError::into_inner()` 取回 `MutexGuard` 并断言数据完好
-  - 先绑定 `let lock_result = m.lock();` 再 `match`——体会为什么（临时值生命周期，E0597 的坑，见示例 5）
+  - 解包 `LockResult`：`match m.lock()` 直接写即合法（std 的 `PoisonError` 文档即此模式），`Err` 分支用 `PoisonError::into_inner()` 取回 `MutexGuard`，或 `m.lock().unwrap_or_else(PoisonError::into_inner)` 一步完成
   - 在注释中写明：运行本文件时 stderr 会打印 2 行 panic 消息（panic hook 即使被捕获也会输出），退出码为 0
 - **验收**：`rustc --edition 2021 -D warnings sol-04-panic-poison-recover.rs -o /tmp/sol04 && /tmp/sol04` 编译零警告；stdout 输出 `catch 到 panic: 服务启动失败: 端口被占用`、`锁中毒: poisoned lock: another task failed inside`、`into_inner 取回数据: [1, 2, 3]`、`全部断言通过`；stderr 有 2 行 panic 钩子输出，程序退出码 0
 

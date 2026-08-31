@@ -30,7 +30,8 @@ asan:
 coverage:
 	$(CC) -Wall -Wextra -std=c11 --coverage -g buffer.c test_buffer.c -o $(TARGET)_cov
 	./$(TARGET)_cov > /dev/null
-	@for f in $(TARGET)_cov-*.gcda; do \
+	@for f in $(TARGET)_cov-*.gcda buffer.gcda test_buffer.gcda; do \
+		[ -e "$$f" ] || continue; \
 		echo "===== $$f ====="; gcov -b "$$f"; \
 	done
 	@echo "覆盖率报告见 *.c.gcov: ##### 行为未执行行, taken 0% 为未取分支"

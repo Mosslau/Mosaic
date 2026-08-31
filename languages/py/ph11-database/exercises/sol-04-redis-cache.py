@@ -6,7 +6,7 @@
 #   二次读取 -> hit（0.1 ms）: 同上
 #   更新 D001 -> {'online': False, 'version': 'v1.1'}，缓存已删除；失效后读取 -> miss（305 ms）
 #   等待 TTL=2s 过期……；过期后读取 -> miss（305 ms）
-#   汇总: miss 约 305 ms vs hit 约 0.1 ms（缓存快约 3010 倍）
+#   汇总: miss 约 305 ms vs hit 约 0.1 ms（缓存快约 3000 倍量级）
 #   脚本结束打印「redis-server 已关闭，临时目录已回收」
 import json
 import shutil

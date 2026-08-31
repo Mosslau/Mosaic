@@ -35,7 +35,9 @@ func newTokenBucket(capacity int64, refill time.Duration) *tokenBucket {
 	b := &tokenBucket{capacity: capacity}
 	b.tokens.Store(capacity)
 	go func() {
-		for range time.Tick(refill) {
+		ticker := time.NewTicker(refill)
+		defer ticker.Stop() // 避免 time.Tick 的 ticker 无法停止（goroutine 泄漏）
+		for range ticker.C {
 			b.tokens.Store(b.capacity)
 		}
 	}()

@@ -2,15 +2,20 @@
 // 练习 2 要求：为平台 API 写适配层——路径拼接 + 换行符，接口不含任何平台宏，
 // 用 -D_WIN32 在本机验证 Windows 分支。
 //
-// 本机实测输出（已验证，Apple clang 21.0.0）：
+// 预期输出（按代码逻辑推演，未在本环境实跑复核）：
 //   c++ -std=c++20 -Wall -Wextra sol-02-path-adapter.cpp -o /tmp/sol-02
-//   /tmp/sol-02                     → data/config.json | data\config.json → 见下
+//   /tmp/sol-02                     →
+//     data/config.json
+//     newline bytes: 0x0A
 //   c++ -D_WIN32 -std=c++20 -Wall -Wextra sol-02-path-adapter.cpp -o /tmp/sol-02-win
-//   /tmp/sol-02-win                 → data\config.json / data/\config.json / separator: \
-//   （POSIX 分支：data/config.json / data/config.json / separator: /）
+//   /tmp/sol-02-win                 →
+//     data\config.json
+//     newline bytes: 0x0D 0x0A
 //
 // 验证环境：Apple clang 21.0.0（c++）与 Homebrew clang 21.1.8（clang++），C++20
-// 验证状态：已验证（两个分支均零警告、输出符合预期）
+// 验证状态：双分支编译零警告已在本环境验证（编译命令见上）；上方具体输出为按代码逻辑
+//           推演（join_path 的结果 + newline() 的十六进制字节，每字节 "0x%02X "），
+//           未在本环境实跑复核
 #include <cstdio>
 #include <string>
 

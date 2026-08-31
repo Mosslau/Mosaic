@@ -52,7 +52,7 @@ fn main() {
     println!("错误链:");
     print_chain(err2.as_ref());
 
-    // 场景 C：正常路径
+    // 场景 C：坏行回退——该文件含坏行，unwrap_or_else 兜底返回空 vec
     let v = parse_report("/tmp/ph11-sol03-data.csv").unwrap_or_else(|_| vec![]);
     println!("\n场景 C: {v:?}");
 

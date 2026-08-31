@@ -24,7 +24,7 @@ Java 诞生后的头十年，构建靠 `javac` 手工编译加 **Ant**（Apache 
 
 **Gradle** 走的是另一条路：2007 年诞生、2012 年发布 1.0，用基于 **Groovy** 的领域特定语言（DSL）描述构建，构建模型是**任务依赖图（Task Graph）**而非固定阶段，天然支持**增量构建（Incremental Build）**；2018 年 Gradle 5.0 引入 **Kotlin DSL**，配置可静态类型检查。Gradle 构建更快、更灵活，是 Android 官方构建工具，但 Maven 生态更成熟、上手更平缓，企业存量工程仍以 Maven 为主——本阶段以 Maven 为主线（示例全部用 Maven 实测），Gradle 作为对比理解。
 
-质量工具与构建工具并行演进：**Checkstyle**（2001 年）做代码风格静态检查；**FindBugs**（2006 年）做缺陷静态分析，2016 年社区 fork 为 **SpotBugs** 继续维护；**JaCoCo**（2014 年，EclEmma 核心的独立分支）做测试覆盖率统计，`mvn test` 后生成 HTML 报告，成为覆盖率的事实标准。三者与 Maven 的关系，见 3.8。
+质量工具与构建工具并行演进：**Checkstyle**（2001 年）做代码风格静态检查；**FindBugs**（2006 年）做缺陷静态分析，2016 年社区 fork 为 **SpotBugs** 继续维护；**JaCoCo**（2009 年首发 0.1.0，官方版权 © 2009, 2026）做测试覆盖率统计，`mvn test` 后生成 HTML 报告，成为覆盖率的事实标准——它从 EclEmma 引擎独立而来，EclEmma 2.0 反过来基于 JaCoCo 引擎。三者与 Maven 的关系，见 3.8。
 
 | 版本/年份 | 演进 |
 |-----------|------|
@@ -33,7 +33,7 @@ Java 诞生后的头十年，构建靠 `javac` 手工编译加 **Ant**（Apache 
 | Maven 2.0（2005） | 生命周期与传递依赖定型，约定优于配置成为标准 |
 | Gradle（2007 诞生 / 2012 1.0） | Groovy DSL 描述任务依赖图，增量构建、构建快 |
 | Gradle 5.0（2018） | 引入 Kotlin DSL，配置可类型检查 |
-| 质量工具 | Checkstyle（2001）、FindBugs（2006）→ SpotBugs（2016）、EclEmma（2005）→ JaCoCo（2014） |
+| 质量工具 | Checkstyle（2001）、FindBugs（2006）→ SpotBugs（2016）、EclEmma（2005）→ JaCoCo（2009） |
 
 本文示例以 **OpenJDK 17（LTS）+ Maven 3.9.12** 为基线（验证工具链：`javac -version` → 17.0.18、`mvn -version` → 3.9.12；本环境**未安装 Gradle**，Gradle 相关内容只做概念讲解、命令未实跑），pom 中统一用 `<maven.compiler.release>17</maven.compiler.release>`。构建语义（坐标、生命周期、scope、冲突仲裁）自 Maven 2 定型以来高度稳定，17 上观察到的行为可直接迁移到 21/25；本阶段全部 Maven 示例、练习与项目已在本工具链上实测通过（`mvn -o` 离线模式，依赖/插件取自本地仓库缓存，见第 6 章与各代码层 README），依赖与插件版本在 pom 中全部写死——这是本阶段最稳定的知识，值得深挖。
 
@@ -214,7 +214,7 @@ Maven 工程的核心是根目录下的 `pom.xml`（Project Object Model），�
 | `mvn -pl app -am package` | 只构建 app 及其依赖的兄弟模块（4.4） |
 
 - **命令的本质是「插件:目标（plugin:goal）」**：`mvn dependency:tree` 中 dependency 是插件、tree 是目标；`compile`/`package` 这类阶段名是关键字，会触发一串绑定的目标
-- **本地仓库（Local Repository）**：默认 `~/.m2/repository`，下载的 jar 按坐标缓存于此，`install` 就是把你的工程也放进去——离线也能构建；本环境实测时因沙箱禁止写 `~/.m2`，`install` 用 `-Dmaven.repo.local=<可写目录>` 验证通过，正常环境直接 `mvn install` 即可
+- **本地仓库（Local Repository）**：默认 `~/.m2/repository`，下载的 jar 按坐标缓存于此，`install` 就是把你的工程也放进去——离线也能构建；本环境实测时因沙箱禁止写 `~/.m2`，`install` 用 `-Dmaven.repo.local=<可写目录>`（沙箱特例：指向克隆的本地仓库，如 `/tmp/m2clone`）验证通过，正常环境直接 `mvn install` 即可
 - **离线构建**：`mvn -o` 强制只用本地仓库缓存、不发网络请求——本阶段全部 Maven 实测即此模式；CI 里也常用它验证「离线可构建」
 
 ### 3.7 Gradle 视角：任务、DSL 与 wrapper
@@ -283,7 +283,7 @@ jar { manifest { attributes 'Main-Class': 'com.example.HelloMaven' } }
 
 jar 文件是 zip 容器 + 一条 `META-INF/MANIFEST.MF` 清单。`java -jar app.jar` 的启动路径是：JVM 打开 jar → 读清单 → 取 `Main-Class` 属性 → 加载该类并调用 `main`。`Class-Path` 清单属性里的路径**相对 jar 自身位置解析**（不是相对当前工作目录），所以薄 jar 部署时依赖目录必须与清单里的相对路径一致。
 
-```
+```text
 javac 源码 ──▶ .class（含包名） ──jar──▶ app.jar（zip + META-INF/MANIFEST.MF）
                                           │  Main-Class: com.example.AppMain   ← java -jar 的入口
                                           │  Class-Path: lib/gson.jar          ← 相对 jar 解析外部依赖
@@ -291,13 +291,13 @@ javac 源码 ──▶ .class（含包名） ──jar──▶ app.jar（zip + 
                                    java -jar app.jar
 ```
 
-**fat jar（Uber Jar）**把依赖类的字节码**合并**进同一个 jar，Main-Class 依然在清单里，运行时无需任何外部 classpath——代价是**撞类风险**：两个依赖库带同包同类名时，shade 按「后合并者覆盖」处理，可能把某个库的类换成另一个库的，运行期行为错乱（shade 构建时打印的 `define N overlapping resource` 警告就是预兆）。jlink 则是另一条路：不动应用 jar，而是把 JDK 镜像本身按模块裁剪，应用在裁剪后的 `bin/java` 上跑。
+**fat jar（Uber Jar）**把依赖类的字节码**合并**进同一个 jar，Main-Class 依然在清单里，运行时无需任何外部 classpath——代价是**撞类风险**：两个依赖库带同包同类名时，合并时取舍方向依顺序而定（社区实现多倾向先出现者胜出，具体以 maven-shade-plugin 实测为准），最终 jar 里可能只剩某一方的类，运行期行为错乱（shade 构建时打印的 `define N overlapping resource` 警告就是预兆）。jlink 则是另一条路：不动应用 jar，而是把 JDK 镜像本身按模块裁剪，应用在裁剪后的 `bin/java` 上跑。
 
 ### 4.2 生命周期：阶段顺序与插件绑定
 
 `mvn package` 为什么能自动编译、测试、打包？因为**阶段是顺序执行的**：调用 `package` 阶段，Maven 按 `validate → initialize → ... → compile → ... → test → ... → package` 依次执行，每个阶段上绑定的插件目标（Mojo，Maven 插件的最小执行单元）依次运行。`mvn test` 不会跳过 compile，因为 test 依赖 compile 先完成——阶段间的先后关系由生命周期定义，而非由你手动编排。
 
-```
+```text
 validate → initialize → generate-sources → process-sources → generate-resources
 → process-resources → compile → process-classes → generate-test-sources
 → process-test-resources → test-compile → test → prepare-package → package
@@ -324,7 +324,7 @@ app
 
 - **冲突的典型症状**：编译期都正常（每个库按自己的版本编译），运行期 `NoSuchMethodError`/`NoClassDefFoundError`——两个版本的类同时或错误地出现在 classpath
 - **排查四步**：`mvn dependency:tree` 看树 → 找出同一坐标的多个版本 → 在 `dependencyManagement` 显式钉死目标版本 → 必要时 `exclusions` 排除多余分支
-- **Gradle 的仲裁更严格**：默认版本冲突直接**构建失败**，要求你用 `resolutionStrategy` 显式解决——它把「显式管理」从最佳实践变成了强制约束
+- **Gradle 默认乐观升级取最高版本**：版本冲突时取最高版本（如 1.1 vs 1.3 → 1.3），**不直接失败**；要让冲突失败，须显式 `resolutionStrategy.failOnVersionConflict()`——这是把「显式管理」从最佳实践升级为强制约束的开关
 
 ### 4.4 多模块：聚合、继承与依赖方向
 
@@ -347,7 +347,7 @@ Gradle 快的底层原因有三个。**增量构建（Incremental Build）**：�
 **可复现构建（Reproducible Build）**指：同一份源码 + 同一份构建描述，在任何时间、任何机器上产出**逐字节一致**的产物。它保证「CI 上能出、本地就一定能出」，是交付可信度的基础。要做到：
 
 - **固定所有版本**：依赖版本、插件版本都写死，禁止 RELEASE/LATEST；`dependencyManagement` 同时锁住传递依赖（或 Gradle 的 dependency locking 生成锁文件）
-- **固定构建工具版本**：用 Wrapper（`mvnw` / `gradlew`）把 Maven/Gradle 版本写进仓库，团队与 CI 用同版本构建；Maven 3.7+ 可用 `project.build.outputTimestamp` 固定 jar 内的时间戳
+- **固定构建工具版本**：用 Wrapper（`mvnw` / `gradlew`）把 Maven/Gradle 版本写进仓库，团队与 CI 用同版本构建；`project.build.outputTimestamp` 可固定 jar 内的时间戳——插件级支持、无 Maven 版本前置（Maven 4.0.0-beta-5 起默认开启）
 - **隔离环境因素，一次构建出一份产物**：构建路径、时区、locale 不影响产物；CI 上 `mvn clean test package` 全量构建，禁止「上次的 target 接着用」，发布产物的哈希应可预期、可校验
 
 ## 5. 使用场景

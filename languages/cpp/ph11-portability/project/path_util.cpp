@@ -51,6 +51,7 @@ std::string extension(const std::string& path) {
     const std::size_t name_start = (sep == std::string::npos) ? 0 : sep + 1;
     const std::size_t dot = path.find_last_of('.');
     if (dot == std::string::npos) return "";
+    if (dot < name_start) return "";                            // 点在最后一个分隔符之前：属于目录名，不算扩展名
     if (dot == name_start) return "";                           // 点紧跟分隔符：隐藏文件（如 .gitignore）
     if (dot == path.size() - 1) return "";                      // 结尾是点：不算扩展名
     return path.substr(dot);

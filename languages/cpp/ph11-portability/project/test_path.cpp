@@ -35,11 +35,13 @@ int main() {
     expect_eq(ftool::normalize("a/b/"), "a" + sep + "b", "normalize(a/b/)");
     expect_eq(ftool::normalize(""), ".", "normalize(empty)");
 
-    // extension：普通扩展名、无扩展名、点开头的隐藏文件、结尾点
+    // extension：普通扩展名、无扩展名、点开头的隐藏文件、结尾点、点位于目录名中
     expect_eq(ftool::extension("data/config.json"), ".json", "extension(config.json)");
     expect_eq(ftool::extension("README"), "", "extension(README)");
     expect_eq(ftool::extension("dir/.hidden"), "", "extension(.hidden)");
     expect_eq(ftool::extension("file."), "", "extension(file.)");
+    expect_eq(ftool::extension("a.b/c"), "", "extension(a.b/c)");                       // 点属于目录名，不算扩展名
+    expect_eq(ftool::extension("dir.with.dot/file.txt"), ".txt", "extension(dir.with.dot/file.txt)");  // 目录名含点不影响文件名扩展名
 
     std::printf("separator = '%c'\n", ftool::separator());
     if (g_fail == 0) {

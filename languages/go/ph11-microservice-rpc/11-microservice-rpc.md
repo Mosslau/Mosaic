@@ -18,13 +18,13 @@ Go 微服务与 RPC 阶段的目标是（引用 Roadmap）：**能写可扩展�
 
 本阶段的核心信念来自四条必会概念：**微服务解决组织和扩展问题，也引入复杂度**——拆分换来独立演进与水平扩展，代价是网络失败、数据一致性与排查困难；**RPC 必须有超时**——网络调用随时会慢会断，没有 deadline 的调用会层层拖垮系统；**重试要考虑幂等**——一次调用可能"成功但响应丢失"，只有幂等接口才能安全重试；**可观测性是分布式系统的必需品**——请求跨多个服务，必须靠日志、指标、追踪才能定位问题。
 
-这个阶段只涉及微服务起步与 RPC 通信本身（承接 ph09 Web 后端阶段的单体 HTTP、ph10 数据库阶段的数据层拆分），**不涉及云原生与容器部署（Docker、Kubernetes、服务网格属 ph12 云原生与部署阶段，roadmap 第 12 节，目录待建）、消息队列与异步解耦（Kafka/MQTT 属 ph19 消息队列与事件驱动深入阶段，roadmap 第 19 节，目录待建）、分布式事务与强一致（两阶段提交、Saga 属后续阶段，roadmap 未单列）、API 网关与可观测性的完整部署（Prometheus/OpenTelemetry 工具链接入属 ph12）** — 本阶段是"单体拆分 + RPC 通信"起步。
+这个阶段只涉及微服务起步与 RPC 通信本身（承接 ph09 Web 后端阶段的单体 HTTP、ph10 数据库阶段的数据层拆分），**不涉及云原生与容器部署（Docker、Kubernetes、服务网格属 ph12 云原生与部署阶段，roadmap 第 12 节，目录待建）、消息队列与异步解耦（Kafka/RabbitMQ 属 ph19 消息队列与事件驱动深入阶段，roadmap 第 19 节，目录待建；MQTT 属 ph21 IoT/车联网相关 Go 阶段，roadmap 第 21 节，目录待建）、分布式事务与强一致（两阶段提交、Saga 属后续阶段，roadmap 未单列）、API 网关与可观测性的完整部署（Prometheus/OpenTelemetry 工具链接入属 ph12）** — 本阶段是"单体拆分 + RPC 通信"起步。
 
 ## 2. 来源与演变
 
 **RPC 是"让跨进程调用像本地调用"的古老命题**：1980 年代 Sun RPC 提出"stub + 序列化 + 传输"骨架；1990 年代的 CORBA/DCOM 因复杂而衰败；2000 年代 XML 系（SOAP/XML-RPC）过重，JSON-RPC（2005 年 1.0、2010 年 2.0）以"JSON 报文 + 方法名 + id 配对"成为轻量事实标准——**net/rpc/jsonrpc 的 wire 格式正是 JSON-RPC 风格**（params 数组、id 回显、无 id 即通知）。微服务（Microservices）在 2014 年由 Martin Fowler 与 James Lewis 的文章定名，强调"服务小而自治、独立部署、围绕业务能力组织"，配合容器与 CI/CD 才真正落地。
 
-**Go 侧的演进**：net/rpc 与 net/rpc/jsonrpc 随 Go 1.0（2012）进入标准库，是"标准库哲学"的产物——零依赖、API 极简，但官方声明**冻结**（"The net/rpc package is frozen and is not accepting new features"），生态转向 gRPC；protobuf（Protocol Buffers）2008 年由 Google 开源（v2），2015 年 gRPC 开源并同步发布 protobuf v3——基于 HTTP/2 与 protobuf，以"接口定义（IDL）+ 代码生成 + 多语言"为核心，2016 年捐给 CNCF；**grpc-go（google.golang.org/grpc）是官方 Go 实现**，纯 Go、无 CGO，天然适合"小型静态二进制"（ph12 的部署理念由此而来）。注册发现与配置中心从 **etcd（2013，CoreOS）**、**Consul（2014，HashiCorp）** 演进到 **Nacos（2018，阿里巴巴）**；可观测性在 2017-2019 年整合成标准——**Prometheus**（2012 诞生于 SoundCloud，2016 入 CNCF）、**Grafana**（2014）、**Jaeger**（2017 年 Uber 开源）、**OpenTelemetry**（2019 年由 OpenTracing 与 OpenCensus 合并成立）。
+**Go 侧的演进**：net/rpc 与 net/rpc/jsonrpc 随 Go 1.0（2012）进入标准库，是"标准库哲学"的产物——零依赖、API 极简，但官方声明**冻结**（"The net/rpc package is frozen and is not accepting new features"），生态转向 gRPC；protobuf（Protocol Buffers）2008 年由 Google 开源（v2），2015 年 gRPC 开源并同步发布 protobuf v3——基于 HTTP/2 与 protobuf，以"接口定义（IDL）+ 代码生成 + 多语言"为核心，2017 年捐给 CNCF；**grpc-go（google.golang.org/grpc）是官方 Go 实现**，纯 Go、无 CGO，天然适合"小型静态二进制"（ph12 的部署理念由此而来）。注册发现与配置中心从 **etcd（2013，CoreOS）**、**Consul（2014，HashiCorp）** 演进到 **Nacos（2018，阿里巴巴）**；可观测性在 2017-2019 年整合成标准——**Prometheus**（2012 诞生于 SoundCloud，2016 入 CNCF）、**Grafana**（2014）、**Jaeger**（2017 年 Uber 开源）、**OpenTelemetry**（2019 年由 OpenTracing 与 OpenCensus 合并成立）。
 
 | 版本/里程碑 | 年份 | 主要变化 |
 |------|------|---------|
@@ -36,7 +36,8 @@ Go 微服务与 RPC 阶段的目标是（引用 Roadmap）：**能写可扩展�
 | etcd | 2013 | CoreOS 发布（服务发现/配置中心） |
 | 微服务定名 | 2014 | Fowler/Lewis 文章；Consul、Grafana 发布 |
 | gRPC + protobuf v3 | 2015 | Google 开源 gRPC（HTTP/2 + protobuf + 代码生成） |
-| gRPC 入 CNCF | 2016 | gRPC、Prometheus 进入 CNCF；Envoy 发布 |
+| Prometheus 入 CNCF | 2016 | Prometheus 进入 CNCF（可观测性标准起点）；Envoy 发布 |
+| gRPC 入 CNCF | 2017 | gRPC 加入 CNCF |
 | Nacos | 2018 | 阿里巴巴开源（注册发现 + 配置中心） |
 | OpenTelemetry | 2019 | OpenTracing 与 OpenCensus 合并成立 |
 
@@ -83,7 +84,7 @@ client.Go("UserService.ListUsers", &ListUsersArgs{}, &ListUsersReply{}, done) //
 
 ### 3.3 JSON-RPC 编解码（net/rpc/jsonrpc）
 
-`net/rpc/jsonrpc` 把 wire 格式换成 **JSON 文本**（可读、可跨语言、可用 curl 手测），协议骨架与 JSON-RPC 2.0 兼容：请求 `{"method":..., "params":[{...}], "id":N}`（params 为数组、id 由客户端定），响应回显 id 并带 `result` 或 `error`；**id 缺失即通知（notification）**——服务端处理但不回包（这是示例 5 流式推送的基础）。实测 wire 输出（示例 2）：
+`net/rpc/jsonrpc` 把 wire 格式换成 **JSON 文本**（可读、可跨语言、可用 curl 手测），协议骨架与 JSON-RPC 2.0 兼容：请求 `{"method":..., "params":[{...}], "id":N}`（params 为数组、id 由客户端定），响应回显 id 并带 `result` 或 `error`；**id 缺失即通知（notification）**——服务端处理但不回包（这是示例 5 流式推送的基础）。示例 2 的 wire 输出（JSON 键序无语义，展示顺序为示意）：
 
 ```text
 wire 请求   : {"method":"UserService.GetUser","params":[{"ID":1}],"id":7}
@@ -120,7 +121,7 @@ func (r *Registry) Discover(service string) []string { /* 惰性剔除超 TTL �
 | 配置中心 | 配置集中管理、动态下发（改配置不重启） | etcd、Consul、Nacos、Apollo |
 | API Gateway | 统一入口：路由、鉴权、限流、协议转换 | Kong、APISIX、Envoy |
 
-> 配置中心与 API Gateway 的完整落地属 ph20 配置管理与发布策略阶段（roadmap 第 20 节，目录待建）/ ph12，本阶段只理解注册发现的机制本身。
+> 配置中心的完整落地属 ph20 配置管理与发布策略阶段（roadmap 第 20 节，目录待建）、API Gateway 的完整落地属 ph12 云原生与部署阶段（roadmap 第 12 节，目录待建），本阶段只理解注册发现的机制本身。
 
 ### 3.5 负载均衡 · 超时 · 熔断 · 限流（概念 + 简单实现）
 
@@ -145,7 +146,7 @@ func callWithTimeout(d time.Duration, fn func() error) error {
 **熔断（Circuit Breaking）**——连续失败后快速失败（不发网络调用），给下游喘息、防雪崩连锁。状态机 **closed → open → half-open**：closed 连续 N 次失败 → open（冷却期内拒绝放行）；冷却结束 → half-open 放行一个探针：成功复位 closed、失败回到 open（project/internal/breaker 的 `Allow/Success/Failure` 三方法就是全部）。**限流（Rate Limiting）**——保护服务不被突发流量打爆：令牌桶（每周期补满 N 个令牌，`atomic.Int64` + `CompareAndSwap` 原子扣减），无令牌返回 429 语义（gRPC 对应 `codes.ResourceExhausted`）。
 
 ```go
-// 完整可运行版见 examples/ex04-lb-timeout-breaker/main.go 的 tokenBucket
+// 完整可运行版见 exercises/sol-03-device-service/main.go 与 project/internal/device/server.go 的 tokenBucket
 func (b *tokenBucket) allow() bool {
 	for {
 		t := b.tokens.Load()
@@ -241,7 +242,7 @@ net/rpc 的路由规则：报文带 `ServiceMethod`（"UserService.GetUser"）�
 
 ### 4.3 熔断状态机与负载均衡算法
 
-- **熔断状态机**：closed（放行，计数连续失败）→ 达阈值 open（快速失败）→ 冷却期后 half-open（放行一个探针）→ 探针成功回 closed / 失败回 open；`openedAt` 记录打开时刻，`Allow()` 里 `time.Since(openedAt) > cooldown` 即到半开——**状态转换全部在锁内原子完成**，探针并发由"half-open 只放行一次"约束（project/internal/breaker 的测试覆盖三态全路径，覆盖率 96.4%）
+- **熔断状态机**：closed（放行，计数连续失败）→ 达阈值 open（快速失败）→ 冷却期后 half-open（放行一个探针）→ 探针成功回 closed / 失败回 open；`openedAt` 记录打开时刻，`Allow()` 里 `time.Since(openedAt) > cooldown` 即到半开——**状态转换全部在锁内原子完成**，用法上"half-open 只放行一次"（调用后立即记账 Success/Failure；实现未强制单探针，并发下可能放行多个探针——教学简化）（project/internal/breaker 的测试覆盖三态全路径，覆盖率 96.4%）
 - **负载均衡算法**：轮询（RoundRobin）`next % len(addrs)`，零状态、实现最简，但**不感知实例负载**；加权轮询按权重分配比例；最少连接感知实时负载；一致性哈希保证"同一 key 落到同一实例"（有状态场景）；生产 gRPC 的 balancer 默认 pick_first/round_robin，且会把熔断中的子连接移出调度（project 的 `Allow()` 快速失败即等价行为）
 - **LB 与熔断协作**：project 的弹性客户端里"每个实例一个熔断器"——实例故障只熔断自己，LB 继续把请求分给健康实例；熔断器状态按地址保留（Refresh 重建列表不丢状态）
 
@@ -279,9 +280,9 @@ net/rpc 的路由规则：报文带 `ServiceMethod`（"UserService.GetUser"）�
 **不适合**此阶段的事项：
 
 - **云原生与容器部署**（Docker、Kubernetes、服务网格、Prometheus/OpenTelemetry 完整接入）：属 ph12 云原生与部署阶段（roadmap 第 12 节，目录待建）——本阶段多服务在本机多进程运行
-- **消息队列与异步解耦**（Kafka/RabbitMQ/MQTT）：属 ph19 消息队列与事件驱动深入阶段（roadmap 第 19 节，目录待建）——本阶段通信全部同步 RPC
+- **消息队列与异步解耦**（Kafka/RabbitMQ 属 ph19、MQTT 属 ph21）：本阶段通信全部同步 RPC
 - **分布式事务与多库一致性**（两阶段提交、Saga）：属后续阶段（roadmap 未单列）——本阶段服务各自管数据，跨服务一致性靠接口幂等设计规避
-- **配置中心与 API Gateway 的完整落地**：属 ph20/ph12——本阶段只理解注册发现机制
+- **配置中心的完整落地**：属 ph20（配置管理与发布策略）；**API Gateway 的完整落地**：属 ph12（云原生与部署）——本阶段只理解注册发现机制
 
 **选型参考：net/rpc vs gRPC**
 
@@ -328,7 +329,7 @@ go func() {
 ### 示例 2：JSON-RPC 编解码（ex02-jsonrpc-codec）
 
 ```text
-// examples/ex02-jsonrpc-codec/main.go 实测输出（wire 即 JSON 文本，可 curl 手测）
+// examples/ex02-jsonrpc-codec/main.go 示例输出（wire 即 JSON 文本，可 curl 手测；请求行键序为示意，JSON 键序无语义）
 wire 请求   : {"method":"UserService.GetUser","params":[{"ID":1}],"id":7}
 wire 响应   : {"id":7,"result":{"User":{"ID":1,"Name":"alice","Email":"","Status":1}},"error":null}
 错误响应    : {"id":7,"result":null,"error":"user not found"}

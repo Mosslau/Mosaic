@@ -13,7 +13,7 @@
 ## 关于「故意出错 / 故意运行会 panic」的代码
 
 - `ex04-box-dyn-error-context.rs`：带 `--fail` 运行时**故意让 `main` 返回 `Err`**——程序以退出码 1 结束，stderr 打印一行 `Error: "读取 ... 失败: No such file or directory (os error 2)"`（这是 Rust 对 `main -> Result` 失败时的标准输出，实测文本）。普通运行（不带参数）全部场景成功/失败都打印在 stdout，退出码 0。
-- `ex05-panic-recover-boundary.rs`：文件内三处 **panic 都被 `catch_unwind` 包住**，程序不会崩溃；但注意运行本文件时 **stderr 会打印 3 行 panic 消息**（panic hook 即使被捕获也会输出）：
+- `ex05-panic-recover-boundary.rs`：文件内三处 panic 都不会让程序崩溃——前两处被 **`catch_unwind` 捕获**，第三处（子线程内）由**线程边界（spawn/join）收容**；但注意运行本文件时 **stderr 会打印 3 行 panic 消息**（panic hook 即使被捕获也会输出）：
   - `配置缺失: app.toml`
   - `called `Result::unwrap()` on an `Err` value: "parse failed"`
   - `持锁线程 panic`

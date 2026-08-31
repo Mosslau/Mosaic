@@ -32,7 +32,10 @@ func main() {
 		if err := client.Refresh(); err != nil {
 			log.Fatalf("Refresh 失败: %v", err)
 		}
-		instances, _ := reg.Discover(device.ServiceName)
+		instances, err := reg.Discover(device.ServiceName)
+		if err != nil {
+			log.Fatalf("轮次 %d Discover 失败: %v", round, err)
+		}
 		fmt.Printf("轮次 %d：发现 %d 个设备服务实例 %v\n", round, len(instances), instances)
 
 		for _, devID := range []string{"car-001", "car-002", "car-003"} {

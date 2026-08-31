@@ -29,7 +29,9 @@
 //   3. java -jar target/json-tool-1.0-SNAPSHOT.jar
 //       # 实测报错: target/json-tool-1.0-SNAPSHOT.jar中没有主清单属性（薄 jar 没有 Main-Class, 属预期）
 //   4. 手工拼 classpath 运行（薄 jar + 依赖 jar 都要在 classpath 上）:
-//      java -cp "target/json-tool-1.0-SNAPSHOT.jar:$HOME/.m2/repository-mvn/com/google/code/gson/gson/2.10.1/gson-2.10.1.jar" com.example.JsonTool
+//      默认本地仓库为 ~/.m2/repository; 本环境沙箱禁写 ~/.m2, 实测用 -Dmaven.repo.local 指向可写克隆
+//      （repository-mvn 路径即该沙箱特例）, 正常环境直接用下面命令的默认路径即可
+//      java -cp "target/json-tool-1.0-SNAPSHOT.jar:$HOME/.m2/repository/com/google/code/gson/gson/2.10.1/gson-2.10.1.jar" com.example.JsonTool
 //       # 实测输出: {"name":"Java","phase":11,"tool":"Maven"}
 // 要点：坐标声明依赖后直接 import 使用; 薄 jar 不含依赖类, 运行必须拼 classpath——练习 3 的 fat jar 就是来解决这个的
 // ---------------------------------------------------------------------------

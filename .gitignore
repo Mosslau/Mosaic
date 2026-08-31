@@ -69,3 +69,15 @@ languages/cpp/ph09-files-network/project/file_sync
 languages/cpp/ph10-build-toolchain/examples/ex05-make/build/
 languages/cpp/ph10-build-toolchain/exercises/sol-05-make/build/
 languages/cpp/ph10-build-toolchain/project/build/
+
+# c ph11 sanitizer 阶段测试产物（make test 生成）
+languages/c/ph11-sanitizer-testing/project/test_buffer
+languages/c/ph11-sanitizer-testing/project/test_buffer.dSYM/
+
+# java ph11 示例构建产物（javac/jar/jlink 手工构建产物, README 有清理命令, 此处兜底；Maven 的 target/ 已由上方 target 规则覆盖）
+languages/java/ph11-build-tooling/examples/build/
+languages/java/ph11-build-tooling/examples/build-lib/
+languages/java/ph11-build-tooling/examples/build-app/
+languages/java/ph11-build-tooling/examples/**/*.jar
+languages/java/ph11-build-tooling/examples/runtime-min/
+languages/java/ph11-build-tooling/examples/runtime-base/

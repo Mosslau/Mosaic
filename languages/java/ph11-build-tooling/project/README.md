@@ -8,7 +8,7 @@
 
 ## 文件结构
 
-```
+```text
 project/
 ├── build.sh                        # 构建脚本：mvn clean package + 运行演示（支持 offline 参数）
 ├── demo.txt                        # 演示输入文件（2 行, 3 个空白分隔词, 21 个字符）
@@ -35,7 +35,7 @@ project/
 
 - `./build.sh` 构建成功，reactor 顺序为 `common → app`（子模块按依赖排序，公共模块先构建）
 - `java -jar app/target/app-1.0-SNAPSHOT.jar demo.txt` 输出 `{"file":"demo.txt","lines":2,"words":3,"chars":21}`（本机实测输出）
-- 空文件输入输出 `{"lines":0,"words":0,"chars":0}`（边界正确）
+- 空文件输入输出 `{"file":"empty.txt","lines":0,"words":0,"chars":0}`（边界正确）
 - 无参数运行退出码为 2 且 stderr 有用法提示
 - `mvn dependency:tree -pl app` 依赖树为 `app → common + gson` 两条边，方向单向
 - `mvn install` 后 `app` 可脱离 reactor 单独构建（`mvn -pl app -am package` 亦可——本机实测 `-am` 方式 BUILD SUCCESS）
@@ -51,7 +51,7 @@ project/
 | `app/target/app-1.0-SNAPSHOT.jar` | 289012 B（≈282KB） | fat jar, 含 common + gson 的类 |
 | `app/target/original-app-1.0-SNAPSHOT.jar` | 3210 B | shade 保留的薄 jar 副本 |
 
-- 运行：`java -jar app/target/app-1.0-SNAPSHOT.jar demo.txt` → 实测 `{"file":"demo.txt","lines":2,"words":3,"chars":21}`；`empty.txt` → `{"lines":0,"words":0,"chars":0}`
+- 运行：`java -jar app/target/app-1.0-SNAPSHOT.jar demo.txt` → 实测 `{"file":"demo.txt","lines":2,"words":3,"chars":21}`；`empty.txt` → `{"file":"empty.txt","lines":0,"words":0,"chars":0}`
 - 依赖树：`com.example:app:jar:1.0-SNAPSHOT` → `+- com.example:common:jar:1.0-SNAPSHOT:compile`、`\- com.google.code.gson:gson:jar:2.10.1:compile`
 - `mvn install`：本环境沙箱禁止写默认本地仓库 `~/.m2`，实测时用 `-Dmaven.repo.local=/tmp/m2clone`（克隆的本地仓库）验证 install 成功——**正常环境直接 `mvn install` 即可**，效果是把 common/app 两个 jar 装进本地仓库供其他工程引用
 - 本机 Maven 全程 `-o` 离线模式（依赖/插件来自本地仓库缓存）；联网环境执行 `./build.sh` 标准命令即从 Maven Central 拉取

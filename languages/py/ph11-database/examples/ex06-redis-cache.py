@@ -1,7 +1,7 @@
 # examples/ex06-redis-cache.py —— Redis 缓存：真实 redis-server 的缓存旁路（cache-aside）
 # 验证环境：Python 3.13.9，redis-py 8.0.1 + redis-server 8.x（本机 /opt/homebrew/bin/redis-server）
 # 运行：python3 ex06-redis-cache.py（离线可跑，已验证；server 起在临时目录+随机端口，结束时干净关闭）
-# 说明：对应主文档 3.7/4.5。示例内启动一个临时 redis-server 子进程（端口随机、无持久化），
+# 说明：对应主文档 3.8/4.5。示例内启动一个临时 redis-server 子进程（端口随机、无持久化），
 #       演示 string 读写 + TTL 过期 + 缓存旁路模式的命中/未命中耗时；脚本结束 terminate 并回收临时目录。
 import json
 import shutil

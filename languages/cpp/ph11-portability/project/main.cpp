@@ -53,14 +53,14 @@ int main(int argc, char** argv) {
     }
     if (cmd == "ls" && argc == 3) {
         const auto entries = ftool::list_dir(argv[2]);
-        if (entries.empty()) {
+        if (!entries) {
             std::fprintf(stderr, "error: cannot list '%s'\n", argv[2]);
             return 1;
         }
-        for (const auto& e : entries) {
+        for (const auto& e : *entries) {
             std::printf("%s\n", e.c_str());
         }
-        return 0;
+        return 0;   // 空目录：entries 为空 vector，无输出、退出码 0（非错误）
     }
     return usage();
 }

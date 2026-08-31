@@ -190,10 +190,11 @@ func main() {
 	stop2()
 	fmt.Printf("实例 2 下线后 Discover -> %v\n", reg.Discover("user.Service"))
 
-	// 实例 1 异常宕机（不 Deregister、直接停心跳）：等 TTL 过期后被动摘除
-	stop1() // 演示里直接复用 stop1 模拟"失联"（正常 stop1 会 Deregister；这里说明 TTL 兜底机制）
-	time.Sleep(2500 * time.Millisecond)
-	fmt.Printf("实例 1 失联 %dms 后 Discover -> %v（空 = 已被 TTL 摘除）\n", 2500, reg.Discover("user.Service"))
+	// 实例 1 主动下线：stop1 内部执行 Deregister（主动摘除，立即生效、不等 TTL）
+	stop1()
+	fmt.Printf("实例 1 主动注销后 Discover -> %v（Deregister 立即摘除）\n", reg.Discover("user.Service"))
+	// 说明：TTL 惰性摘除（实例崩溃未注销、靠心跳超时兜底）的正确演示在 main_test.go 的
+	// TestTTLExpiry——那里只停心跳不注销，Discover 直到超过 TTL 才剔除实例。
 
 	// 重新上线：注册表是动态的，服务随时可注册/摘除
 	addr3, stop3, err := startInstance(reg, 500*time.Millisecond)

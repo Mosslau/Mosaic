@@ -47,7 +47,7 @@ fn main() {
     });
     let _ = handle.join();
 
-    let lock_result = m.lock(); // 先绑定，避免 match 临时值生命周期问题（E0597 的坑）
+    let lock_result = m.lock(); // 先绑定再 match，便于在 Err 分支用 into_inner() 取回 guard（match m.lock() 直接写同样合法）
     match lock_result {
         Ok(g) => println!("锁正常: {}", *g),
         Err(poisoned) => {
