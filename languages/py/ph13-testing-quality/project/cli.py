@@ -90,8 +90,12 @@ def demo() -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    level_name = args.log_level.upper()
+    if level_name not in logging.getLevelNamesMapping():
+        print(f"错误：未知日志级别: {args.log_level}", file=sys.stderr)
+        return 2
     logging.basicConfig(
-        level=getattr(logging, args.log_level.upper()),
+        level=level_name,
         format="%(levelname)s %(message)s",
     )
 

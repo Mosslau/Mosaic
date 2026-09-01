@@ -9,7 +9,7 @@ import pytest
 
 
 class TaskStore:
-    """任务存储：add 返回自增 id，mark_done 翻转完成状态，list 按 id 排序。"""
+    """任务存储：add 返回自增 id，mark_done 标记完成，list 按 id 排序。"""
 
     def __init__(self, name: str = "tasks.jsonl") -> None:
         self.name = name

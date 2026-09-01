@@ -43,6 +43,7 @@ class RespClientTest {
     void expireAndTtl() throws IOException {
         try (RespClient redis = new RespClient("127.0.0.1", RedisServerHandle.PORT)) {
             redis.set("session:u1", "token-abc");
+            assertEquals(-1, redis.ttl("session:u1"), "无过期的键 TTL 为 -1");
             assertEquals(1, redis.expire("session:u1", 60));
             long ttl = redis.ttl("session:u1");
             assertTrue(ttl > 0 && ttl <= 60, "TTL 应在 (0, 60] 区间，实测 " + ttl);

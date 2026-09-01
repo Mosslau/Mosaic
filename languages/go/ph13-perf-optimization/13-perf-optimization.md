@@ -122,7 +122,7 @@ func makePoint() *Point {
 }
 ```
 
-用 `go build -gcflags='-m' .` 打印裁决（本环境实测输出，行号与本文件一致）：
+用 `go build -gcflags='-m' .` 打印裁决（本环境实测输出节选，行号与本文件一致）：
 
 ```text
 ./main.go:36:2: moved to heap: p          ← makePoint：返回局部变量地址 → 堆
@@ -187,7 +187,7 @@ func (c *AtomicCounter) Inc()        { c.n.Add(1) }
 func (c *AtomicCounter) Load() int64 { return c.n.Load() }
 ```
 
-**实测（-benchtime=1s 时长基准，-cpu=8，三次均值）**：全局锁 ~95.2 ns/op → 分片锁 ~61.4 ns/op（快 1.5 倍）→ atomic ~34.9 ns/op（快 2.7 倍）。**注意**：① 分片收益取决于"锁在单次操作里的成本占比"——若操作本身重（如 map 写），分片收益会被淹没（练习 sol-04 实测：洗牌 key 下缓存分片快 1.7 倍，而同步轮询同一 key 时反而更慢）；② 分片必须做**缓存行隔离**（padding），否则 false sharing 让核间缓存同步抵消分片收益；③ atomic 无锁无挂起通常最快，但只能原子地操作单个字段。**动手前先用 mutex/block profile 确认"锁是不是瓶颈"**——本环境实测 mutex profile 能精确聚出 `main.go:99`（`mu.Lock()`）这一行。
+**实测（-benchtime=1s 时长基准，-cpu=8，六次均值）**：全局锁 ~97.4 ns/op → 分片锁 ~74.6 ns/op（快约 1.3 倍）→ atomic ~32.0 ns/op（快约 3.0 倍）。**注意**：① 分片收益取决于"锁在单次操作里的成本占比"——若操作本身重（如 map 写），分片收益会被淹没（练习 sol-04 实测：洗牌 key 下缓存分片快 1.7 倍，而同步轮询同一 key 时反而更慢）；② 分片必须做**缓存行隔离**（padding），否则 false sharing 让核间缓存同步抵消分片收益；③ atomic 无锁无挂起通常最快，但只能原子地操作单个字段。**动手前先用 mutex/block profile 确认"锁是不是瓶颈"**——本环境实测 mutex profile 能精确聚出 `main.go:99`（`mu.Lock()`）这一行。
 
 **减少不必要分配**（不涉及并发，但同属"分配压力"主题）：slice 预分配（3.1 实测 12→1 allocs）、字符串拼接用 Builder/Join（3.1）、数字转字符串用 `strconv.AppendInt` 免装箱（练习 sol-02 的 FastHandler）、JSON 用具名 struct 而非 map（练习 sol-01 实测 allocs 20910→8009）。
 
@@ -196,10 +196,10 @@ func (c *AtomicCounter) Load() int64 { return c.n.Load() }
 ### 4.1 GC 触发与"分配压力"从何而来
 
 ```text
-程序分配堆对象（逃逸分析的"住堆"）→ 堆大小增长
-→ 达到触发阈值（默认 GOGC=100：堆翻倍即触发）→ 触发一次 GC
-→ GC 标记（并发）→ 清扫（并发）→ 堆回落，等待下次增长
-分配次数越多 → 触发越频繁 → GC 占用的 CPU 时间越多 → 程序越慢
+程序分配堆对象（逃逸分析的"住堆"）──▶ 堆大小增长
+──▶ 达到触发阈值（默认 GOGC=100：堆翻倍即触发）──▶ 触发一次 GC
+──▶ GC 标记（并发）──▶ 清扫（并发）──▶ 堆回落，等待下次增长
+分配次数越多 ──▶ 触发越频繁 ──▶ GC 占用的 CPU 时间越多 ──▶ 程序越慢
 ```
 
 要点：**GC 不是"定时器"，是"堆增长到阈值就触发"**——所以优化分配（allocs/op 下降、B/op 下降）的直接收益是 GC 触发频率下降；benchmark 里 `B/op` 与 `allocs/op` 两列正是"这台程序会给 GC 多大压力"的预测量。GC 的实现机制（三色标记、混合写屏障、并发清扫的细节）属 ph14，本阶段只需这个"分配→触发→占用 CPU"的因果链——它解释了为什么"减少不必要分配"是性能优化的第一优先项。
@@ -211,7 +211,7 @@ func (c *AtomicCounter) Load() int64 { return c.n.Load() }
                                        └──▶ 住堆：GC 管理，每次分配有成本
 裁决依据（任一命中即住堆）：
   · 地址逃出函数作用域（返回、存入全局/堆对象）
-  · 对象大小超过栈帧容量上限（本机 1 MiB 量级）
+  · 对象大小超过栈帧容量上限（go1.25.6 每变量栈上限 MaxStackVarSize = 128 KiB）
   · 装箱进 interface{} 且传给无法内联的函数
   · 泄漏进全局变量或长期持有的容器
 ```
@@ -221,14 +221,14 @@ func (c *AtomicCounter) Load() int64 { return c.n.Load() }
 ### 4.3 锁竞争、分片与缓存行（false sharing）
 
 ```text
-全局锁：8 个 goroutine 抢 1 把锁 → 等待队列 + 自旋/挂起，吞吐崩
-分片锁：key % 16 → 竞争摊薄为 16 片，多数获取无竞争直接进入
+全局锁：8 个 goroutine 抢 1 把锁 ──▶ 等待队列 + 自旋/挂起，吞吐崩
+分片锁：key % 16 ──▶ 竞争摊薄为 16 片，多数获取无竞争直接进入
 缓存行（false sharing）：不同分片的计数若落在同一缓存行（64 B），
-  一个分片写 → 整行失效 → 其他核同步 → 分片形同虚设
+  一个分片写 ──▶ 整行失效 ──▶ 其他核同步 ──▶ 分片形同虚设
   解法：每分片补齐 64 B 对齐（padding），让不同分片住不同缓存行
 ```
 
-要点：**分片锁的本质是"把锁的粒度变小"**——竞争概率从 1（所有人抢一把）降到 1/N，锁等待时间随竞争概率下降；但分片引入了散列开销与 false sharing 风险，所以分片收益不是白给的（实测见 3.6：计数器 1.5 倍、缓存 1.7 倍、设计不当反而不如全局锁）。**atomic 无锁的本质是"把锁换成 CPU 指令"**——`AddInt64` 是单指令原子操作，无等待队列；但高竞争下多个核反复写同一地址，缓存行在核间乒乓，可能比分片锁更慢（本机 8 P 下 atomic 仍最快，14 P 高竞争未必，以本机 profile 为准）。
+要点：**分片锁的本质是"把锁的粒度变小"**——竞争概率从 1（所有人抢一把）降到 1/N，锁等待时间随竞争概率下降；但分片引入了散列开销与 false sharing 风险，所以分片收益不是白给的（实测见 3.6：计数器约 1.3 倍、缓存 1.7 倍、设计不当反而不如全局锁）。**atomic 无锁的本质是"把锁换成 CPU 指令"**——`AddInt64` 是单指令原子操作，无等待队列；但高竞争下多个核反复写同一地址，缓存行在核间乒乓，可能比分片锁更慢（本机 8 P 下 atomic 仍最快，14 P 高竞争未必，以本机 profile 为准）。
 
 ## 5. 使用场景
 
@@ -268,7 +268,7 @@ func (c *AtomicCounter) Load() int64 { return c.n.Load() }
 | ex02-escape-analysis | 逃逸分析：`-m` 打印裁决，堆 vs 栈基准对照 | 返回指针 1 alloc / 9.13 ns vs 按值 0 alloc / 0.80 ns |
 | ex03-pprof-cpu-mem | runtime/pprof 采集 CPU 与 heap profile | CPU：fib 占 93.64%；heap：makeGarbage 占 59.99% |
 | ex04-sync-pool | sync.Pool 复用临时缓冲 + 适用边界 | 4 KiB 负载快 50 倍；栈对象场景朴素更快（3.5 倍） |
-| ex05-lock-contention | 三种同步策略 + mutex/block profile | 全局 95.2 → 分片 61.4 → atomic 34.9 ns/op |
+| ex05-lock-contention | 三种同步策略 + mutex/block profile | 全局 97.4 → 分片 74.6 → atomic 32.0 ns/op |
 | ex06-goroutine-leak-trace | goroutine 泄漏检测与修复 + execution trace | 20 次超时调用泄漏 20 个 goroutine，profile 聚出泄漏行 |
 
 ### 示例 1：benchmark 三列指标（ex01-benchmark）
@@ -350,7 +350,7 @@ type ShardedCounter struct {
 	s [shards]struct {
 		mu sync.Mutex
 		n  int64
-		_  [40]byte // 缓存行 padding：避免 false sharing
+		_  [48]byte // 缓存行 padding：结构恰 64 B，避免 false sharing
 	}
 }
 ```
@@ -387,7 +387,7 @@ func leakySend(work func() int, timeout time.Duration) (int, bool) {
 3. **goroutine 泄漏也是性能问题**（必会概念）：无缓冲 channel + 调用方提前放弃 = 发送方永久阻塞；NumGoroutine 计数 + goroutine profile 定位 + 缓冲/context 修复
 4. **sync.Pool 只适合可复用临时对象**（必会概念）：Get → Reset → Put 三要素；GC 会清池、对象用完可弃；能留栈的对象不该上 Pool（实测边界：栈版 2.37 ns vs Pool 8.28 ns）
 5. **pprof 五视角各管一段**：CPU（时间）、heap（内存）、goroutine（泄漏）、mutex（锁竞争）、block（阻塞）；profile 是"快照统计"，trace 是"过程录像"
-6. **减少锁竞争的收益取决于锁的成本占比**：计数器分片快 1.5 倍、atomic 快 2.7 倍；带散列+map 写的缓存分片收益被操作成本稀释（sol-04 实测 1.7 倍）；动手前先看 mutex profile
+6. **减少锁竞争的收益取决于锁的成本占比**：计数器分片快约 1.3 倍、atomic 快约 3.0 倍；带散列+map 写的缓存分片收益被操作成本稀释（sol-04 实测 1.7 倍）；动手前先看 mutex profile
 7. **逃逸裁决是调用上下文相关的**：`-gcflags='-m'` 打印证据链结论；按值返回留栈（快 11 倍、0 alloc），装箱/大对象/地址外传必逃逸
 8. **基准必须防优化**：结果落地到包级变量（sink），否则编译器把整个计算删掉，测出假数字
 
@@ -413,7 +413,7 @@ func leakySend(work func() int, timeout time.Duration) (int, bool) {
 
 ### 阶段项目
 
-本阶段综合项目见 [`project/`](./project/)：**日志解析性能优化**（roadmap 推荐项目）——生成 10 万行合成日志，用三种解析实现（map / struct / 手写扫描）解析同一批数据，量化耗时与分配差异并校验结果一致。**实测**：manual 版比 naive 版快约 5.8 倍（1075 → 185 ns/行）、allocs 28984 → 1、分配 -96%；roadmap 另一个推荐项目「高并发接口压测与优化」的完整方法论（profile → 优化 → 复测）已由练习 2 覆盖。建议完成练习后再动手。
+本阶段综合项目见 [`project/`](./project/)：**日志解析性能优化**（roadmap 推荐项目）——生成 10 万行合成日志，用三种解析实现（map / struct / 手写扫描）解析同一批数据，量化耗时与分配差异并校验结果一致。**实测**：manual 版比 naive 版快约 5.8 倍（1075 → 185 ns/行）、allocs 28984 → 1、B/op -96%（allocs -99.997%）；roadmap 另一个推荐项目「高并发接口压测与优化」的完整方法论（profile → 优化 → 复测）已由练习 2 覆盖。建议完成练习后再动手。
 
 - [ ] 完成 exercises/ 全部 4 题并对照参考实现复盘
 - [ ] 独立完成 project/ 并通过其验收标准（10 万行 < 1s、三版结果一致、`go test -race ./...` 通过）

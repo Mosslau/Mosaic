@@ -1,6 +1,6 @@
 # exercises —— Rule of 0/3/5 与 RAII 进阶阶段练习
 
-> 先自己做，再对照 sol-* 参考实现。每题标注难度（★~★★★）。验证环境：Apple clang 21.0.0（`c++`，g++ 兼容）+ Homebrew clang 21.1.8（`clang++`），编译命令 `c++ -std=c++20 -Wall -Wextra`。练习 1/2/3 与 roadmap ph13「练习」小节的三个承诺（封装 FILE 指针、封装 socket 句柄、改造手动释放资源的旧代码）对应，练习 4/5 覆盖「学习内容」中的 Rule 抉择与异常安全资源释放。
+> 先自己做，再对照 sol-* 参考实现。每题标注难度（★~★★★）。验证环境：Apple clang 21.0.0（`c++`，g++ 兼容）+ Homebrew clang 21.1.8（`clang++`），编译命令 `c++ -std=c++20 -Wall -Wextra`。练习 2/3/4 与 roadmap ph13「练习」小节的三个承诺（封装 FILE 指针、封装 socket 句柄、改造手动释放资源的旧代码）一一对应，练习 1/5 覆盖「学习内容」中的 Rule 抉择与异常安全资源释放。
 
 ## 练习 1：判断类是否需要自定义特殊成员函数（★）
 

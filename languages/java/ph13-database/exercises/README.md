@@ -2,7 +2,7 @@
 
 > 先自己做，再对照 sol-* 参考实现。每题标注难度（★~★★★）。
 > 验证环境：OpenJDK 17.0.18（`javac -version` → 17.0.18）+ Maven 3.9.12（`mvn -version` → 3.9.12）+ HSQLDB 2.5.0 + JUnit Jupiter 5.10.1。本机 Maven 实测用 `mvn -o` 离线模式（沙箱禁止写默认本地仓库 `~/.m2`，依赖来自本地缓存 `/tmp/m2clone`）；正常联网环境直接 `mvn clean test` 即可。
-> 五题与 Roadmap「ph13 数据库阶段」练习小节一一对应：用户表 CRUD / 事务转账 / Redis 缓存 / 慢查询优化，并补一题「连接池」（与学习内容里的连接池对应）。sol-* 为参考实现（文件头已注明验证环境、命令与实测数字），做完再看；sol 文件是「源代码 + 注释里的完整 pom 与测试类」，建工程时按注释把 pom 与测试类写入自己的工程。
+> 五题与 Roadmap「ph13 数据库阶段」练习小节一一对应：用户表 CRUD / 事务转账 / 连接池 / Redis 缓存 / 慢查询优化。sol-* 为参考实现（文件头已注明验证环境、命令与实测数字），做完再看；sol 文件是「源代码 + 注释里的完整 pom 与测试类」，建工程时按注释把 pom 与测试类写入自己的工程。
 > 练习 3 需要 HikariCP（pom 参考 [../examples/ex03-hikari-pool/pom.xml](../examples/ex03-hikari-pool/pom.xml) 的「离线版本仲裁」注释），练习 4 需要本机安装 redis-server 与 Jedis（pom 参考 [../examples/ex05-redis/pom.xml](../examples/ex05-redis/pom.xml)），练习 1/2/5 只需 hsqldb（纯 Java 内存库，离线可用）。
 
 ## 练习 1：用户表 CRUD（★）

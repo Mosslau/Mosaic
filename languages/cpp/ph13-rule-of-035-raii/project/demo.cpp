@@ -3,8 +3,8 @@
 // 所有资源（FILE* / fd）都由 RAII 对象持有，作用域结束或异常时自动释放。
 //
 // 验证环境：Apple clang 21.0.0（c++）与 Homebrew clang 21.1.8（clang++），C++20
-// 编译：    c++ -std=c++20 -Wall -Wextra demo.cpp -o ../build/raii-demo
-// 运行：    ../build/raii-demo write <path> | read <path> | copy <src> <dst>
+// 编译：    c++ -std=c++20 -Wall -Wextra demo.cpp -o build/raii-demo（在 project/ 目录下，与 Makefile 产物路径一致）
+// 运行：    build/raii-demo write <path> | read <path> | copy <src> <dst>
 // 验证状态：已验证（两种编译器均零警告）
 #include <cstdio>
 #include <fcntl.h>

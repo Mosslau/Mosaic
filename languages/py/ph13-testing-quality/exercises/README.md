@@ -1,6 +1,6 @@
 # exercises —— 测试与工程质量阶段练习
 
-> 先自己做，再对照 sol-* 参考实现。每题标注难度（★~★★★）。与 roadmap「练习」小节对应：工具函数测试、数据处理测试、mock 外部接口；练习 5（类型注解/mypy）对应「学习内容」中的类型注解与 mypy，是工程质量的另一半。
+> 先自己做，再对照 sol-* 参考实现。每题标注难度（★~★★★）。与 roadmap「练习」小节对应：工具函数测试（练习 1）、数据处理测试（练习 2/4）、mock 外部接口（练习 3，roadmap 的「API 测试」由它覆盖——对 API 客户端的离线测试）；练习 5（类型注解/mypy）对应「学习内容」中的类型注解与 mypy，是工程质量的另一半。
 
 完成顺序建议：按 1~5 顺序完成（逐步叠加：pytest 基础 → fixture 组织 → mock 隔离 → 参数化 + 覆盖率 → 类型注解 + lint）。
 
@@ -14,7 +14,7 @@
 
 ## 练习 1：工具函数测试（★）
 
-- **目标**：给一组字符串/文本工具函数写 pytest 测试，掌握断言与异常测试的基本姿势
+- **目标**：给一组字符串/文本工具函数写 pytest 测试，掌握断言与参数化的基本姿势（`pytest.raises` 异常测试见练习 4 的非法输入用例）
 - **要求**：
   - 实现 `reverse(s)`、`is_palindrome(s)`、`count_words(text)`、`word_freq(text)` 四个函数（自己写一份实现）
   - 用 `assert` 覆盖正常输入与空输入；`is_palindrome` 用参数化覆盖 3 组（真/假/空串）
@@ -25,7 +25,7 @@
 
 - **目标**：用 fixture 管理测试前置与共享状态（对应「数据处理测试」的工程化组织）
 - **要求**：
-  - 实现 `TaskStore` 任务存储类：`add(title)` 返回自增 id、`list()` 按 id 排序、`mark_done(id)` 翻转状态（不存在返回 False）
+  - 实现 `TaskStore` 任务存储类：`add(title)` 返回自增 id、`list()` 按 id 排序、`mark_done(id)` 标记完成（不存在返回 False）
   - 设计 fixture：`empty_store`（空库）、`prefilled_store`（预置 3 条任务，依赖一个先建目录的 fixture）、`scope="session"` 的启动计数 fixture、一个 `autouse` fixture（每个用例自动建目录）
   - 至少 8 个用例覆盖：自增 id、排序、标记完成、不存在 id、session 共享（两个用例都断言计数为 1）、autouse 生效、双 fixture 隔离
 - **验收**：全部用例通过；能说清每个 fixture 的 scope 与依赖关系（参考实现 8 个用例）

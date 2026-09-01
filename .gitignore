@@ -60,6 +60,9 @@ languages/py/ph08-third-party/vehicle_analysis.png
 # ruff 缓存
 .ruff_cache/
 
+# mypy 缓存
+.mypy_cache/
+
 # ph09 示例/项目运行产物
 languages/c/ph09-portability/project/app.log*
 languages/c/ph09-portability/project/logdemo
@@ -85,3 +88,8 @@ languages/java/ph11-build-tooling/examples/runtime-base/
 # c ph12 构建产物（make 生成）
 languages/c/ph12-endian-binary/project/wal_tool
 languages/c/ph12-endian-binary/project/wal_tool.dSYM/
+
+# c ph13 构建产物
+languages/c/ph13-mmap-page-cache/project/kvlog
+languages/c/ph13-mmap-page-cache/project/kvlog.dSYM/
+*.dSYM/

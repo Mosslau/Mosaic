@@ -49,7 +49,7 @@ static_assert(std::is_move_assignable_v<Widget>);
 static_assert(std::is_nothrow_destructible_v<Widget>);
 
 Widget make_widget() {
-    Widget w{"motor", Tracer{"motor"}, {1, 2, 3}};  // 保证省略：直接构造到返回槽
+    Widget w{"motor", Tracer{"motor"}, {1, 2, 3}};  // NRVO：直接构造到返回槽（返回 prvalue 才是保证省略）
     return w;
 }
 

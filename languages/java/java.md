@@ -659,6 +659,7 @@ stmt.setLong(1, 1L);
 
 - 用户表 CRUD
 - 事务转账
+- 连接池
 - Redis 缓存
 - 慢查询优化
 

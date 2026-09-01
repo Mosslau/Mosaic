@@ -19,7 +19,7 @@ Rust 文件、网络与系统编程阶段对应 roadmap 第 13 节，目标是**
 
 ## 2. 来源与演变
 
-Rust 的 I/O 故事分两层：**标准库给最小完备抽象，生态给格式与便利**。`std::fs`/`std::io`/`std::net` 随 Rust 1.0（2015）进入标准库，设计哲学是**「syscall 的薄封装 + trait 组合」**——`Read`/`Write` 两个 trait 抽象一切字节源/汇，`File`、`TcpStream`、`&[u8]` 都实现它们，于是「读文件」与「读 socket」共用一套代码（这与 Go 的 `io.Reader`/`io.Writer` 异曲同工，都源自 Unix「一切皆文件」的传统）。路径抽象 `Path`/`PathBuf` 则从第一天就面对跨平台问题：Unix 路径是字节序列、Windows 是 UTF-16，所以 `Path` 内部存 `OsStr` 而非 `String`——**「路径不一定是合法 UTF-8」是 Rust 路径 API 一切设计的出发点**。网络 API 直接继承 1983 年 BSD sockets 的 listen/accept/connect 心智。生态层：serde 由 Erick Tryzelaar 发起、David Tolnay 接手，2017 年 4 月发布 1.0，靠「数据模型与格式解耦」成为 Rust 序列化事实标准；clap 由 Kevin Beck（kbknapp）维护，4.0（2022-09）把 builder 与 derive 两套 API 合并为一个 crate。
+Rust 的 I/O 故事分两层：**标准库给最小完备抽象，生态给格式与便利**。`std::fs`/`std::io`/`std::net` 随 Rust 1.0（2015）进入标准库，设计哲学是**「syscall 的薄封装 + trait 组合」**——`Read`/`Write` 两个 trait 抽象一切字节源/汇，`File`、`TcpStream`、`&[u8]` 都实现它们，于是「读文件」与「读 socket」共用一套代码（这与 Go 的 `io.Reader`/`io.Writer` 异曲同工，都源自 Unix「一切皆文件」的传统）。路径抽象 `Path`/`PathBuf` 则从第一天就面对跨平台问题：Unix 路径是字节序列、Windows 是 UTF-16，所以 `Path` 内部存 `OsStr` 而非 `String`——**「路径不一定是合法 UTF-8」是 Rust 路径 API 一切设计的出发点**。网络 API 直接继承 1983 年 BSD sockets 的 listen/accept/connect 心智。生态层：serde 由 Erick Tryzelaar 发起、David Tolnay 接手，2017 年 4 月发布 1.0，靠「数据模型与格式解耦」成为 Rust 序列化事实标准；clap 由 Kevin Beck（kbknapp）创建并维护至 2.x，3/4 起由 Ed Page（epage）接手，4.0（2022-09）把 builder 与 derive 两套 API 合并为一个 crate。
 
 | 时间 | 里程碑 | 影响 |
 |------|--------|------|
@@ -95,7 +95,7 @@ match fs::read_to_string("/tmp/nope.txt") {
 | `Write` | `write`、`write_all`、`flush` | `File`、`TcpStream`、`Vec<u8>`、`Stdout` |
 | `BufRead`（需有缓冲） | `read_line`、`lines()`、`fill_buf` | `BufReader<R>` |
 
-**为什么需要 BufReader/BufWriter**：裸 `File` 每次 `read` 都是一次系统调用（read(2)）。逐字节读 24 万字节 = 24 万次 syscall；包一层 `BufReader`（默认 8 KiB 缓冲）后每次 syscall 读 8 KiB，行循环的 `read_line` 从缓冲里切——**缓冲把 syscall 次数降了几个数量级**。写侧同理，`BufWriter` 攒够一批才落盘：
+**为什么需要 BufReader/BufWriter**：裸 `File` 每次 `read` 都是一次系统调用（read(2)）。逐字节读约 30 万字节（298894）≈ 30 万次 syscall；包一层 `BufReader`（默认 8 KiB 缓冲）后每次 syscall 读 8 KiB，行循环的 `read_line` 从缓冲里切——**缓冲把 syscall 次数降了几个数量级**。写侧同理，`BufWriter` 攒够一批才落盘：
 
 ```rust
 use std::io::{BufRead, BufReader, BufWriter, Write};
@@ -131,7 +131,7 @@ rustc 1.92.0 实测报错：
 error[E0515]: cannot return value referencing local variable `s`
  --> src/main.rs:4:5
   |
-4 |     Ok(s.lines().next().unwrap()) // 返回指向局部数据的引用
+4 |     Ok(s.lines().next().unwrap()) // 返回指向 s 的 &str
   |     ^^^-^^^^^^^^^^^^^^^^^^^^^^^^^
   |     |  |
   |     |  `s` is borrowed here
@@ -150,7 +150,8 @@ error[E0515]: cannot return value referencing local variable `s`
 | 拼接 | `PathBuf::push` / `Path::join` | push 原地改、join 返回新值；**自动插入分隔符** |
 | 提取部件 | `file_name` / `file_stem` / `extension` / `parent` | 都返回 `Option` |
 | 分解 | `components()` | 跨平台语义分解（RootDir/Normal/…） |
-| 判断 | `exists` / `is_file` / `is_dir` / `is_absolute` | 触碰文件系统 |
+| 判断 | `exists` / `is_file` / `is_dir` | 触碰文件系统 |
+| 判断 | `is_absolute` | 纯词法判断，不触碰文件系统 |
 
 **两个实测陷阱**（examples/ex03）：
 
@@ -502,4 +503,4 @@ struct Cli {
 
 ### 下一阶段
 
-**ph14+（roadmap 第 14 节，目录待建）**：本阶段是当前最后一个有目录的阶段，ph14~ph25 的阶段目录尚未建立（roadmap 见 `languages/rs/rust.md`）。后续可深入「Unsafe Rust 与安全抽象」方向——`unsafe` 关键字、裸指针、`unsafe fn`、FFI 调用基础、安全抽象封装。本阶段打下的 I/O 地基将直接延伸：ph19 的零拷贝协议解析建立在 `Read`/`BufRead` 之上，ph23 的 FFI 需要理解本阶段的 fd 与系统资源模型，ph25 的 Axum/Tonic 数据服务则把 ph12（异步）+ ph13（网络）两条线汇合。在此之前可先按推荐学习顺序巩固 ph11~ph13 的练习与项目。
+**ph14+（roadmap 第 14 节，目录待建）**：本阶段是当前最后一个有目录的阶段，ph14~ph25 的阶段目录尚未建立（roadmap 见 [rust.md](../../rust.md)）。后续可深入「Unsafe Rust 与安全抽象」方向——`unsafe` 关键字、裸指针、`unsafe fn`、FFI 调用基础、安全抽象封装。本阶段打下的 I/O 地基将直接延伸：ph19 的零拷贝协议解析建立在 `Read`/`BufRead` 之上，ph23 的 FFI 需要理解本阶段的 fd 与系统资源模型，ph25 的 Axum/Tonic 数据服务则把 ph12（异步）+ ph13（网络）两条线汇合。在此之前可先按推荐学习顺序巩固 ph11~ph13 的练习与项目。

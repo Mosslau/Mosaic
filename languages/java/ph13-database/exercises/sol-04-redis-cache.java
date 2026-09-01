@@ -118,7 +118,7 @@
 //               // 第二次：删掉「数据库」，缓存仍命中——证明读的是缓存不是库
 //               database.clear();
 //               assertEquals("{\"name\":\"mosslau\"}", cache.cacheAsideGet(key, () -> database.get("user:42")));
-//               assertEquals(60L, cache.ttl(key), "回填应带 60 秒过期兜底");
+//               assertTrue(cache.ttl(key) > 0 && cache.ttl(key) <= 60, "回填应带 60 秒过期兜底");
 //           } finally {
 //               cache.close();
 //           }

@@ -3,8 +3,8 @@
 // 移动赋值关闭旧句柄、release 放弃所有权、复制往返内容一致。
 //
 // 验证环境：Apple clang 21.0.0（c++）与 Homebrew clang 21.1.8（clang++），C++20
-// 编译：    c++ -std=c++20 -Wall -Wextra test_raii.cpp -o ../build/test_raii
-// 运行：    ../build/test_raii（退出码 0 = 全部通过）
+// 编译：    c++ -std=c++20 -Wall -Wextra test_raii.cpp -o build/test_raii（在 project/ 目录下，与 Makefile 产物路径一致）
+// 运行：    build/test_raii（退出码 0 = 全部通过）
 // 验证状态：已验证（两种编译器均零警告；普通版 + ASan 版均全部通过）
 #include <csignal>
 #include <cstdio>

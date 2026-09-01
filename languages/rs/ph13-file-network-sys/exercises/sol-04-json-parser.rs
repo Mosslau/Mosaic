@@ -77,7 +77,7 @@ impl<'a> Parser<'a> {
                 break;
             }
         }
-        let text = std::str::from_utf8(&self.bytes[start..self.pos]).unwrap();
+        let text = std::str::from_utf8(&self.bytes[start..self.pos]).expect("输入为合法 UTF-8");
         text.parse::<f64>()
             .map(Json::Num)
             .map_err(|_| self.err(&format!("无效数字 {text:?}")))

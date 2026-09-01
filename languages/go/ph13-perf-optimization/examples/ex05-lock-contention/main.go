@@ -7,7 +7,7 @@
 //
 //	go test -v ./...
 //	go test -race ./...
-//	go test -run='^$' -bench=. -benchtime=300000x -cpu=8   # 固定 8 P 放大竞争差异
+//	go test -run='^$' -bench=. -benchtime=1s -cpu=8   # 固定 8 P 放大竞争差异
 //	go run .                                               # 打印 mutex/block profile 文本摘要
 //
 // 验证状态：已验证（go1.25.6，profile 输出为实测）；benchmark 数字随机器波动
@@ -52,7 +52,7 @@ type ShardedCounter struct {
 	s [shards]struct {
 		mu sync.Mutex
 		n  int64
-		_  [40]byte // sync.Mutex(8) + int64(8) + 40 = 56，凑不满 64 也无妨，教学示意
+		_  [48]byte // sync.Mutex(8) + int64(8) + 48 = 64，正好一个缓存行：分片间不共享缓存行
 	}
 }
 

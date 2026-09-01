@@ -8,7 +8,7 @@
 
 - **目标**：写一个 `read_record(fd, index, ...)` 函数，用 pread 按索引随机读定长 record，全程不移动 fd 的 offset
 - **要求**：
-  - record 布局：定长 32 字节 = `id`(u32 大端， 4) + `name`(28 字节， 不足补 0)；先顺序写入 10 条（id = 100 + i，name = "user\<i\>"）
+  - record 布局：定长 32 字节 = `id`(u32 大端，4) + `name`(28 字节，不足补 0)；先顺序写入 10 条（id = 100 + i，name = "user\<i\>"）
   - 写完后 `lseek(fd, 0, SEEK_SET)` 归零，之后只允许用 `pread`（禁止 `lseek + read` 组合——为什么？想想两个线程共享同一 fd 时会发生什么）
   - 按索引读第 3、7、0、9 条并打印；每次读前后用 `lseek(fd, 0, SEEK_CUR)` 证明 offset 恒为 0；读第 10 条（不存在）必须返回失败
 - **验收**：`cc -Wall -Wextra -std=c11` 零警告；4 条 record 的 id/name 全部正确；offset 恒 0；越界读取被正确拒绝

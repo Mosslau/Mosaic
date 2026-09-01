@@ -23,7 +23,7 @@ fn walk(path: &Path, stat: &mut Stat) -> io::Result<()> {
     for entry in fs::read_dir(path)? {
         let entry: DirEntry = entry?; // 迭代器每项也是 Result
         let p: PathBuf = entry.path();
-        let meta = entry.metadata()?; // 不跟随符号链接用 symlink_metadata
+        let meta = entry.metadata()?; // 注意：metadata() 会跟随符号链接，如需不跟随用 symlink_metadata
         if meta.is_dir() {
             walk(&p, stat)?; // 递归进子目录
         } else if meta.is_file() {

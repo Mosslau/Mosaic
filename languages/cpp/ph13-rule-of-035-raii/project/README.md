@@ -7,7 +7,7 @@
 - `raii/c_file.h` —— `CFile`：`FILE*` 的 RAII 封装。构造即 `fopen`（失败抛 `std::runtime_error`），析构自动 `fclose`；**move-only**（拷贝 `=delete`，移动 `noexcept`）；提供 `read` / `write` / `eof`
 - `raii/unique_fd.h` —— `UniqueFd`：POSIX fd 的 RAII 封装。`-1` 表示"无句柄"；移动 `noexcept`（E.16），析构/`close` 永不抛；提供 `get` / `release` / `write_all` / `read_some`
 - `demo.cpp` —— 演示 CLI：`write`（CFile 写文件）/ `read`（CFile 读文件）/ `copy`（UniqueFd 分块复制），全部资源由 RAII 托管
-- `test_raii.cpp` —— 自测：编译期断言 move-only + 8 组运行期检查（写读往返、打开失败抛异常、移动转移、release、pipe 往返、**异常路径 fd 计数归零**、复制往返内容一致）
+- `test_raii.cpp` —— 自测：编译期断言 move-only + 16 组运行期断言（8 个测试段落：写读往返、打开失败抛异常、移动转移、release、pipe 往返、**异常路径 fd 计数归零**、复制往返内容一致）
 - `Makefile` —— 构建 + 测试（含 ASan 变体）+ 运行 + 清理，产物隔离 `build/`
 - `samples/hello.txt` —— 演示样例文件
 

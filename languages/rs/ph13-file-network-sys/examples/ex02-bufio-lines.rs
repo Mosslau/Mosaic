@@ -45,7 +45,7 @@ fn main() -> io::Result<()> {
 
     // ===== 3. 对比：无缓冲逐字节 read() 的代价 =====
     // read_line 每次只 syscall 一次读 8 KiB；若自己循环 file.read(&mut [0u8;1])
-    // 每次只读 1 字节，24 万字节 = 24 万次 syscall，慢几个数量级（这里不实测，避免拖慢示例）
+    // 每次只读 1 字节，约 30 万字节（298894）≈ 30 万次 syscall，慢几个数量级（这里不实测，避免拖慢示例）
 
     // ===== 4. read_line 复用缓冲（避免每行分配 String） =====
     let file = File::open(&big)?;

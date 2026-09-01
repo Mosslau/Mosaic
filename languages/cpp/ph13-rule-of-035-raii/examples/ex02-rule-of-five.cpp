@@ -77,13 +77,15 @@ private:
 
 #if defined(PH13_SHALLOW)
 // 故意出错：Rule of One —— 只写析构、不写拷贝/移动。
-// 拷贝变成"逐成员浅拷贝"：两个对象持有同一指针 → 作用域结束 double free。
+// 机制（C++11 起）：声明析构 ⇒ 移动构造/移动赋值不再隐式生成；
+// 但拷贝构造/拷贝赋值仍会隐式生成 → 逐成员浅拷贝：两个对象持有同一指针 → 作用域结束 double free。
+// 对照：若析构之外再声明移动操作，拷贝会被隐式删除（编译期拒绝，见主文档 4.1）。
 class ShallowBuffer {
 public:
     explicit ShallowBuffer(std::size_t n)
         : data_(static_cast<int*>(std::malloc(n * sizeof(int)))) {}
     ~ShallowBuffer() { std::free(data_); }   // 只写了这一个！
-    // 编译器仍生成逐成员拷贝 → data_ 被复制成两份相同指针
+    // 编译器仍生成逐成员拷贝（声明析构不抑制拷贝）→ data_ 被复制成两份相同指针
 private:
     int* data_;
 };

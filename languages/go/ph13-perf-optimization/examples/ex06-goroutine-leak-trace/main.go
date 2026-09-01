@@ -62,7 +62,7 @@ func slowWork() int {
 // goroutineProfile 返回 goroutine profile 的文本 dump（debug=1：按栈聚合的计数）
 func goroutineProfile() string {
 	var buf bytes.Buffer
-	_ = pprof.Lookup("goroutine").WriteTo(&buf, 1)
+	_ = pprof.Lookup("goroutine").WriteTo(&buf, 1) // 此处错误无关紧要：dump 失败也只是拿不到 profile 文本
 	return buf.String()
 }
 

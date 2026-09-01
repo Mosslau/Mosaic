@@ -79,7 +79,7 @@ public class StudentDao implements AutoCloseable {
         }
     }
 
-    /** 按邮箱查（V2 迁移建了 idx_students_email 索引，走 B+ 树定位而非全表扫描） */
+    /** 按邮箱查（email 列 UNIQUE 约束自带隐含索引，走索引定位而非全表扫描；V2 显式索引与之重复，见测试 emailIndexIsUsedByPlanner 的教学点） */
     public Optional<Student> findByEmail(String email) throws SQLException {
         try (Connection conn = dataSource.getConnection();
              PreparedStatement ps = conn.prepareStatement(

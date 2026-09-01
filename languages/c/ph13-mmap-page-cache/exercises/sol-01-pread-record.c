@@ -78,7 +78,7 @@ int main(void) {
         }
         printf("record %u: id=%u name=\"%s\"（读前 offset=%lld, 读后 offset=%lld）\n",
                idx[k], id, name,
-               (long long)0,
+               (long long)lseek(fd, 0, SEEK_CUR),
                (long long)lseek(fd, 0, SEEK_CUR));
     }
 

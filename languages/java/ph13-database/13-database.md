@@ -22,21 +22,21 @@ ph12 单元测试与工程质量阶段用 HSQLDB 内存库写过最小 JDBC CRUD
 
 **SQL** 诞生于 1970 年代 IBM 的 System R 项目（Edgar F. Codd 的关系模型论文 1970 年发表，1974 年 Donald Chamberlin 与 Raymond Boyce 设计出 SEQUEL 语言，即 SQL 前身），1979 年 Oracle 发布首个商业关系数据库。SQL 是声明式语言——**你描述「要什么」，数据库决定「怎么做」**，这个设计哲学让「查询优化」成为数据库引擎的核心能力，也让「索引改变执行计划」成为本阶段的关键心智。1986 年 SQL 成为 ANSI 标准，此后 1992 年 SQL-92、1999 年 SQL:1999（引入递归查询、窗口函数雏形）、2003 年 SQL:2003（窗口函数、XML）持续演进，各厂商（MySQL/PostgreSQL/Oracle）在标准之上叠加方言。
 
-**JDBC**（Java Database Connectivity）1997 年随 JDK 1.1 发布，是 Java 访问数据库的**官方标准 SPI**：定义 `Driver` / `Connection` / `Statement` / `PreparedStatement` / `ResultSet` 五个核心接口，数据库厂商实现驱动接入。JDBC 的四个演进节点：JDBC 1.0 基本连接与查询 → JDBC 2.0（2000，`ResultSet` 滚动/可更新、批量更新）→ JDBC 3.0（2002，`Savepoint`、连接池标准接口 `ConnectionPoolDataSource`）→ JDBC 4.0（2006，**自动驱动加载**——`DriverManager` 通过 `META-INF/services` 服务发现机制自动注册驱动，从此不再需要 `Class.forName`）。**连接池**的诞生早于 JDBC 标准：1996 年 Apache DBCP 的前身出现，核心动机是「建连成本高」——TCP 握手 + 认证 + 会话初始化通常要几毫秒到几十毫秒，而一条 SQL 执行只要亚毫秒，池化把建连成本摊到启动期。
+**JDBC**（Java Database Connectivity）1997 年随 JDK 1.1 发布，是 Java 访问数据库的**官方标准 SPI**：定义 `Driver` / `Connection` / `Statement` / `PreparedStatement` / `ResultSet` 五个核心接口，数据库厂商实现驱动接入。JDBC 的四个演进节点：JDBC 1.0 基本连接与查询 → JDBC 2.0（1998，随 JDK 1.2 发布：`ResultSet` 滚动/可更新、批量更新）→ JDBC 3.0（2002，随 J2SE 1.4 发布：`Savepoint`、`ConnectionEvent` 等）→ JDBC 4.0（2006，**自动驱动加载**——`DriverManager` 通过 `META-INF/services` 服务发现机制自动注册驱动，从此不再需要 `Class.forName`）。**连接池**的标准化晚于池化实践：连接池标准接口 `ConnectionPoolDataSource` / `PooledConnection` 随 **JDBC 2.0 Optional Package**（`javax.sql`，1999 年前后）才定义，更早的池化是各家自研（Apache DBCP 追溯至 2001 年后的 Jakarta Commons）；核心动机是「建连成本高」——TCP 握手 + 认证 + 会话初始化通常要几毫秒到几十毫秒，而一条 SQL 执行只要亚毫秒，池化把建连成本摊到启动期。
 
-**Redis** 2010 年由 Salvatore Sanfilippo 发布，定位「内存中的数据结构服务器」——不是普通 KV 缓存，而是支持 String/Hash/List/Set/ZSet 五种数据结构、单线程事件循环驱动的内存数据库。它的价值在于**内存随机访问是微秒级**（比磁盘快 2~3 个数量级），配合 `EXPIRE/TTL` 过期机制成为缓存事实标准。**ORM** 的演化线：2002 年 Hibernate 发布（把 Java 对象映射到关系表，对象关系阻抗失配的经典解法）→ 2006 年 Sun 推出 **JPA 规范**（Java Persistence API，Hibernate 是其主要实现）→ **MyBatis** 2010 年从 Apache iBATIS 迁移而来（「半 ORM」：SQL 由开发者写，框架只做参数绑定与结果映射，2013 年迁至 GitHub 后成为国内 Java 生态主流）。**迁移工具** Flyway 2010 年由 Axel Fontaine 创建（版本化 SQL 迁移：DDL 进版本库、按版本号顺序执行、历史记录在 `flyway_schema_history` 表），2016 年并入 Boxfuse，Liquibase 2006 年出现（基于变更集 XML/YAML 描述，不写裸 SQL 也可迁移）。
+**Redis** 2009 年由 Salvatore Sanfilippo 发布，定位「内存中的数据结构服务器」——不是普通 KV 缓存，而是支持 String/Hash/List/Set/ZSet 五种数据结构、单线程事件循环驱动的内存数据库。它的价值在于**内存随机访问是微秒级**（比磁盘快 2~3 个数量级），配合 `EXPIRE/TTL` 过期机制成为缓存事实标准。**ORM** 的演化线：2002 年 Hibernate 发布（把 Java 对象映射到关系表，对象关系阻抗失配的经典解法）→ 2006 年 Sun 推出 **JPA 规范**（Java Persistence API，Hibernate 是其主要实现）→ **MyBatis** 2010 年从 Apache iBATIS 迁移而来（「半 ORM」：SQL 由开发者写，框架只做参数绑定与结果映射，2013 年迁至 GitHub 后成为国内 Java 生态主流）。**迁移工具** Flyway 2010 年由 Axel Fontaine 创建（版本化 SQL 迁移：DDL 进版本库、按版本号顺序执行、历史记录在 `flyway_schema_history` 表），2016 年并入 Boxfuse，Liquibase 2006 年出现（基于变更集 XML/YAML 描述，不写裸 SQL 也可迁移）。
 
 | 版本/里程碑 | 年份 | 主要变化 |
 |-----------|------|---------|
 | SQL（System R / SEQUEL） | 1974 | Codd 关系模型落地为声明式查询语言，数据库负责优化执行 |
 | SQL-92 | 1992 | 首个被广泛实现的标准基线，本阶段 SQL 语法基本属于 SQL-92 |
 | JDBC 1.0 | 1997 | `Driver/Connection/Statement/ResultSet` 五个核心接口 |
-| JDBC 2.0 | 2000 | 滚动/可更新 ResultSet、批量更新（`addBatch`，见 examples/ex04） |
-| JDBC 3.0 | 2002 | `Savepoint`、连接池标准接口（HikariCP 等实现） |
+| JDBC 2.0 | 1998 | 滚动/可更新 `ResultSet`、批量更新（`addBatch`，见 examples/ex04） |
+| JDBC 3.0 | 2002 | `Savepoint`、`ConnectionEvent` 等（连接池标准接口属 JDBC 2.0 Optional Package） |
 | JDBC 4.0 | 2006 | 服务发现自动加载驱动，`Class.forName` 成为历史 |
 | Hibernate | 2002 | 首个主流 ORM，对象关系映射的开创者 |
 | JPA 1.0 | 2006 | Sun 推出持久化规范，Hibernate 是参考实现（见 examples/ex07） |
-| Redis | 2010 | 内存数据结构服务器，单线程事件循环 + 过期机制（见 examples/ex05） |
+| Redis | 2009 | 内存数据结构服务器，单线程事件循环 + 过期机制（见 examples/ex05） |
 | MyBatis | 2010 | iBATIS 迁至 GitHub：SQL 开发者自写，框架做绑定与映射（见 examples/ex06） |
 | Flyway | 2010 | 版本化 SQL 迁移，`flyway_schema_history` 记录已执行版本 |
 | HikariCP | 2013 | 高性能连接池，「光」之意，Spring Boot 2 起为默认连接池（见 examples/ex03） |
@@ -287,7 +287,7 @@ public class Book {
 }
 ```
 
-**JPA 的三个核心心智**（examples/ex07 全部实测）：
+**JPA 的三个核心心智**（examples/ex07 实测脏检查与 JPQL，一级缓存为语义说明）：
 
 - **脏检查（dirty checking）**：实体被 `persist` 后进入「托管状态」，此时**改了字段、commit 时 Hibernate 自动生成 UPDATE**——没有调用任何 update 方法，Hibernate 比对快照只把变化的列发 UPDATE
 - **持久化上下文与一级缓存**：`Session` 是持久化上下文，同一 `Session` 内 `find` 同一主键只查一次库（快照比对的前提）
@@ -497,7 +497,7 @@ Flyway 先迁移（`V1` 建 users 表、`V2` 加 email 索引），MyBatis 接�
 
 - **用户表 CRUD**（★）：HSQLDB 内存库做参数化 CRUD + 业务校验 + 唯一约束兜底（对应 Roadmap 练习「用户表 CRUD」）
 - **事务转账**（★★）：扣款 + 收款事务，余额不足与收款方不存在都要回滚（对应「事务转账」）
-- **连接池**（★★）：HikariCP 池化 + 并发写，实测物理连接数不超过池上限
+- **连接池**（★★）：HikariCP 池化 + 并发写，实测物理连接数不超过池上限（对应「连接池」）
 - **Redis 缓存**（★★）：Cache-Aside + TTL，用本机 redis-server 实测（对应「Redis 缓存」）
 - **慢查询优化**（★★★）：造数 + 执行计划对照 + 计时对比，量化索引收益（对应「慢查询优化」）
 

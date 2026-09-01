@@ -31,7 +31,7 @@
 
 - [x] `make` 零警告（`-Wall -Wextra -std=c11`，Apple clang 21.0.0 实测）
 - [x] `make test` 全部断言通过、退出码 0（实测 16 个 [PASS]，含往返 100 条、残尾停在准确偏移、损坏→CRC 拦截在第 50 条、全零垃圾→magic 拦截在偏移 0）
-- [x] `make demo` 演示链全部退出码 0：写 8 条 → 回放 8 条；crash 恢复 2000/2000 条、残尾停在准确偏移、ftruncate 修复后回放干净；corrupt 翻转 1 字节被 CRC 拦截（退出码 2 属预期）
+- [x] `make demo` 演示链全部退出码 0：写 8 条 → 回放 8 条；crash 恢复 2000/2000 条、残尾停在准确偏移、ftruncate 修复后回放干净；corrupt 翻转 1 字节被 CRC 拦截（`kvlog read` 对残尾返回退出码 2，`corrupt` 自身返回 0 表示拦截成功；Makefile 中 `-` 前缀为历史兼容保留）
 - [x] `make san`：ASan/UBSan 复跑 `test` 与 `crash` 零报告（衔接 ph11 工具链）
 - [x] `make clean` 零残留（仓库内无 .o / 可执行文件 / .dSYM；演示文件写 /tmp）
 

@@ -64,7 +64,7 @@ off_t cur = lseek(fd, 0, SEEK_CUR);   /* 查询当前 offset */
 - 每个 fd 有自己的 offset：同一个文件被 open 两次，两个 fd 的 offset 互不影响；`fork` 出的子进程与父进程**共享**同一个文件表项（同一 offset）——多线程/多进程各自持有独立 fd 时，offset 竞争就来了（见 3.3）
 - 读超出文件末尾：`read` 返回 **0**（EOF），不是错误——"read 返回 0 是 EOF，返回 -1 才是错误"是必须内化的纪律
 
-**错误返回**：系统调用失败返回 -1，errno 给出原因。`write` 到只读 fd 返回 -1 且 errno = EBADF（ex01 第 ⑦ 步实测 errno=9）。**判断成功必须看返回值，不能假设"应该成功"**——磁盘满、权限、信号都会让它失败。
+**错误返回**：系统调用失败返回 -1，errno 给出原因。`对 O_WRONLY fd 调用 read` 返回 -1 且 errno = EBADF（ex01 第 ⑦ 步实测 errno=9）。**判断成功必须看返回值，不能假设"应该成功"**——磁盘满、权限、信号都会让它失败。
 
 ### 3.2 短读短写：read_full / write_full 循环
 
@@ -146,7 +146,7 @@ int   msync(void *addr, size_t len, int flags); /* MS_SYNC 刷回 / MS_INVALIDAT
 |------|-----------|
 | prot | PROT_READ / PROT_WRITE / PROT_EXEC / PROT_NONE（可组合） |
 | flags | **MAP_SHARED**（写会回写文件，其他映射者可见）/ **MAP_PRIVATE**（写时复制，不写回文件）/ MAP_ANONYMOUS（匿名内存，fd 传 -1） |
-| len / offset | 映射长度与起点；**长度必须 > 0**（空文件 mmap 直接失败），页对齐的细节内核处理 |
+| len / offset | 映射长度与起点；**长度必须 > 0**（空文件 mmap 直接失败）；**offset 须页对齐**（调用方义务，非页对齐返回 EINVAL），长度由内核向上取整 |
 
 **只读索引的标准姿势**（ex05）：`fstat` 取长度 → `mmap(PROT_READ, MAP_SHARED)` → 映射建立后 **fd 即可关闭**（映射本身持有文件）→ 像访问数组一样 `p[offset]` 读 → `munmap` 配对释放。**访问前三个检查一个不能少**：长度 < 头部不许 mmap、magic 必须匹配、count 与文件实际长度必须吻合（不信任文件里的长度声明）——练习 3 的验收标准。
 

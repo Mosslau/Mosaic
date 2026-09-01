@@ -7,7 +7,7 @@
 //
 //	go test -v ./...
 //	go test -race ./...
-//	go test -run='^$' -bench=. -benchmem -benchtime=100000x
+//	go test -run='^$' -bench=. -benchmem -benchtime=500000x -count=5
 //
 // 验证状态：已验证（go1.25.6）
 // 覆盖率：go test -cover 实测 **81.8%**（缺口为 main 演示装配与部分错误分支）
@@ -71,7 +71,7 @@ func writeBodyFast(w io.Writer, id string, ts int64) {
 	var num [20]byte // int64 十进制最长 20 位，栈上数组零分配
 	buf.Write(strconv.AppendInt(num[:0], ts, 10))
 	buf.WriteByte('}')
-	_, _ = w.Write(buf.Bytes()) // Bytes() 是引用不是拷贝：零分配直写
+	_, _ = w.Write(buf.Bytes()) // Bytes() 是引用不是拷贝：零分配直写；Write 错误无关紧要（响应已尽力写出）
 }
 
 // ProfileCPU 对 handler 压 load 秒并采集 CPU profile 到 path——

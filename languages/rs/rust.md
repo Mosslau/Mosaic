@@ -651,9 +651,11 @@ fn main() -> std::io::Result<()> {
 
 ### 练习
 
-- 读取大文件并逐行处理
-- 解析 JSON 配置
-- 写一个 TCP echo server
+- 读取大文件并逐行处理（迷你 wc）
+- 递归统计目录大小
+- 写一个 TCP 时间戳服务器（echo server 变体）
+- 手写极简 JSON 解析器
+- 手写子命令式 CLI 解析器
 
 ### 阶段验收
 

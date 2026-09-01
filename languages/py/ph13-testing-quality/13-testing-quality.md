@@ -216,7 +216,7 @@ def find_vehicle(rows: list[VehicleTelemetry], vehicle_id: str) -> VehicleTeleme
 def total_speed(vehicles: list[Vehicle]) -> int:
     total = 0
     for v in vehicles:
-        total += v.speed            # 错误 2: incompatible types —— float 累加进 int 变量
+        total += v.speed            # 错误 2: assignment —— float 累加进 int 变量（与错误 1 同为 assignment 码）
     return total
 
 def main() -> None:
@@ -230,8 +230,7 @@ def main() -> None:
 
 | 错误码 | 含义 | 修法 |
 |--------|------|------|
-| `assignment` | 赋值与声明的类型不符 | 改声明或改赋值 |
-| `incompatible types` | 运算/累加两侧类型冲突 | 统一类型（如 float 累加进 float 变量） |
+| `assignment` | 赋值与声明的类型不符——ex05b 错误 1（int 赋给 str 变量）、错误 2（float 累加进 int 变量）都报这个码，消息同为 "Incompatible types in assignment" | 改声明或改赋值，或统一类型（如 float 累加进 float 变量） |
 | `attr-defined` | 该类型没有这个属性/方法 | 用对类型，或先判 `None`/`isinstance` |
 | `arg-type` | 实参与形参类型不符 | 改调用或放宽形参 |
 
@@ -268,7 +267,7 @@ def merge_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
 | E | pycodestyle 错误 | `E501` 行超长、`E722` 裸 except |
 | F | pyflakes 错误 | `F401` 未使用导入、`F821` 未定义名称、`F841` 未使用变量 |
 | I | isort 导入排序 | `I001` import 顺序错（字母序） |
-| UP | pyupgrade 现代写法 | 老式 `Optional[X]` → `X | None` 等 |
+| UP | pyupgrade 现代写法 | 老式 `Optional[X]` → `X \| None` 等 |
 | B | bugbear 反模式 | 容易写错的 bug 模式 |
 
 **故意出错的对照（ex06b）**：6 处 lint 违规分别对应上表——`import sys` 后 `import os`（I001 顺序错）、`import json` 从未使用（F401）、`unused = result * 2` 从未使用（F841）、`except:` 裸 except（E722）、`print(undefined_name)` 未定义名称（F821）、超长行（E501）。**lint 是「机器可读的代码评审」**：这些错误运行时不一定会炸（F401/F841 只是浪费），但 F821 直接就是 NameError，裸 except 连 `KeyboardInterrupt` 一起吞——lint 把它们挡在提交之前。
@@ -384,7 +383,7 @@ ruff 与 mypy 同属「静态分析」，但管的是**风格与明显错误**�
 
 ## 6. 代码示例
 
-本节展示完整可运行示例的关键片段，完整文件（含文件头验证环境与运行命令）在 [`examples/`](./examples/) 目录，对照 [`examples/README.md`](./examples/README.md) 逐条运行。验证环境：Python 3.13.9 + pytest 8.4.2 + ruff 0.12.0 + mypy 1.17.1 + black 25.9.0 + requests 2.32.5（全部本机已装并实测）。全部示例**离线可跑**：ex01~ex04 的临时文件由 pytest 的 `tmp_path` fixture 自动创建并清理，ex05/ex06 的运行产物写到系统临时目录（`tempfile.mkdtemp`）——运行后用 `git status` 可确认工作区干净；ex03 用 mock 替换 `requests.get`，从不真正联网。依赖状态：**pytest-cov 与 pre-commit 未安装**——覆盖率用标准库 `trace` 实测，pre-commit 只给配置示例（3.7、project）。
+本节展示完整可运行示例的关键片段，完整文件（含文件头验证环境与运行命令）在 [`examples/`](./examples/) 目录，对照 [`examples/README.md`](./examples/README.md) 逐条运行。验证环境：Python 3.13.9 + pytest 8.4.2 + ruff 0.12.0 + mypy 1.17.1 + black 25.9.0 + requests 2.32.5（全部本机已装并实测）。全部示例**离线可跑**：ex01~ex04 的临时文件由 pytest 的 `tmp_path` fixture 自动创建并清理，ex06 的运行产物写到系统临时目录（`tempfile.mkdtemp`），ex05 只向 stdout 输出、不落盘——运行后用 `git status` 可确认工作区干净；ex03 用 mock 替换 `requests.get`，从不真正联网。依赖状态：**pytest-cov 与 pre-commit 未安装**——覆盖率用标准库 `trace` 实测，pre-commit 只给配置示例（3.7、project）。
 
 ### 示例 1：pytest 基础（断言、异常、tmp_path、参数化初体验）
 
@@ -503,7 +502,7 @@ def main() -> None:
     print(total, add("1", 2))       # 错误 4: arg-type —— str 传给声明为 int 的参数
 ```
 
-实测输出：`mypy ex05b-mypy-bugs.py` → **Found 4 errors**（assignment / incompatible types / attr-defined / arg-type 各 1，故意出错）。
+实测输出：`mypy ex05b-mypy-bugs.py` → **Found 4 errors**（assignment ×2 / attr-defined / arg-type，故意出错——错误 1、2 的消息都是 "Incompatible types in assignment"）。
 
 ### 示例 6：ruff 干净版（lint + 格式双通过）
 
@@ -575,9 +574,9 @@ import json         # F401: 未使用的导入
 
 ### 动手练习
 
-本阶段练习见 [`exercises/`](./exercises/)（题目在 [exercises/README.md](./exercises/README.md)，参考实现 sol-* 先别看）。对应 roadmap「练习」小节（工具函数测试、数据处理测试、mock 外部接口），练习 5 补「学习内容」里的类型注解/mypy 门禁——工程质量的另一半，完成 5 题后继续：
+本阶段练习见 [`exercises/`](./exercises/)（题目在 [exercises/README.md](./exercises/README.md)，参考实现 sol-* 先别看）。对应 roadmap「练习」小节：工具函数测试（练习 1）、数据处理测试（练习 2/4）、mock 外部接口（练习 3——roadmap 的「API 测试」由它覆盖，对 API 客户端的离线测试）；练习 5 补「学习内容」里的类型注解/mypy 门禁——工程质量的另一半，完成 5 题后继续：
 
-- 工具函数测试（★）：字符串/文本工具四函数 + 参数化 + tmp_path JSON 往返（提示：`pytest.raises`；参考实现 9 个用例）
+- 工具函数测试（★）：字符串/文本工具四函数 + 参数化 + tmp_path JSON 往返（提示：`is_palindrome` 参数化 3 组：真/假/空串；参考实现 9 个用例）
 - fixture 组织测试数据（★★）：TaskStore 的 empty/prefilled/session/autouse 四类 fixture（提示：`scope="session"` 计数断言 1；参考实现 8 个用例）
 - mock 外部接口（★★）：TelemetryFetcher 的成功/错误/超时路径 + `assert_called_once_with` 含 timeout（提示：`patch.object` 验证 `fetch_batch` 复用单条逻辑；参考实现 7 个用例）
 - 参数化 + 覆盖率（★★★）：速度四档边界 + 非法读数 + 续航计算的参数化全覆盖，trace 实测写进验证块（提示：0/30/120 三个分界点两侧；参考实现 18 个用例、100%）

@@ -73,13 +73,13 @@ heap inuse_space（Total = 5125.57kB）:
 
 栈版快约 3.5 倍——**Pool 的 Get/Put 簿记是纯开销，省不掉的对象才值得 Pool**。正确判断顺序：① 对象能留栈吗（逃逸分析）？能 → 别用 Pool，直接用栈变量；② 不能留栈且创建频繁、分配大 → Pool 摊销分配成本；③ 小对象且低频 → 不值得。另外 Pool 会被 GC 清空（只存临时对象）、Get 后必须 Reset（池里对象是脏的）、对象生命周期必须「用完可弃」（不能长期持有引用）。
 
-### ex05：锁竞争实测（-benchtime=1s 时长基准，-cpu=8，RunParallel）
+### ex05：锁竞争实测（-benchtime=1s 时长基准，-cpu=8，RunParallel，六次均值）
 
 | 基准 | ns/op | 相对全局锁 |
 |------|-------|-----------|
-| GlobalCounter（全局互斥锁） | ~95.2 | 1x |
-| ShardedCounter（16 分片锁 + 缓存行 padding） | ~61.4 | 快 1.5 倍 |
-| AtomicCounter（atomic.AddInt64） | ~34.9 | 快 2.7 倍 |
+| GlobalCounter（全局互斥锁） | ~97.4 | 1x |
+| ShardedCounter（16 分片锁 + 缓存行 padding） | ~74.6 | 快约 1.3 倍 |
+| AtomicCounter（atomic.AddInt64） | ~32.0 | 快约 3.0 倍 |
 
 **mutex profile 实测（go run . 输出节选）**：`DemoMutexContention.func1` 在 `main.go:99`（`mu.Lock()`）与 `main.go:100`（`mu.Unlock()`）处被聚出大量等待事件——profile 精确告诉你「等在哪一行」。
 

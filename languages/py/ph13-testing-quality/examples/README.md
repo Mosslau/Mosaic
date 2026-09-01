@@ -16,7 +16,7 @@
 
 说明：
 
-- **产物纪律**：ex05/ex06 的运行产物一律写到系统临时目录（`tempfile.mkdtemp`）；ex01~ex04 的临时文件由 pytest 的 `tmp_path` fixture 自动创建并清理——运行后用 `git status` 可确认工作区干净。
+- **产物纪律**：ex06 的运行产物写到系统临时目录（`tempfile.mkdtemp`），ex05 只向 stdout 输出、不落盘；ex01~ex04 的临时文件由 pytest 的 `tmp_path` fixture 自动创建并清理——运行后用 `git status` 可确认工作区干净。
 - **依赖状态**：pytest 8.4.2、ruff 0.12.0、mypy 1.17.1、black 25.9.0 在本环境已安装并实测；**pytest-cov 未安装**，覆盖率改用标准库 `trace` 模块实测（`python3 -m trace --count --summary --coverdir /tmp/ph13-cover --ignore-dir <你的 site-packages 路径> --module pytest ex04-parametrize.py -q`）；**pre-commit 未安装**，其配置只以示例形式出现在主文档 3.7。
 - 全部示例离线可跑：ex03 用 mock 替换 `requests.get`，从不真正联网；ex05b/ex06b 是「故意出错」示例，文件首行注释已写明运行前提，仅用于演示工具报错。
 
@@ -27,6 +27,6 @@
 - `ex03`：`6 passed`（成功 2 + HTTPError 1 + 超时 1 + side_effect 序列 1 + 自动 mock 陷阱 1）
 - `ex04`：`14 passed`；本模块覆盖率 **100%**（trace 实测：25 个可执行行全命中）
 - `ex05`：`mypy ex05-mypy.py` → `Success: no issues found in 1 source file`；运行输出 3 行（`EV-001,42.0,88.0` / `{'EV-001': 48.5, 'EV-002': 30.0}` / `['EV-001: 42.0 km/h']`）
-- `ex05b`：`mypy ex05b-mypy-bugs.py` → **Found 4 errors**（assignment / incompatible types / attr-defined / arg-type 各 1，故意出错）
+- `ex05b`：`mypy ex05b-mypy-bugs.py` → **Found 4 errors**（assignment ×2 / attr-defined / arg-type，故意出错——错误 1、2 的消息都是 "Incompatible types in assignment"）
 - `ex06`：`ruff check ex06-ruff.py` → `All checks passed!`；`ruff format --check ex06-ruff.py` → `1 file already formatted`；运行输出合并后行数 2、报表 3 行
 - `ex06b`：`ruff check ex06b-ruff-bad.py` → **Found 6 errors**（I001 导入顺序 / F401 未使用导入 / F821 未定义名称 / F841 未使用变量 / E722 裸 except / E501 行超长，故意出错）
