@@ -60,7 +60,7 @@ project/
 
 - **子模块独立构建**：本工程 `mvn install` 后（或在 CI 里用 `mvn -pl app -am package`），`app` 可脱离 reactor 单独构建——把模板复制为 ph12 起的工程骨架，每阶段练习往 `modules` 里加新模块
 - **可执行 CLI jar 分发**：把 `app` 的 fat jar 作为「可执行 CLI jar」分发给同事/服务器（`java -jar` 单命令），对照 4.6 可复现构建：固定依赖与插件版本、用 Wrapper（`mvnw`）固定 Maven 版本
-- **质量门禁**：按 exercises 练习 4 的方式给 `common.TextStats` 挂 JaCoCo + JUnit，把覆盖率阈值写进 `verify` 阶段（`jacoco:check`）——衔接 ph12 单元测试与工程质量阶段（roadmap 第 12 节，目录待建）
+- **质量门禁**：按 exercises 练习 4 的方式给 `common.TextStats` 挂 JaCoCo + JUnit，把覆盖率阈值写进 `verify` 阶段（`jacoco:check`）——衔接 [ph12 单元测试与工程质量阶段](../../ph12-testing-quality/12-testing-quality.md)
 - **CI 化**：GitHub Actions 里 `mvn -B clean verify` + 缓存 `~/.m2`——CI/CD 本身属于 ph19 DevOps 与部署阶段（roadmap 第 19 节，目录待建）
 
 ## 验证环境与命令

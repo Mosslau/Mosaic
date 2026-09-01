@@ -558,6 +558,8 @@ cur.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT
 
 ## 12. 自动化脚本阶段
 
+> 📖 详细展开版见 [ph12-automation/12-automation.md](./ph12-automation/12-automation.md)
+
 ### 目标
 
 用 Python 提升日常工作效率。

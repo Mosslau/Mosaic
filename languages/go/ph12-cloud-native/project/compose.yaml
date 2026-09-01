@@ -1,0 +1,19 @@
+# ph12 阶段项目 —— compose.yaml（本地一键起服务）
+# 用法：docker compose up --build（在 project/ 目录）
+# 验证状态：本机有 docker daemon 时实测；无则标注「未在本环境验证（需 Docker 环境）」
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ph12-api:latest
+    ports:
+      - "58010:58010"
+    environment:
+      PORT: "58010"
+      LOG_LEVEL: "info"
+      ENABLE_METRICS: "true"
+      DB_URL: "postgres://user:pw@db:5432/app"   # 演示值；生产从 Secret/外部配置注入
+    restart: unless-stopped
+    # 探针写进 K8s 清单（deploy/k8s/deployment.yaml），由 kubelet 执行 HTTP 探活；
+    # scratch 镜像无 shell/wget，compose 的 healthcheck 需镜像内探针工具，此处从略

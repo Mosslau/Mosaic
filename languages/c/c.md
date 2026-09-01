@@ -566,6 +566,8 @@ gcc -fsanitize=address,undefined -g main.c -o app
 
 ## 12. 字节序、内存对齐与二进制格式解析阶段
 
+> 📖 详细展开版见 [ph12-endian-binary/12-endian-binary.md](./ph12-endian-binary/12-endian-binary.md)
+
 ### 目标
 
 能处理数据库文件、WAL 日志、SSTable block、网络 frame 和跨平台二进制数据布局。

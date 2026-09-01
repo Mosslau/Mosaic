@@ -17,7 +17,7 @@ Rust 智能指针阶段的定位是：**能根据场景选择 `Box<T>`（堆分�
 | 循环引用与 Weak | `Weak<T>`：弱引用不增加强引用计数，`upgrade()` 升级访问，避免泄漏 |
 | 组合模式 | `Rc<RefCell<T>>`（单线程共享可变）、`Arc<Mutex<T>>`（多线程共享可变） |
 
-这个阶段只涉及智能指针（`Box`/`Rc`/`Arc`/`RefCell`/`Mutex`/`Weak`/`Drop`）的堆分配、共享所有权、内部可变性与循环引用处理，**不涉及错误处理工程化（`Mutex` 中毒恢复、`Result` 与 `?` 在共享状态上的组合）、异步编程中的共享状态（`Arc` 跨 `.await`、`tokio::sync::Mutex` 与标准库 `Mutex` 的区别）和 unsafe 与裸指针（`*const T`/`*mut T`、`Pin`、`Box::into_raw` 手动管理）** — 那些是 ph11 错误处理与工程质量阶段、ph12 并发与异步阶段、ph14 Unsafe Rust 与安全抽象阶段的内容（ph12/ph14 目录待建）。承接 ph09 集合与迭代器阶段：迭代器链产出共享引用、`Box<dyn Iterator>` 装箱返回都会用到本阶段类型。
+这个阶段只涉及智能指针（`Box`/`Rc`/`Arc`/`RefCell`/`Mutex`/`Weak`/`Drop`）的堆分配、共享所有权、内部可变性与循环引用处理，**不涉及错误处理工程化（`Mutex` 中毒恢复、`Result` 与 `?` 在共享状态上的组合）、异步编程中的共享状态（`Arc` 跨 `.await`、`tokio::sync::Mutex` 与标准库 `Mutex` 的区别）和 unsafe 与裸指针（`*const T`/`*mut T`、`Pin`、`Box::into_raw` 手动管理）** — 那些是 ph11 错误处理与工程质量阶段、ph12 并发与异步阶段、ph14 Unsafe Rust 与安全抽象阶段的内容（ph12 目录已建；ph14 目录待建）。承接 ph09 集合与迭代器阶段：迭代器链产出共享引用、`Box<dyn Iterator>` 装箱返回都会用到本阶段类型。
 
 ## 2. 来源与演变
 
@@ -397,7 +397,7 @@ fn main() {
 
 **不适合**此阶段的事项（属于后续阶段，这里不展开）：
 - 错误处理工程化（ph11 错误处理与工程质量阶段）：`Mutex` 中毒恢复、`Result` 与 `?` 在共享状态上的工程化组合、`thiserror`/`anyhow` 错误类型设计。
-- 异步编程中的共享状态（ph12 并发与异步阶段，目录待建）：`Arc` 跨 `.await`、锁在异步任务中的持有策略、`tokio::sync::Mutex` 与标准库 `Mutex` 的区别。
+- 异步编程中的共享状态（[ph12 并发与异步阶段](../ph12-concurrency-async/12-concurrency-async.md)）：`Arc` 跨 `.await`、锁在异步任务中的持有策略、`tokio::sync::Mutex` 与标准库 `Mutex` 的区别。
 - unsafe 与裸指针（ph14 Unsafe Rust 与安全抽象阶段，目录待建）：`*const T`/`*mut T`、`Pin`、`Box::into_raw` 的手动管理——本阶段全部用安全抽象完成。
 
 ## 6. 代码示例
@@ -813,7 +813,7 @@ fn main() {
 - [ ] 完成 exercises/ 全部练习并对照参考实现复盘
 - [ ] 独立完成 project/ 并通过其验收标准
 
-扩展方向（可选）：给 `RuleNode` 加 `Not` 节点与短路求值；把 `Rc` 换成 `Arc` 配合 `Mutex` 共享求值上下文做并发求值（衔接 ph12 并发与异步阶段，目录待建）；`eval` 结果 `Option` 化区分"事实缺失"与"事实为假"（衔接 ph11 错误处理与工程质量阶段）。
+扩展方向（可选）：给 `RuleNode` 加 `Not` 节点与短路求值；把 `Rc` 换成 `Arc` 配合 `Mutex` 共享求值上下文做并发求值（衔接 [ph12 并发与异步阶段](../ph12-concurrency-async/12-concurrency-async.md)）；`eval` 结果 `Option` 化区分"事实缺失"与"事实为假"（衔接 ph11 错误处理与工程质量阶段）。
 
 ### 下一阶段
 

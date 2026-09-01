@@ -232,7 +232,7 @@ print(df.group_by("vehicle_id").agg(pl.col("speed").mean()))
 | pandas | 通用表格分析 | 绝大多数数据分析场景 |
 | polars | 高性能 DataFrame（Rust） | 大数据量、多核并行、流式处理 |
 
-要点：openpyxl 管"文件格式"，pandas/polars 管"分析"；**第三方库引入要考虑依赖成本**（roadmap 必会概念）——csv 小任务用标准库 `csv` 就好，pandas 会连带 numpy 引入几十 MB 依赖，polars 再快也不值得为小数据引入；本阶段认识 polars/openpyxl 基本用法即可，深入在 ph09/ph12。（上文 openpyxl 部分已在本环境验证；polars 未在本环境安装，其片段未在本环境验证。）
+要点：openpyxl 管"文件格式"，pandas/polars 管"分析"；**第三方库引入要考虑依赖成本**（roadmap 必会概念）——csv 小任务用标准库 `csv` 就好，pandas 会连带 numpy 引入几十 MB 依赖，polars 再快也不值得为小数据引入；本阶段认识 polars/openpyxl 基本用法即可，深入在 [ph09 数据分析阶段](../ph09-data-analysis/09-data-analysis.md)与 [ph12 自动化脚本阶段](../ph12-automation/12-automation.md)。（上文 openpyxl 部分已在本环境验证；polars 未在本环境安装，其片段未在本环境验证。）
 
 ### 3.6 matplotlib·plotly·seaborn 可视化选型
 

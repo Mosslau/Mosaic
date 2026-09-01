@@ -33,7 +33,7 @@
 ## 扩展方向（可选）
 
 - 增加 `Not` 节点与短路求值（`And` 遇 false 即停、`Or` 遇 true 即停），观察短路对 `weight` 统计语义的影响
-- 把 `Rc` 换成 `Arc` 并配合 `Mutex` 共享求值上下文（`Arc<Mutex<RuleCtx>>`），让规则树跨线程并发求值（衔接 ph12 并发与异步阶段，ph12 目录待建）
+- 把 `Rc` 换成 `Arc` 并配合 `Mutex` 共享求值上下文（`Arc<Mutex<RuleCtx>>`），让规则树跨线程并发求值（衔接 ph12 并发与异步阶段）
 - 给 `RuleMeta` 加 `description` 字段支持日志输出；把 `render` 输出改成 JSON/规则 DSL，对接真实规则引擎（衔接 ph07 trait 与泛型阶段的 `Display`/`Serialize` 思路）
 - 用 `eval` 的 `Option` 化结果区分"事实缺失"与"事实为假"，为规则命中审计铺路（衔接 ph11 错误处理与工程质量阶段）
 

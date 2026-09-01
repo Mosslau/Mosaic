@@ -558,6 +558,8 @@ protobuf → 定义 service → 生成 Go 代码 → server → client → inter
 
 ## 12. 云原生与部署阶段
 
+> 📖 详细展开版见 [ph12-cloud-native/12-cloud-native.md](./ph12-cloud-native/12-cloud-native.md)
+
 ### 目标
 
 能把 Go 服务部署到真实环境。

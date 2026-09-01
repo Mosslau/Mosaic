@@ -564,6 +564,8 @@ enum AppError {
 
 ## 12. 并发与异步阶段
 
+> 📖 详细展开版见 [ph12-concurrency-async/12-concurrency-async.md](./ph12-concurrency-async/12-concurrency-async.md)
+
 ### 目标
 
 能编写线程安全和异步 I/O 程序，理解 Send/Sync 边界。

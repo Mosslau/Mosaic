@@ -17,7 +17,7 @@
 | C++20 同步 | jthread、stop_token、semaphore、latch、barrier |
 | 协程基础 | co_await、co_return、无栈状态机 |
 
-这个阶段只涉及进程内多线程并发的标准设施（thread / mutex / condition_variable / atomic / future / C++20 同步原语与协程基础），**不涉及文件/网络系统编程、对象生命周期深入和性能优化** — 那些是 ph09、ph12（目录待建）、ph18（目录待建）阶段的内容；无锁数据结构与复杂内存序优化也不展开——本阶段默认使用 seq_cst 与基本 acquire/release，把程序写对是首要目标。本阶段承接 ph07 异常安全阶段：锁与并发代码必须异常安全，RAII 锁在栈展开时自动解锁，线程函数内未捕获的异常会直接 terminate。
+这个阶段只涉及进程内多线程并发的标准设施（thread / mutex / condition_variable / atomic / future / C++20 同步原语与协程基础），**不涉及文件/网络系统编程、对象生命周期深入和性能优化** — 那些是 ph09、ph12 对象生命周期、值类别与所有权深入阶段、ph18（目录待建）阶段的内容；无锁数据结构与复杂内存序优化也不展开——本阶段默认使用 seq_cst 与基本 acquire/release，把程序写对是首要目标。本阶段承接 ph07 异常安全阶段：锁与并发代码必须异常安全，RAII 锁在栈展开时自动解锁，线程函数内未捕获的异常会直接 terminate。
 
 ## 2. 来源与演变
 

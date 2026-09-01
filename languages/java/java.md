@@ -577,6 +577,8 @@ mvn clean test package
 
 ## 12. 单元测试与工程质量阶段
 
+> 📖 详细展开版见 [ph12-testing-quality/12-testing-quality.md](./ph12-testing-quality/12-testing-quality.md)
+
 ### 目标
 
 写出可靠、可维护的 Java 工程代码。

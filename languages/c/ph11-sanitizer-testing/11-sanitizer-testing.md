@@ -19,7 +19,7 @@ Sanitizer / 静态分析 / 单元测试阶段是 C 学习路线中"从定位错�
 
 本阶段承接 ph10：ph10 建立了"识别 10 类 UB + 用 Sanitizer 复现定位"的认知，示例里工具只是临时命令；本阶段把工具变成构建配置的一部分（`-fsanitize` 写进脚本而非每次手敲）、把测试变成代码的一部分（自测模式 / test 目录 + 断言框架）、把覆盖变成可度量的事实（gcov/lcov 报告），并给出"动态检测与静态分析互补"的选型逻辑。
 
-这个阶段只涉及 Sanitizer（ASan/UBSan/TSan/LSan）的系统化使用、静态分析（cppcheck/clang-tidy）、单元测试（自测模式与 Unity/CMocka/Criterion）与覆盖率（gcov/lcov）及其构建与 CI 集成，**不涉及字节序与二进制格式的位级处理（ph12，roadmap 第 12 节，目录待建）、mmap、Page Cache 与可靠文件 IO（ph13，roadmap 第 13 节，目录待建）和跨语言互操作 ABI（ph14，roadmap 第 14 节，目录待建）** — 那些是 ph12 字节序、内存对齐与二进制格式解析阶段、ph13 mmap、Page Cache 与可靠文件 IO 阶段和 ph14 C 与 C++ / Python / Rust 互操作阶段的内容；并发部分 TSan 只做检测工具介绍，**锁设计与内存序分析不属于本阶段**（衔接 ph08 线程，深入分析属并发专题）。
+这个阶段只涉及 Sanitizer（ASan/UBSan/TSan/LSan）的系统化使用、静态分析（cppcheck/clang-tidy）、单元测试（自测模式与 Unity/CMocka/Criterion）与覆盖率（gcov/lcov）及其构建与 CI 集成，**不涉及字节序与二进制格式的位级处理（ph12，roadmap 第 12 节）、mmap、Page Cache 与可靠文件 IO（ph13，roadmap 第 13 节，目录待建）和跨语言互操作 ABI（ph14，roadmap 第 14 节，目录待建）** — 那些是 ph12 字节序、内存对齐与二进制格式解析阶段、ph13 mmap、Page Cache 与可靠文件 IO 阶段和 ph14 C 与 C++ / Python / Rust 互操作阶段的内容；并发部分 TSan 只做检测工具介绍，**锁设计与内存序分析不属于本阶段**（衔接 ph08 线程，深入分析属并发专题）。
 
 ## 2. 来源与演变
 
@@ -301,7 +301,7 @@ roadmap 必会概念"**动态检测和静态分析互补**"：动态检测只在
 
 **不适合**此阶段的事项：
 
-- 字节序与二进制格式的位级处理（ph12 字节序、内存对齐与二进制格式解析阶段（roadmap 第 12 节，目录待建）：大端/小端、varint、length-prefix frame、checksum）
+- 字节序与二进制格式的位级处理（ph12 字节序、内存对齐与二进制格式解析阶段（roadmap 第 12 节）：大端/小端、varint、length-prefix frame、checksum）
 - mmap、Page Cache 与可靠文件 IO（ph13 mmap、Page Cache 与可靠文件 IO 阶段（roadmap 第 13 节，目录待建）：fsync、刷盘边界、崩溃恢复）
 - 跨语言互操作 ABI（ph14 C 与 C++ / Python / Rust 互操作阶段（roadmap 第 14 节，目录待建）：C ABI、FFI、opaque pointer）
 - 并发模型与内存序设计（本阶段 TSan 只做检测工具介绍，锁策略与 happens-before 分析不展开）
@@ -664,4 +664,4 @@ C 是所有对比项里最"裸露"的：**没有语言机制兜底**，内存安
 
 ### 下一阶段
 
-本阶段是当前已完成目录的最后一个阶段（ph11 之后暂无 ph 目录）：roadmap 第 12 节起仍在规划中（目录待建）。**后续可深入 <方向>** —— ph12 字节序、内存对齐与二进制格式解析阶段（roadmap 第 12 节，目录待建）将把本阶段的工具链用于 record 解析器：长度先校验再读字段的边界逻辑用单元测试钉死（练习 4 的 check_len 思路 / project/ buffer 库的边界检查 get），解析越界与未对齐访问靠 ASan/UBSan 兜底，覆盖率报告会告诉你哪些损坏路径还没测；再往后是 ph13 mmap、Page Cache 与可靠文件 IO 阶段（roadmap 第 13 节，目录待建）的 fsync/刷盘边界与 ph16 数据库存储引擎基础阶段的 WAL/MemTable——本阶段 buffer 库的 append-only 语义正是为它们做的铺垫。
+[字节序、内存对齐与二进制格式解析阶段](../ph12-endian-binary/12-endian-binary.md) — 本阶段工具链将直接用于 record 解析器：长度先校验再读字段的边界逻辑用单元测试钉死（练习 4 的 check_len 思路 / project/ buffer 库的边界检查 get），解析越界与未对齐访问靠 ASan/UBSan 兜底，覆盖率报告会告诉你哪些损坏路径还没测。再往后是 ph13+（roadmap 第 13 节，目录待建）的 fsync/刷盘边界与 ph16 数据库存储引擎基础阶段的 WAL/MemTable——本阶段 buffer 库的 append-only 语义正是为它们做的铺垫。

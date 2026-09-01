@@ -1,0 +1,16 @@
+# ph12 练习 5 —— compose.yaml
+# 在 sol-05-containerize/ 目录执行：docker compose up --build
+# 验证状态：本机有 docker daemon 时实测；无则标注「未在本环境验证（需 Docker 环境）」
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sol05:latest
+    ports:
+      - "59005:59005"
+    environment:
+      PORT: "59005"     # 12-Factor：配置走环境变量，镜像不携带环境信息
+    restart: unless-stopped
+    # 真实项目探针写进 K8s 清单（见 deploy/k8s/deployment.yaml），由 kubelet 执行；
+    # compose 环境的健康检查同样需要镜像内探针工具，此处从略（教学聚焦清单结构）

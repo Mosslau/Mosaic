@@ -18,7 +18,7 @@ Go 微服务与 RPC 阶段的目标是（引用 Roadmap）：**能写可扩展�
 
 本阶段的核心信念来自四条必会概念：**微服务解决组织和扩展问题，也引入复杂度**——拆分换来独立演进与水平扩展，代价是网络失败、数据一致性与排查困难；**RPC 必须有超时**——网络调用随时会慢会断，没有 deadline 的调用会层层拖垮系统；**重试要考虑幂等**——一次调用可能"成功但响应丢失"，只有幂等接口才能安全重试；**可观测性是分布式系统的必需品**——请求跨多个服务，必须靠日志、指标、追踪才能定位问题。
 
-这个阶段只涉及微服务起步与 RPC 通信本身（承接 ph09 Web 后端阶段的单体 HTTP、ph10 数据库阶段的数据层拆分），**不涉及云原生与容器部署（Docker、Kubernetes、服务网格属 ph12 云原生与部署阶段，roadmap 第 12 节，目录待建）、消息队列与异步解耦（Kafka/RabbitMQ 属 ph19 消息队列与事件驱动深入阶段，roadmap 第 19 节，目录待建；MQTT 属 ph21 IoT/车联网相关 Go 阶段，roadmap 第 21 节，目录待建）、分布式事务与强一致（两阶段提交、Saga 属后续阶段，roadmap 未单列）、API 网关与可观测性的完整部署（Prometheus/OpenTelemetry 工具链接入属 ph12）** — 本阶段是"单体拆分 + RPC 通信"起步。
+这个阶段只涉及微服务起步与 RPC 通信本身（承接 ph09 Web 后端阶段的单体 HTTP、ph10 数据库阶段的数据层拆分），**不涉及云原生与容器部署（Docker、Kubernetes、服务网格属 ph12 云原生与部署阶段，roadmap 第 12 节）、消息队列与异步解耦（Kafka/RabbitMQ 属 ph19 消息队列与事件驱动深入阶段，roadmap 第 19 节，目录待建；MQTT 属 ph21 IoT/车联网相关 Go 阶段，roadmap 第 21 节，目录待建）、分布式事务与强一致（两阶段提交、Saga 属后续阶段，roadmap 未单列）、API 网关与可观测性的完整部署（Prometheus/OpenTelemetry 工具链接入属 ph12）** — 本阶段是"单体拆分 + RPC 通信"起步。
 
 ## 2. 来源与演变
 
@@ -121,7 +121,7 @@ func (r *Registry) Discover(service string) []string { /* 惰性剔除超 TTL �
 | 配置中心 | 配置集中管理、动态下发（改配置不重启） | etcd、Consul、Nacos、Apollo |
 | API Gateway | 统一入口：路由、鉴权、限流、协议转换 | Kong、APISIX、Envoy |
 
-> 配置中心的完整落地属 ph20 配置管理与发布策略阶段（roadmap 第 20 节，目录待建）、API Gateway 的完整落地属 ph12 云原生与部署阶段（roadmap 第 12 节，目录待建），本阶段只理解注册发现的机制本身。
+> 配置中心的完整落地属 ph20 配置管理与发布策略阶段（roadmap 第 20 节，目录待建）、API Gateway 的完整落地属 ph12 云原生与部署阶段（roadmap 第 12 节），本阶段只理解注册发现的机制本身。
 
 ### 3.5 负载均衡 · 超时 · 熔断 · 限流（概念 + 简单实现）
 
@@ -279,7 +279,7 @@ net/rpc 的路由规则：报文带 `ServiceMethod`（"UserService.GetUser"）�
 
 **不适合**此阶段的事项：
 
-- **云原生与容器部署**（Docker、Kubernetes、服务网格、Prometheus/OpenTelemetry 完整接入）：属 ph12 云原生与部署阶段（roadmap 第 12 节，目录待建）——本阶段多服务在本机多进程运行
+- **云原生与容器部署**（Docker、Kubernetes、服务网格、Prometheus/OpenTelemetry 完整接入）：属 ph12 云原生与部署阶段（roadmap 第 12 节）——本阶段多服务在本机多进程运行
 - **消息队列与异步解耦**（Kafka/RabbitMQ 属 ph19、MQTT 属 ph21）：本阶段通信全部同步 RPC
 - **分布式事务与多库一致性**（两阶段提交、Saga）：属后续阶段（roadmap 未单列）——本阶段服务各自管数据，跨服务一致性靠接口幂等设计规避
 - **配置中心的完整落地**：属 ph20（配置管理与发布策略）；**API Gateway 的完整落地**：属 ph12（云原生与部署）——本阶段只理解注册发现机制
@@ -449,4 +449,4 @@ roadmap 另一个推荐项目「gRPC 服务框架 demo」（把"发现 → LB �
 
 ### 下一阶段
 
-本阶段是当前 Go Roadmap 最后一个已展开的阶段（ph01~ph11 目录齐备，ph12 起尚未建目录）。**ph12+（云原生与部署阶段，roadmap 第 12 节，目录待建）：后续可深入 Docker、Kubernetes、CI/CD 与监控告警**——本阶段的多服务将打包成镜像部署到集群，Prometheus 抓取指标、健康检查与优雅退出上线，注册发现与配置中心从"本机进程"升级为"集群内服务"；在此之前可先按推荐学习顺序巩固 ph10 数据层与 ph11 本阶段的练习与项目。
+[云原生与部署阶段](../ph12-cloud-native/12-cloud-native.md) — 本阶段的多服务将打包成镜像部署到集群（Docker/Kubernetes/Helm），Prometheus 抓取指标、健康检查与优雅退出上线，可观测性工具链（Prometheus/Grafana/Jaeger/OpenTelemetry）与 API Gateway、灰度发布完整落地；在此之前可先按推荐学习顺序巩固 ph10 数据层与 ph11 本阶段的练习与项目。

@@ -599,6 +599,8 @@ add_executable(app main.cpp)
 
 ## 12. 对象生命周期、值类别与所有权深入阶段
 
+> 📖 详细展开版见 [ph12-lifetime-value/12-lifetime-value.md](./ph12-lifetime-value/12-lifetime-value.md)
+
 ### 目标
 
 深入理解对象何时创建、移动、销毁，以及表达式值类别。

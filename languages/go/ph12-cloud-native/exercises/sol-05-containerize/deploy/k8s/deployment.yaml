@@ -1,0 +1,72 @@
+# ph12 练习 5 —— K8s Deployment（探针与滚动更新的标准落地）
+# 应用：kubectl apply -f deploy/k8s/（需 K8s 集群；本机无集群则标注「未在本环境验证」）
+# 说明：探针由 kubelet 直接发 HTTP 请求（不依赖镜像内 wget/shell），
+# 这是 scratch/distroless 镜像做健康检查的标准方式——正是练习 5 要对比的"探针层级"。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sol05-app
+  labels:
+    app: sol05
+spec:
+  replicas: 2                          # 多副本：滚动更新时一旧一新并存
+  selector:
+    matchLabels:
+      app: sol05
+  strategy:
+    type: RollingUpdate                # 滚动更新：逐个替换，不中断服务
+    rollingUpdate:
+      maxUnavailable: 1                # 最多允许 1 个副本不可用
+      maxSurge: 1                      # 更新时可额外多起 1 个新副本
+  template:
+    metadata:
+      labels:
+        app: sol05
+    spec:
+      containers:
+        - name: app
+          image: sol05:latest          # 生产用带 tag 的镜像仓库地址
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 59005
+          env:
+            - name: PORT
+              value: "59005"           # 12-Factor：配置走环境变量
+          livenessProbe:               # 存活探针：失败 → kubelet 重启容器
+            httpGet:
+              path: /healthz
+              port: 59005
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          readinessProbe:              # 就绪探针：失败 → 从 Service 摘除，不接流量
+            httpGet:
+              path: /readyz
+              port: 59005
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            timeoutSeconds: 2
+          resources:                   # 资源限制：调度与 OOM 保护（ph13 性能阶段深入）
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532           # 与 Dockerfile USER 一致
+---
+# Service：集群内稳定入口（Deployment 的 Pod IP 会变，Service 名字不变）
+apiVersion: v1
+kind: Service
+metadata:
+  name: sol05-service
+spec:
+  selector:
+    app: sol05
+  ports:
+    - port: 80                         # 集群内访问端口
+      targetPort: 59005                # 转发到 Pod 的容器端口
+  type: ClusterIP                      # 集群内可达；对外暴露用 NodePort/LoadBalancer/Ingress

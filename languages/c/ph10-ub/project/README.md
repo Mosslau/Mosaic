@@ -51,7 +51,7 @@
 
 - 给 `check` 增加断言：好版本输出与预期逐行比对，任一不符即非零退出——为 ph11 单元测试（Unity/CMocka）留骨架
 - 用 `-fsanitize=thread`（TSan）验证多线程版本的数据竞争 —— 属于 ph11 Sanitizer / 静态分析 / 单元测试阶段的内容
-- 把 `strbuf` 演示换成从网络/文件读入的不可信输入，结合 ph12 字节序、内存对齐与二进制格式解析阶段（roadmap 第 12 节，目录待建）做完整 record 解析的安全版本
+- 把 `strbuf` 演示换成从网络/文件读入的不可信输入，结合 ph12 字节序、内存对齐与二进制格式解析阶段（roadmap 第 12 节）做完整 record 解析的安全版本
 - 把目录表导出为 JSON/文本清单，作为 code review checklist 生成器的输入（roadmap 练习「收集 10 个常见 UB 示例并修复」的可持续版本）
 
 ## 验证环境

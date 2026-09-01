@@ -29,7 +29,7 @@
 - 换 SQLAlchemy + Alembic：模型用 `Mapped` 风格（ph10 3.7），迁移交给 `alembic revision --autogenerate` + `upgrade head`——本机 alembic 未安装，故本项目用手写 `schema_version` 等价实现（见 examples/ex05-migration.py）
 - 换真实 Redis：`TTLCache` 换成 redis-py 的 `get/set(ex=)/delete`（redis-py 8.0.1 + redis-server 已在本环境安装，落法见 exercises/sol-04-redis-cache.py 与 examples/ex06-redis-cache.py），再补 `maxmemory-policy=allkeys-lru` 淘汰策略
 - 暴露为 HTTP 接口：把 `DeviceService`/`StatusRepo` 接进 ph10 的设备管理 FastAPI（依赖注入 `yield` Session 生命周期管理），批量上报 + 查询 + 统计直接复用
-- 状态查询加时间桶聚合（`strftime` + `GROUP BY` 按小时/天分组），向 ph12+ 自动化脚本阶段的时间序列报表过渡
+- 状态查询加时间桶聚合（`strftime` + `GROUP BY` 按小时/天分组），向 [ph12 自动化脚本阶段](../../ph12-automation/12-automation.md) 的时间序列报表过渡
 
 ## 验证环境
 

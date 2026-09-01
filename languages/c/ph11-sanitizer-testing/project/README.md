@@ -39,7 +39,7 @@
 
 ## 扩展方向（可选）
 
-- 追加"长度前缀"写读原语（`buf_append_u32be` / 读长度后按长度读 payload）——**length-prefix frame 的编码细节属 ph12 字节序、内存对齐与二进制格式解析阶段（roadmap 第 12 节，目录待建）**，本库的 append/get 已备好原语
+- 追加"长度前缀"写读原语（`buf_append_u32be` / 读长度后按长度读 payload）——**length-prefix frame 的编码细节属 ph12 字节序、内存对齐与二进制格式解析阶段（roadmap 第 12 节）**，本库的 append/get 已备好原语
 - 接入第三方框架（Unity/CMocka）替换自测壳，比较"自测模式 vs 框架"的取舍（主文档 3.7）
 - 加一个把 `Buffer` 顺序写进文件的 `buf_flush`（衔接 ph06 文件 IO 与 ph13 可靠刷盘），并把 `make coverage` 的门槛（如 `buffer.c` 行覆盖 ≥ 95%）写进 CI
 - 用 `-fsanitize=thread` 跑并发写同一 buffer 的版本，验证"append 加锁"后零竞争——锁设计本身属并发专题，本阶段只验证工具能检测
