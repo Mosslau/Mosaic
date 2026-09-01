@@ -43,7 +43,7 @@ int main(int argc, char **argv) {
           "put(greeting) 成功");
     char buf[64];
     uint32_t vlen = 0;
-    CHECK(kvdb_get(db, "greeting", (uint8_t *)buf, sizeof buf, &vlen) ==
+    CHECK(kvdb_get(db, "greeting", (uint8_t *)buf, (uint32_t)sizeof buf, &vlen) ==
               KVDB_OK,
           "get(greeting) 成功");
     CHECK(vlen == 11 && memcmp(buf, "hello world", 11) == 0,
@@ -53,7 +53,7 @@ int main(int argc, char **argv) {
     CHECK(kvdb_put(db, "greeting", (const uint8_t *)"hi", 2) == KVDB_OK,
           "put(greeting) 覆盖成功");
     vlen = 0;
-    CHECK(kvdb_get(db, "greeting", (uint8_t *)buf, sizeof buf, &vlen) ==
+    CHECK(kvdb_get(db, "greeting", (uint8_t *)buf, (uint32_t)sizeof buf, &vlen) ==
               KVDB_OK,
           "get(greeting) 覆盖后读取成功");
     CHECK(vlen == 2 && memcmp(buf, "hi", 2) == 0,
@@ -61,17 +61,17 @@ int main(int argc, char **argv) {
 
     /* 4. 二进制值（含 \0 字节）往返 */
     const uint8_t blob[4] = {0x01, 0x00, 0xFF, 0x02};
-    CHECK(kvdb_put(db, "blob", blob, sizeof blob) == KVDB_OK,
+    CHECK(kvdb_put(db, "blob", blob, (uint32_t)sizeof blob) == KVDB_OK,
           "put(blob) 二进制值成功");
     uint8_t got[4];
     vlen = 0;
-    CHECK(kvdb_get(db, "blob", got, sizeof got, &vlen) == KVDB_OK,
+    CHECK(kvdb_get(db, "blob", got, (uint32_t)sizeof got, &vlen) == KVDB_OK,
           "get(blob) 成功");
     CHECK(vlen == 4 && memcmp(got, blob, 4) == 0,
           "二进制值往返一致（含 \\0 字节）");
 
     /* 5. NOTFOUND 错误码与消息 */
-    int32_t rc = kvdb_get(db, "missing", (uint8_t *)buf, sizeof buf, &vlen);
+    int32_t rc = kvdb_get(db, "missing", (uint8_t *)buf, (uint32_t)sizeof buf, &vlen);
     CHECK(rc == KVDB_ERR_NOTFOUND, "get(missing): err=-5(NOTFOUND)");
     CHECK(strcmp(kvdb_strerror(rc), "key not found") == 0,
           "err=-5 的消息 == \"key not found\"");
@@ -89,13 +89,13 @@ int main(int argc, char **argv) {
     db = kvdb_create(wal, &err);
     CHECK(db != NULL && err == KVDB_OK, "重新打开: 非 NULL, err=0");
     vlen = 0;
-    CHECK(kvdb_get(db, "greeting", (uint8_t *)buf, sizeof buf, &vlen) ==
+    CHECK(kvdb_get(db, "greeting", (uint8_t *)buf, (uint32_t)sizeof buf, &vlen) ==
               KVDB_OK,
           "重开后 get(greeting) 命中");
     CHECK(vlen == 2 && memcmp(buf, "hi", 2) == 0,
           "重开后内容仍 == \"hi\"（WAL 回放恢复）");
     vlen = 0;
-    CHECK(kvdb_get(db, "blob", got, sizeof got, &vlen) == KVDB_OK,
+    CHECK(kvdb_get(db, "blob", got, (uint32_t)sizeof got, &vlen) == KVDB_OK,
           "重开后 get(blob) 命中");
     CHECK(vlen == 4 && memcmp(got, blob, 4) == 0,
           "重开后二进制值仍一致");

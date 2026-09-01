@@ -26,6 +26,17 @@ func BenchmarkIfaceDispatch(b *testing.B) {
 	}
 }
 
+// BenchmarkDevirtualized：单实现接口调用——接口变量只装过 Circle 一种类型，
+// 编译器能证明动态类型，去虚拟化（devirtualization）把接口调用改写为直接调用；
+// Circle.Area 已 noinline（见 main.go），固定为真实调用，与 BenchmarkDirectValue
+// 公平对比：若去虚拟化生效，两者应接近（都无 itab 间接跳转）。
+func BenchmarkDevirtualized(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		var s Shape = Circle{R: 2} // 只装一种类型：编译器可证明
+		sink = s.Area()
+	}
+}
+
 // BenchmarkBoxing：int 装箱进空接口（any）。小整数进静态表不一定分配，
 // 但装箱路径本身（构造 eface、类型转换）有成本。
 func BenchmarkBoxing(b *testing.B) {

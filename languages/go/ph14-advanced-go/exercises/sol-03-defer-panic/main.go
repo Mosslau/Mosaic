@@ -25,10 +25,7 @@
 //	  panic(nil): nil? false, type *runtime.PanicNilError
 package main
 
-import (
-	"fmt"
-	"runtime"
-)
+import "fmt"
 
 // Order 返回 defer 实际执行顺序（用命名返回值：defer 的 append 要写回返回值本身）。
 func Order() (out []string) {
@@ -118,5 +115,4 @@ func main() {
 	// recover 不在 defer 中 → panic 冒泡；SafeCall 模式把它转成 error
 	fmt.Println("safe-call:", SafeCall(func() { RecoverOutside() }))
 	fmt.Println("safe-call-ok:", SafeCall(func() {}))
-	_ = runtime.GOOS // 保留 runtime 导入（版本说明见文件头）
 }

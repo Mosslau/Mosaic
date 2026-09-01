@@ -26,7 +26,8 @@ char *bufio_str_dup(const char *s);
 void bufio_str_free(char *s);
 
 /* 约定 2：把 s 拷进调用方缓冲区 dst；返回需要的长度（不含 \0），
- * 返回值 >= cap 表示缓冲区不够（内容已按 cap-1 截断） */
+ * 返回值 >= cap 表示缓冲区不够（内容已按 cap-1 截断）；
+ * s == NULL 返回 0（与 bufio_str_dup 的 NULL 契约一致） */
 size_t bufio_str_copy(char *dst, size_t cap, const char *s);
 
 /* 约定 3：只读借用调用方数组求和；n 由调用方传入 */

@@ -92,10 +92,10 @@ nm -gU /tmp/ph14-ex/libcalc.dylib
 实测输出（本机一次运行）：
 
 ```text
-00000000000002e0 T _calc_add
-0000000000000320 T _calc_div
-0000000000000300 T _calc_mul
-000000000000037c T _calc_strlen
+00000000000002e8 T _calc_add
+0000000000000328 T _calc_div
+0000000000000308 T _calc_mul
+0000000000000384 T _calc_strlen
 ```
 
 四个函数全部以 `T` 导出（T = 全局文本段符号，可被链接调用；小写 `t` 是文件局部符号，外部调不到；`U` 是未定义符号，由链接器从其他库满足）。**macOS 的 Mach-O 符号带下划线前缀（`_calc_add`），Linux 的 ELF 不带（`calc_add`）**——链接器在背后处理这个差异，你的代码不用管，但 `nm` 输出对不上号时要知道是这个原因。POSIX 平台默认导出全部全局函数，不需要额外标记；Windows 需要 `__declspec(dllexport)`（来源与演变表），这是 Windows 与 POSIX 的导出模型差异。
@@ -216,7 +216,7 @@ lib.calc_div.restype = ctypes.c_int
 | const uint8_t * + len | c_void_p + c_uint32（配 ctypes.cast） | 二进制值可能含 \0，不能当字符串 |
 | struct（POD） | `class X(ctypes.Structure)` + `_fields_` | 字段顺序与宽度必须与 C 一致 |
 
-**ctypes vs C 扩展**（roadmap 学习内容"Python ctypes / C 扩展"）：ctypes 是纯 Python、不用重编译解释器、适合"调用现成 C 库"；C 扩展（写 CPython 模块）性能更好、能直接操作 Python 对象，但要处理 PyObject 引用计数与构建链（setup.py）——本阶段只做对比，C 扩展的完整写法不展开（边界声明）。本环境 Python 3.13.9 实测：`python3 ex03-py-ctypes.py` 四条断言全过，退出码 0。
+**ctypes vs C 扩展**（roadmap 学习内容"Python ctypes / C 扩展"）：ctypes 是纯 Python、不用重编译解释器、适合"调用现成 C 库"；C 扩展（写 CPython 模块）性能更好、能直接操作 Python 对象，但要处理 PyObject 引用计数与构建链（setup.py）——本阶段只做对比，C 扩展的完整写法不展开（边界声明）。本环境 Python 3.13.9 实测：`python3 ex03-py-ctypes.py` 5 条断言全过，退出码 0。
 
 ### 3.7 Rust FFI：extern "C"
 
@@ -257,7 +257,7 @@ Rust 侧的纪律（ex04/ex05/project 全部实测）：
 **字符串、数组、结构体都要定义所有权规则**（roadmap 必会概念）——三种约定（ex06 完整演示，C/Python/Rust 三侧输出一致）：
 
 - **约定 1（谁分配谁释放）**：C 分配（malloc），调用方用完必须调 C 侧释放函数（`bufio_str_dup` / `bufio_str_free`）。跨语言时"释放"也必须回到 C 侧——Python 的 GC、Rust 的 drop 都不管 C 的 malloc
-- **约定 2（调用方分配，C 只写）**：缓冲区由调用方分配（Python `create_string_buffer` / Rust `[u8; N]`），C 只往里面写（`bufio_str_copy`）——缓冲区的生命周期天然归调用方
+- **约定 2（调用方分配，C 只写）**：缓冲区由调用方分配（Python `create_string_buffer` / Rust `Vec<u8>`，ex06-rs 用 `vec![0u8; 32]`；栈上 `[u8; N]` 数组亦可，见 project/rs_kvdb 的 `[0u8; 64]`），C 只往里面写（`bufio_str_copy`）——缓冲区的生命周期天然归调用方
 - **约定 3（C 只读借用）**：C 借用调用方的数据（`bufio_sum` 借用数组）或借出内部指针（`session_name`）——借用期间双方都要保证对方数据存活，注释写明"不得 free / 不得修改"
 
 **ABI 稳定比源码语法更重要**（roadmap 必会概念）：跨语言边界的每一端都可能不再重新编译，所以——函数签名（参数个数/类型/顺序）改了，对端崩溃；结构体加字段，对端布局错位；导出符号改名，对端链接失败；错误码改值，对端判断全错。**稳定性来自"不变量"**：用定宽类型（不变量 = 宽度）、opaque 句柄（不变量 = 布局可藏）、create/destroy（不变量 = 所有权闭环）、版本化错误码（不变量 = 数值语义）。这也正是 ph13 之后把 kvlog 升级为 C ABI 库（project/）的价值。
@@ -470,7 +470,7 @@ rustc --edition 2021 -D warnings ex04-rs-ffi.rs -L /tmp/ph14-ex -l calc -o /tmp/
 rs-ffi: calc_add(20,22)=42 calc_div(84,2)=rc0/42 calc_div(1,0)=rc-1 strlen(hello)=5 —— 全部断言通过
 ```
 
-解读：与 ex03 完全相同的断言集合——C++、Python、Rust 三个调用方对同一份 C 库读到一致结果，跨语言验证的核心闭环。
+解读：与 ex03 同构的断言集合（ex04 少一条 `add(-1,1)`，其余测试点一致）——C++、Python、Rust 三个调用方对同一份 C 库读到一致结果，跨语言验证的核心闭环。
 
 ### 示例 5：opaque pointer + create/destroy + 错误码/消息（四语言）
 

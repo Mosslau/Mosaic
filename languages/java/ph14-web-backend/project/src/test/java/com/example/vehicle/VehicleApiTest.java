@@ -129,7 +129,7 @@ class VehicleApiTest {
         String body = objectMapper.writeValueAsString(Map.of("username", "demo", "password", "wrong"));
         mockMvc().perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON).content(body))
-                .andExpect(status().isOk())
+                .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(40100));
     }
 }

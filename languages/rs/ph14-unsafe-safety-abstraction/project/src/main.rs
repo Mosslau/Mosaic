@@ -9,7 +9,8 @@ use std::alloc::{alloc, dealloc, realloc, Layout};
 use std::ptr::NonNull;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-/// 全局分配计数：每成功 alloc/realloc 一次 +1，dealloc 一次 -1。
+/// 全局分配计数：每次显式 alloc +1、dealloc -1；realloc 不改变计数
+///（realloc 在内部释放旧块并返回新块，活跃分配始终是同一个，代码只对它计数一次）。
 /// 程序结束时必须归零——这是本项目自带的「内存泄漏自检」。
 static LIVE_ALLOCS: AtomicUsize = AtomicUsize::new(0);
 

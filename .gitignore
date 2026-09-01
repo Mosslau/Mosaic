@@ -33,6 +33,7 @@ venv/
 # C++
 *.o
 *.d
+*.a
 
 # 语言设计分析 demo 构建产物（analysis/cpp/demos 下与 .cpp 同名的可执行文件）
 analysis/cpp/demos/01_raii
@@ -72,6 +73,9 @@ languages/cpp/ph09-files-network/project/file_sync
 languages/cpp/ph10-build-toolchain/examples/ex05-make/build/
 languages/cpp/ph10-build-toolchain/exercises/sol-05-make/build/
 languages/cpp/ph10-build-toolchain/project/build/
+
+# ph14 示例/项目构建产物（build/ 子目录，正常 make clean 会清掉，此处兜底）
+languages/cpp/ph14-const-correctness/project/build/
 
 # c ph11 sanitizer 阶段测试产物（make test 生成）
 languages/c/ph11-sanitizer-testing/project/test_buffer

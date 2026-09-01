@@ -26,7 +26,7 @@ src/test/java/com/example/vehicle/
 
 ## 功能清单
 
-- [x] 登录 `POST /api/auth/login`：`demo/demo123` 签发 JWT（1 小时有效），密码错返回业务码 40100
+- [x] 登录 `POST /api/auth/login`：`demo/demo123` 签发 JWT（1 小时有效），密码错返回 401 + 业务码 40100
 - [x] 上报 `POST /api/vehicles/report`：需 `Authorization: Bearer <token>`；VIN/经纬度/车速/电量校验（声明式 `@Pattern/@Min/@Max` 拦「输入形状」，Service 拦「业务规则」双层兜底）
 - [x] 最新状态 `GET /api/vehicles/{vin}/status`：该车无上报返回 404 + 业务码 40401
 - [x] 上报历史 `GET /api/vehicles/{vin}/reports?limit=N`：默认 20 条、上限 100，按时间升序
@@ -48,7 +48,7 @@ src/test/java/com/example/vehicle/
 - 本机实测（沙箱特例）：`mvn -o -Dmaven.repo.local=/tmp/m2clone clean test`（离线模式，依赖取自本地仓库缓存；沙箱禁止写 `~/.m2`）
 - **正常联网环境**：`mvn clean test` 即可
 - 运行：`mvn -o -Dmaven.repo.local=/tmp/m2clone spring-boot:run`（端口 18090），另开终端跑 README 上方验收标准里的 curl；退出后进程即结束
-- 说明：pom 中「离线版本仲裁」注释标记的依赖（junit-platform-launcher、jakarta.xml.bind-api、jackson-dataformat-yaml、jakarta.activation）仅为本机离线缓存所需，正常联网环境可删除
+- 说明：pom 中「离线版本仲裁」注释标记的依赖/插件（junit-platform-launcher、spring-boot-maven-plugin、jakarta.xml.bind-api、jackson-dataformat-yaml、jakarta.activation）仅为本机离线缓存所需，正常联网环境可删除
 
 ## 构建脚本（可选）
 

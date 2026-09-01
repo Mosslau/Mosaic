@@ -22,7 +22,7 @@
 - `ruff check .` → `All checks passed!`；`ruff format --check .` → 10 files already formatted（本机实测）
 - `python3 cli.py --demo` → 自检通过：10/10 采集成功、无重试、遥测值完整（本机实测）
 - `python3 cli.py` → 默认 20 辆车、10% 失败率、20ms 延迟：约 **0.12s** 采完，成功率 100%（重试兜底），平均耗时约 21.7ms（本机实测，**随机器与负载波动 ±10~20%**）
-- 高失败率演示：`python3 cli.py --vehicles 30 --fail-rate 0.5 --concurrency 8` → 30 辆车约 0.27s 采完，25 成功 / 5 失败（重试耗尽），CSV 中失败行 `status` 为空、`attempts=3`（本机实测）
+- 高失败率演示：`python3 cli.py --vehicles 30 --fail-rate 0.5 --concurrency 8` → 30 辆车约 0.28s 采完，24 成功 / 6 失败（重试耗尽），CSV 中失败行 `status` 为空、`attempts=3`（本机实测；seed 固定但并发到达顺序影响具体失败车辆，成败数量在 ±10~20% 波动内）
 - **并发代码怎么测**（主文档 3.9 的落地）：所有测试用**标准 pytest + `asyncio.run` 包装**，不需要 pytest-asyncio——每个用例在 `asyncio.run` 里起模拟服务器、跑采集、断言、`finally` 关闭
 
 > **依赖状态如实标注**：aiohttp 3.13.2 本环境已装并实测；pytest 8.4.2、ruff 0.12.0 已装并实测；**pytest-asyncio 未安装**——测试用标准 `asyncio.run` 包装实现（见 `tests/`）。模拟服务器跑在**进程内**，`stop()`/`runner.cleanup()` 保证无残留端口占用——运行后 `git status` 工作区干净（报表输出到 `/tmp`）。

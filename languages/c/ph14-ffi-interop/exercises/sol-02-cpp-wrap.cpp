@@ -1,7 +1,7 @@
 // sol-02-cpp-wrap.cpp —— 参考实现: 用 C++ 包装 C 接口（RAII）
 //
-// 编译: c++ -Wall -Wextra -std=c++17 sol-02-cpp-wrap.cpp -o sol02
-// 运行: ./sol02
+// 编译: c++ -Wall -Wextra -std=c++17 sol-02-cpp-wrap.cpp -o /tmp/sol02
+// 运行: /tmp/sol02
 // 验证环境: Apple clang 21.0.0（c++，macOS arm64）
 // 验证状态: 已验证（零警告; total=42; g_live 进入=1、离开=0, 退出码 0;
 //          实测输出见文件尾）

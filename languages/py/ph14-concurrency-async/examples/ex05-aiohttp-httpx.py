@@ -48,15 +48,22 @@ async def main() -> None:
         f"== 本地 HTTP 服务（{port}）并发请求实测：{N_REQUESTS} 个请求 × 服务端 {SERVER_DELAY}s =="
     )
     async with aiohttp.ClientSession() as session:
+
+        async def get_resp(u: str):
+            """发 GET 并消费响应体：async with 退出即归还连接，不依赖 GC（对照 sol-05 的写法）。"""
+            async with session.get(u) as resp:
+                await resp.read()  # 消费响应体，连接归还连接池可复用
+                return resp
+
         # 串行：一个请求等完再发下一个
         t0 = time.perf_counter()
-        responses = [await session.get(u) for u in urls]
+        responses = [await get_resp(u) for u in urls]
         t_serial = time.perf_counter() - t0
         print(f"aiohttp 串行: {t_serial:.3f}s（status={responses[0].status}）")
 
         # 并发：gather 一次发出，全部回来约等于单个请求耗时
         t0 = time.perf_counter()
-        responses = await asyncio.gather(*(session.get(u) for u in urls))
+        responses = await asyncio.gather(*(get_resp(u) for u in urls))
         t_gather = time.perf_counter() - t0
         print(f"aiohttp gather 并发: {t_gather:.3f}s（≈ {t_serial / t_gather:.0f} 倍加速）")
 
@@ -65,7 +72,7 @@ async def main() -> None:
 
         async def limited(u: str):
             async with sem:
-                return await session.get(u)
+                return await get_resp(u)
 
         t0 = time.perf_counter()
         responses = await asyncio.gather(*(limited(u) for u in urls))
@@ -75,8 +82,15 @@ async def main() -> None:
     import httpx
 
     async with httpx.AsyncClient() as client:
+
+        async def hx_get(u: str):
+            """httpx 版：await 取响应 + aread 消费体，连接归还连接池（不依赖 GC）。"""
+            resp = await client.get(u)
+            await resp.aread()
+            return resp
+
         t0 = time.perf_counter()
-        responses = await asyncio.gather(*(client.get(u) for u in urls))
+        responses = await asyncio.gather(*(hx_get(u) for u in urls))
         print(f"httpx 并发: {time.perf_counter() - t0:.3f}s（status={responses[0].status_code}）")
 
     srv.shutdown()  # 产物纪律：测完关服务器，不残留进程

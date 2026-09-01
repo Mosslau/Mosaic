@@ -28,6 +28,10 @@ type Shape interface {
 // Circle / Rect 都隐式实现 Shape（Go 的接口实现是结构性的，无需显式声明）。
 type Circle struct{ R float64 }
 
+// 供 BenchmarkDevirtualized 用：去虚拟化后是"直接调用"而非内联折叠，
+// 与 areaDirect（同为 noinline）公平对比；itab 分派路径本就无法内联，不受影响。
+//
+//go:noinline
 func (c Circle) Area() float64 { return 3.14159 * c.R * c.R }
 func (c Circle) Name() string  { return "circle" }
 

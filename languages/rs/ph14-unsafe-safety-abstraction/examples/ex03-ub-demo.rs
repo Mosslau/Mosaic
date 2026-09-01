@@ -30,7 +30,7 @@ fn main() {
     println!("2. shift = {shift}, 1 << 33 = {x}");
     // 实测差异：
     //   debug 形态（overflow-checks=on）：panic「attempt to shift left with overflow」，退出码 101
-    //   release 形态（无溢出检查）：静默输出 shift = 33, x = 2 —— x86 硬件对移位量取模 32 的结果，
+    //   release 形态（无溢出检查）：静默输出 shift = 33, x = 2 —— 处理器硬件对移位量取模 32 的结果，
     //     UB 允许产生任何值，「看起来正常」的 2 只是恰好
 
     // 演示 3（教学对照）：Vec 扩容后解引用旧指针（悬垂）

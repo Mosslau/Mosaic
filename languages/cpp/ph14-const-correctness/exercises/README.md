@@ -1,6 +1,6 @@
 # exercises —— const 正确性与接口设计阶段练习
 
-> 先自己做，再对照 sol-* 参考实现。每题标注难度（★~★★★）。验证环境：Apple clang 21.0.0（`c++`，g++ 兼容）+ Homebrew clang 21.1.8（`clang++`），编译命令 `c++ -std=c++20 -Wall -Wextra`。练习 1/2/3 与 roadmap ph14「练习」小节的三个承诺（给旧类补 const 成员函数、用 const 引用优化函数参数、设计只读配置接口）一一对应，练习 4/5 覆盖「学习内容」中的 mutable 谨慎使用 / 逻辑 const 与物理 const / 只读视图设计 / const_cast 气味。
+> 先自己做，再对照 sol-* 参考实现。每题标注难度（★~★★★）。验证环境：Apple clang 21.0.0（`c++`，g++ 兼容）+ Homebrew clang 21.1.8（`clang++`），编译命令 `c++ -std=c++20 -Wall -Wextra`。练习 1/2/3 与 roadmap ph14「练习」小节的三个承诺（给旧类补 const 成员函数、用 const 引用优化函数参数、设计只读配置接口）一一对应，练习 4/5 覆盖「学习内容」与「必会概念」中的 mutable 谨慎使用 / 逻辑 const 与物理 const / 只读视图设计 / const_cast 气味。
 
 ## 练习 1：给旧类补 const 成员函数（★）
 

@@ -7,7 +7,7 @@
 use std::ffi::{c_char, CString};
 
 /// unsafe fn：函数体是隐式 unsafe 上下文，可直接写 unsafe 操作；
-/// 但调用方必须位于 unsafe 上下文（否则报 E0133，见 ex04 同族演示）。
+/// 但调用方必须位于 unsafe 上下文（否则报 E0133，实测见 ex04 的 demo_e0133）。
 unsafe fn double(n: i32) -> i32 {
     let mut x = n;
     let p: *mut i32 = &mut x;

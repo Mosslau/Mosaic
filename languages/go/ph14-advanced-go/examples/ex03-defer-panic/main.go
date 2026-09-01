@@ -16,10 +16,7 @@
 // 验证状态：已验证（go1.25.6）
 package main
 
-import (
-	"fmt"
-	"runtime"
-)
+import "fmt"
 
 // deferOrder 演示 LIFO：同一函数内多个 defer 按声明逆序执行。
 // 必须用命名返回值：defer 里 append 改的是"返回值变量"本身；若用普通 return，
@@ -130,6 +127,5 @@ func main() {
 	}()
 	go func() { done <- struct{}{} }() // 另一个子 goroutine 不受影响
 	<-done
-	_ = runtime.GOOS // 保留 runtime 导入（版本说明见 README）
 	fmt.Println("  主 goroutine 与无关 goroutine 正常继续")
 }

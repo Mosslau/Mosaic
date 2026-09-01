@@ -1,8 +1,9 @@
 // examples/ex04-borrow-check-still-on.rs —— 「unsafe 不关闭借用检查」演示（故意编译失败）
-// 运行前提（必读）：本文件故意包含借用检查错误，用于演示「unsafe 块 / unsafe fn 内
-//   借用检查依然生效」。它不会编译通过——请勿期待编译成功。
+// 运行前提（必读）：本文件故意包含借用检查错误（E0594/E0502/E0506）与 unsafe 调用规则错误
+//   （E0133），用于演示「unsafe 块 / unsafe fn 内借用检查依然生效」。它不会编译通过——
+//   请勿期待编译成功。
 // 编译（预期失败）：rustc --edition 2021 -D warnings ex04-borrow-check-still-on.rs -o /tmp/ex04
-// 验证状态：已验证（rustc 1.92.0，macOS arm64）——三个错误码 E0594 / E0502 / E0506 均为实测，
+// 验证状态：已验证（rustc 1.92.0，macOS arm64）——四个错误码 E0594 / E0502 / E0506 / E0133 均为实测，
 //   错误文本见各函数上方注释；想单独观察某个错误，把 main 里其它调用注释掉再编译
 
 fn demo_e0594() {
@@ -40,9 +41,20 @@ fn demo_e0506(p: *mut i32) {
     }
 }
 
+fn demo_e0133() {
+    // E0133：安全代码直接调用 unsafe fn——调用方必须位于 unsafe 块/unsafe fn 内。
+    // 注意这不是借用检查错误，而是「调用 unsafe fn 缺少 unsafe 上下文」的调用规则错误。
+    unsafe fn danger() -> i32 {
+        42
+    }
+    let v = danger(); // 实测错误：error[E0133]: call to unsafe function `danger` is unsafe and requires unsafe function or block
+    println!("v = {v}");
+}
+
 fn main() {
-    // 三个 demo 都会报错（一次编译全部报告）；逐一观察请注释掉其它调用
+    // 四个 demo 都会报错（一次编译全部报告）；逐一观察请注释掉其它调用
     demo_e0594();
     demo_e0502();
     demo_e0506(&mut 42);
+    demo_e0133();
 }

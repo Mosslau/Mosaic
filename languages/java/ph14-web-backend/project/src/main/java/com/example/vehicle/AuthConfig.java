@@ -14,6 +14,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -42,7 +43,7 @@ public class AuthConfig implements WebMvcConfigurer {
         public record LoginRequest(String username, String password) {}
 
         @PostMapping("/login")
-        public ApiResponse<Map<String, String>> login(@RequestBody LoginRequest req) {
+        public ResponseEntity<ApiResponse<Map<String, String>>> login(@RequestBody LoginRequest req) {
             if ("demo".equals(req.username()) && "demo123".equals(req.password())) {
                 String token = Jwts.builder()
                         .subject(req.username())
@@ -50,9 +51,11 @@ public class AuthConfig implements WebMvcConfigurer {
                         .expiration(new Date(System.currentTimeMillis() + 3600_000))
                         .signWith(KEY)
                         .compact();
-                return ApiResponse.ok(Map.of("token", token, "username", req.username()));
+                return ResponseEntity.ok(ApiResponse.ok(Map.of("token", token, "username", req.username())));
             }
-            return ApiResponse.error(40100, "用户名或密码错误");
+            // 密码错 → HTTP 401 + 业务码 40100（与 ex06 及「401 未认证」语义一致）
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error(40100, "用户名或密码错误"));
         }
     }
 

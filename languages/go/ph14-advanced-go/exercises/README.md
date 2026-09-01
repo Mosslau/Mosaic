@@ -1,6 +1,6 @@
 # ph14 高级 Go 练习
 
-> 先自己做，再对照 `sol-*` 参考实现。每题标注难度（★~★★★）。四题与 roadmap ph14 对齐：练习 2 ↔ 「观察 slice 扩容」、练习 4 ↔ 「写反射版配置加载器」、练习 1 ↔ roadmap 推荐项目「泛型工具库」、练习 3 ↔ 学习内容「defer、panic/recover 原理」；roadmap 练习里的「用 pprof 分析高 CPU」已由 ph13 性能优化阶段覆盖，此处不重复。
+> 先自己做，再对照 `sol-*` 参考实现。每题标注难度（★~★★★）。四题与 roadmap ph14 对齐：练习 2 ↔ 「观察 slice 扩容」、练习 4 ↔ 「写反射版配置加载器」、练习 1 ↔ roadmap 推荐项目「泛型工具库」、练习 3 ↔ 学习内容「defer、panic/recover 原理」；roadmap 练习里的「用 pprof 分析高 CPU」已由 ph13 性能优化阶段覆盖，「用 cgo 调 C 库」由示例 6（examples/ex06-cgo）覆盖，此处均不重复。
 > 全部参考实现已在 go1.25.6（darwin/arm64）验证（`go test`、`go vet`、`go test -race` 全绿），零第三方依赖，进入各自子目录运行。
 
 ## 练习 1：泛型工具库（★★）

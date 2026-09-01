@@ -1,7 +1,7 @@
 /* sol-04-errcode.c —— 参考实现: 设计跨语言错误码 + 错误消息 + err_out 上报
  *
- * 编译: cc -Wall -Wextra -std=c11 sol-04-errcode.c -o sol04
- * 运行: ./sol04
+ * 编译: cc -Wall -Wextra -std=c11 sol-04-errcode.c -o /tmp/ph14-sol04
+ * 运行: /tmp/ph14-sol04
  * 验证环境: Apple clang 21.0.0（cc，macOS arm64）
  * 验证状态: 已验证（零警告; 3 种可确定性触发的错误全部 PASS, 退出码 0;
  *          实测输出见文件尾）

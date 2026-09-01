@@ -23,6 +23,8 @@ void bufio_str_free(char *s) {
 }
 
 size_t bufio_str_copy(char *dst, size_t cap, const char *s) {
+    if (s == NULL)
+        return 0;                 /* 判空契约与 bufio_str_dup 一致：NULL 输入返回 0 */
     size_t need = strlen(s);  /* 需要的长度（不含 \0） */
     if (dst == NULL || cap == 0)
         return need;

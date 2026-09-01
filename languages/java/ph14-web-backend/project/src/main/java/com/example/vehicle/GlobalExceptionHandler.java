@@ -4,7 +4,7 @@
 // ---------------------------------------------------------------------------
 // 教学点：所有业务异常（BusinessException.code）与校验失败（MethodArgumentNotValidException）
 // 在这里统一翻译成 ApiResponse + 合适的 HTTP 状态码；未知异常兜底 500 并记 ERROR 日志。
-// 业务码 → HTTP 状态映射：4xxxx 开头 → 4xx，5xxxx → 500，404xx → 404。
+// 业务码 → HTTP 状态映射：401xx → 401，404xx → 404，其余 4xxxx → 400，5xxxx → 500。
 package com.example.vehicle;
 
 import org.slf4j.Logger;
@@ -23,11 +23,12 @@ public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-    /** 业务异常：按 code 前缀映射 HTTP 状态（4xxxx → 4xx，5xxxx → 500）。 */
+    /** 业务异常：按 code 前缀映射 HTTP 状态（401xx → 401，404xx → 404，其余 4xxxx → 400，5xxxx → 500）。 */
     @ExceptionHandler(VehicleService.BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusiness(VehicleService.BusinessException ex) {
         HttpStatus status = ex.getCode().startsWith("5") ? HttpStatus.INTERNAL_SERVER_ERROR
                 : ex.getCode().startsWith("404") ? HttpStatus.NOT_FOUND
+                : ex.getCode().startsWith("401") ? HttpStatus.UNAUTHORIZED
                 : HttpStatus.BAD_REQUEST;
         return ResponseEntity.status(status)
                 .body(ApiResponse.error(Integer.parseInt(ex.getCode()), ex.getMessage()));

@@ -75,15 +75,16 @@ main.raceWrite(...)
 
 **结论**：defer 的三大时机语义（LIFO、参数即求值、命名返回值可改）+ recover 的两条铁律（只在 defer 中有效、panic(nil) 在 Go 1.21+ 返回非 nil 的 `*runtime.PanicNilError`）+ 嵌套 panic 覆盖规则，全部实测确认。另注意「defer 里 append 的坑」：defer 修改返回值必须用命名返回值，否则返回的 slice 头在 defer 执行前就拷贝走了。
 
-### ex04：interface 动态分派与成本实测（-benchtime=5000000x）
+### ex04：interface 动态分派与成本实测（-benchtime=5000000x，go1.25.6，3 轮稳定值）
 
 | 基准 | ns/op | B/op | allocs/op |
 |------|-------|------|-----------|
-| BenchmarkDirectValue（直接调用，noinline） | 0.73 | 0 | 0 |
-| BenchmarkIfaceDispatch（接口分派，类型运行时交替） | 1.09 | 0 | 0 |
-| BenchmarkBoxing（int 装箱进 any） | 6.14 | 8 | 0 |
+| BenchmarkDirectValue（直接调用，noinline） | 0.71 | 0 | 0 |
+| BenchmarkIfaceDispatch（接口分派，类型运行时交替） | 1.01 | 0 | 0 |
+| BenchmarkDevirtualized（单实现接口调用，去虚拟化） | 0.70 | 0 | 0 |
+| BenchmarkBoxing（int 装箱进 any） | 5.6 | 7~8 | 0 |
 
-**结论**：接口分派约 1.5 倍于直接调用（itab 间接跳转 vs 编译期定址）；装箱有真实成本（6.14 ns + 8 B/op——栈上 int 逃逸到堆上的 eface）。**注意去虚拟化（devirtualization）**：若接口变量的具体类型在编译期可证明（如只赋一种实现），编译器会把接口调用内联成直接调用（实测 0.26 ns，比 noinline 直接调用还快）——本示例的基准刻意用 `shapes[i&1]` 让类型运行时交替，测的是"真实分派"成本。**nil 陷阱三连实测**：零值接口 `== nil` 为 true；装着 nil 指针的接口 `== nil` 为 false；对后者做类型断言 ok=true 但值是 nil 指针——判空必须 `if x == nil` 与「接口本身 nil」分开判断。
+**结论**：接口分派约 1.4 倍于直接调用（1.01 vs 0.71 ns，itab 间接跳转 vs 编译期定址）。**去虚拟化（devirtualization）实测**：接口变量只装 `Circle` 一种类型时，编译器把接口调用改写为直接调用（`-gcflags=-m` 输出 `devirtualizing s.Area to Circle`），基准 `BenchmarkDevirtualized` 0.70 ns/op ≈ 直接调用 0.71——itab 间接跳转被消除，"接口有成本"只在类型运行时不确定时成立（分派基准刻意用 `shapes[i&1]` 让类型交替）。**装箱实测**：约 5.6 ns/op、7~8 B/op、**0 allocs/op**——64 位 int（8 B）恰等于指针宽，装箱时值直接内联进 eface 数据字、零堆分配（0 allocs/op 印证：若每迭代都堆分配，allocs/op 必为 1）——"小值装箱便宜"。**nil 陷阱三连实测**：零值接口 `== nil` 为 true；装着 nil 指针的接口 `== nil` 为 false；对后者做类型断言 ok=true 但值是 nil 指针——判空必须 `if x == nil` 与「接口本身 nil」分开判断。
 
 ### ex05：reflect 加载器 + unsafe 布局实测
 

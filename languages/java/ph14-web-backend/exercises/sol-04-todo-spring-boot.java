@@ -87,6 +87,8 @@ public class TodoController {
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable long id) {
         if (store.remove(id) == null) throw new TodoException("todo 不存在: " + id);
+        // 教学权衡：为保持「全部接口统一响应壳」选 200 + code 0；「204 删除成功」的零响应体
+        // 写法见 sol-01（纯 JDK 版没有统一响应壳约束）与主文档 3.1 的状态码语义。
         return ApiResponse.ok(null);
     }
 

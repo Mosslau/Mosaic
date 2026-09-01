@@ -712,11 +712,13 @@ typedef struct {
 ### 示例
 
 ```c
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-int add(int a, int b);
+int32_t add(int32_t a, int32_t b);   /* 跨语言接口用定宽类型, 不用 int */
 
 #ifdef __cplusplus
 }

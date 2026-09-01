@@ -138,7 +138,7 @@ fmt.Println(unsafe.Sizeof(Point{}), unsafe.Alignof(Point{}), // 24, 8
 ```go
 // 完整可运行版见 examples/ex06-cgo/main.go（节选）
 /*
-#cgo CFLAGS: -I.../c_lib
+#cgo CFLAGS: -I./c_lib
 #cgo LDFLAGS: /tmp/libaddvec.a -lm
 #include <addvec.h>
 extern double sin(double);
@@ -153,7 +153,7 @@ func addVec(a, b []int32) []int32 {
 }
 ```
 
-**实测（本机 cc = clang 21.0.0，CGO_ENABLED=1，完整闭环跑通）**：写 `c_lib/addvec.c`（向量加法）→ `cc -c` 编成 `.o` → `ar rcs` 打包静态库 `/tmp/libaddvec.a` → cgo 链接 → Go 调用，输出 `addvec: [11 22 33 44]`；调 libm 的 `sin(pi/2)` 输出 `1.0`（与 `math.Sin` 一致）。**四个必须知道的点**：① **preamble 是 C 的天下**——`#cgo CFLAGS/LDFLAGS` 指定头文件路径与链接库；② **类型映射**：`C.int`（32 位）≠ Go 的 `int`（64 位），`C.size_t` 对应 `uintptr`；③ **切片 → C 指针要 `unsafe.Pointer(&s[0])` 桥接，C 侧不做边界检查**——越界是 C 的世界，这也是 cgo 让 Go 失去内存安全的唯一入口；④ **成本**：cgo 调用要跨越 Go/C 边界（栈切换、goroutine 绑定），比纯 Go 调用慢一个数量级——高频热路径避免 cgo。**cgo 的替代**：Go 生态内优先用 `syscall`/`golang.org/x/sys`（纯 Go 系统调用）；真需要 C 库时，用 cgo 封装成薄层、暴露 Go 风格 API（"cgo 只进不出"）。
+**实测（本机 cc = clang 21.0.0，CGO_ENABLED=1，完整闭环跑通）**：写 `c_lib/addvec.c`（向量加法）→ `cc -c` 编成 `.o` → `ar rcs` 打包静态库 `/tmp/libaddvec.a` → cgo 链接 → Go 调用，输出 `addvec: [11 22 33 44]`；调 libm 的 `sin(pi/2)` 输出 `1.0`（与 `math.Sin` 一致）。**四个必须知道的点**：① **preamble 是 C 的天下**——`#cgo CFLAGS/LDFLAGS` 指定头文件路径与链接库；② **类型映射**：`C.int`（32 位）≠ Go 的 `int`（64 位），`C.size_t` 对应 `uintptr`；③ **切片 → C 指针要 `unsafe.Pointer(&s[0])` 桥接，C 侧不做边界检查**——越界是 C 的世界，这也是 cgo 让 Go 失去内存安全的入口之一（unsafe 是另一个）；④ **成本**：cgo 调用要跨越 Go/C 边界（栈切换、goroutine 绑定），比纯 Go 调用慢一个数量级——高频热路径避免 cgo。**cgo 的替代**：Go 生态内优先用 `syscall`/`golang.org/x/sys`（纯 Go 系统调用）；真需要 C 库时，用 cgo 封装成薄层、暴露 Go 风格 API（"cgo 只进不出"）。
 
 ## 4. 底层原理
 
@@ -202,7 +202,7 @@ hmap ──▶ bucket[]                  map ──▶ group[]
        + 函数指针表（方法跳转表）       （无方法可查）
 ```
 
-**接口变量是"类型 + 值"的双字头**：调用接口方法 = 从 itab 的函数指针表里取目标函数 → 间接跳转（**动态分派**）；直接调用 = 编译期定址 → 直接跳转。**实测成本（ex04，-benchtime=5000000x）**：直接调用 0.73 ns/op vs 接口分派 1.09 ns/op（约 1.5 倍）——这就是 roadmap 必会概念"interface 动态分发有成本"的数字；装箱（int → any）6.14 ns/op + 8 B/op（栈值逃逸到堆上的 eface）。**但注意去虚拟化（devirtualization）**：编译器在能证明具体类型时（单实现、内联后类型已知）会把接口调用变成直接调用——实测 `Shape` 变量只装 `*Circle` 时接口调用被内联成 0.26 ns，比 noinline 直接调用还快——"接口有成本"只在**类型运行时不确定**时成立（基准里用 `shapes[i&1]` 交替类型来保证这一点）。
+**接口变量是"类型 + 值"的双字头**：调用接口方法 = 从 itab 的函数指针表里取目标函数 → 间接跳转（**动态分派**）；直接调用 = 编译期定址 → 直接跳转。**实测成本（ex04，-benchtime=5000000x，go1.25.6）**：直接调用 0.71 ns/op vs 接口分派 1.01 ns/op（约 1.4 倍）——这就是 roadmap 必会概念"interface 动态分发有成本"的数字；装箱（int → any）约 5.6 ns/op、7~8 B/op、**0 allocs/op**——64 位 int（8 B）恰等于指针宽，装箱时值直接内联进 eface 数据字、零堆分配（0 allocs 印证；这正是"小值装箱便宜"的机制）。**但注意去虚拟化（devirtualization）**：编译器在能证明具体类型时（单实现、内联后类型已知）会把接口调用变成直接调用——实测 `Shape` 变量只装 `Circle` 时，编译器输出 `devirtualizing s.Area to Circle`（`-gcflags=-m` 可见），接口调用被去虚拟化成直接调用（基准 `BenchmarkDevirtualized`：0.70 ns/op ≈ 直接调用 0.71，itab 间接跳转被消除）——"接口有成本"只在**类型运行时不确定**时成立（分派基准用 `shapes[i&1]` 交替类型来保证这一点）。
 
 **类型断言与类型 switch**（运行时类型检查，实测）：comma-ok 断言失败给零值不 panic；单返回值断言失败直接 panic；类型 switch 按具体类型分派。**nil 陷阱三连（实测）**：① 零值接口 `== nil` 为 true（itab 与 data 都零）；② 装着 nil 指针的接口 `== nil` 为 false（itab 有类型）；③ 对②做断言 `ok=true` 但值是 nil 指针——判空必须同时看"接口本身"与"接口里的指针"两个层面。
 
@@ -288,7 +288,7 @@ G 阻塞（channel/锁/IO）时 M 不阻塞：P 换绑其他 M，阻塞的 G 醒
 | ex01-generics | 类型集约束、comparable、方法集约束、类型推断与实例化 | `Sum([]Celsius{10,20,30})=60`（~int 覆盖自定义类型） |
 | ex02-slice-map-internals | slice 扩容步长实测 + map 迭代随机 + 并发写两种结局 | int 扩容 512→848；`-demo=race` → `fatal error: concurrent map writes` |
 | ex03-defer-panic | defer 五语义 + panic/recover 铁律 + panic(nil) | 顺序 `[body defer3 defer2 defer1]`；named-return 50；panic(nil) recover 非 nil |
-| ex04-interface-dispatch | 动态分派、断言/switch、nil 陷阱 + 分派成本基准 | 直接 0.73 ns vs 接口 1.09 ns（约 1.5 倍）；装箱 6.14 ns + 8 B |
+| ex04-interface-dispatch | 动态分派、断言/switch、nil 陷阱 + 分派成本基准（含去虚拟化对照） | 直接 0.71 ns vs 接口 1.01 ns（约 1.4 倍）；去虚拟化 0.70 ns ≈ 直接调用；装箱 ~5.6 ns + 7~8 B、0 allocs |
 | ex05-reflection-unsafe | 反射配置加载器（JSON/ENV）+ unsafe 布局 + uintptr 陷阱 | `Point` Sizeof=24（padding）；checkptr 拦截 `fatal error` |
 | ex06-cgo | 写 C 库 → cc 编静态库 → cgo 链接 → Go 调用 | `addvec: [11 22 33 44]`；`sin(pi/2)=1.0` |
 
@@ -358,7 +358,7 @@ func BenchmarkIfaceDispatch(b *testing.B) {
 }
 ```
 
-运行：`go test -run='^$' -bench=. -benchmem -benchtime=5000000x`。**教学点**：接口分派 ≈ 直接调用 1.5 倍（itab 间接跳转）；去虚拟化让"单实现接口"零成本——"接口有成本"只在类型运行时不确定时成立。
+运行：`go test -run='^$' -bench=. -benchmem -benchtime=5000000x`。**教学点**：接口分派 ≈ 直接调用 1.4 倍（itab 间接跳转，实测 1.01 vs 0.71 ns）；去虚拟化让"单实现接口"≈直接调用（实测 0.70 ns，基准 `BenchmarkDevirtualized`，`-gcflags=-m` 可见 `devirtualizing s.Area to Circle`）——"接口有成本"只在类型运行时不确定时成立。
 
 ### 示例 5：reflect 配置加载器 + unsafe（ex05-reflection-unsafe）
 
@@ -383,7 +383,7 @@ case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 ```go
 // examples/ex06-cgo/main.go —— cgo preamble 与调用（节选）
 /*
-#cgo CFLAGS: -I<本模块>/c_lib        // 头文件目录：c_lib/addvec.h
+#cgo CFLAGS: -I./c_lib               // 头文件目录：c_lib/addvec.h（相对包目录，可移植）
 #cgo LDFLAGS: /tmp/libaddvec.a -lm   // 链接编译好的静态库 + libm
 #include <addvec.h>
 extern double sin(double);
@@ -407,7 +407,7 @@ func addVec(a, b []int32) []int32 {
 1. **泛型是编译期多态**（必会概念）：类型集约束（`~`/`|`/`comparable`/方法集）决定函数体内可用的操作；实例化在编译期完成、运行时零间接跳转——与接口的"运行时多态"分工明确
 2. **slice 扩容有明确步长**：<256 翻倍、≥256 约 1.25 倍 + size class 取整（实测 int：512→848）；预分配（`make cap`）就是提前付一次扩容费
 3. **map 并发写会 fatal**（必会概念）：map 内部自带并发写检测（`fatal error: concurrent map writes`）+ race detector 双重保险；Go 1.24+ 换 Swiss map 实现，但"并发不安全、遍历随机"的结论跨版本不变
-4. **interface 动态分派有成本**（必会概念）：itab 间接跳转 ≈ 直接调用 1.5 倍（实测 1.09 vs 0.73 ns）；去虚拟化让单实现接口零成本；nil 接口 ≠ 装着 nil 指针的接口
+4. **interface 动态分派有成本**（必会概念）：itab 间接跳转 ≈ 直接调用 1.4 倍（实测 1.01 vs 0.71 ns）；去虚拟化让单实现接口 ≈ 直接调用（实测 0.70 ns）；nil 接口 ≠ 装着 nil 指针的接口
 5. **defer 五语义 + panic/recover 铁律**：LIFO、参数即求值、闭包看最终值、defer 可改命名返回值；recover 只在 defer 内有效；Go 1.21+ panic(nil) recover 非 nil；panic 只终止当前 goroutine
 6. **channel 是带锁的消息队列**：无缓冲=同步点、缓冲=解耦、关闭=广播、select 随机、内部自带同步（与 map 并发写 fatal 对照）
 7. **GMP 决定调度行为**（必会概念）：P 数=GOMAXPROCS=核数（实测 14），G 在 channel/锁/Gosched/系统调用处让出 P；M 外部不可见
@@ -435,7 +435,7 @@ func addVec(a, b []int32) []int32 {
 
 ### 动手练习
 
-本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）。完成 4 题后继续。四题与 roadmap 对齐：
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）。完成 4 题后继续。四题与 roadmap §14 对齐（roadmap 练习列表已按本目录同步）：练习 1 ↔ 推荐项目「泛型工具库」、练习 2 ↔「观察 slice 扩容」、练习 3 ↔ 学习内容「defer、panic/recover 原理」、练习 4 ↔「写反射版配置加载器」；roadmap 练习「用 cgo 调 C 库」由示例 6 覆盖，「用 pprof 分析高 CPU」属 ph13。
 
 1. **泛型工具库**（★★）：Map/Filter/Reduce + 类型集约束（参考实现实测：Celsius 等自定义类型直接可用）
 2. **观察 slice 扩容**（★★）：扩容序列观察器 + 结构性规则测试（参考实现实测：int 512→848、byte 512→896）

@@ -1,10 +1,11 @@
 // project/src/test/java/com/example/vehicle/VehicleServiceTest.java —— Service 单元测试
 // 验证环境：OpenJDK 17.0.18 + Spring Boot 3.3.0 + JUnit Jupiter 5.10.2（本机离线 mvn -o 实测）
 // 验证状态：已验证（mvn -o test，BUILD SUCCESS）
-// 实测结果：Tests run: 5, Failures: 0, Errors: 0, Skipped: 0
+// 实测结果：Tests run: 6, Failures: 0, Errors: 0, Skipped: 0
 // ---------------------------------------------------------------------------
 // 教学点：Service 层单元测试不启动 Spring（直接 new），聚焦业务规则：
-// 合法上报落库、VIN 非法、经纬度越界、车速/电量越界、无数据车辆 latest 为空。
+// 合法上报落库、VIN 非法、经纬度越界、车速/电量越界、无数据车辆 latest 为空、
+// 历史 limit 截断。
 package com.example.vehicle;
 
 import org.junit.jupiter.api.BeforeEach;

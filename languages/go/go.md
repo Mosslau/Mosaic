@@ -691,10 +691,12 @@ func Max[T ~int | ~float64](a, b T) T {
 
 ### 练习
 
-- 观察 slice 扩容
-- 写反射版配置加载器
-- 用 pprof 分析高 CPU
-- 用 cgo 调 C 库
+- 泛型工具库（Map/Filter/Reduce + 类型集约束）
+- 观察 slice 扩容（扩容序列观察器 + 结构性规则测试）
+- defer / panic-recover 语义实验（六语义断言 + SafeCall 模式）
+- 写反射版配置加载器（JSON 默认值 + env 覆盖）
+
+「用 cgo 调 C 库」由 ph14 示例 6（examples/ex06-cgo）覆盖，未单列为练习；「用 pprof 分析高 CPU」属 ph13 性能优化阶段，此处不重复。
 
 ### 阶段验收
 

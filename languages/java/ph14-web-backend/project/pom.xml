@@ -4,8 +4,8 @@
      验证命令：mvn -o -Dmaven.repo.local=/tmp/m2clone test
      运行命令：mvn -o -Dmaven.repo.local=/tmp/m2clone spring-boot:run（端口 18090，见 README）
      离线说明：本机缓存缺 junit-platform-launcher 1.10.2（Spring Boot 3.3.0 默认版本，缓存只有 1.10.1），
-               pom 显式压到缓存里有的 1.10.1；surefire 3.2.5 也在 pom 里显式钉住。
-               正常联网环境可删掉这两处「离线版本仲裁」并让父 POM 自己管理。 -->
+               pom 显式压到缓存里有的 1.10.1；surefire 3.2.5 与 spring-boot-maven-plugin 3.3.5 也在 pom 里显式钉住（缓存缺默认版本）。
+               正常联网环境可删掉这些「离线版本仲裁」并让父 POM 自己管理。 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -115,6 +115,7 @@
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
+        <!-- 离线版本仲裁：缓存缺 parent 管理的 3.3.0，钉到缓存有的 3.3.5；联网环境可删 version 由父 POM 管理 -->
         <version>3.3.5</version>
       </plugin>
     </plugins>

@@ -54,9 +54,9 @@ async def fetch_one(
                         speed=data.get("speed"),
                         battery=data.get("battery"),
                     )
-                await asyncio.sleep(retry_delay * attempt)  # 503 → 退避后重试
+                await asyncio.sleep(retry_delay * (2 ** (attempt - 1)))  # 503 → 指数退避后重试
         except (TimeoutError, aiohttp.ClientError):
-            await asyncio.sleep(retry_delay * attempt)
+            await asyncio.sleep(retry_delay * (2 ** (attempt - 1)))
     return FetchResult(
         vehicle_id=vehicle_id,
         ok=False,

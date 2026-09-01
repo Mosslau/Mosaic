@@ -49,9 +49,4 @@ public class VehicleStore {
         sorted.sort(Comparator.comparingLong(VehicleReport::reportedAt));
         return sorted.subList(Math.max(0, sorted.size() - limit), sorted.size());
     }
-
-    /** 某辆车是否已存在（用于 VIN 格式外的业务约束，如车辆未注册）。 */
-    public boolean exists(String vin) {
-        return byVin.containsKey(vin);
-    }
 }

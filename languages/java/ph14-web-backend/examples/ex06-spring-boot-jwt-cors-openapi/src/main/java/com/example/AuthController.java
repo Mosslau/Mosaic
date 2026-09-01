@@ -59,7 +59,8 @@ public class AuthController {
     /** 受保护接口：AuthInterceptor 已验签，这里只读取 Claims（谁在调）。 */
     @GetMapping("/me")
     public Object me() {
-        // 拦截器把验签结果放进 request attribute，Controller 直接取
+        // 教学简化：固定返回 admin（本版拦截器只验签、未把 Claims 回填 request attribute；
+        // 真实工程从 Claims/attribute 取当前登录用户，见 project/ 的 AuthConfig 做法）
         return ApiResponse.ok(Map.of("username", "admin"));
     }
 

@@ -8,7 +8,7 @@
 
 1. **安全 API 表面**：`new` / `write`（追加一段）/ `push_byte` / `as_slice` / `as_mut_slice` / `get`（越界 `None`）/ `len` / `capacity` / `clear` / `iter`——调用方不需要任何 `unsafe`。
 2. **unsafe 内部**：原始分配用 `std::alloc`（`alloc`/`realloc`/`dealloc` + `Layout`），读写用裸指针与 `from_raw_parts`；不变量（`len ≤ cap`、`ptr` 指向 `cap` 字节分配、`[0, len)` 已初始化）由实现者维护，每处 unsafe 写 `// SAFETY:` 注释。
-3. **内存不泄漏**：`Drop` 释放分配；程序内置全局分配计数器（`LIVE_ALLOCS`），结束时必须归零——自检式的泄漏验收。
+3. **内存不泄漏**：`Drop` 释放分配；程序内置全局分配计数器（`LIVE_ALLOCS`，每次显式 `alloc` +1、`dealloc` -1，`realloc` 不改变计数），结束时必须归零——自检式的泄漏验收。
 
 ## 功能清单
 

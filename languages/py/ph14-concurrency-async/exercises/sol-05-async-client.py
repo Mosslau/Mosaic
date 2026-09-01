@@ -2,10 +2,10 @@
 # exercises/sol-05-async-client.py —— 练习 5 参考实现：aiohttp 并发抓取 + 限速 + 重试
 # 验证环境：Python 3.13.9 + aiohttp 3.13.2（本机已装并实测）
 # 运行：python3 sol-05-async-client.py（本地起服自测，测完自动关闭，无残留进程）
-# 验证状态：已验证 —— 本机实测：串行 ≈ 1.18s，并发(限速4) ≈ 0.39s（约 3 倍）；
+# 验证状态：已验证 —— 本机实测：串行 ≈ 1.30s，并发(限速4) ≈ 0.42s（约 3.1 倍）；
 #           20 个端点成功 16/20（i%5==0 的 4 个恒 503，重试 3 次耗尽后记为失败），
 #           失败端点 attempts=3、成功端点 attempts=1（确定性，可复现）（数字随机器与负载波动 ±10~20%）
-# 验证块数字实测：串行 1.177s / 并发 0.390s（≈ 3.0 倍）；成功 16/20、失败 [0, 5, 10, 15]
+# 验证块数字实测：串行 1.298s / 并发 0.424s（≈ 3.1 倍）；成功 16/20、失败 [0, 5, 10, 15]
 import asyncio
 import json
 import threading
@@ -72,9 +72,9 @@ async def fetch_with_retry(
                     return FetchResult(
                         i, True, attempt, resp.status, (time.perf_counter() - t0) * 1000
                     )
-                await asyncio.sleep(0.02 * attempt)  # 503 → 退避后重试
+                await asyncio.sleep(0.02 * (2 ** (attempt - 1)))  # 503 → 指数退避后重试
         except (aiohttp.ClientError, asyncio.TimeoutError):
-            await asyncio.sleep(0.02 * attempt)
+            await asyncio.sleep(0.02 * (2 ** (attempt - 1)))
     return FetchResult(i, False, max_retries)
 
 

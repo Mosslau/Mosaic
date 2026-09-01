@@ -27,7 +27,7 @@ Rust Unsafe 与安全抽象阶段对应 roadmap 第 14 节，目标是**理解 u
 | 2015 | Rust 1.0（2015-05-15）稳定 | `unsafe` 语义定型：五类操作清单、`unsafe fn`/`unsafe impl` 语法 |
 | 2016 | Unsafe Code Guidelines（UCG）工作组启动 | 目标是把「什么构成未定义行为」从口头约定写成规范 |
 | 2018 | Edition 2018 | 借用检查与 NLL（非词法生命周期）落地，unsafe 代码的边界更清晰 |
-| 2020 | `addr_of!`/`addr_of_mut!` 稳定（Rust 1.51） | 不创建引用的取址宏——避免裸指针取址时误建引用 |
+| 2021 | `addr_of!`/`addr_of_mut!` 稳定（Rust 1.51，2021-03-25） | 不创建引用的取址宏——避免裸指针取址时误建引用 |
 | 2020~2023 | Stacked Borrows（Ralf Jung）提出，后接 Tree Borrows | 为「什么引用/指针别名合法」建立形式化模型；Miri 成为 unsafe 代码的标准检查工具 |
 | 2024 | Edition 2024 | `unsafe extern` 块（Rust 1.82 起）、`unsafe_op_in_unsafe_fn` 默认开启、`#[unsafe(no_mangle)]` 等 unsafe 属性——**unsafe 的边界更显式** |
 | 2025 | 本环境工具链：rustc 1.92.0 + Apple clang 21.0.0 | 本文全部示例与错误码（E0133/E0594/E0502/E0506）均在本环境实测 |
@@ -98,13 +98,13 @@ unsafe {
 // 合法性（不越界、同一分配）由开发者保证——完整演示见 ex02 第 5 步
 ```
 
-**指针运算与边界**：`add`/`offset`/`offset_from` 的合法性（不越界、同一分配、不悬垂）全部由开发者保证——越界 `offset`、解引用悬垂指针、跨分配比较都是 UB（实测见示例 3）。`addr_of!`/`addr_of_mut!` 是取址的「安全版姿势」：`&x as *const _` 会先创建一个引用（虽然瞬时），`addr_of!` 完全不经过引用，是处理「尚未初始化内存」等场景的标准工具。
+**指针运算与边界**：`add`/`offset`/`offset_from` 的合法性（不越界、同一分配、不悬垂）全部由开发者保证——越界 `offset`、解引用悬垂指针、跨分配 `offset_from` 都是 UB（实测见示例 3）；跨分配的关系比较（`<`/`>` 等）结果未指定（unspecified，非 UB）。`addr_of!`/`addr_of_mut!` 是取址的「安全版姿势」：`&x as *const _` 会先创建一个引用（虽然瞬时），`addr_of!` 完全不经过引用，是处理「尚未初始化内存」等场景的标准工具。
 
 > 本阶段用裸指针做指针级编程的入门；**`Box::into_raw`/`from_raw` 的所有权交接属于 ph10 智能指针阶段**，这里只需理解「裸指针无所有权、无自动释放」的语义基础。
 
 ### 3.3 unsafe fn 与安全契约
 
-`unsafe fn` 把「调用方必须满足前置条件」写进类型系统：**安全代码不能直接调用 unsafe fn（实测 E0133：`call to unsafe function` is unsafe and requires unsafe function or block），必须用 unsafe 块，且调用方要为被调函数的契约负责**。
+`unsafe fn` 把「调用方必须满足前置条件」写进类型系统：**安全代码不能直接调用 unsafe fn（实测 E0133：`call to unsafe function` is unsafe and requires unsafe function or block，见示例 4 的 demo_e0133），必须用 unsafe 块，且调用方要为被调函数的契约负责**。
 
 ```rust
 // 契约由文档承担：调用方先读 # Safety，再决定是否在 unsafe 块里调用
@@ -120,14 +120,14 @@ unsafe fn get_unchecked(slice: &[u8], idx: usize) -> u8 {
 
 ### 3.4 未定义行为（UB）
 
-**未定义行为（undefined behavior，UB）**：程序的行为完全不受 Rust 语言规范约束——编译器可以假设「UB 不会发生」并据此优化，所以 UB 可能表现为：立刻崩溃、静默产生错误值、安全代码被破坏（包括与本阶段无关的其它代码）、或「看起来一切正常」。Rust 的 UB 清单（部分，与 C/C++ 重叠）：解引用悬垂/空指针、越界访问（含 `get_unchecked` 违规）、创建重叠的可变引用（别名违规）、读未初始化内存、`offset` 越界、移位量 ≥ 位宽、整数溢出（严格模式下）、`transmute` 不兼容类型等。
+**未定义行为（undefined behavior，UB）**：程序的行为完全不受 Rust 语言规范约束——编译器可以假设「UB 不会发生」并据此优化，所以 UB 可能表现为：立刻崩溃、静默产生错误值、安全代码被破坏（包括与本阶段无关的其它代码）、或「看起来一切正常」。Rust 的 UB 清单（部分，与 C/C++ 重叠）：解引用悬垂/空指针、越界访问（含 `get_unchecked` 违规）、创建重叠的可变引用（别名违规）、读未初始化内存、`offset` 越界、移位量 ≥ 位宽、`transmute` 产生无效值（如非法 bool/引用）等。**区别于 C/C++ 的常见陷阱**：整数溢出在 Rust 中**不是 UB**（debug 下溢出检查 panic、release 下回绕 wrap，均为 defined behavior）；类型不兼容的 `transmute` 是编译错误而非 UB。
 
 > ⚠️ **UB 是「无诊断要求」的**：编译器不需要警告你。`unsafe` 的合法性与 UB 之间的边界由开发者维护——写错契约不会有 lint 提醒，这正是 unsafe 代码需要测试工具（Miri、sanitizer）的原因。
 
 UB 的破坏性来自优化器假设（见第 4 章）。实测演示（示例 3，`ex03-ub-demo.rs`，首行注释写明运行前提）：
 
 - **读部分未初始化的内存**：`MaybeUninit::<i32>` 只写 1 字节就 `assume_init()`（UB）——debug 形态（无优化）高 3 字节是栈垃圾（实测每次运行不同，如 `0x6FB918AA`）；release 形态（O3）高 3 字节被优化器折叠成 `0x000000AA`（恒定）——**同一源码，两种行为**。
-- **移位溢出**：`1u32 << 33`（运行时值，UB）——带溢出检查的 debug 形态直接 panic（实测退出码 101，`attempt to shift left with overflow`）；release 形态静默输出 `2`（x86 硬件对移位量取模 32）。
+- **移位溢出**：`1u32 << 33`（运行时值，UB）——带溢出检查的 debug 形态直接 panic（实测退出码 101，`attempt to shift left with overflow`）；release 形态静默输出 `2`（处理器硬件对移位量取模 32）。
 - **对照**：Vec 扩容后解引用旧指针（悬垂）——本机两种形态都输出 `2`，**未观察到差异**。UB 不保证出现可见差异，这正是它的危险：代码可能长期「看似正常」。
 
 ### 3.5 FFI 调用基础
@@ -213,7 +213,7 @@ unsafe 上下文（块 / fn / trait / impl）── 借用检查照常生效，�
 
 ## 6. 代码示例
 
-本节展示完整可运行示例的关键片段，完整文件在 `examples/` 目录（全部 `rustc --edition 2021 -D warnings` 单文件编译、产物输出 `/tmp/`，验证环境 rustc 1.92.0 macOS arm64）：
+本节展示完整可运行示例的关键片段，完整文件在 `examples/` 目录（除 ex03 外全部 `rustc --edition 2021 -D warnings` 单文件编译、产物输出 `/tmp/`，验证环境 rustc 1.92.0 macOS arm64）：
 
 ### 示例 1：unsafe 关键字（ex01-unsafe-keyword.rs）
 
@@ -283,7 +283,7 @@ fn demo_e0594() {
 }
 ```
 
-实测错误码：E0594（不能通过 `&` 引用修改）、E0502（不可变借用存活期间的可变借用）、E0506（借用期间赋值）——全部在 unsafe 上下文内照常拦截（完整错误文本见 examples/README）。
+实测错误码：E0594（不能通过 `&` 引用修改）、E0502（不可变借用存活期间的可变借用）、E0506（借用期间赋值）——全部在 unsafe 上下文内照常拦截；另含 E0133（安全代码直接调用 unsafe fn，缺少 unsafe 上下文）——完整错误文本与四个 demo 见 examples/README 与 `ex04` 文件。
 
 ### 示例 5：FFI 调用 libc（ex05-ffi-libc.rs）
 
@@ -305,11 +305,11 @@ println!("1. strlen(\"hello\") = {len}");
 
 ### 示例 6：FFI 调用自建 C 库（ex06-ffi-c-library.rs + mystrlib.c）
 
-> 运行前提：先按 examples/README「示例 6 完整构建步骤」用 `cc` 编译 `mystrlib.c` 为 `/tmp/libmystrlib.dylib`，再 `rustc -L /tmp -l dylib=mystrlib ... -C link-args="-Wl,-rpath,/tmp"` 链接（rpath 让运行无需设置 DYLD_LIBRARY_PATH）。
+> 运行前提：先按 examples/README「示例 6 完整构建步骤」用 `cc -Wall -Wextra` 编译 `mystrlib.c` 为 `/tmp/libmystrlib.dylib`，再 `rustc -L /tmp -l dylib=mystrlib ... -C link-args="-Wl,-rpath,/tmp"` 链接（rpath 让运行无需设置 DYLD_LIBRARY_PATH）。
 
 ```rust
 // examples/ex06-ffi-c-library.rs —— FFI 调用基础 ②：调用自建 C 库（cc 编译 .dylib + rustc 链接）
-// 构建：cc -shared -fPIC -O2 -o /tmp/libmystrlib.dylib mystrlib.c && \
+// 构建：cc -Wall -Wextra -shared -fPIC -O2 -o /tmp/libmystrlib.dylib mystrlib.c && \
 //       rustc --edition 2021 -D warnings -L /tmp -l dylib=mystrlib ex06-ffi-c-library.rs -o /tmp/ex06 -C link-args="-Wl,-rpath,/tmp"
 #[link(name = "mystrlib")]
 extern "C" {

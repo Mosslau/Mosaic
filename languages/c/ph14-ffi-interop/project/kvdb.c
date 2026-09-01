@@ -52,8 +52,8 @@ static int write_full(int fd, const void *buf, size_t n) {
     size_t left = n;
     while (left > 0) {
         ssize_t w = write(fd, p, left);
-        if (w < 0)
-            return -1;
+        if (w <= 0)
+            return -1;          /* w < 0 写失败; w == 0 非零长度不应发生, 按失败处理 */
         p += w;
         left -= (size_t)w;
     }
@@ -213,6 +213,9 @@ int32_t kvdb_put(kvdb_t *db, const char *key,
     int32_t rc = apply(db, key, (uint32_t)klen, val, vlen);
     if (rc != KVDB_OK)
         return rc;
+    /* 内存态与 WAL 非原子：append_wal 失败（如磁盘满/IO 错误）时内存已含新值
+     * 而磁盘未记，下次打开回放得到旧值——教学实现不回滚内存态，调用方按
+     * 错误码处理（重试或放弃）即可；生产实现应在此处回滚 apply 或先写 WAL */
     return append_wal(db, key, (uint32_t)klen, val, vlen);
 }
 

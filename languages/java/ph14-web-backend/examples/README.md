@@ -6,7 +6,7 @@
 
 本机 Maven 实测采用**离线模式 `mvn -o`**：本环境沙箱禁止写默认本地仓库 `~/.m2`，所需构件取自本地仓库缓存，构建用 `mvn -o -Dmaven.repo.local=/tmp/m2clone`。**在正常联网环境直接执行 `mvn test` 即可**（首次运行会从 Maven Central 下载）。
 
-Spring Boot 工程的 pom 带了「离线版本仲裁」注释的依赖（junit-platform-launcher、surefire 插件版本、jakarta.xml.bind-api、jackson-dataformat-yaml、jakarta.activation）：本机缓存缺这些构件的默认版本，用缓存内相近版本压过（机制见 ph11 主文档依赖仲裁）。**正常联网环境可删除这些项**，让依赖自行拉取声明版本。
+Spring Boot 工程的 pom 带了「离线版本仲裁」注释的依赖/插件（junit-platform-launcher、surefire 插件版本、spring-boot-maven-plugin、jakarta.xml.bind-api、jackson-dataformat-yaml、jakarta.activation）：本机缓存缺这些构件的默认版本，用缓存内相近版本压过（机制见 ph11 主文档依赖仲裁）。**正常联网环境可删除这些项**，让依赖自行拉取声明版本。
 
 ex01/ex03 是零依赖的独立 java 文件（`javac` + `java` 即可）；ex02 是嵌入式 Tomcat 的 Maven 工程；ex04~ex06 是 Spring Boot 工程。
 

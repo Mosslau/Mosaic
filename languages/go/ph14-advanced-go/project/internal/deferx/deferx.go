@@ -5,10 +5,7 @@
 // 返回值；recover 只在 defer 内有效；内层 panic 覆盖外层。
 package deferx
 
-import (
-	"fmt"
-	"runtime"
-)
+import "fmt"
 
 // Order 返回 defer 实际执行顺序（命名返回值：defer 的 append 写回返回值本身）。
 func Order() (out []string) {
@@ -99,5 +96,3 @@ func Report() string {
 		SafeCall(func() { panic("x") }),
 	)
 }
-
-var _ = runtime.GOOS // 保留 runtime 导入（panic(nil) 类型断言在测试里用）

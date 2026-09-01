@@ -20,7 +20,7 @@
 package main
 
 /*
-#cgo CFLAGS: -I/Users/ninebot/code/mosslau/TenetLang/languages/go/ph14-advanced-go/examples/ex06-cgo/c_lib
+#cgo CFLAGS: -I./c_lib
 #cgo LDFLAGS: /tmp/libaddvec.a -lm
 #include <addvec.h>
 extern double sin(double); // libm 的 sin；-lm 提供链接（macOS 上 libSystem 已含，仍显式声明）

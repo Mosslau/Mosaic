@@ -19,7 +19,7 @@
 
 ## 2. 来源与演变
 
-`const` 关键字诞生于 C（C89 引入），但 C 的 const 是"物理只读"且不能用于常量表达式（C 里 `const int n = 5; int a[n];` 是可变长数组，不是编译期常量）；C++ 把 const 升级为**类型系统的一部分**——不仅约束对象，还约束指针层级（顶层/底层）、成员函数（`this` 指针 const 化），并配套发明了 `mutable` 与 `const_cast`。**设计哲学一句话：const 是编译期执行的接口契约——用类型系统把"不会修改"变成编译器强制，调用者无需读实现就能信任接口**。这套核心规则自 C++98 定型后二十多年没有实质变化，是 C++ 最稳定的部分之一；后续版本（C++11 的 constexpr、C++17 的 `string_view`、C++20 的 `span`）只是把"只读"的表达能力扩展到了编译期常量与零开销视图，没有改变 const 的类型规则。
+`const` 关键字诞生于 C（C89 引入），但 C 的 const 是"物理只读"且不能用于常量表达式（C99+ 里 `const int n = 5; int a[n];` 是可变长数组而非编译期常量，C89 下该写法是编译错误）；C++ 把 const 升级为**类型系统的一部分**——不仅约束对象，还约束指针层级（顶层/底层）、成员函数（`this` 指针 const 化），并配套发明了 `mutable` 与 `const_cast`。**设计哲学一句话：const 是编译期执行的接口契约——用类型系统把"不会修改"变成编译器强制，调用者无需读实现就能信任接口**。这套核心规则自 C++98 定型后二十多年没有实质变化，是 C++ 最稳定的部分之一；后续版本（C++11 的 constexpr、C++17 的 `string_view`、C++20 的 `span`）只是把"只读"的表达能力扩展到了编译期常量与零开销视图，没有改变 const 的类型规则。
 
 | 版本/里程碑 | 年份 | 主要变化 |
 |------|------|---------|
@@ -242,7 +242,7 @@ std::string_view          std::span<const double>
 
 **真实工程中的用途**：
 
-- **存储引擎 / 数据库内核**：只读路径是接口设计的主干——SSTable 是不可变文件，读接口天然 `const`；RocksDB/LevelDB 的 `Get()`、`Iterator::Key()/Value()` 返回 `std::string_view`（`const` 成员 + 只读视图），把"读不写"变成类型强制；Buffer Pool 的 `const` 查询接口与 `mutable` 的锁/统计是"逻辑 const + 物理 mutable"的标准组合（承接 ph13 与 ph22 存储引擎阶段，目录待建）
+- **存储引擎 / 数据库内核**：只读路径是接口设计的主干——SSTable 是不可变文件，读接口天然 `const`；RocksDB/LevelDB 的 `Get()`、`Iterator::Key()/Value()` 返回 Slice/string_view 这类只读视图（RocksDB/LevelDB 用自家 Slice，与 string_view 同思路，早于 C++17），把"读不写"变成类型强制；Buffer Pool 的 `const` 查询接口与 `mutable` 的锁/统计是"逻辑 const + 物理 mutable"的标准组合（承接 ph13 与 ph22 存储引擎阶段，目录待建）
 - **配置与快照**：只读配置对象（本阶段 project 落地）——接口全 const、无修改方法、"改配置"只能构造新对象，拷贝即只读快照；设备状态快照模型同理：快照 = 不可变对象，天然可安全共享（roadmap 推荐项目②，project 扩展方向）
 - **并发读**：`const` 成员函数 + `mutable std::mutex` 是线程安全读的标准骨架（`ex05` [3]）——"接口承诺不修改"与"实现要加锁"用 mutable 调和（承接 ph08 并发编程阶段的 RAII 锁）
 - **跨库边界**：`const char*` / `string_view` 进出 C 库与日志/序列化层，零拷贝 + 只读承诺（C 库的 const 语义与 C++ 不同，属 ph11 可移植性阶段 / ph20 互操作阶段，目录待建）
@@ -257,7 +257,7 @@ std::string_view          std::span<const double>
 
 | 维度 | C++ | Rust | Go | Java | Python |
 |------|-----|------|-----|------|--------|
-| 不可变声明 | `const` 成员/引用/指针层级 | `&T` / `const` 不可变绑定 | 无内建（惯例 + 冻结接口） | `final`（引用不可换、对象可变） | 惯例（下划线/冻结对象） |
+| 不可变声明 | `const` 成员/引用/指针层级 | `&T` / `let` 不可变绑定 | 无内建（惯例 + 冻结接口） | `final`（引用不可换、对象可变） | 惯例（下划线/冻结对象） |
 | 只读视图 | `string_view` / `span`（零拷贝） | `&str` / `&[T]`（借用，编译期强制） | `[]byte` 切片可变、`string` 不可变 | 无内建（Collections.unmodifiable 包装） | `bytes` 不可变、memoryview 只读 |
 | 编译期强制 | 编译器执行（`const` 成员/参数） | 借用检查器强制（最强） | 无（靠约定/文档） | 部分（final 引用） | 无（鸭子类型） |
 | 改 const 的代价 | const_cast（UB 或气味） | 编译器拒绝（unsafe 才可） | 无此概念 | 反射可绕 | 无此概念 |
@@ -443,7 +443,7 @@ c++ -std=c++20 -Wall -Wextra ex06-readonly-view.cpp -o /tmp/ph14-ex06 && /tmp/ph
 
 ### 动手练习
 
-本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看），共 5 题：给旧类补 const 成员函数（★）、用 const 引用优化函数参数（★★）、设计只读配置接口（★★★）、mutable 与逻辑 const 判断（★★）、const_cast 气味识别与只读视图（★★★）——练习 1/2/3 与 roadmap ph14「练习」小节的三个承诺（给旧类补 const 成员函数 / 用 const 引用优化函数参数 / 设计只读配置接口）一一对应，练习 4/5 覆盖「学习内容」中的 mutable 谨慎使用、逻辑 const 与物理 const、只读视图设计与 const_cast 气味。完成 5 题后继续。
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看），共 5 题：给旧类补 const 成员函数（★）、用 const 引用优化函数参数（★★）、设计只读配置接口（★★★）、mutable 与逻辑 const 判断（★★）、const_cast 气味识别与只读视图（★★★）——练习 1/2/3 与 roadmap ph14「练习」小节的三个承诺（给旧类补 const 成员函数 / 用 const 引用优化函数参数 / 设计只读配置接口）一一对应，练习 4/5 覆盖「学习内容」与「必会概念」中的 mutable 谨慎使用、逻辑 const 与物理 const、只读视图设计与 const_cast 气味。完成 5 题后继续。
 
 ### 阶段项目
 

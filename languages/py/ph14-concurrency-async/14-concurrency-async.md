@@ -21,7 +21,7 @@ Python 并发、并行与异步阶段的目标是：**处理 IO 密集和 CPU �
 
 ## 2. 来源与演变
 
-Python 的并发史是一条「**GIL 阴影下的妥协与突围**」主线。**1992 年 Guido van Rossum 为支持多线程引入 GIL（Global Interpreter Lock，全局解释器锁）**——用一把锁保证解释器状态（尤其引用计数）的线程安全，换来「多线程安全」的实现简单；代价是同一时刻只有一个线程执行 Python 字节码，纯计算多线程无法利用多核。此后二十年，CPython 在 GIL 内做并发：**threading**（高层线程封装，随 Python 1.5.2/2.0 进入标准库，1998-2000）适合 IO 密集——等待时释放 GIL；**multiprocessing**（PEP 371，Python 2.6，2008，Jesse Noller & Richard Oudkerk）用「多进程绕过 GIL」解决 CPU 密集；**concurrent.futures**（PEP 3148，Python 3.2，2011，Brian Quinlan，受 Java Executor 框架启发）把「提交任务、拿 Future、按完成顺序取结果」的接口统一到线程池与进程池之上。**asyncio**（PEP 3156，2012 年 Guido 设计，参考 Twisted / Tornado，Python 3.4 引入）则跳出「线程」赛道：单线程事件循环 + 协程，用「一个线程里让出控制权」实现海量并发网络 IO——2015 年 PEP 492 引入 `async`/`await` 关键字把它变成一等语法，2018 年 Python 3.7 的 `asyncio.run` 让「跑一个协程」只需一行。异步生态同期成熟：**aiohttp**（2012-2013，Nikolay Kim）是纯 asyncio 的 HTTP 客户端 + 服务端一体库；**uvicorn**（2016）是 ASGI 服务器参考实现；**httpx**（2019，Tom Christie）提供同步/异步双接口并兼容 ASGI；FastAPI（2018）的 async 能力即构建在 uvicorn + Starlette 之上（其历史详见 ph10 Web 后端阶段，这里不重复）。2023 年 Python 3.13 发布**实验性 free-threaded 构建**（无 GIL 的 CPython），但标准构建仍带 GIL——本阶段的结论在标准构建上全部成立。
+Python 的并发史是一条「**GIL 阴影下的妥协与突围**」主线。**1992 年 Guido van Rossum 为支持多线程引入 GIL（Global Interpreter Lock，全局解释器锁）**——用一把锁保证解释器状态（尤其引用计数）的线程安全，换来「多线程安全」的实现简单；代价是同一时刻只有一个线程执行 Python 字节码，纯计算多线程无法利用多核。此后二十年，CPython 在 GIL 内做并发：**threading**（高层线程封装，随 Python 1.5.2/2.0 进入标准库，1998-2000）适合 IO 密集——等待时释放 GIL；**multiprocessing**（PEP 371，Python 2.6，2008，Jesse Noller & Richard Oudkerk）用「多进程绕过 GIL」解决 CPU 密集；**concurrent.futures**（PEP 3148，Python 3.2，2011，Brian Quinlan，受 Java Executor 框架启发）把「提交任务、拿 Future、按完成顺序取结果」的接口统一到线程池与进程池之上。**asyncio**（PEP 3156，2012 年 Guido 设计，参考 Twisted / Tornado，Python 3.4 引入）则跳出「线程」赛道：单线程事件循环 + 协程，用「一个线程里让出控制权」实现海量并发网络 IO——2015 年 PEP 492 引入 `async`/`await` 关键字把它变成一等语法，2018 年 Python 3.7 的 `asyncio.run` 让「跑一个协程」只需一行。异步生态同期成熟：**aiohttp**（2012-2013，Nikolay Kim）是纯 asyncio 的 HTTP 客户端 + 服务端一体库；**uvicorn**（2016）是 ASGI 服务器参考实现；**httpx**（2019，Tom Christie）提供同步/异步双接口并兼容 ASGI；FastAPI（2018）的 async 能力即构建在 uvicorn + Starlette 之上（其历史详见 ph10 Web 后端阶段，这里不重复）。2024 年 10 月 Python 3.13 发布**实验性 free-threaded 构建**（无 GIL 的 CPython，2023 年只是 PEP 703 提案年），但标准构建仍带 GIL——本阶段的结论在标准构建上全部成立。
 
 | 版本/里程碑 | 年份 | 主要变化 |
 |------|------|---------|
@@ -34,7 +34,7 @@ Python 的并发史是一条「**GIL 阴影下的妥协与突围**」主线。**
 | aiohttp | 2012-2013 | 纯 asyncio 的 HTTP 客户端 + 服务端一体库 |
 | uvicorn | 2016 | ASGI 服务器参考实现，FastAPI 的运行时 |
 | httpx | 2019 | 同步/异步双接口、HTTP/2、兼容 ASGI 的 HTTP 客户端 |
-| Python 3.13 free-threaded 实验 | 2023 | 无 GIL 的实验构建；标准构建仍带 GIL |
+| Python 3.13 free-threaded 实验 | 2024（3.13） | 无 GIL 的实验构建（3.13.0 起）；标准构建仍带 GIL |
 
 本文示例以 **Python 3.13.9** 为基线（本机验证工具链实测版本），第三方依赖 **aiohttp 3.13.2 + httpx 0.28.1 + fastapi 0.139.1 + uvicorn 0.50.0**（全部本机已装并实测，`python3 -c "import aiohttp, httpx, fastapi, uvicorn"` 通过）；**pytest-asyncio 未安装**——并发代码的测试用标准 pytest + `asyncio.run` 包装（3.9 与 project/tests）。本阶段的核心 API（threading / multiprocessing / asyncio / concurrent.futures）自 3.7 起十余年未变，是这个语言里最稳定的部分——「IO 用线程、CPU 用进程、海量网络 IO 用 asyncio」的选型在标准构建上长期成立。
 
@@ -67,7 +67,7 @@ for _ in range(2):
 | 串行 | 1.087s | 20 × 0.05s，一个等完再等下一个 |
 | 线程池(8) | 0.163s（≈ 6.7 倍） | 8 个线程的等待互相重叠，总耗时 ≈ 20/8 × 0.05s |
 
-> **选型口诀第一条：threading 适合 IO 密集**（roadmap 必会概念）——等待时释放 GIL 让线程能重叠；**CPU 密集用线程是反模式**（GIL 反例见 3.3 实测）。本阶段只涉及线程的基础用法与锁，**Barrier / Event / 线程局部存储等进阶同步原语超出本阶段**，用到时查 `threading` 文档即可。
+**选型口诀第一条：threading 适合 IO 密集**（roadmap 必会概念）——等待时释放 GIL 让线程能重叠；**CPU 密集用线程是反模式**（GIL 反例见 3.3 实测）。本阶段只涉及线程的基础用法与锁，**Barrier / Event / 线程局部存储等进阶同步原语超出本阶段**，用到时查 `threading` 文档即可。
 
 ### 3.2 线程安全与锁：竞争条件
 
@@ -107,7 +107,7 @@ with ProcessPoolExecutor(max_workers=4) as ex:
 
 **`if __name__ == "__main__":` 保护是硬规则**（教学增量）：macOS / Windows 默认用 **spawn** 启动子进程——子进程会**重新导入主模块**，若模块顶层直接创建进程池，会无限递归创建进程直接报错（`RuntimeError: An attempt has been made to start a new process...`）。所有进程池代码必须放进 `main()`、由 `if __name__ == "__main__":` 守卫（ex02、练习 2 都如此）。
 
-> **选型口诀第二条：multiprocessing 适合 CPU 密集**（roadmap 必会概念）——绕过 GIL 真并行；**代价是进程隔离与序列化开销**：传参/回传要 pickle（lambda、局部闭包不可序列化，练习 2 里见过 `Can't pickle <function <lambda>>` 报错），大对象传输慢。任务小到「进程创建 + 序列化」成本超过并行收益时，串行反而更快——**加速比 ≈ 核数，但只有任务足够大才值得**。
+**选型口诀第二条：multiprocessing 适合 CPU 密集**（roadmap 必会概念）——绕过 GIL 真并行；**代价是进程隔离与序列化开销**：传参/回传要 pickle（lambda、局部闭包不可序列化——练习 2 若把任务写成 lambda 或局部闭包，会报 `Can't pickle <function <lambda>>`），大对象传输慢。任务小到「进程创建 + 序列化」成本超过并行收益时，串行反而更快——**加速比 ≈ 核数，但只有任务足够大才值得**。
 
 ### 3.4 concurrent.futures：统一 Executor 接口
 
@@ -154,7 +154,7 @@ results = await asyncio.gather(*(async_io_task(i) for i in range(20)))
 
 **`gather(..., return_exceptions=True)`** 让单个协程的异常不拖垮整批——ex04 实测：5 个任务里第 3 个抛 `ValueError`，结果为 `[0, 1, 2, ValueError('任务 3 挂了'), 4]`（异常对象原位返回，其余照常）。这与 ph13 的「mock 隔离外部依赖」是同一心智：**让失败成为可检查的返回值，而不是整个程序崩溃**。
 
-> **选型口诀第三条：asyncio 适合大量并发网络 IO**（roadmap 必会概念）——线程池扛几千个连接要几千条线程（每条线程约 8MB 栈内存 + 调度开销），asyncio 一条线程就能扛上万协程（每个协程只是几十字节的状态对象）；代价是**代码必须全程 `async`**——同步阻塞调用会卡死整个事件循环（3.6 反例实测）。
+**选型口诀第三条：asyncio 适合大量并发网络 IO**（roadmap 必会概念）——线程池扛几千个连接要几千条线程（每条线程约 8MB 栈内存 + 调度开销），asyncio 一条线程就能扛上万协程（每个协程只是几十字节的状态对象）；代价是**代码必须全程 `async`**——同步阻塞调用会卡死整个事件循环（3.6 反例实测）。
 
 ### 3.6 不要阻塞事件循环（必会概念的反面演示）
 
@@ -182,10 +182,10 @@ results = await asyncio.gather(*(async_io_task(i) for i in range(20)))
 ```python
 # examples/ex05-aiohttp-httpx.py —— 并发请求本地服务（完整版见示例 5，本机已验证）
 async with aiohttp.ClientSession() as session:          # ClientSession 复用连接
-    responses = await asyncio.gather(*(session.get(u) for u in urls))
+    responses = await asyncio.gather(*(get_resp(u) for u in urls))   # get_resp：GET + 读体（连接可复用）
 
 async with httpx.AsyncClient() as client:               # httpx：同一套 gather 写法
-    responses = await asyncio.gather(*(client.get(u) for u in urls))
+    responses = await asyncio.gather(*(hx_get(u) for u in urls))
 ```
 
 **限速用 `asyncio.Semaphore`**：给并发加上限，防止把对端打爆（爬虫、采集的刚需）。ex05 实测：Semaphore(2) 时 20 个 0.05s 请求耗时 **0.537s ≈ 20/2 × 0.05s**——限速把并发压成「2 路并行 + 排队」，耗时按 并发上限 线性增长，关系完全可预测。
@@ -244,15 +244,15 @@ def test_collect_all_success():
 
 ### 4.1 GIL：为什么线程不能并行 CPU
 
-CPython 解释器本身不是线程安全的——**引用计数**（对象回收的机制）在多线程下会竞争。GIL 用一把进程级大锁保证「同一时刻只有一个线程执行 Python 字节码」，让引用计数操作天然安全。关键在**锁的持有时机**：执行纯计算时线程**一直持有 GIL**（谁也插不进来，多线程 = 轮流执行，无并行）；执行 IO 时线程**释放 GIL 等待**（其他线程趁机执行，等待可重叠）。这就是 3.1/3.3 两组实测的机制根源：IO 密集线程池 6.7 倍加速（等待重叠）、CPU 密集线程池 0 加速（轮流抢锁，甚至因切换开销略慢）。**GIL 反例的 2.304s ≈ 串行的 2.357s，就是「轮流执行」的实证**。
+CPython 解释器本身不是线程安全的——**引用计数**（对象回收的机制）在多线程下会竞争。GIL 用一把进程级大锁保证「同一时刻只有一个线程执行 Python 字节码」，让引用计数操作天然安全。关键在**锁的持有时机**：执行纯计算时线程**一直持有 GIL**（谁也插不进来，多线程 = 轮流执行，无并行）；执行 IO 时线程**释放 GIL 等待**（其他线程趁机执行，等待可重叠）。这就是 3.1/3.3 两组实测的机制根源：IO 密集线程池 6.7 倍加速（等待重叠）、CPU 密集线程池 0 加速（轮流抢锁，差异在 ±10~20% 波动内）。**GIL 反例的 2.304s ≈ 串行的 2.357s，就是「轮流执行」的实证**。
 
 ### 4.2 线程调度：OS 线程与 GIL 切换
 
-Python 线程是**操作系统线程**（macOS/Windows 下由内核调度），线程切换（上下文切换：保存/恢复寄存器、栈、缓存）有真实开销。GIL 之上还有一层**解释器级切换**：CPython 每执行一定数量的指令（默认切换间隔 **5ms**，`sys.setswitchinterval()` 可查/可调）就尝试让出 GIL，让其他线程有机会执行——ex01 的「读 → 让出 → 写」竞争正是靠 `time.sleep(0.000001)` 制造切换窗口才稳定复现（3.2 的注意块）。两层切换叠加，线程多的场景调度开销不可忽视——**这是「任务太小用线程不如串行」的机制解释**。
+Python 线程是**操作系统线程**（macOS/Windows 下由内核调度），线程切换（上下文切换：保存/恢复寄存器、栈、缓存）有真实开销。GIL 之上还有一层**解释器级切换**：CPython 按**时间间隔**切换 GIL（默认 **5ms**——Python 3.2 起为时间间隔制，3.2 前才是指令计数制；`sys.getswitchinterval()` 可查、`sys.setswitchinterval()` 可调）就尝试让出 GIL，让其他线程有机会执行——ex01 的「读 → 让出 → 写」竞争正是靠 `time.sleep(0.000001)` 制造切换窗口才稳定复现（3.2 的注意块）。两层切换叠加，线程多的场景调度开销不可忽视——**这是「任务太小用线程不如串行」的机制解释**。
 
 ### 4.3 进程模型：隔离、spawn 与 pickle
 
-`multiprocessing` 的子进程是**独立的内存空间**（进程级隔离）：不共享变量、不共享 GIL，靠 **pickle 序列化**在进程间传参数与结果、靠 **Queue / Pipe** 做进程间通信（IPC）。macOS / Windows 默认 **spawn** 启动方式：父进程「重新导入主模块 + 运行指定的入口函数」来孵化子进程——这解释了 3.3 的两条硬规则：**进程池代码必须受 `if __name__ == "__main__":` 保护**（否则 spawn 时无限递归），**传给进程池的函数与参数必须可 pickle**（模块级函数可以，lambda / 局部闭包报 `Can't pickle <function <lambda>>`——练习 2 的坑）。大对象（如几十 MB 的 DataFrame）序列化成本可能吃掉并行收益——**大数据量场景优先考虑「分段传 + 每段独立结果」，而不是整体传来传去**。
+`multiprocessing` 的子进程是**独立的内存空间**（进程级隔离）：不共享变量、不共享 GIL，靠 **pickle 序列化**在进程间传参数与结果、靠 **Queue / Pipe** 做进程间通信（IPC）。macOS / Windows 默认 **spawn** 启动方式：父进程「重新导入主模块 + 运行指定的入口函数」来孵化子进程——这解释了 3.3 的两条硬规则：**进程池代码必须受 `if __name__ == "__main__":` 保护**（否则 spawn 时无限递归），**传给进程池的函数与参数必须可 pickle**（模块级函数可以，lambda / 局部闭包会报 `Can't pickle <function <lambda>>`——练习 2 若写成 lambda 就会踩这个坑）。大对象（如几十 MB 的 DataFrame）序列化成本可能吃掉并行收益——**大数据量场景优先考虑「分段传 + 每段独立结果」，而不是整体传来传去**。
 
 ### 4.4 事件循环：await 让出与非阻塞 IO
 
@@ -271,14 +271,14 @@ asyncio 的底层是**非阻塞 IO + 事件通知**：socket 请求发出后不�
 ### 4.5 三种并发模型对比
 
 ```text
-线程（threading）        进程（multiprocessing）     协程（asyncio）
-┌─────────────┐         ┌─────────────┐            ┌─────────────┐
-│ 共享内存     │         │ 内存隔离     │            │ 单线程共享   │
-│ 共享 GIL     │         │ 各自 GIL     │            │ 无 GIL 争抢  │
-│ OS 调度      │         │ OS 调度      │            │ 事件循环调度 │
-│ 开销：中      │         │ 开销：大      │            │ 开销：最小    │
-│ 适用：IO 密集 │         │ 适用：CPU 密集│            │ 适用：海量网络│
-└─────────────┘         └─────────────┘            └─────────────┘
+┌───────────────────┐      ┌─────────────────────────┐      ┌─────────────────┐
+│ 线程（threading） │      │ 进程（multiprocessing） │      │ 协程（asyncio） │
+│ 共享内存          │      │ 内存隔离                │      │ 单线程共享      │
+│ 共享 GIL          │      │ 各自 GIL                │      │ 无 GIL 争抢     │
+│ OS 调度           │      │ OS 调度                 │      │ 事件循环调度    │
+│ 开销：中          │      │ 开销：大                │      │ 开销：最小      │
+│ 适用：IO 密集     │      │ 适用：CPU 密集          │      │ 适用：海量网络  │
+└───────────────────┘      └─────────────────────────┘      └─────────────────┘
 ```
 
 三者不是替代关系而是**组合关系**（练习 4 的混合场景、project 的采集服务都是组合）：IO 用线程/协程重叠等待，CPU 用进程真并行，海量网络 IO 用协程省资源。
@@ -355,7 +355,7 @@ with ProcessPoolExecutor(max_workers=4) as ex:         # 4 个进程各占一个
     results = list(ex.map(cpu_task, range(N_TASKS)))
 ```
 
-实测输出：串行 **2.357s** / 多进程(4) **0.739s**（≈ 3.2 倍）/ 线程(4) **2.304s**（GIL 反例：无加速，甚至略慢）。
+实测输出：串行 **2.357s** / 多进程(4) **0.739s**（≈ 3.2 倍）/ 线程(4) **2.304s**（GIL 反例：无加速，差异在 ±10~20% 波动内）。
 
 ### 示例 3：concurrent.futures（统一 Executor 接口）
 
@@ -397,11 +397,11 @@ results = await asyncio.gather(*(async_io_task(i) for i in range(20)))
 ```python
 # examples/ex05-aiohttp-httpx.py —— 并发请求本地服务（本地起服自测，已验证）
 async with aiohttp.ClientSession() as session:
-    responses = await asyncio.gather(*(session.get(u) for u in urls))
+    responses = await asyncio.gather(*(get_resp(u) for u in urls))   # get_resp：GET + 读体（连接可复用）
 sem = asyncio.Semaphore(2)                              # 限速：并发压到 2
 async def limited(u: str):
     async with sem:
-        return await session.get(u)
+        return await get_resp(u)
 ```
 
 实测输出：aiohttp 串行 **1.098s** / gather **0.059s**（≈ 19 倍）/ httpx **0.065s**；Semaphore=2 限速 **0.537s**（= 20/2 × 0.05s，线性）；服务器已关闭（无残留进程）。

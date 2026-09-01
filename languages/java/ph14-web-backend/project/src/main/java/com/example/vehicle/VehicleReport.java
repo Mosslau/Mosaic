@@ -1,4 +1,4 @@
-// project/src/main/java/com/example/vehicle/Vehicle.java —— 车辆领域模型
+// project/src/main/java/com/example/vehicle/VehicleReport.java —— 车辆领域模型
 // 验证环境：OpenJDK 17.0.18 + Spring Boot 3.3.0（本机离线 mvn -o 实测）
 // ---------------------------------------------------------------------------
 // 教学点：不可变 record 承载领域数据；经纬度用 double（坐标精度需求）、

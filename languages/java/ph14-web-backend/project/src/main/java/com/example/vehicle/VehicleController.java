@@ -4,8 +4,9 @@
 // 实测结果（curl 直测，端口 18090）：
 //   POST /api/vehicles/report {"vin":"LSVAB4BR0DA123456","lat":31.23,"lng":121.47,"speedKph":60,"batteryPct":88}
 //     → 200 {"code":0,"message":"ok","data":{"id":1,"vin":"LSVAB4BR0DA123456","lat":31.23,...}}
-//   POST 同上（VIN 非法 12 位）→ 400 {"code":40001,"message":"VIN 必须为 17 位字母数字"}
-//   POST 同上（batteryPct=150）→ 400 {"code":40004,"message":"电量必须在 0~100%"}
+//   POST 同上（VIN 非法 12 位）→ 400 {"code":40000,"message":"参数校验失败","data":{"vin":"VIN 必须为 17 位字母数字"}}
+//   POST 同上（batteryPct=150）→ 400 {"code":40000,"message":"参数校验失败","data":{"batteryPct":"电量不能超过 100%"}}
+//     （@Valid 先拦「输入形状」→ 40000；Service 层业务码 40001/40004 由 VehicleServiceTest 单测覆盖，见 README「校验双层实测」）
 //   GET  /api/vehicles/LSVAB4BR0DA123456/status → 200 最新一条
 //   GET  /api/vehicles/LSVAB4BR0DA123456/reports?limit=2 → 200 历史（按时间升序）
 //   GET  /api/vehicles/NOTEXIST123456789/status → 404 {"code":40401,"message":"该车辆暂无上报数据"}

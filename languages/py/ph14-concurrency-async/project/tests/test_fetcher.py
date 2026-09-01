@@ -49,7 +49,13 @@ def test_collect_retry_exhausted():
 
 
 def test_collect_mixed_with_retry():
-    """fail_rate=0.5（seed=1 实测 6/10 成功）：部分成功部分失败，失败项 attempts == max_retries。"""
+    """fail_rate=0.5：部分成功部分失败，失败项 attempts == max_retries。
+
+    成功数不做精确断言：失败判定与遥测值共用同一 RNG 序列，并发下抽取交错依赖
+    请求到达顺序（与调度相关，本机实测 6/4 稳定，但非 API 保证）——区间 2~8
+    覆盖 fail_rate=0.5 的绝大多数情形（Bin(10, 0.5) 下 0/1/9/10 之外），
+    仍能捕获「全部成功/全部失败」这类重试逻辑损坏。
+    """
 
     async def _t() -> None:
         sim = TelemetrySimulator(n_vehicles=10, fail_rate=0.5, seed=1)
@@ -58,8 +64,8 @@ def test_collect_mixed_with_retry():
             results = await collect(sim.base_url, sim.vehicle_ids, max_concurrency=3, max_retries=3)
             ok_ids = {r.vehicle_id for r in results if r.ok}
             fail_ids = {r.vehicle_id for r in results if not r.ok}
-            assert len(ok_ids) == 6 and len(fail_ids) == 4, (
-                f"seed=1 实测应为 6/4，实际 {len(ok_ids)}/{len(fail_ids)}"
+            assert 2 <= len(ok_ids) <= 8, (
+                f"fail_rate=0.5 应成败兼备（本机实测 6/4），实际 {len(ok_ids)}/{len(fail_ids)}"
             )
             for r in results:
                 if r.ok:

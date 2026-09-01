@@ -24,9 +24,9 @@
 
 **HTTP**（HyperText Transfer Protocol）1991 年由 Tim Berners-Lee 在 CERN 提出（HTTP/0.9 只有 GET 一个方法），1996 年 HTTP/1.0（RFC 1945）、1997 年 HTTP/1.1（RFC 2068，持久连接、Host 头、方法扩展）定型为 Web 事实协议，2015 年 HTTP/2（多路复用、头部压缩）、2022 年 HTTP/3（基于 QUIC/UDP）持续演进。**REST**（Representational State Transfer）2000 年由 Roy Fielding 在博士论文中提出——不是协议而是架构风格：资源用 URL 标识、HTTP 方法表达操作、无状态、统一接口，后来成为 Web API 的事实设计标准。**JSON** 2001 年由 Douglas Crockford 从 JavaScript 对象字面量提炼而来，2006 年 RFC 4627 标准化；比 XML 轻、比二进制可读，2010 年代起成为 Web API 的默认数据格式。
 
-**Servlet** 1997 年随 Java Servlet 规范诞生（Servlet 1.0 由 Sun 提出，1998 年 2.1 加入 `web.xml`），是 Java 处理 HTTP 请求的**官方标准 API**：容器（Tomcat/Jetty）负责 HTTP 协议解析、Servlet 生命周期管理，开发者只写业务处理。**Tomcat** 1999 年由 Sun 捐赠的 Java Web Server 代码演化而来，2005 年成为 Apache 顶级项目，长期是 Servlet 容器的事实标准。Servlet 规范演进：2.3（2001，Filter 过滤器）、2.5（2006，注解支持）、3.0（2009，异步请求）、3.1（2013，非阻塞 IO）、4.0（2017，HTTP/2）、5.0（2020，jakarta.* 命名空间，Eclipse 接管后的分水岭）、6.0（2022，Tomcat 10.1，本阶段基线）。
+**Servlet** 1997 年随 Java Servlet 规范诞生（Servlet 1.0 由 Sun 提出，1998 年 2.1 加入 `web.xml`），是 Java 处理 HTTP 请求的**官方标准 API**：容器（Tomcat/Jetty）负责 HTTP 协议解析、Servlet 生命周期管理，开发者只写业务处理。**Tomcat** 1999 年由 Sun 捐赠的 Java Web Server 代码演化而来，2005 年成为 Apache 顶级项目，长期是 Servlet 容器的事实标准。Servlet 规范演进：2.3（2001，Filter 过滤器）、2.5（2006，web.xml 配置为主，注解尚不存在）、3.0（2009，JSR 315，`@WebServlet`/`@WebFilter` 注解 + 异步请求）、3.1（2013，非阻塞 IO）、4.0（2017，HTTP/2）、5.0（2020，jakarta.* 命名空间，Eclipse 接管后的分水岭）、6.0（2022，Tomcat 10.1，本阶段基线）。
 
-**Spring MVC** 2004 年随 Spring 1.2 发布（Rod Johnson 的《Expert One-on-One J2EE Design and Development》催生 Spring），把 Servlet API 包成 `DispatcherServlet` 分发 + 注解控制器（`@Controller`/`@RequestMapping` 2007 年 Spring 2.5 加入），让「写 Web 层」从手写 Servlet 变成写 POJO 方法。**Spring Boot** 2014 年由 Pivotal（Phil Webb 主导）发布，口号「Just Run」：约定大于配置、自动配置（`@EnableAutoConfiguration` 按 classpath 推断）、starter 依赖聚合、内嵌容器——把 Spring 工程的搭建成本从「配置几天」压到「一个注解」。**springdoc-openapi** 2019 年发布，用注解自动生成 OpenAPI 3 文档，省去手写 API 文档。
+**Spring MVC** 2004 年随 Spring 1.0 发布（Spring 1.2 是 2005 年的后续版本；Rod Johnson 的《Expert One-on-One J2EE Design and Development》催生 Spring），把 Servlet API 包成 `DispatcherServlet` 分发 + 注解控制器（`@Controller`/`@RequestMapping` 2007 年 Spring 2.5 加入），让「写 Web 层」从手写 Servlet 变成写 POJO 方法。**Spring Boot** 2014 年由 Pivotal（Phil Webb 主导）发布，口号「Just Run」：约定大于配置、自动配置（`@EnableAutoConfiguration` 按 classpath 推断）、starter 依赖聚合、内嵌容器——把 Spring 工程的搭建成本从「配置几天」压到「一个注解」。**springdoc-openapi** 2019 年发布，用注解自动生成 OpenAPI 3 文档，省去手写 API 文档。
 
 | 版本/里程碑 | 年份 | 主要变化 |
 |-----------|------|---------|
@@ -34,7 +34,8 @@
 | Servlet 1.0 | 1997 | Java 处理 HTTP 的标准 API（容器 + 生命周期） |
 | REST（论文） | 2000 | 资源 + 方法 + 无状态的架构风格，Web API 设计标准 |
 | JSON（RFC 4627） | 2006 | Web API 默认数据格式（比 XML 轻、比二进制可读） |
-| Servlet 2.5 | 2006 | 注解支持（本阶段 `@WebServlet` 的起点） |
+| Servlet 2.5 | 2006 | web.xml 配置演进（注解尚不存在） |
+| Servlet 3.0 | 2009 | `@WebServlet`/`@WebFilter` 注解 + 异步请求（本阶段注解映射的起点） |
 | Spring MVC | 2004 | `DispatcherServlet` + 注解控制器，手写 Servlet 的框架化 |
 | Spring Boot 1.0 | 2014 | 自动配置 + starter + 内嵌容器，「Just Run」 |
 | Servlet 5.0 | 2020 | `jakarta.*` 命名空间（Eclipse 接管，包名分水岭） |
@@ -42,7 +43,7 @@
 | Spring Boot 3.x | 2022 | 基于 Spring 6 + jakarta 命名空间，要求 Java 17+（本阶段基线） |
 | springdoc-openapi | 2019 | 注解自动生成 OpenAPI 3 文档 + Swagger UI |
 
-本文示例以 **OpenJDK 17.0.18 + Spring Boot 3.3.0 + Tomcat 10.1.31 + jjwt 0.12.5 + springdoc-openapi 2.3.0** 为基线（验证工具链：`javac -version` → 17.0.18、`mvn -version` → 3.9.12；配套 **Hibernate Validator 8.0.1.Final、Jackson 2.17.2** 由 starter 传递引入，全部本机实测通过；**Spring Boot 3.3.0 与本机缓存完全兼容，全部示例 `mvn test` + `spring-boot:run` + curl 实测**——本阶段 Web 框架可用性策略见第 6 章说明）。本机 Maven 用 `mvn -o` 离线模式，依赖/插件取自本地仓库缓存（沙箱禁止写 `~/.m2`，用 `-Dmaven.repo.local=/tmp/m2clone` 指向可写目录的克隆；正常联网环境直接 `mvn test` 即可）。HTTP 与 Servlet 的 API 自 Servlet 3.0 起高度稳定，本阶段学的 Servlet 心智（请求/响应/生命周期）在 Spring Boot 里只是被框架接管而不是被推翻——这是本阶段「先讲底层再讲框架」的原因。
+本文示例以 **OpenJDK 17.0.18 + Spring Boot 3.3.0 + Tomcat 10.1.31 + jjwt 0.12.5 + springdoc-openapi 2.3.0** 为基线（验证工具链：`javac -version` → 17.0.18、`mvn -version` → 3.9.12；配套 **Hibernate Validator 8.0.1.Final、Jackson 2.17.2** 由 starter 传递引入（仅 ex06/project 的 `jackson-dataformat-yaml` 因离线缓存压到 2.15.3，见各 pom 的「离线版本仲裁」注释），全部本机实测通过；**Spring Boot 3.3.0 与本机缓存完全兼容，全部示例 `mvn test` + `spring-boot:run` + curl 实测**——本阶段 Web 框架可用性策略见第 6 章说明）。本机 Maven 用 `mvn -o` 离线模式，依赖/插件取自本地仓库缓存（沙箱禁止写 `~/.m2`，用 `-Dmaven.repo.local=/tmp/m2clone` 指向可写目录的克隆；正常联网环境直接 `mvn test` 即可）。HTTP 与 Servlet 的 API 自 Servlet 3.0 起高度稳定，本阶段学的 Servlet 心智（请求/响应/生命周期）在 Spring Boot 里只是被框架接管而不是被推翻——这是本阶段「先讲底层再讲框架」的原因。
 
 ## 3. 语法与参数
 
@@ -50,7 +51,7 @@
 
 HTTP 是无状态请求-响应协议：客户端发请求（方法 + URL + 头 + 可选 body），服务端回响应（状态码 + 头 + body）。**方法**表达操作语义——GET 读、POST 建、PATCH 局部改、PUT 整体替换、DELETE 删、OPTIONS 探测（CORS 预检用）；**状态码**表达结果语义——2xx 成功（200 OK / 201 Created / 204 No Content）、3xx 重定向、4xx 客户端错（400 参数错 / 401 未认证 / 403 无权限 / 404 不存在 / 405 方法不支持 / 409 冲突）、5xx 服务端错（500 内部错误 / 503 不可用）。
 
-> ⚠️ **状态码是接口契约的一部分**：前端 switch 状态码决定 UI 分支，后端乱用（如一律 200 + body 里放错误）会让调用方无从判断。REST 语义化状态码 = 用 201 表示「创建成功」、404 表示「资源不存在」——本阶段 examples/ex01 实测了 200/201/204/400/404/405 六种。
+> ⚠️ **状态码是接口契约的一部分**：前端 switch 状态码决定 UI 分支，后端乱用（如一律 200 + body 里放错误）会让调用方无从判断。REST 语义化状态码 = 用 201 表示「创建成功」、404 表示「资源不存在」——本阶段 examples/ex01 实测了 200/201/400/404/405 五种（204「删除成功」的零响应体写法由 exercises/sol-01 的 DELETE 演示）。
 
 ```java
 // examples/ex01-jdk-httpserver —— 纯 JDK HttpServer 起服务，零依赖实测

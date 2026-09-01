@@ -38,7 +38,7 @@ fn main() {
     println!("3. abs(-42) = {a}");
 
     // 认知小结：
-    // - 调用 extern 函数必须位于 unsafe 上下文（E0133 实测见 ex04 同族演示）
+    // - 调用 extern 函数必须位于 unsafe 上下文（E0133 实测见 ex04 的 demo_e0133）
     // - C 函数不报告错误：strlen 假定字符串合法、malloc 失败返回 null——错误约定由 C 库文档定义，
     //   与 Rust 的 Result 体系完全不同（错误处理工程化见 ph11 错误处理与工程质量阶段）
     // - 本示例只演示「调用」，不演示「导出 Rust 函数给 C」与 bindgen/cbindgen（属于 ph23）
