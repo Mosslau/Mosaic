@@ -15,7 +15,7 @@
 | 完整性 | checksum / CRC-32、损坏与截断的错误码区分 |
 | 格式演进 | varint 编码、magic number 与版本号、保留字段与兼容策略 |
 
-这个阶段只涉及字节序（大端/小端/网络字节序）、结构体对齐与 padding、sizeof/offsetof、位运算掩码移位、二进制 record 与 length-prefix frame 的安全解析、checksum/CRC、varint、magic number 与版本号，**不涉及 mmap、Page Cache 与 fsync 刷盘语义（ph13，roadmap 第 13 节，目录待建）、跨语言互操作 ABI（ph14，roadmap 第 14 节，目录待建）、存储引擎的完整 WAL/MemTable/SSTable 实现（ph16，roadmap 第 16 节，目录待建）和网络 socket 编程（ph08）** — 那些是 ph13 mmap、Page Cache 与可靠文件 IO 阶段、ph14 C 与 C++ / Python / Rust 互操作阶段、ph16 数据库存储引擎基础阶段和 ph08 Linux 系统编程阶段的内容；位域（bit-field）布局是实现定义的，本阶段只做对照演示，**不用于跨平台格式**；并发与内存序不属于本阶段（衔接 ph08，深入属并发专题）。
+这个阶段只涉及字节序（大端/小端/网络字节序）、结构体对齐与 padding、sizeof/offsetof、位运算掩码移位、二进制 record 与 length-prefix frame 的安全解析、checksum/CRC、varint、magic number 与版本号，**不涉及 mmap、Page Cache 与 fsync 刷盘语义（ph13，roadmap 第 13 节）、跨语言互操作 ABI（ph14，roadmap 第 14 节，目录待建）、存储引擎的完整 WAL/MemTable/SSTable 实现（ph16，roadmap 第 16 节，目录待建）和网络 socket 编程（ph08）** — 那些是 ph13 mmap、Page Cache 与可靠文件 IO 阶段、ph14 C 与 C++ / Python / Rust 互操作阶段、ph16 数据库存储引擎基础阶段和 ph08 Linux 系统编程阶段的内容；位域（bit-field）布局是实现定义的，本阶段只做对照演示，**不用于跨平台格式**；并发与内存序不属于本阶段（衔接 ph08，深入属并发专题）。
 
 ## 2. 来源与演变
 
@@ -354,7 +354,7 @@ CRC 把数据看作一个巨大二进制数，除以一个固定的**生成多�
 
 **不适合**此阶段的事项：
 
-- mmap、Page Cache 与 fsync 刷盘边界（ph13 mmap、Page Cache 与可靠文件 IO 阶段（roadmap 第 13 节，目录待建）：本阶段假设字节流已到手，ph13 回答"怎么可靠地落盘/刷盘"）
+- mmap、Page Cache 与 fsync 刷盘边界（ph13 mmap、Page Cache 与可靠文件 IO 阶段（roadmap 第 13 节）：本阶段假设字节流已到手，ph13 回答"怎么可靠地落盘/刷盘"）
 - 跨语言 ABI / FFI（ph14 C 与 C++ / Python / Rust 互操作阶段（roadmap 第 14 节，目录待建）：opaque pointer、导出符号）
 - 存储引擎完整实现（ph16 数据库存储引擎基础阶段（roadmap 第 16 节，目录待建）：WAL 的崩溃恢复语义、MemTable、SSTable、LSM）
 - 文本格式解析（CSV/JSON/INI 用文本解析，ph06 已示范 CSV 状态机，不需要字节序概念）
@@ -713,4 +713,4 @@ C 是所有语言里最"裸露"的：**没有内建的字节序抽象、没有�
 
 ### 下一阶段
 
-本阶段是当前已完成目录的最后一个阶段（ph12 之后暂无 ph 目录）：**ph13+（roadmap 第 13 节，目录待建）：后续可深入 mmap、Page Cache 与可靠文件 IO** — 本阶段解决了"字节怎么排、怎么安全解析"，ph13 将解决"怎么可靠地落盘与刷盘"：fsync/fdatasync 的刷盘边界、mmap 与 read/write 的取舍、Page Cache 对性能与基准测试的影响、崩溃恢复中的半写入处理——本阶段 project/ 的 WAL 工具正是 ph13 讲"append-only 落盘 + 崩溃恢复"时的现成载体；两者组合即存储引擎的 IO 底座，ph16 数据库存储引擎基础阶段的 WAL replay 将直接复用本阶段的 record 格式。
+[mmap、Page Cache 与可靠文件 IO 阶段](../ph13-mmap-page-cache/13-mmap-page-cache.md) — 本阶段解决了"字节怎么排、怎么安全解析"，下一阶段解决"怎么可靠地落盘与刷盘"：fsync/fdatasync 的刷盘边界、mmap 与 read/write 的取舍、Page Cache 对性能与基准测试的影响、崩溃恢复中的半写入处理——本阶段 project/ 的 WAL 工具正是 ph13 讲"append-only 落盘 + 崩溃恢复"时的现成载体；两者组合即存储引擎的 IO 底座，ph16 数据库存储引擎基础阶段的 WAL replay 将直接复用本阶段的 record 格式。

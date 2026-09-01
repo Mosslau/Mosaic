@@ -636,6 +636,8 @@ typedef struct {
 
 ## 13. mmap、Page Cache 与可靠文件 IO 阶段
 
+> 📖 详细展开版见 [ph13-mmap-page-cache/13-mmap-page-cache.md](./ph13-mmap-page-cache/13-mmap-page-cache.md)
+
 ### 目标
 
 理解数据库和 KV 存储依赖的文件 IO、Page Cache、mmap 和刷盘语义。

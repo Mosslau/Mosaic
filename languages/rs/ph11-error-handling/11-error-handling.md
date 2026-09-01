@@ -15,7 +15,7 @@ Rust 错误处理与工程质量阶段对应 roadmap 第 11 节，目标是**建
 | 生态讲解 | thiserror（库：具体枚举）、anyhow（应用：上下文错误）、tracing（结构化日志）——未在本环境验证（需第三方 crate）（3.5、3.7） |
 | 测试 | 单元测试（#[cfg(test)]）、#[should_panic]、Result 返回测试、集成测试（3.8、练习 5、阶段项目） |
 
-这个阶段只涉及错误处理工程化（组合子、自定义错误类型、错误链、上下文包装、panic 恢复边界）与基础测试，**不涉及并发与异步编程（`?` 跨 `.await`、任务取消与超时、`JoinError`）、文件/网络/系统编程的系统化错误处理（`std::fs` 全套、TCP/UDP 错误码与重试策略）和 unsafe 与裸指针** — 那些是 [ph12 并发与异步阶段](../ph12-concurrency-async/12-concurrency-async.md)、ph13 文件网络与系统编程阶段、ph14 Unsafe Rust 与安全抽象阶段的内容（ph12 目录已建；ph13~ph14 目录待建）。承接 [ph10 智能指针阶段](../ph10-smart-pointers/10-smart-pointers.md)：`Mutex` 中毒的恢复策略与 `Result` 在共享状态上的工程化组合正是本阶段主题；也承接 [ph04 Option/Result 阶段](../ph04-option-result/04-option-result.md)：组合子是 ph04 基础用法的系统化升级。
+这个阶段只涉及错误处理工程化（组合子、自定义错误类型、错误链、上下文包装、panic 恢复边界）与基础测试，**不涉及并发与异步编程（`?` 跨 `.await`、任务取消与超时、`JoinError`）、文件/网络/系统编程的系统化错误处理（`std::fs` 全套、TCP/UDP 错误码与重试策略）和 unsafe 与裸指针** — 那些是 [ph12 并发与异步阶段](../ph12-concurrency-async/12-concurrency-async.md)、ph13 文件网络与系统编程阶段、ph14 Unsafe Rust 与安全抽象阶段的内容（ph12/ph13 目录已建；ph14 目录待建）。承接 [ph10 智能指针阶段](../ph10-smart-pointers/10-smart-pointers.md)：`Mutex` 中毒的恢复策略与 `Result` 在共享状态上的工程化组合正是本阶段主题；也承接 [ph04 Option/Result 阶段](../ph04-option-result/04-option-result.md)：组合子是 ph04 基础用法的系统化升级。
 
 ## 2. 来源与演变
 
@@ -342,7 +342,7 @@ panic 默认走 **unwind**：沿调用栈展开，逐层 drop 局部变量（运
 **不适合**此阶段的事项（属于后续阶段，这里不展开）：
 
 - 异步编程（[ph12 并发与异步阶段](../ph12-concurrency-async/12-concurrency-async.md)）：`?` 跨 `.await`、任务取消与超时、`JoinError`——本阶段只在线程边界（`thread::spawn` 的 `JoinHandle`）体会错误跨线程传递。
-- 文件、网络与系统编程的系统化错误处理（ph13 文件网络与系统编程阶段，目录待建）：`std::fs` 全套、TCP/UDP 错误码与重试策略——本阶段只用 `std::fs::read_to_string` 演示 I/O 错误的上下文化。
+- 文件、网络与系统编程的系统化错误处理（[ph13 文件网络与系统编程阶段](../ph13-file-network-sys/13-file-network-sys.md)）：`std::fs` 全套、TCP/UDP 错误码与重试策略——本阶段只用 `std::fs::read_to_string` 演示 I/O 错误的上下文化。
 - unsafe 与裸指针（ph14 Unsafe Rust 与安全抽象阶段，目录待建）：错误模型的安全边界不需要 `unsafe` 参与。
 
 ## 6. 代码示例

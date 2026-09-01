@@ -65,4 +65,4 @@ src/test/java/com/example/users/
 - 给 `JdbcUserRepository` 补「数据库故障」测试：用一个已经 close 的 `Connection` 构造仓库，验证 SQLException 被包装成 RuntimeException 的路径——把分支覆盖率从 83% 抬上去
 - 引入 JaCoCo `check` 门槛：配置 `<rule>` 让覆盖率低于阈值时构建失败（质量门禁，见 ph11 3.8），接入 CI（ph19 DevOps 与部署阶段）
 - 加更多业务：用户密码/状态字段、分页查询——每个新功能配同类测试，保持「测试与代码同步演进」
-- JDBC 细节（连接池、事务、索引、ORM）属于 **ph13 数据库阶段**（roadmap 第 13 节，目录待建），本项目的 JDBC 只写最小可测 CRUD
+- JDBC 细节（连接池、事务、索引、ORM）属于 **[ph13 数据库阶段](../../ph13-database/13-database.md)**，本项目的 JDBC 只写最小可测 CRUD

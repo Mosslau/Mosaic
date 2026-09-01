@@ -15,7 +15,7 @@ Rust 并发与异步阶段对应 roadmap 第 12 节，目标是**能编写线程
 | 异步基础 | `async fn`/`.await`、`Future`/`poll`/`waker`、自写极简 executor、任务调度（3.5、3.6） |
 | tokio | 任务（`tokio::spawn`）、定时器、超时与取消、异步网络 I/O、异步背压——**已验证 tokio 1.53.1**（3.7） |
 
-这个阶段只涉及 OS 线程并发（`std::thread`）、通道与共享状态的同步并发，以及 async/await 基础与 tokio 的任务/定时器/网络 I/O 演示，**不涉及文件与网络系统编程的系统化（`std::fs` 全套、TCP/UDP 编程与重试策略）、unsafe 与裸指针（`*const T`/`*mut T`、`Pin` 手工管理）、宏与元编程（`macro_rules!`/过程宏）和性能剖析与优化（profiling、criterion 基准、原子操作深入）** — 那些是 ph13 文件、网络与系统编程阶段、ph14 Unsafe Rust 与安全抽象阶段、ph15 宏与元编程阶段和 ph22 性能优化与 Profiling 阶段的内容（ph13~ph15/ph22 目录待建）。异步流式处理（`Stream`）与异步 trait（`async fn` in trait）只作提及，深入属后续生态阶段。承接 [ph10 智能指针阶段](../ph10-smart-pointers/10-smart-pointers.md)：`Arc` 的引用计数语义、`Mutex` 的 guard 与中毒机制；也承接 [ph11 错误处理与工程质量阶段](../ph11-error-handling/11-error-handling.md)：`?` 跨 `.await` 传播、`JoinError` 是新的错误来源。
+这个阶段只涉及 OS 线程并发（`std::thread`）、通道与共享状态的同步并发，以及 async/await 基础与 tokio 的任务/定时器/网络 I/O 演示，**不涉及文件与网络系统编程的系统化（`std::fs` 全套、TCP/UDP 编程与重试策略）、unsafe 与裸指针（`*const T`/`*mut T`、`Pin` 手工管理）、宏与元编程（`macro_rules!`/过程宏）和性能剖析与优化（profiling、criterion 基准、原子操作深入）** — 那些是 ph13 文件、网络与系统编程阶段、ph14 Unsafe Rust 与安全抽象阶段、ph15 宏与元编程阶段和 ph22 性能优化与 Profiling 阶段的内容（ph13 目录已建；ph14~ph15/ph22 目录待建）。异步流式处理（`Stream`）与异步 trait（`async fn` in trait）只作提及，深入属后续生态阶段。承接 [ph10 智能指针阶段](../ph10-smart-pointers/10-smart-pointers.md)：`Arc` 的引用计数语义、`Mutex` 的 guard 与中毒机制；也承接 [ph11 错误处理与工程质量阶段](../ph11-error-handling/11-error-handling.md)：`?` 跨 `.await` 传播、`JoinError` 是新的错误来源。
 
 ## 2. 来源与演变
 
@@ -610,4 +610,4 @@ fn block_on_many<F: Future>(tasks: Vec<F>) -> Vec<F::Output> {
 
 ### 下一阶段
 
-**ph13+（roadmap 第 13 节，目录待建）**：本阶段是当前最后一个有目录的阶段，ph13~ph25 的阶段目录尚未建立（roadmap 见 `languages/rs/rust.md`）。后续可深入「文件、网络与系统编程」方向——本阶段打下的并发与异步地基将直接延伸：`std::fs`/`std::io` 的缓冲 I/O、`Path`/`PathBuf` 跨平台路径、TCP/UDP 编程（示例 9 的异步 TCP 只是序幕，真实的连接管理、断连重试、超时策略落在 ph13）、serde 序列化与 clap 命令行；ph12 的「背压 + 超时 + 重试」骨架会原样搬到 ph13 的网络程序与 ph25 的 Axum/Tonic 数据服务里。在此之前可先按推荐学习顺序巩固 ph10~ph12 的练习与项目。
+[文件、网络与系统编程阶段](../ph13-file-network-sys/13-file-network-sys.md) — 本阶段打下的并发与异步地基将延伸到真实系统编程：`std::fs`/`std::io` 的缓冲 I/O、`Path`/`PathBuf` 跨平台路径、TCP/UDP 连接管理与断连重试（示例 9 的异步 TCP 只是序幕，真实的连接管理、断连重试、超时策略落在 ph13）、serde 序列化与 clap 命令行；ph12 的「背压 + 超时 + 重试」骨架会原样搬到 ph13 的网络程序与 ph25 的 Axum/Tonic 数据服务里。在此之前可先按推荐学习顺序巩固 ph10~ph12 的练习与项目。

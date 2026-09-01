@@ -314,7 +314,7 @@ def get_device(device_id: int):
 
 ### 3.10 OpenAPI 文档（自动生成·Swagger UI）
 
-FastAPI 从**类型注解与模型定义**自动生成 OpenAPI 3 规范：交互式 `/docs`（Swagger UI）、`/redoc`、机器可读的 `/openapi.json`。**OpenAPI 文档是交付物**（roadmap 必会概念）——它既是前端对接契约，也是联调、测试（ph13 测试与工程质量阶段，roadmap 第 13 节，目录待建）与客户端代码生成的输入。
+FastAPI 从**类型注解与模型定义**自动生成 OpenAPI 3 规范：交互式 `/docs`（Swagger UI）、`/redoc`、机器可读的 `/openapi.json`。**OpenAPI 文档是交付物**（roadmap 必会概念）——它既是前端对接契约，也是联调、测试（ph13 测试与工程质量阶段）与客户端代码生成的输入。
 
 ```python
 from fastapi import FastAPI

@@ -611,6 +611,8 @@ RUN go build -o server ./cmd/server
 
 ## 13. 性能优化阶段
 
+> 📖 详细展开版见 [ph13-perf-optimization/13-perf-optimization.md](./ph13-perf-optimization/13-perf-optimization.md)
+
 ### 目标
 
 能分析和优化 Go 程序性能。

@@ -616,6 +616,8 @@ async fn main() {
 
 ## 13. 文件、网络与系统编程阶段
 
+> 📖 详细展开版见 [ph13-file-network-sys/13-file-network-sys.md](./ph13-file-network-sys/13-file-network-sys.md)
+
 ### 目标
 
 能使用 Rust 处理文件、路径、网络和常见系统资源。

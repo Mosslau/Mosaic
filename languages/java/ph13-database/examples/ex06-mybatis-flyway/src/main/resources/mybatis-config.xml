@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE configuration PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-config.dtd">
+<configuration>
+  <environments default="dev">
+    <environment id="dev">
+      <!-- JDBC 事务管理器：事务边界由 SqlSession.commit()/rollback() 控制 -->
+      <transactionManager type="JDBC"/>
+      <!-- UNPOOLED：示例从简；生产换成 POOLED 或外部 HikariCP（见 ex03） -->
+      <dataSource type="UNPOOLED">
+        <property name="driver" value="org.hsqldb.jdbc.JDBCDriver"/>
+        <property name="url" value="jdbc:hsqldb:mem:mybatisdb"/>
+        <property name="username" value="sa"/>
+        <property name="password" value=""/>
+      </dataSource>
+    </environment>
+  </environments>
+  <mappers>
+    <mapper resource="com/example/UserMapper.xml"/>
+  </mappers>
+</configuration>

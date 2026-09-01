@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- namespace 绑定接口全限定名；id 绑定方法名；#{} 是安全的参数占位（底层仍是 PreparedStatement） -->
+<mapper namespace="com.example.UserMapper">
+
+  <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO users(name, email) VALUES (#{name}, #{email})
+  </insert>
+
+  <select id="findById" resultType="com.example.User">
+    SELECT id, name, email FROM users WHERE id = #{id}
+  </select>
+
+  <select id="findAll" resultType="com.example.User">
+    SELECT id, name, email FROM users ORDER BY id
+  </select>
+
+  <update id="updateEmail">
+    UPDATE users SET email = #{email} WHERE id = #{id}
+  </update>
+
+  <delete id="delete">
+    DELETE FROM users WHERE id = #{id}
+  </delete>
+
+</mapper>

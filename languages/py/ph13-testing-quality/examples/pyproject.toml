@@ -1,0 +1,8 @@
+# examples/pyproject.toml —— 本目录 ruff 校验基准（ex06 的 ruff 配置演示，主文档 3.6）
+# pytest 无特殊配置：直接 python3 -m pytest exXX.py -q 即可；mypy 用命令行参数即可
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

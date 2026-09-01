@@ -647,6 +647,8 @@ std::string MakeName() {
 
 ## 13. Rule of 0 / 3 / 5 与 RAII 进阶阶段
 
+> 📖 详细展开版见 [ph13-rule-of-035-raii/13-rule-of-035-raii.md](./ph13-rule-of-035-raii/13-rule-of-035-raii.md)
+
 ### 目标
 
 掌握资源类设计，优先写 Rule of 0 的现代 C++。

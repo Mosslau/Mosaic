@@ -16,7 +16,7 @@ ph11 构建工具阶段让 JaCoCo 覆盖率报告在 `mvn test` 后自动生成�
 | 质量度量 | JaCoCo 覆盖率（指令/行/分支/方法/类）、`javac -Xlint` 静态检查、覆盖率门槛 |
 | 测试设计 | 正常路径 + 错误路径 + 边界值、测试方法命名、测试隔离 |
 
-这个阶段只涉及**测试的编写与设计**（JUnit 5 / Mockito / AssertJ / 参数化 / 替身 / 覆盖率 / 静态检查），**不涉及数据库编程本身**（JDBC 细节、连接池、事务、索引、ORM——ph13 数据库阶段的内容，本阶段只借最小 JDBC 代码演示集成测试怎么测数据库）、**不涉及 Web 层与框架测试**（HTTP、Servlet、Spring MVC 的 Controller/API 测试——ph14/ph15 阶段的内容）、**不涉及 CI/CD 流水线里的质量门禁落地**（Jenkins、GitHub Actions 上的测试与覆盖率门槛——ph19 DevOps 与部署阶段的内容）。本阶段承接 ph11——`mvn test` 管「跑不跑测试」，本阶段管「测试怎么写才可信」。
+这个阶段只涉及**测试的编写与设计**（JUnit 5 / Mockito / AssertJ / 参数化 / 替身 / 覆盖率 / 静态检查），**不涉及数据库编程本身**（JDBC 细节、连接池、事务、索引、ORM——[ph13 数据库阶段](../ph13-database/13-database.md)的内容，本阶段只借最小 JDBC 代码演示集成测试怎么测数据库）、**不涉及 Web 层与框架测试**（HTTP、Servlet、Spring MVC 的 Controller/API 测试——ph14/ph15 阶段的内容）、**不涉及 CI/CD 流水线里的质量门禁落地**（Jenkins、GitHub Actions 上的测试与覆盖率门槛——ph19 DevOps 与部署阶段的内容）。本阶段承接 ph11——`mvn test` 管「跑不跑测试」，本阶段管「测试怎么写才可信」。
 
 ## 2. 来源与演变
 
@@ -313,7 +313,7 @@ void save_assignsDatabaseGeneratedId() {
 }
 ```
 
-> 这里只借「连真实引擎跑 SQL」这一件事演示集成测试怎么写；**JDBC 细节、连接池、事务、索引、ORM 属于 ph13 数据库阶段**，本阶段不展开。
+> 这里只借「连真实引擎跑 SQL」这一件事演示集成测试怎么写；**JDBC 细节、连接池、事务、索引、ORM 属于 [ph13 数据库阶段](../ph13-database/13-database.md)**，本阶段不展开。
 
 **Testcontainers**（真实容器，本沙箱无 Docker 未实跑，标准用法片段见 [`examples/ex07-testcontainers.md`](./examples/ex07-testcontainers.md)）：`@Testcontainers` 扩展管理容器生命周期，`@Container` 字段声明容器，`getJdbcUrl()` 等容器对象方法提供连接信息（随机端口避免冲突），测试结束自动 `stop` 清理。适合验证生产数据库专有行为（如 MySQL 的 `ON DUPLICATE KEY UPDATE`、JSON 类型、事务隔离级别）。
 
@@ -463,7 +463,7 @@ Testcontainers 通过 **docker-java** 客户端调 Docker API：测试启动时 
 
 **不适合**此阶段的事项：
 
-- **数据库编程本身**（JDBC 细节、连接池、事务、索引、ORM）——ph13 数据库阶段（roadmap 第 13 节，目录待建）；本阶段只借最小 JDBC 演示集成测试怎么写
+- **数据库编程本身**（JDBC 细节、连接池、事务、索引、ORM）——[ph13 数据库阶段](../ph13-database/13-database.md)；本阶段只借最小 JDBC 演示集成测试怎么写
 - **Web 层与框架测试**（HTTP、Servlet、Spring MVC 的 Controller/API 测试、MockMvc）——ph14 Web 后端开发阶段 / ph15 Spring 全家桶阶段（roadmap 第 14/15 节，目录待建）
 - **CI/CD 流水线里的测试与覆盖率门槛落地**（Jenkins、GitHub Actions、质量门禁进流水线）——ph19 DevOps 与部署阶段（roadmap 第 19 节，目录待建）
 - **性能/压测与模糊测试**——超出单元测试范畴，属进阶专题
@@ -565,4 +565,4 @@ Docker 容器化集成测试的 pom 依赖、标准用法片段与生命周期�
 
 ### 下一阶段
 
-**ph13+（roadmap 第 13 节，目录待建）——本阶段是当前已建目录的最后一个阶段**：后续可深入**数据库**方向——本阶段的 HSQLDB 集成测试只写了最小 JDBC CRUD，ph13 将系统学习 JDBC 细节、连接池、事务、索引与 MyBatis/JPA/Hibernate，把「用户服务」的存储层换成真实数据库，用事务与索引设计解决真实数据问题。该阶段目录尚未创建，届时以 roadmap 第 13 节为准，本阶段不再向前引用不存在的文件。
+[数据库阶段](../ph13-database/13-database.md) — 把本阶段的 HSQLDB 最小 JDBC CRUD 升级为完整数据库编程：JDBC 细节、连接池、事务、索引、Redis 缓存与 MyBatis/JPA/Hibernate/Flyway，把「用户服务」的存储层换成真实数据库，用事务与索引设计解决真实数据问题。

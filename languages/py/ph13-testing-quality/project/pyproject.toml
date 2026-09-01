@@ -1,0 +1,43 @@
+# project/pyproject.toml —— 项目元数据 + ruff / mypy / black / pytest 配置（质量门禁的统一入口）
+[project]
+name = "telemetry-stats"
+version = "0.1.0"
+description = "ph13 阶段项目：带测试与质量门禁的车辆遥测数据处理库"
+requires-python = ">=3.11"
+# 核心零第三方依赖：标准库 dataclasses / csv / argparse / logging / pathlib；
+# 测试与门禁工具放 dev 依赖（CI 里 pip install -e ".[dev]" 一次装齐）
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.0",   # CI 覆盖率用；本环境未安装，本机覆盖率用标准库 trace 实测
+    "ruff>=0.4",
+    "mypy>=1.5",
+    "black>=23.0",
+    "pre-commit>=3.0",   # 钩子示例见 .pre-commit-config.yaml；本环境未安装
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+disallow_untyped_defs = true
+warn_unused_ignores = true
+# tests/ 需要 pytest 的类型桩（本环境未装 types 包），mypy 检查范围限定源码与 CLI
+exclude = ["tests/"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+pythonpath = ["."]

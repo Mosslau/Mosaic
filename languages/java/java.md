@@ -627,6 +627,8 @@ void shouldAddTwoNumbers() {
 
 ## 13. 数据库阶段
 
+> 📖 详细展开版见 [ph13-database/13-database.md](./ph13-database/13-database.md)
+
 ### 目标
 
 掌握 Java 操作数据库和缓存。

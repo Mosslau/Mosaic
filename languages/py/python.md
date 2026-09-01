@@ -609,6 +609,8 @@ for p in Path("logs").glob("*.log"):
 
 ## 13. 测试与工程质量阶段
 
+> 📖 详细展开版见 [ph13-testing-quality/13-testing-quality.md](./ph13-testing-quality/13-testing-quality.md)
+
 ### 目标
 
 写出可靠、可维护的 Python 工程代码。

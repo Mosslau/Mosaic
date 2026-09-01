@@ -116,7 +116,7 @@
 //   - 类名不用 *IT 后缀：surefire 默认只跑 *Test/*Tests/*TestCase，*IT 是 failsafe（ph11 构建工具）的约定
 //   - @BeforeAll 建连接建表、@AfterAll 关连接（内存库随连接关闭销毁）、@BeforeEach 清表 —— 测试间互不污染
 //   - 数据库 UNIQUE 约束的错误路径也要测：SQLException 被包装成 RuntimeException 抛给上层
-//   - JDBC/SQL 细节属于 ph13 数据库阶段，这里只借「连真实引擎跑 SQL」演示集成测试怎么写
+//   - JDBC/SQL 细节属于 [ph13 数据库阶段](../../ph13-database/13-database.md)，这里只借「连真实引擎跑 SQL」演示集成测试怎么写
 // ---------------------------------------------------------------------------
 package com.example;
 
@@ -126,7 +126,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Optional;
 
-/** JDBC 实现：真实 SQL 与数据库引擎协作（集成测试的对象）。JDBC 细节属于 ph13 数据库阶段，这里只演示「怎么测」。 */
+/** JDBC 实现：真实 SQL 与数据库引擎协作（集成测试的对象）。JDBC 细节属于 [ph13 数据库阶段](../../ph13-database/13-database.md)，这里只演示「怎么测」。 */
 public class JdbcUserRepository implements UserRepository {
 
     private final Connection conn;

@@ -104,4 +104,4 @@ class MySqlContainerTest {
 
 - 集成测试的**替代路线**（本项目实测采用）：HSQLDB 内存库（见 [`project/`](../project/) 的 JdbcUserRepository 集成测试）——纯 Java、零 Docker、启动快，适合验证「代码与 SQL 能协作」；差异是它与生产 MySQL 的行为不完全一致
 - 需要验证**数据库专有行为**（如 MySQL 的 `ON DUPLICATE KEY UPDATE`、JSON 类型、事务隔离）时，才值得上 Testcontainers
-- 完整数据库编程（JDBC 细节、连接池、事务、索引）属于 **ph13 数据库阶段**（roadmap 第 13 节，目录待建），这里只借「连上真实库跑 SQL」这一件事演示集成测试
+- 完整数据库编程（JDBC 细节、连接池、事务、索引）属于 **[ph13 数据库阶段](../../ph13-database/13-database.md)**，这里只借「连上真实库跑 SQL」这一件事演示集成测试
