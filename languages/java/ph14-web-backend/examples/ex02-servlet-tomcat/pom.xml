@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- examples/ex02-servlet-tomcat/pom.xml —— 嵌入式 Tomcat + 手写 Servlet
+     验证环境：OpenJDK 17.0.18 + Maven 3.9.12 + Tomcat 10.1.31（本机离线 mvn -o 实测）
+     验证命令：mvn -o -Dmaven.repo.local=/tmp/m2clone -q package
+     运行命令：java -cp "target/classes:$(find ~/.m2 -name 'tomcat-embed-core-10.1.31.jar' ...)"（详见 README）
+     注意：本机缓存缺 tomcat-annotations-api 的 jar，用 exclusions 排除；
+           正常联网环境可删掉 exclusions 与 jakarta.annotation-api 显式依赖。 -->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.example</groupId>
+  <artifactId>ex02-servlet-tomcat</artifactId>
+  <version>1.0.0</version>
+  <packaging>jar</packaging>
+
+  <properties>
+    <maven.compiler.release>17</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.apache.tomcat.embed</groupId>
+      <artifactId>tomcat-embed-core</artifactId>
+      <version>10.1.31</version>
+      <exclusions>
+        <!-- 本机离线缓存缺 tomcat-annotations-api jar（只有 pom）；Tomcat 10.1 实际运行
+             用 jakarta.annotation-api（下面显式引入）即可满足嵌入场景 -->
+        <exclusion>
+          <groupId>org.apache.tomcat</groupId>
+          <artifactId>tomcat-annotations-api</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.tomcat.embed</groupId>
+      <artifactId>tomcat-embed-el</artifactId>
+      <version>10.1.31</version>
+    </dependency>
+    <dependency>
+      <groupId>jakarta.annotation</groupId>
+      <artifactId>jakarta.annotation-api</artifactId>
+      <version>2.1.1</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+      </plugin>
+    </plugins>
+  </build>
+</project>

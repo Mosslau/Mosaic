@@ -17,7 +17,7 @@ C 标准、编译器与可移植性阶段是 C 学习路线中"从写 Linux 程�
 
 本阶段承接 ph08 的系统编程能力：ph08 里的 unistd.h、pthread、epoll 都是 POSIX/Linux API，本阶段把"标准 C 能做哪些、平台 API 又补了哪些"的边界彻底理清——以后写存储引擎时，凡是跨平台的部分都靠本阶段的写法兜底。
 
-这个阶段只涉及 C 标准与编译器的差异认知、条件编译、固定宽度整数与可移植写法，**不涉及未定义行为的系统化梳理、Sanitizer 工具链、字节序与二进制格式的位级处理和跨语言互操作 ABI** — 那些是 ph10 未定义行为 UB 与常见坑阶段、ph11 Sanitizer / 静态分析 / 单元测试阶段、ph12 字节序、内存对齐与二进制格式解析阶段（roadmap 第 12 节）和 ph14 C 与 C++ / Python / Rust 互操作阶段（roadmap 第 14 节，目录待建）的内容。
+这个阶段只涉及 C 标准与编译器的差异认知、条件编译、固定宽度整数与可移植写法，**不涉及未定义行为的系统化梳理、Sanitizer 工具链、字节序与二进制格式的位级处理和跨语言互操作 ABI** — 那些是 ph10 未定义行为 UB 与常见坑阶段、ph11 Sanitizer / 静态分析 / 单元测试阶段、ph12 字节序、内存对齐与二进制格式解析阶段（roadmap 第 12 节）和 ph14 C 与 C++ / Python / Rust 互操作阶段（roadmap 第 14 节）的内容。
 
 ## 2. 来源与演变
 
@@ -308,7 +308,7 @@ LLVM:  Clang 前端(──▶ LLVM IR)           ──▶ 优化 passes ──�
 - 未定义行为的深入排查（ph10 未定义行为 UB 与常见坑阶段：数组越界、悬垂指针、整数溢出、严格别名案例）
 - Sanitizer 与调试工具链（ph11 Sanitizer / 静态分析 / 单元测试阶段：ASan/UBSan/TSan 的使用）
 - 字节序与二进制格式的位级处理（ph12 字节序、内存对齐与二进制格式解析阶段（roadmap 第 12 节）：大端/小端、htonl、位域布局）
-- 跨语言互操作 ABI（ph14 C 与 C++ / Python / Rust 互操作阶段（roadmap 第 14 节，目录待建）：C ABI、FFI、JNI 等）
+- 跨语言互操作 ABI（ph14 C 与 C++ / Python / Rust 互操作阶段（roadmap 第 14 节）：C ABI、FFI、JNI 等）
 
 ## 6. 代码示例
 

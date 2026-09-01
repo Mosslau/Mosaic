@@ -694,6 +694,8 @@ FilePtr fp(fopen("data.txt", "r"), fclose);
 
 ## 14. const 正确性与接口设计阶段
 
+> 📖 详细展开版见 [ph14-const-correctness/14-const-correctness.md](./ph14-const-correctness/14-const-correctness.md)
+
 ### 目标
 
 用 const 表达接口承诺，提高可读性和可维护性。

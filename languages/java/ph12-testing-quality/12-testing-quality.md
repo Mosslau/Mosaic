@@ -16,7 +16,7 @@ ph11 构建工具阶段让 JaCoCo 覆盖率报告在 `mvn test` 后自动生成�
 | 质量度量 | JaCoCo 覆盖率（指令/行/分支/方法/类）、`javac -Xlint` 静态检查、覆盖率门槛 |
 | 测试设计 | 正常路径 + 错误路径 + 边界值、测试方法命名、测试隔离 |
 
-这个阶段只涉及**测试的编写与设计**（JUnit 5 / Mockito / AssertJ / 参数化 / 替身 / 覆盖率 / 静态检查），**不涉及数据库编程本身**（JDBC 细节、连接池、事务、索引、ORM——[ph13 数据库阶段](../ph13-database/13-database.md)的内容，本阶段只借最小 JDBC 代码演示集成测试怎么测数据库）、**不涉及 Web 层与框架测试**（HTTP、Servlet、Spring MVC 的 Controller/API 测试——ph14/ph15 阶段的内容）、**不涉及 CI/CD 流水线里的质量门禁落地**（Jenkins、GitHub Actions 上的测试与覆盖率门槛——ph19 DevOps 与部署阶段的内容）。本阶段承接 ph11——`mvn test` 管「跑不跑测试」，本阶段管「测试怎么写才可信」。
+这个阶段只涉及**测试的编写与设计**（JUnit 5 / Mockito / AssertJ / 参数化 / 替身 / 覆盖率 / 静态检查），**不涉及数据库编程本身**（JDBC 细节、连接池、事务、索引、ORM——[ph13 数据库阶段](../ph13-database/13-database.md)的内容，本阶段只借最小 JDBC 代码演示集成测试怎么测数据库）、**不涉及 Web 层与框架测试**（HTTP、Servlet、Spring MVC 的 Controller/API 测试——[ph14 Web 后端开发阶段](../ph14-web-backend/14-web-backend.md)/ph15 阶段的内容）、**不涉及 CI/CD 流水线里的质量门禁落地**（Jenkins、GitHub Actions 上的测试与覆盖率门槛——ph19 DevOps 与部署阶段的内容）。本阶段承接 ph11——`mvn test` 管「跑不跑测试」，本阶段管「测试怎么写才可信」。
 
 ## 2. 来源与演变
 
@@ -464,7 +464,7 @@ Testcontainers 通过 **docker-java** 客户端调 Docker API：测试启动时 
 **不适合**此阶段的事项：
 
 - **数据库编程本身**（JDBC 细节、连接池、事务、索引、ORM）——[ph13 数据库阶段](../ph13-database/13-database.md)；本阶段只借最小 JDBC 演示集成测试怎么写
-- **Web 层与框架测试**（HTTP、Servlet、Spring MVC 的 Controller/API 测试、MockMvc）——ph14 Web 后端开发阶段 / ph15 Spring 全家桶阶段（roadmap 第 14/15 节，目录待建）
+- **Web 层与框架测试**（HTTP、Servlet、Spring MVC 的 Controller/API 测试、MockMvc）——[ph14 Web 后端开发阶段](../ph14-web-backend/14-web-backend.md)（本阶段的 examples/ex04 与 project/ 已有 MockMvc 实测） / ph15 Spring 全家桶阶段（roadmap 第 15 节，目录待建）
 - **CI/CD 流水线里的测试与覆盖率门槛落地**（Jenkins、GitHub Actions、质量门禁进流水线）——ph19 DevOps 与部署阶段（roadmap 第 19 节，目录待建）
 - **性能/压测与模糊测试**——超出单元测试范畴，属进阶专题
 

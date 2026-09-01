@@ -659,6 +659,8 @@ go tool pprof
 
 ## 14. 高级 Go 阶段
 
+> 📖 详细展开版见 [ph14-advanced-go/14-advanced-go.md](./ph14-advanced-go/14-advanced-go.md)
+
 ### 目标
 
 理解 Go 底层机制和高级工程能力。

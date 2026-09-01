@@ -1,0 +1,26 @@
+# project/pyproject.toml —— 异步遥测采集服务：依赖 + ruff / pytest 配置
+[project]
+name = "async-telemetry-collector"
+version = "0.1.0"
+description = "ph14 阶段项目：异步遥测采集服务（aiohttp 并发采集 + 限速 + 重试 + CSV 报表）"
+requires-python = ">=3.11"
+# 核心依赖只有 aiohttp（异步 HTTP 客户端与服务端）；测试/门禁工具放 dev 依赖
+dependencies = ["aiohttp>=3.9"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+pythonpath = ["."]

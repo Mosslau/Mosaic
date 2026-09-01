@@ -15,7 +15,7 @@ Go 性能优化阶段的目标是（引用 Roadmap）：**能分析和优化 Go 
 
 本阶段的核心信念来自四条必会概念：**先 profile，再优化**——不测量就动手是猜测，profile 告诉你热点在哪一行，优化才有据；**分配次数会影响 GC 压力**——每次堆分配都是 GC 要扫描的对象，allocs/op 是比 B/op 更敏感的信号；**goroutine 泄漏也是性能问题**——泄漏的 goroutine 连同其栈常驻内存，堆积到一定量就是 OOM；**sync.Pool 只适合可复用临时对象**——它复用的是"用完可弃"的对象，不是缓存长期数据的容器，而且不是无条件更快（本阶段实测其边界，见 3.5）。
 
-这个阶段只涉及"测量 → 定位 → 减少分配/竞争 → 验证"的性能方法论闭环，**不涉及 Go runtime 底层实现机制（GMP 调度器、GC 算法细节、channel/map/slice/interface 底层布局、reflect/unsafe/cgo——那些是 ph14 高级 Go 阶段的内容，roadmap 第 14 节，目录待建）、PGO 与生产流量指导优化（profile-guided optimization 属 ph16 PGO 与高级性能优化阶段，roadmap 第 16 节，目录待建）和语言级并发模型本身（goroutine/channel/context 的用法属 ph06 并发编程阶段）** — 本阶段用标准库工具就能完成全部量化与定位，GC/调度"为什么长这样"留给 ph14，PGO"用生产 profile 指导编译"留给 ph16。
+这个阶段只涉及"测量 → 定位 → 减少分配/竞争 → 验证"的性能方法论闭环，**不涉及 Go runtime 底层实现机制（GMP 调度器、GC 算法细节、channel/map/slice/interface 底层布局、reflect/unsafe/cgo——那些是 [ph14 高级 Go 阶段](../ph14-advanced-go/14-advanced-go.md)的内容，roadmap 第 14 节）、PGO 与生产流量指导优化（profile-guided optimization 属 ph16 PGO 与高级性能优化阶段，roadmap 第 16 节，目录待建）和语言级并发模型本身（goroutine/channel/context 的用法属 ph06 并发编程阶段）** — 本阶段用标准库工具就能完成全部量化与定位，GC/调度"为什么长这样"留给 ph14，PGO"用生产 profile 指导编译"留给 ph16。
 
 ## 2. 来源与演变
 
@@ -139,7 +139,7 @@ func makePoint() *Point {
 
 按值返回留栈，**快约 11 倍、0 分配**。**坑：逃逸裁决是"调用上下文相关"的**——`makePointVal()` 单独看不逃逸，但传给 `fmt.Println` 时（装箱 interface{}）照样 `moved to heap`（`-m` 输出可见）。所以"这个函数分配不分配"不能只看函数体，要看调用链。`//go:noinline` 在本示例里用来**固定裁决**（防止内联掩盖逃逸行为），生产代码不要乱加。
 
-> 逃逸分析只是本阶段"理解分配从哪来"的视角；**编译器的完整优化管线（SSA、内联、devirtualization 等）属于 ph14 高级 Go 阶段**，这里只需会读 `-m` 输出、能判断"怎么改让它不逃逸"。
+> 逃逸分析只是本阶段"理解分配从哪来"的视角；**编译器的完整优化管线（SSA、内联、devirtualization 等）属于 [ph14 高级 Go 阶段](../ph14-advanced-go/14-advanced-go.md)**，这里只需会读 `-m` 输出、能判断"怎么改让它不逃逸"。
 
 ### 3.5 sync.Pool：复用临时对象
 
@@ -202,7 +202,7 @@ func (c *AtomicCounter) Load() int64 { return c.n.Load() }
 分配次数越多 ──▶ 触发越频繁 ──▶ GC 占用的 CPU 时间越多 ──▶ 程序越慢
 ```
 
-要点：**GC 不是"定时器"，是"堆增长到阈值就触发"**——所以优化分配（allocs/op 下降、B/op 下降）的直接收益是 GC 触发频率下降；benchmark 里 `B/op` 与 `allocs/op` 两列正是"这台程序会给 GC 多大压力"的预测量。GC 的实现机制（三色标记、混合写屏障、并发清扫的细节）属 ph14，本阶段只需这个"分配→触发→占用 CPU"的因果链——它解释了为什么"减少不必要分配"是性能优化的第一优先项。
+要点：**GC 不是"定时器"，是"堆增长到阈值就触发"**——所以优化分配（allocs/op 下降、B/op 下降）的直接收益是 GC 触发频率下降；benchmark 里 `B/op` 与 `allocs/op` 两列正是"这台程序会给 GC 多大压力"的预测量。GC 的实现机制（三色标记、混合写屏障、并发清扫的细节）属 [ph14 高级 Go 阶段](../ph14-advanced-go/14-advanced-go.md)，本阶段只需这个"分配→触发→占用 CPU"的因果链——它解释了为什么"减少不必要分配"是性能优化的第一优先项。
 
 ### 4.2 逃逸分析：编译器视角的"住哪里"裁决
 
@@ -243,7 +243,7 @@ func (c *AtomicCounter) Load() int64 { return c.n.Load() }
 
 **不适合**此阶段的事项：
 
-- **Go runtime 底层机制**（GMP、GC 算法、slice/map 内部布局）：属 ph14——本阶段只"用工具看现象"，不拆实现
+- **Go runtime 底层机制**（GMP、GC 算法、slice/map 内部布局）：属 [ph14 高级 Go 阶段](../ph14-advanced-go/14-advanced-go.md)——本阶段只"用工具看现象"，不拆实现
 - **PGO（profile-guided optimization）**：属 ph16——本阶段的 profile 数据是它的输入，但"用 profile 指导编译器"是另一套流程
 - **并发模型的用法本身**（goroutine/channel/context 设计）：属 ph06——本阶段默认读者会写并发，只优化它的性能
 
@@ -420,7 +420,7 @@ func leakySend(work func() int, timeout time.Duration) (int, bool) {
 
 ### 下一阶段
 
-**ph14+（高级 Go 阶段，roadmap 第 14 节，目录待建）——本阶段是当前已建目录（ph01~ph13）的最后一个阶段**，ph14~ph21 的阶段目录尚未建立（roadmap 见 [`languages/go/go.md`](../go.md)）。后续可深入 **Go 底层机制**方向：GMP 调度器与 GC 算法实现、channel/map/slice/interface 的底层布局、defer/panic/recover 原理、reflection/unsafe/cgo——本阶段攒下的 profile 数据与「分配/竞争」的实证观察，正是 ph14 理解"调度器为什么这样设计、GC 为什么这样回收"的入口；届时本阶段的逃逸分析会升级为"看 SSA 优化管线"，sync.Pool 的 per-P 设计会追溯到调度器的 P 结构。在此之前可先按推荐学习顺序巩固 ph12 云原生与本阶段的练习与项目。
+[高级 Go 阶段](../ph14-advanced-go/14-advanced-go.md) — 本阶段的性能观测升级为"机制解释"：GMP 调度器与 GC 算法的实现、channel/map/slice/interface 的底层布局、defer/panic/recover 原理、reflection/unsafe/cgo——本阶段攒下的 profile 数据与「分配/竞争」的实证观察，正是 ph14 理解"调度器为什么这样设计、GC 为什么这样回收"的入口；届时本阶段的逃逸分析会升级为"看 SSA 优化管线"，sync.Pool 的 per-P 设计会追溯到调度器的 P 结构。ph14 之后（ph15~ph21）的阶段目录尚未建立，roadmap 见 [`languages/go/go.md`](../go.md)。
 
 ---
 

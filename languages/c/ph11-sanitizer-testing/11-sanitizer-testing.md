@@ -19,7 +19,7 @@ Sanitizer / 静态分析 / 单元测试阶段是 C 学习路线中"从定位错�
 
 本阶段承接 ph10：ph10 建立了"识别 10 类 UB + 用 Sanitizer 复现定位"的认知，示例里工具只是临时命令；本阶段把工具变成构建配置的一部分（`-fsanitize` 写进脚本而非每次手敲）、把测试变成代码的一部分（自测模式 / test 目录 + 断言框架）、把覆盖变成可度量的事实（gcov/lcov 报告），并给出"动态检测与静态分析互补"的选型逻辑。
 
-这个阶段只涉及 Sanitizer（ASan/UBSan/TSan/LSan）的系统化使用、静态分析（cppcheck/clang-tidy）、单元测试（自测模式与 Unity/CMocka/Criterion）与覆盖率（gcov/lcov）及其构建与 CI 集成，**不涉及字节序与二进制格式的位级处理（ph12，roadmap 第 12 节）、mmap、Page Cache 与可靠文件 IO（ph13，roadmap 第 13 节）和跨语言互操作 ABI（ph14，roadmap 第 14 节，目录待建）** — 那些是 ph12 字节序、内存对齐与二进制格式解析阶段、ph13 mmap、Page Cache 与可靠文件 IO 阶段和 ph14 C 与 C++ / Python / Rust 互操作阶段的内容；并发部分 TSan 只做检测工具介绍，**锁设计与内存序分析不属于本阶段**（衔接 ph08 线程，深入分析属并发专题）。
+这个阶段只涉及 Sanitizer（ASan/UBSan/TSan/LSan）的系统化使用、静态分析（cppcheck/clang-tidy）、单元测试（自测模式与 Unity/CMocka/Criterion）与覆盖率（gcov/lcov）及其构建与 CI 集成，**不涉及字节序与二进制格式的位级处理（ph12，roadmap 第 12 节）、mmap、Page Cache 与可靠文件 IO（ph13，roadmap 第 13 节）和跨语言互操作 ABI（ph14，roadmap 第 14 节）** — 那些是 ph12 字节序、内存对齐与二进制格式解析阶段、ph13 mmap、Page Cache 与可靠文件 IO 阶段和 ph14 C 与 C++ / Python / Rust 互操作阶段的内容；并发部分 TSan 只做检测工具介绍，**锁设计与内存序分析不属于本阶段**（衔接 ph08 线程，深入分析属并发专题）。
 
 ## 2. 来源与演变
 
@@ -303,7 +303,7 @@ roadmap 必会概念"**动态检测和静态分析互补**"：动态检测只在
 
 - 字节序与二进制格式的位级处理（ph12 字节序、内存对齐与二进制格式解析阶段（roadmap 第 12 节）：大端/小端、varint、length-prefix frame、checksum）
 - mmap、Page Cache 与可靠文件 IO（ph13 mmap、Page Cache 与可靠文件 IO 阶段（roadmap 第 13 节）：fsync、刷盘边界、崩溃恢复）
-- 跨语言互操作 ABI（ph14 C 与 C++ / Python / Rust 互操作阶段（roadmap 第 14 节，目录待建）：C ABI、FFI、opaque pointer）
+- 跨语言互操作 ABI（ph14 C 与 C++ / Python / Rust 互操作阶段（roadmap 第 14 节）：C ABI、FFI、opaque pointer）
 - 并发模型与内存序设计（本阶段 TSan 只做检测工具介绍，锁策略与 happens-before 分析不展开）
 - 性能剖析与优化（perf/火焰图属于"找慢"而非"找错"，目的不同）
 

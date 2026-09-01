@@ -669,6 +669,8 @@ fn main() -> std::io::Result<()> {
 
 ## 14. Unsafe Rust 与安全抽象阶段
 
+> 📖 详细展开版见 [ph14-unsafe-safety-abstraction/14-unsafe-safety-abstraction.md](./ph14-unsafe-safety-abstraction/14-unsafe-safety-abstraction.md)
+
 ### 目标
 
 理解 unsafe 的能力边界，只在必要时封装最小不安全代码。

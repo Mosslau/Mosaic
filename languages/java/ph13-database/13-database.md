@@ -16,7 +16,7 @@ ph12 单元测试与工程质量阶段用 HSQLDB 内存库写过最小 JDBC CRUD
 | ORM 与迁移 | MyBatis（SQL 映射）、JPA/Hibernate（对象关系映射、脏检查、JPQL）、Flyway 版本化迁移 |
 | 数据库选型 | HSQLDB 内存库（本机实测）、MySQL / PostgreSQL / Redis（Redis 本机实测；MySQL/PG 概念讲解） |
 
-这个阶段只涉及**单机数据库编程**（SQL/JDBC/连接池/事务/索引/Redis 缓存/MyBatis/JPA/Flyway），**不涉及 Web 层与框架的数据库集成**（Servlet/Spring MVC 中怎么管事务与数据源——ph14 Web 后端开发阶段 / ph15 Spring 全家桶阶段，roadmap 第 14/15 节，目录待建）、**不涉及分布式数据库、分库分表与分布式事务**（ph16 微服务与分布式阶段，roadmap 第 16 节，目录待建）、**不涉及消息队列中的持久化与搜索索引**（ph17 消息队列与搜索阶段，roadmap 第 17 节，目录待建）、**不涉及缓存一致性、缓存穿透/击穿/雪崩等高并发缓存架构**（ph18 缓存与高并发阶段，roadmap 第 18 节，目录待建）、**不涉及数据库运维与 CI/CD 中的迁移落地**（ph19 DevOps 与部署阶段，roadmap 第 19 节，目录待建）。本阶段承接 ph12——那里的 HSQLDB 集成测试证明了「代码 + SQL 能协作」，本阶段把「能协作」升级为「协作得对、快、稳」。
+这个阶段只涉及**单机数据库编程**（SQL/JDBC/连接池/事务/索引/Redis 缓存/MyBatis/JPA/Flyway），**不涉及 Web 层与框架的数据库集成**（Servlet/Spring MVC 中怎么管事务与数据源——[ph14 Web 后端开发阶段](../ph14-web-backend/14-web-backend.md) / ph15 Spring 全家桶阶段，roadmap 第 15 节，目录待建）、**不涉及分布式数据库、分库分表与分布式事务**（ph16 微服务与分布式阶段，roadmap 第 16 节，目录待建）、**不涉及消息队列中的持久化与搜索索引**（ph17 消息队列与搜索阶段，roadmap 第 17 节，目录待建）、**不涉及缓存一致性、缓存穿透/击穿/雪崩等高并发缓存架构**（ph18 缓存与高并发阶段，roadmap 第 18 节，目录待建）、**不涉及数据库运维与 CI/CD 中的迁移落地**（ph19 DevOps 与部署阶段，roadmap 第 19 节，目录待建）。本阶段承接 ph12——那里的 HSQLDB 集成测试证明了「代码 + SQL 能协作」，本阶段把「能协作」升级为「协作得对、快、稳」。
 
 ## 2. 来源与演变
 
@@ -421,7 +421,7 @@ Redis 是**单线程事件循环**（epoll/kqueue 多路复用）驱动的：所
 
 **不适合**此阶段的事项：
 
-- **Web 层与框架的数据库集成**（Spring 的 `DataSource`/事务管理/`@Transactional`）——ph14 Web 后端开发阶段 / ph15 Spring 全家桶阶段（roadmap 第 14/15 节，目录待建）；本阶段用纯 JDBC/MyBatis/JPA 的裸 API
+- **Web 层与框架的数据库集成**（Spring 的 `DataSource`/事务管理/`@Transactional`）——[ph14 Web 后端开发阶段](../ph14-web-backend/14-web-backend.md) / ph15 Spring 全家桶阶段（roadmap 第 15 节，目录待建）；本阶段用纯 JDBC/MyBatis/JPA 的裸 API
 - **分库分表、读写分离与分布式事务**——ph16 微服务与分布式阶段（roadmap 第 16 节，目录待建）
 - **消息队列的持久化与搜索索引**（Kafka/Elasticsearch 的数据存储机制）——ph17 消息队列与搜索阶段（roadmap 第 17 节，目录待建）
 - **缓存穿透/击穿/雪崩、缓存一致性协议**——ph18 缓存与高并发阶段（roadmap 第 18 节，目录待建）
@@ -510,4 +510,4 @@ Flyway 先迁移（`V1` 建 users 表、`V2` 加 email 索引），MyBatis 接�
 
 ### 下一阶段
 
-**ph14+（roadmap 第 14 节，目录待建）——本阶段是当前已建目录的最后一个阶段**：后续可深入 **Web 后端开发** 方向——本阶段的 JDBC/事务/连接池/MyBatis/JPA 都是「裸 API 直连数据库」，ph14 将学习 Servlet/Tomcat/REST API/JSON/JWT 与 Spring MVC/Spring Boot，把数据访问层接入 HTTP 服务，用统一异常处理与日志把「能查库」升级为「能对外服务」。该阶段目录尚未创建，届时以 roadmap 第 14 节为准，本阶段不再向前引用不存在的文件。
+[ph14 Web 后端开发阶段](../ph14-web-backend/14-web-backend.md) — 本阶段 JDBC/事务/连接池/MyBatis/JPA 都是「裸 API 直连数据库」，ph14 把数据访问层接入 HTTP 服务：Servlet/Tomcat 讲清请求怎么进来、REST API/JSON 定接口形状、JWT 管「谁在调」、统一异常处理与日志把「能查库」升级为「能对外服务」——本阶段的存储层接口形状可平移为 ph14 的 `VehicleStore` 实现。

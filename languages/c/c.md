@@ -685,6 +685,8 @@ typedef struct {
 
 ## 14. C 与 C++ / Python / Rust 互操作阶段
 
+> 📖 详细展开版见 [ph14-ffi-interop/14-ffi-interop.md](./ph14-ffi-interop/14-ffi-interop.md)
+
 ### 目标
 
 理解 C ABI 的边界，用 C 作为跨语言接口层。

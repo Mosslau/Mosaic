@@ -676,6 +676,8 @@ stmt.setLong(1, 1L);
 
 ## 14. Web 后端开发阶段
 
+> 📖 详细展开版见 [ph14-web-backend/14-web-backend.md](./ph14-web-backend/14-web-backend.md)
+
 ### 目标
 
 能用 Java 写后端 API 服务。

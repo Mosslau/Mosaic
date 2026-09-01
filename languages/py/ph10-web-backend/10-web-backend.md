@@ -19,7 +19,7 @@ Python Web 后端开发阶段的目标是：**能用 Python 写 API 服务——
 | 异步接口（入门） | `async def` 路由与事件循环并发、同步 `def` 进线程池、异步依赖 |
 | OpenAPI 文档 | 自动生成的 `/docs`、`tags`/`summary`、作为交付物 |
 
-**范围边界**：这个阶段只涉及 Web 后端 API 开发——HTTP/REST 契约、FastAPI 路由与依赖注入、Pydantic 校验与序列化、JWT 鉴权、SQLAlchemy/Alembic 持久化、中间件与统一错误处理、Jinja2 模板与静态文件入门、async 接口入门——**不涉及数据库深入（SQL 优化、事务隔离、索引、Redis 缓存）、大规模异步与消息队列（Kafka、MQ、百万级并发连接）和生产部署运维（Nginx、Docker、CI/CD）** — 那些是 ph11 数据库与缓存阶段、ph14 并发、并行与异步阶段（roadmap 第 14 节，目录待建）和 ph16 部署与 DevOps 阶段（roadmap 第 16 节，目录待建）的内容。本阶段承接 ph09 数据分析阶段——把「清洗 → 统计 → 结论」的分析能力暴露为 HTTP 接口；以同步 API 为主，`async def` 只做入门（见 3.12），数据库用 SQLite 起步。本阶段四层交付物已就位：主文档 + [`examples/`](./examples/) + [`exercises/`](./exercises/) + [`project/`](./project/)，入口见第 6、7 章。
+**范围边界**：这个阶段只涉及 Web 后端 API 开发——HTTP/REST 契约、FastAPI 路由与依赖注入、Pydantic 校验与序列化、JWT 鉴权、SQLAlchemy/Alembic 持久化、中间件与统一错误处理、Jinja2 模板与静态文件入门、async 接口入门——**不涉及数据库深入（SQL 优化、事务隔离、索引、Redis 缓存）、大规模异步与消息队列（Kafka、MQ、百万级并发连接）和生产部署运维（Nginx、Docker、CI/CD）** — 那些是 ph11 数据库与缓存阶段、[ph14 并发、并行与异步阶段](../ph14-concurrency-async/14-concurrency-async.md)（roadmap 第 14 节）和 ph16 部署与 DevOps 阶段（roadmap 第 16 节，目录待建）的内容。本阶段承接 ph09 数据分析阶段——把「清洗 → 统计 → 结论」的分析能力暴露为 HTTP 接口；以同步 API 为主，`async def` 只做入门（见 3.12），数据库用 SQLite 起步。本阶段四层交付物已就位：主文档 + [`examples/`](./examples/) + [`exercises/`](./exercises/) + [`project/`](./project/)，入口见第 6、7 章。
 
 ## 2. 来源与演变
 
@@ -398,7 +398,7 @@ def blocking(n: int):                          # 同步 def 路由：FastAPI 丢
 
 - **async 路由的并发是「让出」出来的**：示例 6 实测——串行发 3 个 0.3s 的慢请求约 0.91s，用 `asyncio.gather` 并发发 3 个仅约 0.30s，耗时 ≈ 单请求（事件循环在 `await` 处切换任务）。
 - **同步阻塞代码绝不进 `async def` 路由**：`requests.get`/`time.sleep` 是阻塞 I/O，`await` 不了，会占住整个事件循环——这就是「异步接口要配套异步依赖」的机制来源（roadmap 必会概念）；同步业务放普通 `def` 路由，FastAPI 自动丢进线程池，反而安全。
-- **边界**：本阶段 async 只做入门（并发效果、异步依赖）；大规模异步、消息队列、百万级连接是 ph14 并发、并行与异步阶段（roadmap 第 14 节，目录待建）的内容。
+- **边界**：本阶段 async 只做入门（并发效果、异步依赖）；大规模异步、消息队列、百万级连接是 [ph14 并发、并行与异步阶段](../ph14-concurrency-async/14-concurrency-async.md)（roadmap 第 14 节）的内容。
 
 ## 4. 底层原理
 
@@ -438,7 +438,7 @@ JWT 是「**自包含、可验证、无状态**」的三段式令牌 `header.pay
 **不适合此阶段的事项**：
 
 - 数据库与缓存深入（SQL 优化、事务隔离、索引、Redis 缓存、连接池）：ph11 数据库与缓存阶段
-- 大规模异步与消息（Kafka、MQ、百万级并发连接）：ph14 并发、并行与异步阶段（roadmap 第 14 节，目录待建）——本阶段 async 只做入门
+- 大规模异步与消息（Kafka、MQ、百万级并发连接）：[ph14 并发、并行与异步阶段](../ph14-concurrency-async/14-concurrency-async.md)（roadmap 第 14 节）——本阶段 async 只做入门
 - 生产部署（Nginx、Docker、K8s、CI/CD、日志收集、监控告警）：ph16 部署与 DevOps 阶段（roadmap 第 16 节，目录待建）
 - 前端工程化（SPA、Vue/React 脚手架、前后端一体化框架）：不在本路线范围内——本阶段只做服务端模板入门
 

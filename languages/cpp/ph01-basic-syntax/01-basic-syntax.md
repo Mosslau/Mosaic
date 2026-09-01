@@ -89,7 +89,7 @@ constexpr int SIZE = 256;  // constexpr 保证编译期求值（C++11）
 
 `auto` 几乎总是对的，但要注意它**不会推导引用和 const 限定符**——`auto s = "hi"` 推导为 `const char*`，不是 `std::string`。
 
-**const 是接口设计的一部分**（本阶段只需建立直觉，完整规则见 ph14 const 正确性）：
+**const 是接口设计的一部分**（本阶段只需建立直觉，完整规则见 ph14 const 正确性与接口设计阶段）：
 
 ```cpp
 // 1. const 引用参数：承诺"只读不修改"，避免大对象拷贝

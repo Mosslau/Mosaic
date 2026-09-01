@@ -660,6 +660,8 @@ def test_add():
 
 ## 14. 并发、并行与异步阶段
 
+> 📖 详细展开版见 [ph14-concurrency-async/14-concurrency-async.md](./ph14-concurrency-async/14-concurrency-async.md)
+
 ### 目标
 
 处理 IO 密集和 CPU 密集任务。

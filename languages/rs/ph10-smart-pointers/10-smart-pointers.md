@@ -17,7 +17,7 @@ Rust 智能指针阶段的定位是：**能根据场景选择 `Box<T>`（堆分�
 | 循环引用与 Weak | `Weak<T>`：弱引用不增加强引用计数，`upgrade()` 升级访问，避免泄漏 |
 | 组合模式 | `Rc<RefCell<T>>`（单线程共享可变）、`Arc<Mutex<T>>`（多线程共享可变） |
 
-这个阶段只涉及智能指针（`Box`/`Rc`/`Arc`/`RefCell`/`Mutex`/`Weak`/`Drop`）的堆分配、共享所有权、内部可变性与循环引用处理，**不涉及错误处理工程化（`Mutex` 中毒恢复、`Result` 与 `?` 在共享状态上的组合）、异步编程中的共享状态（`Arc` 跨 `.await`、`tokio::sync::Mutex` 与标准库 `Mutex` 的区别）和 unsafe 与裸指针（`*const T`/`*mut T`、`Pin`、`Box::into_raw` 手动管理）** — 那些是 ph11 错误处理与工程质量阶段、ph12 并发与异步阶段、ph14 Unsafe Rust 与安全抽象阶段的内容（ph12 目录已建；ph14 目录待建）。承接 ph09 集合与迭代器阶段：迭代器链产出共享引用、`Box<dyn Iterator>` 装箱返回都会用到本阶段类型。
+这个阶段只涉及智能指针（`Box`/`Rc`/`Arc`/`RefCell`/`Mutex`/`Weak`/`Drop`）的堆分配、共享所有权、内部可变性与循环引用处理，**不涉及错误处理工程化（`Mutex` 中毒恢复、`Result` 与 `?` 在共享状态上的组合）、异步编程中的共享状态（`Arc` 跨 `.await`、`tokio::sync::Mutex` 与标准库 `Mutex` 的区别）和 unsafe 与裸指针（`*const T`/`*mut T`、`Pin`、`Box::into_raw` 手动管理）** — 那些是 ph11 错误处理与工程质量阶段、ph12 并发与异步阶段、[ph14 Unsafe Rust 与安全抽象阶段](../ph14-unsafe-safety-abstraction/14-unsafe-safety-abstraction.md)的内容（ph12/ph14 目录已建）。承接 ph09 集合与迭代器阶段：迭代器链产出共享引用、`Box<dyn Iterator>` 装箱返回都会用到本阶段类型。
 
 ## 2. 来源与演变
 
@@ -347,7 +347,7 @@ fn main() {
 ```
 
 要点与坑：
-- 裸指针是 `unsafe` 世界的入口（ph14 Unsafe Rust 与安全抽象阶段才深入，ph14 目录待建）；本阶段**任何裸指针都不是必要工具**："想共享用 `Rc`/`Arc`，想可变共享用 `RefCell`/`Mutex`，想要非拥有引用用 `Weak`"。
+- 裸指针是 `unsafe` 世界的入口（[ph14 Unsafe Rust 与安全抽象阶段](../ph14-unsafe-safety-abstraction/14-unsafe-safety-abstraction.md)才深入）；本阶段**任何裸指针都不是必要工具**："想共享用 `Rc`/`Arc`，想可变共享用 `RefCell`/`Mutex`，想要非拥有引用用 `Weak`"。
 - **坑：把 `Box` 当裸指针用**——`Box::into_raw` 取出裸指针后必须自己 `Box::from_raw` 回收，漏掉就是泄漏；无 `unsafe` 必要就别 `into_raw`。
 
 ## 4. 底层原理
@@ -398,7 +398,7 @@ fn main() {
 **不适合**此阶段的事项（属于后续阶段，这里不展开）：
 - 错误处理工程化（ph11 错误处理与工程质量阶段）：`Mutex` 中毒恢复、`Result` 与 `?` 在共享状态上的工程化组合、`thiserror`/`anyhow` 错误类型设计。
 - 异步编程中的共享状态（[ph12 并发与异步阶段](../ph12-concurrency-async/12-concurrency-async.md)）：`Arc` 跨 `.await`、锁在异步任务中的持有策略、`tokio::sync::Mutex` 与标准库 `Mutex` 的区别。
-- unsafe 与裸指针（ph14 Unsafe Rust 与安全抽象阶段，目录待建）：`*const T`/`*mut T`、`Pin`、`Box::into_raw` 的手动管理——本阶段全部用安全抽象完成。
+- unsafe 与裸指针（[ph14 Unsafe Rust 与安全抽象阶段](../ph14-unsafe-safety-abstraction/14-unsafe-safety-abstraction.md)）：`*const T`/`*mut T`、`Pin`、`Box::into_raw` 的手动管理——本阶段全部用安全抽象完成。
 
 ## 6. 代码示例
 
@@ -773,7 +773,7 @@ fn main() {
 6. **`RefCell` 把借用检查挪到运行时**：`borrow`/`borrow_mut` + 运行时计数，违规 panic——消息已实测为 `RefCell already borrowed`（`borrow_mut` 撞借用）或 `RefCell already mutably borrowed`（`borrow` 撞可变借用）；单线程专用（非 `Sync`，`Arc<RefCell<T>>` 跨线程报 E0277）。
 7. **`Weak` 打破循环引用**：不增加强引用计数，`upgrade()` 返回 `Option`；双向引用结构中"从属方向"必须用 `Weak`，否则计数永不归零、内存泄漏——注意这是**运行期逻辑泄漏，没有编译错误码**。
 8. **组合模式是生态惯例**：`Rc<RefCell<T>>`（单线程共享可变）、`Arc<Mutex<T>>`（多线程共享可变），结构同构、迁移只需换类型。
-9. **裸指针不是本阶段的工具**：`*const T`/`*mut T` 无所有权、无自动释放、需 `unsafe`（ph14，目录待建）；安全场景全部用智能指针表达。
+9. **裸指针不是本阶段的工具**：`*const T`/`*mut T` 无所有权、无自动释放、需 `unsafe`（见 [ph14 Unsafe Rust 与安全抽象阶段](../ph14-unsafe-safety-abstraction/14-unsafe-safety-abstraction.md)）；安全场景全部用智能指针表达。
 
 ### 跨语言对比：所有权与共享
 

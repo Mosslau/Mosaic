@@ -15,7 +15,7 @@ Rust 文件、网络与系统编程阶段对应 roadmap 第 13 节，目标是**
 | 序列化 | serde derive + serde_json/toml：`#[serde(rename/default)]`、错误行列定位（**已验证 serde 1.0.229 / serde_json 1.0.151 / toml 1.1.4**）（3.5） |
 | 命令行 | `std::env::args` 手写解析（裸机版）→ clap derive（**已验证 clap 4.6.6**）（3.6） |
 
-这个阶段只涉及**同步阻塞式**的文件与网络系统编程、serde/clap 的基础用法，**不涉及异步 I/O 与 tokio 深入（`tokio::fs`/`tokio::net`）、unsafe 与裸指针、宏与元编程（derive 宏只「用」不「写」）、性能剖析与零拷贝协议解析和 FFI 跨语言调用** — 那些是 ph12 并发与异步阶段、ph14 Unsafe Rust 与安全抽象阶段、ph15 宏与元编程阶段、ph19/ph23 阶段的内容（ph14/ph15/ph19/ph23 目录待建）。承接 [ph11 错误处理与工程质量阶段](../ph11-error-handling/11-error-handling.md)：`io::Error` 的结构化判定（`ErrorKind`）是 ph11 错误分类思想的标准库落地；承接 [ph12 并发与异步阶段](../ph12-concurrency-async/12-concurrency-async.md)：本阶段的网络示例都是**阻塞式**的，异步网络（tokio 版 `TcpListener`）见 ph12 示例 9。
+这个阶段只涉及**同步阻塞式**的文件与网络系统编程、serde/clap 的基础用法，**不涉及异步 I/O 与 tokio 深入（`tokio::fs`/`tokio::net`）、unsafe 与裸指针、宏与元编程（derive 宏只「用」不「写」）、性能剖析与零拷贝协议解析和 FFI 跨语言调用** — 那些是 ph12 并发与异步阶段、[ph14 Unsafe Rust 与安全抽象阶段](../ph14-unsafe-safety-abstraction/14-unsafe-safety-abstraction.md)、ph15 宏与元编程阶段、ph19/ph23 阶段的内容（ph15/ph19/ph23 目录待建）。承接 [ph11 错误处理与工程质量阶段](../ph11-error-handling/11-error-handling.md)：`io::Error` 的结构化判定（`ErrorKind`）是 ph11 错误分类思想的标准库落地；承接 [ph12 并发与异步阶段](../ph12-concurrency-async/12-concurrency-async.md)：本阶段的网络示例都是**阻塞式**的，异步网络（tokio 版 `TcpListener`）见 ph12 示例 9。
 
 ## 2. 来源与演变
 
@@ -503,4 +503,4 @@ struct Cli {
 
 ### 下一阶段
 
-**ph14+（roadmap 第 14 节，目录待建）**：本阶段是当前最后一个有目录的阶段，ph14~ph25 的阶段目录尚未建立（roadmap 见 [rust.md](../../rust.md)）。后续可深入「Unsafe Rust 与安全抽象」方向——`unsafe` 关键字、裸指针、`unsafe fn`、FFI 调用基础、安全抽象封装。本阶段打下的 I/O 地基将直接延伸：ph19 的零拷贝协议解析建立在 `Read`/`BufRead` 之上，ph23 的 FFI 需要理解本阶段的 fd 与系统资源模型，ph25 的 Axum/Tonic 数据服务则把 ph12（异步）+ ph13（网络）两条线汇合。在此之前可先按推荐学习顺序巩固 ph11~ph13 的练习与项目。
+[Unsafe Rust 与安全抽象阶段](../ph14-unsafe-safety-abstraction/14-unsafe-safety-abstraction.md) — `unsafe` 关键字、裸指针、`unsafe fn`、FFI 调用基础与安全抽象封装：本阶段打下的 I/O 地基将直接延伸（ph19 的零拷贝协议解析建立在 `Read`/`BufRead` 之上，ph23 的 FFI 需要理解本阶段的 fd 与系统资源模型，ph25 的 Axum/Tonic 数据服务则把 ph12（异步）+ ph13（网络）两条线汇合）。在此之前可先按推荐学习顺序巩固 ph11~ph13 的练习与项目。
