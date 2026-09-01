@@ -43,7 +43,7 @@ src/test/java/com/example/users/
 | 分支 BRANCH | **83%**（25/30） | 条件分支，缺口在错误路径 |
 | 类 CLASS | **100%**（4/4） | — |
 
-- 未覆盖分支已定位并理解：`UserService.validateEmail` 的「email 为 null」短路分支（参数化列表里没放 null）、`UserService.findById` 的 1 个分支、`JdbcUserRepository` 的 `SQLException → RuntimeException` 异常包装分支（集成测试只走了正常路径，没模拟数据库故障）——**这正说明「覆盖率 92% 不等于测全了错误路径」**，是「覆盖率不是唯一质量指标」的活例
+- 未覆盖分支已定位并理解：`UserService` 的 2 个未覆盖分支——`validateEmail` 的「email 为 null」短路分支（参数化列表里没放 null）、`updateEmail` 的「邮箱未变时短路跳过查重」分支（只测了换邮箱的路径；`findById` 无分支）；`JdbcUserRepository` 的 `SQLException → RuntimeException` 异常包装分支（集成测试只走了正常路径，没模拟数据库故障）——**这正说明「覆盖率 92% 不等于测全了错误路径」**，是「覆盖率不是唯一质量指标」的活例
 
 ## 验证环境与命令
 

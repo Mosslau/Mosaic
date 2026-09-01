@@ -40,7 +40,7 @@ Python 自动化脚本阶段的目标是：**用 Python 提升日常工作效率
 | openpyxl 3.0 | 2021 | xlsx 读写的稳定基线（本环境 3.1.5） |
 | smtpd 移除 | 2023-2024 | Python 3.12 起移除，本地 SMTP 调试换代为 aiosmtpd / 自建 sink |
 
-本文示例以 **Python 3.13.9** 为基线（本机验证工具链实测版本），验证工具链：openpyxl 3.1.5 + requests 2.32.5（全局已装并实测）+ pytest 8.4.2 + ruff 0.12.0（质量门禁）；schedule 1.2.2、paramiko 5.0.0、fabric 3.2.3 已装进临时 venv（`/tmp/ph12-venv`）——schedule 的示例 6 在 venv 中实测通过，paramiko/fabric **本机无 SSH 服务器可连，未做真实连接验证**（3.8 为概念讲解 + 标注）。这个阶段的语法与 API 是 Python 标准库中最稳定的部分——pathlib / re / csv / logging / argparse / smtplib 十余年未变，本文示例在 Python 3.8+ 上几乎可以原样运行，这正是「自动化脚本要能跑很多年」的底气。
+本文示例以 **Python 3.13.9** 为基线（本机验证工具链实测版本），验证工具链：openpyxl 3.1.5 + requests 2.32.5（全局已装并实测）+ pytest 8.4.2 + ruff 0.12.0（质量门禁）；schedule 1.2.2、paramiko 5.0.0、fabric 3.2.3 装于一次性临时 venv 实测（venv 为验证产物，读者可自行创建：`python3 -m venv /tmp/ph12-venv && /tmp/ph12-venv/bin/pip install schedule==1.2.2 paramiko fabric`）——schedule 的示例 6 在 venv 中实测通过，paramiko/fabric **本机无 SSH 服务器可连，未做真实连接验证**（3.8 为概念讲解 + 标注）。这个阶段的语法与 API 是 Python 标准库中最稳定的部分——pathlib / re / csv / logging / argparse / smtplib 十余年未变，本文示例在 Python 3.9+ 上几乎可以原样运行（练习 3/4 与 project 用到 `X | None` 联合类型写法，需 Python 3.10+），这正是「自动化脚本要能跑很多年」的底气。
 
 ## 3. 语法与参数
 
@@ -132,7 +132,7 @@ print(status.most_common(1))                              # 最高频
 
 ### 3.4 接口测试（requests / urllib）
 
-**接口测试**是把「人工开 Postman 试接口」变成脚本：`requests.get` 拉取、`status_code` 看状态、`.json()` 解响应、`timeout` 限时、`raise_for_status()` 抛错。requests 是第三方库（ph10 Web 后端阶段已用过），标准库替代是 **urllib.request**——requests 全部能力 urllib 都有，只是繁琐（见下表）。
+**接口测试**是把「人工开 Postman 试接口」变成脚本：`requests.get` 拉取、`status_code` 看状态、`.json()` 解响应、`timeout` 限时、`raise_for_status()` 抛错。requests 是第三方库（ph08 第三方库阶段已用过），标准库替代是 **urllib.request**——requests 全部能力 urllib 都有，只是繁琐（见下表）。
 
 ```python
 # 关键片段：examples/ex04-api-test.py —— requests 测本地服务（完整版见示例 4，本机已验证）
@@ -220,12 +220,15 @@ with smtplib.SMTP("127.0.0.1", port, timeout=5) as smtp:  # with 结束自动 qu
 # 关键片段：examples/ex06-schedule-jobs.py —— 调度循环（完整版见示例 6，本机已验证）
 import schedule, time
 
-schedule.every(1).seconds.do(job, "上报心跳")               # 每 1 秒（演示用）
-daily = schedule.every().day.at("08:00").do(job, "生成日报")  # 每天 08:00
-while True:                        # 真实脚本：永不退出的主循环
-    schedule.run_pending()         # 检查并执行到期任务
-    time.sleep(1)                  # 睡到接近下一个到期时刻，别空转烧 CPU
-schedule.clear()                   # 清空所有任务
+executed = []
+schedule.every(1).seconds.do(heartbeat, executed)            # 每 1 秒（演示用）
+daily = schedule.every().day.at("08:00").do(job, "生成日报")   # 每天 08:00
+rounds = 0
+while len(executed) < 3 and rounds < 10:  # 演示用有界循环；真实脚本是永不退出的 while True
+    schedule.run_pending()                # 检查并执行到期任务
+    time.sleep(0.5)                       # 频繁小睡 + 频繁检查，别空转烧 CPU
+    rounds += 1
+schedule.clear()                          # 主循环退出后清空所有任务
 ```
 
 | schedule 写法 | 含义 |
@@ -240,7 +243,7 @@ schedule.clear()                   # 清空所有任务
 
 - **schedule 不是常驻服务**：它不 fork 不守护，你的脚本就是调度器——主循环不能退出；部署到服务器长期跑、开机自启属 ph16 部署与 DevOps 阶段（systemd/cron 换一种方式做同一件事）。
 - **坑（任务在循环外 sleep）**：`time.sleep(60)` 后再 `run_pending()` 会让分钟级任务漂移；正确姿势是**频繁小睡 + 频繁 run_pending**（示例 6 的 0.5s 轮询），或 `schedule.idle_seconds()` 睡到精确的下一个到期时刻。
-- **依赖标注**：schedule 在本机全局 Python **未安装**，示例 6 在临时 venv（`/tmp/ph12-venv`，schedule 1.2.2）中实测通过——直接使用需 `pip install schedule`；练习 3 用「轮询 + sleep」演示了同一思想，不装也能跑。
+- **依赖标注**：schedule 在本机全局 Python **未安装**，示例 6 在临时 venv（一次性验证产物，读者可自行创建：`python3 -m venv /tmp/ph12-venv && /tmp/ph12-venv/bin/pip install schedule==1.2.2`）中装 schedule 1.2.2 实测通过——直接使用需 `pip install schedule`；练习 3 用「轮询 + sleep」演示了同一思想，不装也能跑。
 
 ### 3.8 远程操作（paramiko / fabric）——概念层
 
@@ -324,7 +327,7 @@ data = bytes.fromhex(m.group(4))                # 负载 HEX 字符串转字节
 
 要点：
 
-- **candump 格式一行 = 时间戳 + 接口 + ID + 负载**：`(1629946800.123456) can0 123#1E00000000000000`——时间戳是「秒.微秒」浮点，ID 是十六进制（可带/不带 0x），负载是 HEX 字符串（2 字符 = 1 字节）。
+- **candump 格式一行 = 时间戳 + 接口 + ID + 负载**：`(1629946800.123456) can0 123#1E00000000000000`——时间戳是「秒.微秒」浮点，ID 是十六进制（candump 输出不带 0x 前缀，如 `123`；`--filter-id` 参数才支持 `0x123` 写法），负载是 HEX 字符串（2 字符 = 1 字节）。
 - **信号值的简化约定**：本阶段「负载首字节即信号值」（车速 30 → 0x1E）；真实场景信号跨字节、有缩放因子与字节序，需要 DBC 文件描述——**完整 DBC 信号矩阵解析属 ph18 车联网 / 数据平台 / 自动化方向阶段（roadmap 第 18 节，目录待建）**，这里用简化约定把「解析 → 统计 → 报表」链路打通。
 - **无效行容错是必须的**：抓包日志里夹杂乱行、空行、注释行，解析器要计数跳过而不是崩溃（project 的 `invalid` 计数 + 测试用例）。
 
@@ -340,7 +343,7 @@ data = bytes.fromhex(m.group(4))                # 负载 HEX 字符串转字节
 
 ### 4.3 HTTP 请求的生命周期（requests 背后发生了什么）
 
-`requests.get(url)` 一行背后是完整的分层之旅：**DNS 解析域名 → TCP 三次握手 → （HTTPS）TLS 握手 → 发送请求报文（请求行 + 头 + 体）→ 读取响应报文（状态行 + 头 + 体）→ 关闭/复用连接**。状态码的语义分层由此而来：`2xx` 成功、`3xx` 重定向、`4xx` 客户端错（404 找不到、429 限流）、`5xx` 服务端错（500 内部、503 过载）。`timeout` 参数因此有**两个独立计时器**：连接超时（TCP/TLS 握手）与读取超时（发完请求等响应体）——`timeout=(3.05, 10)` 分开设置是生产惯例。requests 的异常家族就是这条链路的故障映射：连不上 → `ConnectionError`，超时 → `Timeout`，4xx/5xx → `HTTPError`（示例 4 逐一实测）。
+`requests.get(url)` 一行背后是完整的分层之旅：**DNS 解析域名 → TCP 三次握手 → （HTTPS）TLS 握手 → 发送请求报文（请求行 + 头 + 体）→ 读取响应报文（状态行 + 头 + 体）→ 关闭/复用连接**。状态码的语义分层由此而来：`2xx` 成功、`3xx` 重定向、`4xx` 客户端错（404 找不到、429 限流）、`5xx` 服务端错（500 内部、503 过载）。`timeout` 参数因此有**两个独立计时器**：连接超时（TCP/TLS 握手）与读取超时（发完请求等响应体）——`timeout=(3.05, 10)` 分开设置是生产惯例。requests 的异常家族就是这条链路的故障映射：连不上 → `ConnectionError`，超时 → `Timeout`，4xx/5xx → `HTTPError`（示例 4 实测 404 路径、练习 3 实测 500 路径）。
 
 ### 4.4 SMTP：一个文本命令协议（示例 5 的最小服务器就是协议本身）
 
@@ -478,7 +481,7 @@ while len(executed) < 3 and rounds < 10:
     time.sleep(0.5)
 ```
 
-实测输出：注册任务 `2` 个；日报任务下次运行取决于运行时刻（本机实测为运行日的次日 08:00）；心跳任务每秒触发、实测 `3` 次后循环结束；`schedule.clear()` 后注册数 `0`。**验证环境备注**：schedule 未安装于本机全局 Python，本示例在临时 venv（`/tmp/ph12-venv`，schedule 1.2.2）中实测通过；直接使用需 `pip install schedule`。
+实测输出：注册任务 `2` 个；日报任务下次运行取决于运行时刻（本机实测为运行日的次日 08:00）；心跳任务每秒触发、实测 `3` 次后循环结束；`schedule.clear()` 后注册数 `0`。**验证环境备注**：schedule 未安装于本机全局 Python，本示例在临时 venv（一次性验证产物，读者可自行创建：`python3 -m venv /tmp/ph12-venv && /tmp/ph12-venv/bin/pip install schedule==1.2.2`）中实测通过；直接使用需 `pip install schedule`。
 
 ## 7. 总结
 

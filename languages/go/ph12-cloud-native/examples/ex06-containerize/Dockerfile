@@ -1,5 +1,5 @@
 # ph12 示例 6 —— Go 多阶段构建 Dockerfile
-# 设计要点（对应主文档 3.2 节）：
+# 设计要点（对应主文档 3.3 节）：
 #  1. 多阶段：builder 阶段带完整 Go 工具链编译，runtime 阶段只复制静态二进制——镜像只含
 #     二进制 + 最小 CA 证书，体积从 ~1GB（golang 基础镜像）降到 ~10MB 量级
 #  2. CGO_ENABLED=0：纯静态链接，运行时无需 glibc（scratch/distroless 可跑）
@@ -12,8 +12,9 @@
 FROM golang:1.25-alpine AS builder
 WORKDIR /src
 
-# 先只拷贝 go.mod/go.sum 再 go mod download：利用 Docker 层缓存——依赖层不变就不重拉
-COPY go.mod go.sum* ./
+# 先只拷贝 go.mod 再 go mod download：利用 Docker 层缓存——依赖层不变就不重拉。
+# 本模块零第三方依赖、无 go.sum，所以只 COPY go.mod（写 go.sum* 会因 glob 匹配零文件导致 build 失败）
+COPY go.mod ./
 RUN go mod download
 
 COPY . .

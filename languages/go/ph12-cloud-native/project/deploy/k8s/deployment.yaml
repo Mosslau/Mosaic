@@ -1,7 +1,8 @@
-# ph12 阶段项目 —— K8s 部署清单（Deployment + Service + ConfigMap）
+# ph12 阶段项目 —— K8s 部署清单（ConfigMap + Deployment + Service + Ingress）
 # 应用：kubectl apply -f deploy/k8s/（需 K8s 集群；本机无集群则标注「未在本环境验证」）
 # 说明：ConfigMap 注入环境变量（12-Factor 配置分离）；探针由 kubelet 执行 HTTP 请求；
-# 滚动更新逐个替换副本；Secret 用于 DB 密码（生产用外部 Secret 管理，如 sealed-secrets）。
+# 滚动更新逐个替换副本；DB_URL 由同目录 secret.yaml 的 Secret 注入（演示值，
+# 生产用外部 Secret 管理，如 sealed-secrets / External Secrets Operator）。
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -43,7 +44,7 @@ spec:
             - configMapRef:
                 name: ph12-api-config
           env:
-            - name: DB_URL             # 必填项从 Secret 注入（示例占位）
+            - name: DB_URL             # 必填项从 Secret 注入（演示值见同目录 secret.yaml）
               valueFrom:
                 secretKeyRef:
                   name: ph12-api-secret
@@ -88,7 +89,7 @@ spec:
   type: ClusterIP
 ---
 # 对外暴露示例（可选）：Ingress 把集群外流量路由到 Service（API Gateway 概念的集群内形态，
-# 完整 API Gateway 治理见主文档 3.7）
+# 完整 API Gateway 治理见主文档 3.8）
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:

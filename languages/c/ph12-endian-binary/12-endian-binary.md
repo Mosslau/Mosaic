@@ -15,7 +15,7 @@
 | 完整性 | checksum / CRC-32、损坏与截断的错误码区分 |
 | 格式演进 | varint 编码、magic number 与版本号、保留字段与兼容策略 |
 
-这个阶段只涉及字节序（大端/小端/网络字节序）、结构体对齐与 padding、sizeof/offsetof、位运算掩码移位、二进制 record 与 length-prefix frame 的安全解析、checksum/CRC、varint、magic number 与版本号，**不涉及 mmap、Page Cache 与 fsync 刷盘语义（ph13）、跨语言互操作 ABI（ph14）、存储引擎的完整 WAL/MemTable/SSTable 实现（ph16）和网络 socket 编程（ph08）** — 那些是 ph13 mmap、Page Cache 与可靠文件 IO 阶段、ph14 C 与 C++ / Python / Rust 互操作阶段、ph16 数据库存储引擎基础阶段和 ph08 Linux 系统编程阶段的内容；位域（bit-field）布局是实现定义的，本阶段只做对照演示，**不用于跨平台格式**；并发与内存序不属于本阶段（衔接 ph08，深入属并发专题）。
+这个阶段只涉及字节序（大端/小端/网络字节序）、结构体对齐与 padding、sizeof/offsetof、位运算掩码移位、二进制 record 与 length-prefix frame 的安全解析、checksum/CRC、varint、magic number 与版本号，**不涉及 mmap、Page Cache 与 fsync 刷盘语义（ph13，roadmap 第 13 节，目录待建）、跨语言互操作 ABI（ph14，roadmap 第 14 节，目录待建）、存储引擎的完整 WAL/MemTable/SSTable 实现（ph16，roadmap 第 16 节，目录待建）和网络 socket 编程（ph08）** — 那些是 ph13 mmap、Page Cache 与可靠文件 IO 阶段、ph14 C 与 C++ / Python / Rust 互操作阶段、ph16 数据库存储引擎基础阶段和 ph08 Linux 系统编程阶段的内容；位域（bit-field）布局是实现定义的，本阶段只做对照演示，**不用于跨平台格式**；并发与内存序不属于本阶段（衔接 ph08，深入属并发专题）。
 
 ## 2. 来源与演变
 
@@ -30,7 +30,7 @@
 | RFC 791 / 1700 | 1981 / 1994 | 网络字节序统一为大端；htonl/ntohl 进入 POSIX |
 | PNG 1.0 | 1996 | magic + 分块长度 + CRC-32 成为文件格式标准形态 |
 | protobuf | 2008 | varint 让"紧凑、自描述、跨语言"成为序列化主流 |
-| C11 | 2011 | _Alignof/_Alignas/offsetof 进入标准，显式对齐可控 |
+| C11 | 2011 | _Alignof/_Alignas 进入标准（offsetof 自 C89 已有），显式对齐可控 |
 
 本文示例以 **C11** 为基线（C99 之后、C23 普及之前，GCC/Clang/MSVC 支持度最一致的公共子集，与 ph11 同一口径）。验证工具链：**Apple clang 21.0.0（`cc`，macOS Darwin arm64）**，全部代码 `-Wall -Wextra -std=c11` 零警告编译运行。`htonl`/`ntohl` 属于 POSIX（`arpa/inet.h`）而非标准 C，本阶段以"显式逐字节组装/拆解"为主、POSIX 函数仅作对照——显式读写是任何平台都可移植的写法。字节序与对齐的事实（"低地址放低位还是高位""int 对齐到 4 字节"）由硬件决定、数十年稳定，本阶段讲的位级处理方法短期内不会过时。
 
@@ -80,7 +80,7 @@ static void write_be32(uint8_t *p, uint32_t v) {
 | `htonl(x)` / `ntohl(x)` | POSIX / winsock | 单机小工具、协议栈内部 |
 | 显式 `read_be32` / `write_be32` | 任何 C 编译器 | 文件格式、库代码、跨平台发布 |
 
-`examples/ex01-endian.c` 在小端机器上实测：`htonl(0x01020304)` 首 4 字节为 `01 02 03 04`，且 `htonl(x) == swap32(x)`（小端平台上网络序转换就是字节翻转），`ntohl(htonl(x)) == x` 往返不变。**要点**：网络传输、文件落盘时"多字节字段必须明确字节序"（roadmap 必会概念）——显式读写把这句话变成代码，任何平台读同一字节流都得同一结果。
+`examples/ex01-endian.c` 在小端机器上实测：`htonl(0x01020304)` 首 4 字节为 `01 02 03 04`，且 `ntohl(htonl(x)) == x` 往返不变；小端平台上 `htonl(x) == swap32(x)`（网络序转换就是字节翻转）由练习 2 的参考实现 `sol-02-endian-swap.c` 验证。**要点**：网络传输、文件落盘时"多字节字段必须明确字节序"（roadmap 必会概念）——显式读写把这句话变成代码，任何平台读同一字节流都得同一结果。
 
 ### 3.3 结构体对齐与 padding：sizeof 不等于字段大小之和
 
@@ -120,11 +120,11 @@ struct __attribute__((packed)) SP {   /* 编译器扩展：取消填充 */
 S1       sizeof=12 align=4  offsetof: a=0 b=4 c=8
 S2       sizeof=8  align=4  offsetof: a=4 b=0 c=5
 SP       sizeof=6  align=1  offsetof: a=0 b=1 c=5
-Align16  sizeof=16 align=16 offsetof: a=0 b=8 c=0
+Align16  sizeof=16 align=16  offsetof: a=0 b=8 c=0
 ```
 
 - `offsetof` 是**编译期常量**，可用来做 `_Static_assert`（ph09 已示范）：把"字段必须在这个偏移"写进编译期契约
-- `_Alignas(16)` 可强制**对象**按 16 对齐（C11 标准，作用于变量声明）；给结构体**类型**指定对齐用 `__attribute__((aligned(16)))`（GNU 扩展）——`_Alignas` 不能直接修饰 struct 类型（实测 clang 报 "attribute only applies to variables and fields"）
+- `_Alignas(16)` 可强制**对象**按 16 对齐（C11 标准，作用于变量声明）；给结构体**类型**指定对齐用 `__attribute__((aligned(16)))`（GNU 扩展）——`_Alignas` 不能直接修饰 struct 类型（实测 clang 报 "'_Alignas' attribute ignored [-Wignored-attributes]" 警告，修饰被忽略）
 - **struct 的 sizeof/偏移是编译期事实，但换了编译器/平台就变**——这正是 ph06 说的"跨机器迁移要考虑 padding 与字节序"的落点：严谨的二进制格式不依赖 struct 布局，而是显式定义字节偏移
 
 ### 3.5 位运算、掩码与移位：flags 打包与字段提取
@@ -196,7 +196,7 @@ static int record_parse(const uint8_t *buf, size_t avail, size_t off,
 }
 ```
 
-流水线五步：**① 长度先校验（头部）→ ② magic → ③ 版本 → ④ 字段合法性 → ⑤ payload 长度校验 → ⑥ checksum → 才读取字段**。顺序不能乱——长度校验永远在读取之前（roadmap 必会概念"多数二进制解析应先检查长度再读取字段"），错误码区分"截断 / 非本格式 / 版本旧 / 损坏"四类，让调用方能给出准确诊断。`examples/ex04-record.c` 实测：正常 2 条 record 全部通过（CRC 校验通过）；翻转 payload 一字节 → `PARSE_CRC`；payload 截到一半 → `PARSE_TRUNC`。
+流水线六步：**① 长度先校验（头部）→ ② magic → ③ 版本 → ④ 字段合法性 → ⑤ payload 长度校验 → ⑥ checksum → 才读取字段**。顺序不能乱——长度校验永远在读取之前（roadmap 必会概念"多数二进制解析应先检查长度再读取字段"），错误码区分"截断 / 非本格式 / 版本旧 / 类型非法 / 损坏"五类，让调用方能给出准确诊断。`examples/ex04-record.c` 实测：正常 2 条 record 全部通过（CRC 校验通过）；翻转 payload 一字节 → `PARSE_CRC`；payload 截到一半 → `PARSE_TRUNC`。
 
 > 本阶段只讲"内存字节流"的安全解析；**从文件/网络读到字节流本身（read/write、socket）属于 ph06/ph08 阶段**，这里把"已到手的字节流"当作起点。
 
@@ -297,7 +297,7 @@ static size_t varint_decode(const uint8_t *in, size_t avail, uint32_t *out) {
 
 ### 3.10 magic number 与版本号：文件格式的身份证
 
-**magic number** 是文件/记录开头的固定字节序列，让工具一读就能回答"这是不是我的文件"（`file` 命令、PNG 的 `\x89PNG`、ELF 的 `\x7fELF` 都是）。**版本号**回答"这是哪个时代的格式"。两者加上 checksum 构成 roadmaps 必会概念"**二进制格式要考虑版本兼容和损坏检测**"的完整契约：
+**magic number** 是文件/记录开头的固定字节序列，让工具一读就能回答"这是不是我的文件"（`file` 命令、PNG 的 `\x89PNG`、ELF 的 `\x7fELF` 都是）。**版本号**回答"这是哪个时代的格式"。两者加上 checksum 构成 roadmap 必会概念"**二进制格式要考虑版本兼容和损坏检测**"的完整契约：
 
 | 组件 | 作用 | 坏文件的表现 |
 |------|------|-------------|
@@ -443,7 +443,7 @@ cc -Wall -Wextra -std=c11 examples/ex02-align.c -o /tmp/ph12/ex02
 S1       sizeof=12 align=4  offsetof: a=0 b=4 c=8
 S2       sizeof=8  align=4  offsetof: a=4 b=0 c=5
 SP       sizeof=6  align=1  offsetof: a=0 b=1 c=5
-Align16  sizeof=16 align=16 offsetof: a=0 b=8 c=0
+Align16  sizeof=16 align=16  offsetof: a=0 b=8 c=0
 memcpy 解析: b=0x44332211 a=0x55 c=0x66（b 的字节序随平台!）
 ```
 
@@ -599,7 +599,6 @@ cc -Wall -Wextra -std=c11 examples/ex05-frame.c -o /tmp/ph12/ex05
   解出 frame: "hi" (2 字节)
 喂入 5 字节 → 还差数据
 ...
-共解出 3 个 frame
 截断场景: 喂 2 字节(长度=16) → 还差数据
 超限场景: 长度=0xFFFF(>上限 4096) → 长度非法
 ```

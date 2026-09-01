@@ -100,6 +100,9 @@ func ParseTraceparent(h string) (SpanContext, error) {
 	if _, err := hex.DecodeString(spanID); err != nil {
 		return SpanContext{}, fmt.Errorf("traceparent %q: span_id not hex", h)
 	}
+	// 教学简化：W3C 规范按 flags 字节的 bit0 判采样（如 flags="03" 的 bit0=1 也应视为 sampled），
+	// 且 flags 应为 2 位 hex（本实现未校验长度/hex）。此处只精确匹配 "01" 作为最小实现——
+	// 生产解析用官方 otel SDK 的 traceparent 语义（主文档 3.7：接官方库只是换实现）。
 	sampled := flags == "01"
 	return SpanContext{TraceID: traceID, SpanID: spanID, Sampled: sampled}, nil
 }

@@ -15,16 +15,16 @@
 
 ## 实测数据（本环境跑出，如实记录）
 
-全部示例通过 `gofmt -l`（零差异）、`go vet ./...`（零报告）、`go test ./...`（行为符合预期）；ex04/ex05 另过 `go test -race ./...`（无数据竞争）。覆盖率为本机实际输出（`go test -cover`）：
+全部示例通过 `gofmt -l`（零差异）、`go vet ./...`（零报告）、`go test ./...`（行为符合预期）；ex04/ex05 另过 `go test -race ./...`（ex04 的指标值由各指标自带的互斥锁保护，-race 含「/metrics 渲染与业务请求并发」测试，零数据竞争）。覆盖率为本机实际输出（`go test -cover`）：
 
 | 示例 | go test -cover | 备注 |
 |------|----------------|------|
-| ex01-health-graceful | 47.3% | 5 个用例全过（healthz 恒 200/readyz 503→200/业务口径/Shutdown 等在途/未知路径） |
-| ex02-config-12factor | 73.8% | 5 个用例全过（默认值/覆盖/必填 errors.Is/非法值×5/指标开关） |
-| ex03-slog-json | 50.0% | 5 个用例全过（JSON 行合法/级别过滤/With 继承/handler 双分支/InfoContext） |
-| ex04-prometheus-metrics | 69.8% | 7 个用例全过（exposition 语法/counter 单调/标签排序转义/formatFloat/抓取/计数反映/在途归零） |
-| ex05-traceparent | 52.5% | 6 个用例全过（55 字符格式/子 span 继承/round-trip/非法头拒绝/缺头/注入提取/链路打通） |
-| ex06-containerize | 47.4% | 3 个用例全过（healthz 200/根路径标识/未知路径 404）；服务本体与 Docker 无关 |
+| ex01-health-graceful | 47.3% | 6 个测试函数全过（healthz 恒 200/readyz 503→200 含业务口径/未知路径/Shutdown 等在途/信号注册） |
+| ex02-config-12factor | 73.8% | 6 个测试函数全过（默认值/覆盖/必填 errors.Is/非法值×5/指标开关/脱敏） |
+| ex03-slog-json | 50.0% | 5 个测试函数全过（JSON 行合法/级别过滤/With 继承/handler 双分支/InfoContext） |
+| ex04-prometheus-metrics | 72.5% | 9 个测试函数全过（exposition 语法/counter 单调/标签排序转义/formatFloat/抓取与计数反映/在途归零/并发抓取+流量 -race） |
+| ex05-traceparent | 52.5% | 7 个测试函数全过（55 字符格式/子 span 继承/round-trip/非法头拒绝/缺头/注入提取/链路打通） |
+| ex06-containerize | 47.4% | 3 个测试函数全过（healthz 200/根路径标识/未知路径 404）；服务本体与 Docker 无关 |
 
 ## Docker 实测记录（本环境如实标注）
 

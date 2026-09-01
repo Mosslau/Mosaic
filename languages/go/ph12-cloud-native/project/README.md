@@ -23,7 +23,7 @@ project/
 │   ├── config/                  # 12-Factor 配置：默认值/覆盖/校验/MaskDBURL
 │   ├── metrics/                 # 手工 Prometheus 指标库（counter/gauge/histogram/registry）
 │   └── server/                  # HTTP 层：探针 + /metrics + 业务接口 + 指标埋点
-├── deploy/k8s/                  # Deployment + Service + ConfigMap + Ingress
+├── deploy/k8s/                  # ConfigMap + Secret（演示值）+ Deployment + Service + Ingress
 ├── Dockerfile                   # 多阶段构建（builder → scratch）
 ├── compose.yaml                 # 本地单命令起服务
 ├── go.mod
@@ -39,7 +39,7 @@ project/
 - [x] slog JSON 日志：AddSource + 请求级字段 + DB_URL 密码脱敏 + 级别过滤
 - [x] SIGTERM 优雅退出：摘 readiness → Shutdown 等在途 → 超时兜底
 - [x] Dockerfile 多阶段构建（CGO_ENABLED=0、非 root、scratch 运行）
-- [x] K8s 清单：滚动更新 + liveness/readiness probe + ConfigMap + Secret 引用 + Ingress
+- [x] K8s 清单：滚动更新 + liveness/readiness probe + ConfigMap + Secret（演示资源，见 deploy/k8s/secret.yaml）+ Ingress
 
 ## 验收标准
 
@@ -70,11 +70,13 @@ curl -s http://127.0.0.1:58010/healthz && curl -s http://127.0.0.1:58010/readyz
 - Kubernetes 部署（需 K8s 集群；本机无集群则如实标注「未在本环境验证（需 Kubernetes 环境）」）：
 
 ```bash
-kubectl apply -f deploy/k8s/          # ConfigMap + Deployment + Service + Ingress
+kubectl apply -f deploy/k8s/          # ConfigMap + Secret（演示值）+ Deployment + Service + Ingress
 kubectl rollout status deploy/ph12-api
-kubectl get pods -l app=ph12-api      # 2/2 Ready（readiness 探针通过）
+kubectl get pods -l app=ph12-api      # 2/2 Ready（readiness 探针通过；Secret 已随 apply 创建，Deployment 引用可解析）
 kubectl get svc ph12-api
 ```
+
+> Secret（deploy/k8s/secret.yaml）内的 db-url 是**演示值**（base64 明文仅供教学展示 Secret 形态）；生产环境用外部 Secret 管理（sealed-secrets / External Secrets Operator / KMS），不要把真实凭据写进仓库。
 
 ## 验证环境
 
@@ -102,5 +104,5 @@ kill -TERM <pid>
 - **接真实数据源**：`/api/devices/{id}` 的返回接入 ph10 数据库阶段的连接池与查询（现在为模板占位）
 - **gRPC 化**：把 HTTP 接口换成 ph11 的 gRPC 服务，/metrics 与探针保持不变（部署层与协议解耦）
 - **接入 OpenTelemetry SDK**：把 traceparent 上下文（examples/ex05 概念版）换成官方 otel-go SDK 的自动埋点，上报 Jaeger（需第三方依赖，本环境未验证）
-- **服务网格/API Gateway**：Ingress 换成 Istio/Envoy 的 VirtualService 做金丝雀发布与流量治理（属本阶段 3.7 的延伸）
+- **服务网格/API Gateway**：Ingress 换成 Istio/Envoy 的 VirtualService 做金丝雀发布与流量治理（属本阶段 3.8 的延伸）
 - **镜像体积对照**：用 `docker images` 对比 golang:1.25-alpine（~300MB）vs 本模板 scratch（~10MB），体会多阶段构建收益

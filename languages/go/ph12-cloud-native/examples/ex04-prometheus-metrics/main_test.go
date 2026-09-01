@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -217,4 +218,62 @@ func TestInflightTracking(t *testing.T) {
 	if m.inflight.value != 0 {
 		t.Fatalf("inflight 应归零, got %v", m.inflight.value)
 	}
+}
+
+// TestConcurrentScrapeAndTraffic：/metrics 渲染（读指标）与业务请求（写指标）并发——
+// 模拟 Prometheus 每 10s 抓取期间持续有业务流量。指标值由各指标自带的互斥锁保护，
+// 用 -race 验证零数据竞争（曾因指标无锁而失败，见场景 D 审计；此为防回归测试）。
+func TestConcurrentScrapeAndTraffic(t *testing.T) {
+	reg := newRegistry()
+	m := newAppMetrics()
+	m.registerAll(reg)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /metrics", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+		_, _ = w.Write([]byte(reg.Render()))
+	})
+	mux.HandleFunc("GET /api/hello", func(w http.ResponseWriter, r *http.Request) {
+		m.inflight.Inc()
+		defer m.inflight.Dec()
+		m.reqTotal.Inc()
+		if r.URL.Query().Get("name") == "" {
+			m.reqErrors.Inc()
+		}
+		m.latencyHist.Observe(0.001)
+		_, _ = w.Write([]byte("ok"))
+	})
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	srv := &http.Server{Handler: mux}
+	go func() { _ = srv.Serve(ln) }()
+	defer srv.Close()
+	base := "http://" + ln.Addr().String()
+
+	var wg sync.WaitGroup
+	for i := 0; i < 4; i++ {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 200; j++ {
+				resp, err := http.Get(base + "/api/hello?name=x")
+				if err == nil {
+					resp.Body.Close()
+				}
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 200; j++ {
+				resp, err := http.Get(base + "/metrics")
+				if err == nil {
+					resp.Body.Close()
+				}
+			}
+		}()
+	}
+	wg.Wait()
 }

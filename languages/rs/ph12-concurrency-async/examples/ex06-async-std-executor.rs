@@ -51,7 +51,7 @@ impl Future for Timer {
                 self.armed = true;
                 let waker = cx.waker().clone(); // 拿到"唤醒令牌"
                 let deadline = self.deadline;
-                // 教学简化：一个计时线程负责到点唤醒（tokio 用 I/O 事件循环，不占线程）
+                // 教学简化：每个 Timer 各起一个计时线程负责到点唤醒（tokio 用 I/O 事件循环，不占线程）
                 thread::spawn(move || {
                     let now = Instant::now();
                     if deadline > now {

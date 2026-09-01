@@ -30,7 +30,9 @@ import (
 // ---- 指标注册表：metric 名 -> 样本，全部用 sync.Mutex 保护（/metrics 与业务并发写）----
 
 // Counter 只增不减的计数：请求总数、错误总数。重置只能靠进程重启。
+// mu 保护 value：/metrics 渲染（读）与业务 handler（写）并发，读写都加锁（练习 4 的要求）。
 type Counter struct {
+	mu     sync.Mutex
 	name   string
 	help   string
 	labels map[string]string
@@ -43,10 +45,16 @@ func newCounter(name, help string, labels map[string]string) *Counter {
 
 func (c *Counter) Inc() { c.Add(1) }
 
-func (c *Counter) Add(v float64) { c.value += v }
+func (c *Counter) Add(v float64) {
+	c.mu.Lock()
+	c.value += v
+	c.mu.Unlock()
+}
 
 // render 输出一行样本（标签按 key 排序，保证输出稳定、可 diff）
 func (c *Counter) render(sb *strings.Builder) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	fmt.Fprintf(sb, "# HELP %s %s\n", c.name, c.help)
 	fmt.Fprintf(sb, "# TYPE %s counter\n", c.name)
 	sb.WriteString(c.name)
@@ -56,6 +64,7 @@ func (c *Counter) render(sb *strings.Builder) {
 
 // Gauge 可增可减的当前值：在途请求数、队列长度、最后处理时间戳。
 type Gauge struct {
+	mu     sync.Mutex
 	name   string
 	help   string
 	labels map[string]string
@@ -66,13 +75,27 @@ func newGauge(name, help string, labels map[string]string) *Gauge {
 	return &Gauge{name: name, help: help, labels: labels}
 }
 
-func (g *Gauge) Inc() { g.value++ }
+func (g *Gauge) Inc() {
+	g.mu.Lock()
+	g.value++
+	g.mu.Unlock()
+}
 
-func (g *Gauge) Dec() { g.value-- }
+func (g *Gauge) Dec() {
+	g.mu.Lock()
+	g.value--
+	g.mu.Unlock()
+}
 
-func (g *Gauge) Set(v float64) { g.value = v }
+func (g *Gauge) Set(v float64) {
+	g.mu.Lock()
+	g.value = v
+	g.mu.Unlock()
+}
 
 func (g *Gauge) render(sb *strings.Builder) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	fmt.Fprintf(sb, "# HELP %s %s\n", g.name, g.help)
 	fmt.Fprintf(sb, "# TYPE %s gauge\n", g.name)
 	sb.WriteString(g.name)
@@ -83,6 +106,7 @@ func (g *Gauge) render(sb *strings.Builder) {
 // Histogram 观测值分布：按桶（bucket）计数，_bucket{le="..."} 为"小于等于该上界的样本数"，
 // 另加 _sum（总和）与 _count（样本数）。用于延迟/大小分布，PromQL 里可算分位数。
 type Histogram struct {
+	mu      sync.Mutex
 	name    string
 	help    string
 	buckets []float64 // 桶上界（升序）
@@ -97,6 +121,8 @@ func newHistogram(name, help string, buckets []float64) *Histogram {
 
 // Observe 记录一个观测值：找到第一个 >= v 的桶，给该桶及其后所有累计桶 +1
 func (h *Histogram) Observe(v float64) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	h.sum += v
 	h.count++
 	for i, b := range h.buckets {
@@ -107,6 +133,8 @@ func (h *Histogram) Observe(v float64) {
 }
 
 func (h *Histogram) render(sb *strings.Builder) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	fmt.Fprintf(sb, "# HELP %s %s\n", h.name, h.help)
 	fmt.Fprintf(sb, "# TYPE %s histogram\n", h.name)
 	for i, b := range h.buckets {

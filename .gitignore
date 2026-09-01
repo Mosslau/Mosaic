@@ -81,3 +81,7 @@ languages/java/ph11-build-tooling/examples/build-app/
 languages/java/ph11-build-tooling/examples/**/*.jar
 languages/java/ph11-build-tooling/examples/runtime-min/
 languages/java/ph11-build-tooling/examples/runtime-base/
+
+# c ph12 构建产物（make 生成）
+languages/c/ph12-endian-binary/project/wal_tool
+languages/c/ph12-endian-binary/project/wal_tool.dSYM/

@@ -44,7 +44,21 @@ Go 云原生与部署阶段的目标是（引用 Roadmap）：**能把 Go 服务
 
 ## 3. 语法与参数
 
-### 3.1 12-Factor 与配置管理（环境变量）
+### 3.1 Linux 运行环境基础（部署的宿主）
+
+本阶段所有部署物（Docker 容器、K8s Pod、CI runner）都运行在 Linux 上，先补齐"部署相关"的最小 Linux 心智——**进程是部署的最小单位**：
+
+| 概念 | 部署中的含义 |
+|------|-------------|
+| 进程与 PID | 容器里 PID 1 是 ENTRYPOINT 进程（4.1 展开）；`kill -TERM <pid>` 发优雅退出信号 |
+| 信号 | SIGTERM（优雅退出）/SIGINT（Ctrl+C）/SIGKILL（强杀，Go 无法拦截）——优雅退出靠 SIGTERM（示例 1） |
+| 环境变量 | 进程级配置注入通道（3.2 的 12-Factor 落地）；`PORT=8080 go run .` 一行注入 |
+| 端口与监听 | `lsof -iTCP:58001` / `netstat -tlnp` 排查端口占用；服务监听 `:port`（所有网卡）才能被容器外部访问 |
+| 权限 | 容器非 root 运行（USER 65532）；宿主上可执行位/属主决定权限 |
+
+Linux 系统管理（文件系统布局、用户与权限模型、systemd 服务管理）超出本阶段范围，这里只需"进程、信号、环境变量、端口"四个部署概念——它们直接对应后面 Docker/K8s 里的 PID 1、SIGTERM 优雅退出、env 注入与 ports 映射。
+
+### 3.2 12-Factor 与配置管理（环境变量）
 
 **12-Factor（2011，Heroku 提出的 SaaS 应用方法论）是本阶段配置哲学的地基**，其中与本阶段直接相关的三条：**配置存于环境（III）**、**进程无状态（VI）**、**日志是事件流（XI）**。配置（数据库地址、密钥、feature 开关）必须与代码分离——镜像不携带任何环境特定信息，部署时由环境变量注入（K8s 的 ConfigMap/Secret 就是注入通道）：
 
@@ -72,7 +86,7 @@ func Load(getenv func(string) string) (Config, error) {   // getenv 注入：测
 
 > 配置中心的完整形态（etcd/Consul/Nacos、动态下发、feature flag）属 ph20 配置管理与发布策略阶段，这里只落地"环境变量注入"这一最小可靠形态——它已覆盖本阶段部署需求的 90%。
 
-### 3.2 Dockerfile 与多阶段构建
+### 3.3 Dockerfile 与多阶段构建
 
 **Dockerfile 是镜像的"构建脚本"**：`FROM` 选基础镜像 → `COPY` 拷入文件 → `RUN` 执行构建命令 → `ENTRYPOINT` 定义启动命令。**多阶段构建（multi-stage build）是本阶段必会**——第一个阶段（builder）用完整工具链编译，最后一个阶段（runtime）只拷贝产物，镜像只含二进制：
 
@@ -94,7 +108,7 @@ ENTRYPOINT ["/server"]
 
 要点：**`CGO_ENABLED=0` 是 Go 容器化的前提**——纯静态链接，运行时不需要 glibc，scratch/distroless 才能跑；**`-trimpath` 去掉构建机绝对路径**（可复现构建，不同机器产出一致）；**`-ldflags="-s -w"` 去掉符号表与 DWARF**（瘦身）；**`USER 非 root`**（容器内以普通用户运行，防提权）；**层缓存**：先拷 go.mod 再 `go mod download`，依赖层不变时后续层直接命中缓存。**坑：基础镜像要固定 tag**（`golang:1.25-alpine` 而非 `golang:latest`）——latest 漂移导致"昨天能构建今天不能"。
 
-### 3.3 Docker Compose（本地/单机多服务编排）
+### 3.4 Docker Compose（本地/单机多服务编排）
 
 **Compose 用 YAML 声明"一台机器上的多个容器"**——本阶段用它做本地开发环境（起 Go 服务 + MySQL + Redis）与 CI 里的集成测试环境：
 
@@ -109,11 +123,13 @@ services:
     restart: unless-stopped
 ```
 
-要点：**ports 映射是"宿主:容器"**（容器内监听 :58006，宿主从 58006 访问）；**environment 是配置注入通道**（与 3.1 呼应）；**depends_on/healthcheck 控制依赖顺序**（等依赖健康再启动下游）；**Compose 是"开发/单机"工具，生产多机编排交给 Kubernetes**——两者的 YAML 心智一致（声明期望状态），但 K8s 多了调度、自愈、水平扩展。
+要点：**ports 映射是"宿主:容器"**（容器内监听 :58006，宿主从 58006 访问）；**environment 是配置注入通道**（与 3.2 呼应）；**depends_on/healthcheck 控制依赖顺序**（等依赖健康再启动下游）；**Compose 是"开发/单机"工具，生产多机编排交给 Kubernetes**——两者的 YAML 心智一致（声明期望状态），但 K8s 多了调度、自愈、水平扩展。
 
-> Compose 起 Go + MySQL + Redis 的完整服务栈练习见练习 5 提示（需 docker 环境）；`healthcheck` 在 scratch 镜像里因无 shell/wget 而受限——生产探针的标准做法是 K8s probe（见 3.4），这是"探针放哪一层"的关键判断。
+Compose 起 Go + MySQL + Redis 的完整服务栈练习见练习 5 提示（需 docker 环境，sol-05/compose.yaml 已含三个服务）。
 
-### 3.4 Kubernetes：核心对象与探针
+> **注意**：`healthcheck` 在 scratch 镜像里因无 shell/wget 而受限——生产探针的标准做法是 K8s probe（见 3.5），这是"探针放哪一层"的关键判断。
+
+### 3.5 Kubernetes：核心对象与探针
 
 **Kubernetes 是"容器集群的操作系统"**：你声明期望状态（Deployment: 我要 2 个副本），控制面持续把实际状态收敛到期望状态（多了杀掉、少了拉起、挂了重启）。本阶段必须掌握五个对象：
 
@@ -144,14 +160,14 @@ readinessProbe:                # 就绪探针：失败 → 从 Service 摘除（
 
 > Deployment 的滚动更新只是"部署形态"的灰度（按副本比例换新）；feature flag 级别的灰度开关（按用户/流量比例放量）属 ph20 配置管理与发布策略阶段。
 
-### 3.5 Helm 与 CI/CD
+### 3.6 Helm 与 CI/CD
 
 **Helm 是 Kubernetes 的包管理器**：把 Deployment/Service/ConfigMap 等清单模板化成 Chart（`templates/` 里的 Go template + `values.yaml` 的变量），一条 `helm install` 部署整套应用、`helm upgrade` 升级、`helm rollback` 回滚——解决"同一个应用在 dev/staging/prod 三套清单手改"的重复问题。本阶段掌握心智：**Chart = 模板 + values；values 分离环境差异**（不同环境 `-f values-prod.yaml`）。
 
 **CI/CD 是把"本地验证"变成"每次提交自动验证与发布"的流水线**：CI（持续集成）在提交后自动跑测试/构建/镜像推送，CD（持续部署）把通过的门禁自动部署到环境。Go 项目的流水线骨架（GitHub Actions YAML）：
 
 ```yaml
-# 完整可运行版见主文档 3.5 下方说明（GitHub Actions / GitLab CI 的对应写法）
+# 流水线骨架无独立示例文件（CI 需云端账号实测，见主文档 3.6 说明）
 name: ci
 on: [push, pull_request]
 jobs:
@@ -168,9 +184,9 @@ jobs:
 
 要点：**CI 的门禁 = 本地命令的自动重放**（ph08 起养成的 `go vet` / `go test -race` 习惯原样进流水线）；**CD 的部署步骤 = 本阶段前面的全部命令**（docker build → 推镜像仓库 → kubectl/helm 更新集群）；**流水线即代码**（YAML 进 git，改流水线走 review）；**坑：CI 里不要 `latest` tag**——用 commit SHA 或语义化版本 tag，才能回滚到"构建出这个镜像的那次提交"。
 
-> GitHub Actions 与 GitLab CI 本机无法实测（需云端账号），本节命令标注「未在本环境验证」——但流水线内容就是本地命令的编排，本地全绿是前提。
+GitHub Actions 与 GitLab CI 本机无法实测（需云端账号），本节命令标注「未在本环境验证」——但流水线内容就是本地命令的编排，本地全绿是前提。
 
-### 3.6 可观测性：日志、指标、追踪（三支柱落地）
+### 3.7 可观测性：日志、指标、追踪（三支柱落地）
 
 ph11 讲过可观测性三支柱概念（日志看细节、指标看趋势、追踪看链路），本阶段把它们**接入工具链**：
 
@@ -210,11 +226,11 @@ parent, err := ParseTraceparent(h)        // B 收到：解析父上下文
 span := NewChild(parent)                  // B 开子 span：parent.SpanID → 本 span 的 ParentID，链被接上
 ```
 
-要点：**三支柱各司其职、缺一不可**——日志定位细节（"这个请求为什么失败"）、指标看趋势（"错误率在上升"）、追踪看链路（"慢在哪一跳"）；**本阶段用标准库手写 exposition 与 traceparent**（理解协议本质），生产接入 `prometheus/client_golang` 与 `go.opentelemetry.io/otel` SDK 只是"把手工实现换成官方库"（ph11 的 gRPC interceptor 是接入点）；**Grafana 消费 Prometheus 数据做可视化**（Query: `rate(http_requests_errors_total[5m]) / rate(http_requests_total[5m])` 即错误率）。
+要点：**三支柱各司其职、缺一不可**——日志定位细节（"这个请求为什么失败"）、指标看趋势（"错误率在上升"）、追踪看链路（"慢在哪一跳"）；**本阶段用标准库手写 exposition 与 traceparent**（理解协议本质），生产接入 `prometheus/client_golang` 与 `go.opentelemetry.io/otel` SDK 只是"把手工实现换成官方库"（ph11 的 gRPC interceptor 是接入点）；**Grafana 消费 Prometheus 数据做可视化**（Query: `rate(http_requests_errors_total[5m]) / rate(http_requests_total[5m])` 即错误率）。**告警（Prometheus rule + Alertmanager）**把"指标阈值"变成"主动通知"（如错误率 > 5% 连续 5 分钟触发告警）——本阶段覆盖到"采集 → 展示"，告警规则的阈值设计属生产运维实践，超出本阶段范围（roadmap 未单列阶段，作为 ph12 的延伸练习）。
 
-> 指标/追踪的完整生产接入（client_golang、otel SDK、Grafana 面板搭建）需要第三方依赖与可观测平台，本环境标注「未在本环境验证」；exposition 格式与 traceparent 协议本身已验证可跑通。
+指标/追踪的完整生产接入（client_golang、otel SDK、Grafana 面板搭建）需要第三方依赖与可观测平台，本环境标注「未在本环境验证」；exposition 格式与 traceparent 协议本身已验证可跑通。
 
-### 3.7 API Gateway 与灰度发布
+### 3.8 API Gateway 与灰度发布
 
 **API Gateway（API 网关）是集群流量的统一入口**：客户端只面对网关，网关负责**路由（按路径/域名分发到服务）、鉴权、限流、协议转换（HTTP→gRPC）、灰度分流**——它是 ph11 注册发现的"入口侧"补全（注册发现解决服务间互调，网关解决外部流量怎么进来）。生产代表：Kong、APISIX、Envoy（Istio 的数据面）。**K8s 集群内的最小形态是 Ingress**（把外部 HTTP 流量按 host/path 路由到 Service，project/deploy/k8s 有示例）：
 
@@ -233,9 +249,9 @@ spec:
             backend: { service: { name: ph12-api, port: { number: 80 } } }
 ```
 
-**灰度发布（Canary Release）与滚动升级（Rolling Update）**：滚动升级是"按副本比例换新版本"（3.4 的 strategy），灰度发布是"新版本先接一小部分流量验证，再逐步放量"——K8s 的落地是**两个 Deployment 并存 + 入口按权重分流**（或直接用 Istio/Argo Rollouts 的流量切分）。**发布可回滚是底线**：镜像 tag 可追溯（commit SHA）+ Helm rollback / kubectl rollout undo。
+**灰度发布（Canary Release）与滚动升级（Rolling Update）**：滚动升级是"按副本比例换新版本"（3.5 的 strategy），灰度发布是"新版本先接一小部分流量验证，再逐步放量"——K8s 的落地是**两个 Deployment 并存 + 入口按权重分流**（或直接用 Istio/Argo Rollouts 的流量切分）。**发布可回滚是底线**：镜像 tag 可追溯（commit SHA）+ Helm rollback / kubectl rollout undo。
 
-要点：**API Gateway 不是"必须自己搭"的东西**——小规模用 Ingress + 云厂商负载均衡即可，规模上来再上 Kong/APISIX/Istio；**灰度与回滚依赖"配置与代码分离"**（同一镜像、不同环境变量/权重就是灰度），这正是 3.1 的 12-Factor 配置的延伸。
+要点：**API Gateway 不是"必须自己搭"的东西**——小规模用 Ingress + 云厂商负载均衡即可，规模上来再上 Kong/APISIX/Istio；**灰度与回滚依赖"配置与代码分离"**（同一镜像、不同环境变量/权重就是灰度），这正是 3.2 的 12-Factor 配置的延伸。
 
 ## 4. 底层原理
 
@@ -316,12 +332,12 @@ B 收请求：ParseTraceparent(header) → NewChild(parent)  → parent_id = A �
 
 | 场景 | 涉及知识点 |
 |------|-----------|
-| 本地开发环境（起 Go + MySQL + Redis） | Docker Compose（3.3） |
-| 生产部署 Go 服务 | 多阶段 Dockerfile + K8s Deployment（3.2/3.4） |
-| 服务上线后的存活保障 | liveness/readiness 探针 + 优雅退出（3.4/ex01） |
-| 服务可观测（查日志/看指标/找慢链路） | slog JSON + Prometheus + traceparent（3.6） |
-| 每次提交自动验证 | GitHub Actions/GitLab CI 流水线（3.5） |
-| 新版本安全上线 | 滚动更新/灰度发布 + 回滚（3.7） |
+| 本地开发环境（起 Go + MySQL + Redis） | Docker Compose（3.4） |
+| 生产部署 Go 服务 | 多阶段 Dockerfile + K8s Deployment（3.3/3.5） |
+| 服务上线后的存活保障 | liveness/readiness 探针 + 优雅退出（3.5/ex01） |
+| 服务可观测（查日志/看指标/找慢链路） | slog JSON + Prometheus + traceparent（3.7） |
+| 每次提交自动验证 | GitHub Actions/GitLab CI 流水线（3.6） |
+| 新版本安全上线 | 滚动更新/灰度发布 + 回滚（3.8） |
 
 **不适合**此阶段的事项：
 
@@ -352,14 +368,14 @@ B 收请求：ParseTraceparent(header) → NewChild(parent)  → parent_id = A �
 
 ## 6. 代码示例
 
-> 以下示例均为完整可运行 Go module，位于 [`examples/`](./examples/) 目录（每个示例一个子目录，先进入对应目录再运行）。验证环境：go1.25.6（darwin/arm64）；示例 1~5 **零第三方依赖**（标准库），示例 6 服务本体零依赖（Dockerfile/Compose 为声明式文件）。全部示例已通过 `go vet ./...`、`go test ./...`（ex04/ex05 另过 `-race`），覆盖率实测见下表（数据表与运行命令见 examples/README.md）。
+> 以下示例均为完整可运行 Go module，位于 [`examples/`](./examples/) 目录（每个示例一个子目录，先进入对应目录再运行）。验证环境：go1.25.6（darwin/arm64）；示例 1~5 **零第三方依赖**（标准库），示例 6 服务本体零依赖（Dockerfile/Compose 为声明式文件）。全部示例已通过 `go vet ./...`、`go test ./...`（ex04/ex05 另过 `-race`，ex04 的指标值由各指标自带互斥锁保护，-race 含「/metrics 渲染与业务请求并发」测试，零数据竞争），覆盖率实测见下表（数据表与运行命令见 examples/README.md）。
 
 | 示例 | 一句话说明 | go test -cover |
 |------|-----------|----------------|
 | ex01-health-graceful | 健康检查 + 优雅退出：/healthz 与 /readyz 语义、atomic.Bool 就绪、SIGTERM → Shutdown 等在途 | 47.3% |
 | ex02-config-12factor | 12-Factor 配置：环境变量加载（默认值/覆盖/必填校验/fail-fast）+ 配置驱动路由 | 73.8% |
 | ex03-slog-json | slog JSON 结构化日志：级别过滤、AddSource、With 请求级上下文、埋点、InfoContext | 50.0% |
-| ex04-prometheus-metrics | 手工 Prometheus /metrics：counter/gauge/histogram 的 text exposition 0.0.4 | 69.8% |
+| ex04-prometheus-metrics | 手工 Prometheus /metrics：counter/gauge/histogram 的 text exposition 0.0.4 | 72.5% |
 | ex05-traceparent | OpenTelemetry traceparent：W3C trace context 生成/解析/传播（A→B 链路打通） | 52.5% |
 | ex06-containerize | 容器化：多阶段 Dockerfile（builder→scratch）+ Compose + 最小健康检查服务 | 47.4%（服务本体） |
 
@@ -472,8 +488,8 @@ ENTRYPOINT ["/server"]
 - [ ] **能查看日志和指标**：slog JSON 结构化输出 + /metrics exposition 可被 Prometheus 抓取（示例 3/4）
 - [ ] **能解释 traceparent 上下文传播**：A→B 两次服务调用串起同一条 trace（trace_id 一致、parent 关系正确）（示例 5）
 - [ ] **能写 K8s 清单**：Deployment（探针 + 滚动更新）+ Service + ConfigMap/Secret + Ingress，说明每个字段的语义（project/deploy/k8s）
-- [ ] **能写 CI 流水线**：go vet / go test -race / go build 编排成 GitHub Actions/GitLab CI 的 job（3.5）
-- [ ] **能说清 API Gateway 与灰度发布**：Ingress 是集群内最小形态；滚动更新 vs 灰度发布（按副本比例 vs 按流量权重）；回滚手段（3.7）
+- [ ] **能写 CI 流水线**：go vet / go test -race / go build 编排成 GitHub Actions/GitLab CI 的 job（3.6）
+- [ ] **能说清 API Gateway 与灰度发布**：Ingress 是集群内最小形态；滚动更新 vs 灰度发布（按副本比例 vs 按流量权重）；回滚手段（3.8）
 
 ### 动手练习
 

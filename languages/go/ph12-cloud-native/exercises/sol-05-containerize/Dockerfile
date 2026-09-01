@@ -5,7 +5,9 @@
 # 阶段 1：builder —— 编译（带完整 Go 工具链，层缓存优化：依赖不变不重拉）
 FROM golang:1.25-alpine AS builder
 WORKDIR /src
-COPY service/go.mod service/go.sum* ./
+# 先拷贝 service 的 go.mod 再 go mod download：层缓存——依赖不变不重拉。
+# service 零第三方依赖、无 go.sum，所以只 COPY go.mod（写 go.sum* 会因 glob 匹配零文件导致 build 失败）
+COPY service/go.mod ./
 RUN go mod download
 COPY service/ ./
 # CGO_ENABLED=0：纯静态链接，scratch 可跑；-trimpath 可复现；-ldflags -s -w 瘦身

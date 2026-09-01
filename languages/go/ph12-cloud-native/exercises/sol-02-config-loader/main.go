@@ -10,8 +10,8 @@
 //	DB_URL=postgres://u:p@db/app go run .     # 通过
 //
 // 验证状态：已验证（go1.25.6）
-// 覆盖率：go test -cover 实测 **75.8%**（go1.25.6，9 个用例全过：默认值/覆盖/必填缺失
-// errors.As+Is/五类非法值×7/错误带字段上下文/指标开关/脱敏）
+// 覆盖率：go test -cover 实测 **75.8%**（go1.25.6，7 个测试函数全过：默认值/覆盖/必填缺失
+// errors.As+Is/非法值×7 子测试/错误带字段上下文/指标开关/脱敏）
 package main
 
 import (

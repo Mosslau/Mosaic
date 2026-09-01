@@ -113,15 +113,15 @@ observe(make("arg-temp"));            // ctor → observe → dtor（调用后�
 ```text
 # 本机实测（节选，完整输出见 examples/README.md）：
 [1] 完整表达式边界：      before / ctor expr-temp / dtor expr-temp / after
-[2] const& 绑定：         ctor extended / using r: extended / dtor extended / scope end
-[4] 函数参数：            ctor arg-temp / observe arg-temp / dtor arg-temp / after call
+[2] const& 绑定：         ctor extended / using r: extended / dtor extended / [2] scope end
+[4] 函数参数：            ctor arg-temp / observe arg-temp / dtor arg-temp / [4] after call
 ```
 
 边界（**延长不适用**的情形）：
 
 - **函数返回引用**：`const Token& f() { return Token("x"); }`——临时对象在 return 语句的完整表达式结束时销毁，引用跨出函数即悬空（F.43，见 3.3 与 `examples/ex05-dangling.cpp`）
 - **函数参数**：`observe(make("arg-temp"))`——作为参数传入的临时对象活到调用语句结束，调用期间安全；但如果函数把参数引用"存起来"逃逸出去，就悬空了
-- **数组/容器元素**：`const Token& r = Token[2]{"a","b"}[0];` 这类"绑定到 braced-init-list 数组元素"不延长（数组存储管理元素生命周期）；容器（如 `std::vector`）元素的生命周期由容器管理，扩容/析构会让引用失效——与 ph04 迭代器失效同源
+- **容器元素与 braced-init-list 引用成员**：容器（如 `std::vector`）元素的生命周期由容器管理，扩容/析构会让引用失效——与 ph04 迭代器失效同源；另一个"不延长"场景是 **braced-init-list 初始化引用成员**：`struct S { const Token& r; };` 之后 `S s{Token("x")};`，临时对象只活到完整表达式结束、`s.r` 随即悬空（C++ 里无法在表达式中直接构造临时数组，不存在"绑定到数组元素"的合法写法）
 
 **绑定到临时对象的子对象（成员）时，延长的是整个完整临时对象**（实测 ex02 场景 5：`const Token& r = Holder{Token("sub")}.t;` 中 `Holder` 临时对象整体存活到引用离开作用域）——但只限于"绑定"这个动作直接作用的对象图，别把它推广成"引用能保活任意数据"。
 
@@ -158,7 +158,7 @@ Payload make_named()   { Payload p; return p; } // NRVO：编译器决定
 - **RVO 在 `-O0` 到 `-O3` 全程零拷贝零移动**，`-fno-elide-constructors` 也关不掉——因为 C++17 把它从"优化"升级成"语义"：prvalue 根本就是"直接构造在目标位置"的表达式，没有中间对象可省略
 - **NRVO 依赖编译器**：本机 clang 21 在 `-O0` 也做 NRVO（结果零移动），但标准不保证——换编译器/换版本可能就多一次移动
 - **`return std::move(p)` 是反模式**：clang 直接告警 `-Wpessimizing-move`（实测文本），因为移动调用把命名对象变成 xvalue，编译器失去 NRVO 机会
-- **C++14 对照**：`-std=c++14 -fno-elide-constructors` 下 RVO/NRVO 都变成"ctor / MOVE / dtor / MOVE / dtor"两次移动——这就是 C++17 把保证省略写进标准的原因：**"按值返回"从"依赖优化"变成"标准承诺"**
+- **C++14 对照**：`-std=c++14 -fno-elide-constructors` 下 RVO/NRVO 都变成"ctor / MOVE / dtor / MOVE / dtor / got id=0 / dtor"两次移动——这就是 C++17 把保证省略写进标准的原因：**"按值返回"从"依赖优化"变成"标准承诺"**
 
 **必会概念落地：不要返回局部对象引用（F.43）**——需要"返回一个对象"时按值返回即可：prvalue + 保证省略让返回值零拷贝直达调用方；返回引用只会得到悬空引用（见 `examples/ex05-dangling.cpp` 的实测告警与 ASan 抓取）。roadmap §12 的示例就是最小示范：
 
@@ -197,8 +197,10 @@ struct Derived : Base {
 
 - **成员按声明顺序构造，与初始化列表的书写顺序无关**——把 `a_` 写在 `b_` 前面也不会先构造 `a_`；编译器对"初始化列表顺序与声明顺序不一致"会告警 `-Wreorder-ctor`（工程上应保持列表顺序与声明一致，零告警）
 - **函数局部静态只构造一次**：第一次调用该函数时构造，之后复用（实测两次调用只出现一次 ctor）；程序退出时所有静态对象统一按"构造完成"逆序析构（实测：函数局部静态构造完成最晚 → 最先析构，命名空间静态最后析构）
-- **⚠️ 静态初始化顺序陷阱（static initialization order fiasco）**：跨翻译单元的命名空间静态对象，构造顺序**未定义**——`a.cpp` 的静态对象依赖 `b.cpp` 的静态对象时，程序可能崩在 main 之前。工程上避免跨翻译单元依赖静态初始化顺序，需要时改用函数局部静态（首次使用初始化）或延迟初始化
-- 析构顺序规则的另一面：**析构函数里不要依赖"兄弟对象"**——成员已按逆序析构完毕，析构函数体执行时其他成员可能已析构（ph07 异常安全阶段会看到这影响异常处理路径）
+
+> ⚠️ **静态初始化顺序陷阱（static initialization order fiasco）**：跨翻译单元的命名空间静态对象，构造顺序**未定义**——`a.cpp` 的静态对象依赖 `b.cpp` 的静态对象时，程序可能崩在 main 之前。工程上避免跨翻译单元依赖静态初始化顺序，需要时改用函数局部静态（首次使用初始化）或延迟初始化
+
+- 析构顺序规则的另一面：**析构函数体执行时，成员仍全部存活**——ex04 实测 `Derived body end` 打印先于 `MemberA dtor`/`MemberB dtor`（成员在析构函数体**之后**才按声明逆序析构），析构函数体内读取成员值正常；真正需警惕的是成员之间按逆序析构（后声明者先析构）——后析构的成员不能假设声明在它之后的成员还活着
 
 ### 3.5 所有权转移：移动承载所有权
 

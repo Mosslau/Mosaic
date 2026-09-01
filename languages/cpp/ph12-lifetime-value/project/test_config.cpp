@@ -4,7 +4,7 @@
 // 编译：  c++ -std=c++20 -Wall -Wextra test_config.cpp config.cpp -o build/test_config
 // 运行：  ./build/test_config
 // 验证状态：已验证（Apple clang 21.0.0 与 Homebrew clang 21.1.8 均零警告，
-//           12 条断言全部通过，退出码 0）
+//           10 组 33 条断言全部通过，退出码 0）
 #include "config.h"
 
 #include <cstdio>

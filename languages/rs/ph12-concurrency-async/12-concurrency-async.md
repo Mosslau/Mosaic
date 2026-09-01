@@ -15,7 +15,7 @@ Rust 并发与异步阶段对应 roadmap 第 12 节，目标是**能编写线程
 | 异步基础 | `async fn`/`.await`、`Future`/`poll`/`waker`、自写极简 executor、任务调度（3.5、3.6） |
 | tokio | 任务（`tokio::spawn`）、定时器、超时与取消、异步网络 I/O、异步背压——**已验证 tokio 1.53.1**（3.7） |
 
-这个阶段只涉及 OS 线程并发（`std::thread`）、通道与共享状态的同步并发，以及 async/await 基础与 tokio 的任务/定时器/网络 I/O 演示，**不涉及文件与网络系统编程的系统化（`std::fs` 全套、TCP/UDP 编程与重试策略）、unsafe 与裸指针（`*const T`/`*mut T`、`Pin` 手工管理）、宏与元编程（`macro_rules!`/过程宏）和性能剖析与优化（profiling、criterion 基准、原子操作深入）** — 那些是 ph13 文件、网络与系统编程阶段、ph14 Unsafe Rust 与安全抽象阶段、ph15 宏与元编程阶段和 ph22 性能优化与 Profiling 阶段的内容。异步流式处理（`Stream`）与异步 trait（`async fn` in trait）只作提及，深入属后续生态阶段。承接 [ph10 智能指针阶段](../ph10-smart-pointers/10-smart-pointers.md)：`Arc` 的引用计数语义、`Mutex` 的 guard 与中毒机制；也承接 [ph11 错误处理与工程质量阶段](../ph11-error-handling/11-error-handling.md)：`?` 跨 `.await` 传播、`JoinError` 是新的错误来源。
+这个阶段只涉及 OS 线程并发（`std::thread`）、通道与共享状态的同步并发，以及 async/await 基础与 tokio 的任务/定时器/网络 I/O 演示，**不涉及文件与网络系统编程的系统化（`std::fs` 全套、TCP/UDP 编程与重试策略）、unsafe 与裸指针（`*const T`/`*mut T`、`Pin` 手工管理）、宏与元编程（`macro_rules!`/过程宏）和性能剖析与优化（profiling、criterion 基准、原子操作深入）** — 那些是 ph13 文件、网络与系统编程阶段、ph14 Unsafe Rust 与安全抽象阶段、ph15 宏与元编程阶段和 ph22 性能优化与 Profiling 阶段的内容（ph13~ph15/ph22 目录待建）。异步流式处理（`Stream`）与异步 trait（`async fn` in trait）只作提及，深入属后续生态阶段。承接 [ph10 智能指针阶段](../ph10-smart-pointers/10-smart-pointers.md)：`Arc` 的引用计数语义、`Mutex` 的 guard 与中毒机制；也承接 [ph11 错误处理与工程质量阶段](../ph11-error-handling/11-error-handling.md)：`?` 跨 `.await` 传播、`JoinError` 是新的错误来源。
 
 ## 2. 来源与演变
 
@@ -150,7 +150,7 @@ C. 消费 3 @  105ms
 
 统一原则：**临界区只放必要的共享变更**——放多了阻塞别人，放少了多付锁开销。
 
-> **锁与异步的坑**：`std::sync::MutexGuard` 不能安全地跨 `.await` 保持（编译器会因 `Send` 要求报错——持有 guard 的任务可能在线程间迁移，而 guard 不是 `Send`）；异步任务内长时间持锁或用阻塞锁会卡死整个运行时线程。**tokio 场景用 `tokio::sync::Mutex`（`.lock().await`，锁不绑线程）**——区别属于 ph12 之后的生态内容，这里先记住「异步里别用阻塞锁、别让 guard 跨 `.await`」。
+> **注意**（锁与异步的坑）：`std::sync::MutexGuard` 不能安全地跨 `.await` 保持（编译器会因 `Send` 要求报错——持有 guard 的任务可能在线程间迁移，而 guard 不是 `Send`）；异步任务内长时间持锁或用阻塞锁会卡死整个运行时线程。**tokio 场景用 `tokio::sync::Mutex`（`.lock().await`，锁不绑线程）**——区别属于 ph12 之后的生态内容，这里先记住「异步里别用阻塞锁、别让 guard 跨 `.await`」。
 
 ### 3.4 Send 与 Sync：数据竞争编译期受限
 
@@ -385,7 +385,7 @@ async fn fetch() {                编译器生成的状态机（示意）：
                                   poll = 从当前状态继续，到下一个 await 返回 Pending。
 ```
 
-所以 **Future 不占线程、没有自己的栈**——「暂停」就是把局部变量存进状态机，「恢复」就是接着状态继续跑。executor 的角色（3.6）：持有任务集合，`poll` 推进、`Pending` 挂起、waker 唤醒再 poll；tokio 在此基础上加多线程工作窃取与 epoll/kqueue 事件循环，把「定时器、网络事件」也变成 waker 的来源（对比 ex06 的「一个计时线程」教学简化）。**成本对比**：OS 线程切换走内核（微秒级），`poll` 是纯用户态函数调用（纳秒级）——这是高连接数服务必须 async 的底层原因。
+所以 **Future 不占线程、没有自己的栈**——「暂停」就是把局部变量存进状态机，「恢复」就是接着状态继续跑。executor 的角色（3.6）：持有任务集合，`poll` 推进、`Pending` 挂起、waker 唤醒再 poll；tokio 在此基础上加多线程工作窃取与 epoll/kqueue 事件循环，把「定时器、网络事件」也变成 waker 的来源（对比 ex06 的「每个 Timer 各起一个计时线程」教学简化）。**成本对比**：OS 线程切换走内核（微秒级），`poll` 是纯用户态函数调用（纳秒级）——这是高连接数服务必须 async 的底层原因。
 
 ### 4.4 背压：有界队列的流量控制
 

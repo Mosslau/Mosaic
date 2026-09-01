@@ -9,8 +9,8 @@
 //	go run .                    # 默认 127.0.0.1:59001，Ctrl+C 观察优雅退出日志
 //
 // 验证状态：已验证（go1.25.6）
-// 覆盖率：go test -cover 实测 **80.0%**（go1.25.6，7 个用例全过：healthz 恒 200/readyz 未就绪
-// 503/就绪 200/业务接口口径/Shutdown 等在途/run 信号退出/未知路径 404）
+// 覆盖率：go test -cover 实测 **80.0%**（go1.25.6，6 个测试函数全过：healthz 恒 200/readyz 未就绪
+// 503 与就绪 200/业务接口口径/Shutdown 等在途/run 信号退出/未知路径 404）
 package main
 
 import (

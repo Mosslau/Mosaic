@@ -90,7 +90,7 @@ int main(void) {
  * S1       sizeof=12 align=4  offsetof: a=0 b=4 c=8
  * S2       sizeof=8  align=4  offsetof: a=4 b=0 c=5
  * SP       sizeof=6  align=1  offsetof: a=0 b=1 c=5
- * Align16  sizeof=16 align=16 offsetof: a=0 b=8 c=0
+ * Align16  sizeof=16 align=16  offsetof: a=0 b=8 c=0
  * _Alignas(16) 局部数组地址 % 16 = 0（0 表示已按 16 对齐）
  * memcpy 解析: b=0x44332211 a=0x55 c=0x66（b 的字节序随平台!）
  * 强转指针: (struct S2 *)wire 的地址对齐 = 0 字节

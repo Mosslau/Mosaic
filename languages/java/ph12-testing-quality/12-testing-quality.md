@@ -112,6 +112,12 @@ void isBlank_shouldReturnTrue(String input) {
 }
 
 @ParameterizedTest
+@ValueSource(strings = {"abc", " a ", "x"})
+void isBlank_shouldReturnFalse(String input) {
+    assertFalse(StringUtils.isBlank(input));
+}
+
+@ParameterizedTest
 @CsvSource({
         "abc,cba",
         "hello,olleh",
@@ -136,7 +142,7 @@ static Stream<Arguments> reverseCases() {
 }
 ```
 
-- **surefire 把每次参数执行计为一个测试**：上例 4 个参数化方法 × 3/3/4/4 组数据 = 实测 `Tests run: 14`
+- **surefire 把每次参数执行计为一个测试**：上例 4 个参数化方法 × 4/3/4/3 组数据 = 实测 `Tests run: 14`
 - **数据语义要实测确认**：`@CsvSource` 中**裸空单元格 → null**、**引号包裹 `''` → 空串 `""`**——首个版本写成 `"'',"`（第二格裸空）预期 null 而失败，改为 `"'',''"` 通过；这是「参数化测试的数据语义必须用真实验证」的教材
 - 参数化测试与覆盖率的关系：6 组 `CsvSource` 数据覆盖 `isLeapYear` 的全部分支，等于 6 个手工测试方法的覆盖率效果——**表比复制粘贴更不容易漏分支**（练习 4 实测）
 
@@ -271,7 +277,7 @@ assertThatThrownBy(() -> cart.add(new Item("", 10)))
         .hasMessageContaining("商品非法");
 ```
 
-> 本阶段 JUnit 断言与 AssertJ 并行出现（示例 1/2/3 用 JUnit 断言、示例 5 与项目用 AssertJ）——**两者不冲突**：JUnit 断言是语言内置的保底，AssertJ 是让断言更可读的增强；真实工程两者混用很常见，团队定一个偏好即可。
+本阶段 JUnit 断言与 AssertJ 并行出现（示例 1/2/3 用 JUnit 断言、示例 5 与项目用 AssertJ）——**两者不冲突**：JUnit 断言是语言内置的保底，AssertJ 是让断言更可读的增强；真实工程两者混用很常见，团队定一个偏好即可。
 
 ### 3.5 集成测试：内存库与 Testcontainers
 
@@ -323,15 +329,41 @@ void save_assignsDatabaseGeneratedId() {
 | 分支 BRANCH | 条件分支两个方向都走到 ÷ 全部 | 0/0（该例无分支） |
 | 类 CLASS | 被加载执行的类 ÷ 全部 | 1/1 |
 
-**覆盖率 = 测到的 ÷ 全部**：只测 `add` 不测 `divide`，`divide` 的指令就是红色缺口。project/ 全量测试后实测：指令 92%、行 92%、方法 100%、分支 83%——**分支最低，因为错误路径（`SQLException → RuntimeException` 包装、email 为 null 的短路）没测到**，这是「覆盖率不是唯一质量指标」的活例：数字好看不等于错误路径安全，测试设计才是源头。
+**覆盖率 = 测到的 ÷ 全部**：只测 `add` 不测 `divide`，`divide` 的指令就是红色缺口。project/ 全量测试后实测：指令 92%、行 92%、方法 100%、分支 83%——**分支最低，因为错误路径（`SQLException → RuntimeException` 包装、`validateEmail` 的 email 为 null 短路、`updateEmail` 邮箱未变时的短路）没测到**，这是「覆盖率不是唯一质量指标」的活例：数字好看不等于错误路径安全，测试设计才是源头。
 
-**`javac -Xlint` 静态检查**：编译器自带的按类别开关的警告（实测，`javac -Xlint:all`）：
+**`javac -Xlint` 静态检查**：编译器自带的按类别开关的警告。故意制造「裸类型/废弃构造器/序列化无 serialVersionUID/switch 穿透」的样例（保存为 `LintDemo.java`），实测输出 6 个警告：
+
+```java
+// 6 类警告样例：rawtypes ×2、unchecked、removal、serial、fallthrough —— 保存为 LintDemo.java
+// 验证环境：OpenJDK 17.0.18，编译命令：javac -Xlint:all LintDemo.java（已验证）
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+
+public class LintDemo implements Serializable {     // [serial]：可序列化类没有 serialVersionUID
+
+    private List raw = new ArrayList();             // [rawtypes] ×2（List 与 ArrayList 各一条）
+
+    public static void main(String[] args) {
+        Integer i = new Integer(5);                 // [removal]：Integer(int) 已废弃待删
+        List<String> l = new LintDemo().raw;        // [unchecked]：裸类型 → 参数化类型的不受检转换
+        int x = 0;
+        switch (x) {                                // [fallthrough]：case 0 缺 break
+            case 0:
+                System.out.println("a");
+            case 1:
+                System.out.println("b");
+                break;
+        }
+    }
+}
+```
 
 ```bash
-# 实测：故意制造裸类型/废弃构造器/序列化无 serialVersionUID/switch 穿透的样例
+# 1. 编译（样例源码见上方代码块）
 javac -Xlint:all LintDemo.java
-# 实测输出 6 个警告：[rawtypes] ×2、[unchecked]、[removal]（Integer(int) 已废弃待删）、
-#               [serial]（可序列化类没有 serialVersionUID）、[fallthrough]（switch 缺 break）
+# 2. 实测输出 6 个警告：[rawtypes] ×2、[unchecked]、[removal]（Integer(int) 已废弃待删）、
+#    [serial]（可序列化类没有 serialVersionUID）、[fallthrough]（switch 缺 break）
 ```
 
 常用类别：`unchecked`（裸类型/未检查转换）、`deprecation`/`removal`（用了废弃 API）、`serial`（Serializable 缺 serialVersionUID）、`fallthrough`（switch 穿透）、`rawtypes`（裸泛型）。Maven 侧可在 maven-compiler-plugin 配置 `<compilerArgs><arg>-Xlint:all</arg></compilerArgs>` 让每次编译都带检查。javac 的 `-Xlint` 与 Checkstyle/SpotBugs 的分工：javac 查语言级问题、Checkstyle 查风格、SpotBugs 查缺陷模式——三者在 ph11 3.8 已介绍，本阶段把 `-Xlint` 实测落地。
@@ -382,7 +414,7 @@ UserRepository 接口 ──ByteBuddy──▶ 生成的代理类（实现同一
    调用记录（方法、参数、次数）── verify(...) 核对
 ```
 
-- **为什么 final 类/方法默认不能 mock**：final 无法被子类化、final 方法无法被覆写，字节码生成子类这条路走不通；`mockito-inline`（inline mock maker）用 JVM instrumentation 改写字节码可 mock final，但有代价（启动慢、与部分安全框架冲突）——**优先把依赖设计成接口**，别为 mock 去开 inline
+- **final 类/方法能不能 mock？**：final 无法被子类化、final 方法无法被覆写，字节码生成子类这条路走不通；**Mockito 5.x 默认 inline mock maker（JVM instrumentation 改写字节码），已可 mock final 类/方法——实测 ex03 通过（examples/ex03 的 FinalClassMockTest，Mockito 5.11.0）**，与 2 章「5.x 默认 inline mock maker」表述一致；inline 有代价（启动慢、与部分安全框架冲突）——**但接口优先仍是推荐设计**，别为 mock 便利而把依赖设计成具体类
 - **`@ExtendWith(MockitoExtension.class)` 为什么推荐**：它让 mock 注入、`@InjectMocks` 构造注入、stub 校验（`UnnecessaryStubbingException` 抓多余 stub）都由 JUnit 扩展自动完成，漏掉它则 `@Mock` 字段是 null
 - **为什么 Mockito 5.x 要求 Java 11+**：inline mock maker 与 ByteBuddy 的版本基线随 JDK 演进
 
@@ -450,11 +482,11 @@ cd examples/ex01-junit5-basic && mvn test   # 实测: Tests run: 3, Failures: 0
 
 ### 示例 2：参数化测试（`examples/ex02-parameterized/`）
 
-`@ValueSource` / `@NullAndEmptySource` / `@CsvSource` / `@MethodSource` 四类数据源，对应 3.2。实测：`Tests run: 14`（参数化把 4 个方法 × 3/3/4/4 组数据计为 14 次执行）。**教材坑**：`@CsvSource` 裸空单元格 → null、引号 `''` → 空串。
+`@ValueSource` / `@NullAndEmptySource` / `@CsvSource` / `@MethodSource` 四类数据源，对应 3.2。实测：`Tests run: 14`（参数化把 4 个方法 × 4/3/4/3 组数据计为 14 次执行）。**教材坑**：`@CsvSource` 裸空单元格 → null、引号 `''` → 空串。
 
 ### 示例 3：Mockito（`examples/ex03-mockito/`）
 
-`@ExtendWith(MockitoExtension.class)` + `@Mock` + `when().thenReturn()` + `thenThrow()` + `verify/never/argThat`，对应 3.3。实测：`Tests run: 5`。pom 中「离线版本仲裁」注释的 byte-buddy/objenesis 依赖为沙箱离线所需，正常联网环境可删除。
+`@ExtendWith(MockitoExtension.class)` + `@Mock` + `when().thenReturn()` + `thenThrow()` + `verify/never/argThat`，另含「final 类/方法默认可 mock」演示（FinalClassMockTest，对应 4.2）。实测：`Tests run: 6`。pom 中「离线版本仲裁」注释的 byte-buddy/objenesis 依赖为沙箱离线所需，正常联网环境可删除。
 
 ### 示例 4：手工替身（`examples/ex04-handmade-stub/`）
 

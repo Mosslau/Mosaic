@@ -1,6 +1,6 @@
 # examples —— 自动化脚本阶段完整示例
 
-> 每个示例对应主文档 `12-automation.md` 相关小节（3.x / 4.x / 6 章）的完整可运行版。验证环境：Python 3.13.9（macOS）；依赖：openpyxl 3.1.5、requests 2.32.5（本机已装并实测）；schedule 1.2.2（本机全局未装，装于临时 venv `/tmp/ph12-venv` 后实测）；paramiko / fabric 见主文档 3.8 概念小节。
+> 每个示例对应主文档 `12-automation.md` 相关小节（3.x / 4.x / 6 章）的完整可运行版。验证环境：Python 3.13.9（macOS）；依赖：openpyxl 3.1.5、requests 2.32.5（本机已装并实测）；schedule 1.2.2（本机全局未装，装于一次性临时 venv 后实测，读者可自行创建：`python3 -m venv /tmp/ph12-venv && /tmp/ph12-venv/bin/pip install schedule==1.2.2`）；paramiko / fabric 见主文档 3.8 概念小节。
 
 | 文件 | 说明 | 运行 |
 |------|------|------|
@@ -14,8 +14,8 @@
 说明：
 
 - **产物纪律**：全部示例的样本文件、报表（`.xlsx`/`.csv`）、审计日志一律写到**系统临时目录**（`tempfile.mkdtemp`）；ex04 的 HTTP 服务、ex05 的 SMTP 调试服务器都在进程内线程起停，结束 `shutdown()` 干净关闭——运行后用 `git status` 可确认工作区干净。
-- **依赖状态**：openpyxl 3.1.5、requests 2.32.5 在本环境已安装并实测；schedule 1.2.2 本机全局未装，已装进临时 venv（`/tmp/ph12-venv`）实测 ex06 通过——直接使用请 `pip install schedule`；paramiko 5.0.0 / fabric 3.2.3 已装进临时 venv 验证 import 与 API 表面，但**本机无 SSH 服务器可连，未做真实连接验证**（主文档 3.8 为概念讲解 + 标注）。
-- 运行命令里 ex06 用 `/tmp/ph12-venv/bin/python ex06-schedule-jobs.py`（venv 为本次验证创建；读者用自己装好 schedule 的解释器即可）。
+- **依赖状态**：openpyxl 3.1.5、requests 2.32.5 在本环境已安装并实测；schedule 1.2.2 本机全局未装，已装进一次性临时 venv（读者可自行创建：`python3 -m venv /tmp/ph12-venv && /tmp/ph12-venv/bin/pip install schedule==1.2.2`）实测 ex06 通过——直接使用请 `pip install schedule`；paramiko 5.0.0 / fabric 3.2.3 已装进临时 venv 验证 import 与 API 表面，但**本机无 SSH 服务器可连，未做真实连接验证**（主文档 3.8 为概念讲解 + 标注）。
+- 运行命令里 ex06 用 `/tmp/ph12-venv/bin/python ex06-schedule-jobs.py`（venv 为一次性验证产物，读者先按上文命令创建，或用自己装好 schedule 的解释器）。
 
 验证状态：ex01~ex05 全部在本环境实际运行通过（已验证）；ex06 在临时 venv（schedule 1.2.2）中实际运行通过（已验证）。实测关键输出：
 

@@ -71,17 +71,17 @@ Docker 相关练习的验证状态：本机 **docker daemon 是否可用以 exam
 
 ## 练习 5：容器化与部署清单（★★）
 
-**目标**：把练习 1 的健康检查服务打包——写 Dockerfile（多阶段构建）、compose.yaml、K8s Deployment + Service 清单，理解"镜像 = 只含静态二进制"与"探针写在哪一层"。
+**目标**：把练习 1 的健康检查服务打包——写 Dockerfile（多阶段构建）、compose.yaml（Go + MySQL + Redis 服务栈，对应 roadmap「用 Compose 启动 Go + MySQL + Redis」练习）、K8s Deployment + Service 清单，理解"镜像 = 只含静态二进制"与"探针写在哪一层"。
 
 **要求**：
 
 - `service/` 子目录放一个最小 Go 服务（/healthz + /readyz + 优雅退出，可 `go test` 验证）
 - Dockerfile：builder（golang 镜像编译，`CGO_ENABLED=0`）→ scratch/distroless 运行；非 root；`-trimpath -ldflags "-s -w"`
-- compose.yaml：端口映射 + 环境变量注入 + restart 策略
+- compose.yaml：端口映射 + 环境变量注入 + restart 策略；**补 MySQL 与 Redis 两个依赖服务**（固定镜像 tag、healthcheck + `depends_on: condition: service_healthy` 控制启动顺序、DB_URL/REDIS_ADDR 经环境变量注入——12-Factor 落地）
 - deploy/k8s/：Deployment（replicas=2、livenessProbe 打 /healthz、readinessProbe 打 /readyz、滚动更新 strategy）+ Service（ClusterIP）
 - 说明性注释：为什么探针放编排层而不是 Dockerfile HEALTHCHECK（scratch 无 shell/wget）
 
-**验收**：`cd service && go test -v ./...` 通过、`go vet ./...` 零报告；`docker build` 与 `kubectl apply` 在**有 docker/k8s 的环境**执行（本机没有则 sol 文件头如实标注「未在本环境验证（需 Docker/Kubernetes 环境）」——禁止虚构验证）。
+**验收**：`cd service && go test -v ./...` 通过、`go vet ./...` 零报告；`docker compose up --build`（起 Go + MySQL + Redis 三容器）与 `kubectl apply` 在**有 docker/k8s 的环境**执行（本机没有则 sol 文件头如实标注「未在本环境验证（需 Docker/Kubernetes 环境）」——禁止虚构验证）。
 
 > 提示：参考 examples/ex06-containerize 的 Dockerfile/compose 与 project/deploy/k8s/ 的清单；滚动更新 strategy 用 `RollingUpdate` + maxUnavailable/maxSurge 说明。
 

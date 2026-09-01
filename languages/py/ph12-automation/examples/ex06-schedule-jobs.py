@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # examples/ex06-schedule-jobs.py —— 定时任务：schedule 注册任务 + run_pending 调度循环
 # 验证环境：Python 3.13.9，schedule 1.2.2（pip install schedule；本机全局 python3 未装，
-#           本示例在临时 venv（/tmp/ph12-venv）中安装 schedule 1.2.2 后实测通过）
-# 运行：/tmp/ph12-venv/bin/python ex06-schedule-jobs.py（或用装好 schedule 的解释器运行）
+#           本示例在一次性临时 venv 中安装 schedule 1.2.2 后实测通过；读者可自行创建：
+#           python3 -m venv /tmp/ph12-venv && /tmp/ph12-venv/bin/pip install schedule==1.2.2）
+# 运行：/tmp/ph12-venv/bin/python ex06-schedule-jobs.py（先按上面命令创建 venv，或用装好 schedule 的解释器运行）
 # 说明：对应主文档 3.7。schedule 是「进程内轮询」式调度：注册任务 → 主循环反复
 #       run_pending() 检查到期任务 → sleep 到下一个到期时刻。演示每秒任务 + 每日 08:00 任务。
 import time

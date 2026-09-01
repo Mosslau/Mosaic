@@ -1,6 +1,6 @@
 # examples —— 并发与异步阶段完整示例
 
-对应主文档 `12-concurrency-async.md` 第 6 章示例 1~9。分成两组：
+对应主文档 `12-concurrency-async.md` 第 6 章示例 1~10。分成两组：
 
 - **ex01~ex06（纯 std 并发 + 异步基础）**：零第三方依赖，`rustc --edition 2021 -D warnings` 单文件编译，产物输出 `/tmp/`。
 - **ex07~ex10（tokio）**：第三方 crate，需要 cargo + 网络拉取 tokio，独立小工程 `tokio/`。

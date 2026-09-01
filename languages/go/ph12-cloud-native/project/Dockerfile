@@ -6,8 +6,9 @@
 # ---- 阶段 1：builder ----
 FROM golang:1.25-alpine AS builder
 WORKDIR /src
-# 先拷贝依赖清单：层缓存——依赖不变时后续层不重构建
-COPY go.mod go.sum* ./
+# 先拷贝依赖清单：层缓存——依赖不变时后续层不重构建。
+# 本模块零第三方依赖、无 go.sum，所以只 COPY go.mod（写 go.sum* 会因 glob 匹配零文件导致 build 失败）
+COPY go.mod ./
 RUN go mod download
 COPY . .
 # CGO_ENABLED=0 纯静态链接；GOOS=linux 交叉编译；-trimpath 可复现；-s -w 去符号瘦身

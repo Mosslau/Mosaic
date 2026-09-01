@@ -48,7 +48,7 @@
   - record 布局（大端）：`magic`(u32 = "WAL1") + `type`(u8, 1=PUT 2=DEL) + `len`(u16) + `crc32`(u32, 覆盖 type+len+payload) + `payload[len]`
   - 写路径 `append`：校验长度不超上限 → 组装 → 计算 CRC 追加到内存日志
   - 读路径 `replay`：先校验剩余长度 ≥ 11 → 校验 magic/type → 校验 payload 长度 → 校验 CRC → 才拷贝 payload
-  - 自测（可参考 examples/ex06-selftest.c 的 CHECK 宏思路）：3 条 record 往返一致；翻转 payload 一位应触发 CRC 错误；截断应触发长度错误；`main` 返回 `failures == 0 ? 0 : 1`
+  - 自测（可参考 ph11 的 examples/ex06-selftest.c 的 CHECK 宏思路，本文件 sol-05 也自带同类 CHECK 宏）：3 条 record 往返一致；翻转 payload 一位应触发 CRC 错误；截断应触发长度错误；`main` 返回 `failures == 0 ? 0 : 1`
 - **验收**：零警告；往返 + 损坏 + 截断三类自测全部通过、退出码 0；故意在 `replay` 里去掉长度检查后重编译，自测应能抓住（截断用例失败）
 
 > **提示**：练习 1~5 依次对应主文档 3.1/3.2（字节序）、3.3/3.4（对齐与 sizeof）、3.7（frame）、3.9（varint）、3.8/3.10（checksum 与 magic/版本）的知识与 examples/ 对应示例——先独立完成，再对照 `sol-*` 复盘。所有 sol 文件头的"验证环境/编译/运行/验证状态"块里的数字均来自本机（Apple clang 21.0.0, macOS arm64）实测。

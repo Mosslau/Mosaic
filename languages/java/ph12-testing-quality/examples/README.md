@@ -6,7 +6,7 @@
 
 本机 Maven 实测采用**离线模式 `mvn -o`**：本环境沙箱禁止写默认本地仓库 `~/.m2`（`Operation not permitted`），所需构件（junit-jupiter 5.10.1、mockito-core 5.11.0、assertj-core 3.25.3、jacoco-maven-plugin 0.8.11 等）取自本地仓库缓存；沙箱内构建用 `mvn -o -Dmaven.repo.local=/tmp/m2clone`（把本地仓库指向可写目录的克隆）。**在正常联网环境直接执行 `mvn test` 即可**（首次运行会从 Maven Central 下载，之后走本地缓存）。
 
-ex03/ex05 的 pom 里带了「离线版本仲裁」注释的依赖（byte-buddy、objenesis）：Mockito 5.11.0 声明 byte-buddy 1.14.12 / objenesis 3.3、AssertJ 3.25.3 声明 byte-buddy 1.14.11，本机缓存只有 1.14.13 / 3.2，用直接依赖压过传递版本（机制见 ph11 主文档 4.3 依赖冲突仲裁）。**正常联网环境可删除这三项**，让 Mockito/AssertJ 自行拉取声明版本。
+ex03/ex05 的 pom 里带了「离线版本仲裁」注释的依赖（byte-buddy、objenesis）：Mockito 5.11.0 声明 byte-buddy 1.14.12 / objenesis 3.3、AssertJ 3.25.3 声明 byte-buddy 1.14.11，本机缓存缺声明的这三个版本（可用相近版本 1.14.13 / 3.2），用直接依赖压过传递版本（机制见 ph11 主文档 4.3 依赖冲突仲裁）。**正常联网环境可删除这三项**，让 Mockito/AssertJ 自行拉取声明版本。
 
 ## 示例列表
 
@@ -14,7 +14,7 @@ ex03/ex05 的 pom 里带了「离线版本仲裁」注释的依赖（byte-buddy�
 |-----------|---------|------|------------------------|---------|
 | ex01-junit5-basic/ | ✅ 已验证 | JUnit 5 断言（正常 + 错误路径）+ 生命周期（@BeforeEach/@AfterEach/@BeforeAll/@AfterAll）+ assertAll | `mvn test` | Tests run: **3** |
 | ex02-parameterized/ | ✅ 已验证 | 参数化测试：@ValueSource / @NullAndEmptySource / @CsvSource / @MethodSource | `mvn test` | Tests run: **14** |
-| ex03-mockito/ | ✅ 已验证 | Mockito：@Mock + when/thenReturn + thenThrow + verify/never/argThat | `mvn test` | Tests run: **5** |
+| ex03-mockito/ | ✅ 已验证 | Mockito：@Mock + when/thenReturn + thenThrow + verify/never/argThat + final 类默认可 mock | `mvn test` | Tests run: **6** |
 | ex04-handmade-stub/ | ✅ 已验证 | 手工替身（零框架）：FixedClock stub + CountingClock spy + 边界值测试 | `mvn test` | Tests run: **6** |
 | ex05-assertj/ | ✅ 已验证 | AssertJ 流式断言：hasSize/extracting/containsExactly/assertThatThrownBy | `mvn test` | Tests run: **5** |
 | ex06-jacoco-coverage/ | ✅ 已验证 | JaCoCo 覆盖率：只测 add 不测 divide，报告显示覆盖率缺口 | `mvn test` 后开 target/site/jacoco/index.html | Tests run: **1**；指令覆盖率 **63.6%**（7/11）、行 2/3、方法 2/3 |
@@ -30,13 +30,14 @@ ex03/ex05 的 pom 里带了「离线版本仲裁」注释的依赖（byte-buddy�
 
 ### ex02：参数化测试
 
-- `mvn test` → `Tests run: 14`（4 个参数化方法 × 3/3/4/4 组数据 = 14 次执行；surefire 把每次参数执行计为一个测试）
+- `mvn test` → `Tests run: 14`（4 个参数化方法 × 4/3/4/3 组数据 = 14 次执行；surefire 把每次参数执行计为一个测试）
 - **实测语义坑**：`@CsvSource` 中**裸空单元格 → null**、**引号包裹 `''` → 空串 `""`**——第一个版本写成 `"'',"`（第二格裸空）预期 null 失败，改为 `"'',''"` 后通过；这正是「参数化测试的数据语义要实测确认」的教材
 
 ### ex03：Mockito
 
-- `mvn test` → `Tests run: 5`
+- `mvn test` → `Tests run: 6`
 - 覆盖：stub 正常返回值、stub 空 Optional（错误路径）、stub 抛异常（模拟数据库故障）、`verify(...)` 验证交互发生、`verify(repo, never()).save(...)` 验证「没有发生」、`argThat(...)` 参数匹配
+- `FinalClassMockTest`：5.x 默认 inline mock maker 下 final 类 / final 方法照常可 mock（主文档 4.2 的实测依据，无 mockito-inline 额外依赖）
 - 首次运行有 JVM 提示 `Sharing is only supported for boot loader classes...`（Mockito inline mock maker 的已知无害提示）
 
 ### ex04：手工替身

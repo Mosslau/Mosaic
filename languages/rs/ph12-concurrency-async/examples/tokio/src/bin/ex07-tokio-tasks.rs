@@ -5,7 +5,7 @@
 // 验证环境：rustc 1.92.0 + tokio 1.53.1（macOS arm64），已通过 rsproxy 镜像拉取
 // 编译：cargo build --release（见 examples/tokio/Cargo.toml 头注释）
 // 运行：cargo run --release --bin ex07-tokio-tasks
-// 验证状态：已验证（tokio 1.53.1；输出为实测，完成顺序确定：150 → 250 → 350ms）
+// 验证状态：已验证（tokio 1.53.1；输出为实测，完成顺序确定：52 → 152 → 252ms）
 
 use tokio::time::{sleep, Duration};
 

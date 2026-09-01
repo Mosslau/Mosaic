@@ -20,7 +20,7 @@
       <version>3.25.3</version>
       <scope>test</scope>
     </dependency>
-    <!-- 离线版本仲裁：assertj 3.25.3 声明 byte-buddy 1.14.11，本地缓存只有 1.14.13。
+    <!-- 离线版本仲裁：assertj 3.25.3 声明 byte-buddy 1.14.11，本地缓存缺该版本（可用相近版本 1.14.13）。
          正常联网环境可删除。 -->
     <dependency>
       <groupId>net.bytebuddy</groupId>

@@ -40,7 +40,7 @@
       <scope>test</scope>
     </dependency>
     <!-- 离线版本仲裁：mockito 5.11.0 声明 byte-buddy 1.14.12 / objenesis 3.3，assertj 3.25.3 声明 byte-buddy 1.14.11，
-         本地缓存只有 1.14.13 / 3.2（机制见 ph11 主文档 4.3）；正常联网环境可删除这三项 -->
+         本地缓存缺声明的这三个版本（可用相近版本 1.14.13 / 3.2，机制见 ph11 主文档 4.3）；正常联网环境可删除这三项 -->
     <dependency>
       <groupId>net.bytebuddy</groupId>
       <artifactId>byte-buddy</artifactId>
