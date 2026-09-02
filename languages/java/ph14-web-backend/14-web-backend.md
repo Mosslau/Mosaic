@@ -18,7 +18,7 @@
 | API 文档 | springdoc-openapi 自动生成 OpenAPI 3 文档 + Swagger UI |
 | Spring MVC / Spring Boot | `@RestController` 注解体系、`@RequestMapping/@GetMapping/@PathVariable/@RequestBody`、内嵌 Tomcat 自动配置、starter 依赖、`spring-boot:run` |
 
-这个阶段只涉及 **Web 层本身**（HTTP 协议、Servlet 容器、REST 设计、框架注解），**不涉及 Spring 的 IOC/DI、Bean 生命周期、AOP、事务管理等容器机制**（那是 ph15 Spring 全家桶阶段的内容，roadmap 第 15 节，目录待建）、**不涉及微服务架构、服务注册发现、网关与熔断**（ph16 微服务与分布式阶段，roadmap 第 16 节，目录待建）、**不涉及消息队列与搜索中间件**（ph17 消息队列与搜索阶段，roadmap 第 17 节，目录待建）、**不涉及缓存穿透/击穿/雪崩、限流等高并发架构**（ph18 缓存与高并发阶段，roadmap 第 18 节，目录待建）、**不涉及服务的部署运维**（Docker/CI/CD，ph19 DevOps 与部署阶段，roadmap 第 19 节，目录待建）、**不涉及网络编程深入与 Netty**（ph20 高级 Java 阶段，roadmap 第 20 节，目录待建）。本阶段承接 [ph13 数据库阶段](../ph13-database/13-database.md)——那里讲透了「数据层怎么写得对」，本阶段把它们包成「别人能调的接口」，`VehicleStore` 之类的数据层接口形状保持不变、实现可平移。
+这个阶段只涉及 **Web 层本身**（HTTP 协议、Servlet 容器、REST 设计、框架注解），**不涉及 Spring 的 IOC/DI、Bean 生命周期、AOP、事务管理等容器机制**（那是 [ph15 Spring 全家桶阶段](../ph15-spring-family/15-spring-family.md)的内容，roadmap 第 15 节）、**不涉及微服务架构、服务注册发现、网关与熔断**（ph16 微服务与分布式阶段，roadmap 第 16 节，目录待建）、**不涉及消息队列与搜索中间件**（ph17 消息队列与搜索阶段，roadmap 第 17 节，目录待建）、**不涉及缓存穿透/击穿/雪崩、限流等高并发架构**（ph18 缓存与高并发阶段，roadmap 第 18 节，目录待建）、**不涉及服务的部署运维**（Docker/CI/CD，ph19 DevOps 与部署阶段，roadmap 第 19 节，目录待建）、**不涉及网络编程深入与 Netty**（ph20 高级 Java 阶段，roadmap 第 20 节，目录待建）。本阶段承接 [ph13 数据库阶段](../ph13-database/13-database.md)——那里讲透了「数据层怎么写得对」，本阶段把它们包成「别人能调的接口」，`VehicleStore` 之类的数据层接口形状保持不变、实现可平移。
 
 ## 2. 来源与演变
 
@@ -325,4 +325,4 @@ jjwt 登录鉴权 + HandlerInterceptor + 全局 CORS + springdoc OpenAPI 文档�
 
 ### 下一阶段
 
-**ph15+（roadmap 第 15 节，目录待建）——本阶段是当前已建目录的最后一个阶段**：后续可深入 **Spring 全家桶** 方向——本阶段的 `@RestController` 只是 Spring 的冰山一角，ph15 将讲透 Spring 的核心机制：IOC/DI 容器与 Bean 生命周期（为什么 `@Autowired`/构造器注入能把 `VehicleService` 塞进 `VehicleController`）、AOP 与事务管理、Spring Security 授权（把本阶段的「认证」升级为「认证 + 授权」）、Spring Boot 自动配置原理与 Actuator 监控。该阶段目录尚未创建，届时以 roadmap 第 15 节为准，本阶段不再向前引用不存在的文件。
+[Spring 全家桶阶段](../ph15-spring-family/15-spring-family.md) — 本阶段回答 ph14 留下的「框架替你做了 X」：`@RestController` 只是 Spring 的冰山一角，ph15 讲透容器机制（IOC/DI 与 Bean 生命周期——为什么 `@Autowired`/构造器注入能把 `VehicleService` 塞进 `VehicleController`）、AOP 与事务管理、Spring Security 授权（把本阶段的「认证」升级为「认证 + 授权」）、Spring Boot 自动配置原理（为什么引个 starter 就能跑）与 Actuator 监控、Spring Data 接口即实现（`VehicleStore` 换成 JPA Repository 的形状演进）。

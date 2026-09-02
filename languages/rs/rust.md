@@ -719,6 +719,8 @@ unsafe {
 
 ## 15. 宏与元编程阶段
 
+> 📖 详细展开版见 [ph15-macros-metaprogramming/15-macros-metaprogramming.md](./ph15-macros-metaprogramming/15-macros-metaprogramming.md)
+
 ### 目标
 
 能使用声明宏和常见 derive 宏减少重复代码，并知道宏的维护成本。

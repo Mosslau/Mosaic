@@ -15,7 +15,7 @@ Rust Unsafe 与安全抽象阶段对应 roadmap 第 14 节，目标是**理解 u
 | FFI 调用基础 | `extern "C"` 声明、调用 libc（strlen/malloc/free/abs）、调自建 C 库（cc 编译 .dylib + rustc 链接）、CString/CStr（3.5） |
 | 安全抽象封装 | 安全 API + unsafe 内部 + 不变量维护的封装模式、MiniVec 最小实现（3.6） |
 
-这个阶段只涉及 unsafe 关键字的五类操作、裸指针、`unsafe fn` 契约、FFI **调用**基础与安全抽象封装，**不涉及宏与元编程（`macro_rules!` 与过程宏）、Rust 导出给 C（`#[no_mangle]`/cdylib/staticlib）、bindgen/cbindgen 与 pyo3、性能剖析与优化、`repr` 内存布局与字节序深入** — 那些是 ph15 宏与元编程阶段、ph23 Rust FFI 与跨语言接口设计阶段、ph22 性能优化与 Profiling 阶段、ph19 内存布局、零拷贝与协议解析阶段的内容（ph15/ph19/ph22/ph23 目录待建）。借用检查错误的系统化调试（E0382/E0499/E0502/E0597 的重构方法）属 ph18 Borrow Checker 调试专项阶段（目录待建），本阶段只把「借用检查在 unsafe 内依然生效」作为必会认知实测呈现。承接 [ph10 智能指针阶段](../ph10-smart-pointers/10-smart-pointers.md)：`Box::into_raw`/`from_raw` 是「所有权转成裸指针再收回」的安全抽象先例；承接 [ph12 并发与异步阶段](../ph12-concurrency-async/12-concurrency-async.md)：`unsafe impl Send/Sync` 在 ph12 是「绝不使用」的禁区，本阶段讲清它的证明责任；承接 [ph13 文件、网络与系统编程阶段](../ph13-file-network-sys/13-file-network-sys.md)：fd 与系统资源模型是 FFI 调用系统库的预备知识。
+这个阶段只涉及 unsafe 关键字的五类操作、裸指针、`unsafe fn` 契约、FFI **调用**基础与安全抽象封装，**不涉及宏与元编程（`macro_rules!` 与过程宏）、Rust 导出给 C（`#[no_mangle]`/cdylib/staticlib）、bindgen/cbindgen 与 pyo3、性能剖析与优化、`repr` 内存布局与字节序深入** — 那些是 [ph15 宏与元编程阶段](../ph15-macros-metaprogramming/15-macros-metaprogramming.md)、ph23 Rust FFI 与跨语言接口设计阶段、ph22 性能优化与 Profiling 阶段、ph19 内存布局、零拷贝与协议解析阶段的内容（ph15 目录已建；ph19/ph22/ph23 目录待建）。借用检查错误的系统化调试（E0382/E0499/E0502/E0597 的重构方法）属 ph18 Borrow Checker 调试专项阶段（目录待建），本阶段只把「借用检查在 unsafe 内依然生效」作为必会认知实测呈现。承接 [ph10 智能指针阶段](../ph10-smart-pointers/10-smart-pointers.md)：`Box::into_raw`/`from_raw` 是「所有权转成裸指针再收回」的安全抽象先例；承接 [ph12 并发与异步阶段](../ph12-concurrency-async/12-concurrency-async.md)：`unsafe impl Send/Sync` 在 ph12 是「绝不使用」的禁区，本阶段讲清它的证明责任；承接 [ph13 文件、网络与系统编程阶段](../ph13-file-network-sys/13-file-network-sys.md)：fd 与系统资源模型是 FFI 调用系统库的预备知识。
 
 ## 2. 来源与演变
 
@@ -367,4 +367,4 @@ println!("4. greet() = {:?}", g.to_str().unwrap());
 
 ### 下一阶段
 
-**ph15+（roadmap 第 15 节，目录待建）**：宏与元编程阶段——`unsafe` 与宏是 Rust 两大「高级逃逸口」：unsafe 在运行时层面逃逸安全检查，宏在编译期生成代码。本阶段建立的「边界必须显式、契约必须论证」的心智，正好用来理解宏的维护成本（宏展开后代码依然要过借用检查）。在此之前可先按推荐学习顺序巩固 ph13~ph14 的练习与项目。
+[ph15 宏与元编程阶段](../ph15-macros-metaprogramming/15-macros-metaprogramming.md) — `unsafe` 与宏是 Rust 两大「高级逃逸口」：unsafe 在运行时层面逃逸安全检查，宏在编译期生成代码。本阶段建立的「边界必须显式、契约必须论证」的心智，正好用来理解宏的维护成本（宏展开后代码依然要过借用检查）。在此之前可先按推荐学习顺序巩固 ph13~ph14 的练习与项目。

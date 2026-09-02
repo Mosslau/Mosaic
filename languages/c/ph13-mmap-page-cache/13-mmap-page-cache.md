@@ -15,7 +15,7 @@ mmap、Page Cache 与可靠文件 IO 阶段是 C 学习路线中"从语法到系
 | 内存映射 | mmap/munmap/msync、MAP_SHARED/MAP_PRIVATE、只读索引、缺页机制 |
 | 可靠写入模式 | append-only 日志（O_APPEND）、半写入识别、崩溃恢复（回放 + ftruncate） |
 
-这个阶段只涉及 POSIX 文件 IO 与存储语义——open/read/write/pread/pwrite、fsync/fdatasync、Page Cache、mmap/munmap/msync 与 append-only 落盘和崩溃恢复，**不涉及网络 socket IO（ph08）、跨语言互操作 ABI（ph14，roadmap 第 14 节）、高级 C 与代码质量（ph15，roadmap 第 15 节，目录待建）和存储引擎的完整实现（ph16，roadmap 第 16 节，目录待建）** — 那些是 ph08 Linux 系统编程阶段、ph14 C 与 C++ / Python / Rust 互操作阶段、ph15 高级 C 与代码质量阶段和 ph16 数据库存储引擎基础阶段的内容；多线程共享 fd 的并发访问只讲 pread 的原子性收益，锁与内存序深入属 ph08 的并发专题；mmap 的移植性细节（32 位地址空间限制、页大小差异）本阶段不展开。
+这个阶段只涉及 POSIX 文件 IO 与存储语义——open/read/write/pread/pwrite、fsync/fdatasync、Page Cache、mmap/munmap/msync 与 append-only 落盘和崩溃恢复，**不涉及网络 socket IO（ph08）、跨语言互操作 ABI（ph14，roadmap 第 14 节）、高级 C 与代码质量（ph15，roadmap 第 15 节）和存储引擎的完整实现（ph16，roadmap 第 16 节，目录待建）** — 那些是 ph08 Linux 系统编程阶段、ph14 C 与 C++ / Python / Rust 互操作阶段、ph15 高级 C 与代码质量阶段和 ph16 数据库存储引擎基础阶段的内容；多线程共享 fd 的并发访问只讲 pread 的原子性收益，锁与内存序深入属 ph08 的并发专题；mmap 的移植性细节（32 位地址空间限制、页大小差异）本阶段不展开。
 
 ## 2. 来源与演变
 
@@ -547,4 +547,4 @@ cc -Wall -Wextra -std=c11 examples/ex06-append-only.c -o /tmp/ph13/ex06
 
 ### 下一阶段
 
-[ph14 C 与 C++ / Python / Rust 互操作阶段](../ph14-ffi-interop/14-ffi-interop.md) — 本阶段解决了"怎么可靠地落盘与刷盘"，ph14 将解决"怎么把写好的 C 库暴露给其他语言"：C ABI、动态库导出符号、opaque pointer、create/destroy 生命周期约定——本阶段 project/ 的 kvlog 库（kvl.h/kvl.c）正是 ph14 做「C ABI KV 插件接口」「Rust 调用 C WAL 库」时的现成 C 库载体（ph14 project/ 的 kvdb 即在其 WAL 语义上升级的 C ABI 版本）；再往后 ph16 数据库存储引擎基础阶段将把 append-only log 升级为完整 WAL + MemTable + SSTable 的存储引擎 IO 底座（ph15 高级 C 与代码质量阶段，roadmap 第 15 节，目录待建）。
+[ph14 C 与 C++ / Python / Rust 互操作阶段](../ph14-ffi-interop/14-ffi-interop.md) — 本阶段解决了"怎么可靠地落盘与刷盘"，ph14 将解决"怎么把写好的 C 库暴露给其他语言"：C ABI、动态库导出符号、opaque pointer、create/destroy 生命周期约定——本阶段 project/ 的 kvlog 库（kvl.h/kvl.c）正是 ph14 做「C ABI KV 插件接口」「Rust 调用 C WAL 库」时的现成 C 库载体（ph14 project/ 的 kvdb 即在其 WAL 语义上升级的 C ABI 版本）；再往后 ph15 高级 C 与代码质量阶段（[15-code-quality.md](../ph15-code-quality/15-code-quality.md)）与 ph16 数据库存储引擎基础阶段（roadmap 第 16 节，目录待建）将把 append-only log 升级为完整 WAL + MemTable + SSTable 的存储引擎 IO 底座。

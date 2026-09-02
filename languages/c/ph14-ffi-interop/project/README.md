@@ -46,4 +46,4 @@ make clean      # 3. 清理 /tmp/ph14-proj
 - 把固定容量线性表换成哈希表 / 红黑树索引（ph05 结构体与数据结构阶段），key 查找从 O(n) 到 O(1)
 - 加 `kvdb_replay` 残尾修复（ftruncate）与 `kvdb_crash` 演示（fork + SIGKILL）——ph13 project/ kvlog 已有完整实现，可直接移植
 - 支持迭代器（range scan）与多值类型——ph16 数据库存储引擎基础阶段（roadmap 第 16 节，目录待建）的 MemTable/SSTable 方向
-- 把错误码扩展为"模块号 + 错误号"组合（如 `-0x0101`），并加版本化 ABI 检查（`kvdb_abi_version()`）——ph15 高级 C 与代码质量阶段（roadmap 第 15 节，目录待建）的 API 设计方向
+- 把错误码扩展为"模块号 + 错误号"组合（如 `-0x0101`），并加版本化 ABI 检查（`kvdb_abi_version()`）——ph15 高级 C 与代码质量阶段（[15-code-quality.md](../../ph15-code-quality/15-code-quality.md)）的 API 设计方向

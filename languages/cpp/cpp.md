@@ -745,6 +745,8 @@ private:
 
 ## 15. 未定义行为 UB 与内存安全阶段
 
+> 📖 详细展开版见 [ph15-ub-memory-safety/15-ub-memory-safety.md](./ph15-ub-memory-safety/15-ub-memory-safety.md)
+
 ### 目标
 
 识别 C++ 中常见 UB，写出更安全的底层代码。

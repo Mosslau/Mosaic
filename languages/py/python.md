@@ -714,6 +714,8 @@ asyncio.run(work())
 
 ## 15. AI / 机器学习阶段
 
+> 📖 详细展开版见 [ph15-ai-ml/15-ai-ml.md](./ph15-ai-ml/15-ai-ml.md)
+
 ### 目标
 
 进入 AI、数据建模和智能分析方向。

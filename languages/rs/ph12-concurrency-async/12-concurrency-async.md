@@ -15,7 +15,7 @@ Rust 并发与异步阶段对应 roadmap 第 12 节，目标是**能编写线程
 | 异步基础 | `async fn`/`.await`、`Future`/`poll`/`waker`、自写极简 executor、任务调度（3.5、3.6） |
 | tokio | 任务（`tokio::spawn`）、定时器、超时与取消、异步网络 I/O、异步背压——**已验证 tokio 1.53.1**（3.7） |
 
-这个阶段只涉及 OS 线程并发（`std::thread`）、通道与共享状态的同步并发，以及 async/await 基础与 tokio 的任务/定时器/网络 I/O 演示，**不涉及文件与网络系统编程的系统化（`std::fs` 全套、TCP/UDP 编程与重试策略）、unsafe 与裸指针（`*const T`/`*mut T`、`Pin` 手工管理）、宏与元编程（`macro_rules!`/过程宏）和性能剖析与优化（profiling、criterion 基准、原子操作深入）** — 那些是 ph13 文件、网络与系统编程阶段、[ph14 Unsafe Rust 与安全抽象阶段](../ph14-unsafe-safety-abstraction/14-unsafe-safety-abstraction.md)、ph15 宏与元编程阶段和 ph22 性能优化与 Profiling 阶段的内容（ph13/ph14 目录已建；ph15/ph22 目录待建）。异步流式处理（`Stream`）与异步 trait（`async fn` in trait）只作提及，深入属后续生态阶段。承接 [ph10 智能指针阶段](../ph10-smart-pointers/10-smart-pointers.md)：`Arc` 的引用计数语义、`Mutex` 的 guard 与中毒机制；也承接 [ph11 错误处理与工程质量阶段](../ph11-error-handling/11-error-handling.md)：`?` 跨 `.await` 传播、`JoinError` 是新的错误来源。
+这个阶段只涉及 OS 线程并发（`std::thread`）、通道与共享状态的同步并发，以及 async/await 基础与 tokio 的任务/定时器/网络 I/O 演示，**不涉及文件与网络系统编程的系统化（`std::fs` 全套、TCP/UDP 编程与重试策略）、unsafe 与裸指针（`*const T`/`*mut T`、`Pin` 手工管理）、宏与元编程（`macro_rules!`/过程宏）和性能剖析与优化（profiling、criterion 基准、原子操作深入）** — 那些是 ph13 文件、网络与系统编程阶段、[ph14 Unsafe Rust 与安全抽象阶段](../ph14-unsafe-safety-abstraction/14-unsafe-safety-abstraction.md)、[ph15 宏与元编程阶段](../ph15-macros-metaprogramming/15-macros-metaprogramming.md)和 ph22 性能优化与 Profiling 阶段的内容（ph13/ph14/ph15 目录已建；ph22 目录待建）。异步流式处理（`Stream`）与异步 trait（`async fn` in trait）只作提及，深入属后续生态阶段。承接 [ph10 智能指针阶段](../ph10-smart-pointers/10-smart-pointers.md)：`Arc` 的引用计数语义、`Mutex` 的 guard 与中毒机制；也承接 [ph11 错误处理与工程质量阶段](../ph11-error-handling/11-error-handling.md)：`?` 跨 `.await` 传播、`JoinError` 是新的错误来源。
 
 ## 2. 来源与演变
 

@@ -746,6 +746,8 @@ int32_t add(int32_t a, int32_t b);   /* 跨语言接口用定宽类型, 不用 i
 
 ## 15. 高级 C 与代码质量阶段
 
+> 📖 详细展开版见 [ph15-code-quality/15-code-quality.md](./ph15-code-quality/15-code-quality.md)
+
 ### 目标
 
 写出稳定、可维护、可移植的 C 代码。

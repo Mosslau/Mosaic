@@ -16,7 +16,7 @@
 | 多模块工程 | 聚合与继承、依赖方向控制 |
 | 质量工具 | Checkstyle、SpotBugs、JaCoCo 覆盖率 |
 
-这个阶段只涉及构建工程化：javac/jar/jlink 手工构建、Maven / Gradle 构建工具、依赖管理与多模块工程、打包与发布，**不涉及单元测试的编写与测试设计**（见 [ph12 单元测试与工程质量阶段](../ph12-testing-quality/12-testing-quality.md)）、**不涉及 Web 框架与 Spring 生态的工程化**（ph15 Spring 全家桶阶段，roadmap 第 15 节，目录待建）、**不涉及 CI/CD 流水线与制品治理**（ph19 DevOps 与部署阶段，roadmap 第 19 节，目录待建）。本阶段承接 ph10 JVM 阶段——javac 只能编译零散源码、classpath 全靠手工拼接，真实项目需要构建工具统一管理依赖、编译、测试与打包。
+这个阶段只涉及构建工程化：javac/jar/jlink 手工构建、Maven / Gradle 构建工具、依赖管理与多模块工程、打包与发布，**不涉及单元测试的编写与测试设计**（见 [ph12 单元测试与工程质量阶段](../ph12-testing-quality/12-testing-quality.md)）、**不涉及 Web 框架与 Spring 生态的工程化**（ph15 Spring 全家桶阶段，roadmap 第 15 节）、**不涉及 CI/CD 流水线与制品治理**（ph19 DevOps 与部署阶段，roadmap 第 19 节，目录待建）。本阶段承接 ph10 JVM 阶段——javac 只能编译零散源码、classpath 全靠手工拼接，真实项目需要构建工具统一管理依赖、编译、测试与打包。
 
 ## 2. 来源与演变
 
@@ -366,7 +366,7 @@ Gradle 快的底层原因有三个。**增量构建（Incremental Build）**：�
 **不适合**此阶段的事项：
 
 - **单元测试的编写与设计**（JUnit 断言、Mockito、参数化测试、Testcontainers）——[ph12 单元测试与工程质量阶段](../ph12-testing-quality/12-testing-quality.md)；本阶段只借最简 JUnit 4 冒烟测试演示覆盖率
-- **Web 工程的工程化**（Spring Boot starter、多环境 profile、打 war 部署容器）——ph15 Spring 全家桶阶段（roadmap 第 15 节，目录待建）
+- **Web 工程的工程化**（Spring Boot starter、多环境 profile、打 war 部署容器）——ph15 Spring 全家桶阶段（roadmap 第 15 节，[详细展开版见](../ph15-spring-family/15-spring-family.md)）
 - **CI/CD 流水线与制品治理**（Jenkins、GitHub Actions、Docker 镜像、Nexus/Artifactory 私服搭建）——ph19 DevOps 与部署阶段（roadmap 第 19 节，目录待建）；本阶段理解坐标与仓库机制即可
 
 ## 6. 代码示例

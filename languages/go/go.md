@@ -711,6 +711,8 @@ func Max[T ~int | ~float64](a, b T) T {
 
 ## 15. Go 版本、工具链阶段
 
+> 📖 详细展开版见 [ph15-version-toolchain/15-version-toolchain.md](./ph15-version-toolchain/15-version-toolchain.md)
+
 ### 目标
 
 理解 Go 版本演进、工具链和模块兼容策略。

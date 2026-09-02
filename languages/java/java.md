@@ -728,6 +728,8 @@ class HelloController {
 
 ## 15. Spring 全家桶阶段
 
+> 📖 详细展开版见 [ph15-spring-family/15-spring-family.md](./ph15-spring-family/15-spring-family.md)
+
 ### 目标
 
 掌握企业级 Java 开发核心技术栈。

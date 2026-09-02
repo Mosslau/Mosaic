@@ -313,7 +313,7 @@ FastAPI 跑在 **ASGI** 之上（ph10 4.1 已讲：应用是接收 `(scope, rece
 
 - 分布式消息队列与跨机集群并发（Kafka / MQ、百万级连接架构）：roadmap 第 18 节车联网 / 数据平台方向阶段（目录待建）或团队工程实践——ph10/ph11 曾把「大规模异步与消息」预告到 ph14，本阶段明确其边界：**单机 asyncio 覆盖万级并发网络 IO，消息队列是跨机架构话题**，不在此展开
 - 并发 / 异步测试的框架体系（pytest-asyncio 等）：本阶段用标准 pytest + `asyncio.run` 演示最小测法（3.9），框架属生态工程实践
-- 数据分析与 AI 训练中的并行（NumPy SIMD 向量化、PyTorch GPU 并行）：ph09 数据分析阶段 / ph15 AI 与机器学习阶段（roadmap 第 15 节，目录待建）
+- 数据分析与 AI 训练中的并行（NumPy SIMD 向量化、PyTorch GPU 并行）：ph09 数据分析阶段 / [ph15 AI 与机器学习阶段](../ph15-ai-ml/15-ai-ml.md)（深度学习与 GPU 训练超出 ph15 可验证范围，仅概念层）
 - 分布式计算框架（ray、dask）：超出本路线的阶段划分
 - async 数据库驱动的深入（asyncpg / aiomysql 等）：ph10/ph11 已用到 aiosqlite 的最小用法，本阶段不展开
 
@@ -473,4 +473,4 @@ async def slow(n: int) -> dict:
 
 ### 下一阶段
 
-**ph15+（roadmap 第 15 节，目录待建）**：本阶段是当前学习路线的最后一个已建目录阶段，后续可深入 **AI / 机器学习** 方向——NumPy / Pandas / Matplotlib 数据分析、Scikit-learn 建模、PyTorch / Transformers 深度学习、特征工程与模型评估、向量数据库与 RAG、模型部署；本阶段攒下的「IO 密集用异步、CPU 密集用进程」选型直觉，正是 ph15 理解「数据预处理为什么卡、训练为什么吃 GPU、推理服务为什么用异步」的起点——异步 FastAPI（3.8）与采集服务（project）届时会直接变成模型服务的推理入口；在此之前可先按推荐学习顺序巩固 ph13 测试与工程质量阶段与本阶段的练习与项目。
+[ph15 AI 与机器学习阶段](../ph15-ai-ml/15-ai-ml.md) — 后续深入 **AI / 机器学习** 方向：NumPy / Pandas / Matplotlib 数据分析（系统能力在 ph09 已建立）、Scikit-learn 建模与评估、PyTorch / Transformers 认知、特征工程与模型评估、向量检索与 RAG、模型产物与部署衔接。本阶段攒下的「IO 密集用异步、CPU 密集用进程」选型直觉，正是 ph15 理解「数据预处理为什么卡、训练为什么吃 GPU、推理服务为什么用异步」的起点——异步 FastAPI（3.8）与采集服务（project）届时会直接变成模型服务的推理入口（ph15 的 3.11 已把模型产物落盘、命令行推理讲清，HTTP 服务化衔接 ph16 部署与 DevOps 阶段，roadmap 第 16 节，目录待建）；在此之前可先按推荐学习顺序巩固 ph13 测试与工程质量阶段与本阶段的练习与项目。

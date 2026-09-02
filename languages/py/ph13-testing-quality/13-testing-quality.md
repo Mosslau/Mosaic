@@ -15,7 +15,7 @@ Python 测试与工程质量阶段的目标是：**写出可靠、可维护的 P
 | 代码风格 | ruff lint + 格式、black 格式、`pyproject.toml` 统一配置 |
 | 门禁自动化 | pre-commit 本地钩子、GitHub Actions CI 流水线（pytest / ruff / mypy / black / 覆盖率） |
 
-这个阶段只涉及**测试与工程质量工具链本身**（pytest / fixture / mock / 参数化 / 覆盖率、mypy、ruff / black、pre-commit、CI 门禁配置），**不涉及并发与异步代码的测试（pytest-asyncio、多线程/多进程下的测试策略）、生产环境部署与平台级 DevOps（Docker 化、监控告警、流水线平台运维）和数据分析结果的正确性验证（pandas 透视表与可视化校验）** — 那些是 [ph14 并发、并行与异步阶段](../ph14-concurrency-async/14-concurrency-async.md)（roadmap 第 14 节，并发/异步代码的最小测法见其 3.9 与 project/tests）、ph16 部署与 DevOps 阶段（roadmap 第 16 节，目录待建）和 ph09 数据分析阶段的内容。本阶段承接 ph12 自动化脚本阶段——脚本能跑只是起点，怎么证明它永远对、改不坏，是工程化必须回答的问题。**ph13 与 ph14 是当前学习路线最新的两个已建目录阶段**（ph15 起目录待建），本阶段四层交付物已就位：主文档 + [`examples/`](./examples/) + [`exercises/`](./exercises/) + [`project/`](./project/)，入口见第 6、7 章。
+这个阶段只涉及**测试与工程质量工具链本身**（pytest / fixture / mock / 参数化 / 覆盖率、mypy、ruff / black、pre-commit、CI 门禁配置），**不涉及并发与异步代码的测试（pytest-asyncio、多线程/多进程下的测试策略）、生产环境部署与平台级 DevOps（Docker 化、监控告警、流水线平台运维）和数据分析结果的正确性验证（pandas 透视表与可视化校验）** — 那些是 [ph14 并发、并行与异步阶段](../ph14-concurrency-async/14-concurrency-async.md)（roadmap 第 14 节，并发/异步代码的最小测法见其 3.9 与 project/tests）、ph16 部署与 DevOps 阶段（roadmap 第 16 节，目录待建）和 ph09 数据分析阶段的内容。本阶段承接 ph12 自动化脚本阶段——脚本能跑只是起点，怎么证明它永远对、改不坏，是工程化必须回答的问题。（写就时 ph13/ph14 是最新已建目录；当前已建目录推进到 [ph15 AI 与机器学习阶段](../ph15-ai-ml/15-ai-ml.md)，ph16 起目录待建。）本阶段四层交付物已就位：主文档 + [`examples/`](./examples/) + [`exercises/`](./exercises/) + [`project/`](./project/)，入口见第 6、7 章。
 
 ## 2. 来源与演变
 

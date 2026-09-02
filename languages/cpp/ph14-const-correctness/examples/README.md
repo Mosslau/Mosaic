@@ -174,7 +174,7 @@ c++ -std=c++20 -Wall -Wextra ex06-readonly-view.cpp -o /tmp/ph14-ex06
 
 要点：**`string_view` / `span` 是"观察不拥有"的只读视图**（SL.str.2/SL.con.1）——[1] 一个只读接口零拷贝接受 `string` / C 字面量 / `string_view` 三种形态；[2] 视图不拥有数据，底层变视图跟着变；[3] `span<const double>` 覆盖 vector / C 数组 / 裸指针+长度。
 
-> ⚠️ 视图的生命周期必须短于数据源：`string_view` / `span` 悬挂是 ph12 讲过的借用式接口的延伸，悬挂后解引用属 UB（ph15 未定义行为与内存安全阶段，目录待建）。
+> ⚠️ 视图的生命周期必须短于数据源：`string_view` / `span` 悬挂是 ph12 讲过的借用式接口的延伸，悬挂后解引用属 UB（ph15 未定义行为 UB 与内存安全阶段）。
 
 ## 双编译器验证记录
 

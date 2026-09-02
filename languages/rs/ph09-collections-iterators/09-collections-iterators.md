@@ -432,7 +432,7 @@ fn main() {
 **不适合**此阶段的事项：
 - 智能指针组合（`Box`/`Rc`/`Arc`/`RefCell`，ph10）：迭代器返回共享引用、内部可变等需要它们，本阶段只用借用。
 - 错误处理工程化（ph11）：`collect::<Result<Vec<_>, _>>()` 短路收集、迭代器中的 `?` 等错误组合子属于下一阶段。
-- 并发与异步流（[ph12 并发与异步阶段](../ph12-concurrency-async/12-concurrency-async.md)）：rayon 并行迭代器、`Stream`（迭代器的异步版）、借用跨 `.await` 的限制均未涉及；宏展开（ph15 目录待建）同样不涉及。
+- 并发与异步流（[ph12 并发与异步阶段](../ph12-concurrency-async/12-concurrency-async.md)）：rayon 并行迭代器、`Stream`（迭代器的异步版）、借用跨 `.await` 的限制均未涉及；宏展开（属 [ph15 宏与元编程阶段](../ph15-macros-metaprogramming/15-macros-metaprogramming.md)）同样不涉及。
 
 ## 6. 代码示例
 
