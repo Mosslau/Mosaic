@@ -68,6 +68,21 @@ i = 1;
 int good = imax(i++, 0);     /* 正例: 只求值一次, i: 1 → 2, 结果 1 */
 ```
 
+**块语句宏要用 do-while(0) 包裹**（ex01 区 2）：宏是文本替换，多语句宏直接写成 `{ ... }` 会在 if/else 下错挂 else——`if (c) SWAP_BAD(x, y); else z = 1;` 展开后是 `if (c) { ... }; else z = 1;`，分号让 else 悬空（无匹配的 if，语法错乱或 else 误挂）。`do{...}while(0)` 把宏包成"一条语句"，if/else 与循环里都能安全使用；`while(0)` 恒假保证只执行一次，末尾分号由调用处补上：
+
+```c
+// examples/ex01-macro-tricks.c —— do-while(0) 正反例（节选, 完整版见 examples/）
+/* 反例：块语句宏没有 do-while(0) 包裹，else 会挂错 */
+#define SWAP_BAD(a, b) \
+    { int t_ = (a); (a) = (b); (b) = t_; }
+
+/* 正例：do{...}while(0) 让宏在语法上等价于"一条语句"，可安全跟 else */
+#define SWAP(a, b) \
+    do { int t_ = (a); (a) = (b); (b) = t_; } while (0)
+```
+
+ex01 区 2 实测：`if (x > y) SWAP(x, y); else z = 1;` 里 SWAP 未执行、else 分支正确命中（输出 `z=1`）。两点边界：do-while(0) 只适用于"语句位置"，需要表达式语义（如函数实参）时仍走 static inline；宏内临时变量（如上 `t_`）展开在调用处作用域，可能与调用处同名变量冲突——真实库用 `__LINE__` 拼临时名或改用 inline 函数，此处演示从简。
+
 **条件编译**同样要服从"宏是文本替换"的纪律：`#if defined(X)` 判断的是宏是否被定义（编译期文本层），不是运行时条件——ph09 已系统讲平台差异抽象，这里只提醒它在宏定义时的两条常见坑：① `#define` 换行续接用反斜杠且**反斜杠后不能有空格**；② 函数式宏展开后是"一串 token"，必须整体加括号。
 
 ### 3.2 宏进阶：可变参宏与 X-Macro
@@ -158,8 +173,6 @@ typedef void (*event_cb)(int ev, void *ctx);
 
 ```c
 // examples/ex02-callback-ctx.c —— ctx 还原与私有状态（节选, 完整版见 examples/）
-}
-
 /* ---- 回调实现：各自还原自己的 ctx 类型 ---- */
 
 struct key_ctx { const char *name; int count; };  /* 回调私有状态 */
@@ -472,7 +485,7 @@ static inline int imax(int a, int b) {
 
 ```bash
 # 1. 编译并运行
-cc -Wall -Wextra -std=c11 ex01-macro-tricks.c -o /tmp/ph15c-ex/ex01 && /tmp/ph15c-ex/ex01
+mkdir -p /tmp/ph15c-ex && cc -Wall -Wextra -std=c11 ex01-macro-tricks.c -o /tmp/ph15c-ex/ex01 && /tmp/ph15c-ex/ex01
 ```
 
 实测输出关键行（本机一次运行）：
@@ -513,7 +526,7 @@ typedef struct {
 
 ```bash
 # 1. 编译并运行
-cc -Wall -Wextra -std=c11 ex02-callback-ctx.c -o /tmp/ph15c-ex/ex02 && /tmp/ph15c-ex/ex02
+mkdir -p /tmp/ph15c-ex && cc -Wall -Wextra -std=c11 ex02-callback-ctx.c -o /tmp/ph15c-ex/ex02 && /tmp/ph15c-ex/ex02
 ```
 
 实测输出关键行（本机一次运行）：
@@ -557,7 +570,7 @@ static const int g_trans_n = (int)(sizeof g_trans / sizeof g_trans[0]);
 
 ```bash
 # 1. 编译并运行
-cc -Wall -Wextra -std=c11 ex03-state-machine.c -o /tmp/ph15c-ex/ex03 && /tmp/ph15c-ex/ex03
+mkdir -p /tmp/ph15c-ex && cc -Wall -Wextra -std=c11 ex03-state-machine.c -o /tmp/ph15c-ex/ex03 && /tmp/ph15c-ex/ex03
 ```
 
 实测输出关键行（本机一次运行）：
@@ -599,7 +612,7 @@ cc -Wall -Wextra -std=c11 ex03-state-machine.c -o /tmp/ph15c-ex/ex03 && /tmp/ph1
 
 ```bash
 # 1. 编译并运行
-cc -Wall -Wextra -std=c11 ex04-error-code.c -o /tmp/ph15c-ex/ex04 && /tmp/ph15c-ex/ex04
+mkdir -p /tmp/ph15c-ex && cc -Wall -Wextra -std=c11 ex04-error-code.c -o /tmp/ph15c-ex/ex04 && /tmp/ph15c-ex/ex04
 ```
 
 实测输出关键行（本机一次运行）：
@@ -641,7 +654,7 @@ cc -Wall -Wextra -std=c11 ex04-error-code.c -o /tmp/ph15c-ex/ex04 && /tmp/ph15c-
 
 ```bash
 # 1. 编译并运行
-cc -Wall -Wextra -std=c11 ex05-logging.c -o /tmp/ph15c-ex/ex05 && /tmp/ph15c-ex/ex05
+mkdir -p /tmp/ph15c-ex && cc -Wall -Wextra -std=c11 ex05-logging.c -o /tmp/ph15c-ex/ex05 && /tmp/ph15c-ex/ex05
 ```
 
 实测输出关键行（本机一次运行，时间列略）：
@@ -681,7 +694,7 @@ const char *cfg_strerror(int32_t err);  /* 错误消息(静态串, 借用) */
 
 ```bash
 # 1. 编译并运行
-cc -Wall -Wextra -std=c11 ex06-handle-api.c -o /tmp/ph15c-ex/ex06 && /tmp/ph15c-ex/ex06
+mkdir -p /tmp/ph15c-ex && cc -Wall -Wextra -std=c11 ex06-handle-api.c -o /tmp/ph15c-ex/ex06 && /tmp/ph15c-ex/ex06
 ```
 
 实测输出关键行（本机一次运行）：

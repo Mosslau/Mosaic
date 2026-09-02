@@ -4,15 +4,19 @@
 # 运行：python3 ex01-data-quality.py（离线可跑，已验证）
 # 验证状态：已验证 —— 全部数字为固定 seed=42 下的本机实测，完全可复现；
 #           换 seed 或数据划分会波动（约 ±1~2 个百分点），对比方向稳定
-# 验证块数字实测：干净 test acc 0.930 / 标签噪声 25% test acc 0.747 / 缺失均值填充 test acc 0.917 /
-#                泄漏 val acc 0.990（虚假高）vs 泄漏特征失效后 test acc 0.897（回归真实水平）
+# 验证块数字实测：干净 test acc 0.930 / 标签噪声 25%（仅训练集，seed=42）test acc 0.873 /
+#                缺失均值填充 test acc 0.917 / 泄漏 val acc 0.990（虚假高）vs
+#                泄漏特征失效后 test acc 0.897（回归真实水平）
 """数据质量与数据泄漏演示（roadmap 必会概念：数据质量决定模型上限）。
 
 同一份「电池传感器故障」分类数据（0=健康 88%、1=充电过压 8%、2=过热振动 4%），
 三种改法对比验证分数，全部用同一套 60/20/20 划分 + StandardScaler + kNN(5)：
   A. 干净基线：train/val/test 严格隔离 —— 记录每个类的召回率（少数类召回低是
      「准确率骗人」的第一现场，主文档 3.5 与 ex03 展开）
-  B. 标签噪声：训练集 25% 标签被随机改错（源头脏）→ 分数明显下降
+  B. 标签噪声：train/test 划分之后，只把训练集 25% 标签改成错误类别（评估标签
+     保持干净）→ 错标是最伤的脏数据之一（test 0.930 → 0.873）；若在划分前把
+     评估标签也一起污染，数字会虚跌到 0.75 量级——那是把「学错」与「评错」
+     混在一起的测量陷阱（见主文档 3.3）
   C. 缺失值：voltage/current 两列 60% 随机缺失，均值填充只用训练集统计量 →
      信息损失如实呈现（kNN 对单列缺失较稳健，损失幅度小；更糟的是「非随机
      缺失 + 朴素填充」，见主文档 3.3 讲解）
@@ -37,10 +41,13 @@ FEATURES = ["temp", "voltage", "current", "vibration", "resistance"]
 CLASSES = ["健康", "充电过压", "过热振动"]
 
 
-def make_fault_data(
-    n: int = N, seed: int = SEED, label_noise: float = 0.0
-) -> tuple[np.ndarray, np.ndarray]:
-    """生成电池传感器故障数据：0=健康(88%)、1=充电过压(8%)、2=过热振动(4%)。"""
+def make_fault_data(n: int = N, seed: int = SEED) -> tuple[np.ndarray, np.ndarray]:
+    """生成电池传感器故障数据：0=健康(88%)、1=充电过压(8%)、2=过热振动(4%)。
+
+    只生成干净数据；标签噪声不在生成期施加——见 corrupt_training_labels：
+    噪声必须等 train/test 划分完之后再只污染训练子集，否则评估标签也被改错，
+    「学错」与「评错」混在一起，分数会被虚砸下去（主文档 3.3）。
+    """
     rng = np.random.default_rng(seed)
     n0, n1 = int(n * 0.88), int(n * 0.08)
     n2 = n - n0 - n1
@@ -55,13 +62,25 @@ def make_fault_data(
     y = np.concatenate([np.zeros(n0), np.ones(n1), np.full(n2, 2)]).astype(int)
 
     idx = rng.permutation(n)
-    X, y = X[idx], y[idx]
-    if label_noise > 0:
-        # 随机把 label_noise 比例的标签改成另一个随机类别（模拟标注错误）
-        flip = rng.random(n) < label_noise
-        n_flip = int(flip.sum())
-        y[flip] = rng.integers(0, 3, size=n_flip)
-    return X, y
+    return X[idx], y[idx]
+
+
+def corrupt_training_labels(y_tr: np.ndarray, frac: float = 0.25, seed: int = SEED) -> np.ndarray:
+    """把训练子集里 frac 比例的标签改成**另一个**随机类别（模拟标注错误）。
+
+    只在划分之后对训练子集调用——验证/测试标签保持干净，测出来的是
+    「模型学到了错标」的纯效应；若在划分前污染全量标签，评估标签也被
+    改错，数字会把学错与评错混在一起虚跌（主文档 3.3 的说明）。
+
+    改错保证换类（label+1/+2 mod 3），不会出现「抽到原标签当没改」——
+    那会低估错标伤害、也让比例语义失真。
+    """
+    rng = np.random.default_rng(seed)
+    y_noisy = y_tr.copy()
+    flip = rng.random(y_tr.shape[0]) < frac
+    n_flip = int(flip.sum())
+    y_noisy[flip] = (y_noisy[flip] + rng.integers(1, 3, size=n_flip)) % 3
+    return y_noisy
 
 
 def split_raw(X: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, ...]:
@@ -113,14 +132,18 @@ def section_a_clean() -> tuple[np.ndarray, np.ndarray, float]:
 
 
 def section_b_label_noise() -> float:
-    print("== B. 标签噪声（训练集 25% 标签被随机改错）==")
-    X, y = make_fault_data(label_noise=0.25)
+    print("== B. 标签噪声（仅训练集 25% 标签被改成错误类别）==")
+    X, y = make_fault_data()
     X_tr, X_va, X_te, y_tr, y_va, y_te = split_raw(X, y)
+    # 关键：划分完之后才加噪，且只污染训练子集 —— 评估标签保持干净，
+    # 测出来的是「模型学到错标」的纯效应（旧版在生成期对全量加噪，
+    # 评估标签也被污染，学错与评错混在一起把数字虚砸下去）
+    y_tr = corrupt_training_labels(y_tr, frac=0.25, seed=SEED)
     scaler = StandardScaler().fit(X_tr)
     clf = KNeighborsClassifier(n_neighbors=5).fit(scaler.transform(X_tr), y_tr)
     va = accuracy_score(y_va, clf.predict(scaler.transform(X_va)))
     te = accuracy_score(y_te, clf.predict(scaler.transform(X_te)))
-    print(f"   val acc {va:.3f} / test acc {te:.3f}（对照 A：干净数据高得多）")
+    print(f"   val acc {va:.3f} / test acc {te:.3f}（对照 A test 0.930：25% 训练错标明显掉分）")
     return te
 
 

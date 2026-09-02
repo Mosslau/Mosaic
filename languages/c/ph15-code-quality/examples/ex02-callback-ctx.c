@@ -1,7 +1,7 @@
 // examples/ex02-callback-ctx.c —— 函数指针/回调：上下文约定 + 回调顺序实测（已验证）
 // 验证环境：Apple clang 21.0.0（cc，macOS arm64）
-// 编译：cc -Wall -Wextra -std=c11 ex02-callback-ctx.c -o ex02
-// 运行：./ex02（无外部产物，退出码 0；实测输出见文件尾注释）
+// 编译：mkdir -p /tmp/ph15c-ex && cc -Wall -Wextra -std=c11 ex02-callback-ctx.c -o /tmp/ph15c-ex/ex02
+// 运行：/tmp/ph15c-ex/ex02（无外部产物，退出码 0；实测输出见文件尾注释）
 #include <stdio.h>
 
 /* ===== 1. 函数指针基础 ===== */

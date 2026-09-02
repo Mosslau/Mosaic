@@ -6,9 +6,9 @@
  * 实测: 支持 --port 8080 -h 10.0.0.1 -v --workers 4 与非法选项/缺值路径。
  */
 // 验证环境：Apple clang 21.0.0（cc），macOS（Darwin arm64）
-// 编译：cc -Wall -Wextra -std=c11 sol-03-cli-parser.c -o sol03
-// 运行：./sol03（内部 argv 演示, 无外部产物, 退出码 0）
-// 验证状态：已验证（零警告; 解析结果/两个错误路径为实测, 见文件尾）
+// 编译：mkdir -p /tmp/ph15c-sol && cc -Wall -Wextra -std=c11 sol-03-cli-parser.c -o /tmp/ph15c-sol/sol03
+// 运行：/tmp/ph15c-sol/sol03（内部 argv 演示, 无外部产物, 退出码 0）
+// 验证状态：已验证（零警告; 4 用例断言全过、退出码 0, 实测见文件尾）
 #include <stdio.h>
 #include <string.h>
 
@@ -109,6 +109,7 @@ static void dump(const char *title, int rc, const cfg_t *c) {
 
 int main(void) {
     printf("=== sol-03 命令行解析器 ===\n");
+    int fails = 0;
 
     /* 用例 1: 合法参数（长短名混用, -v 无值） */
     {
@@ -117,6 +118,10 @@ int main(void) {
                         "--workers", "4"};
         int rc = cli_parse(8, argv, &cfg);
         dump("用例1: --host 10.0.0.1 -p 8080 -v --workers 4", rc, &cfg);
+        if (rc != CLI_OK || strcmp(cfg.host, "10.0.0.1") != 0 ||
+            cfg.port != 8080 || cfg.verbose != 1 || cfg.workers != 4) {
+            printf("FAIL: 用例1 解析结果\n"); fails++;
+        }
     }
     /* 用例 2: 未知选项 */
     {
@@ -124,6 +129,10 @@ int main(void) {
         char *argv[] = {"prog", "--host", "10.0.0.1", "--nope"};
         int rc = cli_parse(4, argv, &cfg);
         dump("用例2: --host 10.0.0.1 --nope (未知选项)", rc, &cfg);
+        if (rc != CLI_ERR_UNKNOWN || strcmp(cfg.host, "10.0.0.1") != 0 ||
+            cfg.port != 0 || cfg.verbose != 0 || cfg.workers != 0) {
+            printf("FAIL: 用例2 错误码/解析结果\n"); fails++;
+        }
     }
     /* 用例 3: 缺值 */
     {
@@ -131,6 +140,10 @@ int main(void) {
         char *argv[] = {"prog", "-p"};
         int rc = cli_parse(2, argv, &cfg);
         dump("用例3: -p (缺值)", rc, &cfg);
+        if (rc != CLI_ERR_NOVALUE || strcmp(cfg.host, "0.0.0.0") != 0 ||
+            cfg.port != 0 || cfg.verbose != 0 || cfg.workers != 0) {
+            printf("FAIL: 用例3 错误码\n"); fails++;
+        }
     }
     /* 用例 4: 值非法 */
     {
@@ -138,11 +151,17 @@ int main(void) {
         char *argv[] = {"prog", "--port", "abc"};
         int rc = cli_parse(3, argv, &cfg);
         dump("用例4: --port abc (值非法)", rc, &cfg);
+        if (rc != CLI_ERR_BADVALUE || strcmp(cfg.host, "0.0.0.0") != 0 ||
+            cfg.port != 0 || cfg.verbose != 0 || cfg.workers != 0) {
+            printf("FAIL: 用例4 错误码\n"); fails++;
+        }
     }
 
     printf("选项表 %d 条 (数据驱动): 加新选项只改表 + cfg_apply, 解析器主体不动\n",
            OPT_N);
-    return 0;
+    printf(fails == 0 ? "sol-03: 全部断言通过, 退出码 0\n"
+                      : "sol-03: 有断言失败\n");
+    return fails == 0 ? 0 : 1;
 }
 
 /* 实测输出（本机一次运行, Apple clang 21.0.0, macOS arm64）：
@@ -156,4 +175,5 @@ int main(void) {
  * 用例4: --port abc (值非法) → rc=-3 (bad value)
  *    host=0.0.0.0 port=0 verbose=0 workers=0
  * 选项表 4 条 (数据驱动): 加新选项只改表 + cfg_apply, 解析器主体不动
+ * sol-03: 全部断言通过, 退出码 0
  */

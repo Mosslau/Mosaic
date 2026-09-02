@@ -4,18 +4,19 @@
 # 运行：python3 ex05-crossval-tuning.py（离线可跑，已验证）
 # 验证状态：已验证 —— 全部数字为固定 seed=42 下的本机实测，完全可复现
 # 验证块数字实测：10 次单次划分 val acc 波动 0.920~0.973（跨度 0.053）；
-#                5 折 CV mean 0.941 ± 0.004；决策树 depth 调参：CV 最佳 depth=4（0.926），
-#                重训后 test acc 0.944；若按 train acc 选会选中 depth 12（train 0.998 /
-#                test 0.936 —— 训练准、测试差，过拟合）
+#                5 折 CV mean 0.941 ± 0.004（3 折 0.945±0.005 / 10 折 0.941±0.011）；
+#                决策树 depth 调参：CV 最佳 depth=4（0.926），重训后 test acc 0.944；
+#                对照过深示例 depth=12 → train 0.998 / test 0.936，明显低于 CV 选的 0.944
 """交叉验证与调参演示（roadmap 必会概念：训练 / 验证 / 测试集要分开 + 会评估）。
 
 A. 单次划分是运气：同一模型换 10 个划分 seed，验证准确率 0.920~0.973 乱跳
    （跨度 0.053）——「调参调到验证集最好」可能只是调到了这次划分的噪声。
 B. 交叉验证给稳定估计：k 折把训练数据切成 k 份轮流当验证集，5 折 mean 0.941
-   ± 0.004，波动被平均掉，比单次划分可信得多。
+   ± 0.004，波动被平均掉，比单次划分可信得多（k 折 std 实测：3 折 ±0.005、
+   5 折 ±0.004、10 折 ±0.011——折数再多，每折验证样本变少，跨折 std 反而变大）。
 C. 用 CV 调参、用测试集只验收一次：决策树 max_depth 1..15 逐档跑 5 折 CV，
-   选 CV mean 最高的 depth=4；若贪 train acc 会选中 depth 12（train 0.998），
-   其 test 0.936 反而最差——训练分数会骗你，CV 不会。
+   选 CV mean 最高的 depth=4；对照把树放太深（示例 depth=12，train acc 0.998），
+   test 0.936 明显低于 CV 挑出的 depth=4（0.944）——训练分数会骗你，CV 不会。
 """
 
 from __future__ import annotations
@@ -86,7 +87,11 @@ def section_b_cross_validation() -> None:
             f"   k={k:<2} 折: mean {scores.mean():.3f} ± {scores.std():.3f}"
             f"（各折 {np.round(scores, 3).tolist()}）"
         )
-    print("   → 5 折 mean 0.941 ± 0.004：与单次划分的 0.92~0.97 乱跳相比，折数一多就稳")
+    print(
+        "   → 5 折 mean 0.941 ± 0.004：与单次划分的 0.92~0.97 乱跳相比明显更稳"
+        "（3 折 ±0.005 → 5 折 ±0.004 → 10 折 ±0.011：折数再多、每折验证样本变少，"
+        "跨折 std 反而变大，见主文档 3.7/4.4）"
+    )
 
 
 def section_c_tune_with_cv() -> None:
@@ -108,12 +113,14 @@ def section_c_tune_with_cv() -> None:
     model = DecisionTreeClassifier(max_depth=best_depth, random_state=SEED).fit(X_dev, y_dev)
     te = accuracy_score(y_te, model.predict(X_te))
     print(f"   按 CV 选择 depth={best_depth} 重训：test acc {te:.3f}")
-    # 反面：如果按「训练集 acc」选参，会选中最大的 depth 12（train 0.998）
+    # 反面：把树放太深会过拟合——示例 depth=12 的 train acc 已 0.998（≈满拟合），
+    # test 只有 0.936，明显低于 CV 挑出的 depth=4（0.944）；CV mean 在 depth≥9 后
+    # 也回落到 0.91x 上不去——只按 train acc 选参会被训练分数骗
     greedy = DecisionTreeClassifier(max_depth=12, random_state=SEED).fit(X_dev, y_dev)
     print(
-        f"   反面（按 train acc 贪心选 depth=12）: train acc "
+        f"   反面示例（把树放太深 depth=12）: train acc "
         f"{accuracy_score(y_dev, greedy.predict(X_dev)):.3f} / test acc "
-        f"{accuracy_score(y_te, greedy.predict(X_te)):.3f} —— 训练最准、测试反而更差"
+        f"{accuracy_score(y_te, greedy.predict(X_te)):.3f} —— 明显低于 CV 挑出的 depth=4（0.944）"
     )
 
 

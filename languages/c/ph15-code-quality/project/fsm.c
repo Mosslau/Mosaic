@@ -3,8 +3,8 @@
  * 实现要点:
  *   - 转移表在 create 时拷贝进句柄(结构体在 .c 定义, 头文件只见不透明句柄)
  *   - fsm_fire 线性查表(教学规模足够; 大规模可换成按 (from,event) 索引的哈希)
- *   - 轨迹缓冲: 定长数组记录最近 FSM_TRACE_MAX 次转移, 满后返回 FSM_ERR_FULL
- *     但仍执行转移 —— "诊断尽力而为, 语义不因诊断而中断"
+ *   - 轨迹缓冲: 定长数组记录最近 FSM_TRACE_MAX 次转移, 满后停止记录、
+ *     转移照常执行且返回值不变 —— "诊断尽力而为, 语义不因诊断而中断"
  */
 #include "fsm.h"
 
@@ -18,7 +18,7 @@ struct fsm {
     int state;
     void *ctx;
 
-    /* 轨迹缓冲: ring 语义的定长数组 */
+    /* 轨迹缓冲: 定长数组, 满后停止记录(不覆盖旧条目, 非 ring) */
     int trace_from[FSM_TRACE_MAX];
     int trace_event[FSM_TRACE_MAX];
     int trace_to[FSM_TRACE_MAX];
@@ -70,16 +70,15 @@ int fsm_fire(fsm_t *f, int event) {
     if (hit == NULL)
         return FSM_ERR_ILLEGAL;          /* 当前状态下无此转移 */
 
-    /* 先记录轨迹, 再执行动作、换状态 —— 动作里可安全查询 fsm_state */
+    /* 先记录轨迹, 再执行动作、换状态 —— 动作里可安全查询 fsm_state。
+     * 轨迹满(已记录 FSM_TRACE_MAX 条)后不再记录: 诊断尽力而为,
+     * 不改变返回值 —— 合法事件恒返回新状态, 满状态用 fsm_trace_len 检测。 */
     if (f->trace_count < FSM_TRACE_MAX) {
         int i = f->trace_count;
         f->trace_from[i] = f->state;
         f->trace_event[i] = event;
         f->trace_to[i] = hit->to_state;
         f->trace_count++;
-    } else {
-        /* 轨迹满: 返回提示, 但转移照常执行(见头文件注释) */
-        /* 注: 为教学清晰, 满时先执行动作再返回 FULL */
     }
 
     int from = f->state;
@@ -87,8 +86,6 @@ int fsm_fire(fsm_t *f, int event) {
         hit->action(f->ctx, from, event, hit->to_state);
     f->state = hit->to_state;
 
-    if (f->trace_count >= FSM_TRACE_MAX)
-        return FSM_ERR_FULL;
     return f->state;
 }
 
@@ -114,7 +111,6 @@ const char *fsm_strerror(int err) {
     case FSM_ERR_BADARG:  return "bad argument";
     case FSM_ERR_ILLEGAL: return "illegal event for current state";
     case FSM_ERR_NOMEM:   return "out of memory";
-    case FSM_ERR_FULL:    return "trace buffer full";
     default:              return "unknown error";
     }
 }

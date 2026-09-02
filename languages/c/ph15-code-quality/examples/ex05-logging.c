@@ -1,7 +1,7 @@
 // examples/ex05-logging.c —— 日志系统：级别/阈值过滤/trace id/诊断（已验证）
 // 验证环境：Apple clang 21.0.0（cc，macOS arm64）
-// 编译：cc -Wall -Wextra -std=c11 ex05-logging.c -o ex05
-// 运行：./ex05（无外部产物，退出码 0；实测输出见文件尾注释）
+// 编译：mkdir -p /tmp/ph15c-ex && cc -Wall -Wextra -std=c11 ex05-logging.c -o /tmp/ph15c-ex/ex05
+// 运行：/tmp/ph15c-ex/ex05（无外部产物，退出码 0；实测输出见文件尾注释）
 #include <stdio.h>
 #include <time.h>
 

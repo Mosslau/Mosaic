@@ -5,8 +5,8 @@
  * 实测: 正常路径 0→1→2→2→3→4→0 共 7 步; 非法事件被拒、状态不变。
  */
 // 验证环境：Apple clang 21.0.0（cc），macOS（Darwin arm64）
-// 编译：cc -Wall -Wextra -std=c11 sol-01-state-machine.c -o sol01
-// 运行：./sol01（无外部产物, 退出码 0）
+// 编译：mkdir -p /tmp/ph15c-sol && cc -Wall -Wextra -std=c11 sol-01-state-machine.c -o /tmp/ph15c-sol/sol01
+// 运行：/tmp/ph15c-sol/sol01（无外部产物, 退出码 0）
 // 验证状态：已验证（零警告; 转移序列 7 步、非法事件 1 次被拒, 实测见文件尾）
 #include <stdio.h>
 

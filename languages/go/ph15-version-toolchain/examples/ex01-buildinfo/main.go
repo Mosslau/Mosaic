@@ -9,7 +9,8 @@
 //	go test -v ./...
 //	go vet ./...
 //	go run .
-//	go build -ldflags "-X main.version=v1.2.3" -o /tmp/ex01-buildinfo . && /tmp/ex01-buildinfo
+//	go build -ldflags "-X main.version=v1.2.3" -o /tmp/ex01 . && /tmp/ex01
+//	go version -m /tmp/ex01
 //
 // 验证状态：已验证（go1.25.6，2026-09-02）
 package main

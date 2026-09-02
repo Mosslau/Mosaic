@@ -4,7 +4,7 @@
 
 ## 1. 概述
 
-Rust 宏与元编程阶段对应 roadmap 第 15 节，目标是**能使用声明宏和常见 derive 宏减少重复代码，并知道宏的维护成本**。具体定位是：**用 `macro_rules!` 写声明宏（匹配规则、片段分类符、repetition 重复展开、递归），用卫生性（hygiene）保证宏不污染调用方，把 `#[derive]` 从「会用」（ph07/ph13 只「用」不「写」）升级为「知道它在编译期做什么」，实测 serde/thiserror 两个 derive 宏的生成效果，再用 `cargo expand` 亲眼看到宏展开后的代码**。本阶段承接 ph07 trait 与泛型阶段（`#[derive(Debug, Clone, ...)]` 的 trait 语义基础）、ph11 错误处理与工程质量阶段（错误类型枚举 + thiserror 的生态讲解）、ph13 文件、网络与系统编程阶段（serde/clap derive 已「用」过，JSON 序列化/反序列化的用法基础）、ph14 Unsafe 与安全抽象阶段（「展开后的代码依然要过借用检查」——宏是编译期逃逸口，unsafe 是运行期逃逸口）；并为 ph16 Rust Edition、工具链与版本管理阶段（工具链/edition 视角）、ph17 Crate 生态选择与常用库阶段（生态视角）提供「宏与 derive 是怎么工作的」底层认知。
+Rust 宏与元编程阶段对应 roadmap 第 15 节，目标是**能使用声明宏和常见 derive 宏减少重复代码，并知道宏的维护成本**。具体定位是：**用 `macro_rules!` 写声明宏（匹配规则、片段分类符、repetition 重复展开、递归），用卫生性（hygiene）保证宏不污染调用方，把 `#[derive]` 从「会用」（ph07/ph13 只「用」不「写」）升级为「知道它在编译期做什么」，实测 serde/thiserror 两个 derive 宏的生成效果，再用 `cargo expand` 亲眼看到宏展开后的代码**。本阶段承接 ph07 trait 与泛型阶段（`#[derive(Debug, Clone, ...)]` 的 trait 语义基础）、ph11 错误处理与工程质量阶段（错误类型枚举 + thiserror 的生态讲解）、ph13 文件、网络与系统编程阶段（serde/clap derive 已「用」过，JSON 序列化/反序列化的用法基础）、ph14 Unsafe 与安全抽象阶段（「展开后的代码依然要过借用检查」——宏是编译期逃逸口，unsafe 是运行期逃逸口）；并为 ph16 Rust Edition、工具链与版本管理阶段（工具链/edition 视角，目录待建）、ph17 Crate 生态选择与常用库阶段（生态视角，目录待建）提供「宏与 derive 是怎么工作的」底层认知。
 
 | 核心维度 | 覆盖内容 |
 |----------|---------|
@@ -16,7 +16,7 @@ Rust 宏与元编程阶段对应 roadmap 第 15 节，目标是**能使用声明
 | 过程宏概念 | 三类过程宏、与声明宏的差异、最小标准代码结构（概念，不自写）（3.7） |
 | 工具与维护 | cargo expand 观察宏展开（实测）、宏的维护成本与取舍（4、5） |
 
-这个阶段只涉及 `macro_rules!` 声明宏（匹配规则、repetition、递归、卫生性）、常用 derive 宏的**使用**（serde/thiserror，含 `#[serde]`/`#[error]` 属性）与过程宏的**概念性理解**，**不涉及自写过程宏（用 syn/quote 开发自定义 derive/attribute 宏的完整工程，roadmap 无单列阶段，本阶段在 3.7 只给概念与最小标准代码骨架，完整开发作为第 5 章的进阶方向说明）、`macro 2.0`（声明宏的下一代语法，仍未稳定）、derive 的 trait 语义本身（trait 定义、derive 与手写 impl 的等价性，属 ph07 trait 与泛型阶段）、serde/crates 的生态用法（crate 选择、feature flags、其它数据格式，属 ph13 与 ph17 Crate 生态选择与常用库阶段）**。承接 [ph07 trait 与泛型阶段](../ph07-trait-generics/07-trait-generics.md)：那里说「本阶段只『用』derive」，这里讲「derive 在编译期做了什么」；承接 [ph11 错误处理与工程质量阶段](../ph11-error-handling/11-error-handling.md)：thiserror 在 ph11 是「未在本环境验证」的生态讲解，本阶段补上实测（thiserror 2.0.20）；承接 [ph13 文件、网络与系统编程阶段](../ph13-file-network-sys/13-file-network-sys.md)：serde derive 的用法基础已在 ph13 示例 7/8 实测，本阶段把「derive 生成什么代码」用 cargo expand 摊开看；承接 [ph14 Unsafe Rust 与安全抽象阶段](../ph14-unsafe-safety-abstraction/14-unsafe-safety-abstraction.md)：unsafe 是运行时逃逸口，宏是编译期逃逸口——两个「高级逃逸口」的心智模型互补。
+这个阶段只涉及 `macro_rules!` 声明宏（匹配规则、repetition、递归、卫生性）、常用 derive 宏的**使用**（serde/thiserror，含 `#[serde]`/`#[error]` 属性）与过程宏的**概念性理解**，**不涉及自写过程宏（用 syn/quote 开发自定义 derive/attribute 宏的完整工程，roadmap 无单列阶段，本阶段在 3.7 只给概念与最小标准代码骨架，完整开发作为第 5 章的进阶方向说明）、`macro 2.0`（声明宏的下一代语法，仍未稳定）、derive 的 trait 语义本身（trait 定义、derive 与手写 impl 的等价性，属 ph07 trait 与泛型阶段）、serde/crates 的生态用法（crate 选择、feature flags、其它数据格式，属 ph13 与 ph17 Crate 生态选择与常用库阶段，ph17 目录待建）**。承接 [ph07 trait 与泛型阶段](../ph07-trait-generics/07-trait-generics.md)：那里说「本阶段只『用』derive」，这里讲「derive 在编译期做了什么」；承接 [ph11 错误处理与工程质量阶段](../ph11-error-handling/11-error-handling.md)：thiserror 在 ph11 是「未在本环境验证」的生态讲解，本阶段补上实测（thiserror 2.0.20）；承接 [ph13 文件、网络与系统编程阶段](../ph13-file-network-sys/13-file-network-sys.md)：serde derive 的用法基础已在 ph13 示例 7/8 实测，本阶段把「derive 生成什么代码」用 cargo expand 摊开看；承接 [ph14 Unsafe Rust 与安全抽象阶段](../ph14-unsafe-safety-abstraction/14-unsafe-safety-abstraction.md)：unsafe 是运行时逃逸口，宏是编译期逃逸口——两个「高级逃逸口」的心智模型互补。
 
 ## 2. 来源与演变
 
@@ -92,7 +92,7 @@ fn main() {
 |-----------|---------|--------------------|
 | `:expr` | 一个表达式 | `show!(10 + 11)` |
 | `:ident` | 一个标识符（变量/类型/字段名…） | `let_var!(counter = 41)` |
-| `:ty` | 一个类型 | `typed_let!(bignum: u32 = 42)` |
+| `:ty` | 一个类型 | `typed_let!(bignum: u32 = 40 + 2)` |
 | `:pat` | 一个模式 | `matches_some!(Some(7), Some(_))` |
 | `:literal` | 一个字面量（数字/字符串/字符/布尔） | `assert_big!(8080)` |
 | `:tt` | 单个 token tree（单 token 或一组括号） | 递归 muncher 的搬运单元（练习 3） |
@@ -152,7 +152,7 @@ repetition 的三个实战要点（ex03 全部实测）：
 - **尾逗号用 `$(,)?` 吞掉**：`my_vec![1, 2, 3,]` 与 `my_vec![1, 2, 3]` 结果一致（断言通过）。
 - **计数用「单位数组长度」技巧**：`<[()]>::len(&[$(count_args!(@unit $x)),*])`——给每个参数生成一个 `()`，数组长度即参数个数；`@unit` 是私有辅助臂（`@` 开头的臂不会被正常调用命中）。实测 `count_args!(a, b, c, d, e) = 5`（`a`/`b` 无需预定义——宏只数 token 不碰值）。
 
-**递归**：`macro_rules!` 支持递归，但递归必须靠「结构变短」收敛——每层调用把参数列表剥掉一个，直到只剩一个命中终点臂（练习 3 的 `sum_args!`/`last_arg!`，实测 `sum_args!(1..=10) = 55`）。**宏不做算术**：想用 `$n - 1` 把 3 减到 0 是经典陷阱——`$n - 1` 是一串 token，永远不等于字面量 `0`，递归到展开深度上限报 `error: recursion limit reached while expanding \`down_from!\``（练习 3 实测文本）。同一层混用两个独立 repetition（`zip_bad!(1,2,3; 10,20)`）则报次数不一致错误（示例 5 实测）。
+**递归**：`macro_rules!` 支持递归，但递归必须靠「结构变短」收敛——每层调用把参数列表剥掉一个，直到只剩一个命中终点臂（练习 3 的 `sum_args!`/`last_arg!`：实测 `sum_args!(1, 2, 3, 4, 5, 6, 7, 8, 9, 10) = 55`——求和必须把参数逐个枚举传入，写 `sum_args!(1..=10)` 会被单参终点臂原样返回整个 range，宏按 token 匹配、不会替你遍历 range）。**宏不做算术**：想用 `$n - 1` 把 3 减到 0 是经典陷阱——`$n - 1` 是一串 token，永远不等于字面量 `0`，递归到展开深度上限报 `error: recursion limit reached while expanding \`down_from!\``（练习 3 实测文本）。同一层混用两个独立 repetition（`zip_bad!(1,2,3; 10,20)`）则报次数不一致错误（示例 5 实测）。
 
 ### 3.4 卫生性（hygiene）
 

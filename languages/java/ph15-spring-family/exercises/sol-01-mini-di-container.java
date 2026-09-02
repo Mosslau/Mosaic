@@ -4,8 +4,9 @@
 // 实测结果：MINI DI TESTS PASSED (4 assertions)
 //   （构造器注入可用 / 单例共享 / 引擎单例 / 循环依赖检测抛可读错误）
 // ---------------------------------------------------------------------------
-// 编译与运行：
-//   javac -d out src/com/example/MiniDiContainer.java
+// 编译与运行（零依赖单文件，直接在 exercises/ 目录执行；MiniDiContainer 是包级类，
+// 文件名不必与类名一致，可就地编译）：
+//   javac -d out sol-01-mini-di-container.java
 //   java -cp out com.example.MiniDiContainer
 // 教学点：Spring 的 @ComponentScan + 构造器注入本质就是「看构造器参数类型 → 递归创建依赖
 //   → 单例缓存」——先手写一遍再回 ex01 看 AnnotationConfigApplicationContext，容器不是魔法。
@@ -25,7 +26,7 @@ import java.util.Set;
  * 扫到组件类 → 看构造器要什么类型 → 递归创建依赖 → 单例缓存。先手写一遍，
  * 再回去看 ex01 的 AnnotationConfigApplicationContext，就明白「容器」不是魔法。
  */
-public final class MiniDiContainer {
+final class MiniDiContainer {
 
     private final Map<Class<?>, Object> singletons = new HashMap<>();
     private final Set<Class<?>> inProgress = new HashSet<>();

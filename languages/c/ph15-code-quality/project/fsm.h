@@ -3,7 +3,7 @@
  * 一个可复用的表驱动 FSM 框架:
  *   - 转移表: 只读数组, 每行 (from, event, action, to)
  *   - 动作 action 是函数指针, 收 (ctx, from, event, to)
- *   - 错误码: 0 成功 / 负数错误(非法事件/坏参数/满)
+ *   - 错误码: 0 成功 / 负数错误(坏参数/非法事件/内存不足)
  *   - 诊断: 每次转移记录到内部轨迹缓冲, fsm_trace 可读出(可测试的 API)
  *
  * 设计原则(ph15): 零全局状态(状态机状态全在句柄内, 可同时开多个实例)、
@@ -24,10 +24,9 @@ enum {
     FSM_ERR_BADARG = -1,     /* 空句柄 / 空表 / 初始状态越界 */
     FSM_ERR_ILLEGAL = -2,    /* 当前状态下无该事件的转移 */
     FSM_ERR_NOMEM = -3,      /* 内部分配失败 */
-    FSM_ERR_FULL = -4        /* 轨迹缓冲已满(可继续运行, 只是不再记录) */
 };
 
-#define FSM_TRACE_MAX 64
+#define FSM_TRACE_MAX 64     /* 轨迹缓冲容量: 满后停止记录(不影响转移与返回值) */
 
 /* 动作回调: 转移发生时调用。ctx 由状态机使用者提供并负责生命周期。 */
 typedef void (*fsm_action_fn)(void *ctx, int from_state, int event, int to_state);
@@ -47,7 +46,8 @@ fsm_t *fsm_new(const fsm_trans_t *table, size_t ntrans, int init_state,
 
 void fsm_destroy(fsm_t *f);
 
-/* 喂事件; 返回新状态(>=0) 或负数错误码。合法转移执行动作并记录轨迹 */
+/* 喂事件; 返回新状态(>=0) 或负数错误码。合法转移执行动作、换状态并记录轨迹
+ * (轨迹满后不再记录, fsm_trace_len 封顶 FSM_TRACE_MAX 可检测, 返回值不变) */
 int fsm_fire(fsm_t *f, int event);
 
 int fsm_state(const fsm_t *f);          /* 当前状态 */

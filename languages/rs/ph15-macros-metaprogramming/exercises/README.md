@@ -29,7 +29,7 @@
 
 - **目标**：用「剥一个 + 递归剩余」（tt muncher）写两个递归声明宏，理解 macro_rules! 的递归只靠结构收敛、不做算术（对应 3.2/3.3 匹配规则）
 - **要求**：
-  - `sum_args!`：变参求和。递归终点是「只剩一个参数」的臂 `($x:expr) => { $x }`；递归臂剥掉第一个、把剩余整体递归：`sum_args!(1, 2, 3, 4) == 10`、`sum_args!(1..=10) == 55`
+  - `sum_args!`：变参求和。递归终点是「只剩一个参数」的臂 `($x:expr) => { $x }`；递归臂剥掉第一个、把剩余整体递归：`sum_args!(1, 2, 3, 4) == 10`、`sum_args!(1, 2, 3, 4, 5, 6, 7, 8, 9, 10) == 55`（注意只能逐个枚举参数传入——写 `sum_args!(1..=10)` 会命中单参终点臂、把整个 range 原样返回，宏不做算术、不会替你遍历 range）
   - `last_arg!`：递归丢弃第一个直到只剩一个：`last_arg!("a", "b", "c") == "c"`；单参数直接命中终点
   - 在注释里说明（不启用）：为什么「数值递归」（如 `down_from!($n - 1)` 想从 3 减到 0）会一路展开到 `recursion limit reached`——宏按 token 匹配、不会先求值
 - **验收**：`rustc --edition 2021 -D warnings sol-03-recursion-macros.rs -o /tmp/sol03 && /tmp/sol03` 编译零警告；输出含 `sum_args!(1, 2, 3, 4) = 10`、`sum_args!(1, 2, 3, 4, 5, 6, 7, 8, 9, 10) = 55`、`last_arg!("a", "b", "c") = c` 与「断言全部通过」
@@ -43,4 +43,4 @@
   - 三个事件（两个 PageView + 一个 Signup）序列化为 JSON 并逐行打印；第一个 JSON 反序列化回 `Event` 断言往返一致；构造缺 `referrer` 的 JSON 断言 `default` 生效
 - **验收**：`cd crates && CARGO_TARGET_DIR=/tmp/ph15-exercises-target cargo run --bin sol-04-serde-derive` 编译零警告；输出三行 JSON（`"page_view"` 含 4 个键 / `"signup"` 形态）+「往返一致 = true」+ 缺失 referrer 为 `""` + 「断言通过」（完整实测输出见 sol-04 文件头验证块）
 
-> **提示**：练习 1 练 repetition 与 `stringify!`，练习 2 练卫生性，练习 3 练递归匹配，练习 4 练 derive——四题做完覆盖 roadmap 必会概念（编译期代码生成 / token tree / 宏展开 / 卫生性）与两条编码类练习；cargo expand 观察见 examples/crates README。
+提示：练习 1 练 repetition 与 `stringify!`，练习 2 练卫生性，练习 3 练递归匹配，练习 4 练 derive——四题做完覆盖 roadmap 必会概念（编译期代码生成 / token tree / 宏展开 / 卫生性）与两条编码类练习；cargo expand 观察见 examples/crates README。

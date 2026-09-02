@@ -11,8 +11,8 @@
  * 实测: 3 个 frame 分 4 块喂入全部解出; 超限 frame 被拒; 两个解析器实例互不干扰。
  */
 // 验证环境：Apple clang 21.0.0（cc），macOS（Darwin arm64）
-// 编译：cc -Wall -Wextra -std=c11 sol-05-frame-lib.c -o sol05
-// 运行：./sol05（无外部产物, 退出码 0）
+// 编译：mkdir -p /tmp/ph15c-sol && cc -Wall -Wextra -std=c11 sol-05-frame-lib.c -o /tmp/ph15c-sol/sol05
+// 运行：/tmp/ph15c-sol/sol05（无外部产物, 退出码 0）
 // 验证状态：已验证（零警告; 3 frame 解出顺序/超限拒绝/双实例隔离为实测, 见文件尾）
 #include <stdint.h>
 #include <stdio.h>

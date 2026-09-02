@@ -16,8 +16,10 @@ import java.util.Map;
 /**
  * 全局异常处理（ph14 模式的 ControllerAdvice 版）：校验 400、登录失败 401、
  * 无权限 403、用户名冲突 409、兜底 500——统一响应结构从 Controller 延伸到异常路径。
- * 教学点：方法级 @PreAuthorize 在 Service 抛的 AccessDeniedException 也会被这里接住转 403
- * （对比 ex06：Filter 层的拒绝走 Security 的 accessDeniedHandler，两层各管一段）。
+ * 教学点：本项目只用 URL 级授权——URL 拒绝发生在 Security Filter 层，由 accessDeniedHandler
+ * 写 403（不经过本类）；本类为方法级 @PreAuthorize 抛的 AccessDeniedException 预留分支：若给
+ * 业务方法加方法级授权，异常会在 MVC 层被这里接住转 403（对比 ex06 无 advice，方法级拒绝
+ * 最终由 accessDeniedHandler 收尾）——两层出口分工见主文档 3.10。
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {

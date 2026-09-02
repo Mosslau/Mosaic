@@ -15,7 +15,8 @@
 //
 //	$ go test -v ./... && go vet ./... && go test -race ./...
 //	PASS / ok  	tenetlang/go/ph15-version-toolchain/exercises/sol-03-goreq	0.007s
-//	（TestParseGoMod×5、TestCompareVersions×8、TestCheck×5 全 PASS；vet/race 零报告）
+//	（TestParseGoMod×5 子测试、TestCompareVersions×6 用例、TestCheck×5 子测试全 PASS；
+//	 vet/race 零报告——计数以 go test -count=1 -v 实测为准，2026-09-02 复核一致）
 //	$ go run . -mod go.mod ; echo exit=$?
 //	module   : tenetlang/go/ph15-version-toolchain/exercises/sol-03-goreq
 //	go 行    : 1.25.0

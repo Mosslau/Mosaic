@@ -27,7 +27,7 @@ public class WebSecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectMapper mapper) throws Exception {
         http
-                .csrf(csrf -> csrf.disable()) // 无状态 REST：无 cookie，CSRF 防护不需要（见主文档 3.11）
+                .csrf(csrf -> csrf.disable()) // 无状态 REST：无 cookie，CSRF 防护不需要（见主文档 3.10）
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .httpBasic(Customizer.withDefaults()) // 认证方式：HTTP Basic（演示用；生产常用 JWT Filter，见 project/）
                 .authorizeHttpRequests(auth -> auth

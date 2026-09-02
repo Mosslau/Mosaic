@@ -97,3 +97,4 @@ languages/c/ph12-endian-binary/project/wal_tool.dSYM/
 languages/c/ph13-mmap-page-cache/project/kvlog
 languages/c/ph13-mmap-page-cache/project/kvlog.dSYM/
 *.dSYM/
+languages/cpp/ph15-ub-memory-safety/project/build/

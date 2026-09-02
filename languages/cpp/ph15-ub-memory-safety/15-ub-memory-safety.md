@@ -4,7 +4,7 @@
 
 ## 1. 概述
 
-本阶段定位：**能识别并避免 C++ 中最危险的一类错误——未定义行为**。它是整个路线的第 15 步：C 系 ph10 已在 C 语言层面讲过 UB 的四档行为分类与通用类别（越界、UAF、溢出、未初始化、严格别名、对齐——按 C 语义）；本阶段是 **C++ 版**——C++ 继承 C 的全部 UB 类别，又因引用、对象生命周期、移动语义、标准容器、多线程内存模型而多出五类 C++ 特有的悬空与失效。本阶段把 ph03 的“指针越界是 UB”、ph04 的“迭代器失效”、ph10 工具链阶段的 ASan/UBSan 用法、ph12 的“move 后状态约束”“不返回局部引用”、ph13 的 RAII、ph14 的“const 承诺被破坏是 UB”提升到同一个高度：**能解释原理、能用 Sanitizer 实测复现、能在代码评审中识别**。
+本阶段定位：**能识别并避免 C++ 中最危险的一类错误——未定义行为**。它是整个路线的第 15 步：C 系 ph10 已在 C 语言层面讲过 UB 的四档行为分类与通用类别（越界、UAF、溢出、未初始化、严格别名、对齐——按 C 语义）；本阶段是 **C++ 版**——C++ 继承 C 的全部 UB 类别，又因引用、对象生命周期、移动语义、标准容器、多线程内存模型而多出五类 C++ 特有的悬空与失效。本阶段把 C 系 ph03 的“指针越界是 UB”（该埋线在 C 系 ph03 数组与指针阶段；C++ ph03 内存模型阶段讲对象生命周期，不含此条）、ph04 的“迭代器失效”、ph10 工具链阶段的 ASan/UBSan 用法、ph12 的“move 后状态约束”“不返回局部引用”、ph13 的 RAII、ph14 的“const 承诺被破坏是 UB”提升到同一个高度：**能解释原理、能用 Sanitizer 实测复现、能在代码评审中识别**。
 
 | 核心维度 | 覆盖内容 |
 |----------|---------|
@@ -57,7 +57,7 @@ C++ 容器与 C 数组一样**不做边界检查**：`v[i]` / `a[i]` 越界是 U
     v[idx] = 100;                        // UB: 越界写（ASan 报 heap-buffer-overflow）
 ```
 
-实测（`ex01`，Apple clang 21.0.0，-O0）：`v[3] = 100`（size=3/cap=3）→ ASan 报 `heap-buffer-overflow` + `WRITE of size 4` + "located 0 bytes after 12-byte region"，退出码 134；**同段代码 `-O1`/`-O2` 下 ASan 报告消失**——clang 把“后续读不到效果”的越界写折叠/消除，检查随之消失（UB 随优化级别暴露的又一形态，见 4.1）。`std::array` 越界读 → ASan `stack-buffer-overflow`（`READ of size 4`）；C 数组运行期下标越界 → UBSan `index 3 out of bounds for type 'int[3]'`。结论：**vector/std::array 的越界靠 ASan，C 数组的越界靠 UBSan，两种工具都要用**；写代码时用 `at()` 或手动边界检查，让越界变成定义行为（异常/错误码），而不是指望工具兜底。
+实测（`ex01`，Apple clang 21.0.0）：`v[3] = 100`（size=3/cap=3）→ ASan 报 `heap-buffer-overflow` + `WRITE of size 4` + "located 0 bytes after 12-byte region"，退出码 134，**-O0/-O1/-O2 三档实测均触发**——越界写后紧跟对同一越界位置的 printf 读，写无法被优化器消除（“折叠漏报”的前提是整段访问无观察者，见 4.1；C 系 ph10 4.2 演示的是可整体折叠的表达式场景）。`std::array` 越界读 → ASan `stack-buffer-overflow`（`READ of size 4`）；C 数组运行期下标越界 → UBSan `index 3 out of bounds for type 'int[3]'`。结论：**vector/std::array 的越界靠 ASan，C 数组的越界靠 UBSan，两种工具都要用**；写代码时用 `at()` 或手动边界检查，让越界变成定义行为（异常/错误码），而不是指望工具兜底。
 
 > ⚠️ libc++ 的 hardening 模式（`_LIBCPP_HARDENING_MODE=FAST/EXTENSIVE`）本阶段实测**不检查 `vector::operator[]`**（静默通过，与 libc++ 文档“operator[] 无检查”一致）；`at()` 是唯一的内建运行时护栏。不要假设“开了断言就有边界检查”。
 
@@ -65,7 +65,7 @@ C++ 容器与 C 数组一样**不做边界检查**：`v[i]` / `a[i]` 越界是 U
 
 ### 3.2 悬空引用与引用/迭代器失效：C++ 特有的悬空源
 
-roadmap 必会概念第一条：**引用也可能悬空**。C 的“悬空指针”靠程序员自觉（C 系 ph10 3.4）；C++ 的引用看似比指针安全（不能为空、不能重绑），但**引用不携带所有权**——容器管理元素的存储，于是引用/迭代器随容器的结构性修改而失效。悬空引用有三个来源：
+roadmap 必会概念：**引用也可能悬空**（roadmap 该小节共四条必会概念，此为第二条，第一条是“数据竞争在 C++ 中是 UB”）。C 的“悬空指针”靠程序员自觉（C 系 ph10 3.4）；C++ 的引用看似比指针安全（不能为空、不能重绑），但**引用不携带所有权**——容器管理元素的存储，于是引用/迭代器随容器的结构性修改而失效。悬空引用有三个来源：
 
 1. **返回局部对象/临时对象的引用**（F.43）——ph12 已系统讲透（其 ex05-dangling：`-Wreturn-stack-address` 告警 + ASan 抓 `stack-use-after-return`），本阶段不重复；
 2. **容器扩容重分配**：vector 存满后 `push_back` 会分配新缓冲区、迁移元素、释放旧缓冲区——**旧引用/指针/迭代器指向已释放的内存**（std 标准保证：重分配使指向元素的全部引用、指针、迭代器失效）；
@@ -138,7 +138,7 @@ C++11 移动语义引入后，被移动对象（moved-from）的语义由 **[lib
     b.join();
 ```
 
-实测（`ex05`，Apple clang 21.0.0，-fsanitize=thread）：TSan 报 `WARNING: ThreadSanitizer: data race` + `Write of size 4 ... by thread T2` / `Previous write of size 4 ... by thread T1`（同一地址的读改写无同步，报告给出冲突双方），退出码 134；`scoped_lock` 修复版（-DEX05_FIXED）TSan 零报告、输出确定 `shared=200000`。裸跑对照：竞态版本退出码 0 但值不定（四次实测 114401 / 200000 / 123474 / 117555）——**“碰巧对”不能证明无竞态**，必须 TSan 复跑。工具边界：TSan 与 ASan 不能同进程共存（都拦截同一批运行时函数），工程化组合见 ph16；Homebrew clang 的 TSan 在本机 arm64 不稳定（实测崩溃），本阶段 TSan 验证以 Apple clang 为准。
+实测（`ex05`，Apple clang 21.0.0，-fsanitize=thread）：TSan 报 `WARNING: ThreadSanitizer: data race` + `Write of size 4 ... by thread T2` / `Previous write of size 4 ... by thread T1`（同一地址的读改写无同步，报告给出冲突双方），退出码 134；`scoped_lock` 修复版（-DEX05_FIXED）TSan 零报告、输出确定 `shared=200000`。裸跑对照：**-O0** 下竞态版本退出码 0 但值不定（本机 6 次实测：122984 / 117974 / 120359 / 112912 / 126519 / 110862，均小于 200000）；**-O1** 下编译器按“无跨线程修改”假设把 `++shared` 累加优化进寄存器，本机 6 次实测恰为 200000（4.4）——两种“碰巧对”都不能证明无竞态，必须 TSan 复跑。工具边界：TSan 与 ASan 不能同进程共存（都拦截同一批运行时函数），工程化组合见 ph16；Homebrew clang 的 TSan 在本机 arm64 不稳定（实测崩溃），本阶段 TSan 验证以 Apple clang 为准。
 
 ### 3.6 类型别名与对齐：两类“看不见”的 UB
 
@@ -171,18 +171,18 @@ C++ 读内置类型的**不确定值**（indeterminate value）大多属 UB（[d
 
 LLVM/GCC 的优化 pass 把**“程序不含 UB”当作推理前提**（as-if 规则 + 无 UB 假设）。两个与本阶段直接相关的假设：
 
-- **越界假设**：`v[idx]` 不越界 → 越界写的“效果”（只对越界内存可见）可被当作死代码——clang 在 -O1/-O2 下把“写后读同一处”的越界写 CSE/折叠，ASan 对已消除的访问无报告可报（ex01 实测：报告只在 -O0 出现）；
+- **越界假设**：`v[idx]` 不越界 → 越界写对“界内世界”没有可观察效果，理论上若该写**无任何后续观察者**，编译器可能把整段访问移除。但移除的前提是“没有观察者”：（ex01 实测）本示例越界写后紧跟对同一下标的 printf 读、写有观察者，`-O0`/`-O1`/`-O2` 三档 ASan 均报 `heap-buffer-overflow`（`WRITE of size 4`，退出码 134）；能被整体移除的 UB 形态需证明访问无观察者——C 系 ph10 4.2 的 `(a+1) > a` 是表达式层面的溢出假设折叠（非内存访问，不属 ASan 场景），与本示例不同；
 - **严格别名假设**：两个不兼容类型的指针不指向同一内存 → load 可缓存、store 可重排（ex06 的指针双关没被重排是“碰巧”；ph14 ex04 的 const_cast 折叠是同一机制的实证：O0 下 Bus error、O2 下常量折叠打印 42）。
 
 ```text
 UB 代码 ──编译器（-O1+）──▶ 按"无 UB"推理
-                              ├── 越界写被折叠（ASan 检查随之消失，实测）
+                              ├── 越界写若有后续观察者 → 不消除（ex01：-O0~-O2 实测均报告）
                               ├── 别名违规被忽略（两次 load 可合并，实测未触发）
                               └── const 不变量被利用（ph14：O2 常量折叠，写入不生效）
-        ──Sanitizer（-O0）──▶ 检查点插桩，UB 命中即报告
+        ──Sanitizer（-O0 演示）──▶ 检查点插桩，UB 命中即报告
 ```
 
-**实践准则**：调试/演示用 `-O0 -g`，发布用 `-O2`；Sanitizer 复现统一 `-O0`（ph10 教训在本阶段复现）；**发布版崩、调试版不崩 → 第一反应查 UB，不是怀疑编译器**。
+**实践准则**：调试/演示用 `-O0 -g`，发布用 `-O2`；Sanitizer 复现统一 `-O0`（行号稳定、报告可控——本阶段越界/UAF/失效类示例 -O0~-O2 实测均报告，`-O0` 不是防漏报的必要条件）；**发布版崩、调试版不崩 → 第一反应查 UB，不是怀疑编译器**。
 
 ### 4.2 容器失效的机制：vector 扩容做了什么
 
@@ -258,7 +258,7 @@ C++ 的类型系统按**动态类型**（对象的真实类型）约束访问：
 
 ## 6. 代码示例
 
-> 说明：示例均在本机（macOS arm64，Apple clang 21.0.0 + Homebrew clang 21.1.8）实际编译运行验证（已验证），默认构建一律 `-std=c++20 -Wall -Wextra` **零警告**（双编译器）；输出一致性除 ex05（竞态值不定，见其文件头）外均已核对；故意出错变体按各文件首行注释的运行前提用 Sanitizer 编译（**UB 演示统一 -O0**——-O1/-O2 下 clang 可能折叠被测访问导致 ASan 漏报，实测见示例 1）。完整可运行文件在 [`examples/`](./examples/)，此处展示关键片段（与原文件逐字一致）。
+> 说明：示例均在本机（macOS arm64，Apple clang 21.0.0 + Homebrew clang 21.1.8）实际编译运行验证（已验证），默认构建一律 `-std=c++20 -Wall -Wextra` **零警告**（双编译器）；输出一致性除 ex05（竞态值不定，见其文件头）外均已核对；故意出错变体按各文件首行注释的运行前提用 Sanitizer 编译（**UB 演示统一 -O0**——行号稳定、报告可控；实测越界/UAF/失效类示例在 -O0/-O1/-O2 下报告均触发，-O0 不是防漏报的必要条件，见示例 1）。完整可运行文件在 [`examples/`](./examples/)，此处展示关键片段（与原文件逐字一致）。
 
 ### 示例 1：越界访问（examples/ex01-vector-oob.cpp）
 
@@ -286,9 +286,13 @@ C++ 的类型系统按**动态类型**（对象的真实类型）约束访问：
 c++ -std=c++20 -Wall -Wextra ex01-vector-oob.cpp -o /tmp/ph15-ex01 && /tmp/ph15-ex01
 # 2. vector 越界写（故意出错，必须 ASan，-O0）：
 c++ -std=c++20 -Wall -Wextra -O0 -g -fsanitize=address -DEX01_VEC_OOB ex01-vector-oob.cpp -o /tmp/ph15-ex01-vec && /tmp/ph15-ex01-vec
+# 3. std::array 越界读（故意出错，必须 ASan，-O0）：
+c++ -std=c++20 -Wall -Wextra -O0 -g -fsanitize=address -DEX01_STD_ARRAY ex01-vector-oob.cpp -o /tmp/ph15-ex01-arr && /tmp/ph15-ex01-arr
+# 4. C 数组越界写（故意出错，必须 UBSan 并中止，-O0）：
+c++ -std=c++20 -Wall -Wextra -O0 -g -fsanitize=undefined -fno-sanitize-recover=all -DEX01_CARRAY ex01-vector-oob.cpp -o /tmp/ph15-ex01-carr && /tmp/ph15-ex01-carr
 ```
 
-实测报告关键行（退出码 134）：`ERROR: AddressSanitizer: heap-buffer-overflow` + `WRITE of size 4` + "located 0 bytes after 12-byte region"（**-O1/-O2 下报告消失**——越界写被 clang 折叠，演示必须 -O0）。`std::array` 越界读 → `stack-buffer-overflow` + `READ of size 4`；C 数组运行期下标越界 → UBSan `runtime error: index 3 out of bounds for type 'int[3]'`。要点：**vector/std::array 越界靠 ASan、C 数组越界靠 UBSan**，`at()`/手动边界检查让越界变定义行为。
+实测报告关键行（退出码 134，-O0/-O1/-O2 三档实测均触发）：`ERROR: AddressSanitizer: heap-buffer-overflow` + `WRITE of size 4` + "located 0 bytes after 12-byte region"（越界写后紧跟同下标读、不会被折叠消除；演示统一 -O0 只为行号稳定、报告可控）。`std::array` 越界读 → `stack-buffer-overflow` + `READ of size 4`；C 数组运行期下标越界 → UBSan `runtime error: index 3 out of bounds for type 'int[3]'`。要点：**vector/std::array 越界靠 ASan、C 数组越界靠 UBSan**，`at()`/手动边界检查让越界变定义行为。
 
 ### 示例 2：悬空引用与容器失效（examples/ex02-dangling-container.cpp）
 
@@ -313,6 +317,8 @@ c++ -std=c++20 -Wall -Wextra -O0 -g -fsanitize=address -DEX01_VEC_OOB ex01-vecto
 c++ -std=c++20 -Wall -Wextra ex02-dangling-container.cpp -o /tmp/ph15-ex02 && /tmp/ph15-ex02
 # 2. 扩容后旧引用失效（故意出错，必须 ASan，-O0）：
 c++ -std=c++20 -Wall -Wextra -O0 -g -fsanitize=address -DEX02_REALLOC ex02-dangling-container.cpp -o /tmp/ph15-ex02-r && /tmp/ph15-ex02-r
+# 3. 容器销毁后引用（故意出错，必须 ASan，-O0）：
+c++ -std=c++20 -Wall -Wextra -O0 -g -fsanitize=address -DEX02_CONTAINER_DEAD ex02-dangling-container.cpp -o /tmp/ph15-ex02-d && /tmp/ph15-ex02-d
 ```
 
 实测报告关键行（退出码 134，-O0~-O2 均触发）：`ERROR: AddressSanitizer: heap-use-after-free` + `READ of size 4`（扩容失效）；`READ of size 1`（容器销毁后引用）。要点：扩容 = 新缓冲区 + 迁移 + 释放旧缓冲区（4.2）；安全姿势 = 现取下标 / reserve 预留 / 先拷贝再放容器走。
@@ -340,6 +346,8 @@ c++ -std=c++20 -Wall -Wextra -O0 -g -fsanitize=address -DEX02_REALLOC ex02-dangl
 c++ -std=c++20 -Wall -Wextra ex03-uaf-double-free.cpp -o /tmp/ph15-ex03 && /tmp/ph15-ex03
 # 2. delete 后写（故意出错，必须 ASan，-O0）：
 c++ -std=c++20 -Wall -Wextra -O0 -g -fsanitize=address -DEX03_UAF ex03-uaf-double-free.cpp -o /tmp/ph15-ex03-u && /tmp/ph15-ex03-u
+# 3. 双重 delete（故意出错，必须 ASan，-O0）：
+c++ -std=c++20 -Wall -Wextra -O0 -g -fsanitize=address -DEX03_DOUBLE_FREE ex03-uaf-double-free.cpp -o /tmp/ph15-ex03-d && /tmp/ph15-ex03-d
 ```
 
 实测报告关键行（退出码 134，-O0~-O2 均触发）：`heap-use-after-free` + `WRITE of size 4`（UAF）；`attempting double-free`（双删）。要点：delete 后置空只防当前别名；RAII/unique_ptr 让释放点唯一——**消灭裸 delete 是 C++ 的根治思路**（R.11，ph13 深入）。
@@ -371,7 +379,7 @@ c++ -std=c++20 -Wall -Wextra -O0 -g -fsanitize=undefined -fno-sanitize-recover=a
 
 ### 示例 5：数据竞争（examples/ex05-data-race.cpp）
 
-对应 roadmap 必会概念“数据竞争在 C++ 中是 UB”与练习 2 的 TSan 环节。
+对应 roadmap 必会概念“数据竞争在 C++ 中是 UB”。练习 2 的 ASan/UBSan 复现只覆盖越界与 use-after-free、不覆盖数据竞争；TSan 复现由本示例承担（project/ 的 race 演示与本示例同源，TSan 与 ASan 不能同进程共存，见 project/README）。
 
 > 运行前提：本文件两个变体都必须用 `-fsanitize=thread` 编译运行，勿裸跑。
 
@@ -393,7 +401,7 @@ c++ -std=c++20 -Wall -Wextra -O1 -g -fsanitize=thread ex05-data-race.cpp -o /tmp
 c++ -std=c++20 -Wall -Wextra -O1 -g -fsanitize=thread -DEX05_FIXED ex05-data-race.cpp -o /tmp/ph15-ex05-f && /tmp/ph15-ex05-f
 ```
 
-实测报告关键行（Apple clang 21.0.0）：TSan `WARNING: ThreadSanitizer: data race` + `Write of size 4 ... by thread T2` / `Previous write of size 4 ... by thread T1`，退出码 134；修复版零报告、`shared=200000`、退出码 0。裸跑对照：值不定（实测 114401/200000/123474/117555）——“碰巧对”不能证明无竞态。
+实测报告关键行（Apple clang 21.0.0）：TSan `WARNING: ThreadSanitizer: data race` + `Write of size 4 ... by thread T2` / `Previous write of size 4 ... by thread T1`，退出码 134；修复版零报告、`shared=200000`、退出码 0。裸跑对照：-O0 下值不定（本机 6 次实测：122984/117974/120359/112912/126519/110862，均 <200000）；-O1 下实测恰为 200000（编译器把累加优化进寄存器）——“碰巧对”不能证明无竞态。
 
 ### 示例 6：类型别名与对齐（examples/ex06-alias-align.cpp）
 
@@ -415,6 +423,10 @@ c++ -std=c++20 -Wall -Wextra -O1 -g -fsanitize=thread -DEX05_FIXED ex05-data-rac
 ```bash
 # 1. 默认（正解对照：std::bit_cast / memcpy，零警告）：
 c++ -std=c++20 -Wall -Wextra ex06-alias-align.cpp -o /tmp/ph15-ex06 && /tmp/ph15-ex06
+# 2. 指针双关（故意出错：别名违规，工具抓不到，输出是“碰巧正确”的 UB 表现）：
+c++ -std=c++20 -Wall -Wextra -O2 -DEX06_PUN_PTR ex06-alias-align.cpp -o /tmp/ph15-ex06-p && /tmp/ph15-ex06-p
+# 3. union 双关（故意出错：C++ 中读非活动成员是 UB；可任意编译运行，勿当规范）：
+c++ -std=c++20 -Wall -Wextra -O2 -DEX06_PUN_UNION ex06-alias-align.cpp -o /tmp/ph15-ex06-u && /tmp/ph15-ex06-u
 # 4. 未对齐访问（故意出错，必须 UBSan 并中止，-O0）：
 c++ -std=c++20 -Wall -Wextra -O0 -g -fsanitize=undefined -fno-sanitize-recover=all -DEX06_MISALIGN ex06-alias-align.cpp -o /tmp/ph15-ex06-m && /tmp/ph15-ex06-m
 ```
@@ -435,7 +447,7 @@ c++ -std=c++20 -Wall -Wextra -O0 -g -fsanitize=undefined -fno-sanitize-recover=a
 8. **严格别名禁止双关**：reinterpret_cast 指针双关与 union 读非活动成员都是 UB（C++ 标准只豁免 common initial sequence）；位模式搬运用 `std::bit_cast`/memcpy（3.6、`ex06`）
 9. **对齐是硬约束**：未对齐访问 arm64 也“只是容忍”——UBSan 让它现形；字节流解析先 memcpy 到对齐变量（3.6、`ex06`）
 10. **未初始化用编译期护栏根治**：`-Wuninitialized` 拦局部变量、默认成员初始化器拦成员（ES.20）；运行时工具抓不到（3.7、练习 5）
-11. **UB 随优化级别暴露**：-O1/-O2 会折叠越界写（ASan 漏报）——演示/复现统一 -O0；发布崩调试不崩 → 先查 UB（4.1）
+11. **UB 的表现可能随优化级别变化**：ex05 竞态 -O0 裸跑丢失更新、-O1 下被优化成“恰好 200000”（3.5、4.4）；const 不变量被破坏在 -O2 下常量折叠（ph14 ex04）。但越界/UAF/失效类复现 -O0/-O1/-O2 实测均报告（3.1、`ex01`）——演示统一 -O0 只为行号稳定/报告可控；发布崩调试不崩 → 先查 UB（4.1）
 12. **工具边界**：ASan 抓越界/UAF/双删，UBSan 抓对齐/空指针等逻辑型，TSan 抓竞争；别名与多数未初始化靠规范与评审——工程化属 ph16
 
 ### 阶段验收清单

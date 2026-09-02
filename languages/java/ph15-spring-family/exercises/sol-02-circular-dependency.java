@@ -1,5 +1,5 @@
 // exercises/sol-02-circular-dependency.java —— 练习 2 参考实现：构造器循环依赖实测与 @Lazy 解法
-// 验证环境：OpenJDK 17.0.18 + Maven 3.9.12 + Spring Framework 6.1.6（纯核心容器，无 Web）
+// 验证环境：OpenJDK 17.0.18 + Maven 3.9.12 + Spring Framework 6.1.8（纯核心容器，无 Web）
 // 验证状态：已验证（本机离线 mvn -o test，BUILD SUCCESS）
 // 实测结果：Tests run: 2, Failures: 0, Errors: 0
 //   （constructorCycleFailsFastAtRefresh：Ping↔Pong 纯构造器循环 → 启动抛

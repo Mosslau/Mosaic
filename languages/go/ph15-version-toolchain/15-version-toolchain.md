@@ -16,7 +16,7 @@ Go 版本、工具链阶段的目标是（引用 Roadmap）：**理解 Go 版本
 | 工具链要求 | go.mod 的 go 行（语言版本门槛 + 最小工具链）与 toolchain 行（首选工具链）、GOTOOLCHAIN=auto/local/版本 |
 | 模块版本 | 语义化版本 v1.2.3（数字段比较、预发布、+build）、大版本 /vN 路径规则、伪版本、依赖升级与测试验证 |
 
-这个阶段只涉及版本管理与工具链的使用和机制，**不涉及 Go 语言底层机制本身（GMP/GC/interface 分派等属 [ph14 高级 Go 阶段](../ph14-advanced-go/14-advanced-go.md)）、性能剖析与优化的工具用法（pprof/benchmark/逃逸分析属 ph13 性能优化阶段）、PGO 与用生产 profile 指导编译（属 ph16 PGO 与高级性能优化阶段，roadmap 第 16 节，目录待建）、容器与 CI/CD 里的工具链编排（多阶段 Dockerfile、CI 矩阵属 ph12 云原生与部署阶段）、多环境发布里的版本号与构建信息策略（灰度/回滚属 ph20 配置管理与发布策略阶段）** — 本阶段把"版本"固定在 go 命令与 go.mod 这一层；发布层怎么用这些版本是 ph20 的事。
+这个阶段只涉及版本管理与工具链的使用和机制，**不涉及 Go 语言底层机制本身（GMP/GC/interface 分派等属 [ph14 高级 Go 阶段](../ph14-advanced-go/14-advanced-go.md)）、性能剖析与优化的工具用法（pprof/benchmark/逃逸分析属 ph13 性能优化阶段）、PGO 与用生产 profile 指导编译（属 ph16 PGO 与高级性能优化阶段，roadmap 第 16 节，目录待建）、容器与 CI/CD 里的工具链编排（多阶段 Dockerfile、CI 矩阵属 ph12 云原生与部署阶段）、多环境发布里的版本号与构建信息策略（灰度/回滚属 ph20 配置管理与发布策略阶段，roadmap 第 20 节，目录待建）** — 本阶段把"版本"固定在 go 命令与 go.mod 这一层；发布层怎么用这些版本是 ph20 的事。
 
 ## 2. 来源与演变
 
@@ -67,18 +67,20 @@ $ go env GO111MODULE GOPATH GOMODCACHE GOCACHE GOROOT GOPROXY GOSUMDB GOTOOLCHAI
 （每键一行；本环境为沙箱，GOCACHE/GOMODCACHE/GOPATH 已重定位到 /tmp）
 ```
 
-| 键 | 默认（未覆盖时） | 本环境实测 | 语义 |
-|----|----------------|-----------|------|
+| 键 | 默认（未覆盖时） | 本环境实测（重定位到 /tmp） | 语义 |
+|----|----------------|---------------------------|------|
 | GOROOT | 工具链安装目录 | /opt/homebrew/Cellar/go/1.25.6/libexec | go 命令、编译器、标准库源码所在；`runtime.GOROOT()` 等价 |
-| GOPATH | ~/go | /Users/ninebot/go（重定位演示用 /tmp/gopath） | 工作区根；module 模式下是 GOMODCACHE/GOBIN 的宿主 |
-| GOMODCACHE | $GOPATH/pkg/mod | /Users/ninebot/go/pkg/mod | **模块源码缓存**：`go mod download` 的 zip 与解压源码落点 |
-| GOCACHE | ~/Library/Caches/go-build（darwin） | /Users/ninebot/Library/Caches/go-build | **编译产物缓存**：内容寻址中间产物，可随时删（`go clean -cache`） |
+| GOPATH | ~/go | /tmp/gopath | 工作区根；module 模式下是 GOMODCACHE/GOBIN 的宿主 |
+| GOMODCACHE | $GOPATH/pkg/mod | /tmp/gomodcache | **模块源码缓存**：`go mod download` 的 zip 与解压源码落点 |
+| GOCACHE | ~/Library/Caches/go-build（darwin） | /tmp/gocache | **编译产物缓存**：内容寻址中间产物，可随时删（`go clean -cache`） |
 | GOBIN | $GOPATH/bin | 空 = 用默认 | `go install` 的二进制安装目录（3.4 会设置它） |
 | GOVERSION | — | go1.25.6 | 当前 go 命令版本（`go version` 的机器可读形式） |
 | GOTOOLCHAIN | auto | auto | 工具链选择策略（3.6 详解） |
 | GOPROXY | proxy.golang.org,direct | 同上 | 模块代理；可 file:// 指向本地离线代理（3.4/4.3） |
 | GOSUMDB | sum.golang.org | 同上 | 模块校验和数据库（go.sum 的信任根） |
 | GOWORK | 空 | 空 | 当前生效的 go.work 路径；非空 = 处于 workspace（3.5） |
+
+**实测口径（脚注）**：本机未重定位时的默认值实测为 `GOPATH=/Users/ninebot/go`、`GOMODCACHE=/Users/ninebot/go/pkg/mod`、`GOCACHE=/Users/ninebot/Library/Caches/go-build`（darwin）——但本仓库验证沙箱对以上默认位置只读（`go` 命令实际写入时报 `operation not permitted`），故全部实测在 `GOPATH=/tmp/gopath GOMODCACHE=/tmp/gomodcache GOCACHE=/tmp/gocache` 的**会话级环境变量重定位**下进行（非 `go env -w` 持久化），上表「本环境实测」列即该会话的真实输出，与 examples/ex03-goenv-probe 及 examples/README.md 的实测记录一致；「默认」列给出的是未重定位的符号默认。GOCACHE/GOMODCACHE/GOPATH 三键之外的键在两种环境下取值相同。
 
 **四类路径是最容易混的一组，务必分清**：
 
@@ -108,7 +110,7 @@ s += "go version(build): " + bi.GoVersion + "\n"
 // for _, kv := range bi.Settings { … vcs.revision / vcs.time / vcs.modified … }
 ```
 
-**实测（ex01，go1.25.6，TenetLang 仓库内构建）**：`go build -ldflags "-X main.version=v1.2.3"` 后运行，输出 `runtime.Version(): go1.25.6`、`version var: v1.2.3`、`main module: …ex01-buildinfo (devel)`、`go version(build): go1.25.6`、`setting vcs.revision : 10e66b4…`。三个要点：① **模块版本来自 VCS tag**——仓库打了 v1.2.3 的 tag 才显示 v1.2.3，没打 tag 一律 `(devel)`（伪版本机制见 3.7）；② **`-ldflags "-X main.version=…"` 是构建期注入业务版本号的官方手法**（`-X` 写的是包级变量的值），配合 VCS 印章（vcs.revision / vcs.time / vcs.modified，默认在有 .git 的目录构建时自动盖）就构成"这个二进制是谁、哪个 commit、什么 go 版本编出来的"的完整答案——线上排障第一件事 `go version -m`；③ 业务发布层怎么编排这些版本号（灰度对照、回滚判断）属 ph20，本阶段只讲"信息怎么进二进制"。
+**实测（ex01，go1.25.6，TenetLang 仓库内构建）**：`go build -ldflags "-X main.version=v1.2.3"` 后运行，输出 `runtime.Version(): go1.25.6`、`version var: v1.2.3`、`main module: …ex01-buildinfo (devel)`、`go version(build): go1.25.6`、`setting vcs.revision : 10e66b4…`。三个要点：① **模块版本来自 VCS tag**——仓库打了 v1.2.3 的 tag 才显示 v1.2.3，没打 tag 一律 `(devel)`（伪版本机制见 3.7）；② **`-ldflags "-X main.version=…"` 是构建期注入业务版本号的官方手法**（`-X` 写的是包级变量的值），配合 VCS 印章（vcs.revision / vcs.time / vcs.modified，默认在有 .git 的目录构建时自动盖）就构成"这个二进制是谁、哪个 commit、什么 go 版本编出来的"的完整答案——线上排障第一件事 `go version -m`；③ 业务发布层怎么编排这些版本号（灰度对照、回滚判断）属 ph20（roadmap 第 20 节，目录待建），本阶段只讲"信息怎么进二进制"。
 
 ### 3.4 go install：@version 后缀与模块代理
 
@@ -129,7 +131,7 @@ bin/greeter-cli: go1.25.6
 $ go install example.com/greeter-cli@v1.0.0    ← 再装 v1.0.0，二进制变回 v1.0.0
 ```
 
-**三个必记点**：① **同名覆盖**——`@version` 选的是"装哪个版本"，不是"装成不同名字"；二进制名 = 模块路径最后一段，两版不能并存（想要并存自己复制/改名）；② **版本靠 `go version -m` 验证**，别信"我刚装的"；③ **`go install m@v` 的解析走 module proxy**（GOPROXY 协议，4.3 详述）——离线/内网环境可以像上面一样指 file:// proxy 或共享 GOMODCACHE。另外 `go run m@version`（Go 1.22+）用同一机制"跑某个版本而不安装"，临时试工具版本很好用。
+**三个必记点**：① **同名覆盖**——`@version` 选的是"装哪个版本"，不是"装成不同名字"；二进制名 = 模块路径最后一段，两版不能并存（想要并存自己复制/改名）；② **版本靠 `go version -m` 验证**，别信"我刚装的"；③ **`go install m@v` 的解析走 module proxy**（GOPROXY 协议，4.3 详述）——离线/内网环境可以像上面一样指 file:// proxy 或共享 GOMODCACHE。另外 `go run m@version`（Go 1.21+ 起支持：`@` 版本后缀从 Go 1.21 起对 go run 生效，go1.20 及更早只支持 go install）用同一机制"跑某个版本而不安装"，临时试工具版本很好用。
 
 ### 3.5 go work：多模块 workspace 实测
 
@@ -206,7 +208,7 @@ go: downloading go1.26.0 (darwin/arm64)
 $ GOTOOLCHAIN=local go build ./...                  # local：忽略 toolchain 行，构建通过（exit 0）
 ```
 
-**结论**（这三组实测是"版本要求由谁说了算"的完整答案）：**go 行是硬门槛**——低于它，auto 想下载、local 直接报错，构建必失败；**toolchain 行是首选**——auto 会切过去（团队里装了更新版本就自动用），local 直接无视（版本可能不统一）。所以"工具链版本应在团队中统一"的正确落地是：go 行定**最低可用版本**（写你真正用到的语言特性所需的最低 minor），toolchain 行定**首选精确版本**（要团队都用 go1.25.6 就写 toolchain go1.25.6），CI/本地用 GOTOOLCHAIN=auto 让工具自动对齐；`go mod init` 会把当前工具链完整版本写进 go 行（go1.25.6 实测：`go mod init` 生成 `go 1.25.6`）。
+**结论**（这三组实测是"版本要求由谁说了算"的完整答案）：**go 行是硬门槛**——低于它，auto 想下载、local 直接报错，构建必失败；**toolchain 行是首选**——auto 会切过去（团队里装了更新版本就自动用），local 直接无视（版本可能不统一）。所以"工具链版本应在团队中统一"的正确落地是：go 行定**最低可用版本**（写你真正用到的语言特性所需的最低 minor），toolchain 行定**首选精确版本**（要团队都用 go1.25.6 就写 toolchain go1.25.6），CI/本地用 GOTOOLCHAIN=auto 让工具自动对齐；`go mod init` 会把当前工具链完整版本写进 go 行（go1.25.6 实测：`go mod init` 生成 `go 1.25.6`）。注意对照：本仓库示例/练习/项目的 go.mod 统一写的是 `go 1.25.0`——那是把 go 行定在"语言版本档"的工程写法：go 行只表达**最低要求**（`go 1.25.0` ≤ 当前工具链 1.25.6 即满足），与 `go mod init` 默认写当前工具链完整版本并不矛盾——init 是"所见即所用"的默认，发布前通常再按团队最低版本显式调低（`go mod edit -go=…`），两种写法都合法。
 
 > go 行对语言/标准库行为的完整门禁（含 GODEBUG 默认行为切换）见 4.2；**GOTOOLCHAIN=path（让 go 命令跟随 PATH 里的版本）与自动下载的细节属于工具链选择机制，本节只给实测结论**。
 
@@ -266,7 +268,7 @@ toolchain 行 > 当前（且 GOTOOLCHAIN=auto）？── 是 ──▶ 切到 t
 
 ### 4.2 语言版本门槛：go 行怎么变成编译行为
 
-**go 行不是注释，它决定编译器的 `-lang` 参数与标准库默认行为**。语言侧：编译器按 go 行设置语言版本，低于该版本的语法直接报错——3.6 实测的报错文本里那句 `(-lang was set to go1.21; check go.mod)` 就是证据：**报错的是编译器（-lang），提示查的是 go.mod**。标准库侧：Go 用 GODEBUG 机制管理"行为默认值随版本演进"的兼容开关——go.mod 的 go 行决定这批开关取新默认还是旧默认（如 Go 1.22 起 for 循环变量每次迭代独立、net/http 的行为调整），升 go 行 = 一次性切到新默认（此机制属官方 [go.dev/doc/godebug](https://golang.google.cn/doc/godebug) 文档内容，本环境未逐项实测，标注以官方文档为准）。
+**go 行不是注释，它决定编译器的 `-lang` 参数与标准库/运行时的默认行为**。语言侧：编译器按 go 行设置语言版本，分两种门禁——**语法门禁**：低于 go 行的语法直接报错，3.6 实测的报错文本里那句 `(-lang was set to go1.21; check go.mod)` 就是证据：**报错的是编译器（-lang），提示查的是 go.mod**；**语义门禁**：同一份代码按 go 行取对应语言档——Go 1.22 起 for 循环变量每次迭代独立、range-over-int 可用，而 go 行 < 1.22 的模块仍按旧语义编译（3.6 实测 1 里 range-over-int 在 `go 1.21.0` 下报错、`go 1.22.0` 下通过，就是 -lang 在起作用）。**语言侧的这两类门禁都走 -lang，不是 GODEBUG**。标准库/运行时侧：Go 用 GODEBUG 机制管理"行为默认值随版本演进"的兼容开关——go.mod 的 go 行决定这批开关取新默认还是旧默认（如 Go 1.22 起 net/http ServeMux 新路由语法的 httpmuxgo121 开关：go 行 ≥ 1.22 的模块默认启用新行为，旧模块保持 Go 1.21 行为；此类开关也可用 GODEBUG 环境变量临时覆盖），升 go 行 = 一次性切到新默认（此机制属官方 [go.dev/doc/godebug](https://golang.google.cn/doc/godebug) 文档内容，本环境未逐项实测，标注以官方文档为准）。
 
 **工程含义**：go 行往高调（如 1.21 → 1.22）不只是"换个编译器版本"，还意味着**一批标准库行为默认值跟着变**——所以"升级 go 行"也要跑全量测试（与 3.7 的依赖升级同理）；反过来，`go 1.21` + 用 1.25.6 工具链编译 = 语言与行为都锁在 1.21 的兼容档（实测 range-over-int 被拒），这是"老项目渐进升级"的官方路径：先升工具链、go 行原地不动，逐个版本解锁。
 
@@ -301,8 +303,8 @@ GOMODCACHE/cache/download/example.com/greet/@v/     ← 与 proxy 同构的本�
 
 - **容器里的工具链编排**（多阶段 Dockerfile、CI 版本矩阵、镜像内 go 版本）：属 ph12——本阶段讲"go 命令怎么选版本"，ph12 讲"镜像/流水线怎么管版本"
 - **性能剖析工具**（pprof/benchmark 怎么用）：属 ph13——版本与工具链不是性能话题
-- **PGO**（用生产 profile 指导编译，`go build -pgo=…`）：属 ph16——它与本阶段的 toolchain 行同属"构建期配置"，但流程属 ph16
-- **发布侧版本策略**（灰度对照、回滚判断、多环境版本号注入）：属 ph20——本阶段只保证"版本信息进得去、查得出"
+- **PGO**（用生产 profile 指导编译，`go build -pgo=…`）：属 ph16（roadmap 第 16 节，目录待建）——它与本阶段的 toolchain 行同属"构建期配置"，但流程属 ph16
+- **发布侧版本策略**（灰度对照、回滚判断、多环境版本号注入）：属 ph20（roadmap 第 20 节，目录待建）——本阶段只保证"版本信息进得去、查得出"
 
 ## 6. 代码示例
 

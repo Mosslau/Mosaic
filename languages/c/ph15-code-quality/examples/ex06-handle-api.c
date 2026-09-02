@@ -1,7 +1,7 @@
 // examples/ex06-handle-api.c —— handle-based API/opaque pointer：承接 ph14（已验证）
 // 验证环境：Apple clang 21.0.0（cc，macOS arm64）
-// 编译：cc -Wall -Wextra -std=c11 ex06-handle-api.c -o ex06
-// 运行：./ex06（无外部产物，退出码 0；实测输出见文件尾注释）
+// 编译：mkdir -p /tmp/ph15c-ex && cc -Wall -Wextra -std=c11 ex06-handle-api.c -o /tmp/ph15c-ex/ex06
+// 运行：/tmp/ph15c-ex/ex06（无外部产物，退出码 0；实测输出见文件尾注释）
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>

@@ -4,12 +4,15 @@
  *   注册（尾部追加, 保持注册顺序）、按序分发（同一事件按注册顺序回调）、
  *   注销（移除指定回调, 验证不再被调用）。核心验证 = 回调顺序实测。
  * 生命周期约定: ctx 由注册方负责; 分发期间不得注销（简化版, 见主文档 3.4）。
+ * 注: 为聚焦"注册→分发→注销"语义, 注册表与顺序缓冲用文件级静态数组
+ *   （与 examples/ex02 同款演示形态）; 工程化封装应把注册表收进句柄对象,
+ *   即练习 4/5、ex06 与 project 的"内部零全局状态"形态（见主文档 3.8）。
  * 实测: A/B/C 注册顺序 0/1/2 → 分发顺序 A,B,C; 注销 B 后只剩 A,C;
  *       再注册 D 后分发顺序 A,C,D; B 的计数在注销后不再增加。
  */
 // 验证环境：Apple clang 21.0.0（cc），macOS（Darwin arm64）
-// 编译：cc -Wall -Wextra -std=c11 sol-02-event-framework.c -o sol02
-// 运行：./sol02（无外部产物, 退出码 0）
+// 编译：mkdir -p /tmp/ph15c-sol && cc -Wall -Wextra -std=c11 sol-02-event-framework.c -o /tmp/ph15c-sol/sol02
+// 运行：/tmp/ph15c-sol/sol02（无外部产物, 退出码 0）
 // 验证状态：已验证（零警告; 分发顺序/注销行为为实测, 见文件尾）
 #include <stdio.h>
 

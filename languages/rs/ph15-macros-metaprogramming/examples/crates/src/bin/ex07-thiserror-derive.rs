@@ -1,5 +1,5 @@
 // examples/crates/src/bin/ex07-thiserror-derive.rs —— thiserror derive 实测：#[derive(Error)] + #[error] 模板 + #[from]
-// 验证环境：rustc 1.92.0（macOS arm64）；thiserror 2.x（rsproxy 拉取，Cargo.lock 锁定）
+// 验证环境：rustc 1.92.0（macOS arm64）；thiserror 2.0.20（rsproxy 拉取，Cargo.lock 锁定）
 // 编译/运行（在 examples/crates 目录）：
 //   CARGO_TARGET_DIR=/tmp/ph15-examples-target cargo run --bin ex07-thiserror-derive
 // 验证状态：已验证（编译零警告；输出为实测）

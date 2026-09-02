@@ -2,8 +2,10 @@
 // 主题：vector::operator[] 不做边界检查（越界即 UB），at() 是检查版（越界抛
 //       std::out_of_range，定义行为）；ASan 靠红区抓 vector/std::array 越界，
 //       UBSan 只抓内建数组（int c[3]）的下标越界 —— 两种工具覆盖不同形态；
-//       -O1/-O2 下 clang 会把“后续读不到效果”的越界写折叠/消除掉，ASan 检查
-//       随之消失（实测）——所以 UB 演示统一用 -O0（C ph10 的教训在此复现）。
+//       实测（本机 Apple clang 21.0.0）：越界写在 -O0/-O1/-O2 三档 + ASan 下均报
+//       heap-buffer-overflow（越界写后紧跟对同一越界位置的 printf 读，写无法被优化器
+//       消除）——UB 演示统一用 -O0 只为行号稳定、报告可控，不是防漏报（C 系 ph10 4.2
+//       的“优化改变 UB 表现”演示针对可整体折叠的表达式，与本示例场景不同）。
 // 运行前提（故意出错变体，勿裸跑）：
 //   -DEX01_VEC_OOB    必须用 c++ -std=c++20 -Wall -Wextra -O0 -g -fsanitize=address 编译运行
 //   -DEX01_STD_ARRAY  同上（std::array 越界读）
@@ -82,13 +84,14 @@ int main() {
 #endif
     return 0;
 }
-// 本机实测（Apple clang 21.0.0，-O0 -g）：
+// 本机实测（Apple clang 21.0.0，-O0/-O1/-O2 -g 均触发）：
 //   [默认] 输出 [1][2][3] 三组对照；-Wall -Wextra 零警告（Homebrew clang 21.1.8 同）
-//   [-DEX01_VEC_OOB + ASan] 退出码 134：
+//   [-DEX01_VEC_OOB + ASan] 三档均退出码 134：
 //     ERROR: AddressSanitizer: heap-buffer-overflow on address ...
 //     WRITE of size 4 at ... thread T0
 //     0x... is located 0 bytes after 12-byte region [0x...,0x...)
-//     （-O1/-O2 实测报告消失：越界写被 clang 折叠/消除 —— 演示必须 -O0）
+//     （三档报告一致：越界写后紧跟同下标 printf 读，写未被优化器消除 —— 折叠消失
+//       需要“整段访问无观察者”；-O0 仅用于行号稳定/报告可控，不是防漏报）
 //   [-DEX01_STD_ARRAY + ASan] 退出码 134：
 //     ERROR: AddressSanitizer: stack-buffer-overflow ... READ of size 4
 //     （同段代码 -fsanitize=undefined 实测无报告：UBSan 不检查 std::array::operator[]）

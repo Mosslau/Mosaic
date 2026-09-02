@@ -8,7 +8,7 @@
 
 - **转移表驱动**：状态机行为完全由一张只读表描述——每行 `(from_state, event, action, to_state)`；增删状态/事件只改表，框架代码不动
 - **动作是函数指针**：`fsm_action_fn(ctx, from, event, to)`，动作收 ctx（衔接 ph15 回调上下文约定）；动作可缺省（NULL）
-- **稳定错误码**：0 成功、负数错误（`FSM_ERR_BADARG=-1` / `FSM_ERR_ILLEGAL=-2` / `FSM_ERR_NOMEM=-3` / `FSM_ERR_FULL=-4`），不用 errno；非法事件返回错误码且状态不变
+- **稳定错误码**：0 成功、负数错误（`FSM_ERR_BADARG=-1` / `FSM_ERR_ILLEGAL=-2` / `FSM_ERR_NOMEM=-3`），不用 errno；非法事件返回错误码且状态不变，合法事件恒返回新状态
 - **opaque 句柄 + 零全局状态**：struct 定义藏在 fsm.c，头文件只见 `fsm_t`；状态全在句柄内，可同时开多个互不干扰的实例
 - **可测试 API（诊断）**：每次合法转移记录进轨迹缓冲，`fsm_trace_len` / `fsm_trace` 可读回完整转移序列——自测不必靠 stdout 匹配
 - **命令行演示**：`fsm-demo` 跑两个场景 + 错误路径自测（断言 + 退出码即结果）
@@ -18,7 +18,7 @@
 - [x] `fsm_new(table, ntrans, init_state, ctx, err_out)`：拷贝转移表进句柄；坏参数返回错误码
 - [x] `fsm_fire(f, event)`：查表执行动作并换状态，返回新状态；非法事件返回 `FSM_ERR_ILLEGAL` 状态不变
 - [x] `fsm_state` / `fsm_destroy` / `fsm_strerror`：查询与生命周期（谁 new 谁 destroy）
-- [x] `fsm_trace_len` / `fsm_trace`：轨迹读回（最近 64 条，满后转移照常执行仅不再记录——诊断不中断语义）
+- [x] `fsm_trace_len` / `fsm_trace`：轨迹读回（最多记录最近 64 条；满后转移照常执行、仅不再记录，`fsm_trace_len` 封顶 64 可检测——诊断不中断语义）
 - [x] 场景 A：连接管理状态机（含 DATA 自环、CLOSED 下非法 DATA 被拒）
 - [x] 场景 B：数据包解析状态机（动作全 NULL，证明动作可缺省）
 - [x] 错误路径：空句柄 fire / 空表 create

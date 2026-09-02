@@ -98,6 +98,43 @@ RUSTC_BOOTSTRAP=1 rustc --edition 2021 -Zunpretty=expanded ex01-macro-basics.rs
   - `error: meta-variable `a` repeats 3 times, but `b` repeats 2 times`（两个独立 repetition 在同一层混用，展开次数不一致）；
   - `error: expected expression, found `$``（展开体引用了未声明的元变量 `$undeclared`）；
   - `error[E0425]: cannot find value `total` in this scope`（卫生性边界：宏体里直接写调用方局部变量名，解析发生在宏定义处作用域，提示定位到宏调用处）。
+
+一次编译恰好三个错误（本机 2025-12 用 rustc 1.92.0 复核 `-D warnings` 编译仍是三个，`aborting due to 3 previous errors`）。完整错误文本（逐字摘自实测输出，`...` 为 rustc 折叠行号之间的间隔行）：
+
+```text
+error: meta-variable `a` repeats 3 times, but `b` repeats 2 times
+  --> ex05-macro-errors.rs:13:10
+   |
+13 |         $( println!("a={} b={}", $a, $b); )*
+   |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: expected expression, found `$`
+  --> ex05-macro-errors.rs:21:29
+   |
+21 |         println!("{}", $x + $undeclared);
+   |                             ^^^^^^^^^^^ expected expression
+...
+39 |     use_undeclared!(5);
+   |     ------------------ in this macro invocation
+   |
+   = note: this error originates in the macro `use_undeclared` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0425]: cannot find value `total` in this scope
+  --> ex05-macro-errors.rs:30:14
+   |
+30 |         $x + total
+   |              ^^^^^ not found in this scope
+...
+44 |     let r = add_to!(1);
+   |             ---------- in this macro invocation
+   |
+   = note: this error originates in the macro `add_to` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: aborting due to 3 previous errors
+
+For more information about this error, try `rustc --explain E0425`.
+```
+
 - **ex06**：见上表（序列化 JSON 两形态、往返一致、类型错误行列定位）。
 - **ex07**：见上表（Display 模板、dyn Error 装箱、`?` 自动转换、source 链）。
 

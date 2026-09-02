@@ -2,9 +2,9 @@
 # 产物隔离到 build/，仓库不落二进制；make clean 即净。
 # 双编译器验证：CXX 换成 clang++（Homebrew clang 21.1.8）同样零警告。
 #
-# 为什么 -O0：实测（Apple clang 21.0.0）在 -O1/-O2 下 clang 会把"被测的那次越界写"
-# 常量折叠/死代码消除掉，ASan 因此抓不到 heap-buffer-overflow（examples/ex01 实测）；
-# -O0 下全部报告稳定触发。真实项目的 Sanitizer CI 构建才用 -O1。
+# 为什么 -O0：实测（Apple clang 21.0.0）越界写在 -O0/-O1/-O2 三档 + ASan 下均报
+# heap-buffer-overflow、退出码 134（examples/ex01 实测）——-O0 不是防漏报的必要条件；
+# 统一 -O0 是为行号稳定、报告可控。真实项目的 Sanitizer CI 构建才用 -O1。
 # 为什么 bad_demos.cpp 单独编译加 -Wno-uninitialized：bad_uninit 故意触发
 # -Wuninitialized 编译警告（教学点：编译器在编译期就能拦一部分坑），在单独目标里抑制；
 # catalog.cpp（主文件，含全部好版本）保持零警告。

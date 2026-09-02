@@ -7,7 +7,7 @@ import org.springframework.core.type.AnnotatedTypeMetadata;
 /**
  * 自定义条件：System property `demo.feature.enabled=true` 时注册 Bean。
  * 这是 Spring Core 的条件装配原语——Spring Boot 的 @ConditionalOnProperty/@ConditionalOnClass
- * 就是内置了「读哪个属性 / 查哪个 class」的 Condition 实现（见 ph15 主文档 3.7 节）。
+ * 就是内置了「读哪个属性 / 查哪个 class」的 Condition 实现（见 ph15 主文档 3.6 节）。
  */
 public final class OnFeatureEnabledCondition implements Condition {
 

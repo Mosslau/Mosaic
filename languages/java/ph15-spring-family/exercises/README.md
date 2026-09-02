@@ -1,11 +1,11 @@
 # ph15 Spring 全家桶 练习
 
 > 先自己做，再对照 sol-* 参考实现。每题标注难度（★~★★★）。
-> 验证环境：OpenJDK 17.0.18（`javac -version` → 17.0.18）+ Maven 3.9.12（`mvn -version` → 3.9.12）+ Spring Boot 3.3.0（父 POM 统一管 Spring Framework 6.1.6 / Hibernate 6.5.2 / AspectJ 1.9.22 / Spring Security 6.3.4）+ jjwt 0.12.5 + HSQLDB 2.5.0。本机 Maven 实测用 `mvn -o` 离线模式（依赖来自本地缓存 `/tmp/m2clone`）；正常联网环境直接 `mvn clean test` 即可。
+> 验证环境：OpenJDK 17.0.18（`javac -version` → 17.0.18）+ Maven 3.9.12（`mvn -version` → 3.9.12）+ Spring Boot 3.3.0（父 POM 统一管 Spring Framework 6.1.8 / Hibernate 6.5.2 / AspectJ 1.9.22 / Spring Security 6.3.4）+ jjwt 0.12.5 + HSQLDB 2.5.0。本机 Maven 实测用 `mvn -o` 离线模式（依赖来自本地缓存 `/tmp/m2clone`）；正常联网环境直接 `mvn clean test` 即可。
 
 **与 roadmap「ph15 Spring 全家桶阶段」练习小节的对应**：roadmap 列的「REST API 服务 / 统一响应结构」是 ph14 已练过的题目（REST Todo API、统一响应 `{code,message,data}` 分别在 ph14 练习 1/4/5 与 project），「Redis 缓存」在 [ph13 数据库阶段练习 4](../ph13-database/exercises/README.md) 已落地（需本机 redis-server），故本阶段五题对准 §15 学习内容本身的容器机制与工程设施——练习 1 手写 DI 管「对象创建与依赖」，练习 2 生命周期/循环依赖，练习 3 profile 管「环境差异」，练习 4 AOP/事务管「横切与一致性」，练习 5 用 Security 重做「JWT 登录认证」（ph14 的 Controller 拦截器版升级为 Filter 链原生版）。
 
-sol-* 为参考实现（文件头已注明验证环境、命令与实测数字），做完再看。sol-01 是零依赖单文件（`javac` + `java`）；sol-02~05 是「源代码合集 + 注释里的 pom 来源」，按文件内注释把每个文件写入标准 Maven 工程后 `mvn -o -Dmaven.repo.local=/tmp/m2clone test` 验证（pom 分别复制 examples/ex01/ex02/ex04/ex06 的）。
+sol-* 为参考实现（文件头已注明验证环境、命令与实测数字），做完再看。sol-01 是零依赖单文件（在 exercises/ 目录就地 `javac` + `java`，命令见练习 1 与文件头）；sol-02~05 是「源代码合集 + 注释里的 pom 来源」，按文件内注释把每个文件写入标准 Maven 工程后 `mvn -o -Dmaven.repo.local=/tmp/m2clone test` 验证（pom 分别复制 examples/ex01/ex02/ex04/ex06 的）。
 
 ## 练习 1：手写微型 DI 容器（★★）
 
@@ -15,7 +15,7 @@ sol-* 为参考实现（文件头已注明验证环境、命令与实测数字�
 - 实现 `com.example.MiniDiContainer`：`<T> T get(Class<T> type)` 按**唯一构造器**的参数类型递归实例化依赖；同类型只建一次（单例缓存）；构造器不止一个时报错
 - 循环依赖检测：A 依赖 B、B 依赖 A 时 `get(A)` 必须抛带「循环依赖」字样的异常，而不是栈溢出
 - 被测组件：`Car(Engine engine)`（构造器注入）、互相引用的 `ServiceA/ServiceB`；main 里用断言计数自测 4 个用例（注入可用、单例共享、引擎单例、循环检测）
-- 编译运行：`javac -d out src/com/example/MiniDiContainer.java && java -cp out com.example.MiniDiContainer`
+- 编译运行（在 exercises/ 目录就地执行）：`javac -d out sol-01-mini-di-container.java && java -cp out com.example.MiniDiContainer`
 
 **验收**：参考实现实测输出 `MINI DI TESTS PASSED (4 assertions)`；能说出「Spring 的 @ComponentScan + 构造器注入」与这段代码的对应关系（扫类 → 看构造器 → 递归造依赖 → 缓存）。
 

@@ -1,7 +1,7 @@
 // examples/ex03-state-machine.c —— 表驱动状态机：状态转移序列实测（已验证）
 // 验证环境：Apple clang 21.0.0（cc，macOS arm64）
-// 编译：cc -Wall -Wextra -std=c11 ex03-state-machine.c -o ex03
-// 运行：./ex03（无外部产物，退出码 0；实测输出见文件尾注释）
+// 编译：mkdir -p /tmp/ph15c-ex && cc -Wall -Wextra -std=c11 ex03-state-machine.c -o /tmp/ph15c-ex/ex03
+// 运行：/tmp/ph15c-ex/ex03（无外部产物，退出码 0；实测输出见文件尾注释）
 #include <stdio.h>
 
 /* ---- 状态与事件 ---- */

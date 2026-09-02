@@ -17,7 +17,7 @@
 #include <vector>
 
 const Entry kEntries[] = {
-    {"oob",       "越界访问（vector 下标越界）", "ASan", "运行期下标越界；at()/边界检查是正解；-O1+ 可能被折叠（演示用 -O0）"},
+    {"oob",       "越界访问（vector 下标越界）", "ASan", "运行期下标越界；at()/边界检查是正解；实测 -O0~-O2 均报告（演示统一 -O0）"},
     {"dangling",  "悬空引用（容器销毁后使用）", "ASan", "引用/迭代器由容器管理生命周期；结构性修改或销毁后一律失效"},
     {"uaf",       "use-after-free（释放后使用）", "ASan", "delete 后仍持有指针；用 unique_ptr/RAII 消灭裸 delete"},
     {"doublefree", "重复释放（double free）",   "ASan", "同一指针 delete 两次；delete 后置空（delete nullptr 合法）"},

@@ -21,20 +21,20 @@
 
 ## 2. 来源与演变
 
-Spring 的故事始于 Rod Johnson 2002 年的《Expert One-on-One J2EE Design and Development》：J2EE 太重（EJB 容器、部署描述符），他主张用**轻量 POJO + 容器管理**替代重量级组件模型。2004 年 Spring 1.0 发布，核心是 **IOC（Inversion of Control，控制反转）容器**：对象创建与依赖关系的控制权从「代码里 new」反转给容器，代码只声明依赖（构造器参数/属性），容器负责装配——设计哲学一句话加粗：**框架管「怎么建」，你只管「要什么」**。2007 年 Spring 2.5 引入注解（`@Component`/`@Autowired`/`@Transactional` 前身），2009 年 Spring 3.0 用 JavaConfig（`@Configuration`/`@Bean`）取代大半 XML，2014 年 Spring Boot 1.0（Pivotal，Phil Webb 主导）用自动配置 + starter 把「配 Spring 工程」压缩成「引依赖就开跑」。安全（Spring Security，2003 年并入 Acegi）、数据访问（Spring Data，2010 年起的 JPA/Redis/Mongo 子项目）、面向切面（AOP 模块随 Spring 1.0 即有）等子框架逐步聚合成今天的「全家桶」。
+Spring 的故事始于 Rod Johnson 2002 年的《Expert One-on-One J2EE Design and Development》：J2EE 太重（EJB 容器、部署描述符），他主张用**轻量 POJO + 容器管理**替代重量级组件模型。2004 年 Spring 1.0 发布，核心是 **IOC（Inversion of Control，控制反转）容器**：对象创建与依赖关系的控制权从「代码里 new」反转给容器，代码只声明依赖（构造器参数/属性），容器负责装配——设计哲学一句话加粗：**框架管「怎么建」，你只管「要什么」**。2007 年 Spring 2.5 引入注解（`@Component`/`@Autowired`/`@Transactional` 前身），2009 年 Spring 3.0 用 JavaConfig（`@Configuration`/`@Bean`）取代大半 XML，2014 年 Spring Boot 1.0（Pivotal，Phil Webb 主导）用自动配置 + starter 把「配 Spring 工程」压缩成「引依赖就开跑」。安全（Spring Security 源自 2003 年 Ben Alex 创立的 Acegi Security，后被 Spring 项目吸收并更名）、数据访问（Spring Data，2010 年起的 JPA/Redis/Mongo 子项目）、面向切面（AOP 模块随 Spring 1.0 即有）等子框架逐步聚合成今天的「全家桶」。
 
 | 版本/里程碑 | 年份 | 主要变化 |
 |-----------|------|---------|
 | Spring 1.0 | 2004 | IOC 容器 + AOP 模块，轻量替代 EJB |
-| Spring 2.0/2.5 | 2005/2007 | 切面语法完善；注解驱动（`@Component`/`@Autowired`） |
+| Spring 2.0/2.5 | 2006/2007 | 切面语法完善（2.0 引入 AspectJ 支持）；注解驱动（2.5：`@Component`/`@Autowired`） |
 | Spring 3.0 | 2009 | JavaConfig（`@Configuration`/`@Bean`）取代 XML 为主 |
 | Spring Boot 1.0 | 2014 | 自动配置 + starter + 内嵌容器（ph14 已讲「Just Run」） |
 | Spring Data | 2010~ | Repository 接口即实现，统一 JPA/Redis/Mongo 访问形态 |
-| Spring Security | 2003 并入 | 认证/授权的事实标准，Servlet Filter 链架构 |
+| Spring Security（源自 Acegi） | 2003~ | 2003 年 Acegi Security 创立，并入 Spring 后更名 Spring Security；认证/授权的事实标准（Servlet Filter 链架构） |
 | Spring Framework 6.x | 2022 | 基线 Java 17+、jakarta 命名空间（与 Boot 3.x 同步） |
 | Spring Boot 3.3 | 2024 | 本阶段基线（与 ph14 同代，离线缓存可实测） |
 
-本文示例以 **OpenJDK 17.0.18 + Maven 3.9.12 + Spring Boot 3.3.0** 为基线（选择理由：与 ph14 完全同基线、本机离线缓存可完整实测全家桶；验证工具链：`javac -version` → 17.0.18、`mvn -version` → 3.9.12）。Boot 3.3.0 父 POM 统一管理 **Spring Framework 6.1.6、Hibernate 6.5.2.Final、AspectJ 1.9.22**（全部在本地缓存）；两处「离线版本仲裁」见 examples/README：**Spring Security 用 spring-security-bom 6.3.4 import 压过**（Boot 默认管的 6.3.0 缓存缺）、**HSQLDB 钉 2.5.0**（Boot 默认管 2.7.2 缓存缺，Hibernate 6.5 会打「低于官方支持下限 2.6.1」的 WARN，本阶段全部建表/CRUD/分页/事务实测正常）。框架可用性策略：**凡依赖在本地缓存的一律实测并标注「已验证」；缓存里没有的（如 Redis 服务器运行时、其他 starter）如实标注「未在本环境验证」**——各组件状态见第 6 章表。这套核心机制（容器/AOP/事务/自动配置）十多年来稳定，本阶段学的机制在 Spring 7 时代依然成立——变的是版本号，不变的是「容器 + 代理 + 条件」三根柱子。
+本文示例以 **OpenJDK 17.0.18 + Maven 3.9.12 + Spring Boot 3.3.0** 为基线（选择理由：与 ph14 完全同基线、本机离线缓存可完整实测全家桶；验证工具链：`javac -version` → 17.0.18、`mvn -version` → 3.9.12）。Boot 3.3.0 父 POM 统一管理 **Spring Framework 6.1.8、Hibernate 6.5.2.Final、AspectJ 1.9.22**（全部在本地缓存）；两处「离线版本仲裁」见 examples/README：**Spring Security 用 spring-security-bom 6.3.4 import 压过**（Boot 默认管的 6.3.0 缓存缺）、**HSQLDB 钉 2.5.0**（Boot 默认管 2.7.2 缓存缺，Hibernate 6.5 会打「低于官方支持下限 2.6.1」的 WARN，本阶段全部建表/CRUD/分页/事务实测正常）。框架可用性策略：**凡依赖在本地缓存的一律实测并标注「已验证」；缓存里没有的（如 Redis 服务器运行时、其他 starter）如实标注「未在本环境验证」**——各组件状态见第 6 章表。这套核心机制（容器/AOP/事务/自动配置）十多年来稳定，本阶段学的机制在 Spring 7 时代依然成立——变的是版本号，不变的是「容器 + 代理 + 条件」三根柱子。
 
 ## 3. 语法与参数
 
@@ -81,7 +81,7 @@ public void customInit() { LifecycleRecorder.record("customInit(@Bean initMethod
 // 注册：@Bean(initMethod = "customInit", destroyMethod = "customDestroy")
 ```
 
-**为什么 `@PostConstruct` 优先于构造器做初始化**：构造器执行时依赖还没注入完，构造器里访问 `repository` 是空的；`@PostConstruct` 保证依赖注入完成后才跑——「初始化」放它这儿才安全。`InitializingBean`/`init-method` 是 XML 时代的遗产接口/配置，注解普及后日常只写 `@PostConstruct` + 实现 `AutoCloseable`（Boot 会把它当销毁回调）即可，其余认识即可。
+**为什么初始化通常放 `@PostConstruct` 而不是构造器**：构造器注入下依赖在构造器内已就绪，但字段/setter 注入时构造器执行阶段依赖还没注入（访问 `repository` 是 null）；`@PostConstruct` 由框架在「实例化 + 依赖注入完成之后」统一回调——无论注入方式，把「依赖就绪后的初始化」放这里时序都可预期（与 `@Autowired` 同属 BeanPostProcessor 阶段）。`InitializingBean`/`init-method` 是 XML 时代的遗产接口/配置，注解普及后日常只写 `@PostConstruct` + 实现 `AutoCloseable`（Boot 会把它当销毁回调）即可，其余认识即可。
 
 **作用域**：默认 **singleton**——容器里一个 Bean 名一个实例，所有注入点共享（ex01 实测两次 `getBean` 同一实例；无状态 Service 就该是单例）。**prototype** 每次获取/注入都新建实例（ex01 实测两次 `getBean` 不同实例），且**容器不管理它的销毁**（不回调 `@PreDestroy`/`destroy`，实测）；有状态的短命对象（会话上下文、一次任务的工作区）才用 prototype，用完自己清理。Web 作用域（request/session/application）挂在 HTTP 生命周期上，Boot Web 应用可用但日常 REST 无状态化后极少用。非懒加载单例在容器 refresh 时就创建——所以生命周期日志出现在启动期而不是第一次 `getBean`。
 
@@ -236,7 +236,7 @@ curl /actuator/info   → {"app":{"env":"dev","name":"ph15-ex02-profile-actuator
 
 ### 3.9 Spring Data JPA：接口即实现
 
-Spring Data 把「数据访问」抽象成一句话：**你只写接口，实现由框架在启动时生成**。ph13 手写过 Repository 实现类（`VehicleStore` 形状：`findById` 返回 Optional、按字段查），Spring Data 让实现类消失——接口方法名即查询声明，JpaRepository 自带 CRUD/分页/批量。
+Spring Data 把「数据访问」抽象成一句话：**你只写接口，实现由框架在启动时生成**。ph13 手写过 DAO 实现类（`UserDao`/`TaskDao` 等：`findById` 返回 `Optional`、按字段查），ph14 又手写过 `VehicleStore`，Spring Data 让实现类消失——接口方法名即查询声明，JpaRepository 自带 CRUD/分页/批量。
 
 ```java
 // examples/ex05-spring-data-jpa/.../BookRepository.java —— 接口即实现（已验证，Tests run: 5）
@@ -273,7 +273,7 @@ http.authorizeHttpRequests(auth -> auth
 
 **授权两级**：URL 级（`requestMatchers(...).hasRole("ADMIN")`，Filter 链里按路径拦）适合粗粒度分区（`/api/admin/**`）；**方法级**（`@EnableMethodSecurity` + `@PreAuthorize("hasRole('ADMIN')")`）适合「同一控制器里 GET 人人可读、DELETE 只要 ADMIN」这类 URL 表达不了的细粒度——授权跟着业务走，放 Service 方法上（ex06 实测：USER 读书 200、删书 403）。角色注意 `hasRole('ADMIN')` 隐含 `ROLE_` 前缀（存的是 `ROLE_ADMIN`）。
 
-**401/403 出口分两层**（实测）：Filter 层拒绝（未认证/URL 授权不过）走 `authenticationEntryPoint`/`accessDeniedHandler`——必须写统一 JSON，否则默认 HTML 错误页破坏接口契约；方法级 `@PreAuthorize` 抛的 `AccessDeniedException` 会传播进 MVC，由 `@RestControllerAdvice` 接住转 403（project 实测 code 40300）。统一响应 `{code,message,data}`（ph14 契约）在 Security 层原样沿用：40100 未认证、40101 登录失败、40300 无权限。
+**401/403 出口分两层**（实测）：Filter 层拒绝（未认证、URL 级授权不过）走 `authenticationEntryPoint`/`accessDeniedHandler` 写统一 JSON——不写的话默认 HTML 错误页会破坏接口契约（ex06 匿名 401、project 的 USER 访问 `/api/users` 被 403 都实测走这条，code 40100/40300）。方法级 `@PreAuthorize` 拦下时抛 `AccessDeniedException`，其出口取决于应用有没有 `@RestControllerAdvice`：ex06 没有 advice，异常一路传回 Security 的 Filter 链、由 `accessDeniedHandler` 收尾写 403 JSON（实测 code 40300）；若应用有 advice（project 的 `GlobalExceptionHandler` 为 `AccessDeniedException` 预留了分支），方法级授权失败会在 MVC 层被 advice 接住转 403——本项目未使用方法级授权，分工以 ex06/project 代码为准。统一响应壳 `{code,message,data}` 沿用 ph14 契约；业务码在本阶段按语义重排为 **40100 未认证、40101 登录失败、40300 无权限**（ph14 project/ex06 的码义不同——40100 指密码错/登录失败、40101 指未登录——跨阶段对照代码时勿混用）。
 
 **JWT 无状态接入（exercises/sol-05 与 project 实测，Tests run: 7 / 10）**：Basic 认证每次请求带明文密码，只适合内部调试；生产 REST 用 JWT——自定义 `OncePerRequestFilter` 插进 Filter 链：`Authorization: Bearer <jwt>` → `JwtService.parse` 验签 → 按 role 构造 `Authentication` 写进 `SecurityContextHolder` → 后续授权照常读它。这就是「ph14 的 Controller 拦截器版升级为 Filter 链原生版」的接缝：**认证方式（Basic/JWT/OAuth2）只是 Filter 链里的一段，授权规则完全不变**。REST 无状态（不发 cookie）所以可以 `csrf.disable()`——CSRF 防的是「浏览器自动带上 cookie 的伪造请求」，Bearer token 在 Header 里不会自动携带。
 
@@ -380,7 +380,7 @@ sequenceDiagram
 
 ```java
 // examples/ex01-.../LifecycleTest.java —— 生命周期顺序实测（已验证）
-// 验证环境：OpenJDK 17.0.18 + Spring Framework 6.1.6，测试命令：mvn -o -Dmaven.repo.local=/tmp/m2clone test
+// 验证环境：OpenJDK 17.0.18 + Spring Framework 6.1.8，测试命令：mvn -o -Dmaven.repo.local=/tmp/m2clone test
 // 实测：Tests run: 6；初始化顺序 constructor → @PostConstruct → afterPropertiesSet → customInit
 assertThat(LifecycleRecorder.EVENTS).containsExactly(
         "constructor", "@PostConstruct", "afterPropertiesSet(InitializingBean)", "customInit(@Bean initMethod)");

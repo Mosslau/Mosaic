@@ -1,6 +1,6 @@
 # ph15 Spring 全家桶 示例
 
-> 六个示例对应主文档「3. 语法与参数」六条主线：IOC/DI 与 Bean 生命周期 → Boot 自动配置/profile/actuator → MVC 拦截器 → AOP 与事务 → Spring Data JPA → Spring Security。每个示例是一个独立 Maven 工程，验证环境：**OpenJDK 17.0.18（`javac -version` → 17.0.18）+ Maven 3.9.12（`mvn -version` → 3.9.12）+ Spring Boot 3.3.0**（父 POM 统一管理版本；Spring Framework 6.1.6 / Hibernate 6.5.2 / AspectJ 1.9.22 / Spring Security 6.3.4 / HSQLDB 2.5.0）。
+> 六个示例对应主文档「3. 语法与参数」六条主线：IOC/DI 与 Bean 生命周期 → Boot 自动配置/profile/actuator → MVC 拦截器 → AOP 与事务 → Spring Data JPA → Spring Security。每个示例是一个独立 Maven 工程，验证环境：**OpenJDK 17.0.18（`javac -version` → 17.0.18）+ Maven 3.9.12（`mvn -version` → 3.9.12）+ Spring Boot 3.3.0**（父 POM 统一管理版本；Spring Framework 6.1.8 / Hibernate 6.5.2 / AspectJ 1.9.22 / Spring Security 6.3.4 / HSQLDB 2.5.0）。
 
 ## 验证方式说明（重要）
 
@@ -19,7 +19,7 @@
 | HSQLDB | 2.7.2（默认，缓存缺） | ✅ 只有 2.5.0 → pom 钉 2.5.0 | ✅ 实测（见下「HSQLDB 说明」） |
 | spring-boot-starter-security | 3.3.0（缓存缺） | ❌ | —（未用 starter，见下） |
 | spring-security-web/config/core | Boot 3.3.0 管 6.3.0（缓存缺） | ✅ 6.3.4（BOM import 钉住） | ✅ 实测（ex06 认证/授权 8 用例） |
-| spring-boot-starter-data-redis | — | ✅ 在缓存 | ⚠️ 未实测：Redis 服务器需单独启动，本机无（概念与用法见主文档 3.10 的「未在本环境验证」标注） |
+| spring-boot-starter-data-redis | — | ✅ 在缓存 | ⚠️ 未实测：Redis 服务器需单独启动，本机无（概念与「未在本环境验证」标注见主文档第 6 章，去向见 3.11 生态地图） |
 
 **HSQLDB 说明（如实标注）**：Boot 3.3.0 默认管理 HSQLDB 2.7.2，但本机缓存只有 2.5.0，各 pom 钉到 2.5.0。Hibernate 6.5 对 HSQLDB 2.5.0 会打一条 WARN「2.5.0 低于官方支持下限 2.6.1，部分特性可能异常」——ex04/ex05 实测的建表、CRUD、派生查询、分页（`offset ... fetch next`）、事务回滚全部正常；建议联网环境升级到 2.7.x 消除 WARN。该差异不影响本阶段任何教学结论。
 

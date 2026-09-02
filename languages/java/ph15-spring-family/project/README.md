@@ -2,7 +2,7 @@
 
 ## 需求
 
-roadmap「ph15 Spring 全家桶阶段」推荐项目之一是**权限管理系统**——本项目的落地形态：一个带**用户管理**的 RBAC（Role-Based Access Control）起步 REST 服务，把 ph15 全家桶串成一条真实链路：**Spring Data JPA 管用户数据 → Spring Security 管认证（JWT 无状态）与授权（URL 级 + 数据级）→ Bean Validation 管参数 → 统一响应 + 全局异常管契约**。对比 [ph14 project](../ph14-web-backend/project/README.md)（车辆数据上报 API，手写 VehicleStore + Controller 拦截器验 JWT）：数据层换成 JPA Repository（examples/ex05 的机制），鉴权换成 Security Filter 链原生认证（examples/ex06 + exercises/sol-05 的机制）——同一批需求用 ph15 的框架重写，代码里不再有手写数据访问与手写鉴权。
+roadmap「ph15 Spring 全家桶阶段」推荐项目之一是**权限管理系统**——本项目的落地形态：一个带**用户管理**的 RBAC（Role-Based Access Control）起步 REST 服务，把 ph15 全家桶串成一条真实链路：**Spring Data JPA 管用户数据 → Spring Security 管认证（JWT 无状态）与授权（URL 级；方法级 `@PreAuthorize` 用法见 examples/ex06）→ Bean Validation 管参数 → 统一响应 + 全局异常管契约**。对比 [ph14 project](../ph14-web-backend/project/README.md)（车辆数据上报 API，手写 VehicleStore + Controller 拦截器验 JWT）：数据层换成 JPA Repository（examples/ex05 的机制），鉴权换成 Security Filter 链原生认证（examples/ex06 + exercises/sol-05 的机制）——同一批需求用 ph15 的框架重写，代码里不再有手写数据访问与手写鉴权。
 
 ## 技术栈与验证环境
 
@@ -16,7 +16,7 @@ roadmap「ph15 Spring 全家桶阶段」推荐项目之一是**权限管理系�
 - [x] 当前用户：`GET /api/me`（带 token 返回用户名与角色）
 - [x] 用户管理（仅 ADMIN）：`GET /api/users` 列表（不外泄 password）、`POST /api/users` 创建（查重 409 / 角色白名单 400）、`DELETE /api/users/{id}` 删除
 - [x] URL 级授权：`/api/users/**` 要求 `ROLE_ADMIN`（SecurityConfig `hasRole`）
-- [x] 统一响应与异常契约：成功 `{code:0,message:"ok",data}`；40001 参数校验（data 带字段错误）、40100 未认证/token 无效（Filter 层）、40101 登录失败、40300 无权限（Filter 层与 ControllerAdvice 两层各管一段）、40901 用户名冲突、50000 兜底（记 ERROR 日志）
+- [x] 统一响应与异常契约：成功 `{code:0,message:"ok",data}`；40001 参数校验（data 带字段错误）、40100 未认证/token 无效（Filter 层 entryPoint）、40101 登录失败（ControllerAdvice）、40300 无权限（URL 级拒绝由 Filter 层 accessDeniedHandler 写出；ControllerAdvice 仅预留方法级 `AccessDeniedException` 分支，本项目未使用方法级授权）、40901 用户名冲突、50000 兜底（记 ERROR 日志）。码义为本阶段重排：40100=未认证、40101=登录失败——与 ph14 相反（ph14 project/ex06 中 40100=密码错、40101=未登录），跨阶段对照代码勿混用
 - [x] 启动种子：空库自动造 `admin/admin123`（BCrypt 哈希入库，AdminSeed）
 - [x] JPA 实体映射：`app_user` 表（避免 user 保留字）、IDENTITY 主键、username 唯一约束
 

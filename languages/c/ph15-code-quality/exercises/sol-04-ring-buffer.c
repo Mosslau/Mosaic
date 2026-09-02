@@ -8,8 +8,8 @@
  * 实测: 压入 cap 个后满; 弹出顺序 = 压入顺序(FIFO); 回绕后仍 FIFO。
  */
 // 验证环境：Apple clang 21.0.0（cc），macOS（Darwin arm64）
-// 编译：cc -Wall -Wextra -std=c11 sol-04-ring-buffer.c -o sol04
-// 运行：./sol04（无外部产物, 退出码 0）
+// 编译：mkdir -p /tmp/ph15c-sol && cc -Wall -Wextra -std=c11 sol-04-ring-buffer.c -o /tmp/ph15c-sol/sol04
+// 运行：/tmp/ph15c-sol/sol04（无外部产物, 退出码 0）
 // 验证状态：已验证（零警告; 满/空错误码与 FIFO 顺序为实测, 见文件尾）
 #include <stdint.h>
 #include <stdio.h>

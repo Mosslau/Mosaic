@@ -34,7 +34,7 @@
 
 ## 关于故意出错的代码
 
-坏版本全部是**故意写错的 UB 演示**，设计上依赖 Sanitizer 中止：构建默认 `-fsanitize=address,undefined -fno-sanitize-recover=all -O0`，坏版本一触发即报错退出，**禁止去掉 Sanitizer 后运行**（裸跑可能崩溃或静默损坏数据）。构建用 `-O0`——实测 `-O1`/`-O2` 下 clang 会把被测试的越界写常量折叠/死代码消除掉，ASan 抓不到 heap-buffer-overflow（`-O0` 下全部报告稳定触发，与 examples/ex01 实测一致）。
+坏版本全部是**故意写错的 UB 演示**，设计上依赖 Sanitizer 中止：构建默认 `-fsanitize=address,undefined -fno-sanitize-recover=all -O0`，坏版本一触发即报错退出，**禁止去掉 Sanitizer 后运行**（裸跑可能崩溃或静默损坏数据）。构建统一 `-O0`——实测（examples/ex01）越界写在 `-O0`/`-O1`/`-O2` 三档 + ASan 下均报 heap-buffer-overflow、退出码 134，`-O0` 不是防漏报的必要条件；用 `-O0` 是为行号稳定、报告可控（真实项目的 Sanitizer CI 构建才用 `-O1`）。
 
 各坏版本的实测报告关键行（本环境实测：Apple clang 21.0.0，macOS arm64，`make demos` 可见完整输出；本环境 ASan/UBSan 无法启动外部符号器（llvm-symbolizer spawn 失败 errno 9），报告栈帧未符号化，但错误类型/访问大小/行号信息完整）：
 

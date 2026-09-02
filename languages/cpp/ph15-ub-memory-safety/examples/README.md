@@ -4,9 +4,9 @@
 
 ## 关于故意出错的代码
 
-本阶段主题是“识别 UB”，每个示例默认演示**安全写法**（零警告、可任意运行），故意出错路径用 `-DEX0N_*` 宏开关，与 ph12 ex05 / ph14 ex04 的“宏关默认、宏开危险”约定一致：
+本阶段主题是“识别 UB”，每个示例默认演示**安全写法**（零警告、可任意运行），故意出错路径用 `-DEX0N_*` 宏开关，与 ph12 ex05 / ph14 ex04 的“宏关默认、宏开危险”约定一致——**唯一例外是 ex05**：数据竞争要工具才能现形，其默认（无 `-D`）就是竞态版本、必须 `-fsanitize=thread` 编译运行（勿裸跑）；修复版反而用 `-DEX05_FIXED` 宏打开（宏开 = 安全版，极性与其他示例相反，见示例 5）：
 
-- **UB 演示统一 `-O0`**：实测（Apple clang）`-O1`/`-O2` 下 clang 会把“后续读不到效果”的越界写折叠/消除，ASan 检查随之消失（C ph10 的教训在本阶段复现，见 ex01 实测）；`-O0` 下全部报告稳定触发。
+- **UB 演示统一 `-O0`**：`-O0` 下访问形状与源码一一对应、行号稳定、报告可控。实测（Apple clang 21.0.0）本示例越界写在 `-O0`/`-O1`/`-O2` 三档 + ASan 下均报 `heap-buffer-overflow` + `WRITE of size 4`（退出码 134）——越界写后紧跟同下标 printf 读，写不会被折叠消除（C ph10 4.2 的“优化改变 UB 表现”演示是可整体折叠的表达式场景，见主文档 4.1）；`-O0` 不是防漏报的必要条件。
 - **ASan/UBSan 变体**：必须用对应的 `-fsanitize` 编译运行，否则勿运行（裸跑行为不可预期）；本环境 ASan/UBSan/TSan 无法启动外部符号器（llvm-symbolizer 存在但 spawn 失败 errno 9），报告栈帧未符号化，但错误类型、访问大小、分配/释放信息完整。
 - **TSan 说明**：数据竞争检测实测用 Apple clang 21.0.0（`c++`）的 `-fsanitize=thread`；Homebrew clang 21.1.8 的 TSan 运行时在本机 arm64 上不稳定（实测崩溃，exit 139），未用于 TSan 验证。
 - **未初始化变量**：不在本目录单独演示——它的“报告”是编译期 `-Wuninitialized` 警告与垃圾值输出（见 exercises 练习 5 与 project 的 uninit 条目）；别名违规同样“工具抓不到”，靠规范与代码评审（ex06 正反例对照）。
@@ -33,7 +33,7 @@ c++ -std=c++20 -Wall -Wextra -O0 -g -fsanitize=address -DEX01_STD_ARRAY ex01-vec
 c++ -std=c++20 -Wall -Wextra -O0 -g -fsanitize=undefined -fno-sanitize-recover=all -DEX01_CARRAY ex01-vector-oob.cpp -o /tmp/ph15-ex01-carr && /tmp/ph15-ex01-carr
 ```
 
-本机实测（Apple clang 21.0.0，-O0 -g）：`v[idx]=100`（size=3/cap=3，运行期下标）→ ASan 报 **`ERROR: AddressSanitizer: heap-buffer-overflow`** + `WRITE of size 4` + "located 0 bytes after 12-byte region"，退出码 134；同段代码 `-O1`/`-O2` 下**报告消失**（越界写被折叠——演示必须 -O0）。`std::array<int,3> a; a[3]`（运行期下标）→ ASan 报 `stack-buffer-overflow` + `READ of size 4`，退出码 134（同代码 UBSan 静默——`operator[]` 在标准库实现内部，未被 UBSan 插桩）。C 数组 `int c[3]; c[idx]=7` → UBSan 报 **`runtime error: index 3 out of bounds for type 'int[3]'`**，退出码 134。安全对照（默认运行）：`at()` 越界抛 `std::out_of_range`（定义行为）、手动边界检查先判后取——“两种工具都要用，各有盲区”是本示例的结论。
+本机实测（Apple clang 21.0.0，-O0/-O1/-O2 -g）：`v[idx]=100`（size=3/cap=3，运行期下标）→ ASan 报 **`ERROR: AddressSanitizer: heap-buffer-overflow`** + `WRITE of size 4` + "located 0 bytes after 12-byte region"，退出码 134，**三档实测均触发**（越界写后紧跟同下标 printf 读，写不会被折叠消除；`-O0` 只是统一演示级别——行号稳定、报告可控，不是防漏报）。`std::array<int,3> a; a[3]`（运行期下标）→ ASan 报 `stack-buffer-overflow` + `READ of size 4`，退出码 134（同代码 UBSan 静默——`operator[]` 在标准库实现内部，未被 UBSan 插桩）。C 数组 `int c[3]; c[idx]=7` → UBSan 报 **`runtime error: index 3 out of bounds for type 'int[3]'`**，退出码 134。安全对照（默认运行）：`at()` 越界抛 `std::out_of_range`（定义行为）、手动边界检查先判后取——“两种工具都要用，各有盲区”是本示例的结论。
 
 ## 示例 2：悬空引用与迭代器/引用失效（ex02-dangling-container.cpp）
 
@@ -81,7 +81,7 @@ c++ -std=c++20 -Wall -Wextra -O1 -g -fsanitize=thread ex05-data-race.cpp -o /tmp
 c++ -std=c++20 -Wall -Wextra -O1 -g -fsanitize=thread -DEX05_FIXED ex05-data-race.cpp -o /tmp/ph15-ex05-f && /tmp/ph15-ex05-f
 ```
 
-本机实测（Apple clang 21.0.0，-fsanitize=thread）：竞态版本 TSan 报 **`WARNING: ThreadSanitizer: data race`** + `Write of size 4 ... by thread T2` / `Previous write of size 4 ... by thread T1`（同一地址的读改写无同步），退出码 134；修复版本（`std::scoped_lock` 保护，CP.2/CP.20）TSan 零报告、输出确定 `shared=200000`、退出码 0。裸跑对照：竞态版本退出码 0 但值不定（四次实测 114401 / 200000 / 123474 / 117555）——“碰巧对”不能证明无竞态，必须 TSan 复跑（roadmap 必会概念：数据竞争在 C++ 中是 UB）。
+本机实测（Apple clang 21.0.0，-fsanitize=thread）：竞态版本 TSan 报 **`WARNING: ThreadSanitizer: data race`** + `Write of size 4 ... by thread T2` / `Previous write of size 4 ... by thread T1`（同一地址的读改写无同步），退出码 134；修复版本（`std::scoped_lock` 保护，CP.2/CP.20）TSan 零报告、输出确定 `shared=200000`、退出码 0。裸跑对照：-O0 下竞态版本退出码 0 但值不定（本机 6 次实测：122984 / 117974 / 120359 / 112912 / 126519 / 110862，均小于 200000）；-O1 下实测 6 次恰为 200000（编译器把累加优化进寄存器）——“碰巧对”不能证明无竞态，必须 TSan 复跑（roadmap 必会概念：数据竞争在 C++ 中是 UB）。
 
 ## 示例 6：类型别名与对齐（ex06-alias-align.cpp）
 

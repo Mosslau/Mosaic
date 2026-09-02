@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- examples/ex04-spring-aop-transaction/pom.xml —— AOP 切面 + @Transactional 事务（纯核心容器，无 Web）
-     验证环境：OpenJDK 17.0.18 + Maven 3.9.12 + Spring Framework 6.1.6 / AspectJ 1.9.22 / HSQLDB 2.5.0
+     验证环境：OpenJDK 17.0.18 + Maven 3.9.12 + Spring Framework 6.1.8 / AspectJ 1.9.22 / HSQLDB 2.5.0
      验证命令：mvn -o -Dmaven.repo.local=/tmp/m2clone test
      离线说明：缓存缺 junit-platform-launcher 1.10.2（默认版本），钉到 1.10.1；surefire 3.2.5 显式钉住；
                hsqldb 版本钉到缓存有的 2.5.0（Boot 3.3.0 默认管 2.7.2，缓存缺）。联网环境可删仲裁项。 -->

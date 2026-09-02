@@ -2,7 +2,7 @@
 // 说明：event-hub demo——自包含验收：宏定义新事件（跨 crate 使用 #[macro_export]）、
 //       统一打印（宏生成 render()）、统一序列化（serde derive 内部标签）、反序列化往返、
 //       未知 kind 报错（thiserror derive 错误类型）。
-// 验证环境：rustc 1.92.0（macOS arm64）；serde 1.0.229 + serde_json 1.0.151 + thiserror 2.x
+// 验证环境：rustc 1.92.0（macOS arm64）；serde 1.0.229 + serde_json 1.0.151 + thiserror 2.0.20
 //          （rsproxy 拉取，Cargo.lock 锁定）
 // 编译/运行（在 project 目录）：
 //   CARGO_TARGET_DIR=/tmp/ph15-project-target cargo run

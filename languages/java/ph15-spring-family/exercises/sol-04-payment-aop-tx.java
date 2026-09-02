@@ -1,5 +1,5 @@
 // exercises/sol-04-payment-aop-tx.java —— 练习 4 参考实现：支付服务的 AOP 耗时切面 + 事务回滚规则
-// 验证环境：OpenJDK 17.0.18 + Maven 3.9.12 + Spring Framework 6.1.6 + HSQLDB 2.5.0（纯核心容器）
+// 验证环境：OpenJDK 17.0.18 + Maven 3.9.12 + Spring Framework 6.1.8 + HSQLDB 2.5.0（纯核心容器）
 // 验证状态：已验证（本机离线 mvn -o test，BUILD SUCCESS）
 // 实测结果：Tests run: 3, Failures: 0, Errors: 0
 //   （payDeductsAndAuditsInSeparateTransaction：扣款成功 + REQUIRES_NEW 审计独立落库；

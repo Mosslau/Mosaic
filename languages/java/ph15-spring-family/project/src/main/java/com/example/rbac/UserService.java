@@ -43,10 +43,4 @@ public class UserService {
     public void delete(Long id) {
         repository.deleteById(id);
     }
-
-    @Transactional(readOnly = true)
-    public User findByUsername(String username) {
-        return repository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("用户不存在: " + username));
-    }
 }
