@@ -4,12 +4,14 @@
 #       汇总出「依赖要求的最高 MSRV」，并与本 crate 声明的 rust-version 对照。
 # 验证环境：cargo 1.92.0（macOS arm64）+ python3；依赖经 rsproxy 镜像拉取
 # 用法：bash sol-02-check-msrv.sh [cargo 工程目录]（默认当前目录）
-# 验证状态：已验证——对 examples/ex04 的 /tmp/ph16-ex04-msrv/msrv-aware 工程实测输出：
+# 验证状态：已验证——对 examples/ex04 的 /tmp/ph16-ex04-msrv/msrv-aware 工程实测输出（2026-09-02 复测确认）：
 #   home 0.5.11: rust-version = 1.81
 #   windows-sys 0.59.0: rust-version = 1.60
 #   windows-targets 0.52.6: rust-version = 1.56（及其 windows_* 目标包）
 #   本 crate msrv-aware 声明 rust-version = 1.85
 #   依赖最高 MSRV = 1.81（home）
+# 注：windows-* 等传递依赖版本随 crates.io 索引日期漂移，验收以输出结构为准
+#   （home 0.5.11 由 MSRV 感知解析保证：只要 0.5.12 仍要求更高 rustc 就会持续选中）
 # 加分项对照（cargo-msrv 0.19.3，已装）：cargo msrv show → MSRV is Rust 1.85.0
 set -eu
 

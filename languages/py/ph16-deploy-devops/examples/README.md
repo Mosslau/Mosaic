@@ -22,7 +22,7 @@
 
 验证状态（本机实测输出）：
 
-- `ex01`：`GET /health → 200 {"status": "ok"}`；`GET /ready → 200`；`POST /predict`（1500 次循环/25°C/DoD 80%/1C）→ `{"soh": 80.5}`；故障注入后 `/ready → 503` 而 `/health` 仍 200；SIGTERM 关停日志完整（`Shutting down ... Finished server process`）
+- `ex01`：`GET /health → 200 {"status": "ok"}`；`GET /ready → 200`；`POST /predict`（1500 次循环/25°C/DoD 80%/1C）→ `{"soh": 80.5}`；故障注入后 `/ready → 503` 而 `/health` 仍 200；SIGTERM 后退出码 -15（shell 143），脚本从捕获的 stderr 断言优雅关停日志（`INFO: Shutting down` / `INFO: Finished server process`）
 - `ex03`：`docker compose config` 离线解析通过（daemon 未启动，未实际 `up`）
 - `ex04`：`nginx -t` → `syntax is ok` / `test is successful`（Homebrew nginx 1.31.2）
 - `ex05`：打 3 次 /predict 后 `/metrics` 实测输出 `demo_requests_total{endpoint="predict"} 3`、`demo_predict_seconds_count 3`、`demo_uptime_seconds` Gauge 正常

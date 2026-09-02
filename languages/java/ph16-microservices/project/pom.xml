@@ -3,8 +3,10 @@
      模块：common（共享契约/JWT/TraceId）→ user-service → order-service → gateway
      验证环境：OpenJDK 17.0.18 + Maven 3.9.12 + Spring Boot 3.3.0（全部依赖在 /tmp/m2clone 离线缓存，实测）
      验证命令：mvn -o -Dmaven.repo.local=/tmp/m2clone test
-     离线仲裁（联网环境可删）：junit-platform-launcher 钉 1.10.1（缓存缺默认 1.10.2）、
-       surefire 3.2.5 + launcher 插件依赖、spring-boot-maven-plugin 3.3.5（缓存缺其它默认版本）。
+     离线仲裁（联网环境可删，2026-09-02 复核缓存口径）：junit-platform-launcher 钉 1.10.1
+       （缓存缺 Boot 3.3.0 默认管理的 1.10.2，离线必需）、surefire 3.2.5 + launcher 插件依赖
+       （surefire 3.2.5 恰为 Boot 3.3.0 默认管理版本，仅显式化）、spring-boot-maven-plugin 3.3.5
+       （按构建时缓存快照钉住，默认 3.3.0 现已在缓存，此钉可删）。
        spring-boot-maven-plugin 不放进父 build/plugins——common 是jar库没有主类，repackage 会失败；
        各可执行服务模块自行声明（版本由此处 pluginManagement 仲裁）。 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"

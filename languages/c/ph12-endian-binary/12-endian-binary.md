@@ -15,7 +15,7 @@
 | 完整性 | checksum / CRC-32、损坏与截断的错误码区分 |
 | 格式演进 | varint 编码、magic number 与版本号、保留字段与兼容策略 |
 
-这个阶段只涉及字节序（大端/小端/网络字节序）、结构体对齐与 padding、sizeof/offsetof、位运算掩码移位、二进制 record 与 length-prefix frame 的安全解析、checksum/CRC、varint、magic number 与版本号，**不涉及 mmap、Page Cache 与 fsync 刷盘语义（ph13，roadmap 第 13 节）、跨语言互操作 ABI（ph14，roadmap 第 14 节）、存储引擎的完整 WAL/MemTable/SSTable 实现（ph16，roadmap 第 16 节，目录待建）和网络 socket 编程（ph08）** — 那些是 ph13 mmap、Page Cache 与可靠文件 IO 阶段、ph14 C 与 C++ / Python / Rust 互操作阶段、ph16 数据库存储引擎基础阶段和 ph08 Linux 系统编程阶段的内容；位域（bit-field）布局是实现定义的，本阶段只做对照演示，**不用于跨平台格式**；并发与内存序不属于本阶段（衔接 ph08，深入属并发专题）。
+这个阶段只涉及字节序（大端/小端/网络字节序）、结构体对齐与 padding、sizeof/offsetof、位运算掩码移位、二进制 record 与 length-prefix frame 的安全解析、checksum/CRC、varint、magic number 与版本号，**不涉及 mmap、Page Cache 与 fsync 刷盘语义（ph13，roadmap 第 13 节）、跨语言互操作 ABI（ph14，roadmap 第 14 节）、存储引擎的完整 WAL/MemTable/SSTable 实现（[ph16 数据库存储引擎基础阶段](../ph16-storage-engine/16-storage-engine.md)，roadmap 第 16 节）和网络 socket 编程（ph08）** — 那些是 ph13 mmap、Page Cache 与可靠文件 IO 阶段、ph14 C 与 C++ / Python / Rust 互操作阶段、ph16 数据库存储引擎基础阶段和 ph08 Linux 系统编程阶段的内容；位域（bit-field）布局是实现定义的，本阶段只做对照演示，**不用于跨平台格式**；并发与内存序不属于本阶段（衔接 ph08，深入属并发专题）。
 
 ## 2. 来源与演变
 
@@ -356,7 +356,7 @@ CRC 把数据看作一个巨大二进制数，除以一个固定的**生成多�
 
 - mmap、Page Cache 与 fsync 刷盘边界（ph13 mmap、Page Cache 与可靠文件 IO 阶段（roadmap 第 13 节）：本阶段假设字节流已到手，ph13 回答"怎么可靠地落盘/刷盘"）
 - 跨语言 ABI / FFI（ph14 C 与 C++ / Python / Rust 互操作阶段（roadmap 第 14 节）：opaque pointer、导出符号）
-- 存储引擎完整实现（ph16 数据库存储引擎基础阶段（roadmap 第 16 节，目录待建）：WAL 的崩溃恢复语义、MemTable、SSTable、LSM）
+- 存储引擎完整实现（ph16 数据库存储引擎基础阶段（roadmap 第 16 节）：WAL 的崩溃恢复语义、MemTable、SSTable、LSM）
 - 文本格式解析（CSV/JSON/INI 用文本解析，ph06 已示范 CSV 状态机，不需要字节序概念）
 - 纯内存同进程数据交换（结构体传值无字节序问题，见 4.4；字节序只在跨进程/跨机器时才需要处理）
 

@@ -19,7 +19,7 @@ Python 自动化脚本阶段的目标是：**用 Python 提升日常工作效率
 | CAN 日志解析 | candump 格式解析、按 ID 统计信号值（呼应全库车辆主题） |
 | 脚本工程化 | logging + 错误处理、argparse 参数化、安全重跑、可审计（四个必会概念） |
 
-这个阶段只涉及**单机日常自动化的完整闭环**——文件批处理、Excel 自动化、日志分析、接口测试、报表生成、邮件发送、定时任务、CAN 日志解析与脚本工程化四要素，**不涉及并发与异步深入（asyncio/aiohttp 大规模并发抓取）、测试工程体系（pytest/fixture/mock/覆盖率/CI）、生产部署运维（Docker、CI/CD、监控告警）和数据分析深入（pandas 透视表与可视化）** — 那些是 [ph14 并发、并行与异步阶段](../ph14-concurrency-async/14-concurrency-async.md)（roadmap 第 14 节）、ph13 测试与工程质量阶段、ph16 部署与 DevOps 阶段（roadmap 第 16 节，目录待建）和 ph09 数据分析阶段的内容；完整 DBC 信号矩阵解析、反爬与规模化抓取属 ph18 车联网 / 数据平台 / 自动化方向阶段（roadmap 第 18 节，目录待建）。爬虫在本阶段只取其起点（requests 拉取 + 解析响应），深入不涉及。本阶段承接 ph11 数据库与缓存阶段——脚本能安全地读写数据、批量入库、从库取数生成报表，爬虫抓取的数据也有了落库与去重的去处。本阶段四层交付物已就位：主文档 + [`examples/`](./examples/) + [`exercises/`](./exercises/) + [`project/`](./project/)，入口见第 6、7 章。
+这个阶段只涉及**单机日常自动化的完整闭环**——文件批处理、Excel 自动化、日志分析、接口测试、报表生成、邮件发送、定时任务、CAN 日志解析与脚本工程化四要素，**不涉及并发与异步深入（asyncio/aiohttp 大规模并发抓取）、测试工程体系（pytest/fixture/mock/覆盖率/CI）、生产部署运维（Docker、CI/CD、监控告警）和数据分析深入（pandas 透视表与可视化）** — 那些是 [ph14 并发、并行与异步阶段](../ph14-concurrency-async/14-concurrency-async.md)（roadmap 第 14 节）、ph13 测试与工程质量阶段、[ph16 部署与 DevOps 阶段](../ph16-deploy-devops/16-deploy-devops.md)（roadmap 第 16 节）和 ph09 数据分析阶段的内容；完整 DBC 信号矩阵解析、反爬与规模化抓取属 ph18 车联网 / 数据平台 / 自动化方向阶段（roadmap 第 18 节，目录待建）。爬虫在本阶段只取其起点（requests 拉取 + 解析响应），深入不涉及。本阶段承接 ph11 数据库与缓存阶段——脚本能安全地读写数据、批量入库、从库取数生成报表，爬虫抓取的数据也有了落库与去重的去处。本阶段四层交付物已就位：主文档 + [`examples/`](./examples/) + [`exercises/`](./exercises/) + [`project/`](./project/)，入口见第 6、7 章。
 
 ## 2. 来源与演变
 
@@ -375,7 +375,7 @@ SSH（Secure Shell）是**加密的远程登录协议**，paramiko 是它的 Pyt
 - 高并发/大规模抓取（asyncio、aiohttp、分布式爬虫）：[ph14 并发、并行与异步阶段](../ph14-concurrency-async/14-concurrency-async.md)（roadmap 第 14 节）
 - 测试工程体系（pytest/fixture/mock/覆盖率、CI 流水线）：ph13 测试与工程质量阶段
 - 数据深度分析（pandas 透视表、时间序列、可视化）：ph09 数据分析阶段
-- 生产部署与长期驻留（Docker、systemd/cron 化、监控告警）：ph16 部署与 DevOps 阶段（roadmap 第 16 节，目录待建）
+- 生产部署与长期驻留（Docker、systemd/cron 化、监控告警）：[ph16 部署与 DevOps 阶段](../ph16-deploy-devops/16-deploy-devops.md)（roadmap 第 16 节）
 - 完整 DBC 信号解析、反爬对抗、规模化采集平台：ph18 车联网 / 数据平台 / 自动化方向阶段（roadmap 第 18 节，目录待建）
 
 **与其他语言同类机制的对比**（一句话级，为 analysis/ 与 Tenet 合成积累素材）：Shell 管道做「一行流式文本处理」依然最快，但跨平台、复杂分支与测试是短板；Python 以「标准库齐全 + 可读 + 可测」成为复杂自动化主力；Go 单二进制部署适合「要分发的运维工具」（无解释器依赖），Node.js 在「前端周边的脚本」场景占优——自动化脚本选型本质是「开发效率 vs 部署形态 vs 生态」的权衡。

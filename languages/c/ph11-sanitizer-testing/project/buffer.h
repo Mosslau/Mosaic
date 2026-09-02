@@ -2,7 +2,7 @@
  * 语义: append-only（只追加, 不随机改）——为 ph12 length-prefix frame /
  * ph16 WAL 的"顺序写"语义预演; 所有接口带边界检查与错误路径。
  * 边界声明: 字节序/长度前缀编码等二进制格式细节属 ph12 字节序、内存对齐
- * 与二进制格式解析阶段（roadmap 第 12 节，目录待建）, 本库只提供字节存储原语。
+ * 与二进制格式解析阶段（roadmap 第 12 节）, 本库只提供字节存储原语。
  */
 #ifndef BUFFER_H
 #define BUFFER_H

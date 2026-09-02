@@ -8,8 +8,10 @@
 //   clang++ -std=c++20 -Wall -Wextra ex01-test-gtest.cpp \
 //       -I/opt/homebrew/include -L/opt/homebrew/lib -lgtest -lgtest_main \
 //       -o /tmp/ph16cpp-ex01-gtest && /tmp/ph16cpp-ex01-gtest
-//   # 方式二：CMake FetchContent（推荐，见主文档 3.1）
-//   FetchContent_Declare(googletest URL .../release-1.12.1.tar.gz) + target_link_libraries(... GTest::gtest_main)
+//   # 方式二：CMake FetchContent（推荐，见主文档 3.1；版本号以实际拉取为准）
+//   FetchContent_Declare(googletest
+//       URL https://github.com/google/googletest/archive/refs/tags/v1.15.2.tar.gz)
+//   target_link_libraries(... GTest::gtest_main)
 //
 // 与 mini 框架的对照（同构点）：TEST ↔ MINI_TEST；EXPECT_EQ ↔ MINI_EXPECT_EQ；
 // EXPECT_THROW ↔ try/catch + MINI_EXPECT_TRUE；gtest_main 提供的 main ↔ 手写 main + RUN_ALL_TESTS。

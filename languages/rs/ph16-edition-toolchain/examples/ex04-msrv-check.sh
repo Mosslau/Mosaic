@@ -79,8 +79,10 @@ echo
 echo "注意：cargo msrv verify（逐版本装旧工具链实测最低可编译版本）需要 rustup 联网安装工具链；"
 echo "本环境沙箱禁写 ~/.rustup，未验证。真实环境：cd 项目 && cargo msrv verify"
 
-# 实测输出（cargo 1.92.0 / cargo-msrv 0.19.3，rsproxy 镜像）：
+# 实测输出（cargo 1.92.0 / cargo-msrv 0.19.3，rsproxy 镜像；2026-09-02 复测确认）：
 #   1a. Adding home v0.5.11 (available: v0.5.12, requires Rust 1.88)  → lock 选中 0.5.11
 #   1b. Locking 3 packages ...                                       → lock 选中 0.5.12
-#   2. home 0.5.11: rust-version = 1.81；windows-sys 0.61.2: rust-version = 1.71（等）
+#   2. home 0.5.11: rust-version = 1.81；windows-sys 0.59.0: rust-version = 1.60；
+#      windows-targets 0.52.6: rust-version = 1.56（传递依赖版本随 crates.io 索引日期漂移，
+#      与本仓库主文档/exercises/sol-02 口径一致，复测时以 lock 实况为准）
 #   3. cargo msrv show → MSRV is Rust 1.85.0；list 表格列出各依赖 MSRV

@@ -56,6 +56,6 @@ $ curl -s http://127.0.0.1:18090/healthz
 
 ## 扩展方向
 
-- 把采集从「手动压测窗口」换成生产流量采样（`default.pgo` 约定：Go 1.21+ 放模块根即可被 `go build` 自动使用）
+- 把采集从「手动压测窗口」换成生产流量采样（`default.pgo` 约定：Go 1.21+ 起，把 profile 命名为 `default.pgo` 放进 **main 包目录**——本项目即 `cmd/apiserver/`——之后 `go build ./cmd/apiserver` 即自动启用（`-pgo=auto`）；放模块根不会生效，须放 main 包目录，口径同主文档 §3.1）
 - 加回归闸：把 `baseline.txt` 的 p50/吞吐钉成基线，CI 里跑 `pgo-experiment.sh` 的对比步骤，退化即失败（骨架思路同 examples/ex05-bench-baseline）
 - 对比真实业务 profile 与合成负载 profile 的收益差异（代表性是 PGO 的前提，主文档 §5）

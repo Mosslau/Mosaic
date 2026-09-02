@@ -11,7 +11,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Date;
 
 /**
- * JWT 签发/验签（jjwt 0.12.5，HS256）。思路参照 ph15 exercises/sol-05，但因本阶段不引入
+ * JWT 签发/验签（jjwt 0.12.5；按密钥长度自动选 HS 算法——本模块 50 字节密钥实际签发 HS384）。思路参照 ph15 exercises/sol-05，但因本阶段不引入
  * Spring Security（不在离线缓存），这里只是普通工具类：user-service 用它签发，
  * gateway 的 JwtAuthFilter（手写 OncePerRequestFilter）用它验签。
  * 密钥走配置注入（jwt.secret），两个服务必须配同一密钥才能签发/验签互通。
@@ -22,7 +22,9 @@ public class JwtService {
     private final long ttlHours;
 
     public JwtService(String secret, long ttlHours) {
-        // HS256 要求密钥 ≥ 256 bit（32 字节）；生产密钥走环境变量注入，绝不写进代码
+        // jjwt 按密钥长度自动选 HS 算法：32–47 字节 → HS256、48–63 → HS384、≥64 → HS512；
+        // 本模块 jwt.secret 为 50 字节 → HS384（2026-09-02 实测签发头 {"alg":"HS384"}）。
+        // 生产密钥走环境变量注入，绝不写进代码
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.ttlHours = ttlHours;
     }

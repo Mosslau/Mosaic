@@ -190,7 +190,7 @@ int main(void) {
     rc = sst_get(path, "deer", val, sizeof val, &steps);
     printf("    get(deer) rc=%d （tombstone → 不存在）\n", rc);
     rc = sst_get(path, "zebra", val, sizeof val, &steps);
-    printf("    get(zebra) rc=%d （比所有 key 都大, 索引直接排除）\n", rc);
+    printf("    get(zebra) rc=%d （比所有 key 都大, 索引指向末尾块, 顺扫至文件尾未命中）\n", rc);
     rc = sst_get(path, "aaa", val, sizeof val, &steps);
     printf("    get(aaa) rc=%d （比第一条还小, 无需读数据区）\n", rc);
 

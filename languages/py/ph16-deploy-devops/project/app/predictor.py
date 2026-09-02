@@ -1,8 +1,11 @@
 """电池健康预测服务的部署模板（ph16 project/app/predictor.py）。
 
 两种推理后端：
-- JoblibPredictor：加载 train.py 训好的 joblib 产物（ph15 的「模型产物」在服务化
-  场景的消费方式——训练在 CI/训练机，产物随发布分发，服务进程只加载不训练）；
+- JoblibPredictor：加载 joblib 产物（训练在 CI/训练机，产物随发布分发，服务进程
+  只加载不训练）。兼容两种产物形态——sklearn 模型/管线（`.predict`），以及
+  ph15 项目（languages/py/ph15-ai-ml/project/bhealth/model.py）的
+  BatteryHealthPipeline 形态（dataclass，暴露 predict_soh(X)/predict_grade(X)，
+  没有 sklearn 的 .predict），见 predict_soh 里的形态分派；
 - RulePredictor：无产物时的规则兜底（与训练数据同源的老化公式），保证服务
   「裸奔也能起」，同时让 /ready 能如实报告自己用的是哪一档。
 
@@ -46,7 +49,10 @@ class RulePredictor:
 
 
 class JoblibPredictor:
-    """joblib 产物后端：产物是 sklearn Pipeline/模型，特征顺序见 FEATURES。"""
+    """joblib 产物后端：兼容 sklearn 模型与 ph15 的 BatteryHealthPipeline 两种形态。
+
+    特征顺序见 FEATURES（与 ph15 bhealth/data.py 的 FEATURES 一致）。
+    """
 
     model_type = "joblib"
 
@@ -56,8 +62,13 @@ class JoblibPredictor:
         self._model = joblib.load(path)
 
     def predict_soh(self, features: list[float]) -> float:
-        pred = self._model.predict([features])
-        return float(pred[0])
+        model = self._model
+        if hasattr(model, "predict_soh"):
+            # ph15 形态：predict_soh(X) 内部走回归器，X 为 (n, 4) 矩阵，
+            # 返回数组（如 RandomForestRegressor.predict 的 (n,) 结果）
+            return float(model.predict_soh([features])[0])
+        # sklearn 模型/管线形态：.predict 直接给预测数组
+        return float(model.predict([features])[0])
 
 
 def load_predictor() -> Predictor | None:

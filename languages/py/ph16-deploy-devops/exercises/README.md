@@ -20,6 +20,7 @@
 ## 练习 2：Docker Compose 启动服务和数据库（★★）
 
 - **目标**：用一个 compose 文件同时拉起 Web 服务与 PostgreSQL（对应 roadmap「Docker Compose 启动服务和数据库」）
+- **前置**：sol-02 参考实现把 `./app` 只读挂载进容器跑 `uvicorn app:app`——实际 `up -d` 前先把练习 1 的可部署服务存成 `exercises/app/app.py`（模块名 `app`；挂载路径不存在时 docker 会建空目录导致 import 失败，语法检查 `docker compose config` 不受影响）
 - **要求**：
   - `web` + `db` 两个服务；web 通过环境变量拿数据库连接串（配置与代码分离）
   - `depends_on` 必须用 `condition: service_healthy`（db 配 `pg_isready` 健康检查），不能只等容器启动

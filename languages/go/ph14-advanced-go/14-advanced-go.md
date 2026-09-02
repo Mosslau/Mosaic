@@ -14,7 +14,7 @@ Go 高级 Go 阶段的目标是（引用 Roadmap）：**理解 Go 底层机制�
 | 运行时语义 | defer 五语义实测（LIFO/参数求值/闭包引用/命名返回值/执行时机）、panic/recover 铁律、GMP 调度模型、GC 触发机制（GOGC 实测）、Go 内存模型（happens-before 与数据竞争） |
 | 高级工具 | reflect（Kind/Value/SetXxx，反射配置加载器）、unsafe（Sizeof/Alignof/Offsetof、uintptr 陷阱、checkptr 拦截）、cgo（调 C 库完整闭环） |
 
-这个阶段只涉及"Go 运行时与编译器的底层机制 + 三件高级工具的用法"，**不涉及性能剖析方法论本身（benchmark/pprof/trace/逃逸分析的使用属 ph13 性能优化阶段）、PGO 与生产流量指导优化（属 ph16 PGO 与高级性能优化阶段，roadmap 第 16 节，目录待建）、语言级并发模型的设计用法（goroutine/channel/context 怎么组织并发属 ph06 并发编程阶段）、Go 版本演进与工具链管理（属 [ph15 Go 版本、工具链阶段](../ph15-version-toolchain/15-version-toolchain.md)，roadmap 第 15 节）和云原生部署（容器/K8s/可观测性属 ph12 云原生与部署阶段）** — 本阶段用标准库 + runtime 公开 API 就能完成全部观测，不拆 runtime 源码改行为，只"看"不改。
+这个阶段只涉及"Go 运行时与编译器的底层机制 + 三件高级工具的用法"，**不涉及性能剖析方法论本身（benchmark/pprof/trace/逃逸分析的使用属 ph13 性能优化阶段）、PGO 与生产流量指导优化（属 [ph16 PGO 与高级性能优化阶段](../ph16-pgo-advanced-perf/16-pgo-advanced-perf.md)，roadmap 第 16 节）、语言级并发模型的设计用法（goroutine/channel/context 怎么组织并发属 ph06 并发编程阶段）、Go 版本演进与工具链管理（属 [ph15 Go 版本、工具链阶段](../ph15-version-toolchain/15-version-toolchain.md)，roadmap 第 15 节）和云原生部署（容器/K8s/可观测性属 ph12 云原生与部署阶段）** — 本阶段用标准库 + runtime 公开 API 就能完成全部观测，不拆 runtime 源码改行为，只"看"不改。
 
 ## 2. 来源与演变
 
@@ -451,7 +451,7 @@ func addVec(a, b []int32) []int32 {
 
 ### 下一阶段
 
-[Go 版本与工具链阶段](../ph15-version-toolchain/15-version-toolchain.md)（ph15，roadmap 第 15 节）— 本阶段反复强调的"版本敏感点"（Go 1.24 的 Swiss map、Go 1.21 的 panic(nil)、扩容取整随架构变化）正是 ph15"工具链版本统一与依赖升级"的动机来源；届时本阶段的机制认知会落到"如何在不同 Go 版本间稳定复现构建与行为"——go env / go install / go work 多模块 workspace、toolchain 指令、模块版本与语义化版本策略。ph15 之后（ph16~ph21）的阶段目录尚未建立，roadmap 见 [`languages/go/go.md`](../go.md)。
+[Go 版本与工具链阶段](../ph15-version-toolchain/15-version-toolchain.md)（ph15，roadmap 第 15 节）— 本阶段反复强调的"版本敏感点"（Go 1.24 的 Swiss map、Go 1.21 的 panic(nil)、扩容取整随架构变化）正是 ph15"工具链版本统一与依赖升级"的动机来源；届时本阶段的机制认知会落到"如何在不同 Go 版本间稳定复现构建与行为"——go env / go install / go work 多模块 workspace、toolchain 指令、模块版本与语义化版本策略。ph16 之后（ph17~ph21）的阶段目录尚未建立，roadmap 见 [`languages/go/go.md`](../go.md)。
 
 ---
 

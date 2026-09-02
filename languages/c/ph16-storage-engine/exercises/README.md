@@ -11,7 +11,7 @@
   - 记录格式：`[magic u32 "WAL1"][type u8][klen u32][vlen u32][key][value][crc32 u32]`，多字节字段显式大端，crc32 覆盖 type..value
   - append 用 O_APPEND + write_full（短写循环，EINTR 重试）；replay 按「长度 → magic → 上限 → CRC」四道校验，任一失败停在残尾并报告偏移
   - 演示：写 5 PUT + 2 DEL → 回放计数正确；手工写 5 字节残尾 → 回放停在准确偏移；ftruncate 修复 → 回放干净且可继续追加
-- **验收**：零警告；自测断言覆盖干净 EOF / PUT=5 DEL=2 / 残尾偏移 / 修复后可追加，全过退出码 0
+- **验收**：零警告；自测断言覆盖干净 EOF / PUT=5 DEL=2 / 残尾偏移 / 修复后可追加 / 恢复后表内状态（5 PUT + 2 DEL → k0/k2/k4 在表内且值正确，k1/k3 已被 DEL 删除），全过退出码 0
 - 提示：参考 examples/ex02，但要求回放把 PUT/DEL **应用到一张内存表**（put 覆盖、del 删除），验证"WAL 恢复内存态"这条核心语义
 
 ## 练习 2：Mini SSTable writer / reader（★★★）

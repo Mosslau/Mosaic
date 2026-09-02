@@ -8,7 +8,7 @@
 |------|---------|------|
 | GoogleTest / Catch2 | ❌ 未安装（brew 无） | ex01 用自写 mini 断言框架演示**同构模式**（TEST/EXPECT/退出码语义一致），真实框架代码给出但标「未在本环境验证」 |
 | clang-tidy 21.1.8 | ✅ 可用 | ex02 坏版本实测 5 条告警（4 类规则），修复版零告警 |
-| clang-format 21.1.8 | ✅ 可用 | ex03 乱格式文件 `--dry-run --Werror` 报 33 处违规，格式化产物零违规 |
+| clang-format 21.1.8 | ✅ 可用 | ex03 乱格式文件 `--dry-run --Werror` 报 36 处违规，格式化产物零违规 |
 | cppcheck | ❌ 未安装 | 主文档 3.2 给出用法与和 clang-tidy 的分工，标「未在本环境验证」 |
 | ASan（Apple clang） | ✅ 可用 | ex04 矩阵实测零报告 / 越界版报 `heap-buffer-overflow` |
 | ASan（Homebrew clang） | ❌ 初始化即挂起 | 连 hello world 都跑不起来（卡在 `libc interceptors initialized` 之后）——**本机 Sanitizer 一律用 Apple clang** |
@@ -26,7 +26,7 @@
 | `ex01-test-gtest.cpp` | Calculator 的 GoogleTest 真实版本（TEST/EXPECT_EQ/EXPECT_THROW/ASSERT_*） | 文件头含安装与构建命令 | 未在本环境验证（本机未装 GoogleTest） |
 | `ex01-test-catch2.cpp` | Calculator 的 Catch2 v3 真实版本（TEST_CASE/SECTION/REQUIRE/CHECK） | 文件头含安装与构建命令 | 未在本环境验证（本机未装 Catch2） |
 | `ex02-tidy-demo.cpp` + `ex02.clang-tidy` | clang-tidy：坏版本触发 4 类规则 5 条告警，`-DEX02_FIXED` 修复版零告警 | 见下「示例 2」 | 已验证（clang-tidy 21.1.8 实测） |
-| `ex03-messy.cpp` + `ex03-formatted.cpp` + `ex03.clang-format` | clang-format：乱格式素材 + 配置 + 格式化产物；`--dry-run --Werror` 格式门禁 | 见下「示例 3」 | 已验证（乱版 33 处违规 exit 1，产物 exit 0） |
+| `ex03-messy.cpp` + `ex03-formatted.cpp` + `ex03.clang-format` | clang-format：乱格式素材 + 配置 + 格式化产物；`--dry-run --Werror` 格式门禁 | 见下「示例 3」 | 已验证（乱版 36 处违规 exit 1，产物 exit 0） |
 | `ex04-sanitizer-matrix/`（Makefile + main.cpp） | Sanitizer 工程化矩阵：同一份源码 × normal/ASan/ASan+UBSan/TSan 四种构建 | `make check` / `make demo-oob` / `make clean` | 已验证（4 构建零报告 exit 0；越界版 ASan 报 `heap-buffer-overflow`） |
 | `ex05-coverage/`（Makefile + grade.h + test_main.cpp） | 覆盖率：llvm-cov source-based 三步流（插桩 → 收集 → 报告） | `make report` / `make show` / `make clean` | 已验证（grade.h 行覆盖 100%） |
 | `ex06-ci/github-actions.yml` | CI 模板：格式 → 静态分析 → 测试矩阵 → Sanitizer+覆盖率 四道闸门 | 落地为仓库 `.github/workflows/ci.yml` | 未在本环境验证（本机无 docker） |
@@ -65,7 +65,7 @@ c++ -std=c++20 -Wall -Wextra -DEX02_FIXED ex02-tidy-demo.cpp -o /tmp/ph16cpp-ex0
 c++ -std=c++20 -Wall -Wextra ex03-formatted.cpp -o /tmp/ph16cpp-ex03 && /tmp/ph16cpp-ex03
 ```
 
-本机实测（clang-format 21.1.8）：`ex03-formatted.cpp` `--dry-run --Werror` 零输出、退出码 0；`ex03-messy.cpp` 同命令报 33 处 `-Wclang-format-violations`、退出码 1。要点：**格式化不需要人工对齐**——工具的权威输出即标准（roadmap 必会概念「格式化不应靠人工争论」）；`.clang-format` 放仓库根目录时不带 `--style` 自动拾取。
+本机实测（clang-format 21.1.8）：`ex03-formatted.cpp` `--dry-run --Werror` 零输出、退出码 0；`ex03-messy.cpp` 同命令报 36 处 `-Wclang-format-violations`、退出码 1。要点：**格式化不需要人工对齐**——工具的权威输出即标准（roadmap 必会概念「格式化不应靠人工争论」）；`.clang-format` 放仓库根目录时不带 `--style` 自动拾取。
 
 ## 示例 4：Sanitizer 工程化矩阵（ex04-sanitizer-matrix/）
 

@@ -16,7 +16,7 @@ Python AI / 机器学习阶段的目标是：**进入 AI、数据建模和智能
 | 概念层（不实测） | 深度学习与 Transformers 认知（PyTorch/Transformers **未在本环境验证**，3.9）、向量数据库与 RAG 工程链路（3.10）、模型服务化部署（3.11，落地到 ph16） |
 | 代码层 | 6 个示例（examples/）+ 5 个练习（exercises/）+ 综合项目（project/：电池健康预测） |
 
-这个阶段只涉及**sklearn / numpy 能跑通的监督学习与无监督学习最小闭环**——数据划分、基线、质量与泄漏、特征工程、建模、评估、过拟合、交叉验证、异常检测、文本向量化与检索、模型产物保存与命令行推理，**不涉及深度学习训练本身（反向传播、GPU/分布式训练、PyTorch 训练循环——本阶段只做「它解决什么、和 sklearn 什么关系」的认知讲解，PyTorch 未安装故不实测）、大模型微调与提示工程（需 transformers + GPU，超出本阶段可验证范围）、生产级部署与容器化（Docker/Nginx/Gunicorn——ph16 部署与 DevOps 阶段的内容，roadmap 第 16 节，目录待建）和数据分析的系统能力本身（NumPy/Pandas/Matplotlib——ph09 数据分析阶段已讲，本阶段只引用不重讲）**。本阶段四层交付物已就位：主文档 + [`examples/`](./examples/) + [`exercises/`](./exercises/) + [`project/`](./project/)，入口见第 6、7 章。
+这个阶段只涉及**sklearn / numpy 能跑通的监督学习与无监督学习最小闭环**——数据划分、基线、质量与泄漏、特征工程、建模、评估、过拟合、交叉验证、异常检测、文本向量化与检索、模型产物保存与命令行推理，**不涉及深度学习训练本身（反向传播、GPU/分布式训练、PyTorch 训练循环——本阶段只做「它解决什么、和 sklearn 什么关系」的认知讲解，PyTorch 未安装故不实测）、大模型微调与提示工程（需 transformers + GPU，超出本阶段可验证范围）、生产级部署与容器化（Docker/Nginx/Gunicorn——[ph16 部署与 DevOps 阶段](../ph16-deploy-devops/16-deploy-devops.md)的内容）和数据分析的系统能力本身（NumPy/Pandas/Matplotlib——ph09 数据分析阶段已讲，本阶段只引用不重讲）**。本阶段四层交付物已就位：主文档 + [`examples/`](./examples/) + [`exercises/`](./exercises/) + [`project/`](./project/)，入口见第 6、7 章。
 
 ## 2. 来源与演变
 
@@ -215,7 +215,7 @@ def save(self, out_dir: Path) -> Path:
     return path
 ```
 
-project/ 的命令行演示了完整闭环（本机实测）：`python3 cli.py` 训练并落盘到 `/tmp/bhealth-model/model.joblib` → 另起进程 `python3 cli.py --predict 1500 25 80 1.0` 加载产物预测 → `预测 SOH: 79.5% → 健康等级: 临界`。要点：**产物只存「训练好的参数」，不存训练数据**（体积小、可分发）；加载方与训练方用同一套特征名，顺序错了预测就错。再往上「把 predict 包成 HTTP 服务（FastAPI，ph10/ph14 技能）、容器化与监控」就是 ph16 部署与 DevOps 阶段（roadmap 第 16 节，目录待建）的内容——**模型部署的 Python 侧最小闭环在本阶段，工程侧在 ph16**。
+project/ 的命令行演示了完整闭环（本机实测）：`python3 cli.py` 训练并落盘到 `/tmp/bhealth-model/model.joblib` → 另起进程 `python3 cli.py --predict 1500 25 80 1.0` 加载产物预测 → `预测 SOH: 79.5% → 健康等级: 临界`。要点：**产物只存「训练好的参数」，不存训练数据**（体积小、可分发）；加载方与训练方用同一套特征名，顺序错了预测就错。再往上「把 predict 包成 HTTP 服务（FastAPI，ph10/ph14 技能）、容器化与监控」就是 [ph16 部署与 DevOps 阶段](../ph16-deploy-devops/16-deploy-devops.md)的内容——**模型部署的 Python 侧最小闭环在本阶段，工程侧在 ph16**。
 
 ## 4. 底层原理
 
@@ -266,7 +266,7 @@ TF-IDF 向量化把文档变成词袋向量：**TF**（词频）强调「这个�
 | 图像/语言/音频 | 深度学习（PyTorch/Transformers） | 特征无法人工设计 | 本环境未装未验证——先 sklearn 后深度学习 |
 | 知识问答 | RAG | 资料可更新、可溯源 | 直接问生成模型（幻觉 + 知识过时） |
 
-**不适合此阶段的事项**：深度学习从零训练与 GPU 调优（3.9，未验证）、大模型微调与提示工程、生产级向量数据库部署（FAISS/Milvus 集群）、模型服务化与容器化部署（ph16 部署与 DevOps 阶段，roadmap 第 16 节，目录待建）、分布式训练与 ML 平台（超出本路线）。
+**不适合此阶段的事项**：深度学习从零训练与 GPU 调优（3.9，未验证）、大模型微调与提示工程、生产级向量数据库部署（FAISS/Milvus 集群）、模型服务化与容器化部署（[ph16 部署与 DevOps 阶段](../ph16-deploy-devops/16-deploy-devops.md)）、分布式训练与 ML 平台（超出本路线）。
 
 **与其他语言同类机制的对比**（一句话级，为 analysis/ 与 Tenet 合成积累素材）：Python 的 ML 生态（numpy/scipy/sklearn/PyTorch）是「算法研究者用 C/C++ 写核心、Python 做胶水」的典范——sklearn 的 fit 内部是编译过的 C/Fortran（LAPACK），Python 层只负责数据流与配置；对比之下 Go 的 ML 生态（gonum/gorgonia）与 Rust 的（ndarray/linfa/tch-rs）都有「类型安全」优势但生态体量差一个数量级；R 是统计学的原生语言但工程化（服务、异步、Web）远不如 Python——**Python 赢在「科研迭代速度 + 工程化生态」的交集，这正是它成为 AI 事实语言的原因**。
 
@@ -369,7 +369,7 @@ hits3 += gold in topk(gold_ids, sim, 3)           # top-k 补救能力
 7. **无监督也要评测**：注入异常定标，马氏距离抓相关性盲区（recall 1.0 vs 单维 z 的 0.34），IsolationForest 的 contamination 要猜（3.8、练习 3）
 8. **RAG 上限 = 检索质量**（必会概念）：清晰措辞 6/6、模糊问法 0/2、top-3 补救到 7/8；词形归一把 cover@3 从 3/5 提到 5/5（3.10、ex06、练习 5）
 9. **深度学习是另一条路**：特征无法人工设计时才值得（图像/语言）；PyTorch/Transformers **未在本环境验证**，先 sklearn 后深度学习（3.9）
-10. **部署从产物开始**：joblib 保存模型到 /tmp，另起进程加载推理——最小闭环在 3.11/project/，服务化与容器化属 ph16（roadmap 第 16 节，目录待建）
+10. **部署从产物开始**：joblib 保存模型到 /tmp，另起进程加载推理——最小闭环在 3.11/project/，服务化与容器化属 [ph16 部署与 DevOps 阶段](../ph16-deploy-devops/16-deploy-devops.md)
 
 ### 阶段验收清单
 

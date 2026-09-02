@@ -9,7 +9,7 @@
 - **SOH（State of Health，健康度 %）回归**：给定工作工况（累计循环次数、平均温度、放电深度、充电倍率），预测电池还剩多少健康度——退化曲线随工况非线性加速（高温/深放/大倍率），这是随机森林比线性回归强的天然场景（ex04 的过拟合/非线性主题）；
 - **健康等级分类**：把 SOH 分箱成 健康（≥90）/ 退化（80~90）/ 临界（<80）三级，且标签带体检测量噪声——等级分类学到的不是「SOH 的确定性函数」，而是有噪声的真实标签（ex03 的指标与不平衡主题）。
 
-数据为**合成数据**（`bhealth/data.py`，seed 固定、物理趋势可解释、离线可复现）；模型用 RandomForest（树模型对特征缩放不敏感——ex02 结论的直接复用）；评估带两个 baseline 对照（回归的「预测均值」、分类的「多数类」——roadmap 必会概念：先 baseline 再复杂化）；模型产物用 joblib 落盘到 `/tmp`（产物纪律），`--predict` 从另一个进程加载做单条推理——这就是「模型部署」的最小闭环（概念衔接：服务化/容器化部署见 ph16 部署与 DevOps 阶段，roadmap 第 16 节，目录待建）。
+数据为**合成数据**（`bhealth/data.py`，seed 固定、物理趋势可解释、离线可复现）；模型用 RandomForest（树模型对特征缩放不敏感——ex02 结论的直接复用）；评估带两个 baseline 对照（回归的「预测均值」、分类的「多数类」——roadmap 必会概念：先 baseline 再复杂化）；模型产物用 joblib 落盘到 `/tmp`（产物纪律），`--predict` 从另一个进程加载做单条推理——这就是「模型部署」的最小闭环（概念衔接：服务化/容器化部署见 [ph16 部署与 DevOps 阶段](../../ph16-deploy-devops/16-deploy-devops.md)，roadmap 第 16 节）。
 
 ## 功能清单
 
@@ -38,5 +38,5 @@ SOH 是**要预测的目标，不是特征**——把 SOH 喂进模型去预测 
 
 - **日志异常检测**（roadmap 另一个推荐项目）：把目标从「电池健康」换成「文本/数值日志是否异常」——练习 3 的马氏距离/IsolationForest 思路 + 练习 4 的日志文本向量化都可复用，数据换成 ph18 车联网方向会遇到的 CAN/遥测日志
 - 模型换线性基线对照：`StandardScaler + Ridge`（需要缩放——树模型不需要）对比 RandomForest，观察非线性分段老化率让 RF 领先多少（示例 ex04 的方法直接可用）
-- 服务化：把 `BatteryHealthPipeline.load + predict` 包成 FastAPI 端点（ph10 Web 后端阶段技能；异步推理入口见 ph14 的异步 FastAPI 示例），容器化部署衔接 ph16 部署与 DevOps 阶段（roadmap 第 16 节，目录待建）
+- 服务化：把 `BatteryHealthPipeline.load + predict` 包成 FastAPI 端点（ph10 Web 后端阶段技能；异步推理入口见 ph14 的异步 FastAPI 示例），容器化部署衔接 [ph16 部署与 DevOps 阶段](../../ph16-deploy-devops/16-deploy-devops.md)（roadmap 第 16 节）
 - 体检数据接入：用 ph09 的数据读取/清洗把真实体检记录读进来替换合成数据，特征工程（时间窗聚合）走本阶段 3.4 的方法

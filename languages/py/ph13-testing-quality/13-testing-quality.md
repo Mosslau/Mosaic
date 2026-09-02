@@ -15,7 +15,7 @@ Python 测试与工程质量阶段的目标是：**写出可靠、可维护的 P
 | 代码风格 | ruff lint + 格式、black 格式、`pyproject.toml` 统一配置 |
 | 门禁自动化 | pre-commit 本地钩子、GitHub Actions CI 流水线（pytest / ruff / mypy / black / 覆盖率） |
 
-这个阶段只涉及**测试与工程质量工具链本身**（pytest / fixture / mock / 参数化 / 覆盖率、mypy、ruff / black、pre-commit、CI 门禁配置），**不涉及并发与异步代码的测试（pytest-asyncio、多线程/多进程下的测试策略）、生产环境部署与平台级 DevOps（Docker 化、监控告警、流水线平台运维）和数据分析结果的正确性验证（pandas 透视表与可视化校验）** — 那些是 [ph14 并发、并行与异步阶段](../ph14-concurrency-async/14-concurrency-async.md)（roadmap 第 14 节，并发/异步代码的最小测法见其 3.9 与 project/tests）、ph16 部署与 DevOps 阶段（roadmap 第 16 节，目录待建）和 ph09 数据分析阶段的内容。本阶段承接 ph12 自动化脚本阶段——脚本能跑只是起点，怎么证明它永远对、改不坏，是工程化必须回答的问题。（写就时 ph13/ph14 是最新已建目录；当前已建目录推进到 [ph15 AI 与机器学习阶段](../ph15-ai-ml/15-ai-ml.md)，ph16 起目录待建。）本阶段四层交付物已就位：主文档 + [`examples/`](./examples/) + [`exercises/`](./exercises/) + [`project/`](./project/)，入口见第 6、7 章。
+这个阶段只涉及**测试与工程质量工具链本身**（pytest / fixture / mock / 参数化 / 覆盖率、mypy、ruff / black、pre-commit、CI 门禁配置），**不涉及并发与异步代码的测试（pytest-asyncio、多线程/多进程下的测试策略）、生产环境部署与平台级 DevOps（Docker 化、监控告警、流水线平台运维）和数据分析结果的正确性验证（pandas 透视表与可视化校验）** — 那些是 [ph14 并发、并行与异步阶段](../ph14-concurrency-async/14-concurrency-async.md)（roadmap 第 14 节，并发/异步代码的最小测法见其 3.9 与 project/tests）、[ph16 部署与 DevOps 阶段](../ph16-deploy-devops/16-deploy-devops.md)（roadmap 第 16 节）和 ph09 数据分析阶段的内容。本阶段承接 ph12 自动化脚本阶段——脚本能跑只是起点，怎么证明它永远对、改不坏，是工程化必须回答的问题。本阶段四层交付物已就位：主文档 + [`examples/`](./examples/) + [`exercises/`](./exercises/) + [`project/`](./project/)，入口见第 6、7 章。
 
 ## 2. 来源与演变
 
@@ -321,7 +321,7 @@ jobs:
         run: pytest --cov=telemetry_stats --cov-report=term-missing
 ```
 
-> **本阶段 CI/CD 只到「把本地门禁搬上云端流水线」的配置层面（多版本矩阵、依赖安装、四道检查）**，**Docker 化部署、监控告警与流水线平台运维属于 ph16 部署与 DevOps 阶段（roadmap 第 16 节，目录待建）**；pre-commit 本环境未安装，`project/.pre-commit-config.yaml` 是可直接使用的配置示例——装好 `pip install pre-commit` 后 `pre-commit install && pre-commit run --all-files` 即可生效（本地等价验证：`ruff check . && ruff format --check . && mypy telemetry_stats cli.py`，project 全部实测通过）。
+> **本阶段 CI/CD 只到「把本地门禁搬上云端流水线」的配置层面（多版本矩阵、依赖安装、四道检查）**，**Docker 化部署、监控告警与流水线平台运维属于 [ph16 部署与 DevOps 阶段](../ph16-deploy-devops/16-deploy-devops.md)（roadmap 第 16 节）**；pre-commit 本环境未安装，`project/.pre-commit-config.yaml` 是可直接使用的配置示例——装好 `pip install pre-commit` 后 `pre-commit install && pre-commit run --all-files` 即可生效（本地等价验证：`ruff check . && ruff format --check . && mypy telemetry_stats cli.py`，project 全部实测通过）。
 
 ## 4. 底层原理
 
@@ -375,7 +375,7 @@ ruff 与 mypy 同属「静态分析」，但管的是**风格与明显错误**�
 **不适合此阶段的事项**：
 
 - 并发与异步代码的测试（pytest-asyncio、多线程/多进程下的测试）：[ph14 并发、并行与异步阶段](../ph14-concurrency-async/14-concurrency-async.md)（roadmap 第 14 节；其 3.9 用标准 pytest + `asyncio.run` 演示最小测法，project/tests 落地）
-- 生产部署与平台级 DevOps（Docker 化、监控告警、流水线平台运维）：ph16 部署与 DevOps 阶段（roadmap 第 16 节，目录待建）
+- 生产部署与平台级 DevOps（Docker 化、监控告警、流水线平台运维）：[ph16 部署与 DevOps 阶段](../ph16-deploy-devops/16-deploy-devops.md)（roadmap 第 16 节）
 - 数据分析结果的正确性验证（pandas 透视表、可视化校验）：ph09 数据分析阶段
 - 大型系统的契约测试、端到端测试体系、测试金字塔全量落地：超出本路线的阶段划分，属于团队工程实践，不在本阶段展开
 

@@ -3,7 +3,8 @@
 //           修复方式不是自己手改，而是跑 clang-format（见下），产物见 ex03-formatted.cpp。
 // 用法（已验证）：
 //   clang-format --style=file:ex03.clang-format ex03-messy.cpp > /tmp/ph16cpp-ex03-fmt.cpp
-//   diff /tmp/ph16cpp-ex03-fmt.cpp ex03-formatted.cpp   # 应无差异（仓库内已格式化）
+//   diff /tmp/ph16cpp-ex03-fmt.cpp ex03-formatted.cpp
+//       # 代码部分（文件头注释之后）应无差异；文件头注释为格式化后手动修正（见 ex03-formatted.cpp 文件头）
 //   clang-format --style=file:ex03.clang-format --dry-run --Werror ex03-formatted.cpp  # CI 门禁：零输出
 #include <cstdio>
 #include <vector>

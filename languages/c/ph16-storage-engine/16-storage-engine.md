@@ -26,12 +26,12 @@
 | 版本/里程碑 | 年份 | 主要变化 |
 |------|------|---------|
 | Bloom Filter | 1970（Burton Bloom） | 用位数组 + 多哈希换"肯定不在/可能在"，空间换查询 |
-| B+Tree | 1972（Bayer & McCreight） | 高扇出平衡树；数据全在叶子、叶子链表串联——至今仍是关系库索引默认结构 |
+| B+Tree | 1972（B-Tree 起源；Bayer & McCreight）；叶子链表变体其后改良（1979 Comer 综述系统化） | 高扇出平衡树；数据全在叶子、叶子链表串联——至今仍是关系库索引默认结构 |
 | WAL / ARIES | 1970s 起 / 1992（Mohan 等） | "先写日志再改数据"成为崩溃恢复标准范式；ARIES 把 WAL + 回放 + undo 系统化 |
 | 缓冲区管理（Buffer Pool） | 1980s（System R 等） | 页缓存 + LRU 族淘汰策略成型；脏页写回规则确立 |
 | LSM Tree | 1996（O'Neil 等） | Log-Structured Merge-Tree：随机写转顺序写 + 分层归并，写吞吐优先 |
 | Google Bigtable | 2006 | MemTable + SSTable 的工程化命名普及；tablet 即"MemTable + 一串 SSTable" |
-| LevelDB / RocksDB | 2011 / 2012 | LSM 单机库成熟：WAL + MemTable + SSTable + Bloom + compaction 成为 KV 标配 |
+| LevelDB / RocksDB | 2011（LevelDB）/ 2013（RocksDB 开源；2012 起 Facebook 内部开发） | LSM 单机库成熟：WAL + MemTable + SSTable + Bloom + compaction 成为 KV 标配 |
 | C11 | 2011 | 本文基线：定宽类型（stdint.h）、对齐控制足够表达全部记录格式 |
 
 本文示例以 **C11** 为基线（与全库 ph09~ph15 同一口径；记录格式全靠定宽类型与显式大端，C11 已全部具备），现代工具链（gcc/clang）默认支持，无需额外选项。验证工具链：**Apple clang 21.0.0（cc，macOS arm64，ProductVersion 26.6.2）**。全部代码 `cc -Wall -Wextra -std=c11` 零警告、本机真实编译运行；**WAL 吞吐比、Bloom 误判率、LRU 淘汰序列、SSTable 查询路径均为实测输出**，文档引用的输出与 examples/、exercises/、project/ 的实际运行一致。这个阶段的知识是存储领域五十年里最稳定的部分——WAL 与 B+Tree 的形制五十年未变，变的只是硬件速度比。
@@ -258,7 +258,7 @@ put ──▶ WAL（第 1 次写盘）──▶ MemTable ──flush──▶ SS
 
 ## 6. 代码示例
 
-> 完整可运行文件在 [`examples/`](./examples/) 目录（编译/运行命令与验证状态见其 README）。本阶段示例均为**正常工程代码**，可任意编译运行；ex02/ex04 的演示文件写 /tmp 且退出时自删。以下所有实测输出来自 Apple clang 21.0.0（macOS arm64）；文档内嵌片段与对应源文件逐字一致（节选关键部分，完整文件以 examples/ 为准）。
+> 完整可运行文件在 [`examples/`](./examples/) 目录（编译/运行命令与验证状态见其 README）。本阶段示例均为**正常工程代码**，可任意编译运行；ex02/ex04 的演示文件写 /tmp 且退出时自删。以下所有实测输出来自 Apple clang 21.0.0（macOS arm64）；文档内嵌片段摘录自对应源文件的关键部分（节选可能省略无关行、调整缩进），完整文件以 examples/ 为准。
 
 ### 示例 1：WAL record 设计（编码/解码/CRC 拦截）
 

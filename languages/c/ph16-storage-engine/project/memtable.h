@@ -30,7 +30,8 @@ void mt_free(memtable_t *m);
 /* 写入/覆盖; 返回 0 成功, -1 内存不足 */
 int mt_put(memtable_t *m, const char *key, const char *val);
 
-/* 删除: 存在的 key 打 tombstone; 不存在返回 1（幂等容忍: 也打 tombstone） */
+/* 删除: 对 key 打 tombstone——存在的 key 改标记, 不存在的 key 也补打
+ * tombstone（幂等容忍: 删除不存在的 key 不算错误）; 返回 0 成功, -1 内存不足 */
 int mt_del(memtable_t *m, const char *key);
 
 /* 查询（三态）: 0 命中(*val 借用指针) / 1 不存在 / 2 tombstone。

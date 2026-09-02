@@ -11,6 +11,10 @@
 #   docker compose -f sol-02-docker-compose.yml down
 # 题目要求对照：web+db 两服务 ✓、depends_on 健康依赖 ✓、数据卷持久化 ✓、
 #   配置走环境变量 ✓、restart 策略 ✓
+# 前置（重要）：本文件把 ./app 只读挂载到容器 /srv 并跑 uvicorn app:app——先把练习 1
+#   的可部署服务存成本目录下的 app/app.py（模块名 app，含 /health 端点即可演示；
+#   挂载路径不存在时 docker 会建空目录，容器里 import app 会失败）。daemon 可用时
+#   实际 `up -d` 前务必先准备该文件。
 
 services:
   web:

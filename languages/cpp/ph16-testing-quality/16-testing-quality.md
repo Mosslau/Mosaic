@@ -137,7 +137,7 @@ CheckOptions:                # 单个检查的参数
 
 | 族 | 抓什么 | 例子 |
 |----|--------|------|
-| `bugprone-*` | 疑似 bug（逻辑错误、危险用法） | `bugprone-unchecked-optional-access`（project 实测抓到 `.value()` 直取） |
+| `bugprone-*` | 疑似 bug（逻辑错误、危险用法） | `bugprone-unchecked-optional-access`（实测会拦下未检查的 `.value()` 直取——project 因此把 `.value()` 改用 `value_or` 规避，`make tidy` 零告警，见 project/test_stl_utils.cpp） |
 | `modernize-*` | 该用现代写法的地方 | `modernize-use-nullptr`、`modernize-use-override` |
 | `performance-*` | 无谓的性能损耗 | `performance-for-range-copy` |
 | `readability-*` | 可读性（命名、魔数等，主观性强） | `readability-magic-numbers` |
@@ -170,7 +170,7 @@ ReflowComments: false         # 不重排注释（保护文件头的验证说明
 # 1. 格式化（输出到 stdout；原地修改用 -i）
 /opt/homebrew/opt/llvm/bin/clang-format --style=file:ex03.clang-format ex03-messy.cpp > /tmp/fmt.cpp
 # 2. 格式门禁（CI 用法：只检查、不改文件，违规即非零退出）——已验证：
-#    ex03-formatted.cpp 零输出退出码 0；ex03-messy.cpp 报 33 处违规退出码 1
+#    ex03-formatted.cpp 零输出退出码 0；ex03-messy.cpp 报 36 处违规退出码 1
 /opt/homebrew/opt/llvm/bin/clang-format --style=file:ex03.clang-format --dry-run --Werror ex03-formatted.cpp
 ```
 
@@ -252,13 +252,13 @@ PR/push
 测试按「范围 vs 成本」分层——越往上越接近真实、越慢越脆：
 
 ```text
-        ▲ 少量        ┌───────────┐
-        │             │  E2E 测试  │   全链路，分钟~小时级，脆（环境依赖）
-        │           ┌─┴───────────┴─┐
-   数量 │           │   集成测试     │   模块协作（roadmap 必会概念），秒~分钟级
-        │         ┌─┴───────────────┴─┐
-        │         │     单元测试       │   稳定逻辑（roadmap 必会概念），毫秒级
-        ▼ 大量    └───────────────────┘
+        ▲ 少量          ┌────────────┐                                           全链路，分钟~小时级，脆（环境依赖）
+        │               │  E2E 测试  │                                           全链路，分钟~小时级，脆（环境依赖）
+        │             ┌─┴────────────┴─┐
+   数量 │             │    集成测试    │                                           模块协作（roadmap 必会概念），秒~分钟级
+        │           ┌─┴────────────────┴─┐
+        │           │      单元测试      │                                           稳定逻辑（roadmap 必会概念），毫秒级
+        ▼ 大量      └────────────────────┘
                  越往下：越快、越稳、定位越准
 ```
 
@@ -274,14 +274,15 @@ clang-tidy 的检查器工作在编译器前端的数据结构上（所以它需
                   │     → AST 模式匹配（AST Matcher）即可判定
                   └──语义──▶ CFG（控制流图：路径敏感）
                         例：bugprone-unchecked-optional-access = 沿 CFG 路径追踪
-                        optional 的 has_value 状态（project 实测抓到 .value() 直取）
+                        optional 的 has_value 状态（实测会拦下未检查的 .value() 直取——
+                        project 因此改用 value_or 规避，见 test_stl_utils.cpp）
 ```
 
 - **AST 层检查**：把「坏模式」表达为树模式（Clang 的 AST Matcher DSL），遍历 AST 命中即报——大多数 `modernize-*`、`readability-*` 在这一层，快而准；
 - **CFG 层检查**：先把函数体展开成控制流图（基本块 + 分支边），再做路径敏感的数据流分析（沿每条可能路径传播「已初始化/已检查/已释放」等状态）——`bugprone-*` 的深水区在这里，能抓「某条路径上没检查就解引用」，代价是慢、有误报；
 - **clang 静态分析器**（`scan-build`，clang-tidy 的 `clang-analyzer-*` 检查）是 CFG 路线的重度版：符号执行，按路径探索「除以零」「泄漏」等。cppcheck 则不同源：自写解析器 + token 流规则，不看编译参数，换来零配置。
 
-**为什么配置里要 `HeaderFilterRegex`**：clang-tidy 分析时会把 `#include` 的头文件一并展开进 AST，不过滤就会被系统头/第三方头的告警淹没（本机实测：4 条用户告警背后是 2.8 万条被抑制的非用户代码告警）。
+**为什么配置里要 `HeaderFilterRegex`**：clang-tidy 分析时会把 `#include` 的头文件一并展开进 AST，但诊断默认只显示**主文件**里的（`HeaderFilterRegex: ''`——`ex02` 的 5 条用户告警全在主文件，本机实测）；把过滤器放宽成匹配自研头的正则后，头文件里的告警才会一起显示（用 /tmp 下的临时探针文件实测：头文件 `myhdr.h` 里的 `NULL` 用法过滤前不报、`HeaderFilterRegex: 'myhdr\.h'` 后报出）。libc++ 等系统头 clang-tidy 默认不产生诊断（实测 `ex02` 展开的 `<string>`/`<vector>` 零头文件告警）——过滤器的意义是把检查范围圈定在自有代码（如 project 的 `'stl_utils\.h'`），避免工程里每个头都开查时诊断量失控、把主文件的告警淹没。
 
 ### 4.3 Sanitizer 与覆盖率的插桩原理（简述）
 
@@ -364,7 +365,7 @@ public:
 
 对应 roadmap 学习内容「clang-format」与必会概念「格式化不应靠人工争论」。
 
-实测（clang-format 21.1.8）：`ex03-messy.cpp`（刻意写乱）`--dry-run --Werror` 报 **33 处** `-Wclang-format-violations`、退出码 1；格式化产物 `ex03-formatted.cpp` 零输出、退出码 0——这两个退出码就是 CI 格式门禁的全部逻辑。配置与命令见 3.3。
+实测（clang-format 21.1.8）：`ex03-messy.cpp`（刻意写乱）`--dry-run --Werror` 报 **36 处** `-Wclang-format-violations`、退出码 1；格式化产物 `ex03-formatted.cpp` 零输出、退出码 0——这两个退出码就是 CI 格式门禁的全部逻辑。配置与命令见 3.3。
 
 ### 示例 4：Sanitizer 工程化矩阵（examples/ex04-sanitizer-matrix/）
 

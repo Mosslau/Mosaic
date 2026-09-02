@@ -3,8 +3,8 @@
      验证环境：OpenJDK 17.0.18 + Maven 3.9.12 + Spring Boot 3.3.0（starter-test 在离线缓存，实测）
      验证命令：mvn -o -Dmaven.repo.local=/tmp/m2clone test
      离线说明：Resilience4j/Sentinel 的 jar 均不在离线缓存（只有 BOM），本模块手写同构实现演示
-               熔断状态机与限流算法机制；缓存缺 junit-platform-launcher 1.10.2，钉 1.10.1；
-               surefire 3.2.5 显式钉住。联网环境可删这些仲裁项。 -->
+               熔断状态机与限流算法机制；缓存缺 junit-platform-launcher 1.10.2（Boot 3.3.0 默认管理版本），
+               钉 1.10.1（离线必需）；surefire 3.2.5 显式钉住（恰为 Boot 3.3.0 默认管理版本，仅显式化，可删）。 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">

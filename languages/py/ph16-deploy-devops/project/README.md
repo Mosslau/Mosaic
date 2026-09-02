@@ -6,25 +6,26 @@
 
 ph15 的模型交付止步于「另一个进程能加载产物做预测」（命令行）。生产要的是：**模型变成一个长期存活、可探活、可观测、可重建的服务**。本模板把这件事的最小闭环做出来：
 
-- **服务化**：`POST /predict` 输入电池工况（循环次数/温度/放电深度/充电倍率），返回 SOH 与健康等级——推理后端有两档：加载 joblib 产物（`JoblibPredictor`，ph15 产物的消费方式）或规则公式兜底（`RulePredictor`，无产物也能起服务）；
+- **服务化**：`POST /predict` 输入电池工况（循环次数/温度/放电深度/充电倍率），返回 SOH 与健康等级——推理后端有两档：加载 joblib 产物（`JoblibPredictor`，同时兼容 ph15 的 `BatteryHealthPipeline` 产物形态与 sklearn 模型/管线形态，见 [`app/predictor.py`](./app/predictor.py) 的形态分派）或规则公式兜底（`RulePredictor`，无产物也能起服务）；
 - **可探活**：`/health`（liveness）与 `/ready`（readiness）分工——配置了 `MODEL_PATH` 但产物缺失时 `/ready` 与 `/predict` 都返回 503，**不静默降级**（把「模型没挂上」藏成「服务正常」是生产事故的经典开局）；
 - **可观测**：`/metrics` 手写最小 Prometheus 文本格式（请求计数、预测耗时、当前推理后端、运行时长），compose 里带 Prometheus 抓取配置；
 - **可重建**：多阶段 Dockerfile（构建期与运行期分离、非 root 运行、产物不烤进镜像）+ Compose 一键起「服务 + 监控」。
 
 ## 功能清单
 
-- [x] `app/predictor.py`：`Predictor` 协议 + 规则兜底/Joblib 双后端；`MODEL_PATH` 语义：未设置→规则兜底，设置了但缺失→不就绪
+- [x] `app/predictor.py`：`Predictor` 协议 + 规则兜底/Joblib 双后端；JoblibPredictor 形态分派（sklearn 模型走 `.predict`，ph15 `BatteryHealthPipeline` 形态走 `predict_soh(X)`）；`MODEL_PATH` 语义：未设置→规则兜底，设置了但缺失→不就绪
 - [x] `app/main.py`：应用工厂 `create_app()`；lifespan 加载依赖；`/health` `/ready` `/predict` `/metrics` 四端点；请求计数中间件
 - [x] `app/metrics.py`：进程内最小指标注册表（Counter/Histogram/Gauge，Prometheus 文本格式）
 - [x] `train.py`：训练 SOH 随机森林并落盘 joblib 产物（默认写 `/tmp/bhealth-api-model/`，产物不入库），含加载自检
-- [x] `tests/test_api.py`：6 个 pytest 用例（探针分工、422 校验、规则推理、指标格式、产物缺失 503、训练产物闭环）
+- [x] `tests/test_api.py`：7 个 pytest 用例（探针分工、422 校验、规则推理、指标格式、产物缺失 503、训练产物闭环、ph15 形态产物兼容）
 - [x] `Dockerfile` + `.dockerignore` + `requirements.txt`：多阶段构建、锁版本、非 root
 - [x] `docker-compose.yml` + `prometheus.yml`：服务 + Prometheus 抓取编排
 - [x] 质量门禁：`ruff check .` 与 `ruff format --check .` 全绿
 
 ## 验收标准
 
-- `python3 -m pytest` → **6 passed**（本机实测，2.2s）
+- 验证环境：Python 3.13.9（macOS arm64）+ fastapi 0.139.1 + uvicorn 0.50.0 + httpx 0.28.1 + scikit-learn 1.7.2 + pytest 8.4 + ruff 0.12（本机已装并实测复跑）；Docker CLI 29.6.2 在但 **daemon 未启动**；macOS 无 systemd
+- `python3 -m pytest` → **7 passed**（本机实测，约 2.4s）
 - `ruff check .` → `All checks passed!`；`ruff format --check .` → 6 files already formatted（本机实测）
 - `python3 train.py` → 产物 `/tmp/bhealth-api-model/model.joblib`（本机实测 13953 KiB），加载自检 `predict([1500, 25, 80, 1.0]) = 78.6%`（规则公式参考值 80.5%）
 - 真实服务链路（本机实测，uvicorn + httpx）：`MODEL_PATH=/tmp/bhealth-api-model/model.joblib python3 -m uvicorn app.main:app` 起服务后——`GET /ready` → `{"status": "ready", "model_type": "joblib"}`；`POST /predict`（1500 次循环/25°C/DoD 80%/1C）→ `soh 78.6 / 临界`；`GET /metrics` → `bhealth_model_info{model_type="joblib"} 1`、`bhealth_predict_seconds_count` 随请求递增
@@ -58,7 +59,7 @@ curl http://127.0.0.1:8000/metrics
 
 ## 扩展方向
 
-- **接 ph15 的真模型**：本模板的规则公式与 ph15 合成数据同源，把 `train.py` 换成 ph15 的 `BatteryHealthPipeline` 产物即可服务化真模型（注意产物版本与服务代码版本要一起发布）
+- **接 ph15 的真模型**：本模板的规则公式与 ph15 合成数据同源；ph15 项目跑 `python3 cli.py` 落盘的 `BatteryHealthPipeline` 产物**可直接**给本模板服务用——`JoblibPredictor` 检测到产物有 `predict_soh(X)` 就按 ph15 形态推理（无需改造，测试 `test_ph15_pipeline_artifact_compat` 覆盖）；若产物是普通 sklearn 模型/管线则走 `.predict`。注意产物版本与服务代码版本要一起发布
 - **接 Nginx 反代与 systemd**：examples/ 的 ex04/ex05 配置就是为本模板准备的，组合起来是完整的单机生产形态
 - **Grafana 看板**：compose 加 `grafana/grafana` 服务，数据源指向 prometheus，画出 `rate(bhealth_requests_total[1m])` 与预测耗时（主文档 3.7）
 - **CI/CD 流水线**：examples/ 的 ex06 工作流为本模板跑 ruff/pytest/build，镜像推到制品库后触发部署

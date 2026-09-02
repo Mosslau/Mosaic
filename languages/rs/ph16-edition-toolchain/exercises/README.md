@@ -21,7 +21,7 @@
   - 汇总一行：本 crate 的 rust-version（若声明）与全部依赖中的最大 MSRV
   - 脚本能跑通主文档示例 4 的对照工程（edition 2024 + rust-version 1.85 + 依赖 home）
   - 加分项：若环境里有 cargo-msrv，附 `cargo msrv show` / `cargo msrv list` 的对照输出
-- **验收**：对含 `home = "0.5"` 依赖的工程运行，输出含 `home 0.5.11: rust-version = 1.81` 与汇总行（参考实现 `sol-02-check-msrv.sh` 已实测）
+- **验收**：对含 `home = "0.5"` 依赖的工程运行，输出包含形如 `home 0.5.11: rust-version = 1.81` 的 home 行与「依赖最高 MSRV」汇总行即通过——具体版本号随 crates.io 索引日期漂移，以输出结构为准（参考实现 `sol-02-check-msrv.sh` 已实测，2026-09-02 复测确认）
 
 ## 练习 3：执行一次 Edition 迁移演练（★★★）
 

@@ -47,7 +47,7 @@ sol-* 为参考实现（文件头已注明验证环境、命令与实测数字�
 **要求**：
 
 - 工程 = examples/ex01 的 pom + jjwt 0.12.5 三坐标（参照 ph15 exercises/sol-05 的 jjwt 用法）
-- 用户服务（18325）：`POST /api/auth/login` 签发 JWT（HS256，密钥 ≥ 32 字节，两服务共享配置）；`GET /api/users/{id}` 回显收到的 `X-Auth-User` 头
+- 用户服务（18325）：`POST /api/auth/login` 签发 JWT（jjwt 按密钥长度自动选 HS 算法：32–47 字节 → HS256、48–63 → HS384、≥64 → HS512；本练习 44 字节密钥落在 HS256，两服务共享配置）；`GET /api/users/{id}` 回显收到的 `X-Auth-User` 头
 - 网关（18326）：`OncePerRequestFilter` 验 Bearer token（登录路径除外），验过注入 `X-Auth-User`/`X-Auth-Role` 头转发；转发控制器按方法/路径/query 透传（**用 `JdkClientHttpRequestFactory`**——`SimpleClientHttpRequestFactory` 在 POST + 下游 401 时抛 HttpRetryException，参考实现注释有实测记录）
 - 无 token / 篡改 token → 401 统一 JSON（code 40100）；密码错 → 401（code 40101，沿用 ph15 码义）
 

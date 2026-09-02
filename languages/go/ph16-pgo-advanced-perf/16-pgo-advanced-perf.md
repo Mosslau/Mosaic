@@ -14,7 +14,7 @@
 | 内存布局和分配优化 | 字符串组装免分配（Builder + AppendInt）、结构体字段按对齐排序省 padding，用 B/op 与 allocs/op 证明 |
 | 性能回归基线 | 中位数基线 + 阈值回归闸门（exit code 挂 CI）；性能优化要有基线和回归检查、不要为低频路径牺牲可读性 |
 
-这个阶段只涉及「用 profile 指导编译与性能回归闭环」，**不涉及 pprof/benchmark 工具的基础用法（ph13 性能优化阶段已讲，本阶段直接复用）、版本与工具链管理（ph15 Go 版本、工具链阶段）、架构分层设计（ph17 架构设计与代码分层阶段，roadmap 第 17 节，目录待建）、依赖升级与版本策略（ph20 配置管理与发布策略阶段，roadmap 第 20 节，目录待建）** — 本阶段把"性能"钉在编译决策这一层：怎么用数据（profile）改变编译器行为、怎么用基线守住优化成果；服务怎么分层、发布怎么编排是后面阶段的事。
+这个阶段只涉及「用 profile 指导编译与性能回归闭环」，**不涉及 pprof/benchmark 工具的基础用法（ph13 性能优化阶段已讲，本阶段直接复用）、版本与工具链管理（ph15 Go 版本、工具链阶段）、架构分层设计（ph17 架构设计与代码分层阶段，roadmap 第 17 节，目录待建）、配置管理与发布策略编排（配置中心、feature flag、灰度/滚动发布与回滚、版本号与构建信息属 ph20 配置管理与发布策略阶段，roadmap 第 20 节，目录待建）** — 本阶段把"性能"钉在编译决策这一层：怎么用数据（profile）改变编译器行为、怎么用基线守住优化成果；服务怎么分层、发布怎么编排是后面阶段的事。
 
 ## 2. 来源与演变
 
@@ -235,16 +235,16 @@ $ benchstat baseline.txt current.txt → +278.39% (p=0.002 n=6)   ← 统计显�
 PGO 的机制一句话：**普通构建的每个优化决策都基于静态启发式，PGO 构建把 profile 采样计数折算成"调用点权重"，让决策向实测热点倾斜**。数据流：
 
 ```text
-representative load ----collect CPU profile----> cpu.pprof ----go build -pgo=cpu.pprof----> compiler
-  (prod / loadgen traffic)                       (pprof format)  (3.1)                          |
-                                                                                                v
-                                       weighted decisions, keyed by call-site hotness
-                                           |-- inline hot call sites        <- 4.2
-                                           |-- devirtualize hot types       <- 4.3
-                                           `-- lay out hot / fallback path  <- 4.4
-                                                                                                v
-                             PGO binary: same source, same semantics, machine code
-                             shaped by real traffic (verified by checksum equality)
+representative load ──collect CPU profile──▶ cpu.pprof ──go build -pgo=cpu.pprof──▶ compiler
+  (prod / loadgen traffic)            (pprof format)  (3.1)                                  │
+                                                                                             ▼
+                                weighted decisions, keyed by call-site hotness
+                                      |-- inline hot call sites          ← 4.1
+                                      |-- devirtualize hot types         ← 4.2
+                                      `-- lay out hot / fallback path    ← 4.3
+                                                                                             ▼
+                              PGO binary: same source, same semantics, machine code
+                              shaped by real traffic (verified by checksum equality)
 ```
 
 profile 进入编译器后做的事可以概括为"哪条路径是热的，就把机器码往哪边偏"：

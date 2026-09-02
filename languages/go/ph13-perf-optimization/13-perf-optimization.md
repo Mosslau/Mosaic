@@ -15,7 +15,7 @@ Go 性能优化阶段的目标是（引用 Roadmap）：**能分析和优化 Go 
 
 本阶段的核心信念来自四条必会概念：**先 profile，再优化**——不测量就动手是猜测，profile 告诉你热点在哪一行，优化才有据；**分配次数会影响 GC 压力**——每次堆分配都是 GC 要扫描的对象，allocs/op 是比 B/op 更敏感的信号；**goroutine 泄漏也是性能问题**——泄漏的 goroutine 连同其栈常驻内存，堆积到一定量就是 OOM；**sync.Pool 只适合可复用临时对象**——它复用的是"用完可弃"的对象，不是缓存长期数据的容器，而且不是无条件更快（本阶段实测其边界，见 3.5）。
 
-这个阶段只涉及"测量 → 定位 → 减少分配/竞争 → 验证"的性能方法论闭环，**不涉及 Go runtime 底层实现机制（GMP 调度器、GC 算法细节、channel/map/slice/interface 底层布局、reflect/unsafe/cgo——那些是 [ph14 高级 Go 阶段](../ph14-advanced-go/14-advanced-go.md)的内容，roadmap 第 14 节）、PGO 与生产流量指导优化（profile-guided optimization 属 ph16 PGO 与高级性能优化阶段，roadmap 第 16 节，目录待建）和语言级并发模型本身（goroutine/channel/context 的用法属 ph06 并发编程阶段）** — 本阶段用标准库工具就能完成全部量化与定位，GC/调度"为什么长这样"留给 ph14，PGO"用生产 profile 指导编译"留给 ph16。
+这个阶段只涉及"测量 → 定位 → 减少分配/竞争 → 验证"的性能方法论闭环，**不涉及 Go runtime 底层实现机制（GMP 调度器、GC 算法细节、channel/map/slice/interface 底层布局、reflect/unsafe/cgo——那些是 [ph14 高级 Go 阶段](../ph14-advanced-go/14-advanced-go.md)的内容，roadmap 第 14 节）、PGO 与生产流量指导优化（profile-guided optimization 属 [ph16 PGO 与高级性能优化阶段](../ph16-pgo-advanced-perf/16-pgo-advanced-perf.md)，roadmap 第 16 节）和语言级并发模型本身（goroutine/channel/context 的用法属 ph06 并发编程阶段）** — 本阶段用标准库工具就能完成全部量化与定位，GC/调度"为什么长这样"留给 ph14，PGO"用生产 profile 指导编译"留给 ph16。
 
 ## 2. 来源与演变
 
@@ -420,7 +420,7 @@ func leakySend(work func() int, timeout time.Duration) (int, bool) {
 
 ### 下一阶段
 
-[高级 Go 阶段](../ph14-advanced-go/14-advanced-go.md) — 本阶段的性能观测升级为"机制解释"：GMP 调度器与 GC 算法的实现、channel/map/slice/interface 的底层布局、defer/panic/recover 原理、reflection/unsafe/cgo——本阶段攒下的 profile 数据与「分配/竞争」的实证观察，正是 ph14 理解"调度器为什么这样设计、GC 为什么这样回收"的入口；届时本阶段的逃逸分析会升级为"看 SSA 优化管线"，sync.Pool 的 per-P 设计会追溯到调度器的 P 结构。当前已建目录止于 ph15（ph16~ph21 的阶段目录尚未建立），roadmap 见 [`languages/go/go.md`](../go.md)。
+[高级 Go 阶段](../ph14-advanced-go/14-advanced-go.md) — 本阶段的性能观测升级为"机制解释"：GMP 调度器与 GC 算法的实现、channel/map/slice/interface 的底层布局、defer/panic/recover 原理、reflection/unsafe/cgo——本阶段攒下的 profile 数据与「分配/竞争」的实证观察，正是 ph14 理解"调度器为什么这样设计、GC 为什么这样回收"的入口；届时本阶段的逃逸分析会升级为"看 SSA 优化管线"，sync.Pool 的 per-P 设计会追溯到调度器的 P 结构。当前已建目录止于 ph16（ph17~ph21 的阶段目录尚未建立），roadmap 见 [`languages/go/go.md`](../go.md)。
 
 ---
 

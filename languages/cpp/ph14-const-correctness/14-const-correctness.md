@@ -15,7 +15,7 @@
 | 逻辑 const vs 物理 const | 位不变 ≠ 语义不变；const_cast 打破物理 const 与设计气味（正反例对照，`ex04`） |
 | 只读视图设计 | `string_view` / `span<const T>` 观察不拥有、零拷贝、接口即承诺（`ex06`） |
 
-这个阶段只涉及 const 在接口设计中的完整规则（顶层/底层 const、const 成员函数、const 引用参数、mutable、逻辑 const 与物理 const、只读视图接口设计），**不涉及 constexpr/consteval 编译期编程系统化（ph05 模板与泛型编程、元编程阶段 / ph06 现代 C++ 阶段）、volatile 与多线程内存序（ph08 并发编程阶段）、引用悬挂与临时对象生命周期延长的完整规则（ph12 对象生命周期、值类别与所有权深入阶段）、const_cast 引发未定义行为的系统归类（ph15 未定义行为 UB 与内存安全阶段）和测试/静态分析/代码规范系统化（ph16，目录待建）** — 那些是其他阶段的内容。承接 ph04 STL 阶段（`string_view`/`span` 的用法基础）、ph12 对象生命周期阶段（`const&` 借用式接口、临时对象生命周期）与 ph13 Rule of 0/3/5 与 RAII 进阶阶段（资源类的内部实现）：ph04 回答了"视图怎么用"，本阶段回答"视图怎么作为接口承诺"；ph12 讲了"所有权如何通过类型体现"，本阶段讲"只读如何通过类型体现"；ph13 把资源类讲透后，本阶段把它升级为"const 正确的接口"。
+这个阶段只涉及 const 在接口设计中的完整规则（顶层/底层 const、const 成员函数、const 引用参数、mutable、逻辑 const 与物理 const、只读视图接口设计），**不涉及 constexpr/consteval 编译期编程系统化（ph05 模板与泛型编程、元编程阶段 / ph06 现代 C++ 阶段）、volatile 与多线程内存序（ph08 并发编程阶段）、引用悬挂与临时对象生命周期延长的完整规则（ph12 对象生命周期、值类别与所有权深入阶段）、const_cast 引发未定义行为的系统归类（ph15 未定义行为 UB 与内存安全阶段）和测试/静态分析/代码规范系统化（ph16 测试、静态分析与代码规范阶段）** — 那些是其他阶段的内容。承接 ph04 STL 阶段（`string_view`/`span` 的用法基础）、ph12 对象生命周期阶段（`const&` 借用式接口、临时对象生命周期）与 ph13 Rule of 0/3/5 与 RAII 进阶阶段（资源类的内部实现）：ph04 回答了"视图怎么用"，本阶段回答"视图怎么作为接口承诺"；ph12 讲了"所有权如何通过类型体现"，本阶段讲"只读如何通过类型体现"；ph13 把资源类讲透后，本阶段把它升级为"const 正确的接口"。
 
 ## 2. 来源与演变
 
@@ -454,4 +454,4 @@ c++ -std=c++20 -Wall -Wextra ex06-readonly-view.cpp -o /tmp/ph14-ex06 && /tmp/ph
 
 ### 下一阶段
 
-[未定义行为 UB 与内存安全阶段](../ph15-ub-memory-safety/15-ub-memory-safety.md) — ph15 目录已建（roadmap 第 16~23 节均为规划中，目录待建）。本阶段把"const 正确性"讲成接口设计语言（const 承诺 + 只读视图 + 逻辑/物理 const）；ph15 系统梳理 const 承诺被破坏的后果——`const_cast` 修改真正 const 对象的 UB（ph14 已实测 O0 Bus error / O2 常量折叠，ph15 归入"编译器假设无 UB"的总框架）、视图/引用悬挂后的解引用、use-after-move、数据竞争等全部 UB 分类，并用 ASan/UBSan/TSan 实测。届时本阶段的"视图生命周期必须短于数据源""const 不变量是编译器的优化前提"直接成为 ph15 判断"这行代码是否 UB"的依据。
+[未定义行为 UB 与内存安全阶段](../ph15-ub-memory-safety/15-ub-memory-safety.md) — ph15 目录已建，其下一阶段 ph16（测试、静态分析与代码规范阶段）也已落地（roadmap 第 17~23 节均为规划中，目录待建）。本阶段把"const 正确性"讲成接口设计语言（const 承诺 + 只读视图 + 逻辑/物理 const）；ph15 系统梳理 const 承诺被破坏的后果——`const_cast` 修改真正 const 对象的 UB（ph14 已实测 O0 Bus error / O2 常量折叠，ph15 归入"编译器假设无 UB"的总框架）、视图/引用悬挂后的解引用、use-after-move、数据竞争等全部 UB 分类，并用 ASan/UBSan/TSan 实测。届时本阶段的"视图生命周期必须短于数据源""const 不变量是编译器的优化前提"直接成为 ph15 判断"这行代码是否 UB"的依据。

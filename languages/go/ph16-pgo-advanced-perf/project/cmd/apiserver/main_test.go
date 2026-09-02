@@ -90,8 +90,8 @@ func TestSignDeviceDeterministic(t *testing.T) {
 	}
 }
 
-// BenchmarkSignDevice 是签名核心基准：scripts/regress.sh 的性能回归对象。
-// signDevice 走接口分派，PGO 前后差异在此可被 -bench 稳定量化。
+// BenchmarkSignDevice 量化签名核心热点：signDevice 走接口分派，PGO 前后差异
+// 在此可被 -bench 稳定量化（端到端对比见 scripts/pgo-experiment.sh 的 loadgen 报告）。
 func BenchmarkSignDevice(b *testing.B) {
 	devs := newDevices(1, 8192)
 	d := devs[0]

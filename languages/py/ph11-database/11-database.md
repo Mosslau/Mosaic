@@ -4,7 +4,7 @@
 
 ## 1. 概述
 
-Python 数据库与缓存阶段的目标是：**能开发完整业务系统——用 SQL 建表与 CRUD、用事务保证一致性边界、用索引与查询计划优化读写、用迁移脚本追踪结构变更、用 Redis 缓存热点查询并设计过期与失效策略**。这一阶段把 ph10 Web 后端阶段的「能连数据库」深化为「能设计数据层」：SQLite 起步、SQL 优先，ORM 只做映射层；同时把四个必会概念内化为习惯——**SQL 基础比 ORM 更重要、迁移脚本让结构变更可追踪、事务保证一致性边界、缓存要有过期和失效策略**——这是 [ph14 并发、并行与异步阶段](../ph14-concurrency-async/14-concurrency-async.md)（roadmap 第 14 节）、ph16 部署与 DevOps 阶段（roadmap 第 16 节，目录待建）与车联网数据平台方向共同的地基。
+Python 数据库与缓存阶段的目标是：**能开发完整业务系统——用 SQL 建表与 CRUD、用事务保证一致性边界、用索引与查询计划优化读写、用迁移脚本追踪结构变更、用 Redis 缓存热点查询并设计过期与失效策略**。这一阶段把 ph10 Web 后端阶段的「能连数据库」深化为「能设计数据层」：SQLite 起步、SQL 优先，ORM 只做映射层；同时把四个必会概念内化为习惯——**SQL 基础比 ORM 更重要、迁移脚本让结构变更可追踪、事务保证一致性边界、缓存要有过期和失效策略**——这是 [ph14 并发、并行与异步阶段](../ph14-concurrency-async/14-concurrency-async.md)（roadmap 第 14 节）、[ph16 部署与 DevOps 阶段](../ph16-deploy-devops/16-deploy-devops.md)（roadmap 第 16 节）与车联网数据平台方向共同的地基。
 
 | 核心维度 | 覆盖内容 |
 |----------|---------|
@@ -15,7 +15,7 @@ Python 数据库与缓存阶段的目标是：**能开发完整业务系统—�
 | 迁移与连接池 | `schema_version` 手写迁移、Alembic 入门、连接复用与池参数 |
 | Redis 缓存 | 数据类型与命令、`EXPIRE`/`TTL` 过期、LRU 淘汰、缓存失效策略 |
 
-这个阶段只涉及关系型数据库与缓存——SQL 与 SQLite、事务与 ACID、索引与查询优化、迁移与连接池、Redis 缓存，**不涉及并发与异步深入（Kafka、消息队列、大规模异步）和生产部署运维（Nginx、Docker、CI/CD）** — 那些是 [ph14 并发、并行与异步阶段](../ph14-concurrency-async/14-concurrency-async.md)（roadmap 第 14 节）和 ph16 部署与 DevOps 阶段（roadmap 第 16 节，目录待建）的内容。NoSQL 文档模型（pymongo/motor）仅作可选了解，本阶段不深入。本阶段承接 ph10 Web 后端阶段——把「能连数据库」深化为「能设计完整数据层」：SQL 优先、事务、索引、迁移、连接池、Redis 缓存，以 SQLite 起步（正式项目换 PostgreSQL/MySQL 时，SQL 层能力直接平移）。本阶段四层交付物已就位：主文档 + [`examples/`](./examples/) + [`exercises/`](./exercises/) + [`project/`](./project/)，入口见第 6、7 章。
+这个阶段只涉及关系型数据库与缓存——SQL 与 SQLite、事务与 ACID、索引与查询优化、迁移与连接池、Redis 缓存，**不涉及并发与异步深入（Kafka、消息队列、大规模异步）和生产部署运维（Nginx、Docker、CI/CD）** — 那些是 [ph14 并发、并行与异步阶段](../ph14-concurrency-async/14-concurrency-async.md)（roadmap 第 14 节）和 [ph16 部署与 DevOps 阶段](../ph16-deploy-devops/16-deploy-devops.md)（roadmap 第 16 节）的内容。NoSQL 文档模型（pymongo/motor）仅作可选了解，本阶段不深入。本阶段承接 ph10 Web 后端阶段——把「能连数据库」深化为「能设计完整数据层」：SQL 优先、事务、索引、迁移、连接池、Redis 缓存，以 SQLite 起步（正式项目换 PostgreSQL/MySQL 时，SQL 层能力直接平移）。本阶段四层交付物已就位：主文档 + [`examples/`](./examples/) + [`exercises/`](./exercises/) + [`project/`](./project/)，入口见第 6、7 章。
 
 ## 2. 来源与演变
 
@@ -308,7 +308,7 @@ Redis **命令执行是单线程的**：一个进程用**事件循环（Event Lo
 **不适合此阶段的事项**：
 
 - 大规模异步与消息（Kafka、MQ、百万级并发连接）：[ph14 并发、并行与异步阶段](../ph14-concurrency-async/14-concurrency-async.md)（roadmap 第 14 节）
-- 生产部署（Nginx、Docker、K8s、CI/CD、监控告警）：ph16 部署与 DevOps 阶段（roadmap 第 16 节，目录待建）
+- 生产部署（Nginx、Docker、K8s、CI/CD、监控告警）：[ph16 部署与 DevOps 阶段](../ph16-deploy-devops/16-deploy-devops.md)（roadmap 第 16 节）
 - NoSQL 文档模型深入（MongoDB 聚合、分片）：本阶段 pymongo/motor 仅可选了解
 - 分布式事务、分库分表、读写分离：单库起步的业务系统先不涉及，ph16 部署与 DevOps 阶段再谈
 

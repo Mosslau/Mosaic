@@ -1,6 +1,8 @@
-// examples/ex02-tidy-demo.cpp —— clang-tidy 演示：坏版本触发 4 条告警，-DEX02_FIXED 为修复版
+// examples/ex02-tidy-demo.cpp —— clang-tidy 演示：坏版本触发 4 类规则 5 条告警
+// （modernize-use-nullptr 两处：lookup_env 的 return 与 main 的 == 比较，代码内已标注释），
+// -DEX02_FIXED 为修复版
 // 验证环境：clang-tidy 21.1.8（/opt/homebrew/opt/llvm/bin/clang-tidy），Apple clang 21.0.0
-// 运行前提：坏版本（默认）专门给 clang-tidy 看，刻意违反 4 条规范
+// 运行前提：坏版本（默认）专门给 clang-tidy 看，刻意违反 4 类规则（共 5 条告警）
 //           （编译时还会自带 1 条 -Wrange-loop-construct 警告——教学点：编译器自身
 //           是第一道静态分析，clang-tidy 是第二道、规则更多）；
 //           修复版加 -DEX02_FIXED，clang-tidy 零告警、双编译器 -Wall -Wextra 零警告。
@@ -81,7 +83,7 @@ private:
     double radius_;
 };
 
-// 告警 3（modernize-use-nullptr）：C 风格空指针（ES.47）
+// 告警 3（modernize-use-nullptr，第 1 处）：C 风格空指针（ES.47）
 static const char* lookup_env() {
     return NULL;                              // 应为 nullptr
 }
@@ -98,6 +100,7 @@ static double total_label_len(const std::vector<std::string>& names) {
 int main() {
     const Circle c(2.0);
     std::printf("area=%.2f\n", c.area());
+    // 告警 5（modernize-use-nullptr，第 2 处）：与 NULL 比较同样触发
     std::printf("env=%s\n", lookup_env() == NULL ? "null" : "set");
     const std::vector<std::string> names{"alpha", "beta", "gamma"};
     std::printf("total=%.0f\n", total_label_len(names));

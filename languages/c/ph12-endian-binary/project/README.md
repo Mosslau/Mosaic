@@ -50,4 +50,4 @@ make clean      # 5. 清理
 - 加 `fsync` 落盘与崩溃恢复语义（半写入 record 通过 CRC/长度检测被跳过）——衔接 [ph13 mmap、Page Cache 与可靠文件 IO 阶段](../../ph13-mmap-page-cache/13-mmap-page-cache.md)（roadmap 第 13 节）
 - 加 record 序号（seqno）支持回放去重；加 checksum 强度更高的校验（如 xxHash）对照
 - 把 payload 的"key=value"文本改成真正的 key/value 双字段 + varint 长度编码（varint 见 examples/ex06，本阶段练习 4）
-- 实现"读到损坏 record 后跳过剩余、按最新完好状态恢复"的 WAL 恢复流程——ph16 数据库存储引擎基础阶段（roadmap 第 16 节，目录待建）的 WAL replay 预演
+- 实现"读到损坏 record 后跳过剩余、按最新完好状态恢复"的 WAL 恢复流程——ph16 数据库存储引擎基础阶段的 WAL replay 预演（见 [ph16-storage-engine/16-storage-engine.md](../../ph16-storage-engine/16-storage-engine.md)）

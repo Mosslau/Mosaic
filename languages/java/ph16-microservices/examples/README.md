@@ -4,7 +4,7 @@
 
 ## 验证方式说明（重要）
 
-本机 Maven 实测采用**离线模式 `mvn -o`**：沙箱禁止写默认本地仓库 `~/.m2`，依赖取自本地缓存克隆 `/tmp/m2clone`，构建命令统一为 `mvn -o -Dmaven.repo.local=/tmp/m2clone test`（联网环境直接 `mvn test`）。各 pom 带「离线版本仲裁」注释的项（junit-platform-launcher 1.10.1、surefire 3.2.5、spring-boot-maven-plugin 3.3.5）都是「缓存缺默认版本、用缓存内相近版本压过」的产物，**联网环境可删除**。
+本机 Maven 实测采用**离线模式 `mvn -o`**：沙箱禁止写默认本地仓库 `~/.m2`，依赖取自本地缓存克隆 `/tmp/m2clone`，构建命令统一为 `mvn -o -Dmaven.repo.local=/tmp/m2clone test`（联网环境直接 `mvn test`）。各 pom 带「离线版本仲裁」注释的项：junit-platform-launcher 钉 1.10.1（Boot 3.3.0 默认管 1.10.2，离线缓存无 1.10.2，离线构建真实必需）；surefire 显式钉 3.2.5（恰为 Boot 3.3.0 默认管理版本，仅为显式化）；spring-boot-maven-plugin 钉 3.3.5（按构建时缓存快照钉住，现缓存已含默认 3.3.0）——后两项联网环境可删除，离线亦非必需。
 
 ## 框架可用性策略（缓存探测结果与实测标注）
 
@@ -12,11 +12,11 @@ ph16 的主题是中间件生态，本机离线缓存对中间件覆盖有限，
 
 | 构件 | 主文档对应小节 | 本机缓存（/tmp/m2clone） | 处理方式 |
 |------|---------------|--------------------------|---------|
-| spring-cloud-starter-gateway / openfeign 等 Spring Cloud | 3.2 | ❌ 只有 3.1.8 的 pom 无 jar，且 3.1.x 对应 Boot 2.x（与本阶段 Boot 3.3.0 基线不兼容） | 主文档讲机制（未在本环境验证）；ex01/ex02 用 RestClient 同构实测调用语义；网关用 exercises/sol-04 与 project 的手写 mini 网关演示 |
+| spring-cloud-starter-gateway / openfeign 等 Spring Cloud | 3.2 | ⚠️ 2021.0.8（组件 3.1.8）的 **jar 在缓存**（starter/gateway-server/openfeign-core/commons 齐全，2026-09-02 复核），但 2021.x 对应 Boot 2.x（javax），与本阶段 Boot 3.3.0 基线二进制不兼容（表述以构建时缓存快照口径为准） | 主文档讲机制（未在本环境验证）；ex01/ex02 用 RestClient 同构实测调用语义；网关用 exercises/sol-04 与 project 的手写 mini 网关演示 |
 | Nacos / Sentinel（com.alibaba.cloud/csp） | 3.2/3.3 | ❌ 完全不在缓存（需中间件） | 主文档讲机制（未在本环境验证） |
 | Resilience4j（io.github.resilience4j） | 3.3 | ❌ 只有 BOM，无核心 jar | 主文档讲机制（未在本环境验证）；ex03 手写熔断器/令牌桶同构实测 |
 | Micrometer Tracing / OpenTelemetry bridge | 3.5 | ❌ 只有 micrometer-tracing-bom 与 opentelemetry-api，无 bridge jar | 主文档讲机制（未在本环境验证）；ex01 用 X-Trace-Id 头 + MDC 同构实测透传语义 |
-| spring-boot-starter-web / actuator / test 3.3.0 | 全部 | ✅ | 实测（ex01/02/04/06，共 20 用例） |
+| spring-boot-starter-web / actuator / test 3.3.0 | 全部 | ✅ | 实测（ex01/02/04/06，共 22 用例，2026-09-02 复测全绿） |
 | spring-data-redis 3.3.0 + lettuce 6.3.2.RELEASE | 3.4 | ✅（Boot 3.3.0 管理的 lettuce 恰为 6.3.2.RELEASE，无需仲裁） | 实测（ex05，真实 redis-server 8.6.2 由测试用 ProcessBuilder 拉起） |
 | jjwt 0.12.5 | 网关鉴权 | ✅ | 实测（exercises/sol-04 与 project） |
 

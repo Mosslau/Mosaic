@@ -912,7 +912,7 @@ typedef void (*event_handler_t)(int event, void *ctx);
 → mmap / Page Cache / fsync
 → C ABI / FFI
 → WAL / SSTable / B+Tree / LSM
-→ SIMD / CUDA C 基础
+→ SIMD / CUDA C 基础（超出本 C 路线 16 节范围的自学方向，roadmap 未规划对应阶段）
 ```
 
 ## 项目路线
@@ -965,7 +965,7 @@ C 基础
 → WAL
 → SSTable / B+Tree / LSM
 → C ABI / FFI
-→ SIMD / CUDA C 基础
+→ SIMD / CUDA C 基础（超出本 C 路线 16 节范围的自学方向，roadmap 未规划对应阶段）
 ```
 
 重点掌握：指针、结构体、位运算、内存布局、对齐、allocator、mmap、fsync、WAL、SSTable、B+Tree、LSM、Bloom Filter、LRU Cache、C ABI、动态库、GDB、Makefile/CMake、ASan/UBSan、perf。

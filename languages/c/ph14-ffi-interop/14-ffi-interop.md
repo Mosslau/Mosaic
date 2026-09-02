@@ -17,7 +17,7 @@ C 与 C++ / Python / Rust 互操作阶段是 C 学习路线中"从库到生态"�
 | 错误码与错误消息 | 0 成功/负数错误；err_out 出参；strerror 式消息函数；不用 errno |
 | 跨语言所有权规则 | 字符串/数组/结构体的三种所有权约定；POD 结构体跨语言布局一致 |
 
-这个阶段只涉及 C ABI 与跨语言互操作——头文件接口、动态库导出符号、C++ / Python / Rust 三方的调用与包装、opaque pointer 与 create/destroy、错误码与错误消息、跨语言所有权约定，**不涉及完整的状态机/回调框架/宏技巧与 API 工程化（ph15 高级 C 与代码质量阶段，roadmap 第 15 节）、存储引擎的完整 WAL/MemTable/SSTable 实现（ph16 数据库存储引擎基础阶段，roadmap 第 16 节，目录待建）和网络 socket 编程（ph08）** — 那些是 ph15 高级 C 与代码质量阶段、ph16 数据库存储引擎基础阶段和 ph08 Linux 系统编程阶段的内容；互操作中用到的 mmap/fsync 语义（ph13）、二进制字节序与 padding（ph12）只引用不展开；Python 的 C 扩展（写 CPython 扩展模块）只做与 ctypes 的取舍对比，具体写法（PyObject 引用计数、setup.py）不展开；Rust 的 bindgen/cbindgen 自动化工具只做提及。
+这个阶段只涉及 C ABI 与跨语言互操作——头文件接口、动态库导出符号、C++ / Python / Rust 三方的调用与包装、opaque pointer 与 create/destroy、错误码与错误消息、跨语言所有权约定，**不涉及完整的状态机/回调框架/宏技巧与 API 工程化（ph15 高级 C 与代码质量阶段，roadmap 第 15 节）、存储引擎的完整 WAL/MemTable/SSTable 实现（[ph16 数据库存储引擎基础阶段](../ph16-storage-engine/16-storage-engine.md)，roadmap 第 16 节）和网络 socket 编程（ph08）** — 那些是 ph15 高级 C 与代码质量阶段、ph16 数据库存储引擎基础阶段和 ph08 Linux 系统编程阶段的内容；互操作中用到的 mmap/fsync 语义（ph13）、二进制字节序与 padding（ph12）只引用不展开；Python 的 C 扩展（写 CPython 扩展模块）只做与 ctypes 的取舍对比，具体写法（PyObject 引用计数、setup.py）不展开；Rust 的 bindgen/cbindgen 自动化工具只做提及。
 
 ## 2. 来源与演变
 
@@ -621,4 +621,4 @@ Rust:   rs 约定1: dup=malloc'd by C  rs 约定2: buf=caller buffer need=13  rs
 
 ### 下一阶段
 
-[ph15 高级 C 与代码质量阶段](../ph15-code-quality/15-code-quality.md) — 本阶段解决了"怎么把 C 库暴露给其他语言"，ph15 将解决"怎么写更稳定、可维护、可移植的 C 代码"：宏与条件编译、函数指针与回调、状态机与错误码设计、handle-based API 与 opaque pointer 的完整工程化（本阶段已铺垫 opaque 句柄与错误码的心智模型）；再往后 ph16 数据库存储引擎基础阶段（roadmap 第 16 节，目录待建）将把本阶段 project/ 的 kvdb（C ABI KV + WAL）升级为完整 WAL + MemTable + SSTable 的存储引擎。
+[ph15 高级 C 与代码质量阶段](../ph15-code-quality/15-code-quality.md) — 本阶段解决了"怎么把 C 库暴露给其他语言"，ph15 将解决"怎么写更稳定、可维护、可移植的 C 代码"：宏与条件编译、函数指针与回调、状态机与错误码设计、handle-based API 与 opaque pointer 的完整工程化（本阶段已铺垫 opaque 句柄与错误码的心智模型）；再往后 [ph16 数据库存储引擎基础阶段](../ph16-storage-engine/16-storage-engine.md)（roadmap 第 16 节）将把本阶段 project/ 的 kvdb（C ABI KV + WAL）升级为完整 WAL + MemTable + SSTable 的存储引擎。

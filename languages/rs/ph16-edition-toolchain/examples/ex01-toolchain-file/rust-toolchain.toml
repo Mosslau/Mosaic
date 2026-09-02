@@ -5,11 +5,12 @@
 # 验证状态：已验证（channel = "stable" 路径实测；版本钉死见下方注释说明）
 
 [toolchain]
-# channel 支持四种写法：
+# channel 支持三类写法：
 #   "stable" / "beta" / "nightly"        —— 发布通道（本文件取 stable，见下行）
 #   "1.92.0"                              —— 精确版本号（不存在时 rustup 自动下载安装）
-#   "stable-2025-12-08"                   —— 按日期的通道快照
-#   "nightly-2025-12-08"                  —— 按日期的 nightly 快照
+#   "nightly-2025-12-08"                  —— 按日期的快照（rustup 文法接受 <channel>-<date>，
+#                                           如 stable-<date>/beta-<date>；日期归档的实际可用性
+#                                           以 rustup 官方文档为准，本环境未实测）
 # 注意：写成精确版本号时，若该机没有该工具链，rustup 会联网下载；
 # 本仓库只装过 stable，钉 "1.92.0" 的写法在本环境因沙箱禁止写 ~/.rustup 未实测下载流程，
 # 语义以 rustup 官方文档为准（channel 字段存在即触发「解析或安装」）。

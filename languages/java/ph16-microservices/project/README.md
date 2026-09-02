@@ -4,7 +4,7 @@
 
 roadmap「ph16 微服务与分布式阶段」推荐项目之一是**微服务订单系统**——本项目是其最小骨架，把 ph15 的单体按业务边界拆成三个独立服务，串出一条完整的微服务调用链：**client → gateway（JWT 验签 + 路由转发）→ order-service（聚合订单详情）→ user-service（远程取用户名）**，外加两个贯穿全局的横切机制：**网关与 user-service 共享同一 JWT 密钥**（user-service 签发、gateway 验签，下游服务信任网关注入的 `X-Auth-User`/`X-Auth-Role` 身份头）与 **`X-Trace-Id` 全链路透传**（入口生成 → MDC → RestClient 拦截器逐跳透传）。数据纪律遵循主文档 3.1「**数据跟着服务走**」：order-service 不直连用户库，要用户名就走 user-service 的 API（`examples/ex01` 的同构模式）；每个服务独立进程、独立端口、内存表当私有库（不引数据库，聚焦拆分与调用语义，持久化是 ph13/ph15 的内容）。
 
-对比 [ph15 project](../ph15-spring-family/project/README.md)（单体：JPA + Security 全在一个进程里）：同一批「用户 + 订单」需求被拆成多进程后，单体内的方法调用变成了网络调用，于是本阶段项目专讲拆出来后的新问题——**网关把认证收敛到入口**（下游不再各自验签）、**远程调用要有超时与降级**（roadmap 必会概念）、**跨进程问题用 traceId 定位**（主文档 3.5 的同构最小实现）。
+对比 [ph15 project](../../ph15-spring-family/project/README.md)（单体：JPA + Security 全在一个进程里）：同一批「用户 + 订单」需求被拆成多进程后，单体内的方法调用变成了网络调用，于是本阶段项目专讲拆出来后的新问题——**网关把认证收敛到入口**（下游不再各自验签）、**远程调用要有超时与降级**（roadmap 必会概念）、**跨进程问题用 traceId 定位**（主文档 3.5 的同构最小实现）。
 
 ## 技术栈与验证环境
 
@@ -79,13 +79,13 @@ $ curl -s http://localhost:18312/api/orders/1001 -H 'X-Auth-User: alice'
 
 ## 扩展方向
 
-- **接真实 Spring Cloud Gateway / OpenFeign / Nacos**（未在本环境验证，原因如实标注）：离线缓存里 Spring Cloud 只有 2021.0.8 的 pom 无 jar，且 2021.x 对应 Boot 2.x（javax），与本项目 Boot 3.3.0 基线二进制不兼容——所以真实 Gateway/OpenFeign 只能讲机制（主文档 3.2 有完整路由/谓词/过滤器与声明式客户端对照），本项目用「手写 mini 网关 + RestClient」同构实测了同一套语义；换到真实组件时：网关路由表换成 `spring.cloud.gateway.routes` 配置（`Path=/api/orders/**` 谓词 + `StripPrefix` 过滤器）、下游调用换成 `@FeignClient` 接口 + 注册中心服务名、`user-service.base-url` 硬编码换成 Nacos 服务发现，鉴权过滤器与 X-Trace-Id 拦截器逻辑原样保留
+- **接真实 Spring Cloud Gateway / OpenFeign / Nacos**（未在本环境验证，原因如实标注）：离线缓存里 Spring Cloud 2021.0.8（组件 3.1.8）的 **jar 齐备**（starter/gateway-server/openfeign-core/commons 均在，2026-09-02 复核），但 2021.x 对应 Boot 2.x（javax），与本项目 Boot 3.3.0 基线二进制不兼容——所以真实 Gateway/OpenFeign 只能讲机制（主文档 3.2 有完整路由/谓词/过滤器与声明式客户端对照），本项目用「手写 mini 网关 + RestClient」同构实测了同一套语义；换到真实组件时：网关路由表换成 `spring.cloud.gateway.routes` 配置（`Path=/api/orders/**` 谓词 + `StripPrefix` 过滤器）、下游调用换成 `@FeignClient` 接口 + 注册中心服务名、`user-service.base-url` 硬编码换成 Nacos 服务发现，鉴权过滤器与 X-Trace-Id 拦截器逻辑原样保留
 - **幂等下单**：主文档阶段项目愿景里的「订单服务幂等下单」本骨架未做（当前只有 GET 聚合读）；加 `POST /api/orders` 时把 `examples/ex04` 的 Idempotency-Key 占位去重机制搬进来，下单前经 user-service 校验用户（其 `findById` 已带调用计数供白盒断言）
 - **韧性补全**：order-service 的 UserClient 目前是「超时一次即降级」；把 `examples/ex02` 的「瞬时故障重试一次 + 熔断」接上，注意只有幂等 GET 才敢重试
 - **身份与安全**：内网信任边界当前靠 `X-Auth-User`/`X-Auth-Role` 注入头，生产应加网络隔离/mTLS 或服务级凭证；JWT 密钥三处配置写死相同值仅为演示，生产走配置中心/环境变量注入
 - **可观测性升级**：把 `X-Trace-Id` 手写透传换成 Micrometer Tracing + OpenTelemetry（bridge jar 不在离线缓存，未在本环境验证，机制与字段对应见主文档 3.5）
 - **持久化**：三个服务的内存表换成各自独立数据库（JPA 见 ph15 project），表结构按服务私有数据边界拆分
 
-## 附：父 pom 的唯一改动（本任务新增 order-service/gateway 时顺手记录）
+## 附录：构建注意点（父 pom 的 httpclient5 测试依赖）
 
 父 pom `<dependencies>` 补了一条 **test-scope 的 httpclient5**：user-service 自带测试用 `TestRestTemplate` POST 登录并预期 401 响应，而 Boot 在 classpath 上没有 Apache HttpClient 时会把 `RestTemplateBuilder` 回退到 `SimpleClientHttpRequestFactory`（HttpURLConnection），后者在 POST 收到 401 时抛 `HttpRetryException`「cannot retry due to server authentication, in streaming mode」导致该用例 Error——同一踩坑在 `exercises/sol-04` 已实测并记录（网关因此改用 JdkClientHttpRequestFactory）。补上 httpclient5（Boot 3.3.0 仲裁为 5.3.1，离线缓存有 jar）后 Boot 自动选中 Apache 客户端、401 按普通响应处理，仅影响测试 classpath、不进任何产物 jar。若某天 user-service 测试改用带显式 request factory 的客户端，此条可删。

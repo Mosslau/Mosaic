@@ -10,7 +10,9 @@
     MODEL_PATH=/tmp/bhealth-api-model/model.joblib \
         python3 -m uvicorn app.main:app --port 8000
 
-产物纪律：默认写 /tmp，不入库（.dockerignore 与仓库 .gitignore 均排除 *.joblib）。
+产物纪律：默认写 /tmp 不入库；若用 --out 指到仓库内目录，记得自备 *.joblib 的
+.gitignore 规则（project/.dockerignore 已排除 *.joblib 防止进构建上下文，仓库根
+.gitignore 目前没有 *.joblib 规则——产物默认落 /tmp 即可保持 git status 干净）。
 """
 
 from __future__ import annotations

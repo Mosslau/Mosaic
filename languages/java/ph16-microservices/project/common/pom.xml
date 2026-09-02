@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- common —— 共享契约模块：ApiResponse/业务码/BizException、JwtService（jjwt 0.12.5 HS256）、
+<!-- common —— 共享契约模块：ApiResponse/业务码/BizException、JwtService（jjwt 0.12.5，50 字节密钥自动选 HS384）、
      TraceIdFilter/TraceIdClientInterceptor。纯 jar 库（无主类，不声明 spring-boot-maven-plugin）。 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"

@@ -49,7 +49,7 @@ cc -Wall -Wextra -std=c11 ex06-lru-buffer-pool.c -o /tmp/ph16c-ex/ex06 && /tmp/p
 
 ## 说明
 
-- 主文档第 6 章内嵌片段摘自本目录文件（节选关键部分，完整文件以本目录为准），两者逐字一致。
+- 主文档第 6 章内嵌片段摘录自本目录文件的关键部分（节选可能省略无关行、调整缩进，完整文件以本目录为准），两者内容一致。
 - ex02 的吞吐数字与 ex05 的误判率是实测值：ex02 每次运行随机器负载波动（比例结论稳定），ex05 因键序列确定、每次运行结果完全相同。macOS 的 `fsync` 只到设备缓存，真落盘需 `fcntl(F_FULLFSYNC)`（ph13 examples/ex03 已展开），故 ex02 的"每条 fsync"差距在 Linux 上会更大。
 - 与前置阶段的衔接：ex01/ex02 的记录格式是 ph13 project/ kvlog（`magic+len+crc`）与 ph14 project/ kvdb 的升级——增加 `type` 字段区分 PUT/DEL；字节序纪律（显式大端）来自 ph12；write_full/fsync 纪律来自 ph13。
 - B+Tree 没有对应 ex 文件：内存版简化 B+Tree 是 exercises 练习 5（sol-05-btree.c，含分裂/查找/范围扫描自测），避免与练习重复；LSM 串联见 project/。

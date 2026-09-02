@@ -4,7 +4,7 @@
 
 ## 1. 概述
 
-Python 部署与 DevOps 阶段的目标是：**把 Python 项目部署到真实环境**（roadmap 第 16 节目标）。它是学习路线从「写对代码」转向「养好服务」的一站：承接 ph10 Web 后端开发阶段（FastAPI 应用怎么写，这里不重讲）与 ph15 AI / 机器学习阶段（joblib 模型产物 + cli.py 命令行推理——本阶段的 project/ 把它升级为带健康检查与指标端点的部署模板），补上「代码写完到用户能用」之间的工程链路。
+Python 部署与 DevOps 阶段的目标是：**把 Python 项目部署到真实环境**（roadmap 第 16 节目标）。它是学习路线从「写对代码」转向「养好服务」的一站：承接 ph10 Web 后端开发阶段（FastAPI 应用怎么写，这里不重讲）与 ph15 AI / 机器学习阶段（joblib 模型产物 + cli.py 命令行推理——本阶段的 project/ 把它升级为带健康检查与指标端点的部署模板，且 `JoblibPredictor` 直接兼容 ph15 落盘的 `BatteryHealthPipeline` 产物形态，ph15 产物无需改造即可被服务加载），补上「代码写完到用户能用」之间的工程链路。
 
 | 核心维度 | 覆盖内容 |
 |----------|---------|
@@ -39,7 +39,7 @@ Python 部署与 DevOps 阶段的目标是：**把 Python 项目部署到真实�
 | Kubernetes 开源 / 1.0 | 2014 / 2015 | Google 开源（源自 Borg），容器编排；2017 年前后成事实标准 |
 | OCI 标准 | 2015 | 镜像与运行时标准化，containerd 等实现出现 |
 | Supervisor / systemd | 2004 / 2010 | 进程守护：Supervisor 跨平台用户态；systemd 成 Linux 标配 |
-| Gunicorn / Uvicorn | 2010 / 2017 | WSGI pre-fork 服务器 / ASGI 事件循环服务器 |
+| Gunicorn / Uvicorn | 2010 / 2017 前后 | WSGI pre-fork 服务器 / ASGI 事件循环服务器（uvicorn 仓库 2017 年建、2018 年 4 月首个 PyPI 发布，表中取约数） |
 | Prometheus / Grafana | 2012 / 2014 | 拉模型指标监控 + 看板，云原生可观测性标配 |
 | GitHub Actions | 2019 | CI/CD 与代码仓库合体，流水线即配置 |
 
@@ -83,11 +83,12 @@ Docker 把「应用 + 依赖 + 启动命令」打成**镜像**（只读模板）
 | `USER appuser` | 非 root 运行 | 容器逃逸时的第二道防线 |
 | `CMD` vs `ENTRYPOINT` | 默认命令 / 固定入口 | CMD 可被 `docker run` 参数覆盖，ENTRYPOINT 不行 |
 
-**多阶段构建**（examples/ex02）：构建需要编译链和 pip 缓存，运行只需要 venv 和代码——分成 builder / runtime 两个阶段，最终镜像只 `COPY --from=builder` 拿运行必需品：
+**多阶段构建**（examples/ex02）：构建需要编译链和 pip 缓存，运行只需要 venv 和代码——分成 builder / runtime 两个阶段，最终镜像只 `COPY --from=builder` 拿运行必需品。下面是关键片段（节选，中间省略了 WORKDIR/ENV/USER/CMD 等行，完整文件见 `examples/ex02-docker-multistage/Dockerfile`，§6 示例 2 有完整版）：
 
 ```dockerfile
-# examples/ex02-docker-multistage/Dockerfile —— 未在本环境验证（daemon 未启动）
+# examples/ex02-docker-multistage/Dockerfile —— 关键片段（节选），未在本环境验证（daemon 未启动）
 FROM python:3.13-slim AS builder
+COPY requirements.txt .                            # 先拷依赖清单：这层缓存由 requirements 是否变化决定
 RUN python -m venv /opt/venv && /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
 FROM python:3.13-slim
 COPY --from=builder /opt/venv /opt/venv   # 构建期产物不进最终镜像
@@ -173,7 +174,7 @@ systemd unit 的三段结构（examples/ex05 与 exercises/sol-04，**macOS 无 
 [Unit]
 After=network-online.target          # 网络就绪后再启动
 [Service]
-ExecStart=/opt/bhealth-api/.venv/bin/python -m uvicorn app.main:app --workers 2
+ExecStart=/opt/bhealth-api/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2
 Restart=on-failure                   # 异常退出才拉起（正常停止不拉）
 RestartSec=3
 StandardOutput=journal               # 日志进 journald
@@ -317,7 +318,7 @@ def ready(response: Response) -> dict[str, str]:
     return {"status": "ready"}
 ```
 
-实测输出：`GET /health → 200 {"status": "ok"}`；`GET /ready → 200`；`POST /predict`（1500 次循环/25°C/DoD 80%/1C）→ `{"soh": 80.5}`；故障注入后 `/ready → 503` 而 `/health` 仍 200；SIGTERM 关停日志 `Shutting down ... Finished server process` 完整（优雅关停）。
+实测输出：`GET /health → 200 {"status": "ok"}`；`GET /ready → 200`；`POST /predict`（1500 次循环/25°C/DoD 80%/1C）→ `{"soh": 80.5}`；故障注入后 `/ready → 503` 而 `/health` 仍 200；SIGTERM 后 `check_service.py` 断言退出码 -15（shell 143）并从捕获的 stderr 验证优雅关停日志 `INFO: Shutting down` 与 `INFO: Finished server process`（关停日志断言已在自动脚本内完成，2026-09 复跑通过）。
 
 ### 示例 2：Dockerfile 多阶段构建（呼应 3.2/4.3，未在本环境验证）
 
@@ -406,10 +407,10 @@ lines += [
 
 ### 阶段项目
 
-本阶段综合项目见 [`project/`](./project/)：**电池健康预测服务部署模板（bhealth-api）**——把 ph15 的「joblib 产物 + cli.py 命令行推理」升级为带 `/health`、`/ready`、`/predict`、`/metrics` 四端点的 FastAPI 服务，配多阶段 Dockerfile、Compose（服务 + Prometheus 抓取）编排；6 个 pytest 用例 + ruff 全绿 + 真实 uvicorn 链路实测（对应 roadmap「推荐项目」第一个「FastAPI 部署模板」；第二个「数据服务 Docker Compose」由 examples/ex03 与 project 的 compose 覆盖）。建议完成练习后再动手，练习 1（可部署服务形态）是它的缩小版。
+本阶段综合项目见 [`project/`](./project/)：**电池健康预测服务部署模板（bhealth-api）**——把 ph15 的「joblib 产物 + cli.py 命令行推理」升级为带 `/health`、`/ready`、`/predict`、`/metrics` 四端点的 FastAPI 服务，配多阶段 Dockerfile、Compose（服务 + Prometheus 抓取）编排；7 个 pytest 用例 + ruff 全绿 + 真实 uvicorn 链路实测（对应 roadmap「推荐项目」第一个「FastAPI 部署模板」；第二个「数据服务 Docker Compose」由 examples/ex03 与 project 的 compose 覆盖）。建议完成练习后再动手，练习 1（可部署服务形态）是它的缩小版。
 
 - [ ] 完成 exercises/ 全部 4 题并对照参考实现复盘
-- [ ] 独立完成 project/ 并通过其验收标准（`python3 -m pytest` → 6 passed；`ruff check .` 全绿；`python3 train.py` 产出物并自检；uvicorn 起服务实测 `/ready` 报 `model_type: joblib`、`/predict` 返回合理 SOH）
+- [ ] 独立完成 project/ 并通过其验收标准（`python3 -m pytest` → 7 passed；`ruff check .` 全绿；`python3 train.py` 产出物并自检；uvicorn 起服务实测 `/ready` 报 `model_type: joblib`、`/predict` 返回合理 SOH；ph15 的 `BatteryHealthPipeline` 产物也能直接被服务加载，见 project 测试 `test_ph15_pipeline_artifact_compat`）
 
 ### 下一阶段
 

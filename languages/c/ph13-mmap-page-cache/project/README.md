@@ -50,6 +50,6 @@ make clean      # 5. 清理
 ## 扩展方向
 
 - 加 `msync`/mmap 只读索引（把 key → 文件内 offset 的索引 mmap 进来随机读）——衔接练习 3 与 examples/ex05；mmap 只读索引是 roadmap 推荐的第二个项目
-- 加 record 序号（seqno）支持回放去重与"读到损坏记录后按最新完好状态恢复"的完整 WAL 恢复流程——ph16 数据库存储引擎基础阶段（roadmap 第 16 节，目录待建）的 WAL replay 预演
+- 加 record 序号（seqno）支持回放去重与"读到损坏记录后按最新完好状态恢复"的完整 WAL 恢复流程——ph16 数据库存储引擎基础阶段的 WAL replay 预演（见 [ph16-storage-engine/16-storage-engine.md](../../ph16-storage-engine/16-storage-engine.md)）
 - 把 payload 的"key=value"文本改成真正的 key/value 双字段 + varint 长度编码（varint 见 ph12 examples/ex06）
 - 加 group commit：多条记录攒批后一次 fsync（examples/ex03 已展示"每条都 fsync"比"每 200 条"慢约 17 倍——量化收益后再决定批次大小）
