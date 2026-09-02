@@ -795,6 +795,8 @@ typedef void (*event_handler_t)(int event, void *ctx);
 
 ## 16. 数据库存储引擎基础阶段
 
+> 📖 详细展开版见 [ph16-storage-engine/16-storage-engine.md](./ph16-storage-engine/16-storage-engine.md)
+
 ### 目标
 
 面向 KV 库、数据库内核和时序存储原型，理解 WAL、MemTable、SSTable、B+Tree、LSM 和 Buffer Pool 的基础实现。

@@ -412,4 +412,4 @@ hits3 += gold in topk(gold_ids, sim, 3)           # top-k 补救能力
 
 ### 下一阶段
 
-**ph16+（roadmap 第 16 节，目录待建）——本阶段（ph15）是当前学习路线已建目录的最后一个阶段**：后续可深入 **部署与 DevOps** 方向——本阶段 3.11 的「joblib 产物 + 命令行推理」只是部署的第一公里，ph16 将把它升级为「能上生产」的服务：Linux/Docker 镜像、Nginx/Gunicorn/Uvicorn 的模型服务、CI/CD 流水线、Prometheus/Grafana 监控——届时本阶段的 `cli.py` 会变成容器里的入口，project/ 的 metrics.json 会变成监控指标；在此之前可先按推荐学习顺序巩固 ph13 测试与工程质量阶段与 ph14 并发、并行与异步阶段，再回头把本阶段的练习与项目补扎实（异步推理入口的心智已在 ph14 建立，ph15 的模型服务化正好用上）。
+[部署与 DevOps 阶段](../ph16-deploy-devops/16-deploy-devops.md) — 本阶段 3.11 的「joblib 产物 + 命令行推理」只是部署的第一公里，ph16 把它升级为「能上生产」的服务：Linux/Docker 镜像、Nginx/Gunicorn/Uvicorn 的服务栈、CI/CD 流水线、Prometheus/Grafana 监控——本阶段的 `cli.py` 在那里变成容器里的入口，模型产物变成环境变量挂载进服务的依赖（ph16 project/ 的部署模板演示了完整链路）。

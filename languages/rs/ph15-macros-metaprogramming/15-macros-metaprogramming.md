@@ -4,7 +4,7 @@
 
 ## 1. 概述
 
-Rust 宏与元编程阶段对应 roadmap 第 15 节，目标是**能使用声明宏和常见 derive 宏减少重复代码，并知道宏的维护成本**。具体定位是：**用 `macro_rules!` 写声明宏（匹配规则、片段分类符、repetition 重复展开、递归），用卫生性（hygiene）保证宏不污染调用方，把 `#[derive]` 从「会用」（ph07/ph13 只「用」不「写」）升级为「知道它在编译期做什么」，实测 serde/thiserror 两个 derive 宏的生成效果，再用 `cargo expand` 亲眼看到宏展开后的代码**。本阶段承接 ph07 trait 与泛型阶段（`#[derive(Debug, Clone, ...)]` 的 trait 语义基础）、ph11 错误处理与工程质量阶段（错误类型枚举 + thiserror 的生态讲解）、ph13 文件、网络与系统编程阶段（serde/clap derive 已「用」过，JSON 序列化/反序列化的用法基础）、ph14 Unsafe 与安全抽象阶段（「展开后的代码依然要过借用检查」——宏是编译期逃逸口，unsafe 是运行期逃逸口）；并为 ph16 Rust Edition、工具链与版本管理阶段（工具链/edition 视角，目录待建）、ph17 Crate 生态选择与常用库阶段（生态视角，目录待建）提供「宏与 derive 是怎么工作的」底层认知。
+Rust 宏与元编程阶段对应 roadmap 第 15 节，目标是**能使用声明宏和常见 derive 宏减少重复代码，并知道宏的维护成本**。具体定位是：**用 `macro_rules!` 写声明宏（匹配规则、片段分类符、repetition 重复展开、递归），用卫生性（hygiene）保证宏不污染调用方，把 `#[derive]` 从「会用」（ph07/ph13 只「用」不「写」）升级为「知道它在编译期做什么」，实测 serde/thiserror 两个 derive 宏的生成效果，再用 `cargo expand` 亲眼看到宏展开后的代码**。本阶段承接 ph07 trait 与泛型阶段（`#[derive(Debug, Clone, ...)]` 的 trait 语义基础）、ph11 错误处理与工程质量阶段（错误类型枚举 + thiserror 的生态讲解）、ph13 文件、网络与系统编程阶段（serde/clap derive 已「用」过，JSON 序列化/反序列化的用法基础）、ph14 Unsafe 与安全抽象阶段（「展开后的代码依然要过借用检查」——宏是编译期逃逸口，unsafe 是运行期逃逸口）；并为 [ph16 Rust Edition、工具链与版本管理阶段](../ph16-edition-toolchain/16-edition-toolchain.md)（工具链/edition 视角）、ph17 Crate 生态选择与常用库阶段（生态视角，目录待建）提供「宏与 derive 是怎么工作的」底层认知。
 
 | 核心维度 | 覆盖内容 |
 |----------|---------|
@@ -530,4 +530,4 @@ cargo expand 观察宏展开（roadmap 练习 3）在 `examples/crates` 下实�
 
 ### 下一阶段
 
-**ph16+（roadmap 第 16 节，目录待建）**：Rust Edition、工具链与版本管理阶段——宏与 derive 的展开结果由工具链驱动：cargo-expand（本阶段已实测的观察工具）与 `rustc -Zunpretty=expanded` 是 nightly 特性的稳定化封装，edition 选择决定宏/路径/借用规则按哪套规则编译；`macro_rules!` 与 2021/2024 edition 的兼容行为、`#[macro_export]` 跨 edition 语义也将在那里从「工具链管理」视角收束。在此之前可先按推荐学习顺序巩固 ph14~ph15 的练习与项目。
+[Rust Edition、工具链与版本管理阶段](../ph16-edition-toolchain/16-edition-toolchain.md) — 宏与 derive 的展开结果由工具链驱动：cargo-expand（本阶段已实测的观察工具）与 `rustc -Zunpretty=expanded` 是 nightly 特性的稳定化封装，edition 选择决定宏/路径/借用规则按哪套规则编译；`macro_rules!` 与 2021/2024 edition 的兼容行为、`#[macro_export]` 跨 edition 语义也将在那里从「工具链管理」视角收束。

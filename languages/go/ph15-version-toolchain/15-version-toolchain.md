@@ -16,7 +16,7 @@ Go 版本、工具链阶段的目标是（引用 Roadmap）：**理解 Go 版本
 | 工具链要求 | go.mod 的 go 行（语言版本门槛 + 最小工具链）与 toolchain 行（首选工具链）、GOTOOLCHAIN=auto/local/版本 |
 | 模块版本 | 语义化版本 v1.2.3（数字段比较、预发布、+build）、大版本 /vN 路径规则、伪版本、依赖升级与测试验证 |
 
-这个阶段只涉及版本管理与工具链的使用和机制，**不涉及 Go 语言底层机制本身（GMP/GC/interface 分派等属 [ph14 高级 Go 阶段](../ph14-advanced-go/14-advanced-go.md)）、性能剖析与优化的工具用法（pprof/benchmark/逃逸分析属 ph13 性能优化阶段）、PGO 与用生产 profile 指导编译（属 ph16 PGO 与高级性能优化阶段，roadmap 第 16 节，目录待建）、容器与 CI/CD 里的工具链编排（多阶段 Dockerfile、CI 矩阵属 ph12 云原生与部署阶段）、多环境发布里的版本号与构建信息策略（灰度/回滚属 ph20 配置管理与发布策略阶段，roadmap 第 20 节，目录待建）** — 本阶段把"版本"固定在 go 命令与 go.mod 这一层；发布层怎么用这些版本是 ph20 的事。
+这个阶段只涉及版本管理与工具链的使用和机制，**不涉及 Go 语言底层机制本身（GMP/GC/interface 分派等属 [ph14 高级 Go 阶段](../ph14-advanced-go/14-advanced-go.md)）、性能剖析与优化的工具用法（pprof/benchmark/逃逸分析属 ph13 性能优化阶段）、PGO 与用生产 profile 指导编译（属 ph16 PGO 与高级性能优化阶段）、容器与 CI/CD 里的工具链编排（多阶段 Dockerfile、CI 矩阵属 ph12 云原生与部署阶段）、多环境发布里的版本号与构建信息策略（灰度/回滚属 ph20 配置管理与发布策略阶段，roadmap 第 20 节，目录待建）** — 本阶段把"版本"固定在 go 命令与 go.mod 这一层；发布层怎么用这些版本是 ph20 的事。
 
 ## 2. 来源与演变
 
@@ -303,7 +303,7 @@ GOMODCACHE/cache/download/example.com/greet/@v/     ← 与 proxy 同构的本�
 
 - **容器里的工具链编排**（多阶段 Dockerfile、CI 版本矩阵、镜像内 go 版本）：属 ph12——本阶段讲"go 命令怎么选版本"，ph12 讲"镜像/流水线怎么管版本"
 - **性能剖析工具**（pprof/benchmark 怎么用）：属 ph13——版本与工具链不是性能话题
-- **PGO**（用生产 profile 指导编译，`go build -pgo=…`）：属 ph16（roadmap 第 16 节，目录待建）——它与本阶段的 toolchain 行同属"构建期配置"，但流程属 ph16
+- **PGO**（用生产 profile 指导编译，`go build -pgo=…`）：属 ph16 PGO 与高级性能优化阶段——它与本阶段的 toolchain 行同属"构建期配置"，但流程属 ph16
 - **发布侧版本策略**（灰度对照、回滚判断、多环境版本号注入）：属 ph20（roadmap 第 20 节，目录待建）——本阶段只保证"版本信息进得去、查得出"
 
 ## 6. 代码示例
@@ -450,7 +450,7 @@ func run() string {
 
 ### 下一阶段
 
-**ph16+（PGO 与高级性能优化阶段，roadmap 第 16 节，目录待建）——本阶段是当前已建目录（ph01~ph15）的最后一个阶段**，ph16~ph21 的阶段目录尚未建立（roadmap 见 [`languages/go/go.md`](../go.md)）。后续可深入 **PGO（Profile Guided Optimization）与高级性能调优**方向：`go build -pgo=cpu.pprof` 让生产 profile 指导编译优化、性能回归基线——本阶段打下的"go 行锁语言版本、toolchain 行锁工具链、构建可复现"基础，正是 ph16"用 profile 改变编译行为"的版本前提（PGO 结果依赖工具链版本，版本不统一则优化不可复现）。在此之前可先按推荐学习顺序巩固 ph13 性能优化与本阶段的练习与项目。
+[PGO 与高级性能优化阶段](../ph16-pgo-advanced-perf/16-pgo-advanced-perf.md) — 让生产 profile 指导编译优化：`go build -pgo=cpu.pprof`、性能回归基线——本阶段打下的"go 行锁语言版本、toolchain 行锁工具链、构建可复现"基础，正是 ph16"用 profile 改变编译行为"的版本前提（PGO 结果依赖工具链版本，版本不统一则优化不可复现）。
 
 ---
 

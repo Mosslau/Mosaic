@@ -1,0 +1,13 @@
+# examples/ex02.clang-tidy —— 教学用最小配置：4 条规则，条条对应一个 C++ Core Guidelines 要点
+# 真实项目推荐在此基础上扩成 'bugprone-*,modernize-*,performance-*,readability-*' 并按需豁免
+# 用法：clang-tidy ex02-tidy-demo.cpp --config-file=ex02.clang-tidy -- -std=c++20
+Checks: >
+  cppcoreguidelines-special-member-functions,
+  modernize-use-nullptr,
+  modernize-use-override,
+  performance-for-range-copy
+WarningsAsErrors: ''          # 设成 '*' 可让任何告警变失败（CI 门禁用法）
+HeaderFilterRegex: ''         # 空 = 只检查命令行给出的源文件，不扫系统/第三方头
+CheckOptions:
+  # 允许「类只有一个 =default 的析构」——这是多态基类的标准写法（C.35），不算违反 Rule of Five
+  cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor: true

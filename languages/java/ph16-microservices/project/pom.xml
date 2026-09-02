@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- project/pom.xml —— ph16 阶段项目「微服务订单系统」父 pom（Maven 多模块 reactor）
+     模块：common（共享契约/JWT/TraceId）→ user-service → order-service → gateway
+     验证环境：OpenJDK 17.0.18 + Maven 3.9.12 + Spring Boot 3.3.0（全部依赖在 /tmp/m2clone 离线缓存，实测）
+     验证命令：mvn -o -Dmaven.repo.local=/tmp/m2clone test
+     离线仲裁（联网环境可删）：junit-platform-launcher 钉 1.10.1（缓存缺默认 1.10.2）、
+       surefire 3.2.5 + launcher 插件依赖、spring-boot-maven-plugin 3.3.5（缓存缺其它默认版本）。
+       spring-boot-maven-plugin 不放进父 build/plugins——common 是jar库没有主类，repackage 会失败；
+       各可执行服务模块自行声明（版本由此处 pluginManagement 仲裁）。 -->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.3.0</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>com.example.msdemo</groupId>
+  <artifactId>msdemo-parent</artifactId>
+  <version>1.0.0</version>
+  <packaging>pom</packaging>
+
+  <modules>
+    <module>common</module>
+    <module>user-service</module>
+    <module>order-service</module>
+    <module>gateway</module>
+  </modules>
+
+  <properties>
+    <java.version>17</java.version>
+  </properties>
+
+  <!-- 离线/环境仲裁：见下（联网环境可删 httpclient5 一条）
+       Boot 的 TestRestTemplate/RestTemplateBuilder 会按 classpath 自动选客户端工厂：
+       有 Apache HttpClient5 就用 HttpComponentsClientHttpRequestFactory，否则退回
+       SimpleClientHttpRequestFactory（HttpURLConnection）。user-service 自带测试用
+       TestRestTemplate POST 登录 + 预期 401 响应，而 HttpURLConnection 在 POST 收到 401
+       时会抛 HttpRetryException「cannot retry due to server authentication, in streaming mode」
+       （同一踩坑在 exercises/sol-04 已实测记录，网关因此改用 JdkClientHttpRequestFactory）。
+       此处给全部模块补 test-scope httpclient5（版本由 spring-boot-dependencies 3.3.0 仲裁为
+       5.3.1，离线缓存有 jar），让 Boot 自动选中 Apache 客户端、401 按普通响应处理——
+       只影响测试 classpath，不进入任何产物 jar。 -->
+  <dependencies>
+    <dependency>
+      <groupId>org.apache.httpcomponents.client5</groupId>
+      <artifactId>httpclient5</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <dependencyManagement>
+    <dependencies>
+      <!-- 离线版本仲裁：缓存只有 junit-platform-launcher 1.10.1 -->
+      <dependency>
+        <groupId>org.junit.platform</groupId>
+        <artifactId>junit-platform-launcher</artifactId>
+        <version>1.10.1</version>
+      </dependency>
+      <!-- 反应堆内部模块互依赖仲裁（order-service/gateway 的 test-scope 依赖免写版本） -->
+      <dependency>
+        <groupId>com.example.msdemo</groupId>
+        <artifactId>msdemo-common</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.example.msdemo</groupId>
+        <artifactId>user-service</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.example.msdemo</groupId>
+        <artifactId>order-service</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>3.2.5</version>
+          <dependencies>
+            <dependency>
+              <groupId>org.junit.platform</groupId>
+              <artifactId>junit-platform-launcher</artifactId>
+              <version>1.10.1</version>
+            </dependency>
+          </dependencies>
+        </plugin>
+        <plugin>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-maven-plugin</artifactId>
+          <version>3.3.5</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+    <plugins>
+      <!-- surefire 全模块继承；spring-boot-maven-plugin 由各可执行服务模块自行声明 -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

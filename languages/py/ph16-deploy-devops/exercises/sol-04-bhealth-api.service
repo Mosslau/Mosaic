@@ -1,0 +1,42 @@
+# exercises/sol-04-bhealth-api.service —— 练习 4 参考实现：systemd unit（含安全加固）
+# 验证环境目标：Linux + systemd 248+（本机 macOS 无 systemd，未在本环境验证——按
+#   systemd.unit(5)/systemd.service(5)/systemd.exec(5) 手册编写）
+# 题目要求对照：开机自启 ✓、崩溃自动拉起 ✓、日志进 journald ✓、低权限运行 ✓、
+#   配置走 EnvironmentFile ✓、安全加固 ✓
+# 安装（在 Linux 服务器上）：
+#   sudo cp sol-04-bhealth-api.service /etc/systemd/system/bhealth-api.service
+#   sudo systemctl daemon-reload && sudo systemctl enable --now bhealth-api
+#   systemctl status bhealth-api && journalctl -u bhealth-api -f
+
+[Unit]
+Description=bhealth-api FastAPI service (uvicorn)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=bhealth
+Group=bhealth
+WorkingDirectory=/opt/bhealth-api
+EnvironmentFile=-/etc/bhealth-api.env
+ExecStart=/opt/bhealth-api/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2
+
+# 崩溃看护：非干净退出 3s 后拉起；60s 内连挂 5 次则放弃（防「拉了挂、挂了拉」烧 CPU）
+Restart=on-failure
+RestartSec=3
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+# 日志进 journald：journalctl -u bhealth-api --since "1 hour ago"
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=bhealth-api
+
+# 安全加固（systemd 白送的沙箱，写上几乎零成本）
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/bhealth-api
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

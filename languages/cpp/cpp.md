@@ -793,6 +793,8 @@ v.push_back(4); // p 可能失效
 
 ## 16. 测试、静态分析与代码规范阶段
 
+> 📖 详细展开版见 [ph16-testing-quality/16-testing-quality.md](./ph16-testing-quality/16-testing-quality.md)
+
 ### 目标
 
 建立 C++ 工程质量闭环。

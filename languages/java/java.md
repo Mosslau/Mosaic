@@ -779,6 +779,8 @@ class UserService {
 
 ## 16. 微服务与分布式阶段
 
+> 📖 详细展开版见 [ph16-microservices/16-microservices.md](./ph16-microservices/16-microservices.md)
+
 ### 目标
 
 能开发中大型后端系统。

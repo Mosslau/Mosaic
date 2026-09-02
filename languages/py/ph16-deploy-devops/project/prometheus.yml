@@ -1,0 +1,11 @@
+# project/prometheus.yml —— Prometheus 抓取配置：每 5s 抓一次 web 的 /metrics
+# 验证状态：YAML 语法已验证（本机 python3 yaml.safe_load 解析通过）；
+#           未起真实 Prometheus（daemon 未启动）
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: bhealth-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["web:8000"] # compose 内部网络按服务名解析

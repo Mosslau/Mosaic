@@ -1,0 +1,46 @@
+# examples/ex06-ci-cd.yml —— GitHub Actions 最小 CI/CD 流水线（主文档 3.6）
+# 验证环境目标：GitHub Actions（push 到含 .github/workflows/ 的仓库即触发）
+# 验证状态：YAML 语法已验证（本机 python3 yaml.safe_load 解析通过）；未推到 GitHub 实际运行
+# 用法：放进仓库的 .github/workflows/ci.yml
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip # 依赖缓存：requirements 没变就复用上次的安装
+
+      - name: 安装依赖
+        run: pip install -r requirements.txt ruff pytest
+
+      - name: lint（代码门禁：ruff 不过就不许进 main）
+        run: ruff check . && ruff format --check .
+
+      - name: test（测试不过就不许进 main）
+        run: python -m pytest
+
+  image:
+    needs: quality # 门禁过了才构建镜像
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 构建镜像（推送需配置 GHCR/Docker Hub 的 secrets，这里只演示构建）
+        run: docker build -t bhealth-api:${{ github.sha }} .
+
+      # - name: 推送镜像 + 触发部署（示意，secrets 在仓库设置里配，绝不写进 YAML）
+      #   run: |
+      #     echo "${{ secrets.REGISTRY_TOKEN }}" | docker login ghcr.io -u ci --password-stdin
+      #     docker push ghcr.io/${{ github.repository }}/bhealth-api:${{ github.sha }}
+      #     # 部署：SSH 到服务器 docker compose pull && up -d，或触发 CD 平台

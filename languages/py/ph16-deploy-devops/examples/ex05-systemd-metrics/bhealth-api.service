@@ -1,0 +1,36 @@
+# examples/ex05-systemd-metrics/bhealth-api.service —— systemd unit：把 uvicorn 服务交给系统看护
+# 验证环境目标：Linux + systemd 248+（本机 macOS 无 systemd，未在本环境验证——按 systemd.unit(5)/
+#   systemd.service(5) 手册编写；安装方式见下方注释）
+# 安装（在 Linux 服务器上）：
+#   # 1. 拷贝 unit 文件并重载配置
+#   sudo cp bhealth-api.service /etc/systemd/system/ && sudo systemctl daemon-reload
+#   # 2. 开机自启 + 立即启动
+#   sudo systemctl enable --now bhealth-api
+#   # 3. 看状态与日志
+#   systemctl status bhealth-api && journalctl -u bhealth-api -f
+
+[Unit]
+Description=bhealth-api FastAPI service (uvicorn)
+# 网络就绪后再启动；Wants 是「尽量一起」的弱依赖
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# 以低权限用户运行（配置与代码分离：模型路径等走 EnvironmentFile，不进代码）
+User=bhealth
+Group=bhealth
+WorkingDirectory=/opt/bhealth-api
+EnvironmentFile=-/etc/bhealth-api.env
+# 生产形态：多进程由 --workers 承担；不要 --reload（那是开发功能）
+ExecStart=/opt/bhealth-api/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2
+# 进程看护：异常退出 3s 后拉起（StartLimitBurst 默认防爆拉）；被 SIGTERM 停止属正常（103=128+15 之外这里指信号语义，systemd 默认认 SIGTERM 为干净退出）
+Restart=on-failure
+RestartSec=3
+# 日志：应用写 stdout/stderr，systemd 收进 journald（journalctl -u 查看）
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=bhealth-api
+
+[Install]
+WantedBy=multi-user.target

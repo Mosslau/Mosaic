@@ -1,0 +1,9 @@
+# examples/ex03.clang-format —— 教学用最小格式配置（LLVM 基底 + 4 条常用覆盖）
+# 用法：clang-format --style=file:ex03.clang-format <文件>
+# 真实项目：把本文件命名为 .clang-format 放仓库根目录，clang-format 不带参数自动拾取。
+BasedOnStyle: LLVM            # 基底风格：LLVM / Google / Chromium / Mozilla / WebKit 五选一
+IndentWidth: 4                # 缩进 4 空格（LLVM 默认 2，Google 2；C++ 项目常见 4）
+ColumnLimit: 100              # 行宽上限 100（LLVM 默认 80）
+PointerAlignment: Left        # int* p 而非 int *p（与 ph03/ph12 笔记风格一致）
+AllowShortFunctionsOnASingleLine: None   # 短函数也不并到一行——diff 友好
+ReflowComments: false           # 不重排注释——文件头的验证说明保持原样（教学笔记场景）

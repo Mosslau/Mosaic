@@ -1,0 +1,50 @@
+# exercises/sol-02-docker-compose.yml —— 练习 2 参考实现：Docker Compose 起服务 + 数据库
+# 验证环境目标：Docker Compose v2（本机 Compose v5.3.1 在、daemon 未启动）
+# 验证状态：语法已验证（`docker compose -f sol-02-docker-compose.yml config` 离线解析通过，
+#           本机实测）；未实际构建/启动容器（daemon 未启动）——在 daemon 可用的机器上验证：
+#   # 1. 启动（先等 db healthcheck 通过，web 才会起）
+#   docker compose -f sol-02-docker-compose.yml up -d --build
+#   # 2. 验证链路：web 健康 + 数据库里有表
+#   curl http://127.0.0.1:8080/health
+#   docker compose -f sol-02-docker-compose.yml exec db psql -U demo -d telemetry -c '\dt'
+#   # 3. 收尾（数据卷保留；要清数据加 -v）
+#   docker compose -f sol-02-docker-compose.yml down
+# 题目要求对照：web+db 两服务 ✓、depends_on 健康依赖 ✓、数据卷持久化 ✓、
+#   配置走环境变量 ✓、restart 策略 ✓
+
+services:
+  web:
+    image: python:3.13-slim # 演示用直挂源码；生产换成 build: 自己的 Dockerfile
+    working_dir: /srv
+    command: >
+      sh -c "pip install --no-cache-dir fastapi==0.139.1 uvicorn==0.50.0 &&
+             python -m uvicorn app:app --host 0.0.0.0 --port 8000"
+    volumes:
+      - ./app:/srv:ro # 只读挂载代码（演示形态；生产是 COPY 进镜像）
+    ports:
+      - "8080:8000"
+    environment:
+      DATABASE_URL: postgresql://demo:demo@db:5432/telemetry
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: demo
+      POSTGRES_PASSWORD: demo
+      POSTGRES_DB: telemetry
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U demo -d telemetry"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    # 注意：db 不暴露 ports——只在 compose 内部网络可达，这是默认就该有的边界
+
+volumes:
+  pgdata:

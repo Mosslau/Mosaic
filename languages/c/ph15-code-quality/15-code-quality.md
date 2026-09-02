@@ -16,7 +16,7 @@
 | handle-based API / opaque pointer | create/destroy 生命周期；结构体藏 .c；借用指针注释；衔接 ph14 的句柄心智 |
 | API 设计与跨平台 | 前缀命名、错误码契约、条件编译平台层、内部零全局状态 |
 
-这个阶段只涉及"纯 C 库/组件怎么写才稳"的方法论与机制，**不涉及未定义行为的系统排查（ph10 未定义行为 UB 与常见坑阶段：越界、悬垂、别名、溢出案例）、Sanitizer 与单测工具链（ph11 Sanitizer / 静态分析 / 单元测试阶段）、字节序与二进制格式的位级处理（ph12 字节序、内存对齐与二进制格式解析阶段）、mmap/fsync/Page Cache 与落盘（ph13 mmap、Page Cache 与可靠文件 IO 阶段）和跨语言 ABI 互操作（ph14 C 与 C++ / Python / Rust 互操作阶段）** — 那些是 ph10/ph11/ph12/ph13/ph14 阶段的内容；存储引擎的完整 WAL/MemTable/SSTable 实现属 ph16 数据库存储引擎基础阶段（roadmap 第 16 节，目录待建），本阶段的 ring buffer / frame 解析组件只做"可复用组件 API"的教学载体，落盘与格式细节不展开；平台差异的完整抽象（特征宏清单、LP64/LLP64、GCC/Clang/MSVC 差异）属 ph09 C 标准、编译器与可移植性阶段，本阶段只在其结论之上讲"API 怎么设计"。回调的线程安全分发属 ph08 Linux 系统编程阶段的并发专题，本阶段一律单线程演示。
+这个阶段只涉及"纯 C 库/组件怎么写才稳"的方法论与机制，**不涉及未定义行为的系统排查（ph10 未定义行为 UB 与常见坑阶段：越界、悬垂、别名、溢出案例）、Sanitizer 与单测工具链（ph11 Sanitizer / 静态分析 / 单元测试阶段）、字节序与二进制格式的位级处理（ph12 字节序、内存对齐与二进制格式解析阶段）、mmap/fsync/Page Cache 与落盘（ph13 mmap、Page Cache 与可靠文件 IO 阶段）和跨语言 ABI 互操作（ph14 C 与 C++ / Python / Rust 互操作阶段）** — 那些是 ph10/ph11/ph12/ph13/ph14 阶段的内容；存储引擎的完整 WAL/MemTable/SSTable 实现属 [ph16 数据库存储引擎基础阶段](../ph16-storage-engine/16-storage-engine.md)（roadmap 第 16 节），本阶段的 ring buffer / frame 解析组件只做"可复用组件 API"的教学载体，落盘与格式细节不展开；平台差异的完整抽象（特征宏清单、LP64/LLP64、GCC/Clang/MSVC 差异）属 ph09 C 标准、编译器与可移植性阶段，本阶段只在其结论之上讲"API 怎么设计"。回调的线程安全分发属 ph08 Linux 系统编程阶段的并发专题，本阶段一律单线程演示。
 
 ## 2. 来源与演变
 
@@ -758,4 +758,4 @@ destroy rc=0
 
 ### 下一阶段
 
-本阶段是当前已完成目录的最后一个阶段（ph15 之后暂无 ph 目录）：**ph16+（roadmap 第 16 节，目录待建）：后续可深入数据库存储引擎基础** — 本阶段解决了"怎么写稳定、可维护、可移植的 C 代码"，ph16 将用这套方法论去搭存储引擎组件：本阶段练习的 ring buffer 是 Buffer Pool / LRU 淘汰的基础、可复用 frame 解析库是 WAL record 读取的引擎雏形、状态机框架正好承接"WAL 崩溃恢复流程"这类恢复状态机；ph13 project 的 kvlog（append-only log）会在那里升级为完整 WAL + MemTable + SSTable。C 的 roadmap 只规划到第 16 节，ph16 之后仓库暂无后续阶段规划。
+[数据库存储引擎基础阶段](../ph16-storage-engine/16-storage-engine.md) — 本阶段解决了"怎么写稳定、可维护、可移植的 C 代码"，ph16 将用这套方法论去搭存储引擎组件：本阶段练习的 ring buffer 是 Buffer Pool / LRU 淘汰的基础、可复用 frame 解析库是 WAL record 读取的引擎雏形、状态机框架正好承接"WAL 崩溃恢复流程"这类恢复状态机；ph13 project 的 kvlog（append-only log）会在那里升级为完整 WAL + MemTable + SSTable。ph16 是 C 语言路线的终点阶段（roadmap 共 16 节）。

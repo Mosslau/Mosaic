@@ -17,7 +17,7 @@
 | Spring Data | Repository 接口即实现、方法名派生查询、`@Query` JPQL、分页排序、事务归属 |
 | Spring Security | 认证 vs 授权、Filter 链心智、URL 级/方法级授权、401/403 统一 JSON、BCrypt、JWT 无状态接入（Filter 链原生版） |
 
-这个阶段只涉及 **单体 Spring 应用内的容器机制与官方全家桶组件**，**不涉及微服务架构、注册发现、网关、熔断与分布式事务**（ph16 微服务与分布式阶段，roadmap 第 16 节）、**不涉及消息队列与搜索中间件**（Kafka/ES，ph17 消息队列与搜索阶段）、**不涉及缓存穿透/击穿/雪崩、限流等并发架构**（ph18 缓存与高并发阶段）、**不涉及部署运维**（Docker/CI/CD，ph19 DevOps 与部署阶段）、**不涉及 Netty 与高性能网络编程**（ph20 高级 Java 阶段）、**不涉及 reactive 栈与 Quarkus/Micronaut 对比深入**（本阶段只在第 5 章一句话带过）。也不重复 ph13 已讲的 JDBC/JPA/Hibernate 基础（本阶段用简单实体聚焦 Spring Data 抽象，复杂关联映射不展开）与 ph14 已讲的 REST 注解用法、统一响应、CORS、springdoc（本阶段直接沿用其结果）。本阶段承接 [ph14 Web 后端开发阶段](../ph14-web-backend/14-web-backend.md)——那里的每个「框架替你做了 X」在本阶段都有机制答案；并为 ph16 微服务与分布式阶段（roadmap 第 16 节，目录待建）备好单体底座。
+这个阶段只涉及 **单体 Spring 应用内的容器机制与官方全家桶组件**，**不涉及微服务架构、注册发现、网关、熔断与分布式事务**（ph16 微服务与分布式阶段，roadmap 第 16 节）、**不涉及消息队列与搜索中间件**（Kafka/ES，ph17 消息队列与搜索阶段）、**不涉及缓存穿透/击穿/雪崩、限流等并发架构**（ph18 缓存与高并发阶段）、**不涉及部署运维**（Docker/CI/CD，ph19 DevOps 与部署阶段）、**不涉及 Netty 与高性能网络编程**（ph20 高级 Java 阶段）、**不涉及 reactive 栈与 Quarkus/Micronaut 对比深入**（本阶段只在第 5 章一句话带过）。也不重复 ph13 已讲的 JDBC/JPA/Hibernate 基础（本阶段用简单实体聚焦 Spring Data 抽象，复杂关联映射不展开）与 ph14 已讲的 REST 注解用法、统一响应、CORS、springdoc（本阶段直接沿用其结果）。本阶段承接 [ph14 Web 后端开发阶段](../ph14-web-backend/14-web-backend.md)——那里的每个「框架替你做了 X」在本阶段都有机制答案；并为 [ph16 微服务与分布式阶段](../ph16-microservices/16-microservices.md)（roadmap 第 16 节）备好单体底座。
 
 ## 2. 来源与演变
 
@@ -448,4 +448,4 @@ Repository 接口即实现：开箱 CRUD、方法名派生查询（`findByTitleC
 
 ### 下一阶段
 
-**ph16+（roadmap 第 16 节，目录待建）——本阶段是当前已建目录的最后一个阶段**：后续可深入 **微服务与分布式** 方向——本阶段攒下的单体底座（Spring Boot + Data + Security）会被拆成多个服务：Spring Cloud 的服务注册发现（Nacos/Eureka）、网关（Gateway）、远程调用（OpenFeign）、熔断限流（Sentinel/Resilience4j）、分布式事务与分布式锁、链路追踪与监控。本阶段学会的「容器/事务/AOP/自动配置」每个概念在微服务里依然成立——ph16 是在同一套 Spring 上做多进程拆分与治理，届时以 roadmap 第 16 节为准，本阶段不再向前引用不存在的文件。
+[微服务与分布式阶段](../ph16-microservices/16-microservices.md) — 本阶段攒下的单体底座（Spring Boot + Data + Security）会被拆成多个服务：Spring Cloud 的服务注册发现（Nacos/Eureka）、网关（Gateway）、远程调用（OpenFeign）、熔断限流（Sentinel/Resilience4j）、分布式事务与分布式锁、链路追踪与监控。本阶段学会的「容器/事务/AOP/自动配置」每个概念在微服务里依然成立——ph16 是在同一套 Spring 上做多进程拆分与治理。

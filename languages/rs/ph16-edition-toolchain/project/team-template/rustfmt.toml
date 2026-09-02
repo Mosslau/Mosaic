@@ -1,0 +1,6 @@
+# rustfmt.toml —— 团队格式化约定（只用 stable 可用的选项；nightly-only 选项在 stable 上会报 warning）
+# 验证：cargo fmt --check（本目录下应零输出零退出码）
+
+max_width = 100          # 行宽 100（默认即 100，显式写出是为了让约定可见）
+hard_tabs = false        # 空格缩进（默认即 false）
+newline_style = "Auto"   # 换行符跟随仓库现状

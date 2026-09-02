@@ -1,0 +1,9 @@
+# rust-toolchain.toml —— 全队统一的工具链开关（本阶段核心交付物之一）
+# 语义：进入本仓库任何子目录执行 cargo/rustc/rustfmt/clippy，rustup 都按本文件选择工具链
+# 验证：在本目录执行 `rustup show`，应显示 active because: overridden by .../rust-toolchain.toml
+
+[toolchain]
+# 跟随 stable（rustup 每 6 周自动升级）；发布窗口期如需逐位复现，改成 channel = "1.92.0"
+channel = "stable"
+# 日常刚需组件：格式化 + lint
+components = ["rustfmt", "clippy"]

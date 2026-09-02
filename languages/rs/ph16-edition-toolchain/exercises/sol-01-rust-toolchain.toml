@@ -1,0 +1,21 @@
+# 来源：languages/rs/ph16-edition-toolchain/exercises/README.md 练习 1
+# 说明：为项目固定 toolchain 的 rust-toolchain.toml 参考实现。
+#       要点：channel 选发布通道还是精确版本是「便利 vs 严格复现」的取舍——
+#       stable 永远有（任何装了 rustup 的机器开箱即用）；精确版本号（"1.92.0"）或
+#       按日期快照（"nightly-2025-12-08"）保证逐位一致，但缺失时 rustup 会联网下载。
+# 验证环境：rustup 1.28.2 + stable 1.92.0（macOS arm64）
+# 验证：cp sol-01-rust-toolchain.toml /tmp/sol01-demo/rust-toolchain.toml && cd /tmp/sol01-demo && rustup show
+# 验证状态：已验证（channel = "stable" 路径；rustup show 输出
+#   "active because: overridden by '/tmp/sol01-demo/rust-toolchain.toml'"，
+#   rustc --version 输出 rustc 1.92.0 (ded5c06cf 2025-12-08)）
+
+[toolchain]
+# 团队约定：跟随 stable 通道，rustup 每 6 周自动跟上新版本。
+# 若要求逐位复现（如发布审计），改成精确版本号：channel = "1.92.0"
+# （代价：机器上没有该版本时 rustup 会联网下载，离线环境会失败）。
+channel = "stable"
+
+# 进入项目目录即自动可用的组件：格式化与 lint 是团队日常刚需
+components = ["rustfmt", "clippy"]
+
+# 如需交叉编译再加 targets，如：targets = ["x86_64-unknown-linux-gnu"]

@@ -1,0 +1,34 @@
+# project/pyproject.toml —— 电池健康预测服务部署模板：依赖 + ruff / pytest 配置
+[project]
+name = "bhealth-api"
+version = "0.1.0"
+description = "ph16 阶段项目：电池健康预测服务的部署模板（健康检查 + 指标端点 + 模型产物加载）"
+requires-python = ">=3.11"
+# 运行期依赖；scikit-learn 只有加载 joblib 产物/训练时才需要（规则兜底模式不需要）
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+]
+
+[project.optional-dependencies]
+model = [
+    "scikit-learn>=1.4",
+]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+    "httpx>=0.27",
+    "scikit-learn>=1.4",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+pythonpath = ["."]

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- common —— 共享契约模块：ApiResponse/业务码/BizException、JwtService（jjwt 0.12.5 HS256）、
+     TraceIdFilter/TraceIdClientInterceptor。纯 jar 库（无主类，不声明 spring-boot-maven-plugin）。 -->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.example.msdemo</groupId>
+    <artifactId>msdemo-parent</artifactId>
+    <version>1.0.0</version>
+  </parent>
+  <artifactId>msdemo-common</artifactId>
+
+  <dependencies>
+    <!-- OncePerRequestFilter / RestClient 拦截器所需（jakarta.servlet 由 tomcat-embed 传入） -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.jsonwebtoken</groupId>
+      <artifactId>jjwt-api</artifactId>
+      <version>0.12.5</version>
+    </dependency>
+    <dependency>
+      <groupId>io.jsonwebtoken</groupId>
+      <artifactId>jjwt-impl</artifactId>
+      <version>0.12.5</version>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.jsonwebtoken</groupId>
+      <artifactId>jjwt-jackson</artifactId>
+      <version>0.12.5</version>
+      <scope>runtime</scope>
+    </dependency>
+  </dependencies>
+</project>

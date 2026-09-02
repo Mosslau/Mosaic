@@ -1,0 +1,3 @@
+# examples/ex02-docker-multistage/requirements.txt —— 锁版本（可复现：必会概念）
+fastapi==0.139.1
+uvicorn==0.50.0

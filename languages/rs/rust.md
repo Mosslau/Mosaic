@@ -770,6 +770,8 @@ say!("rust");
 
 ## 16. Rust Edition、工具链与版本管理阶段
 
+> 📖 详细展开版见 [ph16-edition-toolchain/16-edition-toolchain.md](./ph16-edition-toolchain/16-edition-toolchain.md)
+
 ### 目标
 
 能管理 Rust 版本、Edition 和项目工具链，保证团队环境一致。

@@ -764,6 +764,8 @@ from sklearn.ensemble import RandomForestClassifier
 
 ## 16. 部署与 DevOps 阶段
 
+> 📖 详细展开版见 [ph16-deploy-devops/16-deploy-devops.md](./ph16-deploy-devops/16-deploy-devops.md)
+
 ### 目标
 
 把 Python 项目部署到真实环境。

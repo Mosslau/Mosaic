@@ -1,0 +1,7 @@
+# project/.dockerignore —— 构建上下文瘦身（产物/缓存/测试不进镜像）
+__pycache__/
+*.pyc
+.pytest_cache/
+.git/
+tests/
+*.joblib

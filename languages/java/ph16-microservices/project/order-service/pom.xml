@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- order-service —— 订单服务：GET /api/orders/{id} 聚合本地订单 + user-service 远程用户名
+     （订单不存在 40400 / 下游用户不存在 40400 / 用户服务不可用或超时 degraded=true 降级展示）
+     可执行服务（声明 spring-boot-maven-plugin，版本由父 pom pluginManagement 仲裁 3.3.5）。
+     依赖 msdemo-common（统一响应壳/业务码/TraceIdFilter/TraceIdClientInterceptor）；
+     user-service 仅 test-scope：测试里起真实 user-service 进程实测聚合/404/降级/traceId 链路
+     （版本由父 pom dependencyManagement 用 ${project.version} 仲裁，免写版本号）。
+     默认端口 18312；user-service.base-url 默认 http://localhost:18311（src/main/resources/application.properties）。
+     验证环境：OpenJDK 17.0.18 + Maven 3.9.12 + Spring Boot 3.3.0（依赖全在 /tmp/m2clone 离线缓存，实测）
+     验证命令：cd languages/java/ph16-microservices/project && mvn -o -Dmaven.repo.local=/tmp/m2clone test
+     验证状态：已验证（Tests run 数字见 ../README.md「验收标准」） -->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.example.msdemo</groupId>
+    <artifactId>msdemo-parent</artifactId>
+    <version>1.0.0</version>
+  </parent>
+  <artifactId>order-service</artifactId>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.example.msdemo</groupId>
+      <artifactId>msdemo-common</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.platform</groupId>
+      <artifactId>junit-platform-launcher</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- 仅测试需要：order-service 的测试起真实 user-service（随机端口）实测远程调用链路 -->
+    <dependency>
+      <groupId>com.example.msdemo</groupId>
+      <artifactId>user-service</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

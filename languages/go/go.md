@@ -759,6 +759,8 @@ go work init ./service-a ./service-b
 
 ## 16. PGO 与高级性能优化阶段
 
+> 📖 详细展开版见 [ph16-pgo-advanced-perf/16-pgo-advanced-perf.md](./ph16-pgo-advanced-perf/16-pgo-advanced-perf.md)
+
 ### 目标
 
 了解生产流量指导优化和更高级的性能调优方法。

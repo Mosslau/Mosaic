@@ -64,6 +64,6 @@ demo 断言全部通过
 ## 扩展方向（可选）
 
 - 给 `define_events!` 增加「校验」参数（如 `amount > 0` 的表达式注入 `validate() -> Result<(), HubError>`）——roadmap 推荐项目三选二的「校验」分支
-- 事件加时间戳字段，`render()` 输出 RFC 3339 时间——时间与工具链主题见 roadmap 第 16 节（目录待建）
+- 事件加时间戳字段，`render()` 输出 RFC 3339 时间——时间与工具链主题见 [ph16 Edition、工具链与版本管理阶段](../../ph16-edition-toolchain/16-edition-toolchain.md)
 - 把 `HubEvent` 改成由宏生成（宏里自动建对应 variant 的枚举）——练习「宏生成类型 + 类型生成宏」的进阶，自写过程宏是宏方向的下一步（见主文档 3.7 与第 5 章）
 - 用 cargo expand 观察本项目 `define_events!` 与 derive 的联合展开（cargo-expand 已实测可用，命令见 examples/README）
