@@ -51,6 +51,45 @@
 
 HTTP 是无状态请求-响应协议：客户端发请求（方法 + URL + 头 + 可选 body），服务端回响应（状态码 + 头 + body）。**方法**表达操作语义——GET 读、POST 建、PATCH 局部改、PUT 整体替换、DELETE 删、OPTIONS 探测（CORS 预检用）；**状态码**表达结果语义——2xx 成功（200 OK / 201 Created / 204 No Content）、3xx 重定向、4xx 客户端错（400 参数错 / 401 未认证 / 403 无权限 / 404 不存在 / 405 方法不支持 / 409 冲突）、5xx 服务端错（500 内部错误 / 503 不可用）。
 
+**报文结构**：HTTP/1.1 报文是纯文本，分「起始行 + 头 + 空行 + body」四段——空行（CRLF）是头与 body 的唯一分界，Content-Length 告诉对方 body 读到哪为止：
+
+```text
+POST /api/users HTTP/1.1              ← 请求行：方法 + 路径 + 协议版本
+Host: localhost:18080                 ← 请求头（Host 是 HTTP/1.1 唯一必需头）
+Content-Type: application/json        ← body 的格式声明
+Content-Length: 30                    ← body 的字节数（读 body 的终止依据）
+Authorization: Bearer eyJhbGciOi...   ← 认证凭证（本阶段 3.5 的 JWT）
+                                      ← 空行：头与 body 的分界
+{"name":"Alice","email":"a@b.cn"}     ← 请求体（可选，GET/DELETE 一般没有）
+
+HTTP/1.1 201 Created                  ← 状态行：协议版本 + 状态码 + 原因短语
+Content-Type: application/json; charset=UTF-8
+Content-Length: 41
+Location: /api/users/42               ← 201 时指回新资源的 URL
+                                      ← 空行
+{"code":0,"message":"ok","data":{}}   ← 响应体
+```
+
+常见请求头/响应头对照（抓包或 curl -v 时逐项都能对上）：
+
+| 常见请求头 | 作用 |
+|-----------|------|
+| Host | 目标主机与端口，HTTP/1.1 必需——同一 IP 上多个站点靠它分流（虚拟主机） |
+| Content-Type | 请求体格式（application/json / application/x-www-form-urlencoded 等） |
+| Content-Length | 请求体字节数，服务端据此知道 body 读到哪结束 |
+| Authorization | 认证凭证（`Bearer <token>`，本阶段 JWT 的载体，见 3.5） |
+| Accept | 客户端期望的响应格式——内容协商的输入（见 4.3） |
+| User-Agent | 客户端标识（浏览器 / curl / 车端 SDK），排查兼容问题时先看它 |
+| Cookie | 携带服务端此前种下的会话标识（有状态方案，与 3.5 的 JWT 对照理解） |
+
+| 常见响应头 | 作用 |
+|-----------|------|
+| Content-Type | 响应体格式与字符集（application/json; charset=UTF-8） |
+| Content-Length | 响应体字节数 |
+| Location | 201 创建成功时新资源的 URL（如 `/api/users/42`） |
+| Access-Control-Allow-* | CORS 许可声明（见 3.6） |
+| WWW-Authenticate | 401 时告诉客户端该用什么方案认证（如 `Bearer`） |
+
 > ⚠️ **状态码是接口契约的一部分**：前端 switch 状态码决定 UI 分支，后端乱用（如一律 200 + body 里放错误）会让调用方无从判断。REST 语义化状态码 = 用 201 表示「创建成功」、404 表示「资源不存在」——本阶段 examples/ex01 实测了 200/201/400/404/405 五种（204「删除成功」的零响应体写法由 exercises/sol-01 的 DELETE 演示）。
 
 ```java
@@ -68,7 +107,21 @@ ctx.setHandler(ex -> {                       // HttpExchange = 一次请求/响�
 server.start();
 ```
 
-**关键概念：无状态与幂等**。HTTP 每个请求独立（服务端不记「上次是谁」），所以「谁在调」要靠每次请求带上的凭证（Cookie/Token，本阶段讲 JWT）——这是 REST 与有状态 RPC 的本质区别。幂等（GET/PUT/DELETE 重复执行结果一致，POST 不保证）是接口设计的重要约束，ph16 微服务阶段的重试依赖它。
+**关键概念：无状态与幂等**。HTTP 每个请求独立（服务端不记「上次是谁」），所以「谁在调」要靠每次请求带上的凭证（Cookie/Token，本阶段讲 JWT）——这是 REST 与有状态 RPC 的本质区别。
+
+> ⚠️ **「无状态」与「持久连接」不矛盾，别混淆**：无状态说的是**应用层**——服务端不从连接里推断「你是谁」，每个请求自带凭证；HTTP/1.1 的持久连接（Keep-Alive）说的是**传输层**——同一条 TCP 连接可以连续收发多个请求/响应，省掉反复握手的开销。两者正交：连接复用是性能优化，不改变「请求之间互不认识」的协议语义。反过来，短连接 + Cookie 照样能做出「有状态会话」——状态是服务端拿 session id 查出来的，不是连接记住的。
+
+**幂等性对照表**（幂等 = 同一请求重复执行 N 次，效果与执行 1 次相同）：
+
+| 方法 | 幂等 | 工程含义 |
+|------|------|---------|
+| GET | ✅ | 读操作天然幂等，可安全重试、可被缓存 |
+| PUT | ✅ | 整体替换——重复执行结果一致，适合「可重放的更新」 |
+| DELETE | ✅ | 删一次与删 N 次结果相同（第二次通常返回 404/204） |
+| POST | ❌ | 重复提交会创建多条——支付/下单类接口必须防重（幂等键、数据库唯一约束） |
+| PATCH | 一般不保证 | 若语义是「基于当前值增量修改」（如库存 +1），重复执行结果漂移；「设为某值」的 PATCH 则幂等 |
+
+幂等是接口设计的重要约束：网络重试（超时后客户端不知道服务端到底收没收到）只有对幂等操作才是安全的——ph16 微服务阶段的远程调用重试机制正是建立在这张表上（本阶段只需建立「哪些方法可以放心重试」的直觉，重试框架本身属于 ph16）。
 
 ### 3.2 Servlet 与 Tomcat：请求进入 Java 的第一站
 
@@ -98,13 +151,69 @@ tomcat.start();
 
 **Servlet 生命周期**：容器启动时加载 → `init()`（一次）→ 每个请求 `service()` 分发到对应 doXxx 方法 → 关闭时 `destroy()`。**请求处理链**：TCP 连接 → Connector 解析 HTTP → Engine/Host/Context 逐层匹配 → Servlet → 响应写回。理解这条链是理解 Spring Boot 内嵌 Tomcat 的前提——框架只是把「你写 Servlet 注册进容器」变成「你写 @RestController，框架替你注册」。
 
+**两种映射方式：web.xml 与注解**。上面用的 `@WebServlet` 是 Servlet 3.0（2009）才引入的写法；此前的唯一方式是 `web.xml` 集中配置，两者语义一一对应：
+
+```xml
+<!-- web.xml 写法（Servlet 2.5 及以前的唯一方式，语义示意）——与 @WebServlet("/echo/*") 等效 -->
+<servlet>
+    <servlet-name>echo</servlet-name>
+    <servlet-class>com.example.EchoServlet</servlet-class>
+</servlet>
+<servlet-mapping>
+    <servlet-name>echo</servlet-name>
+    <url-pattern>/echo/*</url-pattern>
+</servlet-mapping>
+```
+
+| 维度 | web.xml | `@WebServlet` 注解 |
+|------|---------|-------------------|
+| 时代 | Servlet 2.5 及以前的唯一方式 | Servlet 3.0（2009）起可用 |
+| 配置位置 | 集中在 `WEB-INF/web.xml` 一个文件 | 写在类上，挨着代码 |
+| 维护成本 | 加删映射要改 XML，与代码分离易腐化 | 改类即改映射，内聚 |
+| 冲突规则 | 两者同时存在时 web.xml 优先，可覆盖注解 | — |
+
+URL 匹配的优先级规则（Tomcat 按序尝试）：**精确匹配**（`/users/list`）→ **前缀匹配**（`/api/*`，最长前缀优先）→ **扩展名匹配**（`*.do`）→ **默认 Servlet**（`/`）。理解这个顺序才能解释「为什么我的 `/api/*` 没生效却被 `/*` 截胡」这类问题。
+
+> ⚠️ **Servlet 是单实例多线程的**：容器对同一个 Servlet 只创建**一个实例**，所有请求线程共享它（线程池模型见 4.1）——**实例字段是跨请求共享状态**，存请求级数据就是经典竞态坑：
+
+```java
+// 反例（经典坑的教学示意，不在 examples/ 中，勿复制到生产）
+public final class BadServlet extends HttpServlet {
+    private String lastUser;   // ❌ 实例字段被所有请求线程共享
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) {
+        lastUser = req.getParameter("name");   // 线程 A 写入后线程 B 覆盖，读到的是谁的请求全凭运气
+    }
+}
+```
+
+规则：请求级数据只放**方法局部变量**（或 `HttpServletRequest` 属性）；确需跨请求共享的状态用并发容器（ph09 的 ConcurrentHashMap）。Spring 的 `@RestController` 默认同样是单例——这条规则在框架时代依然成立，字段里只能放无状态依赖（Service 引用），不能放请求数据。
+
 > 本阶段只用手写 Servlet 理解机制，**Filter/Listener 的完整体系与 Servlet 3.0 异步、非阻塞 IO 属于 ph20 高级 Java 阶段**（Netty 与高性能网络编程），这里只需理解「请求-响应-生命周期」三个最小认知。
 
 ### 3.3 REST API 与 JSON：资源设计与统一响应
 
 REST 把「数据」建模为**资源**，URL 标识资源、方法表达操作：`GET /api/users` 读列表、`POST /api/users` 创建、`GET /api/users/{id}` 读单个、`PATCH /api/users/{id}` 局部更新、`DELETE /api/users/{id}` 删除。路径参数 `{id}` 与查询参数（`?limit=20`）分工：路径参数定位资源，查询参数筛选/分页。
 
-**JSON 序列化**是 REST 的数据载体：Java 对象 ↔ JSON 文本。手写版（ex01 的 MiniJson）让你看清「对象怎么变成字符串」；生产用 **Jackson**（Spring Boot 内建，starter-web 自动注册）：`@RequestBody` 把 JSON 反序列化成 Java 对象、`@RestController` 把返回值序列化成 JSON——**序列化是 ph07 IO 阶段「字节↔字符」心知的框架化**。
+**资源命名约定**（业界通行约定，非协议强制，但团队内必须一致）：
+
+| 约定 | 推荐 | 反例 |
+|------|------|------|
+| 资源用名词复数 | `/api/users` | `/api/getUser`（动词塞进了 URL，动作用方法表达） |
+| 层级表达从属关系 | `/api/vehicles/{vin}/reports` | `/api/getReportsByVin?vin=...` |
+| 查询参数做筛选与分页 | `GET /api/users?status=active&page=2` | 每种筛选各开一个端点 |
+| 小写 + 连字符分词 | `/api/vehicle-reports` | `/api/VehicleReports`（大小写敏感的坑） |
+
+**JSON 序列化**是 REST 的数据载体：Java 对象 ↔ JSON 文本。手写版（ex01 的 MiniJson）让你看清「对象怎么变成字符串」；生产用 **Jackson**（Spring Boot 内建，starter-web 自动注册）：`@RequestBody` 把 JSON 反序列化成 Java 对象、`@RestController` 把返回值序列化成 JSON——**序列化是 ph07 IO 阶段「字节↔字符」心智的框架化**。
+
+字段与 JSON key 的映射大多靠默认约定（字段名原样输出），不一致时用 Jackson 注解微调（点到为止，完整注解体系查 Jackson 官方文档）：
+
+| Jackson 注解 | 作用 |
+|-------------|------|
+| `@JsonProperty("user_name")` | 字段名与 JSON key 不一致时显式指定映射 |
+| `@JsonInclude(NON_NULL)` | null 字段不出现在响应里（响应更干净，前端少判空） |
+| `@JsonIgnore` | 字段不参与序列化——密码等敏感字段**绝不返回**的兜底 |
+| `@JsonFormat(pattern = "yyyy-MM-dd")` | 日期时间字段的格式定制 |
 
 ```java
 // examples/ex04-spring-boot-rest —— Spring Boot REST + 统一响应，实测
@@ -128,6 +237,16 @@ public class HelloController {
 
 「参数校验」是接口安全的底线——不校验的接口会被脏数据打穿（空串、超长、非法格式）。两条路：**手写 if**（ex01/ex03 的做法，逻辑直观但代码散）与**声明式注解**（`@Valid` + Bean Validation，规则和数据模型放一起，Spring Boot 用 Hibernate Validator 实现）。
 
+| 维度 | 手写 if | 声明式 `@Valid` |
+|------|--------|----------------|
+| 规则位置 | 散落在 Controller/Service 方法体 | 与字段声明在一起（record/类字段上） |
+| 可读性 | 校验与业务混杂，字段多了成「箭塔」 | 一眼看全一个模型的全部约束 |
+| 复用 | 每个接口各写一份，容易漏 | 同一模型所有入口自动生效 |
+| 失败响应 | 手写 return，形状容易不统一 | 统一抛 `MethodArgumentNotValidException`，交给 3.7 的全局异常处理转 400 |
+| 适用 | 学习机制、极简服务（ex01 零依赖场景） | 生产接口的默认选择 |
+
+> **注意**：声明式不是万能的——跨字段约束（如「开始时间 < 结束时间」）、依赖数据库状态的规则（如「用户名未被注册」）注解表达不了，仍由 Service 手工校验兜底，即下文的「分层心智」。
+
 ```java
 // examples/ex05-spring-boot-validation-error —— @Valid 声明式校验，实测
 public record CreateUserRequest(
@@ -148,6 +267,13 @@ public ApiResponse<User> create(@Valid @RequestBody CreateUserRequest req) { ...
 ### 3.5 JWT 认证：手写签名到 jjwt 库
 
 **JWT**（JSON Web Token）是无状态认证的载体：服务端登录成功签发一个 token，客户端每次请求带上，服务端验签即可——**不查 session、不占服务端内存**（对比 Cookie-Session 方案）。结构是 `Header.Payload.Signature` 三段 base64url 以 `.` 连接：Header 声明算法（`{"alg":"HS256","typ":"JWT"}`）、Payload 放身份信息（`sub` 用户、`exp` 过期时间等 claim）、Signature 是签名（防篡改）。
+
+```text
+eyJhbGciOiJIUzI1NiJ9  .  eyJzdWIiOiJhbGljZSIsImV4cCI6MTczNTY4OTYwMH0  .  SflKxwRJSMeKKF2QT4...
+└── base64url(Header) ─┘  └── base64url(Payload)：谁都能解开看（不是加密！）──┘  └── 签名 ──┘
+```
+
+> ⚠️ **JWT 是签名不是加密**：前两段只是 base64url 编码，任何人都能解开看内容——**敏感信息（密码、身份证）绝不放进 Payload**；`secret` 只保证「改不了」，不保证「看不了」。需要机密性要用 HTTPS 管传输（部署侧，ph19 的内容），Payload 本身仍按「公开可读」对待。
 
 ```java
 // examples/ex03-jwt-handmade —— 手写 HMAC-SHA256，实测；签名对象是完整 header.payload 字符串
@@ -195,7 +321,29 @@ public class GlobalExceptionHandler {
 }
 ```
 
-**日志**用 SLF4J（Spring Boot 默认 Logback 实现）：`LoggerFactory.getLogger(Xxx.class)` 拿 logger，`log.info("create_user id={} name={}", id, name)` 占位符写法避免字符串拼接、生产可切换实现（Log4j2 等）。日志分级：INFO 记录业务事件、WARN 记录可恢复异常、ERROR 记录需要人工介入的错误——**兜底异常处理器必须记 ERROR，否则线上查不到根因**（roadmap 必会概念「全局异常处理提升一致性」的落点）。
+**异常分类处理**是这张表的落地——每类异常对应固定的状态码、业务码段与日志级别，接口行为才可预期：
+
+| 异常类型 | 典型来源 | HTTP 状态码 | 业务码段 | 日志级别 |
+|---------|---------|------------|---------|---------|
+| 参数校验失败 | `@Valid` / Bean Validation | 400 | 400xx | WARN（用户输入问题，不是系统错） |
+| 未认证 / 凭证无效 | JWT 验签失败、token 过期 | 401 | 401xx | WARN |
+| 无权限 | 认证通过但角色不够（本阶段只到认证，授权见 ph15） | 403 | 403xx | WARN |
+| 资源不存在 | 按 id 查询不存在 | 404 | 404xx | INFO 或 WARN |
+| 业务规则冲突 | 重复创建、状态不允许的流转 | 409 | 409xx | WARN |
+| 兜底未知异常 | NPE、下游调用超时等 | 500 | 500xx | **ERROR（必须，否则线上查不到根因）** |
+
+分类的价值在于**客户端可以编程化处理**：400 提示用户改输入、401 跳登录、500 报「请稍后重试」——如果全部揉成一个 500 或一个 200，调用方只能猜。
+
+**日志**用 SLF4J（Spring Boot 默认 Logback 实现）：`LoggerFactory.getLogger(Xxx.class)` 拿 logger，`log.info("create_user id={} name={}", id, name)` 占位符写法避免字符串拼接、生产可切换实现（Log4j2 等）。日志分级的使用决策：
+
+| 级别 | 用于 | 例子 |
+|------|------|------|
+| ERROR | 需要人工介入的错误（兜底异常、外部依赖不可用） | `log.error("unhandled_exception", ex)` |
+| WARN | 预期内/可恢复异常（校验失败、认证失败、限流命中） | `log.warn("login_failed user={}", u)` |
+| INFO | 关键业务事件（启动完成、创建、状态变更） | `log.info("create_user id={}", id)` |
+| DEBUG | 开发期细节（参数值、中间状态）——生产默认关闭 | `log.debug("payload={}", body)` |
+
+**兜底异常处理器必须记 ERROR**（roadmap 必会概念「全局异常处理提升一致性」的落点）：被 `@RestControllerAdvice` 拦下的异常不会自己进日志，不记就永远查不到；而 WARN 级别记校验失败，是为了让 ERROR 通道保持「只有真问题才响」的信噪比。
 
 ### 3.8 API 文档：springdoc-openapi 与 Swagger UI
 
@@ -217,6 +365,19 @@ public class App {
 
 **三层分工**（roadmap 必会概念「Controller 不应写复杂业务」）：Controller 只做 HTTP 语义（路径/参数/请求体/状态码），Service 做业务规则，Store/Repository 做数据访问——project/ 的 `VehicleController → VehicleService → VehicleStore` 是这条分工的完整落地。
 
+**手写 Servlet 到 Spring MVC 注解的对照**——框架化的本质是「同样的概念换声明方式」：
+
+| 手写 Servlet（3.2） | Spring MVC（本节） | 职责 |
+|--------------------|-------------------|------|
+| 继承 `HttpServlet` + 覆写 `doGet` | `@RestController` + `@GetMapping` 方法 | 请求处理入口 |
+| `@WebServlet("/echo/*")` / web.xml | `@RequestMapping("/api")` 类级前缀 + 方法级路径 | URL 映射 |
+| `req.getPathInfo()` 手工切字符串 | `@PathVariable` | 路径参数绑定 |
+| `req.getParameter("name")` | `@RequestParam` | 查询参数绑定 |
+| `req.getReader()` 手工读 body 再解析 | `@RequestBody`（Jackson 反序列化，见 4.3） | 请求体绑定 |
+| `resp.setStatus()` + `getWriter().write(json)` | 方法返回值 + `@ResponseStatus`（converter 链序列化） | 响应构造 |
+
+对照着看就能发现：Spring MVC 没有引入新概念，只是把 3.2 里每个手写动作收编成了一个注解——所以先手写 Servlet 再学框架，心智是无缝平移的。
+
 ## 4. 底层原理
 
 ### 4.1 一次 HTTP 请求的完整旅程：从 TCP 到响应
@@ -228,26 +389,47 @@ public class App {
    └──────◀── HTTP 响应 ────── DispatcherServlet/Filter ──▶ Servlet(doGet/doPost)
 ```
 
-连接器（Connector）把 TCP 字节流解析成 HTTP 请求对象（方法/URL/头/body），容器逐层匹配（Engine→Host→Context→Servlet）后调用 Servlet；Servlet 写响应对象，连接器序列化回客户端。**每个请求一个线程**是 Servlet 容器的传统模型——线程池由容器管理（对比 ph09 的 ExecutorService），这个「一请求一线程」模型正是虚拟线程（ph09 讲过）最受益的场景。理解这条链就明白：Spring Boot 的 `@RestController` 方法最终也是被容器线程调用的普通方法，框架只是替你完成了「URL 匹配 + 参数绑定 + 序列化」。
+连接器（Connector）把 TCP 字节流解析成 HTTP 请求对象（方法/URL/头/body），容器逐层匹配（Engine→Host→Context→Servlet）后调用 Servlet；Servlet 写响应对象，连接器序列化回客户端。理解这条链就明白：Spring Boot 的 `@RestController` 方法最终也是被容器线程调用的普通方法，框架只是替你完成了「URL 匹配 + 参数绑定 + 序列化」。
+
+**一请求一线程的线程池模型**：Tomcat 内部的角色分工是——Acceptor 线程接连接、Poller 线程监听已接连接的可读事件（NIO）、**Worker 线程池**真正执行 Servlet/Controller 逻辑（默认上限 `server.tomcat.threads.max` = 200）。含义很直接：并发能力上限 ≈ worker 线程数，一个慢请求（查库 5 秒、调下游超时 30 秒）就占住一个 worker——慢请求堆积会耗尽线程池，后来的请求全部排队，这就是「线程池打满」的典型故障形态。这也是为什么超时要显式设置、慢 SQL 要治理。
+
+> 这个「一请求一线程」模型正是 ph09 讲的虚拟线程最受益的场景：Spring Boot 3.2+ 配 `spring.threads.virtual.enabled=true` 后，worker 换成虚拟线程，慢请求占住的不再是昂贵的平台线程——心智不变、承载能力质变。虚拟线程的调度机制本身（挂起/恢复、载体线程）属于 ph09 多线程与并发阶段，这里只需记住「Tomcat 的吞吐瓶颈在 worker 线程数，虚拟线程把它解开了」。
 
 ### 4.2 Spring MVC 的 DispatcherServlet 分发
 
 Spring MVC 用**前端控制器模式**：所有请求先进 `DispatcherServlet`，它按 `HandlerMapping` 找到对应控制器方法（`@GetMapping("/ping")` → `HelloController.ping`），`HandlerAdapter` 负责调用并绑定参数（路径参数/查询参数/请求体反序列化），返回值经 `HttpMessageConverter`（Jackson）序列化写响应。**拦截器**（`HandlerInterceptor`，本阶段 ex06/project 用于 JWT 鉴权）在控制器执行前/后/完成后挂钩子，是「横切关注点」的 MVC 层实现——对比 ex01 手写 HttpServer 的 `Filter`，同一思想、不同实现层。
 
-### 4.3 JWT 的签名机制：为什么篡改必被识破
+### 4.3 内容协商与 HttpMessageConverter 链
+
+`@RestController` 的方法返回一个 Java 对象，响应体却是 JSON 文本——中间这一步叫**内容协商（Content Negotiation）**：
+
+1. 客户端用 `Accept` 头声明期望的响应格式（`application/json`、浏览器默认 `text/html` 等）；
+2. Spring MVC 拿着返回值类型 + Accept，按序询问已注册的 `HttpMessageConverter` 链：「你能把这个对象写成这个格式吗？」；
+3. 第一个说「能」的 converter 负责序列化——starter-web 默认注册 Jackson 的 `MappingJackson2HttpMessageConverter`（处理 `application/json`）、字符串/字节数组等基础 converter；
+4. 请求方向同理：`@RequestBody` 的反序列化由 converter 按 `Content-Type` 选择——请求头说 `application/json`，Jackson converter 接手把文本变对象。
+
+```text
+返回值(Java 对象) ──▶ converter 链按 Accept 逐个询问 ──▶ Jackson converter ──▶ JSON 文本
+请求体(JSON 文本) ──▶ converter 链按 Content-Type 选择 ──▶ Jackson converter ──▶ Java 对象
+```
+
+理解这条链的价值：想统一加 `Result` 包装、想支持 XML/CSV 响应、想定制日期格式——都是往这条链上插一个 converter 或配置 Jackson，而不是改 Controller。这也正是 3.3 说的「Jackson 注解微调映射」生效的位置：注解最终由 Jackson converter 读取执行。
+
+### 4.4 JWT 的签名机制：为什么篡改必被识破
 
 HMAC-SHA256 是**带密钥的哈希**：`signature = HMAC-SHA256(header.payload, secret)`。验签方用同一密钥重算并比对——比对失败说明内容被改过（攻击者没有密钥改不出合法签名）。**重点：签名覆盖 header 和 payload 两个部分**，所以 header 里声称的算法也不能被换成 `none`（部分老库的经典漏洞——攻击者把 alg 改成 none 逃逸验签）。本阶段手写版把「签了什么」摊开给你看，jjwt 库（ex06）把「防止 alg=none、过期检查、密钥管理」都做掉了——**理解机制后敢用库，是安全主题的正确姿势**。
 
-### 4.4 Spring Boot 自动配置：约定优于配置的引擎
+### 4.5 Spring Boot 自动配置：约定优于配置的引擎
 
 `@EnableAutoConfiguration` 启动时扫描 `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`，按「条件注解」决定配什么：classpath 有 `spring-webmvc` → 配 `DispatcherServlet`；有 `tomcat-embed-core` → 配内嵌 Tomcat；有 `jackson-databind` → 配 `MappingJackson2HttpMessageConverter`。**配置的默认值**（端口 8080、JSON 序列化规则）来自 `application.properties/yml`。这就是「为什么只引一个 starter 就能跑」的答案——自动配置按依赖推断并给默认值，你要改的才写配置（对比 ph11 构建工具的「依赖管理」心智：starter 是「依赖 + 默认配置」的聚合）。
 
 ## 5. 使用场景
 
-- **对外数据服务**：把业务能力暴露为 HTTP API——本阶段 project/ 的车辆数据上报 API 是车联网方向的直接落地（roadmap 推荐项目），ph13 的存储层可平移进 `VehicleStore`。
-- **前后端分离**：REST API + JSON 是前后端分离的事实标准——前端（React/Vue，本阶段用 CORS 允许其跨域调用）只认 `{code, message, data}` 一个形状，这正是「统一响应结构」为什么是必会概念。
+- **对外数据服务**：把业务能力暴露为 HTTP API——本阶段 project/ 的车辆数据上报 API 是车联网方向的直接落地（roadmap 推荐项目），ph13 的存储层可平移进 `VehicleStore`。这类服务的共性需求本阶段全部覆盖过：语义化状态码让车端 SDK 能编程化分支、统一响应结构让前端/车端共用一套解析、JWT 让「哪辆车在上报」无状态可查、`@Valid` 在入口处挡住脏数据（脏遥测数据入库后再清洗的代价远大于入口拦截）。
+- **前后端分离**：REST API + JSON 是前后端分离的事实标准——前端（React/Vue，本阶段用 CORS 允许其跨域调用）只认 `{code, message, data}` 一个形状，这正是「统一响应结构」为什么是必会概念。两个配套实践：springdoc 自动生成的 OpenAPI 文档直接当联调契约用（前端照着 Swagger UI 里的 schema 写类型）；异常分类处理表（3.7）让前端可以按状态码分支 UI——400 提示改输入、401 跳登录、500 显示「稍后重试」。
+- **接口设计的长期维护**：幂等性对照表（3.1）决定客户端能不能安全重试——把「创建」设计成 POST 就要配幂等键，把「更新」设计成 PUT 就能直接重放；资源命名约定（3.3）决定 API 的可读性与可演进性——层级路径 `/api/vehicles/{vin}/reports` 在加「按时间范围查轨迹」这类新需求时只需追加查询参数，而动词式 URL 每加一个动作就多一个端点。
 - **什么时候不用 Spring Boot**：极简单的内部工具或单机演示（ex01 的 HttpServer 就够）、对启动体积/延迟极敏感的边缘场景（可换 Quarkus/Micronaut，ph15 对比）。本阶段学 Spring Boot 是为了生态（ph15 全家桶、ph16 微服务都建立在它上面）。
-- **与其他语言的对比**（为 analysis/ 与 Tenet 合成积累素材）：Java 的 Servlet/Spring 是「容器托管生命周期」的经典模型（回调 + 注解）；Go 的标准库 `net/http` 是「函数式 Handler」、显式中间件链；Python 的 FastAPI 用装饰器 + 类型注解自动生成 OpenAPI——三种语言解决同一问题（路由/参数/文档）的不同风格：Java 注解声明式最重、Go 显式最小、Python 双注解。Rust 的 axum/actix 走「tower 中间件栈」，与 Go 更近。
+- **与其他语言的对比**（为 analysis/ 与 Tenet 合成积累素材）：Java 的 Servlet/Spring 是「容器托管生命周期」的经典模型（回调 + 注解）；Go 的标准库 `net/http` 是「函数式 Handler」、显式中间件链；Python 的 FastAPI 用装饰器 + 类型注解自动生成 OpenAPI——三种语言解决同一问题（路由/参数/文档）的不同风格：Java 注解声明式最重、Go 显式最小、Python 双注解。Rust 的 axum/actix 走「tower 中间件栈」，与 Go 更近。线程模型上四者同源不同形：Java Servlet 的一请求一线程（4.1）与 Go 的 goroutine-per-conn、Python 的 async loop、Rust 的 tokio task 是同一个「并发处理连接」问题的四代答案。
 
 ## 6. 代码示例
 
@@ -296,21 +478,32 @@ jjwt 登录鉴权 + HandlerInterceptor + 全局 CORS + springdoc OpenAPI 文档�
 ### 关键要点
 
 - **请求旅程**：TCP → Connector 解析 → 容器匹配 → Servlet/Controller → 响应；Spring Boot 只是把「手写 Servlet 注册」变成「写 @RestController 注解」
-- **REST 语义**：URL 标识资源、方法表达操作、状态码表达结果——201 创建 / 204 删除 / 400 参数错 / 404 不存在 / 405 方法不支持；统一响应 `{code, message, data}` 是接口契约
+- **报文结构与头**：HTTP/1.1 报文 = 起始行 + 头 + 空行 + body，Content-Length 是 body 的终止依据；Host/Content-Type/Authorization/Accept 等常用头各自承载虚拟主机、格式声明、凭证、内容协商职责
+- **无状态 ≠ 短连接**：无状态是应用层语义（请求自带凭证），持久连接是传输层优化（TCP 复用），两者正交
+- **幂等性**：GET/PUT/DELETE 幂等可安全重试，POST 不幂等必须防重（幂等键/唯一约束）——这张表是 ph16 远程调用重试的地基
+- **Servlet 单实例多线程**：容器对同一 Servlet 只建一个实例，实例字段是共享状态——请求级数据只放方法局部变量，这条规则对单例 `@RestController` 同样成立
+- **REST 语义**：URL 标识资源（名词复数、层级从属）、方法表达操作、状态码表达结果——201 创建 / 204 删除 / 400 参数错 / 404 不存在 / 405 方法不支持；统一响应 `{code, message, data}` 是接口契约
 - **参数校验双层**：`@Valid` 声明式拦「输入形状」（快速失败），Service 校验兜底「业务规则」；`@RestControllerAdvice` 统一转错误响应
 - **JWT 机制**：Signature = HMAC-SHA256(header.payload, secret)，覆盖完整前两段所以篡改必被识破；`exp` 管过期；手写理解机制、库管生产
 - **CORS**：同源策略是浏览器的，CORS 头是服务器开的门；预检 OPTIONS、带凭证不能用 `*`
-- **全局异常 + 日志 + 文档**：异常处理一致性靠 `@RestControllerAdvice` 收口、兜底必须记 ERROR 日志、springdoc 让文档是代码的投影
+- **异常分类处理**：校验→400/WARN、认证→401/WARN、兜底→500/ERROR——状态码给客户端分支用，日志级别给运维降噪用；兜底必须记 ERROR
+- **Tomcat 线程池模型**：Acceptor 接连接、Poller 监听事件、Worker 池（默认 200）执行业务——慢请求占住 worker，线程池打满是典型故障形态；虚拟线程（ph09）把这个瓶颈解开
+- **内容协商**：Accept/Content-Type 头驱动 HttpMessageConverter 链选择序列化器——统一包装、换格式、调 Jackson 都是在这条链上做文章
 - **Controller 不写业务**：Controller（HTTP 语义）→ Service（业务规则）→ Store（数据访问）三层分工，是 roadmap 必会概念的直接落地
 
 ### 阶段验收清单
 
-- [ ] 能说清一次 HTTP 请求从 TCP 到 Controller 方法的完整旅程（Servlet 容器在其中的角色）
+- [ ] 能说清一次 HTTP 请求从 TCP 到 Controller 方法的完整旅程（Servlet 容器在其中的角色），并说清 Tomcat worker 线程池与「一请求一线程」的关系
+- [ ] 能画出 HTTP 请求/响应报文的四段结构，说出 Host/Content-Type/Authorization/Accept 等常见头的职责
+- [ ] 能区分「无状态」（应用层）与「持久连接」（传输层），并能默写幂等性对照表（GET/PUT/DELETE 幂等、POST 不幂等及工程含义）
+- [ ] 能解释 Servlet 单实例多线程模型，并说明「实例字段存请求数据」为什么是竞态坑
 - [ ] 能用手写 HttpServer 或 Spring Boot 写一个 REST API，并用语义化状态码（201/204/400/404/405）表达结果
-- [ ] 能用 `@Valid` 声明式校验 + `@RestControllerAdvice` 全局异常，让所有接口返回统一响应结构
+- [ ] 能按资源命名约定（名词复数、层级从属）设计接口路径，并用 Jackson 注解微调序列化
+- [ ] 能用 `@Valid` 声明式校验 + `@RestControllerAdvice` 全局异常，让所有接口返回统一响应结构，并按「异常分类处理表」选择状态码与日志级别
 - [ ] 能解释 JWT 的签名机制（为什么篡改必被识破）、用 jjwt 实现登录鉴权（签发 + 拦截器验签）
 - [ ] 能配置 CORS 并解释预检流程；能说清「认证（JWT 验签）和授权（ph15 Spring Security）的区别」
-- [ ] 能起 Spring Boot 服务、看 SLF4J 日志、用 springdoc 自动生成 API 文档
+- [ ] 能起 Spring Boot 服务、看 SLF4J 日志（会按 ERROR/WARN/INFO/DEBUG 分级决策）、用 springdoc 自动生成 API 文档
+- [ ] 能解释内容协商：Accept/Content-Type 头如何驱动 HttpMessageConverter 链完成序列化/反序列化
 - [ ] 能说出「Controller 不应写复杂业务」，并按 Controller/Service/Store 三层组织接口代码
 
 ### 动手练习
