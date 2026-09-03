@@ -1,5 +1,5 @@
 // 来源：ph18-api-design-compat project/contract_test.go
-// 一句话说明：spec-first 契约测试（综合项目的心脏）。api/openapi.json 是唯一权威
+// 一句话说明：spec-first 契约测试（综合项目的心脏）。internal/spec/openapi.json 是唯一权威
 // 规范，本文件把它与实现逐条对账：
 // ① 路由双向对齐（spec.paths ⇔ devices.Routes()）；② 错误结构在文档层钉死
 // （Error required code/message，全部错误响应引用共享组件）；③ v2 schema 是 v1 的

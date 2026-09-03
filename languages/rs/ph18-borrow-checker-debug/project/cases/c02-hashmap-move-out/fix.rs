@@ -1,7 +1,7 @@
 // 修复版（与同目录 error.rs 对照）。两种修法，任选其一：
 //  A 从共享引用中取出值 -> 只能复制（clone）；适用「偶尔取一次、代价可接受」的场景；
 //  B 由调用方交出所有权（拥有 map），在内部 remove 掉元素 —— 想要 move 就必须真拥有。
-// 验证：rustc --edition 2021 fix.rs && ./fix（已验证：rustc 1.92.0 / macOS arm64）。
+// 验证：rustc --edition 2021 fix.rs -o /tmp/c02-hashmap-move-out-fix && /tmp/c02-hashmap-move-out-fix（已验证：rustc 1.92.0 / macOS arm64）。
 use std::collections::HashMap;
 
 fn main() {

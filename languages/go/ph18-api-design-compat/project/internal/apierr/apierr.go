@@ -1,6 +1,6 @@
 // 来源：ph18-api-design-compat project/internal/apierr/apierr.go
 // 一句话说明：错误码注册表（集中、只增不删）+ 领域错误类型。对外 code 语义：
-// 与 api/openapi.json 的 Error schema 配套——code 是给机器读的，message 是给
+// 与 internal/spec/openapi.json 的 Error schema 配套——code 是给机器读的，message 是给
 // 人读的。handler 只在唯一出口把 *Error 翻译成 HTTP（主文档 3.4/3.6）。
 // 验证环境：go1.25.6（darwin/arm64），依赖：零第三方（标准库）
 // 构建：go build ./...    测试：go test ./...    静态检查：go vet ./...

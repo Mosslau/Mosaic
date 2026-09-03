@@ -4,7 +4,7 @@
 
 ## 依赖与验证方式
 
-- 依赖：练习 2 纯标准库、练习 1/3/4 纯标准库（练习 4 的真实 broker 路径额外需要 paho-mqtt 2.x，离线路径不需要）；验证环境（目标）：Python 3.13 + pytest 8 + ruff 0.12
+- 依赖：练习 2 纯标准库、练习 1/3/4 纯标准库（练习 4 的真实 broker 路径额外需要 paho-mqtt 2.x，离线路径不需要）；验证环境（目标）：Python 3.13 + pytest 9.1.1 + ruff 0.16.5
 - 运行：`python3 sol-0X-*.py`（每个参考实现带 main 自检与样例数据生成，断言失败会报错退出）；测试：`python3 -m pytest sol-0X-*.py -q`
 - lint：`ruff check .`（配置见 [`pyproject.toml`](./pyproject.toml)）
 - 参考实现文件头带**验证块**；sol-01~sol-04 的离线路径与练习 2/3 全部已验证（Python 3.13.12 本机实测）；sol-04 的真实 broker 路径未在本环境验证（需本机 MQTT broker）

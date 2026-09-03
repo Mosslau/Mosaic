@@ -1,7 +1,7 @@
 // 修复版（与同目录 error.rs 对照）。两个思路，任选其一：
 //  A 调整顺序：让借用的「最后一次使用」先发生，再调用需要 &mut 的方法；
 //  B 字段级借用：只借需要的字段 —— 编译器允许对「不重叠」字段同时一读一写（见主文档 3.7）。
-// 验证：rustc --edition 2021 fix.rs && ./fix（已验证：rustc 1.92.0 / macOS arm64）。
+// 验证：rustc --edition 2021 fix.rs -o /tmp/e08-field-level-borrow-fix && /tmp/e08-field-level-borrow-fix（已验证：rustc 1.92.0 / macOS arm64）。
 struct Stats {
     name: String,
     hits: u64,

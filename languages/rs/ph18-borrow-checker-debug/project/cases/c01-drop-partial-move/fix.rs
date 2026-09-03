@@ -1,6 +1,6 @@
 // 修复版（与同目录 error.rs 对照）：给 Drop 类型一个「消费式取走内部数据」的 API。
 // 用 std::mem::take 把字段内容换成空默认值 —— self 始终保持完整，drop 照常执行（内容已空）。
-// 验证：rustc --edition 2021 fix.rs && ./fix（已验证：rustc 1.92.0 / macOS arm64）。
+// 验证：rustc --edition 2021 fix.rs -o /tmp/c01-drop-partial-move-fix && /tmp/c01-drop-partial-move-fix（已验证：rustc 1.92.0 / macOS arm64）。
 struct Droppable(Vec<u8>);
 
 impl Droppable {

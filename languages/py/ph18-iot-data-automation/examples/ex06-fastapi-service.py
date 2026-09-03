@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # examples/ex06-fastapi-service.py —— 遥测数据服务（主文档 3.6）
-# 验证环境（目标）：Python 3.13 + fastapi + uvicorn + httpx（TestClient 依赖 httpx）
+# 验证环境（目标）：Python 3.13 + fastapi 0.141.1 + uvicorn + httpx 0.28.1（TestClient 依赖 httpx）
 # 运行（自检）：python3 ex06-fastapi-service.py
 # 运行（服务）：python3 ex06-fastapi-service.py --serve（监听 127.0.0.1:8000）
 # 测试：python3 -m pytest ex06-fastapi-service.py -q
 # lint：ruff check ex06-fastapi-service.py
-# 验证状态：已验证（Python 3.13.12 + fastapi + httpx 本机实测：TestClient 自检与 pytest 全绿）
+# 验证状态：已验证（Python 3.13.12 + fastapi 0.141.1 + httpx 0.28.1 本机实测：TestClient 自检与 pytest 全绿）
 """把清洗/分析流水线包成 FastAPI 数据服务：车队查询 + 时间序列 + 规则事件 + 遥测上报。
 
 ph10 讲了路由/请求校验/文档，ph16 讲了 uvicorn 部署——这里示范的是**数据服务层**的

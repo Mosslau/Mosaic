@@ -1,6 +1,6 @@
 # project/tests/test_vehdash.py —— vehdash 测试套件
-# 验证环境：Python 3.13 + pytest 8 + pandas + matplotlib；本机实测 Python 3.13.12
-"""8 个用例：清洗计数 / 距离估算 / 过热检测 / SOH 提示 / 报告产物 / CLI 冒烟。"""
+# 验证环境：Python 3.13 + pytest 9.1.1 + pandas + matplotlib；本机实测 Python 3.13.12
+"""9 个用例：清洗计数 / 距离估算 / 过热检测 / SOH 提示 / 报告产物 / CLI 冒烟。"""
 
 from __future__ import annotations
 

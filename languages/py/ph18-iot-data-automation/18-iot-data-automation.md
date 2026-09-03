@@ -305,18 +305,19 @@ veh/+/telemetry        ← 订阅所有车的遥测（+ = 单层通配）
 | QoS 2 | 恰好一次，最重，遥测场景很少用 |
 | retained | broker 保留最后一条消息，新订阅者立即收到（常给状态类主题） |
 
-写透的两条工程注意：**retained 主题 ≠ 状态数据库**——订阅者上线瞬间收到的 retained 消息是"最近一次快照"，要处理"可能过期"的语义（配合消息里的 `ts` 判断新鲜度，比信 broker 时序更可靠）；**clean session 与离线缓冲**——车端弱网重连时 broker 是否补发离线消息由会话标志决定，采集端因此既可能收到**重复帧**（QoS1 补发 + 去重解决）也可能收到**乱序帧**（以 `ts` 为准排序，不要以到达顺序为准）——这解释了为什么采集核心的解耦设计（3.8 的 collector）必须把「去重」「按 ts 排序」内建而不是指望 broker 保证。
+写透的两条工程注意：**retained 主题 ≠ 状态数据库**——订阅者上线瞬间收到的 retained 消息是"最近一次快照"，要处理"可能过期"的语义（配合消息里的 `ts` 判断新鲜度，比信 broker 时序更可靠）；**clean session 与离线缓冲**——车端弱网重连时 broker 是否补发离线消息由会话标志决定，采集端因此既可能收到**重复帧**（QoS1 补发 + 去重解决）也可能收到**乱序帧**（以 `ts` 为准排序，不要以到达顺序为准）——这解释了为什么**业务层**必须把「去重」「按 ts 排序」内建（练习 4 sol-04 的去重窗口），而不是指望 broker 保证。
 
-采集服务的正确组织方式是**把 broker 胶水与业务逻辑解耦**（examples/ex08 与练习 4 的参考实现）：paho 只负责「与 broker 的传输」，采集核心（主题路由 → JSON 解析 → 量程校验 → 去重 → 落 sink）与 broker 无关，可以用一个 **FakeBroker**（内存里直接回调 `(topic, payload)`）离线全量单测——这正是「自动化测试要可重复」在采集环节的体现：
+采集服务的正确组织方式是**把 broker 胶水与业务逻辑解耦**：paho 只负责「与 broker 的传输」，采集核心（主题路由 → JSON 解析 → 量程校验 → 落 sink）与 broker 无关，可以用一个 **FakeBroker**（内存里直接回调 `(topic, payload)`）离线全量单测——这正是「自动化测试要可重复」在采集环节的体现。examples/ex08 演示这条骨架（sink 可换 Memory/Jsonl），练习 4 的参考实现（sol-04）在骨架上补**去重窗口**与**按日分桶**（完整形态见下）：
 
 ```python
+# exercises/sol-04 的完整形态（练习 4）—— 在 ex08 骨架之上加去重窗口：
 class TelemetryCollector:
     def handle_message(self, topic: str, payload: bytes | str) -> TelemetryReading | None:
         # 路由失败 → bad_topic 计数；JSON/量程失败 → invalid 计数；重复 → duplicate 计数
         # 通过 → sink.append(reading) + accepted 计数；所有计数在 self.stats 可审计
 ```
 
-写透的工程点：① **采集审计**——accepted/duplicate/invalid/bad_topic 四类计数是采集服务的健康仪表盘，掉线/脏数据比例异常都能从这里看出来（roadmap「可审计」必会概念）；② **QoS1 的重复由业务层去重**——同一 `(vin, ts)` 只收一次（sol-04 的去重窗口）；③ **按日分桶**——JSONL 文件名带日期，单文件无限增长是运维事故（sol-04 的 `data-YYYYMMDD.jsonl`）；④ **sink 可替换**——Memory（测试）/ JSONL（落地）/ 数据库（生产），采集核心不感知。
+写透的工程点：① **采集审计**——「有效/无效/重复」计数是采集服务的健康仪表盘：ex08 骨架记三类（`accepted`/`invalid_payload`/`invalid_topic`），sol-04 扩到四类（重复帧单列 `duplicate`、错主题路由单列 `bad_topic`），掉线/脏数据比例异常都能从这里看出来（roadmap「可审计」必会概念）；② **QoS1 的重复由业务层去重**——同一 `(vin, ts)` 只收一次（sol-04 的去重窗口）；③ **按日分桶**——JSONL 文件名带日期，单文件无限增长是运维事故（sol-04 的 `data-YYYYMMDD.jsonl`）；④ **sink 可替换**——Memory（测试）/ JSONL（落地）/ 数据库（生产），采集核心不感知（ex08 已演示前两者）。
 
 > 阶段内容隔离：MQTT 协议本身的 CONNECT/PUBLISH 报文细节与 broker 部署运维不是本阶段内容；paho 的真实 broker 通道也如实标注「未在本环境验证」（本机无运行中的 broker，需自装 mosquitto 复现），离线 Fake 通道已验证——离线先行是采集类代码的正确验证策略。
 
@@ -390,7 +391,7 @@ Isolation Forest 的核心不是"距离"，而是**"好不好分出来"**：它�
 | OTA 发布质量回归 | ex05 平台 + exer3 报告 | 可重复、可归档、版本级验收 |
 | 运营看板/App 查询后端 | ex06 FastAPI 服务 | pandas 算、pydantic 拦、路由薄编排 |
 | 未知故障的兜底告警 | ex07 Isolation Forest | 规则抓不住的模式（卡死、复合异常） |
-| 车端数据接入链路 | ex08 MQTT 采集 + 审计计数 | QoS1 去重、按日分桶、离线可测 |
+| 车端数据接入链路 | ex08/sol-04 MQTT 采集链路 + 审计计数 | QoS1 去重、按日分桶、离线可测 |
 
 **不适合用 Python 的地方**：CAN 帧的**微秒级实时收发与控制回路**（那属于 C/固件，见 languages/c 路线）；**单机扛不住的高吞吐原始帧落库**（换 Go/Rust 的轻量 ingestion，或走 C 扩展/专用总线工具链）；超大规模批次计算（TB 级每日批处理交给 Spark 等分布式栈，Python 适合 做驱动/原型而非主计算引擎）。一句话：**Python 在车联网里是"数据厚度"担当——清洗、分析、规则、原型、测试平台；吞吐与实时担当交给 Go/Rust/C**。
 
@@ -461,7 +462,7 @@ Isolation Forest 的核心不是"距离"，而是**"好不好分出来"**：它�
 | ex05 | 合格批次四行 `[PASS]`、三个坏批次各 `HAS FAIL`、`门禁报告已写：/tmp/ph18-ex05/gate_report.md` |
 | ex06 | `V001 summary`（`points=600`）、`V002 过热事件`（ts 300~329）、末尾「自检通过」 |
 | ex07 | `recall: 1.0000`、`fp_rate: 0.0339`（阈值取 0 校准后的实测值）、`评分已写：…/anomaly_scores.csv` |
-| ex08 | 采集审计 `accepted: 3 / duplicate: 1 / invalid: 2 / bad_topic: 1`、`JSONL 样例已写` |
+| ex08 | 采集审计 `accepted: 3 / invalid_payload: 2 / invalid_topic: 1`（骨架三键，无去重——去重属 sol-04）、`JSONL 样例已写` |
 
 以上行同时写入各文件注释与 [`examples/README.md`](./examples/README.md)；数值可能因数据生成 seed 固定而完全可复现，若你不一致，先怀疑环境版本（见文件头验证块）再怀疑代码。
 

@@ -1,6 +1,6 @@
 // 正面示例（不是错误案例，可通过编译并运行）：演示「两阶段借用」。
 // 两阶段只放行「隐式」可变借用；源码里手写的 &mut 永远是普通可变借用（立即激活）。
-// 验证：rustc --edition 2021 main.rs && ./main（已验证：rustc 1.92.0 / macOS arm64）。
+// 验证：rustc --edition 2021 main.rs -o /tmp/e09-two-phase-borrow-fix && /tmp/e09-two-phase-borrow-fix（已验证：rustc 1.92.0 / macOS arm64）。
 fn main() {
     // 1. 方法调用自动引用（autoref）：receiver 的 &mut 先「预留」，参数求值完再「激活」
     let mut v = vec![1, 2, 3];

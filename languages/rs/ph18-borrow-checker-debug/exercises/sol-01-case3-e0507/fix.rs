@@ -1,7 +1,7 @@
 // 修复版（与同目录 error.rs 对照）。
 // 思路：跨「借用边界」取拥有值时只能复制（clone）；想避免复制就得换拥有所有权的参数形态。
 // 两种修法都给出：① 在函数内 clone；② 改成拿走整个 Vec 的所有权，让调用方自行决定。
-// 验证：rustc --edition 2021 fix.rs && ./fix（已验证：rustc 1.92.0 / macOS arm64）。
+// 验证：rustc --edition 2021 fix.rs -o /tmp/sol-01-case3-e0507-fix && /tmp/sol-01-case3-e0507-fix（已验证：rustc 1.92.0 / macOS arm64）。
 fn take_head_clone(items: &[String]) -> String {
     items[0].clone() // 借用只读，值靠自己复制一份
 }

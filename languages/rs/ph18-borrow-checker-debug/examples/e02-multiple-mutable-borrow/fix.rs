@@ -1,6 +1,6 @@
 // 修复版（与同目录 error.rs 对照）。思路：让第一个借用「用完即止」，再开第二个。
 // 依据：NLL 下可变借用活到「最后一次使用」，只要两次 &mut 的生命区间不重叠就合法。
-// 验证：rustc --edition 2021 fix.rs && ./fix（已验证：rustc 1.92.0 / macOS arm64）。
+// 验证：rustc --edition 2021 fix.rs -o /tmp/e02-multiple-mutable-borrow-fix && /tmp/e02-multiple-mutable-borrow-fix（已验证：rustc 1.92.0 / macOS arm64）。
 fn main() {
     let mut score = 0i32;
     let first = &mut score; // 可变借用开始

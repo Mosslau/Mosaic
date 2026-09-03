@@ -26,7 +26,7 @@ cd examples/e01-moved-value
 rustc --edition 2021 error.rs        # 应报 error[E0382]，退出码非 0
 
 # 2. 编译并运行 fix 版（-o 输出到 /tmp，避免在仓库目录留下二进制）
-rustc --edition 2021 fix.rs -o /tmp/ph18-e01-fix && /tmp/ph18-e01-fix
+rustc --edition 2021 fix.rs -o /tmp/e01-moved-value-fix && /tmp/e01-moved-value-fix
 ```
 
 - error 版文件头注释写明了期望错误码；若你看到的错误码与注释不一致，说明你的 rustc 版本

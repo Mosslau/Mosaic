@@ -927,7 +927,7 @@ perf report
 ### 练习
 
 - 对比 vector 与 list 遍历性能
-- 优化 JSON/CSV 解析
+- 优化 CSV 解析（练习取 CSV 为代表，JSON 同类文本解析同理可证）
 - 减少热点路径内存分配
 
 ### 阶段验收

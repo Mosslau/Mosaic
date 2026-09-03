@@ -12,7 +12,7 @@
 
 相对 examples/ex08 的 collector，本解补上生产采集的三个点：**去重**（MQTT QoS1 可能
 重复投递）、**按日分桶**（文件无限增长 → 单日一文件，归档友好）、**可观测统计**
-（accepted/duplicate/invalid 计数可审计）。练习要求见 README.md。
+（accepted/duplicate/invalid/bad_topic 四类计数可审计）。练习要求见 README.md。
 """
 
 from __future__ import annotations

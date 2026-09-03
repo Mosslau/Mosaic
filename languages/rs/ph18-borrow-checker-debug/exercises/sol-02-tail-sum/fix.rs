@@ -1,7 +1,7 @@
 // 修复版（与同目录 error.rs 对照）。练习 2 的参考实现，覆盖两种合法修法：
 //  修法 A：把「读尾部」与「写容器」彻底分成两个阶段 —— 所有对 tail 的读取都放在 push 之前；
 //  修法 B：push 之后还想保留尾部内容，就把尾部复制成拥有的 Vec —— 切掉对原容器的借用。
-// 验证：rustc --edition 2021 fix.rs && ./fix（已验证：rustc 1.92.0 / macOS arm64）。
+// 验证：rustc --edition 2021 fix.rs -o /tmp/sol-02-tail-sum-fix && /tmp/sol-02-tail-sum-fix（已验证：rustc 1.92.0 / macOS arm64）。
 
 /// A：先算完、打印完，再 push（借用最后一次使用在 push 之前，收口于函数体内）。
 fn append_tail_sum_a(items: &mut Vec<u32>, n: usize) {

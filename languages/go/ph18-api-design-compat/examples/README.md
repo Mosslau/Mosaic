@@ -4,8 +4,8 @@
 
 | 示例 | 一句话说明 | 对应主文档 | 运行/测试命令（进入各自子目录） |
 |------|-----------|-----------|------------------------------|
-| ex01-rest-design | REST 资源设计：方法语义（GET 只读 / POST 创建 201+Location / PUT 全量替换 / PATCH 部分更新 / DELETE 幂等 204），规则集中在 HTTP 方法而不是 URL 动词 | 3.1 | `go run . -addr 127.0.0.1:18101`；`go test ./...`（6 个行为契约测试） |
-| ex02-error-struct-evolution | 错误结构演进实验：`{code,message}` 演进到 v2 追加 requestId/details，老客户端解析新响应不炸、错误码注册表只增不删 | 3.4 | `go run .`（打印 v1/v2 序列化对比）；`go test ./...`（6 个演进纪律测试） |
+| ex01-rest-design | REST 资源设计：方法语义（GET 只读 / POST 创建 201+Location / PUT 全量替换 / PATCH 部分更新 / DELETE 幂等 204），规则集中在 HTTP 方法而不是 URL 动词 | 3.1 | `go run . -addr 127.0.0.1:18101`；`go test ./...`（7 个行为契约测试） |
+| ex02-error-struct-evolution | 错误结构演进实验：`{code,message}` 演进到 v2 追加 requestId/details，老客户端解析新响应不炸、错误码注册表只增不删 | 3.4 | `go run .`（打印 v1/v2 序列化对比）；`go test ./...`（7 个演进纪律测试） |
 | ex03-pagination-filter | 列表接口稳定设计：offset+limit 分页 envelope、过滤先于分页、排序白名单 + id 决胜、limit 默认/上限 | 3.5 | `go run . -addr 127.0.0.1:18103`；`go test ./...`（6 个稳定性测试） |
 | ex04-versioning | URI 版本共存：v1/v2 共享领域数据与 service，DTO 按版本裁剪，v1 带 Deprecation/Sunset 通告头 | 3.3、3.6 | `go run . -addr 127.0.0.1:18104`；`go test ./...`（4 个版本契约测试） |
 | ex05-openapi-sync | spec-first 契约同步：OpenAPI 文档是权威，契约测试让"实现比文档多字段/少路由"在 CI 立刻失败 | 3.7 | `go run . -addr 127.0.0.1:18105`；`go test ./...`（4 个契约测试） |
