@@ -1,6 +1,6 @@
 # examples —— C 语言数据库存储引擎基础阶段完整示例
 
-本目录是主文档第 6 章示例 1~6 的完整可运行版。**六个示例覆盖 roadmap ph16「学习内容」的前 8 项**：WAL record 设计（ex01）、append-only log 与 replay（ex02）、MemTable（ex03）、SSTable 文件格式（ex04）、Bloom Filter（ex05）、Buffer Pool / LRU（ex06）；range scan 与 iterator 在 ex03 区 4（下标区间即迭代器）与 ex04 的块内顺扫中演示；B+Tree 基础与 LSM Tree 基础由 exercises/sol-05 与 project/ 落地。
+本目录是主文档第 6 章示例 1~6 的完整可运行版。**六个示例覆盖 roadmap ph16「学习内容」9 项中的六项**：WAL record 设计（ex01）、append-only log 与 replay（ex02）、MemTable（ex03）、SSTable 文件格式（ex04）、Bloom Filter（ex05）、Buffer Pool / LRU（ex06）；其余三项不在本目录——B+Tree 基础与 LSM Tree 基础分别由 exercises/sol-05 与 project/ 落地，range scan 与 iterator 不设独立示例，在 ex03 的区 4（下标区间即迭代器）与 ex04 的块内顺扫中演示。
 
 验证环境（本机实测）：**Apple clang 21.0.0**（`cc`，macOS arm64，ProductVersion 26.6.2）。全部 C 代码 `cc -Wall -Wextra -std=c11` 零警告；产物一律写 `/tmp/ph16c-ex/`，演示数据写 `/tmp/ph16c-ex-data/` 且示例退出时自行删除，仓库零残留。
 

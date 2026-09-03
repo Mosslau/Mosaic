@@ -44,11 +44,14 @@ c++ -std=c++20 -Wall -Wextra ex01-test-mini.cpp -o /tmp/ph16cpp-ex01 && /tmp/ph1
 ## 示例 2：clang-tidy（ex02-tidy-demo.cpp + ex02.clang-tidy）
 
 ```bash
-# 1. 坏版本（默认）：5 条告警（4 类规则）
+# 1. 坏版本（默认）编译 + 运行：编译器自带 1 条 -Wrange-loop-construct（第一道静态分析）——
+#    警告不是错误，程序照常跑（双编译器实测各 1 条警告；该警告属 -Wall，无需额外开关）
+c++ -std=c++20 -Wall -Wextra ex02-tidy-demo.cpp -o /tmp/ph16cpp-ex02-b && /tmp/ph16cpp-ex02-b
+# 2. 坏版本（默认）：clang-tidy 5 条告警（4 类规则）
 /opt/homebrew/opt/llvm/bin/clang-tidy -quiet ex02-tidy-demo.cpp --config-file=ex02.clang-tidy -- -std=c++20
-# 2. 修复版：零告警
+# 3. 修复版：clang-tidy 零告警
 /opt/homebrew/opt/llvm/bin/clang-tidy -quiet ex02-tidy-demo.cpp --config-file=ex02.clang-tidy -- -std=c++20 -DEX02_FIXED
-# 3. 修复版双编译器编译验证（零警告）：
+# 4. 修复版双编译器编译验证（零警告）：
 c++ -std=c++20 -Wall -Wextra -DEX02_FIXED ex02-tidy-demo.cpp -o /tmp/ph16cpp-ex02-f && /tmp/ph16cpp-ex02-f
 ```
 

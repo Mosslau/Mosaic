@@ -96,17 +96,31 @@ int lsm_flush(lsm_t *e) {
     char p[320];
     snprintf(p, sizeof p, "%s/sst-%06llu.dat", e->dir,
              (unsigned long long)e->next_sst_id);
-    if (sst_write(p, &e->mt) != 0) return -1;
-    /* SSTable 落盘后才允许清 WAL——顺序即崩溃安全 */
-    if (sst_open(&e->ssts[e->sst_cnt], p) != 0) return -1;
+    /* 1. 落盘并打开新 SSTable; 失败删掉（可能半写的）文件, 内存态未动 → 可原样重试 */
+    if (sst_write(p, &e->mt) != 0) { remove(p); return -1; }
+    if (sst_open(&e->ssts[e->sst_cnt], p) != 0) { remove(p); return -1; }
+    /* 2. SSTable 落盘后才清 WAL——顺序即崩溃安全; 至此提交内存态 */
     e->sst_cnt++;
     e->next_sst_id++;
     e->flushes++;
-    /* 清空 WAL（先 sync 新 SSTable 的目录数据此处从简: SSTable 写完已 fclose） */
     close(e->wal_fd);
-    if (wal_repair(e->wal_path, 0) != 0) return -1;
+    /* 3. WAL 清空失败（wal_repair 出错）: WAL 内容原封未动, 回滚第 2 步提交并
+     *    重开 WAL, 让引擎回到 flush 前的可写状态——否则 wal_fd 永久关闭,
+     *    后续 put/del 全部落空而调用方无从知道。 */
+    if (wal_repair(e->wal_path, 0) != 0) {
+        sst_close(&e->ssts[e->sst_cnt - 1]);
+        e->sst_cnt--;
+        e->next_sst_id--;
+        e->flushes--;
+        e->wal_fd = wal_open(e->wal_path); /* 重开仍失败则 wal_fd=-1, 写入安全失败 */
+        return -1;
+    }
     e->wal_fd = wal_open(e->wal_path);
-    if (e->wal_fd < 0) return -1;
+    if (e->wal_fd < 0) {
+        /* WAL 已清空但重开失败: 数据都已落进第 1 步的新 SSTable, 不会丢;
+         * memtable 未释放, wal_fd=-1 使后续写入安全失败（引擎退化为只读态） */
+        return -1;
+    }
     mt_free(&e->mt);
     return 0;
 }

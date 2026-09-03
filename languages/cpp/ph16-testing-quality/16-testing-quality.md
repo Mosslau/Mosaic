@@ -21,7 +21,7 @@
 
 C++ 没有内建测试与格式化设施（对比 Go 的 `go test`/`gofmt`、Rust 的 `cargo test`/`rustfmt`），质量工具链完全是**社区生态**长出来的——这决定了本阶段的学习对象是「一批独立工具的组合」而非「一个官方组件」。**设计哲学一句话：把每一次人工检查变成一条可重复执行的命令，把每一条命令钉进 CI——质量不靠自觉，靠流水线**。
 
-单元测试框架的血脉来自 xUnit：Kent Beck 为 Smalltalk 写的 SUnit（约 1994）确立「TestCase + 断言 + 自动汇总」范式，JUnit（1997，Beck 与 Gamma）把它带到 Java，CppUnit（2000）是 C++ 的第一个移植；GoogleTest（2008，Google 内部 Project "gtest"）用「自动注册 + 非致命/致命断言分离」超越了 CppUnit 的手工注册，成为事实标准；Catch（2010）/ Catch2 用「header-only + SECTION 分支」提供了更轻的另一极。静态分析一侧，`lint`（1979，贝尔实验室）是祖师爷；clang-tidy（2014 前后随 clang-extra-tools 成熟）基于 Clang AST 提供可编程的检查框架；cppcheck（2007）走「不依赖编译、独立解析」的轻量路线。clang-format（2013~2014）终结了 C++ 社区的「大括号之争」——格式交给工具。覆盖率工具从 GCC 的 gcov（1990 年代）到 LTP 项目的 lcov（约 2002，Perl 封装出 HTML），再到 LLVM 的 source-based coverage（llvm-cov，2016 前后，按源码区域而非行计数）。CI 从 Jenkins（2011，前身 Hudson 2005）演进到 GitHub Actions（2019）的「流水线即代码」。
+单元测试框架的血脉来自 xUnit：Kent Beck 为 Smalltalk 写的 SUnit（约 1994）确立「TestCase + 断言 + 自动汇总」范式，JUnit（1997，Beck 与 Gamma）把它带到 Java，CppUnit（2000）是 C++ 的第一个移植；GoogleTest（2008，Google 内部 Project "gtest"）用「自动注册 + 非致命/致命断言分离」超越了 CppUnit 的手工注册，成为事实标准；Catch（2010）/ Catch2 用「header-only + SECTION 分支」提供了更轻的另一极。静态分析一侧，`lint`（1979，贝尔实验室）是祖师爷；clang-tidy（2015 随 clang-tools-extra 开源）基于 Clang AST 提供可编程的检查框架；cppcheck（2007）走「不依赖编译、独立解析」的轻量路线。clang-format（2013~2014，2014 随 Clang 3.4 作为新工具发布）终结了 C++ 社区的「大括号之争」——格式交给工具。覆盖率工具从 GCC 的 gcov（1990 年代）到 LTP 项目的 lcov（约 2002，Perl 封装出 HTML），再到 LLVM 的 source-based coverage（llvm-cov，2016 前后，按源码区域而非行计数）。CI 从 Jenkins（2011，前身 Hudson 2005）演进到 GitHub Actions（2019）的「流水线即代码」。
 
 | 版本/里程碑 | 年份 | 主要变化 |
 |------|------|---------|
@@ -31,7 +31,8 @@ C++ 没有内建测试与格式化设施（对比 Go 的 `go test`/`gofmt`、Rus
 | cppcheck | 2007 | 独立解析、无需编译数据库的轻量静态分析 |
 | GoogleTest | 2008 | 自动注册、EXPECT/ASSERT 分离——C++ 测试事实标准 |
 | Catch（→ Catch2 v2 / v3） | 2010 / 2016 / 2022 | header-only + TEST_CASE/SECTION 另一极 |
-| clang-format / clang-tidy | 2013~2015 | 格式自动化；基于 AST 的可编程静态检查 |
+| clang-format | 2013~2014 | 格式自动化——2014 随 Clang 3.4 作为新工具发布 |
+| clang-tidy | 2015 | 基于 AST 的可编程静态检查（随 clang-tools-extra 开源） |
 | llvm-cov source-based coverage | ~2016 | 按源码区域精确计数，告别 gcov 行计数的优化失真 |
 | GitHub Actions | 2019 | CI 配置入仓库（pipeline as code）成为主流 |
 
@@ -111,10 +112,15 @@ target_link_libraries(my_tests PRIVATE GTest::gtest_main)
 **clang-tidy 用法与实测**（完整文件 `examples/ex02-tidy-demo.cpp` + `examples/ex02.clang-tidy`，已验证）：
 
 ```bash
-# 1. 坏版本：触发 4 类规则 5 条告警（已验证，clang-tidy 21.1.8）
+# 1. 坏版本（默认，无宏）编译 + 运行：编译器自带 1 条 -Wrange-loop-construct（第一道静态分析），
+#    警告不是错误——程序照常跑出结果（已验证：双编译器 -Wall -Wextra 各 1 条警告；该警告属 -Wall，无需额外开关）
+c++ -std=c++20 -Wall -Wextra ex02-tidy-demo.cpp -o /tmp/ph16cpp-ex02-b && /tmp/ph16cpp-ex02-b
+# 2. 坏版本给 clang-tidy：5 条告警（4 类规则，已验证，clang-tidy 21.1.8）
 /opt/homebrew/opt/llvm/bin/clang-tidy -quiet ex02-tidy-demo.cpp --config-file=ex02.clang-tidy -- -std=c++20
-# 2. 修复版：零告警（-DEX02_FIXED）
+# 3. 修复版 clang-tidy：零告警（-DEX02_FIXED）
 /opt/homebrew/opt/llvm/bin/clang-tidy -quiet ex02-tidy-demo.cpp --config-file=ex02.clang-tidy -- -std=c++20 -DEX02_FIXED
+# 4. 修复版编译 + 运行：双编译器零警告（已验证）
+c++ -std=c++20 -Wall -Wextra -DEX02_FIXED ex02-tidy-demo.cpp -o /tmp/ph16cpp-ex02-f && /tmp/ph16cpp-ex02-f
 ```
 
 实测告警（坏版本）：`cppcoreguidelines-special-member-functions`（自定义析构却没配拷贝/移动，对应 C.21）、`modernize-use-override`（重写虚函数未标 override，C.128）、`modernize-use-nullptr`（用了 NULL，ES.47，2 处）、`performance-for-range-copy`（范围 for 按值拷贝 string）。**教学点**：这份坏代码编译时编译器自己报 1 条 `-Wrange-loop-construct`——编译器告警是第一道静态分析，clang-tidy 是规则更多、可配置的第二道。
@@ -176,6 +182,53 @@ ReflowComments: false         # 不重排注释（保护文件头的验证说明
 
 三条使用纪律：① `.clang-format` 放仓库根目录，不带 `--style` 时 clang-format 自动拾取；② CI 用 `--dry-run --Werror` 做**门禁**（只查不改），本地用 `-i` 落盘；③ 只格式化改动行用 `git-clang-format`（Homebrew LLVM 自带），老仓库整体重排会产生一次巨型 diff。
 
+**包含排序：`SortIncludes` 与 `IncludeBlocks`**（21.1.8 实测）——`#include` 默认按字典序重排（`SortIncludes` 开）：`<vector>` / `<algorithm>` / `<cstdio>` 会被排成 `<algorithm>` / `<cstdio>` / `<vector>`（ex03-messy 的三行乱序 include 格式化后即此结果）。块怎么分由 `IncludeBlocks` 决定：
+
+| 取值 | 行为 | 谁默认用 |
+|------|------|---------|
+| `Preserve` | 保留现有空行分组，只在组内排序 | LLVM / Chromium / Mozilla / WebKit 基底 |
+| `Merge` | 合并成单个块再整体排序 | 手动启用 |
+| `Regroup` | 按 `IncludeCategories` 重分组（主头文件最前、再系统头）后排序 | Google 基底 |
+
+**局部格式化：`--lines` 与 `git-clang-format`**
+
+```bash
+# 1. 只格式化 120~140 行（1-based；可写多个 --lines=起:止 段；只能处理单个文件）
+clang-format --style=file --lines=120:140 -i src/foo.cpp
+# 2. git-clang-format：只格式化「相对某提交的改动行」——落地大 PR / 老仓库改造防巨型 diff
+git-clang-format          # 默认相对 HEAD，就地重排工作区改动行
+git-clang-format main     # 相对 main：只碰本分支动过的行
+git-clang-format --diff   # 只打印 diff 预览，不落盘
+```
+
+实测（21.1.8）：`--lines=6:6` 只重排第 6 行所在的函数体（同作用域的语句会连带微调），其他函数原样不动——它按逻辑语句而非物理行判定，适合「刚写的一小片代码」快速落格式；仓库级门禁仍是全量 `--dry-run --Werror`。`git-clang-format` 补上纪律③的场景：老仓库整体重排会污染 review diff 与 git blame，只让「本次改动行」走格式，diff 干净。
+
+**与编辑器/IDE 集成**：VS Code 的 C/C++（ms-vscode）与 clangd 扩展、CLion 都原生读 `.clang-format`（format on save 即 `-i` 语义）；Vim/Emacs 用 LLVM 自带的 `clang-format.py` / `clang-format.el`。入口再多配置只有一份——不带 `--style` 时都自动找仓库根的 `.clang-format`，**终端 / CI / IDE 三处同源**，这就是「格式不靠争论」的落地形态。
+
+**五基底取舍（`BasedOnStyle`）与常用覆盖项**（表值为 clang-format 21.1.8 `--dump-config` 实测；ex03 = LLVM 基底 + 4 条覆盖，正是「取基底再微调」的样板）：
+
+| 基底 | 缩进/行宽 | 指针对齐 | 花括号 | 气质/适用 |
+|------|----------|----------|--------|-----------|
+| LLVM | 2 / 80 | `Right`（int *p） | Attach 同行 | 最中立，LLVM 自家风格；无历史包袱的默认起步 |
+| Google | 2 / 80 | `Left`（int* p） | Attach | Google C++ 指南落地；IncludeBlocks 直接 Regroup |
+| Chromium | 2 / 80 | Left | Attach | Google 近亲：短函数 Inline、换行更克制 |
+| Mozilla | 2 / 80 | Left | Mozilla（函数体另起） | Mozilla 项目风格 |
+| WebKit | 4 / 0（不限宽） | Left | WebKit（全部另起） | WebKit 风格：4 空格 + 花括号全换行 |
+
+| 常用覆盖项 | 默认 | 控制什么 | ex03 取值 |
+|------------|------|----------|-----------|
+| `IndentWidth` / `ColumnLimit` | 2 / 80 | 缩进空格数 / 行宽上限 | 4 / 100 |
+| `PointerAlignment` | 依基底（LLVM 为 Right） | 星号贴类型还是贴变量 | Left |
+| `BreakBeforeBraces` | Attach | 花括号挂行尾还是另起一行 | （默认） |
+| `AlignConsecutiveAssignments` | 关 | 相邻赋值的 `=` 是否竖排对齐 | （默认关） |
+| `AllowShortFunctionsOnASingleLine` | All | 短函数可否并成一行 | None（diff 友好） |
+| `SortIncludes` / `IncludeBlocks` | 开 / Preserve | 见上「包含排序」 | （默认） |
+| `ReflowComments` | Always | 长注释段落自动折行 | false（保护验证说明） |
+
+> `AlignConsecutiveAssignments` 等对齐类选项在新版 clang-format 是对象型：写作 `AlignConsecutiveAssignments: {Enabled: true}`（旧布尔写法 21.1.8 实测仍接受）。
+
+**两个反例区**（21.1.8 实测）：① **注释会被重排**——默认 `ReflowComments: Always` 把超长 `//` 注释按 ColumnLimit 折行：文件头里的一行编译命令会被拆成三行、没法再整行复制粘贴，所以 ex03 显式关掉它；② **宏会被重排**——`#define` 多行续行（`\`）的缩进与反斜杠对齐会被重排，普通宏无妨，`__VA_ARGS__` / `##` 拼接的复杂宏建议外包 `// clang-format off` … `// clang-format on` 原样保留（实测 off/on 区间的乱格式原样不动）。反向提醒：clang-format 只动排版不动语义，`-i` 批量落盘后跑一次构建是底线。
+
 ### 3.4 Sanitizer 工程化：同一份源码 × 四种构建
 
 ph15 已实测「每种 UB 该用哪个工具抓」：vector/std::array 越界与 UAF/双删靠 **ASan**，C 数组越界/未对齐/空指针靠 **UBSan**，数据竞争靠 **TSan**（TSan 适合发现数据竞争，roadmap 必会概念）。本阶段把它工程化成**构建矩阵**（完整示例 `examples/ex04-sanitizer-matrix/`，已验证）：
@@ -227,9 +280,30 @@ llvm-cov report /tmp/test_cov -instr-profile=/tmp/cov.profdata     # 汇总表
 llvm-cov show /tmp/test_cov -instr-profile=/tmp/cov.profdata       # 逐行计数
 ```
 
-实测报告（被测 `grade.h` 分支全覆盖）：`grade.h` 行/区域覆盖 **100%**，`test_main.cpp` 区域 73.33%——缺口全在「失败打印」分支（只有测试失败才执行），TOTAL 86.67%。**覆盖率的价值是发现没测到的路，不是追 100% 的数字**：失败处理分支盖不到是健康的，反过来为凑数字写「只调用不断言」的测试是自欺欺人。工具链注意：profraw 格式版本与 llvm-cov 版本要匹配——同用 Homebrew LLVM 21.1.8 最稳（Apple clang 21.0.0 生成的 profraw 实测也能被读，但别赌跨大版本）。
+实测报告（llvm-cov 21.1.8 的 `report` 默认同时出行/区域/分支三列，数字见下）：`grade.h` 行/区域覆盖 **100%**、分支 90%，`test_main.cpp` 行 79.31% / 区域 73.33% / 分支 50%——行与区域缺口全在「失败打印」分支（只有测试失败才执行），TOTAL 行 86.36% / 区域 86.67% / 分支 72.22%。**覆盖率的价值是发现没测到的路，不是追 100% 的数字**：失败处理分支盖不到是健康的，反过来为凑数字写「只调用不断言」的测试是自欺欺人。工具链注意：profraw 格式版本与 llvm-cov 版本要匹配——同用 Homebrew LLVM 21.1.8 最稳（Apple clang 21.0.0 生成的 profraw 实测也能被读，但别赌跨大版本）。
 
 gcov 路线本机实测（Apple clang）：`c++ --coverage` **分两步编译**（先 `-c` 再链接——一把梭生成的 `.gcno` 文件名带输出前缀、gcov 找不到），`gcov -n test_main.cpp` 报行覆盖 78.57%。`lcov`/`genhtml` 本机未安装（未在本环境验证），Linux CI 用法：`lcov --capture --directory build --output-file cov.info && genhtml cov.info -o html`（见 ex06）。
+
+**行 / 区域 / 分支三类覆盖率的语义差别**（上面的实测数字就是 ex05 三列同出）：
+
+| 覆盖类型 | 计数器挂在哪 | 回答的问题 | 粒度 / 成本 |
+|----------|--------------|------------|-------------|
+| 行覆盖 Line | 语句所在行 | 「这行代码执行过没有」 | 最粗 / 最便宜 |
+| 区域覆盖 Region | 源码区域（条件、合流切出的连续区间） | 「这段区间走没走过」 | 中 |
+| 分支覆盖 Branch | 每个条件的两侧（真/假、`&&`/`\|\|` 的各操作数） | 「每条路都验证过吗」 | 最细 / 最贵 |
+
+gcov 路线默认只出行覆盖，`gcov -b` 才补分支；lcov 聚合出的 HTML 默认也不含分支（genhtml 需 `--branch-coverage`）——想看分支，gcov 系要显式开，本机 llvm-cov 21.1.8 的 `report` 默认直接给（见上实测）。
+
+**为什么「行盖到了、分支没盖到」**：行覆盖只问「执行过没有」——一行代码里藏着多个条件时，行 100% 不代表每条路都验证过。ex05 的 grade.h 就是活例（实测 `llvm-cov show --show-branches=count` 的逐条件输出）：
+
+```text
+grade.h:12  if (score < 0 || score > 100) {      ← 9 次调用都执行了这行（行/区域 100%）
+    Branch (12:9)  score < 0   [True: 0, False: 9]   ← 真半边一次都没发生过
+    Branch (12:22) score > 100 [True: 1, False: 8]   ← 非法输入全靠这一侧进入
+所有测试分数都 ≥ 0 → score<0 永不成立：行覆盖看不出，分支覆盖现原形（grade.h 分支 90%）
+```
+
+读分支缺口先问**业务含义**再决定动作：`score<0` 半边是「没测到的输入类」→ 补一个负分用例就满；失败打印分支是「故意不触发」→ 接受（见上）。三类覆盖从粗到细，多花的成本都花在「更早发现漏测的路」上。
 
 ### 3.6 CI 集成：把闭环钉死在每次提交
 
@@ -245,6 +319,98 @@ PR/push
 
 四个 job 的退出码语义完全一致——**任何一道闸门非零退出，PR 即红**。Makefile 的 `make check`（本阶段 project/）与 CI 的 job 是同一份逻辑的两种载体：本地一键全跑，CI 拆开并行。GitHub Actions 之外，GitLab CI（`.gitlab-ci.yml`）、Jenkins（`Jenkinsfile`）思路相同，都是「流水线即代码」。
 
+**GitHub Actions 关键语法走读**（对照 `ex06-ci/github-actions.yml`；以下为云端行为，均未在本环境验证）：
+
+```yaml
+on:                          # 触发（ex06 只用了前两个）
+  push: { branches: [main] } # push 限分支
+  pull_request:              # 任何 PR（含 fork PR）
+  schedule:                  # 定时 cron：只对默认分支生效，最小粒度 5 分钟
+    - cron: '0 2 * * *'      # 每天 UTC 02:00 夜间全量重跑（最慢的 Sanitizer+覆盖率放夜里）
+  workflow_dispatch:         # 手动触发按钮
+
+jobs:
+  test-matrix:
+    strategy:
+      matrix:                # os × cxx × build_type = 2×2×2 = 8 个并行组合，各自独立红/绿
+        os: [ubuntu-latest, macos-latest]
+        cxx: [g++, clang++]
+        build_type: [Debug, Release]
+    runs-on: ${{ matrix.os }}        # ${{ matrix.* }} 取当前组合的值
+    steps:
+      - run: cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+             -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
+      - run: cmake --build build -j && ctest --test-dir build --output-on-failure
+
+  gate:                      # needs：聚合门禁——四道闸门全绿它才绿（ex06 未写，落地时加上）
+    needs: [format, tidy, test-matrix, sanitizer-coverage]
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "四道闸门全过"
+```
+
+要点：① job 默认**并行且无序**（ex06 四个 job 同时起跑）——「快刀在前」靠廉价 job 秒级失败的早反馈实现，不是执行顺序；要严格「格式过了才跑矩阵」就加 `needs:`，代价是整体反馈变慢；② matrix 一个组合失败只红它自己，不杀兄弟组合；③ 产物跨 job 传递用 `actions/upload-artifact`（ex06 末尾把 coverage-html 传上去，下载方用 `actions/download-artifact`），artifact 默认保留 90 天（`retention-days` 可调）。
+
+**`ctest` 与 Makefile `make check`：两种载体的切换点**
+
+| 载体 | 用例怎么登记 | 调用方式 | 谁在用 |
+|------|-------------|----------|--------|
+| Makefile `make check` | target 依赖把「编译 + 运行」串成一条链 | `make check`（退出码即结果） | 本阶段 examples/project（无 CMake 的轻量示例） |
+| CTest | CMake `enable_testing()` + `add_test(NAME … COMMAND …)`（或 gtest_discover_tests 自动发现） | `ctest --test-dir build --output-on-failure` | ex06 模板（CMake 工程） |
+
+切换点就是**工程有没有 CMake**：有 → 构建与测试都交给 CMake/CTest（`-j` 并行、失败摘要、免进目录）；没有 → Makefile `check` target 足够。两条路共享同一语义：**退出码即信号**——project/ 的 `make check` 与 CI 的 `ctest` 是同一道闸门的两种外壳。
+
+**覆盖率阈值 fail 的落地写法**（加在覆盖率 job 末尾；未在本环境验证）：
+
+```bash
+# 1. gcov/lcov 路线：genhtml 自带阈值开关（lcov 1.14+），低于即非零退出
+genhtml coverage.info --output-directory coverage-html \
+  --branch-coverage --fail-under-lines 90 --fail-under-branches 80
+# 2. llvm-cov 路线简易门禁：解析 TOTAL 行的区域覆盖列（21.1.8 在第 4 列，列序随版本会变，先 report 确认）
+llvm-cov report build/test_cov -instr-profile=cov.profdata |
+  awk '$1 == "TOTAL" { if ($4 + 0 < 90) { print "区域覆盖不足:", $4; exit 1 } }'
+```
+
+**ccache 缓存与 nightly cron**（模板片段，未在本环境验证）：
+
+```yaml
+      # matrix 8 组合 × 夜间 cron = 大量重复编译；ccache 跨 job/跨提交复用对象缓存
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache            # Linux；macOS 是 ~/Library/Caches/ccache
+          key: ccache-${{ runner.os }}-${{ matrix.cxx }}-${{ hashFiles('**/CMakeLists.txt') }}
+      - run: |
+          echo "CCACHE_DIR=$HOME/.cache/ccache" >> "$GITHUB_ENV"
+          cmake -B build -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+```
+
+**GitLab CI / Jenkins 对照**（GitLab 为例，与 ex06 逐行对照；语法以 GitLab 文档为准，未在本环境验证）：
+
+| GitHub Actions（ex06） | GitLab CI（`.gitlab-ci.yml`） |
+|---|---|
+| `jobs:`（并行无序）+ `needs:` | `stages:`（有序，同 stage 内并行）+ `needs:`（13.4+ 可跳阶段序） |
+| `on: push / pull_request` | `rules: if: $CI_PIPELINE_SOURCE == "push" / "merge_request_event"` |
+| `on: schedule` | 项目 CI/CD → Schedules 定时触发 |
+| `strategy.matrix` | `parallel: matrix`（13.3+） |
+| `runs-on: ubuntu-latest` | `image: ubuntu:24.04`（跑在 runner 容器里） |
+| `actions/upload-artifact` | `artifacts: paths:`（自动传给后续 stage，`expire_in` 控保留） |
+| `actions/cache` | `cache: key: … paths: …` |
+
+```yaml
+# .gitlab-ci.yml 骨架（与上表对照；未在本环境验证）
+stages: [format, tidy, test, sanitize]
+test:
+  stage: test
+  image: ubuntu:24.04
+  parallel: matrix:            # 对应 GitHub 的 strategy.matrix
+    - CXX: [g++, clang++]
+  script:
+    - cmake -B build -DCMAKE_CXX_COMPILER=$CXX
+    - cmake --build build -j && ctest --test-dir build --output-on-failure
+```
+
+Jenkins 是同一思路的老前辈（declarative `Jenkinsfile`：`stage` 顺序 + `matrix` 轴 + `archiveArtifacts` 收产物）；GitHub/GitLab 把「配置入仓库 + runner 托管」做成了开箱体验（演进见第 2 节：Jenkins 2011 → GitHub Actions 2019）。
+
 ## 4. 底层原理
 
 ### 4.1 测试金字塔：为什么单元测试是底座
@@ -252,12 +418,12 @@ PR/push
 测试按「范围 vs 成本」分层——越往上越接近真实、越慢越脆：
 
 ```text
-        ▲ 少量          ┌────────────┐                                           全链路，分钟~小时级，脆（环境依赖）
-        │               │  E2E 测试  │                                           全链路，分钟~小时级，脆（环境依赖）
+        ▲ 少量          ┌────────────┐
+        │               │  E2E 测试  │                                     ← 全链路，分钟~小时级，脆（环境依赖）
         │             ┌─┴────────────┴─┐
-   数量 │             │    集成测试    │                                           模块协作（roadmap 必会概念），秒~分钟级
+   数量 │             │    集成测试    │                                     ← 模块协作（roadmap 必会概念），秒~分钟级
         │           ┌─┴────────────────┴─┐
-        │           │      单元测试      │                                           稳定逻辑（roadmap 必会概念），毫秒级
+        │           │      单元测试      │                                     ← 稳定逻辑（roadmap 必会概念），毫秒级
         ▼ 大量      └────────────────────┘
                  越往下：越快、越稳、定位越准
 ```
@@ -284,7 +450,7 @@ clang-tidy 的检查器工作在编译器前端的数据结构上（所以它需
 
 **为什么配置里要 `HeaderFilterRegex`**：clang-tidy 分析时会把 `#include` 的头文件一并展开进 AST，但诊断默认只显示**主文件**里的（`HeaderFilterRegex: ''`——`ex02` 的 5 条用户告警全在主文件，本机实测）；把过滤器放宽成匹配自研头的正则后，头文件里的告警才会一起显示（用 /tmp 下的临时探针文件实测：头文件 `myhdr.h` 里的 `NULL` 用法过滤前不报、`HeaderFilterRegex: 'myhdr\.h'` 后报出）。libc++ 等系统头 clang-tidy 默认不产生诊断（实测 `ex02` 展开的 `<string>`/`<vector>` 零头文件告警）——过滤器的意义是把检查范围圈定在自有代码（如 project 的 `'stl_utils\.h'`），避免工程里每个头都开查时诊断量失控、把主文件的告警淹没。
 
-### 4.3 Sanitizer 与覆盖率的插桩原理（简述）
+### 4.3 Sanitizer 与覆盖率的插桩原理
 
 两者都是**编译期插桩**：编译器在生成代码时嵌入探针，运行时探针汇报。
 
@@ -292,6 +458,32 @@ clang-tidy 的检查器工作在编译器前端的数据结构上（所以它需
 - **UBSan**：在 UB 可疑点（越界下标、未对齐访问、溢出）插入条件检查，命中即报（`-fno-sanitize-recover=all` 让它命中即中止而非继续）；
 - **TSan**：为每次内存访问记录「哪个线程、有无同步边」，在线检测 happens-before 缺失（ph15 4.4）；
 - **覆盖率**：gcov 路线在基本块边插计数器（优化后边与源码行的对应会漂移，所以失真）；llvm-cov 路线同时记录**源码区域映射**（`-fcoverage-mapping`）——计数器直接挂在「第 N 行第 M 列起止的区域」上，报告逐区域精确。
+
+**ASan 的 shadow memory 布局**：ASan 在编译期为每次堆/栈分配在对象**两侧**多开一圈红区（不可寻址守卫），运行时维护一张 1:8 的影子表回答「这块内存能不能碰」——`malloc(8)` 在 ASan 下的真实形状（p 是返回给用户的首地址）：
+
+```text
+堆内存：   ┌──────────┬──────────┬──────────┐
+          │  左红区    │ 8B 用户区  │  右红区    │   ← 对象两侧各垫一段不可寻址红区（大小运行时配）
+          └──────────┴──────────┴──────────┘
+影子内存：   0xfa        0x00        0xfb        ← 每 8B 应用内存 ↔ 1B 影子（影子地址 ≈ 应用地址 >> 3）
+访问 p[2]（越界 4B 写）→ 先查影子命中 0xfb → 立即报 heap-buffer-overflow（ph15 3.1 的实测）
+free(p) 后整块标 0xfd（freed，隔离期）→ 再访问报 heap-use-after-free（ph15 3.3 的实测）
+```
+
+影子字节值是运行时固定的魔法字节：0xfa 堆左红区 / 0xfb 堆右红区 / 0xfd 已释放 / 0xf1、0xf3 栈左、右红区 / 0xf9 全局红区；0x00~0x07 表示 8B 组内部分可寻址的碎区（对象尾巴不满 8B 的残段）。读报告认**错误类型名**（`heap-buffer-overflow` vs `stack-buffer-overflow`）即可，不必背值——1:8 的缩放正是 ASan「约 1/8 内存开销」的来源。对照：TSan 的 shadow 记录「每个地址最近由哪个线程、带没带同步边访问」（ph15 4.4），UBSan 无 shadow——条件检查就地插入。
+
+**gcov 边计数 vs llvm-cov 区域计数：为什么优化后 gcov 失真**：
+
+```text
+同一条循环源码，两种插桩的「计数器挂点」不同：
+gcov：     源码 ──▶ 基本块**边**（控制流转移）上插计数器
+           -O0：边与源码行近似一一对应 → 行覆盖可读
+           -O2：循环展开/合并/内联 → 边与行的映射漂移，「某行没执行」可能只是「边被优化没了」
+llvm-cov： 源码 ──▶ -fcoverage-mapping 把计数器直接绑到「源码区域（行:列起止）」上
+           优化只改 IR，区域↔源码位置的绑定由编译期元数据固定 → 报告不随优化级别漂移
+```
+
+所以 llvm-cov 的区域覆盖在 `-O1`/`-O2` 下仍能给出稳定的缺口定位；ex05 用 `-O0 -g` 只为逐行视图最好读（对应 3.5 的两条路线对照）。
 
 ## 5. 使用场景
 

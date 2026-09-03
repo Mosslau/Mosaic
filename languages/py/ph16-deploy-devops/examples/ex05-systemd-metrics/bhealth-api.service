@@ -24,7 +24,7 @@ WorkingDirectory=/opt/bhealth-api
 EnvironmentFile=-/etc/bhealth-api.env
 # 生产形态：多进程由 --workers 承担；不要 --reload（那是开发功能）
 ExecStart=/opt/bhealth-api/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2
-# 进程看护：异常退出 3s 后拉起（StartLimitBurst 默认防爆拉）；被 SIGTERM 停止属正常（103=128+15 之外这里指信号语义，systemd 默认认 SIGTERM 为干净退出）
+# 进程看护：异常退出（非零退出码/异常信号）3s 后拉起；systemd 自己发起的 SIGTERM 停止属正常，不触发 on-failure 重启
 Restart=on-failure
 RestartSec=3
 # 日志：应用写 stdout/stderr，systemd 收进 journald（journalctl -u 查看）

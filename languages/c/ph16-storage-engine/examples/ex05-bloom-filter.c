@@ -11,8 +11,8 @@
  *   - 只能插不能删（删一个位会误伤其他 key）——LSM 里随 SSTable 重建, 无需删
  */
 // 验证环境：Apple clang 21.0.0（cc），macOS（Darwin arm64）
-// 编译：mkdir -p /tmp/ph16c-ex && cc -Wall -Wextra -std=c11 ex05-bloom-filter.c -o /tmp/ph16c-ex/ex05
-// 运行：/tmp/ph16c-ex/ex05（无外部产物, 退出码 0）
+// 编译：mkdir -p /tmp/ph16c-ex && cc -Wall -Wextra -std=c11 ex05-bloom-filter.c -o /tmp/ph16c-ex/ex05 -lm
+// 运行：/tmp/ph16c-ex/ex05（无外部产物, 退出码 0; 用到 exp 等 math 函数, 编译必须带 -lm）
 // 验证状态：已验证（零警告; 误判率为实测, 键序列确定故每次运行结果相同, 见 README）
 #include <math.h>
 #include <stdint.h>

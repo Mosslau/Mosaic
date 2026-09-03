@@ -25,6 +25,8 @@
 //	$ /tmp/ph16/sol04-pgo    → p50=0.917µs p95=2.21µs p99=3.75µs  吞吐 ≈955k req/s  digest=687c9e21f5b4886c
 //	                          p50 快约 1.8×、吞吐高约 1.6×（PGO 去虚拟化到 (*mulCodec).Mix，
 //	                          决策行：PGO devirtualizing interface call c.Mix to (*mulCodec).Mix）
+//	                          注：p99 3.25→3.75µs 微升属尾部离群/负载分布效应（±10~20%
+//	                          波动内），主要收益在 p50 与吞吐——不误读为"PGO 变差"
 //	digest 相同 = 优化只改性能不改语义；单次运行有 ±10~20% 抖动（本机一次基线 448k req/s
 //	的离群来自系统负载），对比结论取多次运行的方向与量级
 //

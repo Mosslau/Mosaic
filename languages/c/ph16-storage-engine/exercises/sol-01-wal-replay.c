@@ -142,7 +142,10 @@ static int wal_replay(const char *path, int *puts, int *dels, long *torn_at,
         if (got != WAL_HDR) { *torn_at = off; fclose(f); return got == 0 ? 0 : 1; }
         uint8_t type = hdr[4];
         uint32_t klen = get32(hdr + 5), vlen = get32(hdr + 9);
-        if (get32(hdr) != WAL_MAGIC || klen > WAL_MAXKV || vlen > WAL_MAXKV) {
+        /* 长度上限必须联合校验: payload 缓冲只留 WAL_MAXKV+4 字节, 若 klen/vlen
+         * 各接近 WAL_MAXKV 而只查单项, fread 会越界写坏缓冲——单项 + 合计双保险 */
+        if (get32(hdr) != WAL_MAGIC || klen > WAL_MAXKV || vlen > WAL_MAXKV ||
+            klen + vlen > WAL_MAXKV) {
             *torn_at = off; fclose(f); return 1;
         }
         if (fread(payload, 1, (size_t)klen + vlen + 4, f) != (size_t)klen + vlen + 4) {

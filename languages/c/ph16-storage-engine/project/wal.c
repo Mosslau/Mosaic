@@ -80,7 +80,12 @@ wal_end_t wal_replay(const char *path, wal_visit_fn visit, void *ctx,
         }
         uint8_t type = hdr[4];
         uint32_t klen = get32(hdr + 5), vlen = get32(hdr + 9);
-        if (get32(hdr) != WAL_MAGIC || klen > WAL_MAX_KV || vlen > WAL_MAX_KV) {
+        /* 防恶意文件: 除单项上限外, 还要校验单条 klen+vlen 联合上限——
+         * payload 缓冲只有 WAL_MAX_KV+4 字节, 若只查单项, klen/vlen 各接近
+         * WAL_MAX_KV 时下面的 fread 会越过缓冲写坏内存。写路径同款限制
+         * 见 wal_append（单条 key+value ≤ 4 KiB, 远小于此处上限, 合法文件不会误伤） */
+        if (get32(hdr) != WAL_MAGIC || klen > WAL_MAX_KV || vlen > WAL_MAX_KV ||
+            klen + vlen > WAL_MAX_KV) {
             *torn_at = off;
             fclose(f);
             return WAL_END_TORN;

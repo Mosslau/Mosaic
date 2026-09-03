@@ -4,7 +4,7 @@
 
 ## 1. 概述
 
-Rust Edition、工具链与版本管理阶段对应 roadmap 第 16 节，目标是**能管理 Rust 版本、Edition 和项目工具链，保证团队环境一致**。具体定位是：**用 rustup 管理多条工具链（install/default/override），分清 stable/beta/nightly 三个发布通道，理解 Edition（2015/2018/2021/2024）是「crate 级的语法语义开关」而非编译器版本，用 `cargo fix --edition` 实测一次 2015→2024 的迁移，用 rust-toolchain.toml 把工具链钉进仓库，用 Cargo.lock + `rust-version`（MSRV）+ resolver v3 把「依赖选谁」也变得可复现**。本阶段承接 ph06 模块化与 Cargo 阶段（Cargo.toml/cargo build 的基础用法，那里已预告「Cargo.lock 策略 ph16 展开」）、ph15 宏与元编程阶段（「宏展开由工具链驱动」——cargo-expand 的底层 `-Zunpretty=expanded` 是 nightly 特性，edition 决定宏/路径/借用规则按哪套规则编译）；并为 ph17 Crate 生态选择与常用库阶段（选 crate 要看它的 rust-version 与维护活跃度）、ph21 Clippy、rustfmt、CI 与代码质量阶段（CI 深度设计）、ph24 安全、供应链与发布阶段（cargo audit/deny）提供版本治理的地基。
+Rust Edition、工具链与版本管理阶段对应 roadmap 第 16 节，目标是**能管理 Rust 版本、Edition 和项目工具链，保证团队环境一致**。具体定位分两层：**先建立工具链与通道认知——用 rustup 管理多条工具链（install/default/override），分清 stable/beta/nightly 三个发布通道，理解 Edition（2015/2018/2021/2024）是「crate 级的语法语义开关」而非编译器版本**。**再把版本治理落到工程——用 `cargo fix --edition` 实测一次 2015→2024 的迁移，用 rust-toolchain.toml 把工具链钉进仓库，用 Cargo.lock + `rust-version`（MSRV）+ resolver v3 把「依赖选谁」也变得可复现**。本阶段承接 ph06 模块化与 Cargo 阶段（Cargo.toml/cargo build 的基础用法，那里已预告「Cargo.lock 策略 ph16 展开」）、ph15 宏与元编程阶段（「宏展开由工具链驱动」——cargo-expand 的底层 `-Zunpretty=expanded` 是 nightly 特性，edition 决定宏/路径/借用规则按哪套规则编译）；并为 ph17 Crate 生态选择与常用库阶段（选 crate 要看它的 rust-version 与维护活跃度）、ph21 Clippy、rustfmt、CI 与代码质量阶段（CI 深度设计）、ph24 安全、供应链与发布阶段（cargo audit/deny）提供版本治理的地基。
 
 | 核心维度 | 覆盖内容 |
 |----------|---------|
@@ -16,11 +16,11 @@ Rust Edition、工具链与版本管理阶段对应 roadmap 第 16 节，目标�
 | MSRV | rust-version 声明、resolver v3 的 MSRV 感知（实测）、依赖 MSRV 检查（3.6） |
 | 底层原理 | 同一编译器按 edition 切换语义的实现、lint 迁移机制、resolver 版本选择（4） |
 
-这个阶段只涉及 rustup 工具链管理、发布通道、Edition 机制与迁移、rust-toolchain.toml、Cargo.lock 与 MSRV 的版本治理，**不涉及 Cargo 的基础用法（cargo new/build/test、工作区组织——属于 ph06 模块化与 Cargo 阶段）、clippy/rustfmt 的规则细节与 CI 流水线设计本身（属于 ph21 Clippy、rustfmt、CI 与代码质量阶段，本阶段只把它们当「团队约定」配置进模板）、crate 选型与依赖审计（属于 ph17 Crate 生态选择与常用库阶段与 ph24 安全、供应链与发布阶段）**。承接 [ph06 模块化与 Cargo 阶段](../ph06-cargo-module/06-cargo-module.md)：那里承诺「Cargo.lock 策略 ph16 展开」，本阶段 3.5 兑现；承接 [ph15 宏与元编程阶段](../ph15-macros-metaprogramming/15-macros-metaprogramming.md)：宏展开产物按哪个 edition 的语义检查，正是本阶段的主题。
+这个阶段只涉及 rustup 工具链管理、发布通道、Edition 机制与迁移、rust-toolchain.toml、Cargo.lock 与 MSRV 的版本治理，**不涉及 Cargo 的基础用法（cargo new/build/test、工作区组织——属于 ph06 模块化与 Cargo 阶段）、clippy/rustfmt 的规则细节与 CI 流水线设计本身（属于 ph21 Clippy、rustfmt、CI 与代码质量阶段，本阶段只把它们当「团队约定」配置进模板）、crate 选型与依赖审计（属于 [ph17 Crate 生态选择与常用库阶段](../ph17-crate-ecosystem/17-crate-ecosystem.md) 与 ph24 安全、供应链与发布阶段）**。承接 [ph06 模块化与 Cargo 阶段](../ph06-cargo-module/06-cargo-module.md)：那里承诺「Cargo.lock 策略 ph16 展开」，本阶段 3.5 兑现；承接 [ph15 宏与元编程阶段](../ph15-macros-metaprogramming/15-macros-metaprogramming.md)：宏展开产物按哪个 edition 的语义检查，正是本阶段的主题（3.3 末尾「宏与 edition」小节兑现）。
 
 ## 2. 来源与演变
 
-Rust 自 1.0（2015-05-15）起就承诺**稳定版永不破坏兼容**——但语言要进化，有些改进天生是破坏性语法变化（比如把 `dyn`/`async` 变成关键字、改革模块路径）。两难在 2016~2017 年的「epoch」RFC（RFC 2052）中解决：**Edition 机制**——同一个编译器携带多套表层语义，每个 crate 在自己的 `Cargo.toml` 里声明用哪套；不同 edition 的 crate 可以在同一个依赖图里混编链接。设计哲学一句话加粗：**「语言可以大步进化，生态不许分裂——Edition 是给语法变化装上开关，让老代码永远能和新代码一起编译」**。2018-12-06 Rust 1.31 发布首个新 edition「Rust 2018」。版本管理侧，rustup 1.0 发布于 2016 年（前身是社区脚本 multirust），随后成为官方安装与工具链管理器。
+Rust 自 1.0（2015-05-15）起就承诺**稳定版永不破坏兼容**——但语言要进化，有些改进天生是破坏性语法变化（比如把 `dyn`/`async` 变成关键字、改革模块路径）。两难在 2016~2017 年的「epoch」RFC（RFC 2052）中解决：**Edition 机制**——同一个编译器携带多套表层语义，每个 crate 在自己的 `Cargo.toml` 里声明用哪套；不同 edition 的 crate 可以在同一个依赖图里混编链接。设计哲学一句话加粗：**「语言可以大步进化，生态不许分裂——Edition 是给语法变化装上开关，让老代码永远能和新代码一起编译」**。2018-12-06 Rust 1.31 发布首个新 edition「Rust 2018」。版本管理侧，rustup 自 2016 年前后随 Rust 生态成熟（前身是社区脚本 multirust），随后成为官方安装与工具链管理器——rustup 侧的具体版本与年份为保守估计，以官方 CHANGELOG 为准。
 
 **「Edition 是一组 RFC，不是版本号跳变」**——每次 edition 都由 rust-lang/rfcs 的提案定义，再由某个 stable 编译器「认领」落地（RFC 编号以 rust-lang/rfcs 仓库为准）：
 
@@ -39,15 +39,15 @@ Rust 自 1.0（2015-05-15）起就承诺**稳定版永不破坏兼容**——但
 | 版本/里程碑 | 年份 | 主要变化 |
 |------|------|---------|
 | Rust 1.0 / Edition 2015 | 2015 | 创始 edition；`try!` 宏传播错误、裸 trait object、模块路径以 crate 根为锚 |
-| rustup 1.0 | 2016 | 官方工具链管理器：多工具链并存、组件管理、目录 override |
+| rustup 1.0 | 约 2016 | 官方工具链管理器：多工具链并存、组件管理、目录 override |
 | Rust 2018（1.31，2018-12-06） | 2018 | Edition 机制落地；模块系统改革（`crate::` 路径）、`dyn`/`async`/`try` 关键字化、NLL 借用检查器（NLL 对**所有 edition** 生效、随 1.31 发布——是编译器特性，不是 edition 门控的差异） |
-| rustup 1.23 | 2020 | 新增 `rust-toolchain.toml`（TOML 格式；纯文本 rust-toolchain 文件是更早的形态，两者至今仍并存） |
+| rustup 1.2x | 约 2020 | 新增 `rust-toolchain.toml`（TOML 格式；纯文本 rust-toolchain 文件是更早的形态，两者至今仍并存） |
 | Rust 2021（1.56，2021-10-21） | 2021 | disjoint closure capture、数组 `into_iter` 按值、新 prelude（`TryInto`/`TryFrom`/`FromIterator`）、resolver v2 成默认；同版引入 `rust-version` 字段（MSRV 声明） |
 | Cargo resolver v3 | 2025 | 随 2024 edition 默认启用：**MSRV 感知**的依赖解析（RFC 3537，本阶段 3.6 实测） |
 | Rust 2024（1.85，2025-02-20） | 2025 | `gen` 保留关键字、`unsafe extern` 块强制、impl Trait 生命周期捕获规则收紧、尾表达式临时值作用域调整 |
 | 本环境工具链 | 2025-12 | rustc/cargo 1.92.0 + rustup 1.28.2；cargo-msrv 0.19.3 经 rsproxy 安装实测 |
 
-本文示例以 **Rust 2021 edition / rustc 1.92** 为基线（与 ph10~ph15 全仓库代码层一致：单文件示例统一 `rustc --edition 2021`；2021 是当前生态事实默认，2024 已稳定可演示差异），验证工具链 **rustc/cargo 1.92.0（stable-aarch64-apple-darwin，rustup 1.28.2 管理，2025-12-08 发布，已支持 2024 edition）**。这个阶段的机制（Edition 开关、rustup、锁文件）是 Rust 工程化里最稳定的部分——Edition 一旦发布就永久冻结，你学到的 2018/2021 语义永远不会再变。
+本文示例以 **Rust 2021 edition / rustc 1.92** 为基线（与 ph10~ph17 全仓库代码层一致：单文件示例统一 `rustc --edition 2021`；2021 是当前生态事实默认，2024 已稳定可演示差异），验证工具链 **rustc/cargo 1.92.0（stable-aarch64-apple-darwin，rustup 1.28.2 管理，2025-12-08 发布，已支持 2024 edition）**。这个阶段的机制（Edition 开关、rustup、锁文件）是 Rust 工程化里最稳定的部分——Edition 一旦发布就永久冻结，你学到的 2018/2021 语义永远不会再变。
 
 ## 3. 语法与参数
 
@@ -125,7 +125,7 @@ Rust 用**火车模型（train model）**发版：每 6 周发一个 stable；�
 | `gen` 作变量名 | ✓ | ✓ | ✓ | ✗ | 2024 起 `gen` 是保留关键字（为生成器语法预留） |
 | 裸 `extern "C"` 块 | ✓ | ✓ | ✓ | ✗ | 2024 起必须写 `unsafe extern` |
 
-失败案例的错误原文（实测摘录）：`error[E0382]: borrow of moved value: cfg`（2018 闭包整体捕获）、`error[E0308]: mismatched types — expected i32, found &{integer}`（2018 数组按引用迭代）、`error: expected identifier, found reserved keyword gen`（2024）、`error: extern blocks must be unsafe`（2024）。**同一份代码、同一条 rustc，只因 `--edition` 不同就编译成败不同**——这就是「Edition 是语义开关」最直接的证据。
+失败案例的错误原文（实测摘录）：`error[E0382]: borrow of moved value: cfg`（2018 闭包整体捕获）、`error[E0308]: mismatched types — expected i32, found &{integer}`（2018 数组按引用迭代）、`error: expected identifier, found reserved keyword gen`（2024）、`error: extern blocks must be unsafe`（2024）。**同一份代码、同一条 rustc，只因 `--edition` 不同就编译成败不同**——这就是「Edition 是语义开关」最直接的证据（完整矩阵脚本与输出解读见 §6 示例 2）。
 
 **Edition 各年差异逐条清单**（§2 时间线表的展开版；矩阵 ✓/✗ 与错误原文为 rustc 1.92 实测，其余机制语义以官方 The Rust Edition Guide / 对应 RFC 为准）：
 
@@ -152,6 +152,7 @@ Rust 用**火车模型（train model）**发版：每 6 周发一个 stable；�
 **迁移演练：`cargo fix --edition`**（roadmap 学习内容「Edition 2018/2021/2024」的迁移命令；examples/ex03 全流程实测，cargo 1.92.0）。标准流程是「每升一档 edition：cargo fix → 手工 bump Cargo.toml → cargo fix --edition-idioms → 构建验证」：
 
 ```bash
+# examples/ex03-cargo-fix-migration.sh 流程（每档 edition 重复一次此循环：fix → bump → idioms → 零警告终验）
 # 1. 兼容修复：把「在旧 edition 合法、新 edition 非法」的代码改掉
 cargo fix --edition              # git 仓库外演练加 --allow-no-vcs
 # 2. 手工 bump Cargo.toml 的 edition 字段（实测：cargo fix 不改它！）
@@ -169,7 +170,7 @@ ex03 把一个 2015 crate（`try!` 宏、裸 trait object `Box<Fn>`、变量名 
 | 2018→2021 | `Box<Fn(&str)>` → `Box<dyn Fn(&str)>`（裸 trait object 在 2021 是硬错误） | bump `"2021"`；`r#try!` → `?`（只报 deprecated，cargo fix 不做语义现代化） |
 | 2021→2024 | `let gen` → `let r#gen`（2 fixes；`gen` 成保留关键字） | bump `"2024"` |
 
-> 表里的 `(N fixes)` 是 cargo fix 报告的**修复应用数**，按源码里需要改写的标识符逐个计：ex03 的 2021→2024 一步里 `gen` 出现在 `let gen = 1;` 的绑定与 `println!("gen = {}", gen)` 的参数两处（格式串里的 `"gen"` 是字符串、不用改），所以是 2 fixes；sol-03 的 2015→2018 一步（`try!` 调用、`let async`、`async` 使用共 3 处标识符）报告 3 fixes——修复数 ≈ 受影响的标识符位置数，不是「代码块」数。
+**`(N fixes)` 的读法**：表里的数字是 cargo fix 报告的**修复应用数**，按源码里需要改写的标识符逐个计：ex03 的 2021→2024 一步里 `gen` 出现在 `let gen = 1;` 的绑定与 `println!("gen = {}", gen)` 的参数两处（格式串里的 `"gen"` 是字符串、不用改），所以是 2 fixes；sol-03 的 2015→2018 一步（`try!` 调用、`let async`、`async` 使用共 3 处标识符）报告 3 fixes——修复数 ≈ 受影响的标识符位置数，不是「代码块」数。
 
 三个实测要点（教学增量，都是「文档没明说、实证才看清」的）：
 
@@ -182,6 +183,47 @@ ex03 把一个 2015 crate（`try!` 宏、裸 trait object `Box<Fn>`、变量名 
 > ⚠️ 迁移的逆向问题（2024 代码在 2021 编译器上跑）无解——**Edition 只能升不能降**；团队要升 edition 前先在 CI 加新 edition 的构建矩阵验证。多 edition 混编的细节见第 4 章。
 
 **为什么必须一档一档升、不能 2015 直接跳 2024？** 因为迁移 lint 是按「相邻 edition 对」设计的：`cargo fix --edition` 每次只把代码修到「能在**下一档**编译」，修复集合小到可以人工 review（机制见第 4 章）。直接跳档没有对应的修复集合可应用——ex03/sol-03 里 2015→2024 都要走 2018、2021 两趟中转，就是这个原因。
+
+**宏与 edition：展开产物按谁的 edition 检查**（兑现 §1 承接句与 ph15「下一阶段」的预告：macro_rules! 的跨 edition 行为与 `#[macro_export]` 边界在这里收束）。宏**定义方**与**调用方** edition 不一致时，展开产物按哪边的 edition 做语法检查？答案不是一句话，rustc 1.92 的实测结论是**逐 token 按它来源文件的 edition 判定**（机制以 rustc 官方行为为准，以下为实测口径）。**一句话结论：macro_rules! 在调用处展开，但展开产物里每个 token 的语法判定跟着它的来源走——宏体自带 token 看定义方 edition，调用方写出的 token（实参）看调用方 edition。**
+
+- **宏体里自带的 token**（宏作者写的代码）按**定义方** crate 的 edition 判。实测：一个 edition 2015 的库 `#[macro_export]` 一个宏、宏体写 `let gen = 42`（2015 里 `gen` 是普通标识符），2024 edition 的调用 crate 正常编译运行、输出 `gen = 42`；同样的宏体若定义在 2024 库里，连 2021 的调用方都会报 `error: expected identifier, found reserved keyword 'gen'`（报错定位在宏调用处）。
+- **调用方传入的 token**（宏实参，尤其 `$x:ident` 这类会被展开进标识符位置的）按**调用方** crate 的 edition 判。实测：调用方在 2024 写 `let_var!(gen = 7)`（宏把实参绑成 `let $name = $v;`）报同样的保留字错误，改成 `r#gen` 即过；同样的调用在 2015/2021 调用方里照常编译。
+- hygiene 只保证「同名标识符不互相污染」（ph15 已实测），**不管某个词在语法上是不是保留字**——保留字判定跟着 token 出处走，与 hygiene 是两套独立机制。
+
+| token 来源 | 典型例子 | 保留字判定按谁 |
+|-----------|---------|--------------|
+| 宏体自带的代码 | 宏体里的 `let gen = 42` | 宏**定义方** crate 的 edition（实测：2015 定义→2024 调用照常编译；2024 定义→2021 调用报保留字） |
+| 调用方写出的实参 | `let_var!(gen = 7)` 里的 `gen` | **调用方** crate 的 edition（实测：2024 调用方必须 `r#gen`，2015/2021 调用方裸写即可） |
+
+这解释 ex03/sol-03 迁移里的 `r#try!`/`r#gen` 为什么是那个写法：2018 起 `try`、2024 起 `gen` 在**你自己 crate 的源码里**成为保留字，而宏调用名（`try!`）、变量绑定与传给宏的实参都是你写出的代码——按**调用方 edition**（正在迁移的 edition）判，必须转义（`r#try!`、`let r#gen`、以及会被宏展开到标识符位置的 `gen` 实参同理；ex03 的「2 fixes」= `let gen` 绑定与 `println!` 使用两处标识符，sol-03 的 `let async`→`r#async` 同源）。cargo fix「转义保编译」的本质正是：把**调用方**源码里的标识符改成按调用方 edition 合法的形态——它修的一直是「你正在迁移的 crate 的源码」，所以永远站在调用方视角。
+
+推论（对迁移的实用价值）：升 edition 时**不需要担心依赖宏的内部实现**——依赖仍按它自己声明的 edition 编译，其宏体 token 也按定义方判（上面 2015 老宏体里的 `gen` 在 2024 工程里照常展开即是例证）；真正要检查的是**你自己写出的宏调用与实参**。反过来，若依赖升了新 edition 而你没升，其宏体里用 `r#` 转义的写法（如 `r#gen`）也照常可用——`r#` 转义语法自 rustc 1.30 起在**所有 edition** 都可用，不随 edition 门控。
+
+**`#[macro_export]` 与跨 crate 调用**：`#[macro_export]` 把声明宏导出到**定义 crate 的 crate 根**，其他 crate 才能 `use 定义crate::宏名;` 后按路径调用；不写它时 `macro_rules!` 只在定义处之后的文本作用域可见（跨模块/`#[macro_use]` 等可见性细节属 ph15，这里不展开）。跨 crate 调用的 edition 边界就是上面两条：实参按调用方、宏体按定义方。一个 2015 年代的连带差异：edition 2015 没有 extern prelude，调用方引用任何依赖都要先写 `extern crate 定义crate;`（与是不是宏无关，实测 2015 调用方直接 `use` 报 `error[E0432]: unresolved import`），2018+ 免掉这行。实际工程含义：你的 crate 升 2024 后，传给依赖宏的实参要过一遍新 edition 保留字检查；依赖宏内部只要依赖自己不升 edition，就不受你迁移影响（本段机制均为 rustc 1.92 实测，跨版本行为以 rustc 官方为准）。
+
+想亲手复现上面最反直觉的一条（宏体里的保留字按**定义方** edition 判），零依赖、三条 rustc 命令即可（rustc 1.92 已验证）：
+
+```bash
+# 案例 1：宏体里写 let gen = 42，定义在 2015 crate，2024 调用方编译运行
+cat > lib.rs <<'EOF'
+#[macro_export]
+macro_rules! make_gen {
+    () => {{ let gen = 42; println!("gen = {}", gen); }};
+}
+EOF
+rustc --edition 2015 --crate-type lib --crate-name def2015 lib.rs   # 定义方 2015
+cat > app.rs <<'EOF'
+use def2015::make_gen;
+fn main() { make_gen!(); }
+EOF
+rustc --edition 2024 --extern def2015=./libdef2015.rlib app.rs -o app && ./app
+# 输出 gen = 42 —— 2024 调用方编译 2015 宏体，gen 按定义方 2015 判（普通标识符），照常通过
+
+# 案例 2：同样的宏体改定义在 2024 crate（rustc --edition 2024 重编 lib.rs 为 def2024），
+#         2021 调用方编译即报 error: expected identifier, found reserved keyword 'gen'
+```
+
+两个案例只有「宏定义在哪个 edition 的 crate」不同，调用方行为就相反——这正是「展开产物按 token 来源文件判 edition」最直观的对照。
 
 ### 3.4 rust-toolchain.toml：把工具链钉进仓库
 
@@ -205,6 +247,8 @@ name: stable-aarch64-apple-darwin
 active because: overridden by '<目录>/rust-toolchain.toml'
 ```
 
+（完整文件布局、运行命令与输出解读见 §6 示例 1。）
+
 工具链选择的**优先级**（从高到低，rustup 官方顺序）：`+toolchain` 命令行参数 → `RUSTUP_TOOLCHAIN` 环境变量 → **目录级覆盖**（`rustup override set` 与 `rust-toolchain.toml` 同属这一层：都从当前目录向上逐级查找，**以距当前目录最近者生效**）→ 默认工具链。注意官方把 override 与工具链文件并列、按就近竞争，不是文件永远压过 override——团队把工具链文件 commit 进仓库后，成员本机残留的 `rustup override` 只会作用于它被设置的那个目录及其子树，仓库内以文件为准。前三档均已实测（`RUSTUP_TOOLCHAIN=stable rustc --version`、`rustc +stable --version`、本小节的 `rustup show` overridden by）。
 
 | 优先级 | 机制 | 例子 | 什么时候用 |
@@ -216,7 +260,7 @@ active because: overridden by '<目录>/rust-toolchain.toml'
 
 另两个字段值得知道：`path = "..."`（直接指向一条本地自定义工具链，如自编译的 rustc；与 `channel` 互斥——rustup 官方文法里二者不可同写）与 `profile = "minimal"|"default"|"complete"`（安装粒度；文件里不写时按 `rustup set profile` 设定的当前默认；`components`/`targets` 与 profile 是**叠加**关系——profile 之外的额外组件按 components 列表补装，这就是「缺失时自动补齐」的来源，自动补齐路径在本环境未实测）。
 
-一句话区分 3 档里的两个目录级手段：**`rustup override set` 把选择写进本机的 settings.toml（不进 git，别人 clone 不到），`rust-toolchain.toml` 把选择写进仓库（clone 即生效）**——团队环境一致只可能靠后者，这正是本阶段把它当「团队落地主力」的原因。历史沿革：rustup 1.23（2020）引入 TOML 形态；更早的纯文本 `rust-toolchain`（文件里直接写 `stable`/`nightly-2025-12-08`）至今仍被支持（向后兼容），新项目直接写 `.toml` 形态即可。
+一句话区分 3 档里的两个目录级手段：**`rustup override set` 把选择写进本机的 settings.toml（不进 git，别人 clone 不到），`rust-toolchain.toml` 把选择写进仓库（clone 即生效）**——团队环境一致只可能靠后者，这正是本阶段把它当「团队落地主力」的原因。历史沿革：rustup 约 2020 年（1.2x 时代，具体版本史以 rustup CHANGELOG 为准）引入 TOML 形态；更早的纯文本 `rust-toolchain`（文件里直接写 `stable`/`nightly-2025-12-08`）至今仍被支持（向后兼容），新项目直接写 `.toml` 形态即可。
 
 > ⚠️ 两个坑：① 文件对**进入该目录的所有人**生效——钉精确版本号会让没装该版本的成员触发联网下载（本环境实测：channel 写 `"1.92.0"`/`"1.999.0"` 时 rustup 立即尝试 `syncing channel updates`，沙箱拦截写 `~/.rustup` 而失败）；离线团队要么预装、要么钉已装版本。② 它是「目录级开关」，放进 examples/ 子目录会改变该子树里一切 cargo 调用的工具链——仓库里放几份要克制。
 
@@ -234,7 +278,7 @@ active because: overridden by '<目录>/rust-toolchain.toml'
 | 回退手段 | `cargo update -p itoa --precise 1.0.14`（实测输出 `Downgrading itoa v1.0.18 -> v1.0.14`） | 同左，但影响仅限本地 |
 | CI 守门 | `cargo build --locked`：锁文件与 Cargo.toml 失配即失败 | 一般不用 `--locked`（锁文件本就不进 git） |
 
-实测（examples/ex05）：把 Cargo.toml 的 `itoa = "1"` 改成 `itoa = "=1.0.14"`（与锁里的 1.0.18 失配）后，`cargo build --locked` 报错 `error: the lock file ... needs to be updated but --locked was passed to prevent this`——这就是 CI 防「改了依赖忘了更锁文件」的机制。另一个反直觉点：版本要求失配才触发——改成 `itoa = "1.0.15"`（区间仍含 1.0.18）时 `--locked` 照常通过（实测）。
+实测（examples/ex05）：把 Cargo.toml 的 `itoa = "1"` 改成 `itoa = "=1.0.14"`（与锁里的 1.0.18 失配）后，`cargo build --locked` 报错 `error: the lock file ... needs to be updated but --locked was passed to prevent this`——这就是 CI 防「改了依赖忘了更锁文件」的机制。另一个反直觉点：版本要求失配才触发——改成 `itoa = "1.0.15"`（区间仍含 1.0.18）时 `--locked` 照常通过（实测）（完整脚本与逐条输出解读见 §6 示例 5）。
 
 **锁文件对应用和库的不同意义**（roadmap 必会概念）一句话版：应用是「最终构建者」，锁文件是它的交付物；库是「被构建的零件」，它的锁文件连参考值都算不上——别让你的库把版本选择强加给下游。
 
@@ -265,7 +309,13 @@ active because: overridden by '<目录>/rust-toolchain.toml'
 | `"2"` | edition 2021 的 cargo 工程（1.56 起） | feature 解析精细化：构建脚本/开发依赖/按目标平台分离，避免 feature 串扰 |
 | `"3"` | edition 2024 的 cargo 工程（1.85 起） | = v2 行为 + **MSRV 感知选版**（本阶段 3.6/4 章实测部分） |
 
-注：v1→v2 改的是 feature 合并语义（细节属 ph06/ph17 工程范畴，本阶段不展开）；**v3 相对 v2 才引入 MSRV 感知**——所以 ex04 对照组（edition 2021 = resolver v2）看不到任何 MSRV 行为，只有 2024 那组看得到。这套感知不止作用于锁文件解析：cargo 1.84+ 的 `cargo add` 也会按声明的 MSRV 挑兼容版本（[Rust 1.84 release notes](https://blog.rust-lang.org/2025/01/09/Rust-1.84.0/) 的 `cargo add clap` 示例即此行为），`cargo metadata`/`cargo tree` 等命令同样基于同一套解析结果。另注意：在 Cargo.toml 显式写 `resolver = "3"` 需要 rust-version ≥ 1.84（老 cargo 不认这个值），edition 2024 则自带默认（1.85+ 起），不用你写。
+注：v1→v2 改的是 feature 合并语义（机制细节属 ph06/ph17 工程范畴，本阶段只展开它与 edition 迁移的联动，见下）；**v3 相对 v2 才引入 MSRV 感知**——所以 ex04 对照组（edition 2021 = resolver v2）看不到任何 MSRV 行为，只有 2024 那组看得到。这套感知不止作用于锁文件解析：cargo 1.84+ 的 `cargo add` 也会按声明的 MSRV 挑兼容版本（[Rust 1.84 release notes](https://blog.rust-lang.org/2025/01/09/Rust-1.84.0/) 的 `cargo add clap` 示例即此行为），`cargo metadata`/`cargo tree` 等命令同样基于同一套解析结果。另注意：在 Cargo.toml 显式写 `resolver = "3"` 需要 rust-version ≥ 1.84（老 cargo 不认这个值），edition 2024 则自带默认（1.85+ 起），不用你写。
+
+**迁移 2018→2021 的 resolver 联动：默认会静默从 v1 翻到 v2**。上面表里的「谁的默认」是 cargo 按 edition 自动取的：2015/2018 工程（Cargo.toml 不写 resolver 键）实际跑 v1；**edition 字段一 bump 到 2021（仍不写 resolver 键），默认就翻到 v2**——这是 edition 迁移里唯一不要求手工改、却会改变构建行为的联动。对照 3.3 的 ex03/sol-03：两个演练 crate 零依赖、无 feature，翻不翻完全无感；真项目要把这当一件事验收。
+
+v1→v2 改的是 **feature 统一的边界**：v1 把 dev/build/target-specific 依赖的 feature 跟正常依赖「一锅烩」；v2 把它们隔开——**dev-dependency 与 build-dependency 的 feature 不再参与正常构建的统一，按平台门控（`cfg(target_os = ...)` 之类）的依赖其 feature 也各自解析**。cargo 1.92 实测一个可复现的泄漏现场：应用依赖 `base`（不开 feature），dev-dependency `louder` 依赖 `base` 并开 `features = ["loud"]`——edition 2018（v1）下 `cargo build -vv` 里 `base` 带 `feature="loud"` 编译（dev 依赖的 feature 悄悄漏进正常构建），同样工程 edition 2021（v2）下不再带。**结果：迁移后同样的 `cargo build`，实际启用的 feature 集合可能变了**——不是编译报错，而是「悄悄变」（代码路径、优化、乃至二进制都不同）。
+
+迁移期建议三步走：① `cargo tree -e features` 对比迁移前后实际启用的 feature（注意 `cargo tree` 画的是依赖图上的 feature **边**，编译时真正传给 rustc 的 cfg 才反映统一结果——以 `cargo build -vv` 或构建日志为准）；② 全量 CI（build/test/clippy 各 target）过一遍，别只看「能编译」；③ 想「一次只动一个变量」，可以在**不升 edition 的 2018 工程里先显式写 `resolver = "2"`**——resolver 键与 edition 解耦，2015/2018 也能开 v2（本环境 cargo 1.92 实测行为与 2021 默认一致），先单独消化 feature 隔离的影响，再单独升 edition。类似联动 2021→2024 还会再来一次：默认 resolver 翻到 v3（v2 的隔离语义全保留 + MSRV 感知选版，见上文 ex04）——2024 迁移同时改变语言语义与依赖选择，两件事都要验收。
 
 另外注意 `rust-version` 字段本身的写法细节：cargo 1.56 起支持该字段，值为两位或三位版本号（如 `"1.85"` / `"1.85.0"`）；声明后 cargo 在**编译期**（rustc 老于声明即报错并给出所需版本）与**解析期**（见上）双重把关；crate 发布后该字段也会展示在 crates.io 页面上，作为下游选版的依据。
 
@@ -278,6 +328,8 @@ Locking 11 packages to latest Rust 1.85 compatible versions
 # 对照组 edition 2021（resolver v2）：直接选最新，不管 MSRV
 Locking 3 packages to latest compatible versions   → home 0.5.12
 ```
+
+（完整对照实验与逐幕输出解读见 §6 示例 4。）
 
 **检查依赖的 MSRV**（roadmap 练习）：依赖的 rust-version 在 `cargo metadata` 的 JSON 里（exercises/sol-02 脚本实测输出，2026-09-02 复测确认：`home 0.5.11: rust-version = 1.81`、`windows-sys 0.59.0: rust-version = 1.60`、`windows-targets 0.52.6: rust-version = 1.56`——这些是传递依赖，版本随 crates.io 索引日期漂移，复测时以本机 lock 实况为准）。专用工具 **cargo-msrv**（0.19.3，本环境经 rsproxy `cargo install cargo-msrv --locked` 实测安装）的子命令分工：`cargo msrv show` 读本 crate 的 MSRV（实测 `MSRV is Rust 1.85.0`）、`cargo msrv list` 列全部依赖的 MSRV 表格（均已实测）；而 `cargo msrv find`（求真实下限：用二分/线性试探各历史工具链找首个可编译版本）与 `cargo msrv verify`（验证声明的 rust-version 真的能编，可自定义 check 命令）都需要 rustup 联网安装历史工具链——**未在本环境验证**（沙箱禁写 `~/.rustup`），语义以 cargo-msrv 官方文档为准。
 
@@ -293,7 +345,15 @@ crate B (edition 2021) ──┼── cargo 逐个传 --edition ──▶ 同�
 crate C (edition 2024) ──┘
 ```
 
-一个更本质的模型：**把 edition 看作 rustc 内部「一组已开启的语义开关（feature gate）的预设集合」**——2024 edition 的 crate 等价于默认打开一组针对 2024 的 gate（gen 保留字、unsafe extern 强制、RPIT 全捕获……），2015 edition 一个都不开。这些 gate 的检查点散布在编译管线各阶段，且都按「正在编译的代码属于哪个 edition」取值——ex02 的四个案例其实是四个不同的分流点：`gen` 走词法层（保留字表按 edition 切换）、闭包捕获走借用检查层、数组 `into_iter` 走方法解析层、unsafe extern 走 AST 校验层。这解释了为什么 edition 的差异永远「局部而精确」：不是换了套编译器，而是同一编译器的几个检查点在读 edition 字段。
+**混编安全，但边界上有裂缝：哪些场景会出问题**。上面「混编安全」的根子是 ABI/类型布局与 edition 无关：对外函数签名、结构体布局、类型身份都不带 edition 标签——`Box<Fn(...)>` 与 `Box<dyn Fn(...)>` 是**同一个类型**，区别只在写法带不带 `dyn`。所以 2015 老库被 2024 新工程依赖，链接运行照常；裂缝不在产物，在**消费方自己源码里写出的语法**：
+
+- **写类型名的语法**：2015 库的公开 API 若带裸 trait object（2015 里 `pub fn log(&self, f: &Fn(&str))` 合法），2021+ 消费方在**自己代码里**写 `&Fn(&str)` 是硬错误（`bare_trait_objects`），必须写 `&dyn Fn(&str)` 才能引用同一 API——**类型没变，写法按消费方 edition**（ex03 的 `Box<Fn>`→`Box<dyn Fn>` 就是消费方视角的修正；库作者一行不用改）。
+- **`r#` 命名冲突**：2015 库可以合法导出后来成了保留字的名字（如 2015 里写 `pub fn gen()`——`gen` 在 2015 不是关键字，现代 rustc 照常编译）；2024 消费方引用它必须写 `r#gen`，且**导入与调用两处都要转义**（实测：`use oldlib::r#gen;` 后写裸 `gen()` 仍报 `expected expression, found reserved keyword 'gen'`，必须写 `r#gen()`；`r#` 语法自 rustc 1.30 起全 edition 可用，2015 文件里也能写）——**名字没变，引用语法按消费方 edition**。
+- **宏的跨 edition 调用**：传给依赖宏的实参按调用方 edition 检查（3.3 末尾「宏与 edition」小节实测）——同一个依赖宏，在不同 edition 的调用方手里可编译性可能不同。
+
+一句收束：混编的「安全」是 ABI/布局层面的事实，**语义差异藏在被调方内部**——2015 库内部的 edition 语义（闭包整体捕获、数组 `into_iter` 按引用迭代）在它自己内部自洽、不泄漏到接口；真正会在边界上咬人的，永远是「消费方自己写出的语法」。这也是「迁移是每个 crate 自己的责任」的另一面：混编允许整个依赖图**慢慢升**，但**升完的 crate 要用自己 edition 的语法去引用全图**——老库不用动，新消费方按自己的 edition 写引用即可。
+
+一个更本质的模型：**把 edition 看作 rustc 内部「一组已开启的语义开关（feature gate）的预设集合」**——2024 edition 的 crate 等价于默认打开一组针对 2024 的 gate（gen 保留字、unsafe extern 强制、RPIT 全捕获……），2015 edition 一个都不开。这些 gate 的检查点散布在编译管线各阶段，且都按「正在编译的代码属于哪个 edition」取值——ex02 的四个案例其实是四个不同的分流点：`gen` 走词法层（保留字表按 edition 切换）、闭包捕获走借用检查层、数组 `into_iter` 走方法解析层、unsafe extern 走 AST 校验层。这解释了为什么 edition 的差异永远「局部而精确」：不是换了套编译器，而是同一编译器的几个检查点在读 edition 字段。（一个易被忽略的例外：宏展开产物里的 token 不是按「正在编译的 crate」统一取值，而是**逐 token 按来源文件**的 edition 判保留字——宏体自带 token 按定义方、调用方实参按调用方，见 3.3 末尾「宏与 edition」小节。）
 
 **迁移为什么不破坏生态（lint 迁移机制）**：每个「新 edition 非法」的旧写法，先在所有 edition 上变成带 machine-applicable suggestion 的 warning（如 `bare_trait_objects`），只有在新 edition 的语法上下文里才升级为硬错误。`cargo fix --edition` 做的事就是：**用当前 edition 编译，收集这些「在新 edition 会变成错误」的 warning，批量应用编译器给出的机械修复**——所以它能修的都是编译器知道怎么修的（转义关键字、加 `dyn`），修不了语义层（`r#try!` → `?` 是「用现代写法重写」，不是「保编译」）。这也解释了 ex03 的实测：cargo fix 的修复清单永远「保守但安全」。
 
@@ -323,11 +383,23 @@ MSRV 感知选版还有一个**可配置的回退旋钮**：cargo 1.84 稳定这
 
 一句话：真正什么都不用配的只有「纯个人一次性脚本」——其余形态都能从本阶段的某件套里直接受益。
 
+**真实工程叙事 1：升 2021 那周，构建「悄悄」变了**。某团队在一个 2018 edition 的长期服务上升级 2021：`cargo fix --edition` 逐档跑完、`-D warnings` 零警告、CI 全绿——看似一帆风顺。上线后接到反馈：某个老功能行为不对。查因发现：测试工具（dev-dependency）很久以前给共享依赖 `base` 顺手开了个 `legacy-mode` feature，2018 edition 下 resolver v1 把 dev 依赖的 feature 一锅烩进正常构建——`base` 一直带着 `legacy-mode` 编译，那段 `cfg` 门控的旧代码路径在生产二进制里是活的；bump 到 2021 后默认 resolver 静默翻到 v2，feature 隔离，`legacy-mode` 不再进正常构建，旧路径随之消失。**代码一行没改、CI 全绿，行为却变了**——这是 3.6 联动块（resolver v1→v2）的现实版。教训：升 edition 的验收清单必须包含「resolver 行为对照」（`cargo tree -e features` 前后 diff、`cargo build -vv` 日志抽查），不能只看「能不能编」；更稳的做法是先在 2018 上显式 `resolver = "2"` 单独验证 feature 差异，再升 edition——一次只动一个变量。
+
+**真实工程叙事 2：核心库留在 2015，新服务直接 2024**。团队的核心数值库是十年前写的 2015 edition（内部还挂着 `try!` 类迁移债务），评估后决定它不升——混编允许，老库照常被 2024 的新服务依赖，链接运行全正常，这是「ABI 与 edition 无关」的日常证明。摩擦出现在代码审查：新同学写 `core_lib::gen`（该库 2015 里合法导出过 `pub fn gen()`）编译不过，报 `expected identifier, found reserved keyword 'gen'`——不是库坏了，是**引用语法按消费方 edition**：2024 代码里得写 `core_lib::r#gen`（导入与调用两处都要转义，第 4 章混编块有详解）。这类问题编译期就暴露、改一行就好，但会反复出现——团队共识是把「老库有没有导出后来成了保留字的名字」列进引入前的检查项（ph17 评审清单的落点之一）。另一面：老库没声明 `rust-version`，resolver v3 选它的版本时无从按 MSRV 过滤（cargo 对未声明 rust-version 的候选不拦）——库不声明 MSRV 的隐性代价，最终由依赖它的人来付（ph17 的 MSRV 评审维度会正式处理）。
+
 - **跨语言对比**（为 analysis/ 与 Tenet 合成积累素材）：C/C++ 没有「语言版本开关」概念，`-std=c++17` 只选标准档、老编译器不能编新代码，生态靠「各家编译器实现同一标准」对齐；Go 用「go.mod 的 go 指令 +  toolchain 指令」做类似的事（Go 1.21+ 工具链自动下载管理，与 rustup 思路趋同）；Java 的 `--release` 是单编译器多目标的语言层开关，但没有 crate 级混编。Rust 的 Edition 是「同一工具链、多套语义、包级粒度、永久冻结」四要素的独特组合——语言进化的兼容性难题，Rust 的解法是把变化做成显式开关而不是版本分裂。
 
 ## 6. 代码示例
 
-本节展示完整示例的关键片段，完整文件在 `examples/` 目录（验证环境 rustc/cargo 1.92.0 macOS arm64 + rustup 1.28.2；ex04/ex05 依赖经 rsproxy 镜像；全部产物落 /tmp）：
+本节展示完整示例的关键片段，完整文件在 `examples/` 目录（验证环境 rustc/cargo 1.92.0 macOS arm64 + rustup 1.28.2；ex04/ex05 依赖经 rsproxy 镜像；全部产物落 /tmp）；每个示例末尾给出**预期输出怎么读 / 常见坑 / 与主文档 3.x 小节的锚点**，主文档各小节已按示例编号反向引用 examples/ex0N 的实测：
+
+| 示例 | 文件 | 主文档锚点 | 一句话 |
+|------|------|-----------|--------|
+| 示例 1 | `examples/ex01-toolchain-file/` | 3.4 / 3.1 | rust-toolchain.toml 目录级钉死（rustup show 观察） |
+| 示例 2 | `examples/ex02-edition-diff.sh` | 3.3 / 第 4 章 | 同一代码 × 四 edition 的编译矩阵 |
+| 示例 3 | `examples/ex03-cargo-fix-migration.sh` | 3.3 | 2015→2024 逐档迁移与人机分工 |
+| 示例 4 | `examples/ex04-msrv-check.sh` | 3.6 / 第 4 章 | resolver v3 的 MSRV 过滤 + 依赖 MSRV 提取 |
+| 示例 5 | `examples/ex05-cargo-lock.sh` | 3.5 / 第 4 章 | 锁文件全生命周期（提交/升级/回退/守门） |
 
 ### 示例 1：rust-toolchain.toml 实战（ex01-toolchain-file/）
 
@@ -341,6 +413,13 @@ components = ["rustfmt", "clippy"]
 
 实测：`rustup show` 显示 `active because: overridden by '<...>/rust-toolchain.toml'`；`rustc --edition 2021 -D warnings hello.rs -o /tmp/ph16-ex01-hello && /tmp/ph16-ex01-hello` 输出 `hello from the toolchain pinned by rust-toolchain.toml` / `1 + 1 = 2`。
 
+**预期输出怎么读**：`rustup show` 的 active toolchain 一节是三行结构——`name:` 行给出最终选中的工具链（`stable-aarch64-apple-darwin`），`active because:` 行给出**为什么选中它**；看到 `overridden by '<...>/rust-toolchain.toml'` 就说明文件已生效，这正是 3.4 优先级表里「目录级覆盖」档的现场证据。hello 的两行输出本身不是重点，重点在**这次编译走的是文件钉住的工具链**——想交叉验证就 `rustup which rustc`，看它解析到的真实二进制路径（3.1 的读操作）。
+**常见坑**：
+- ① 文件对**进入该目录的所有人**生效，放 examples/ 子目录会改变该子树里一切 cargo 调用的工具链（本仓库只在示例里放一份，3.4 末尾的 ⚠️ 有详解）
+- ② `channel` 写精确版本号（如 `"1.92.0"`）时，没有该工具链的机器会触发 rustup 联网下载——离线团队要么预装、要么钉已装版本
+- ③ `components` 里的组件缺失时 rustup 会自动补齐（本机 stable 已含 rustfmt/clippy，自动补齐路径未实测）
+**与主文档的锚点**：↔ 3.4（工具链文件字段与优先级链）、3.1（`rustup which/show` 读操作）。
+
 ### 示例 2：Edition 差异实测矩阵（ex02-edition-diff.sh）
 
 ```rust
@@ -351,6 +430,16 @@ println!("port = {}", cfg.port); // 2015/2018：error[E0382]；2021+：正常（
 ```
 
 实测矩阵（同一条 rustc 1.92.0）：闭包捕获与数组 `into_iter` 在 2015/2018 失败、2021/2024 通过；`gen` 变量名与裸 extern 块在 2015~2021 通过、2024 失败。完整错误原文与运行输出见 examples/README。
+
+**预期输出怎么读**（按脚本输出顺序）：
+- **读矩阵**：4 案例 × 4 edition 的「通过/失败」表——关键是**看失败落在哪一侧**：前两行（闭包捕获、数组 `into_iter`）在 2015/2018 失败 → 是 2021 修正的行为；后两行（`gen`、裸 extern）在 2024 失败 → 是 2024 收紧的语法
+- **读错误原文**：每行失败案例打印首条错误——`E0382`/`E0308`、词法层保留字报错、`extern blocks must be unsafe` 各代表一个编译阶段的分流点（第 4 章）
+- **读运行输出**：2021 edition 编译通过版运行打印 `host = localhost`、`port = 8080`、`10 20 30`、`42`、`3`——`port = 8080` 证明 2021 下 `move` 闭包没有整体吞掉 `cfg`（案例 A）
+**常见坑**：
+- ① 四类失败不在同一「位面」——`E0382`/`E0308` 是借用检查/类型错误，`expected identifier, found reserved keyword gen` 是词法层错误，`extern blocks must be unsafe` 是 AST 校验——正是第 4 章「不同检查点按 edition 分流」的活样本
+- ② `rustc` 单文件编译**不传 `--edition` 默认按 2015**，少写参数会得到看似「版本不对」的结果（3.3 开头的默认值落差）
+- ③ 2024 的「隐蔽差异」（RPIT 捕获、尾表达式析构）不在本示例覆盖内，想亲手验证按 3.3 差异清单表里的描述自建小文件、分别用 `--edition 2021/2024` 编译对比
+**与主文档的锚点**：↔ 3.3（差异实测矩阵同源）、第 4 章（四个案例 = 四个编译阶段检查点）。
 
 ### 示例 3：cargo fix --edition 迁移演练（ex03-cargo-fix-migration.sh）
 
@@ -364,6 +453,13 @@ RUSTFLAGS="-D warnings" cargo build                          # 4. 零警告终�
 
 实测修复清单：`try!` → `r#try!`（2015→2018）、`Box<Fn>` → `Box<dyn Fn>`（2018→2021）、`let gen` → `let r#gen`（2021→2024）；`r#try!` → `?` 手工完成。终验输出 `[log] port = 8080` / `gen = 1`。
 
+**预期输出怎么读**：脚本每档先打 `Migrating Cargo.toml from X edition to Y` 与 `Fixed src/main.rs (N fix(es))`，随后 grep 展示改后的关键行——读点是**每档改了什么、几处**：2015→2018 是 `r#try!`（ex03 报 1 fix）、2018→2021 是补 `dyn`（裸 trait object 在 2021 是硬错误）、2021→2024 是 `r#gen`（2 fixes：绑定与使用两处标识符，`"gen"` 字符串不改——`(N fixes)` 的读法见 3.3 的实测表后说明）。每档中间的「手工步骤」= sed bump edition + 手工把 `r#try!` 换成 `?`，对应 3.3 的实测要点 1/2。终验 `RUSTFLAGS="-D warnings" cargo build` 零警告后运行输出 `[log] port = 8080` / `gen = 1`（sol-03 是另一组起点代码，终验输出 `pending 7 abs(-3) = 3`）。
+**常见坑**：
+- ① 演练目录不在 git 里必须加 `--allow-no-vcs`；真项目在 git 中**不要加**——cargo fix 反而要求工作区干净，用 git 状态当迁移前快照（实测要点 3）
+- ② 版本号必须手工 bump，漏了就是「代码已修、edition 还是旧的」的半迁移状态（cargo fix 打印 `Migrating Cargo.toml` 但**不改写它**，实证）
+- ③ 修不到没被激活的代码——`cfg` 门控或未开 feature 的代码 cargo fix 看不到（旗标家族，见 3.3）
+**与主文档的锚点**：↔ 3.3（迁移实测表、`(N fixes)` 读法、为什么必须一档一档升）、3.3 末尾「宏与 edition」小节（`r#try!`/`r#gen` 的转义本质：保留字按调用方 edition 判）。
+
 ### 示例 4：MSRV 检查（ex04-msrv-check.sh）
 
 ```bash
@@ -376,6 +472,16 @@ cargo metadata --format-version 1 | python3 -c '...提取每个包的 rust_versi
 
 完整的依赖 MSRV 提取脚本见 [`exercises/sol-02-check-msrv.sh`](./exercises/sol-02-check-msrv.sh)（`cargo metadata` + python3 解析，并汇总「依赖要求的最高 MSRV」）。
 
+**预期输出怎么读**：实验分三幕，一幕一个知识点——
+- 第一幕（resolver 对照，最关键）：`msrv-aware`（edition 2024 + `rust-version = "1.85"`）的 `cargo generate-lockfile` 打两行：`Locking 11 packages to latest Rust 1.85 compatible versions`（解析器声明按 MSRV 过滤）+ `Adding home v0.5.11 (available: v0.5.12, requires Rust 1.88)`（**`available:` 括号是过滤动作的现场**：候选 0.5.12 被 rust-version 挡掉）；对照组 `semver-only`（edition 2021）直接 `Locking 3 packages ...`、锁到 0.5.12——读法是看「同一句 `home = "0.5"`，两种结局」
+- 第二幕（依赖 MSRV 提取）：`cargo metadata` + python3 逐包打印 `rust_version`（实测 `home 0.5.11 → 1.81`、`windows-sys 0.59.0 → 1.60`、`windows-targets 0.52.6 → 1.56`；传递依赖版本随 crates.io 索引日期漂移，复测以 lock 实况为准）
+- 第三幕（cargo-msrv）：`cargo msrv show` → `MSRV is Rust 1.85.0`；`cargo msrv list` → 依赖 MSRV 表格
+**常见坑**：
+- ① ex04 有第三方依赖，需要网络（脚本内置 rsproxy 镜像配置；海外网络删 `/tmp/ph16-cargo-home/config.toml` 即用默认 crates.io）
+- ② **只声明 rust-version 不升 edition 2024，resolver 仍是 v2，看不到任何 MSRV 过滤**（3.6 对照表注）——想单测 v3 行为要么 edition 2024、要么显式 `resolver = "3"`
+- ③ `cargo msrv find/verify` 需要 rustup 联网装历史工具链，本环境未验证，真实环境直接跑（README 有命令）
+**与主文档的锚点**：↔ 3.6（resolver 对照表、依赖 MSRV 检查、cargo-msrv 子命令分工）、第 4 章「MSRV 与 resolver」段（过滤动作的机制）。
+
 ### 示例 5：Cargo.lock 策略演示（ex05-cargo-lock.sh）
 
 ```bash
@@ -385,17 +491,44 @@ cargo update -p itoa                     # 实测：Updating itoa v1.0.14 -> v1.
 cargo build --locked                     # 锁与清单失配时：error: the lock file ... needs to be updated
 ```
 
+**预期输出怎么读**（脚本四步 = 锁文件全生命周期）：
+- **第 1 步（格式）**：`cat Cargo.lock` 看两件事——头部 `# This file is automatically @generated by Cargo...` + `version = 4`（v4 锁格式，3.5 有格式版本演进表），与每个包的 name/version/source/checksum 四要素
+- **第 2 步（应用 vs 库）**：对比 app 与 mylib 的 `.gitignore`——差一行 `Cargo.lock`，即「应用提交、库不提交」的落点（3.5 的策略表）
+- **第 3 步（升级/回退）**：两条 update 是现场——`Downgrading itoa v1.0.18 -> v1.0.14`（`--precise` 回退）与 `Updating itoa v1.0.14 -> v1.0.18`（无参升回最新兼容版）
+- **第 4 步（CI 守门）**：Cargo.toml 改成 `itoa = "=1.0.14"`（与锁里 1.0.18 失配）后 `cargo build --locked` 报 `the lock file ... needs to be updated but --locked was passed to prevent this`——守门员报错原文（3.5 的 `--locked` 行）
+**常见坑**：
+- ① `--locked` 只守「失配」不守「不是最新」——版本要求区间仍含锁内版本时不报错（实测 `"1.0.15"` 含 1.0.18 照常通过）
+- ② 库的锁文件本地构建也会生成，别误提交——`.gitignore` 多写一行即可
+- ③ `--precise` 回退到被 yank 的版本会失败（第 4 章 lock 段），但已锁定在锁文件里的旧版本仍能继续构建
+**与主文档的锚点**：↔ 3.5（应用/库策略表、`--locked`/`--offline`/`--frozen`、依赖升级决策序列）、第 4 章「Cargo.lock 与确定性构建」。
+
 ## 7. 总结
 
 ### 关键要点
 
-- **Edition 不是编译器版本**：一条 rustc 1.92 按 `--edition` 在 2015/2018/2021/2024 四套语义间切换（ex02 四案例矩阵实测）；edition 是 crate 级开关，混编安全，只升不降
-- **2024 的隐蔽差异**：RPIT 生命周期全捕获与尾表达式析构顺序是 2024 里最容易被升版本打到的两项（rustc 1.92 实测对照见 3.3 差异清单表）——升 2024 前先跑 `cargo fix --edition`，留意 `impl_trait_overcaptures`/`tail_expr_drop_order` 的提示
-- **rustup 管工具链，rust-toolchain.toml 管团队**：代理转发 + 优先级链（`+toolchain` > 环境变量 > 目录级覆盖（文件/override 就近竞争）> 默认）；目录文件 clone 即生效（`rustup show` 的 overridden by 实测）
-- **通道分工**：stable 生产 / beta 预验 / nightly 试新特性（feature 开关是通道差异的实质）；6 周火车模型
-- **cargo fix --edition 的实证三件事**：修代码不修 Cargo.toml（版号手工 bump）、策略是转义保编译（`r#try!`/`r#gen`）而非现代化、git 干净工作区是默认前提
-- **Cargo.lock**：应用提交、库不提交；`--locked` 守 CI；`cargo update -p <pkg> --precise <ver>` 是回退手段（均实测）
-- **MSRV**：`rust-version` 声明；resolver v3（edition 2024 默认）按 MSRV 过滤依赖版本（home 0.5.11 vs 0.5.12 实测）；检查靠 `cargo metadata` / cargo-msrv
+- **Edition 不是编译器版本**：一条 rustc 1.92 按 `--edition` 在 2015/2018/2021/2024 四套语义间切换（ex02 四案例矩阵实测）；edition 是 crate 级开关，混编安全，只升不降（复现：`bash examples/ex02-edition-diff.sh`）
+- **2024 的隐蔽差异**：RPIT 生命周期全捕获与尾表达式析构顺序是 2024 里最容易被升版本打到的两项（rustc 1.92 实测对照见 3.3 差异清单表）——升 2024 前先跑 `cargo fix --edition`，留意 `impl_trait_overcaptures`/`tail_expr_drop_order` 的提示（复现：按 3.3 清单表的描述，同一小文件分别 `--edition 2021/2024` 编译对比）
+- **rustup 管工具链，rust-toolchain.toml 管团队**：代理转发 + 优先级链（`+toolchain` > 环境变量 > 目录级覆盖（文件/override 就近竞争）> 默认）；目录文件 clone 即生效（`rustup show` 的 overridden by 实测）（复现：`cd examples/ex01-toolchain-file && rustup show`）
+- **通道分工**：stable 生产 / beta 预验 / nightly 试新特性（feature 开关是通道差异的实质）；6 周火车模型（复现：`rustup toolchain list` + `rustup show` 看生效原因）
+- **cargo fix --edition 的实证三件事**：修代码不修 Cargo.toml（版号手工 bump）、策略是转义保编译（`r#try!`/`r#gen`）而非现代化、git 干净工作区是默认前提（复现：`bash examples/ex03-cargo-fix-migration.sh`；练习版 `bash exercises/sol-03-edition-migration.sh`）
+- **Cargo.lock**：应用提交、库不提交；`--locked` 守 CI；`cargo update -p <pkg> --precise <ver>` 是回退手段（均实测）（复现：`bash examples/ex05-cargo-lock.sh`）
+- **MSRV**：`rust-version` 声明；resolver v3（edition 2024 默认）按 MSRV 过滤依赖版本（home 0.5.11 vs 0.5.12 实测）；检查靠 `cargo metadata` / cargo-msrv（复现：`bash examples/ex04-msrv-check.sh`）
+- **宏与 edition**：展开产物逐 token 按其来源文件的 edition 判保留字——宏体按定义方、实参按调用方（rustc 1.92 实测）；`r#try!`/`r#gen` 转义是「调用方代码按调用方 edition 改写」（复现：3.3 末尾「宏与 edition」小节的两 crate 复现命令）
+- **resolver 联动**：2018→2021 迁移会把默认 resolver 静默从 v1 翻到 v2（dev/build/target 依赖的 feature 隔离），构建结果可能悄悄变（复现：`cargo tree -e features` 迁移前后对照，泄漏现场见 3.6）
+
+**关键命令速查**（每条对应当前小节，均本环境实测过；标注「需联网」的除外）：
+
+```bash
+rustup toolchain list && rustup show      # 3.1/3.4 已装链 + 当前生效原因（读操作）
+rustc --edition 2021 -D warnings a.rs -o /tmp/a && /tmp/a    # 3.3 单文件按 edition 编译（不传默认 2015！）
+cargo fix --edition                        # 3.3 修「新 edition 非法」代码；edition 字段仍要手工 bump
+cargo update -p <pkg> --precise <ver>      # 3.5 回退到指定版本（实测 Downgrading ...）
+cargo build --locked                       # 3.5 CI 守门：锁与清单失配即失败
+cargo tree -e features                     # 3.6 看实际启用的 feature（迁移前后对照）
+cargo metadata --format-version 1          # 3.6 依赖 rust-version 的机器可读出口（sol-02 脚本解析它）
+cargo msrv show && cargo msrv list         # 3.6 本 crate 与依赖的 MSRV（cargo-msrv 0.19.3 已装实测）
+bash examples/ex0{2,3,4,5}-*.sh            # §6 四个演练脚本，产物全落 /tmp、可重复跑（ex04/ex05 需联网）
+```
 
 ### 阶段验收清单
 
@@ -404,6 +537,8 @@ cargo build --locked                     # 锁与清单失配时：error: the lo
 - [ ] 能为依赖升级记录版本并提供回退方案（提交锁文件 + `cargo update -p --precise` 回退实测）
 - [ ] 能用 `cargo fix --edition` 完成一次 2015→2024 迁移并说清人机分工（ex03/sol-03 实测流程）
 - [ ] 能检查依赖的 MSRV（cargo metadata / cargo msrv list）并解释 resolver v3 的过滤行为
+- [ ] 能说清宏展开产物按哪个 edition 检查（宏体 token 按定义方、调用方实参按调用方），并能跑 3.3 末尾的两 crate 复现
+- [ ] 知道 2018→2021 迁移会把默认 resolver 从 v1 翻到 v2，会用 `cargo tree -e features` 对照迁移前后 feature 激活差异
 
 ### 动手练习
 

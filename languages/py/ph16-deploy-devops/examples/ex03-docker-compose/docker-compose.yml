@@ -1,5 +1,6 @@
 # examples/ex03-docker-compose/docker-compose.yml —— 单台机器上的多服务编排：web + 数据库
-# 验证环境目标：Docker Compose v2（本机 Compose v5.3.1 在、daemon 未启动）
+# 验证环境目标：Docker Compose 的 `docker compose` 命令（v2 命令形态；本机 Compose CLI 在、
+#   daemon 未启动——具体版本以本机 `docker compose version` 实测为准）
 # 验证状态：语法已验证（`docker compose -f docker-compose.yml config` 离线解析通过，本机实测）；
 #           未实际构建/启动容器（daemon 未启动）——在 daemon 可用的机器上按下方命令验证
 # 运行（在 daemon 可用的机器上）：

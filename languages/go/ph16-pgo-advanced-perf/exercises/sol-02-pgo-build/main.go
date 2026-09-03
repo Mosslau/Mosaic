@@ -75,6 +75,7 @@ func (*auditHandler) Handle(x uint64) uint64 {
 // 保持 serve 为独立函数后，PGO 在 serve 内部完成"类型守卫 + 直接调用 + 内联 +
 // 字段提升"整套变换，收益稳定 ~2×（0.76 → 0.38 ns/op）。
 // 教学点：PGO 的收益发生在函数内层循环上；热函数被"过度内联"后优化反而可能失焦。
+//
 //go:noinline
 func serve(h Handler, in []uint64) uint64 {
 	var s uint64

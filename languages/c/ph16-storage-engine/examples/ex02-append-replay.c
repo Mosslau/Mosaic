@@ -80,7 +80,10 @@ static int wal_append(int fd, uint8_t type, const char *key, const char *val) {
     return write_full(fd, buf, n);
 }
 
-/* ---- replay: 四道校验（长度→magic→上限→CRC）, 任一失败即停在残尾 ---- */
+/* ---- replay: 四道校验（长度→magic→上限→CRC）, 任一失败即停在残尾 ----
+ * 长度上限是"联合上限": klen/vlen 除各自 ≤ WAL_MAX_KV 外, 还要求
+ * klen+vlen ≤ WAL_MAX_KV, 否则 static payload[WAL_MAX_KV+4] 会被
+ * fread 越界写坏——"防恶意文件"必须同时挡住"各接近上限的两段"。 */
 typedef struct {
     int puts;
     int dels;
@@ -107,8 +110,9 @@ static int wal_replay(const char *path, replay_stat_t *st, long *torn_at) {
         uint8_t type = hdr[4];
         uint32_t klen = get_u32be(hdr + 5);
         uint32_t vlen = get_u32be(hdr + 9);
-        if (magic != WAL_MAGIC || klen > WAL_MAX_KV || vlen > WAL_MAX_KV) {
-            *torn_at = off;          /* magic/长度上限拦截 */
+        if (magic != WAL_MAGIC || klen > WAL_MAX_KV || vlen > WAL_MAX_KV ||
+            klen + vlen > WAL_MAX_KV) {
+            *torn_at = off;          /* magic/联合长度上限拦截（防 payload 越界） */
             fclose(f);
             return 1;
         }

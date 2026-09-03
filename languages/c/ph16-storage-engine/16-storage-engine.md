@@ -1,6 +1,6 @@
 # C 语言 数据库存储引擎基础阶段
 
-> 面向 KV 库、数据库内核与时序存储原型——本阶段把前 15 个阶段的基本功收拢成一个真实存储引擎：WAL 负责崩溃恢复、MemTable 承接写入、SSTable 固化磁盘、Bloom Filter 挡掉无效查询、Buffer Pool/LRU 缓存热页，再用 LSM 与 B+Tree 两条主线回答"读和写到底谁优先"。全部结论有本环境实测背书（WAL 吞吐、Bloom 误判率、LRU 淘汰序列、28 项引擎自测）。
+> 面向 KV 库、数据库内核与时序存储原型，把前 15 个阶段的基本功收拢成一个真实存储引擎——WAL 崩溃恢复、MemTable 承接写入、SSTable 固化磁盘、Bloom Filter 挡无效查询、Buffer Pool/LRU 缓存热页，再用 LSM 与 B+Tree 两条主线回答"读与写谁优先"，全部结论有本环境实测背书。
 
 ## 1. 概述
 
@@ -67,7 +67,7 @@ WAL 的物理形态是 **append-only log**：只追加、不修改、不删除�
 
 1. **O_APPEND + write_full**：每次 write 原子落到文件末尾，短写循环写完（EINTR 重试）
 2. **append 返回 ≠ 持久化**：数据只到了内核 Page Cache，`fsync` 返回后才算到达存储设备（macOS 真落盘需 `fcntl(F_FULLFSYNC)`，见 ph13 examples/ex03）
-3. **replay 四道校验**：长度够 → magic 对 → 长度不越上限 → CRC 吻合，**任一失败即停在残尾**，报告偏移后 ftruncate 截掉即可继续追加
+3. **replay 四道校验**：长度够 → magic 对 → 长度不越上限 → CRC 吻合，**任一失败即停在残尾**，报告偏移后 ftruncate 截掉即可继续追加。长度上限是**联合上限**：klen、vlen 除各自 ≤ 上限外，还要求合计 klen+vlen ≤ 上限——否则两项各接近上限时，固定大小的 payload 缓冲会被 `fread` 越界写坏（replay 检查处有注释；examples/ex02 与 exercises/sol-01 同款）
 
 replay 的校验顺序与残尾处理（ex02 实测，先写 3 条再手工塞 6 字节残尾）：
 
@@ -108,7 +108,7 @@ static size_t mt_lower(const memtable_t *m, const char *key, int *found) {
 
 ### 3.4 SSTable 文件格式
 
-SSTable（Sorted String Table）= **不可变有序文件**。MemTable flush 时把有序内容整体落成一个新的 SSTable，之后只读不改——"不可变"是它一切优点的来源：并发读不用锁、崩溃不会半改、缓存随便做。本阶段的文件布局（ex04/project 同款）：
+SSTable（Sorted String Table）= **不可变有序文件**。MemTable flush 时把有序内容整体落成一个新的 SSTable，之后只读不改——"不可变"是它一切优点的来源：并发读不用锁、崩溃不会半改、缓存随便做（缓存里只有干净页、永远不用写回——这条在 3.8 的 Buffer Pool 兑现）。本阶段的文件布局（ex04/project 同款）：
 
 ```text
 [数据区]  entry*: [klen u32][type u8][vlen u32][key][value]   按 key 升序
@@ -151,6 +151,34 @@ LSM 之外的另一条主线。B+Tree 是 1972 年至今的索引默认结构，
 2. **数据全在叶子**：内部节点只存路标 key；**叶子间用链表串联**——这就是 B+Tree 的 range scan 友好的原因（定位起点叶后沿链表顺序走）
 3. **插入分裂保平衡**：节点塞满即分裂，中位 key 上提。**叶子分裂上提的是副本（叶子自己保留该 key，因为数据在叶子）；内部节点分裂上提的是本体（路标不重复保留）**——这一字之差是 B+Tree 实现最易错的点
 
+先把两种节点的长相画出来（阶 4 = 每节点最多 3 个 key）：
+
+```text
+内节点: 3 个路标 key + 4 个孩子指针, 不存数据        ← 决定"往哪个孩子走"
+        [ 10 | 20 | 30 ]
+      /     /     \      \
+    <10   [10,20) [20,30)  >=30                     ← key 落在哪个区间, 就走哪个孩子
+
+叶节点: key + value 本体, 尾部 next 指针连下一叶     ← 决定"数据在哪"
+        [ 1|v1 ] ──▶ [ 3|v3 ] ──▶ [ 5|v5 ] ──▶ ...
+```
+
+查一个 key = 从根逐层选路（25 落在 [20,30) → 走第 3 个孩子），到叶才碰 value。**内节点不存 value 正是高扇出的前提**：一页存"路标 key + 子指针"能装的孩子数，比"key+value 一起存"多一个数量级——磁盘 IO 按页计价，页里装的孩子越多，读一次父节点就能跳过更大的子树。
+
+满节点再插入就要分裂——用阶 4 的叶节点演示"已有 1/3/5，插入 4"：
+
+```text
+插入前    [ 1|v1 ][ 3|v3 ][ 5|v5 ]        3 个 key, 已满
+插入 4    [ 1|v1 ][ 3|v3 ][ 4|v4 ][ 5|v5 ]  4 个 key, 溢出
+分裂      左叶 [ 1|v1 ][ 3|v3 ]    右半首 key 4 上提    右叶 [ 4|v4 ][ 5|v5 ]
+                                        │  ← 上提的是副本: 右叶仍保留 4
+父节点    [ 4 ]（此后还有别的 key 就插入到它右边）
+```
+
+上提**副本**还是**本体**，取决于分裂发生在哪层：叶分裂上提右叶首 key 的**副本**——4 是数据，右叶自己还要留着它供点查命中；内节点分裂上提**本体**——路标只负责选路，上提后本节点若还留一份，同一个 key 就会被两条路径同时指到（奇数个 key 溢出时上提的恰是正中那个，所以常被说成"中位 key 上提"）。exercises/sol-05 的 `insert_rec` 正是按这两条分支写的（实测见下段）。
+
+**扇出决定树高**：磁盘版每个节点占一页，树高 ≈ 一次查询的页读取次数。按 4 KiB 页、key 8 字节 + 子指针 8 字节粗算，一个内节点可放 4096/16 ≈ 256 个槽；3 层（根 + 一层内节点 + 叶子）能覆盖 256 × 256 ≈ 6.5 万个叶页，每叶再按页装十几条以上小记录即可容下 100 万条——若把 value 也塞进内节点，阶会掉一个数量级、树高随之上涨。真实引擎用填充因子（如 70%）刻意留空位以降低分裂频率，实际阶略低，但"几百扇出 → 树高个位数 → 个位数次磁盘读"的结论不变；页管理（怎么把节点钉在页上、分裂时旧页的失效）属更上层主题，本阶段不展开。
+
 exercises/sol-05（阶 4 内存版）实测：乱序插入 1..20 后树高 ≤ 3、全部可查、范围扫描 [5,12] 输出严格升序的 8 个 key。B+Tree 在**就地更新**：改一个 key 要找到所在页直接改——随机写，这正是它与 LSM 分野的地方（第 4 章对比）。
 
 ### 3.7 LSM Tree 基础
@@ -189,7 +217,7 @@ flowchart TD
         }
 ```
 
-**Buffer Pool 与普通 LRU Cache 的唯一本质差别是脏页**：被修改过的页淘汰前必须先写回，否则数据丢失。实测（ex06）：池容量 4 页，写脏页 2 后连读 4 个新页把它逼出——输出 `[淘汰写回] 页 2 是脏页, 写回磁盘`，再读页 2 时从"磁盘"重载、脏数据未丢；全程 12 次访问命中 2 次、写回 1 次。真实引擎里 Buffer Pool 缓存的就是 SSTable 的数据块与索引块。
+**Buffer Pool 与普通 LRU Cache 的唯一本质差别是脏页**：被修改过的页淘汰前必须先写回，否则数据丢失。实测（ex06）：池容量 4 页，写脏页 2 后连读 4 个新页把它逼出——输出 `[淘汰写回] 页 2 是脏页, 写回磁盘`，再读页 2 时从"磁盘"重载、脏数据未丢；全程 12 次访问命中 2 次、写回 1 次。真实引擎里 Buffer Pool 缓存的就是 SSTable 的数据块与索引块——SSTable 不可变（3.4）意味着这些块永远不会在池里变脏，脏页写回只出现在 MemTable flush / compaction 把新文件顺序写出时（3.7 的落盘纪律）；反观就地改页的 B+Tree 型引擎，池内页面随写即脏，脏页写回才是主战场（4.2 对比）。
 
 ### 3.9 range scan 与 iterator
 
@@ -200,6 +228,21 @@ flowchart TD
 | MemTable（有序数组） | 二分找 lo 的下标，下标递增即有序遍历 | O(log n + k) |
 | SSTable | 索引二分定位块，块内顺扫 + 跨块继续 | O(log b + k) |
 | B+Tree | 下行到 lo 所在叶子，沿叶子链表推进 | O(log n + k) |
+
+各层长相不同，但对外只要露出同一个迭代器接口，scan 驱动就能统一处理（k-way 归并正是靠"大家都是迭代器"才成立）：
+
+```c
+/* 迭代器最小接口（骨架示意, 具体层: memtable_iter / sst_iter / btree_iter）
+ * seek: 定位到 >= lo 的第一条（单表实现即各自的二分/下行）
+ * next: 交出当前一条后前进一步 —— 返回 0 且 *key/*is_del 出参有值; 返回 1 = 区间耗尽
+ * 扫描驱动: it.seek(lo); while (it.next(&k, &del) == 0) 输出 k（del 则跳过/吞旧版） */
+typedef struct iter {
+    void (*seek)(struct iter *it, const char *lo);
+    int  (*next)(struct iter *it, const char **key, int *is_del);
+} iter_t;
+```
+
+**next 语义就一句**：先交当前、再前进，用返回值报"还有/耗尽"——和 `for` 的迭代同一心智；MemTable 版最简，包一个 `(数组, 下标)` 即可（ex03 的下标区间就是它的雏形）。
 
 ex03 实测：`range scan [apple, cherry]` 输出 apple=2、cherry=5（tombstone 的 banana 被跳过）。**多层引擎的 range scan = k-way 归并**：MemTable 迭代器 + 每个 SSTable 迭代器各产一条最小 key，比较后输出并推进——与归并排序同源；遇到 tombstone 要吞掉该 key 的全部旧版本。本阶段 examples/exercises 只要求单表迭代器，多路归并是 project/ 的扩展方向。
 
@@ -308,8 +351,9 @@ mkdir -p /tmp/ph16c-ex && cc -Wall -Wextra -std=c11 ex01-wal-record.c -o /tmp/ph
 ```c
 // examples/ex02-append-replay.c —— replay 四道校验（节选, 完整版见 examples/）（已验证）
 // 验证环境：Apple clang 21.0.0（cc，macOS arm64）
-        if (magic != WAL_MAGIC || klen > WAL_MAX_KV || vlen > WAL_MAX_KV) {
-            *torn_at = off;          /* magic/长度上限拦截 */
+        if (magic != WAL_MAGIC || klen > WAL_MAX_KV || vlen > WAL_MAX_KV ||
+            klen + vlen > WAL_MAX_KV) {
+            *torn_at = off;          /* magic/联合长度上限拦截（防 payload 越界） */
             fclose(f);
             return 1;
         }
@@ -354,6 +398,8 @@ static int mt_del(memtable_t *m, const char *key) {
     apple = 2
     banana = 3
     cherry = 5
+[2] get(apple) rc=0 value=2 (覆盖生效)
+    get(grape) rc=1 (未命中)
 [3] del(banana) 后 get rc=1 (tombstone: 记录在, 标记删除)
     内部仍有 3 项——tombstone 要等 flush/compact 才真正消失
 [4] range scan [apple, cherry]（迭代器即下标区间）:
@@ -429,7 +475,7 @@ static int mt_del(memtable_t *m, const char *key) {
     }
 ```
 
-实测输出关键行（本机一次运行）：
+实测输出关键行（本机一次运行；[1] 顺序读页 0..3 装满池、[2] 回读页 0 hit 两段已省略，编号沿用实际程序标签）：
 
 ```text
 [3] 读页 4（池满 → 淘汰 LRU 尾部; 页 1 此时最旧）:

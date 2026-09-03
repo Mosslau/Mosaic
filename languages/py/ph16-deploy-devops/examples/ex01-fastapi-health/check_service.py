@@ -5,6 +5,8 @@
 # 验证状态：已验证 —— 实测起真实 uvicorn 服务，/health 200、/ready 200、/predict soh=80.5，
 #           故障注入后 /ready 变 503 而 /health 仍 200；SIGTERM 后退出码 -15（shell 143），
 #           并从捕获的 stderr 断言优雅关停日志 "Shutting down" 与 "Finished server process"
+#           2026-09 复跑实测：uvicorn 0.50.0（Python 3.13.9, macOS arm64）优雅关停日志齐备后
+#           进程仍以 SIGTERM 终止（returncode=-15 / shell 143），断言按实测值保留
 """自动验证脚本：把 service.py 当成「真实部署」起一遍再打掉。
 
 流程：子进程起 uvicorn（生产命令形态）→ 轮询 /health 直到就绪 →
@@ -84,9 +86,10 @@ def main() -> None:
         proc.wait(timeout=10)
         logs = proc.stderr.read() if proc.stderr is not None else ""
         # returncode=-15（shell 里显示 143）：进程死于 SIGTERM 是 Unix 惯例。
-        # 优雅关停的实据在日志：uvicorn 打印 "INFO: Shutting down" 后收尾，
-        # 再打印 "INFO: Finished server process"——systemd 把「被 SIGTERM 终止」
-        # 视为正常停止（SuccessExitStatus 语义）。
+        # 2026-09 本机实测（uvicorn 0.50.0 + Python 3.13.9）：优雅关停日志
+        # （Shutting down / Finished server process）齐备后，进程仍以 -15 被信号终止，
+        # 而非自行 exit 0——systemd 把「被 SIGTERM 终止」视为正常停止
+        # （Restart=on-failure 不触发重启，见 ex05 unit 注释），因此断言保留 -15。
         assert proc.returncode == -signal.SIGTERM, proc.returncode
         assert "Shutting down" in logs, logs
         assert "Finished server process" in logs, logs

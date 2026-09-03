@@ -2,10 +2,15 @@
 
 两种推理后端：
 - JoblibPredictor：加载 joblib 产物（训练在 CI/训练机，产物随发布分发，服务进程
-  只加载不训练）。兼容两种产物形态——sklearn 模型/管线（`.predict`），以及
+  只加载不训练）。按产物**形态**分派：sklearn 模型/管线（`.predict`），以及
   ph15 项目（languages/py/ph15-ai-ml/project/bhealth/model.py）的
   BatteryHealthPipeline 形态（dataclass，暴露 predict_soh(X)/predict_grade(X)，
-  没有 sklearn 的 .predict），见 predict_soh 里的形态分派；
+  没有 sklearn 的 .predict），见 predict_soh 里的形态分派。
+  形态兼容边界：分派逻辑用同形态 stub 验证（tests/test_api.py 的
+  Ph15LikePipeline），真实 ph15 joblib 产物是 bhealth.model 模块的 dataclass，
+  joblib 反序列化要求服务端能 import bhealth——本服务不含 bhealth 包，直接
+  加载真产物会 ModuleNotFoundError；需训练侧另存裸 sklearn 模型，或把 ph15 的
+  bhealth 包放进服务环境（详见 project/README 扩展方向）。
 - RulePredictor：无产物时的规则兜底（与训练数据同源的老化公式），保证服务
   「裸奔也能起」，同时让 /ready 能如实报告自己用的是哪一档。
 
@@ -49,9 +54,12 @@ class RulePredictor:
 
 
 class JoblibPredictor:
-    """joblib 产物后端：兼容 sklearn 模型与 ph15 的 BatteryHealthPipeline 两种形态。
+    """joblib 产物后端：按产物形态分派 sklearn `.predict` 与 ph15 `predict_soh`。
 
     特征顺序见 FEATURES（与 ph15 bhealth/data.py 的 FEATURES 一致）。
+    形态兼容为 stub 级验证（test_api.py 的 Ph15LikePipeline）；真实 ph15 产物
+    （bhealth.model.BatteryHealthPipeline）需其 bhealth 包可导入才能 joblib.load，
+    边界与解法见模块 docstring 与 project/README「扩展方向」。
     """
 
     model_type = "joblib"

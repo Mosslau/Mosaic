@@ -63,7 +63,7 @@ $ go tool pprof -list='validateRow' ex03 ex03.pprof
 300ms  310ms      h ^= uint64(r[i]) + uint64(k)   ← 热点精确到行
 ```
 
-**结论**：top 给"谁最热"、peek 给"谁调用它/它调用谁"（症状帧 → 病因函数）、list 给"热在哪一行"。**环境备注**：本机（darwin/arm64）对分配密集的单线程程序，CPU profile 会有大量采样落在 runtime.kevent/pthread_cond 帧上（空转线程被信号采样）——本例把分配压到 ~5% 以获得干净归因；多 goroutine 服务（ex01 路径 A）无此现象。
+**结论**：top 给"谁最热"、peek 给"谁调用它/它调用谁"（症状帧 → 病因函数）、list 给"热在哪一行"。**环境备注**：本机（darwin/arm64）对分配密集的单线程程序，CPU profile 会有大量采样落在 runtime.kevent/pthread_cond 帧上（空转线程被信号采样）——本例把分配压到 ~7% 以获得干净归因（口径同 ex03-pprof-analyze/main.go 文件头验证块：`+=` 拼接的 runtime.concatstring2 症状仅 ~7%）；多 goroutine 服务（ex01 路径 A）无此现象。
 
 ### ex04：分配与布局优化实测（-count=5 取中位数）
 

@@ -1,10 +1,18 @@
-// 包 workload：HTTP 压测/负载生成器（库形式，命令行入口见 cmd/loadgen）。
-// 对 apiserver 持续发 GET /api/devices/{id}，逐请求记录延迟样本，
-// 输出 p50/p95/p99/均值与吞吐（req/s）。两种职责：
+// 来源：ph16-pgo-advanced-perf 综合项目（internal/workload，HTTP 压测/负载生成库）
+// 一句话说明：对 apiserver 持续发 GET /api/devices/{id} 并逐请求记录延迟样本、
+// 输出 p50/p95/p99/均值与吞吐（req/s）的库（命令行入口见 cmd/loadgen）。包级职责有二：
 //  1. 产生"代表性负载"——把服务压到 CPU 忙，期间由 scripts/pgo-experiment.sh
 //     curl /debug/pprof/profile?seconds=N 采集服务端 CPU profile（PGO 的输入）；
 //  2. 报告基线与 -pgo 两个二进制的端到端延迟/吞吐，供对比（roadmap §16 推荐项目
 //     「API 服务 PGO 实验」的验收动作）。
+//
+// 验证环境：go1.25.6（darwin/arm64，Apple M4 Pro），依赖：零第三方
+// 运行（cd project）：
+//
+//	go test ./... && go vet ./...          # 本包测试（workload_test 用假 apiserver）与静态检查
+//	go run ./cmd/loadgen -url http://127.0.0.1:18090 -n 20000 -workers 8 -devices 2048
+//
+// 验证状态：已验证（go1.25.6，2026-09-03 复验——go test ./... && go vet ./... 全绿）
 package workload
 
 import (

@@ -24,7 +24,7 @@ roadmap「ph16 微服务与分布式阶段」推荐项目之一是**微服务订
 - [x] **远程失败降级（有损服务）**：用户服务 5xx/超时/连不上 → HTTP 仍 200、`degraded=true`、用户名显示「（用户服务暂不可用，降级展示）」，订单本体不丢（参照 `exercises/sol-02` 与主文档 3.3）；用户不存在（下游 404，确定答案）→ `40400` 透传不降级不重试
 - [x] **X-Trace-Id 全链路透传**：三个服务都注册 common 的 `TraceIdFilter`（入口生成/接力 + MDC + 响应头回显），order-service 与 gateway 的下游 RestClient 挂 `TraceIdClientInterceptor`——实测同一 traceId 穿过 gateway → order → user 三跳一字不差
 - [x] **身份头透传**：gateway 注入的 `X-Auth-User` 经 order-service 原样转发给 user-service（user-service 的 `GET /api/users/{id}` 需要该头，链上任何一跳断了它聚合就会失败）
-- [x] **统一响应契约**：全部端点返回 `{code,message,data}` 壳（common 的 `ApiResponse`），业务码沿用 ph15/ph16 语义：40100 未认证、40101 登录失败、40300 无权限、40400 不存在、40901 用户名冲突；错误 HTTP 状态 = 业务码 / 100
+- [x] **统一响应契约**：全部端点返回 `{code,message,data}` 壳（common 的 `ApiResponse`），业务码沿用 ph15/ph16 语义：40000 参数校验（user-service 登录/建号必填项，code/100 → 400）、40100 未认证、40101 登录失败、40300 无权限、40400 不存在、40901 用户名冲突、50000 兜底（三个服务的 GlobalExceptionHandler）；40001（缺幂等键）/50200（下游异常）/50400（下游超时）已列入 common `BizCodes`，本骨架未触发（幂等下单是「扩展方向」）；错误 HTTP 状态 = 业务码 / 100——完整码表见 common 的 `BizCodes.java`
 - [x] **actuator 健康端点**：三个服务 `/actuator/health` 均 UP（监控端点是微服务标配，主文档 3.5）
 
 ## 验收标准
@@ -79,7 +79,7 @@ $ curl -s http://localhost:18312/api/orders/1001 -H 'X-Auth-User: alice'
 
 ## 扩展方向
 
-- **接真实 Spring Cloud Gateway / OpenFeign / Nacos**（未在本环境验证，原因如实标注）：离线缓存里 Spring Cloud 2021.0.8（组件 3.1.8）的 **jar 齐备**（starter/gateway-server/openfeign-core/commons 均在，2026-09-02 复核），但 2021.x 对应 Boot 2.x（javax），与本项目 Boot 3.3.0 基线二进制不兼容——所以真实 Gateway/OpenFeign 只能讲机制（主文档 3.2 有完整路由/谓词/过滤器与声明式客户端对照），本项目用「手写 mini 网关 + RestClient」同构实测了同一套语义；换到真实组件时：网关路由表换成 `spring.cloud.gateway.routes` 配置（`Path=/api/orders/**` 谓词 + `StripPrefix` 过滤器）、下游调用换成 `@FeignClient` 接口 + 注册中心服务名、`user-service.base-url` 硬编码换成 Nacos 服务发现，鉴权过滤器与 X-Trace-Id 拦截器逻辑原样保留
+- **接真实 Spring Cloud Gateway / OpenFeign / Nacos**（未在本环境验证，原因如实标注）：离线缓存里 Spring Cloud 2021.0.8 的 **jar 齐备**（starter-gateway/starter-openfeign、gateway-server、openfeign-core 为 3.1.8，commons 为 3.1.7——同列车组件版本不统一、均属 3.1.x；2026-09-02 复核），但 2021.x 对应 Boot 2.x（javax），与本项目 Boot 3.3.0 基线二进制不兼容——所以真实 Gateway/OpenFeign 只能讲机制（主文档 3.2 有完整路由/谓词/过滤器与声明式客户端对照），本项目用「手写 mini 网关 + RestClient」同构实测了同一套语义；换到真实组件时：网关路由表换成 `spring.cloud.gateway.routes` 配置（`Path=/api/orders/**` 谓词 + `StripPrefix` 过滤器）、下游调用换成 `@FeignClient` 接口 + 注册中心服务名、`user-service.base-url` 硬编码换成 Nacos 服务发现，鉴权过滤器与 X-Trace-Id 拦截器逻辑原样保留
 - **幂等下单**：主文档阶段项目愿景里的「订单服务幂等下单」本骨架未做（当前只有 GET 聚合读）；加 `POST /api/orders` 时把 `examples/ex04` 的 Idempotency-Key 占位去重机制搬进来，下单前经 user-service 校验用户（其 `findById` 已带调用计数供白盒断言）
 - **韧性补全**：order-service 的 UserClient 目前是「超时一次即降级」；把 `examples/ex02` 的「瞬时故障重试一次 + 熔断」接上，注意只有幂等 GET 才敢重试
 - **身份与安全**：内网信任边界当前靠 `X-Auth-User`/`X-Auth-Role` 注入头，生产应加网络隔离/mTLS 或服务级凭证；JWT 密钥三处配置写死相同值仅为演示，生产走配置中心/环境变量注入

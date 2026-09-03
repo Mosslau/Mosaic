@@ -6,7 +6,7 @@
 
 ph15 的模型交付止步于「另一个进程能加载产物做预测」（命令行）。生产要的是：**模型变成一个长期存活、可探活、可观测、可重建的服务**。本模板把这件事的最小闭环做出来：
 
-- **服务化**：`POST /predict` 输入电池工况（循环次数/温度/放电深度/充电倍率），返回 SOH 与健康等级——推理后端有两档：加载 joblib 产物（`JoblibPredictor`，同时兼容 ph15 的 `BatteryHealthPipeline` 产物形态与 sklearn 模型/管线形态，见 [`app/predictor.py`](./app/predictor.py) 的形态分派）或规则公式兜底（`RulePredictor`，无产物也能起服务）；
+- **服务化**：`POST /predict` 输入电池工况（循环次数/温度/放电深度/充电倍率），返回 SOH 与健康等级——推理后端有两档：加载 joblib 产物（`JoblibPredictor` 按产物**形态**分派：ph15 的 `BatteryHealthPipeline` 形态走 `predict_soh(X)`、sklearn 模型/管线走 `.predict`——形态兼容是 stub 级验证，真实 ph15 产物加载需 `bhealth` 可导入，边界见下方扩展方向，实现见 [`app/predictor.py`](./app/predictor.py)）或规则公式兜底（`RulePredictor`，无产物也能起服务）；
 - **可探活**：`/health`（liveness）与 `/ready`（readiness）分工——配置了 `MODEL_PATH` 但产物缺失时 `/ready` 与 `/predict` 都返回 503，**不静默降级**（把「模型没挂上」藏成「服务正常」是生产事故的经典开局）；
 - **可观测**：`/metrics` 手写最小 Prometheus 文本格式（请求计数、预测耗时、当前推理后端、运行时长），compose 里带 Prometheus 抓取配置；
 - **可重建**：多阶段 Dockerfile（构建期与运行期分离、非 root 运行、产物不烤进镜像）+ Compose 一键起「服务 + 监控」。
@@ -59,7 +59,7 @@ curl http://127.0.0.1:8000/metrics
 
 ## 扩展方向
 
-- **接 ph15 的真模型**：本模板的规则公式与 ph15 合成数据同源；ph15 项目跑 `python3 cli.py` 落盘的 `BatteryHealthPipeline` 产物**可直接**给本模板服务用——`JoblibPredictor` 检测到产物有 `predict_soh(X)` 就按 ph15 形态推理（无需改造，测试 `test_ph15_pipeline_artifact_compat` 覆盖）；若产物是普通 sklearn 模型/管线则走 `.predict`。注意产物版本与服务代码版本要一起发布
+- **接 ph15 的真模型**：本模板的规则公式与 ph15 合成数据同源；`JoblibPredictor` 对产物做**形态分派**——检测到产物有 `predict_soh(X)` 就按 ph15 形态推理（stub 级验证，测试 `test_ph15_pipeline_artifact_compat` 用同形态 `Ph15LikePipeline` 覆盖分派逻辑）；若产物是普通 sklearn 模型/管线则走 `.predict`。**边界**：真实 ph15 joblib 产物是 `bhealth.model.BatteryHealthPipeline`（dataclass，joblib 按模块路径反序列化），服务端必须能 `import bhealth` 才能加载——本模板镜像不含 bhealth 包，直接把 ph15 产物挂进服务会 `ModuleNotFoundError`（本机已实证）。两条解法：① 训练侧另存**裸 sklearn 模型**（`joblib.dump(pipeline.regressor, …)`，ph15 侧一行即可）；② 把 ph15 的 `bhealth/` 包与产物一起打进服务镜像（或加进 PYTHONPATH）。注意产物版本与服务代码版本要一起发布
 - **接 Nginx 反代与 systemd**：examples/ 的 ex04/ex05 配置就是为本模板准备的，组合起来是完整的单机生产形态
-- **Grafana 看板**：compose 加 `grafana/grafana` 服务，数据源指向 prometheus，画出 `rate(bhealth_requests_total[1m])` 与预测耗时（主文档 3.7）
+- **Grafana 看板**：compose 加 `grafana/grafana` 服务（depends_on prometheus），数据源（Configuration → Data sources → Prometheus）**URL 填 `http://prometheus:9090`**（compose 内部网络服务名，勿填 localhost），面板查询如 `rate(bhealth_requests_total[1m])`（QPS）、`histogram_quantile(0.95, sum(rate(bhealth_predict_seconds_bucket[5m])) by (le))`（耗时 P95，需 `prometheus_client` 的 _bucket 序列，本模板手写版只有 count/sum）、`bhealth_model_info`（当前后端）——最小面板集与 PromQL 说明见主文档 3.7（Grafana 容器需能拉镜像，本机未实测）
 - **CI/CD 流水线**：examples/ 的 ex06 工作流为本模板跑 ruff/pytest/build，镜像推到制品库后触发部署

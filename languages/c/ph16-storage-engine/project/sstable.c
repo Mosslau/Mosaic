@@ -112,9 +112,40 @@ int sst_open(sst_t *s, const char *path) {
     uint64_t bloom_off = get64(ftr + 12);
     uint32_t bloom_bits = get32(ftr + 20);
 
+    /* footer 各字段在动手分配内存前先按"文件真实大小"校验, 防恶意/损坏文件
+     * 把 idx_cnt / bloom_bits 撑成天文数字再骗 malloc：
+     *   - 每条索引项 ≥ 12 字节（klen u32 + key + off u64）, 索引区必须整体
+     *     落在文件内（其起点之前还要留出数据区, 故用 ≤ 而非精确等式宽松校验）
+     *   - bloom 位数组占 bloom_bits/8+1 字节, 必须整体落在 footer 之前
+     *   - bloom_bits == 0 会让查询里的取模 % 0 除零, 一并拒绝
+     * 合法文件（sst_write 所产）恰好满足这些边界, 不会误伤。 */
+    long fsz = 0;
+    if (fseek(f, 0, SEEK_END) != 0 || (fsz = ftell(f)) < SST_FTR_SIZE) {
+        fclose(f);
+        return -1;
+    }
+    if (bloom_bits == 0 || bloom_off > (uint64_t)fsz - SST_FTR_SIZE ||
+        bloom_bits / 8 + 1 > (uint64_t)fsz - SST_FTR_SIZE - bloom_off) {
+        fclose(f);
+        return -1;
+    }
+    if (index_off > (uint64_t)fsz - SST_FTR_SIZE ||
+        (uint64_t)idx_cnt > ((uint64_t)fsz - SST_FTR_SIZE - index_off) / 12) {
+        fclose(f);
+        return -1;
+    }
+
     s->idx_key = malloc((idx_cnt ? idx_cnt : 1) * sizeof *s->idx_key);
     s->idx_off = malloc((idx_cnt ? idx_cnt : 1) * sizeof *s->idx_off);
-    if (!s->idx_key || !s->idx_off) { fclose(f); return -1; }
+    if (!s->idx_key || !s->idx_off) {
+        /* 两段 malloc 可能只失败其一: 成功的那段也要释放, 否则泄漏 */
+        free(s->idx_key);
+        free(s->idx_off);
+        s->idx_key = NULL;
+        s->idx_off = NULL;
+        fclose(f);
+        return -1;
+    }
     s->idx_cnt = idx_cnt;
     if (fseek(f, (long)index_off, SEEK_SET) != 0) goto fail;
     for (uint32_t i = 0; i < idx_cnt; i++) {
@@ -138,6 +169,7 @@ fail:
     free(s->idx_off);
     s->idx_key = NULL;
     s->idx_off = NULL;
+    bloom_free(&s->bloom); /* bloom 可能已 init: 失败路径同样要释放 */
     fclose(f);
     return -1;
 }

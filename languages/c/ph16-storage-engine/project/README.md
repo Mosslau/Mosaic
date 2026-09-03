@@ -41,6 +41,17 @@ make demo       # 3. 命令行演示链（put/get/del/flush/stats）
 make clean      # 4. 清理 /tmp/ph16c-proj 与 /tmp/ph16c-proj-data
 ```
 
+Sanitizer 复跑（衔接 ph11；CFLAGS 覆盖后必须先 make clean 再重编，且用完后同样先 clean 再恢复常规构建）：
+
+```bash
+# 5. ASan/UBSan 版重编（-fsanitize=address,undefined; CFLAGS 需带全量参数）
+make clean && make CFLAGS='-Wall -Wextra -std=c11 -O1 -g -fsanitize=address,undefined'
+# 6. 复跑自测（detect_leaks=0: Linux 上跳过 LeakSanitizer, macOS 上为无害空操作）
+ASAN_OPTIONS=detect_leaks=0 make test
+# 7. 清理并恢复常规构建
+make clean && make
+```
+
 验证环境：Apple clang 21.0.0（`cc`，macOS Darwin arm64，ProductVersion 26.6.2），C11。`make test` 实测输出摘要：
 
 ```text
@@ -49,7 +60,7 @@ PASS: open 成功 … PASS: 重开后 bulk01 仍不存在
 lsmkv: 28 PASS, 0 FAIL, 退出码 0
 ```
 
-Sanitizer 复跑（`cc -Wall -Wextra -std=c11 -g -fsanitize=address,undefined`，衔接 ph11）同样 28 PASS、零报告。注意 `stats` 的 `flush N 次` 只统计当前进程生命周期内的 flush（计数器在内存），`sstable N 个` 才是磁盘真实状态。
+Sanitizer 复跑同上第 5~7 步，实测同样 28 PASS、零报告。注意 `stats` 的 `flush N 次` 只统计当前进程生命周期内的 flush（计数器在内存），`sstable N 个` 才是磁盘真实状态。
 
 ## 扩展方向
 

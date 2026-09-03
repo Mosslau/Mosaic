@@ -10,8 +10,9 @@
 | `ex03-docker-compose/docker-compose.yml` | web + postgres 编排：健康依赖、数据卷、restart（主文档 3.3） | 语法已验证（`docker compose config` 离线解析通过）；未实际启动 |
 | `ex04-nginx/nginx.conf` | Nginx 反代完整配置：upstream 池、静态分流、真实 IP 透传（主文档 3.4） | 语法已验证（本机 `nginx -t` 通过，mime.types 需在 conf 同目录）；未起真实链路 |
 | `ex05-systemd-metrics/bhealth-api.service` | systemd unit：开机自启、崩溃拉起、日志进 journald（主文档 3.5） | 未在本环境验证（macOS 无 systemd） |
+| `ex05-supervisord/supervisord.conf` | Supervisor 等价守护配置（INI；supervisorctl 命令表见文件头，主文档 3.5） | 未在本环境验证（本机未装 Supervisor） |
 | `ex05-systemd-metrics/service.py` + `check_metrics.py` | 手写最小 Prometheus /metrics 端点（Counter/Histogram/Gauge）+ 实测验证（主文档 3.7） | `python3 check_metrics.py`（离线，已验证） |
-| `ex06-ci-cd.yml` | GitHub Actions 流水线：lint → test → 镜像构建（主文档 3.6） | YAML 语法已验证（本机 yaml.safe_load 解析通过）；未推到 GitHub 实际运行 |
+| `ex06-ci-cd.yml` | GitHub Actions 流水线：触发过滤 + concurrency + matrix + quality/image 门禁 → lint → test → 镜像构建（主文档 3.6） | YAML 语法已验证（本机 yaml.safe_load 解析通过）；未推到 GitHub 实际运行 |
 | `pyproject.toml` | 本目录 ruff 校验基准（line-length 100、select E/F/I/UP/B） | 被 `ruff check` 命令自动读取（本机实测全绿） |
 
 说明：

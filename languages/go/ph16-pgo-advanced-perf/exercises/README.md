@@ -12,7 +12,7 @@
 - 压测进行中用 `runtime/pprof.StartCPUProfile/StopCPUProfile` 包住窗口（或 `net/http/pprof` 从外部采），产出一份 `.pprof` 文件到 /tmp
 - 用 `go tool pprof -top` 验证：最热帧必须是预期的业务函数，占比 > 80%
 
-**验收**：`go test ./... && go vet ./...` 通过；`-workers 4 -dur 2s -cpuprofile` 运行后，`pprof -top` 的 flat 第一行是你的业务函数（占绝对多数，参考实现实测 ~86%）；能说出：为什么并发 worker 数 × 窗口时长会大于窗口本身的采样时长（多核并行采样）
+**验收**：`go test ./... && go vet ./...` 通过；`-workers 4 -dur 2s -cpuprofile` 运行后，`pprof -top` 的 flat 第一行是你的业务函数（占绝对多数，参考实现实测 84.01%——见 sol-01-collect-profile/main.go 文件头验证块，±10~20% 波动）；能说出：为什么并发 worker 数 × 窗口时长会大于窗口本身的采样时长（多核并行采样）
 
 **提示**：sol-01-collect-profile 目录；先想清楚 `compressBlock` 为什么必须零分配、结果为什么必须落地（sink）——否则编译器可能把整个热点优化没（ph13 的 sink 纪律）；对比 examples/ex01-profserver 的两种采集路径（常驻服务用 net/http/pprof、批处理用 runtime/pprof）
 
@@ -55,4 +55,4 @@
 
 **验收**：两份报告齐全（基线 vs PGO 的 p50/p95/p99/均值/吞吐）；能说清 p95/p99 为什么高于 p50（负载大小分布）；能解释 PGO 版快在哪（去虚拟化 + 字段提升）；能识别并剔除离群单次（如一次基线吞吐掉 25%）
 
-**提示**：sol-04-latency-throughput 目录（参考实现实测 p50 1.63µs → 0.92µs、吞吐 ~590k → ~955k req/s）；**坑**：`-cpuprofile` 采集时跳过逐请求计时（参考实现已内置并注释原因）——本机实测逐请求 `time.Now` 会把 CPU 采样偏置到 main.main，PGO 拿到失真权重会选错去虚拟化目标（选到 10% 类型反而变慢）；先做练习 2 再来本题，机制相同、本题加"度量方法"
+**提示**：sol-04-latency-throughput 目录（参考实现实测 p50 1.63µs → 0.92µs、吞吐 ~590k → ~955k req/s；p99 3.25 → 3.75µs 微升属尾部离群/负载分布效应、落在 ±10~20% 波动内——主要收益在 p50 与吞吐，别误读为 PGO 变差）；**坑**：`-cpuprofile` 采集时跳过逐请求计时（参考实现已内置并注释原因）——本机实测逐请求 `time.Now` 会把 CPU 采样偏置到 main.main，PGO 拿到失真权重会选错去虚拟化目标（选到 10% 类型反而变慢）；先做练习 2 再来本题，机制相同、本题加"度量方法"

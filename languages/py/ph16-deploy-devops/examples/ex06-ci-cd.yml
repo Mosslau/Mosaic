@@ -1,25 +1,34 @@
-# examples/ex06-ci-cd.yml —— GitHub Actions 最小 CI/CD 流水线（主文档 3.6）
+# examples/ex06-ci-cd.yml —— GitHub Actions CI/CD 流水线（主文档 3.6 的逐段走读对象）
 # 验证环境目标：GitHub Actions（push 到含 .github/workflows/ 的仓库即触发）
 # 验证状态：YAML 语法已验证（本机 python3 yaml.safe_load 解析通过）；未推到 GitHub 实际运行
-# 用法：放进仓库的 .github/workflows/ci.yml
+# 用法：放进仓库的 .github/workflows/ci.yml（下述 job 假设仓库根有锁版本的
+#   requirements.txt 与 tests/ —— 即本阶段 project/ 的形态）
 
 name: ci
 
 on:
   push:
-    branches: [main]
-  pull_request:
+    branches: [main]      # 触发过滤①：只有 push 到 main 才跑（含发布的全链）
+  pull_request:           # PR 也触发（预检），但没有 environment 门禁与发布步骤
+  workflow_dispatch: {}   # 手动触发（可选入口）
+
+concurrency:              # 并发控制②：同一分支同时只留一条流水线
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true  # 新提交直接顶掉旧任务的排队/运行，省 runner 配额
 
 jobs:
-  quality:
+  quality:                # ---- 质量门禁：lint + test ----
     runs-on: ubuntu-latest
+    strategy:
+      matrix:             # matrix ③：一组参数展开成多份并行 job
+        python-version: ["3.12", "3.13"]   # 两个 Python 版本各跑一遍 lint/test
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
-          cache: pip # 依赖缓存：requirements 没变就复用上次的安装
+          python-version: ${{ matrix.python-version }}
+          cache: pip      # 缓存 key：requirements 没变就复用上次的 pip 缓存
 
       - name: 安装依赖
         run: pip install -r requirements.txt ruff pytest
@@ -30,16 +39,20 @@ jobs:
       - name: test（测试不过就不许进 main）
         run: python -m pytest
 
-  image:
-    needs: quality # 门禁过了才构建镜像
+  image:                  # ---- 构建 + 发布（质量门禁过了才轮到它） ----
+    needs: quality        # ④ 依赖门禁：quality 全绿才启动本 job，坏代码到不了构建
+    if: github.ref == 'refs/heads/main'   # 只有 main 的产物进发布链
     runs-on: ubuntu-latest
+    environment: production  # ⑤ environment 门禁：仓库设置里可要求人工审批
     steps:
       - uses: actions/checkout@v4
 
       - name: 构建镜像（推送需配置 GHCR/Docker Hub 的 secrets，这里只演示构建）
         run: docker build -t bhealth-api:${{ github.sha }} .
 
-      # - name: 推送镜像 + 触发部署（示意，secrets 在仓库设置里配，绝不写进 YAML）
+      # ⑥ 推送 + 部署（示意；secrets 在仓库 Settings → Secrets 配，YAML 里只写
+      #    ${{ secrets.REGISTRY_TOKEN }}，绝不出现明文——配置分离在 CI 层的体现）
+      # - name: 推送镜像 + 触发部署
       #   run: |
       #     echo "${{ secrets.REGISTRY_TOKEN }}" | docker login ghcr.io -u ci --password-stdin
       #     docker push ghcr.io/${{ github.repository }}/bhealth-api:${{ github.sha }}

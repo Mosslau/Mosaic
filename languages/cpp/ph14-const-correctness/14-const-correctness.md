@@ -454,4 +454,4 @@ c++ -std=c++20 -Wall -Wextra ex06-readonly-view.cpp -o /tmp/ph14-ex06 && /tmp/ph
 
 ### 下一阶段
 
-[未定义行为 UB 与内存安全阶段](../ph15-ub-memory-safety/15-ub-memory-safety.md) — ph15 目录已建，其下一阶段 ph16（测试、静态分析与代码规范阶段）也已落地（roadmap 第 17~23 节均为规划中，目录待建）。本阶段把"const 正确性"讲成接口设计语言（const 承诺 + 只读视图 + 逻辑/物理 const）；ph15 系统梳理 const 承诺被破坏的后果——`const_cast` 修改真正 const 对象的 UB（ph14 已实测 O0 Bus error / O2 常量折叠，ph15 归入"编译器假设无 UB"的总框架）、视图/引用悬挂后的解引用、use-after-move、数据竞争等全部 UB 分类，并用 ASan/UBSan/TSan 实测。届时本阶段的"视图生命周期必须短于数据源""const 不变量是编译器的优化前提"直接成为 ph15 判断"这行代码是否 UB"的依据。
+[未定义行为 UB 与内存安全阶段](../ph15-ub-memory-safety/15-ub-memory-safety.md) — ph15 目录已建，其下一阶段 ph16（测试、静态分析与代码规范阶段）也已落地（ph17（设计模式与架构能力阶段）已落地，roadmap 第 18~23 节仍在规划中、目录待建）。本阶段把"const 正确性"讲成接口设计语言（const 承诺 + 只读视图 + 逻辑/物理 const）；ph15 系统梳理 const 承诺被破坏的后果——`const_cast` 修改真正 const 对象的 UB（ph14 已实测 O0 Bus error / O2 常量折叠，ph15 归入"编译器假设无 UB"的总框架）、视图/引用悬挂后的解引用、use-after-move、数据竞争等全部 UB 分类，并用 ASan/UBSan/TSan 实测。届时本阶段的"视图生命周期必须短于数据源""const 不变量是编译器的优化前提"直接成为 ph15 判断"这行代码是否 UB"的依据。

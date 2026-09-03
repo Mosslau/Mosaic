@@ -6,12 +6,14 @@
 //
 //	go run ./cmd/loadgen -url http://127.0.0.1:18090 -n 20000 -workers 8 -devices 2048
 //
-// 验证状态：已验证（go1.25.6，2026-09-02）
+// 验证状态：已验证（go1.25.6，2026-09-02 首验；2026-09-03 修复"Run 失败仍 exit 0"
+// 问题——改 os.Exit(1)——后复验 go vet/test/build 全绿）
 package main
 
 import (
 	"flag"
 	"fmt"
+	"os"
 	"time"
 
 	"tenetlang/go/ph16-pgo-advanced-perf/project/internal/workload"
@@ -33,8 +35,10 @@ func main() {
 		Timeout: *timeout,
 	})
 	if err != nil {
-		fmt.Println("loadgen:", err)
-		return
+		// 失败必须非零退出：pgo-experiment.sh 会把 loadgen 输出重定向到报告文件，
+		// 只打印并 return 会 exit 0——服务没起来时静默产出空报告、脚本还当成功。
+		fmt.Fprintln(os.Stderr, "loadgen:", err)
+		os.Exit(1)
 	}
 	fmt.Printf("requests=%d ok=%d wall=%s throughput=%.0f req/s\n",
 		s.Total, s.OK, s.Wall.Round(time.Millisecond), s.Throughput)

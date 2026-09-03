@@ -14,7 +14,7 @@
 
 ## 目录结构
 
-```
+```text
 project/
 ├── go.mod                      # go 1.25.0（全仓语言版本档）
 ├── cmd/
@@ -46,7 +46,7 @@ project/
 `./scripts/pgo-experiment.sh` 全流程 exit 0：基线压测报告与 PGO 版压测报告均正常产出；
 `go version -m` 显示 `-pgo=/tmp/ph16proj/cpu.pprof`。单请求冒烟：
 
-```
+```text
 $ go run ./cmd/apiserver -addr 127.0.0.1:18090 -devices 2048 -samples 8192 &
 $ curl -s http://127.0.0.1:18090/api/devices/1
 {"id":1,"name":"device-00001","samples":8192,"digest":"<64位hex>"}

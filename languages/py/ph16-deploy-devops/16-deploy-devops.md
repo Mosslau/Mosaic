@@ -4,7 +4,7 @@
 
 ## 1. 概述
 
-Python 部署与 DevOps 阶段的目标是：**把 Python 项目部署到真实环境**（roadmap 第 16 节目标）。它是学习路线从「写对代码」转向「养好服务」的一站：承接 ph10 Web 后端开发阶段（FastAPI 应用怎么写，这里不重讲）与 ph15 AI / 机器学习阶段（joblib 模型产物 + cli.py 命令行推理——本阶段的 project/ 把它升级为带健康检查与指标端点的部署模板，且 `JoblibPredictor` 直接兼容 ph15 落盘的 `BatteryHealthPipeline` 产物形态，ph15 产物无需改造即可被服务加载），补上「代码写完到用户能用」之间的工程链路。
+Python 部署与 DevOps 阶段的目标是：**把 Python 项目部署到真实环境**（roadmap 第 16 节目标）。它是学习路线从「写对代码」转向「养好服务」的一站：承接 ph10 Web 后端开发阶段（FastAPI 应用怎么写，这里不重讲）与 ph15 AI / 机器学习阶段（joblib 模型产物 + cli.py 命令行推理——本阶段的 project/ 把它升级为带健康检查与指标端点的部署模板；`JoblibPredictor` 对 ph15 落盘的 `BatteryHealthPipeline` 产物形态做分派兼容，**但该兼容只到「形态」一级（stub 级验证，test_api.py 的 `Ph15LikePipeline`），真实 ph15 joblib 产物要在服务端加载，还需其 `bhealth` 包可被 import——project 镜像不含 bhealth，边界与解法见 project/README 扩展方向**），补上「代码写完到用户能用」之间的工程链路。
 
 | 核心维度 | 覆盖内容 |
 |----------|---------|
@@ -67,6 +67,14 @@ raw = os.environ.get("MODEL_PATH", "").strip()   # 未设置 → 规则兜底
 | `curl -v http://127.0.0.1:8000/health` | 服务通不通（部署后第一件事） |
 | `kill -TERM <pid>` vs `kill -KILL <pid>` | 优雅关停（给清理机会）vs 强杀（最后手段） |
 | `journalctl -u <服务名> -f` | 跟日志（systemd 场景，见 3.5） |
+
+**信号如何被守护层感知（SIGTERM → 优雅关停的闭环）**：ex01 实测 uvicorn 收到 `SIGTERM` 后先打印 `INFO: Shutting down` / `INFO: Finished server process` 完成优雅收尾（停接新连接、等在途请求结束、刷日志），进程随后以「被 SIGTERM 终止」的形态退出（returncode -15，shell 显示 143）——**优雅关停 ≠ 退出码 0，收尾的证据在日志里**。守护层对这次退出怎么解读，决定要不要拉起：
+
+- **systemd（`Restart=on-failure`）**：管理员 `systemctl stop` 自己发出 SIGTERM，systemd 记为「主动停止」，不触发重启（ex05 unit 注释同此语义）；
+- **compose（`restart: unless-stopped`）**：`docker stop` 同样是先 SIGTERM、宽限期后仍不退才 SIGKILL；restart 策略只对「非主动停止」的退出生效；
+- **裸 shell**：`kill -TERM` 前台进程后 shell 报 143（128+15），脚本可用退出形态区分「被优雅关停」与「自己崩了」。
+
+所以优雅关停是一条完整链路：应用收到 SIGTERM → 自己收尾 → 守护层据退出形态决定是否拉起。若应用无视 SIGTERM 硬扛，systemd/compose 会在超时后升级 SIGKILL（-9）——那时连收尾机会都没有。
 
 > 阶段内容隔离：FastAPI 应用本身怎么写（路由、校验、中间件）属于 ph10 Web 后端开发阶段，这里只谈「应用怎么变成长期存活的服务」。
 
@@ -184,33 +192,63 @@ WantedBy=multi-user.target           # enable = 开机自启
 
 要点：`Restart=on-failure` 与 `always` 的区别——管理员手动 `systemctl stop` 不该被拉起来；`EnvironmentFile` 把配置注入进程环境（3.1 的配置分离落到系统层）；`User=` 低权限运行。常用命令：`systemctl enable --now 服务名`（自启 + 立即启动）/ `status` / `restart` / `journalctl -u 服务名 -f`。
 
-Supervisor 的等价配置（INI 风格，用户态守护——无 root 权限或非 systemd 系统上的选择；**本机未装 Supervisor，未在本环境验证**，按官方文档编写）：
+Supervisor 的等价配置（examples/ex05-supervisord/supervisord.conf，INI 风格，用户态守护——无 root 权限或非 systemd 系统上的选择；**本机未装 Supervisor，未在本环境验证**，按官方文档编写）：
 
 ```ini
-; /etc/supervisor/conf.d/bhealth-api.conf —— 未在本环境验证
+; examples/ex05-supervisord/supervisord.conf —— 未在本环境验证（本机未装 Supervisor）
 [program:bhealth-api]
 command=/opt/bhealth-api/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 directory=/opt/bhealth-api
 user=bhealth
-autostart=true                 ; 开机（supervisord 启动时）拉起
-autorestart=unexpected         ; 对应 systemd 的 Restart=on-failure
-stdout_logfile=/var/log/bhealth-api.log   ; Supervisor 自管日志文件（不进 journald）
+autostart=true                 ; supervisord 启动时拉起（对应 systemd enable）
+autorestart=unexpected         ; 异常退出才拉起（对应 Restart=on-failure）
+startretries=3                 ; 连续拉起失败 3 次后标 FATAL（对应 StartLimitBurst 防爆拉）
+stdout_logfile=/var/log/bhealth-api.log   ; Supervisor 自管日志（不进 journald）
 environment=MODEL_PATH="/models/model.joblib"
 ```
+
+> **边界**：本阶段配套以 systemd 为准（ex05/exercises/sol-04 的 unit 文件是主交付物），Supervisor 仅作对比——两者心智同构（启动/看护/日志三件事 + 「异常退出才拉起」的语义），Supervisor 优势在跨平台、无 root；systemd 优势在 Linux 标配、日志走 journald。supervisorctl 命令表见 conf 文件头注释。
 
 > ⚠️ 容器场景通常**不用** systemd/Supervisor 管应用——`restart: unless-stopped`（compose）或 K8s 的重启策略接管了这个角色。一条判断规则：**谁创建容器/进程，谁负责它的生命周期**——不要在容器里再套一层守护进程。
 
 ### 3.6 CI/CD：从 push 到上线的流水线
 
-CI（持续集成）= 每次提交自动验证（lint + test）；CD（持续交付/部署）= 验证过后自动构建产物、部署上线。流水线的标准阶段：
+CI（持续集成）= 每次提交自动验证（lint + test）；CD（持续交付/部署）= 验证过后自动构建产物、部署上线。GitHub Actions 把它写成仓库里的 YAML——**字段即流水线语义**，逐段走读（完整文件 examples/ex06-ci-cd.yml，语法已验证；下面为关键段节选，编号 ①~⑥ 与文件注释对应）：
 
-```text
-push ──▶ lint（ruff）──▶ test（pytest）──▶ build（docker build）──▶ push 镜像 ──▶ deploy
-           │                │                  门禁：任何一关红了就停下，不许进 main
-           └──── 质量门禁 ───┘
+```yaml
+on:
+  push: { branches: [main] }    # ① 触发过滤：只 main 的 push 触发（发布链入口）
+  pull_request:                 #    PR 也触发——先跑 lint/test 自检，不发布
+concurrency:                    # ② 并发控制：同一分支同时只保留一条流水线
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true      #    新提交顶掉排队中的旧任务，省 runner 配额
+jobs:
+  quality:                      # 质量门禁 job：lint + test
+    strategy: { matrix: { python-version: ["3.12", "3.13"] } }
+                                # ③ matrix：一组参数展开成多份并行 job
+    steps:
+      - uses: actions/setup-python@v5
+        with: { python-version: ${{ matrix.python-version }}, cache: pip }
+                                #    缓存 key：requirements 没变就复用 pip 缓存
+      - run: ruff check . && ruff format --check .   # lint 门禁
+      - run: python -m pytest                        # test 门禁
+  image:
+    needs: quality              # ④ 依赖门禁：quality 全绿 image job 才启动
+    environment: production     # ⑤ 发布门禁：environment 可配人工审批/环境级 secrets
+    steps:
+      - run: docker build -t bhealth-api:${{ github.sha }} .
+      # ⑥ 推送/部署的凭据只经 ${{ secrets.XXX }} 引用——secrets 存在仓库
+      #    Settings → Secrets，绝不写进 YAML/代码（配置分离在 CI 层的体现）
 ```
 
-GitHub Actions 最小实现（examples/ex06-ci-cd.yml，YAML 语法已验证）：`on: push` 触发 → `setup-python` + 依赖缓存 → `ruff check` → `pytest` → `docker build`（推送需 secrets——**密钥放仓库设置的 secrets 里，绝不写进 YAML/代码**，这是配置分离在 CI 层的体现）。部署策略概念（一句话级）：**滚动**（逐批替换实例，常态）、**蓝绿**（两套环境切换，回滚快）、**金丝雀**（先放 5% 流量试新版本）——本阶段建立概念，实战属编排层（K8s）专题。
+④（`needs`）与 ⑤（`environment`）是「门禁」的两种形态：`needs` 让 job 按依赖链串行（坏代码到不了构建），`environment` 把发布动作挂到可审批的环境上——**CI 是自动的，发布可以是「门禁内自动」**。质量门禁之后是把新版本交给用户的方式——发布/部署策略对比（本阶段建立概念，编排层的落地属 K8s 独立专题）：
+
+| 策略 | 回滚耗时 | 发布成本 | 适用场景 |
+|------|---------|---------|---------|
+| 滚动（rolling） | 长：逐批回滚 | 低：复用同一套实例 | 常态小版本 |
+| 蓝绿（blue-green） | 短：流量切回旧环境 | 高：两套环境并行养着 | 大版本、回滚速度优先 |
+| 金丝雀（canary） | 短：收回灰度流量 | 中：需分流 + 监控配合 | 高风险变更，先放 5% 试错 |
+
 
 ### 3.7 日志采集与监控：Prometheus 与 Grafana
 
@@ -225,7 +263,24 @@ GitHub Actions 最小实现（examples/ex06-ci-cd.yml，YAML 语法已验证）�
 | Histogram | 分布采样（分桶/count/sum） | `bhealth_predict_seconds`（预测耗时） |
 | Summary | 客户端算分位数 | 同上目的，聚合性差，少用 |
 
-`/metrics` 端点手写最小实现（examples/ex05，已验证——起真实 uvicorn + httpx 断言）：打 3 次 `/predict` 后实测输出 `demo_requests_total{endpoint="predict"} 3`、`demo_predict_seconds_count 3`。生产用 `prometheus_client` 库，格式完全一致。Grafana 是**看板与告警前端**：数据源指向 Prometheus，把 `rate(bhealth_requests_total[1m])` 这类 PromQL 画成图。
+`/metrics` 端点手写最小实现（examples/ex05，已验证——起真实 uvicorn + httpx 断言）：打 3 次 `/predict` 后实测输出 `demo_requests_total{endpoint="predict"} 3`、`demo_predict_seconds_count 3`。生产用 `prometheus_client` 库，格式完全一致。
+
+**Grafana 是看板与告警前端**——它自己不存指标，只把 Prometheus 当数据源查 PromQL 画图（project/ 的 compose 加了 prometheus 服务后，Grafana 接法三步）：
+
+1. 加 `grafana/grafana` 服务进 compose，`depends_on` prometheus；
+2. 数据源（Configuration → Data sources）选 Prometheus，**URL 填 `http://prometheus:9090`**——compose 内部网络里服务名即主机名（3.3），不要填 localhost；
+3. 新建面板（Dashboards → New → Import）后写 PromQL 查询，下面是一组最小面板：
+
+```promql
+# 面板 1：请求速率（QPS）——Counter 必须先 rate() 才有意义，裸的单调计数只会画一条永不回落的线
+rate(bhealth_requests_total[1m])
+# 面板 2：预测耗时 P95（Histogram 的桶 → histogram_quantile）
+histogram_quantile(0.95, sum(rate(bhealth_predict_seconds_bucket[5m])) by (le))
+# 面板 3：当前推理后端（Gauge，label 是 joblib/rule/missing）
+bhealth_model_info
+```
+
+最小说明：`rate(...[1m])` 是「过去 1 分钟的平均增速」，秒级 QPS 的标准写法；`histogram_quantile` 需要 Histogram 的 `_bucket` 序列（手写版只有 count/sum，要 P95 得先换 `prometheus_client`，见 examples/ex05 文件头）。看板图只是第一步——**阈值 + 告警**（如 QPS 掉零持续 5 分钟）属告警前端（Alertmanager），本阶段概念到「看图」为止。
 
 **服务要有健康检查**（roadmap 必会概念）是两种探针的分工（examples/ex01，已验证）：
 
@@ -318,7 +373,7 @@ def ready(response: Response) -> dict[str, str]:
     return {"status": "ready"}
 ```
 
-实测输出：`GET /health → 200 {"status": "ok"}`；`GET /ready → 200`；`POST /predict`（1500 次循环/25°C/DoD 80%/1C）→ `{"soh": 80.5}`；故障注入后 `/ready → 503` 而 `/health` 仍 200；SIGTERM 后 `check_service.py` 断言退出码 -15（shell 143）并从捕获的 stderr 验证优雅关停日志 `INFO: Shutting down` 与 `INFO: Finished server process`（关停日志断言已在自动脚本内完成，2026-09 复跑通过）。
+实测输出：`GET /health → 200 {"status": "ok"}`；`GET /ready → 200`；`POST /predict`（1500 次循环/25°C/DoD 80%/1C）→ `{"soh": 80.5}`；故障注入后 `/ready → 503` 而 `/health` 仍 200；SIGTERM 后 `check_service.py` 断言退出码 -15（shell 143）并从捕获的 stderr 验证优雅关停日志 `INFO: Shutting down` 与 `INFO: Finished server process`（2026-09 复跑实测：uvicorn 0.50.0 优雅关停日志齐备后进程仍以 -15 被信号终止，断言按实测保留，与 ex05 unit 注释「systemd 视 SIGTERM 为正常停止」互相印证）。
 
 ### 示例 2：Dockerfile 多阶段构建（呼应 3.2/4.3，未在本环境验证）
 
@@ -344,7 +399,7 @@ USER appuser
 
 ### 示例 5：systemd unit 与 Prometheus /metrics 端点（呼应 3.5/3.7）
 
-完整文件 `examples/ex05-systemd-metrics/`：unit 文件（**未在本环境验证**，macOS 无 systemd）+ 手写最小 Prometheus 端点（**已验证**）。
+完整文件 `examples/ex05-systemd-metrics/`：unit 文件（**未在本环境验证**，macOS 无 systemd）+ 手写最小 Prometheus 端点（**已验证**）；Supervisor 等价配置在 `examples/ex05-supervisord/supervisord.conf`（呼应 3.5 对比，**未在本环境验证**——本机未装 Supervisor，supervisorctl 命令表见文件头）。
 
 ```python
 # examples/ex05-systemd-metrics/service.py —— /metrics 文本格式（已验证）
@@ -359,7 +414,7 @@ lines += [
 
 ### 示例 6：GitHub Actions CI/CD 流水线（呼应 3.6，YAML 语法已验证）
 
-完整文件 `examples/ex06-ci-cd.yml`：`on: push` → setup-python（pip 缓存）→ `ruff check` → `pytest` → `docker build` 三段式，部署步骤以注释示意（secrets 不写进 YAML）。本机 `yaml.safe_load` 解析通过；未推到 GitHub 实际运行。
+完整文件 `examples/ex06-ci-cd.yml`：`on` 触发过滤（push main / pull_request / workflow_dispatch）→ concurrency 并发控制 → quality job（matrix 双 Python 版本、setup-python pip 缓存）→ `ruff check` → `pytest` → image job（`needs` 门禁 + `environment: production` 发布门禁）→ `docker build`，部署步骤以注释示意（secrets 只经 `${{ secrets.XXX }}` 引用，不写进 YAML）。本机 `yaml.safe_load` 解析通过；未推到 GitHub 实际运行。
 
 ## 7. 总结
 
@@ -410,7 +465,7 @@ lines += [
 本阶段综合项目见 [`project/`](./project/)：**电池健康预测服务部署模板（bhealth-api）**——把 ph15 的「joblib 产物 + cli.py 命令行推理」升级为带 `/health`、`/ready`、`/predict`、`/metrics` 四端点的 FastAPI 服务，配多阶段 Dockerfile、Compose（服务 + Prometheus 抓取）编排；7 个 pytest 用例 + ruff 全绿 + 真实 uvicorn 链路实测（对应 roadmap「推荐项目」第一个「FastAPI 部署模板」；第二个「数据服务 Docker Compose」由 examples/ex03 与 project 的 compose 覆盖）。建议完成练习后再动手，练习 1（可部署服务形态）是它的缩小版。
 
 - [ ] 完成 exercises/ 全部 4 题并对照参考实现复盘
-- [ ] 独立完成 project/ 并通过其验收标准（`python3 -m pytest` → 7 passed；`ruff check .` 全绿；`python3 train.py` 产出物并自检；uvicorn 起服务实测 `/ready` 报 `model_type: joblib`、`/predict` 返回合理 SOH；ph15 的 `BatteryHealthPipeline` 产物也能直接被服务加载，见 project 测试 `test_ph15_pipeline_artifact_compat`）
+- [ ] 独立完成 project/ 并通过其验收标准（`python3 -m pytest` → 7 passed；`ruff check .` 全绿；`python3 train.py` 产出物并自检；uvicorn 起服务实测 `/ready` 报 `model_type: joblib`、`/predict` 返回合理 SOH；ph15 的 `BatteryHealthPipeline` 产物**形态**兼容通过 project 测试 `test_ph15_pipeline_artifact_compat`——stub 级验证，真实 ph15 产物需其 `bhealth` 包可导入，见 project/README 扩展方向）
 
 ### 下一阶段
 
