@@ -1,0 +1,98 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "车队车辆查询 API（练习 3：为接口补 OpenAPI 文档）",
+    "version": "1.0.0",
+    "description": "车辆查询接口的权威规范。契约测试会逐条核对：实现挂载的路由、真实响应字段、错误结构，任何一个漂移都会让 go test 红。"
+  },
+  "paths": {
+    "/api/v1/vehicles": {
+      "get": {
+        "summary": "查询车辆列表（支持过滤/分页/排序）",
+        "operationId": "listVehicles",
+        "parameters": [
+          { "name": "status", "in": "query", "required": false, "schema": { "type": "string", "enum": ["online", "offline", "maintenance"] } },
+          { "name": "plate", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "offset", "in": "query", "required": false, "schema": { "type": "integer", "format": "int32", "default": 0, "minimum": 0 } },
+          { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "format": "int32", "default": 20, "minimum": 0, "maximum": 100 } },
+          { "name": "sort", "in": "query", "required": false, "schema": { "type": "string", "enum": ["id", "plate", "status"], "default": "id" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok，返回分页 envelope",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/VehiclePage" },
+                "example": { "items": [{ "id": "veh-000", "plate": "京A-000", "status": "online" }], "total": 57, "offset": 0, "limit": 20 }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ErrorResponse" }
+        }
+      }
+    },
+    "/api/v1/vehicles/{id}": {
+      "get": {
+        "summary": "查询单个车辆",
+        "operationId": "getVehicle",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Vehicle" },
+                "example": { "id": "veh-001", "plate": "京A-001", "status": "offline" }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/ErrorResponse" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Vehicle": {
+        "type": "object",
+        "required": ["id", "plate", "status"],
+        "properties": {
+          "id": { "type": "string", "description": "车辆唯一标识" },
+          "plate": { "type": "string", "description": "车牌号" },
+          "status": { "type": "string", "enum": ["online", "offline", "maintenance"] }
+        }
+      },
+      "VehiclePage": {
+        "type": "object",
+        "required": ["items", "total", "offset", "limit"],
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/Vehicle" } },
+          "total": { "type": "integer", "description": "过滤后的总数，不是本页条数" },
+          "offset": { "type": "integer" },
+          "limit": { "type": "integer" }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": ["code", "message"],
+        "properties": {
+          "code": { "type": "string", "description": "稳定错误码，只增不删" },
+          "message": { "type": "string", "description": "人类可读的错误说明" }
+        }
+      }
+    },
+    "responses": {
+      "ErrorResponse": {
+        "description": "统一错误体 {code,message}",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "code": "VEHICLE_NOT_FOUND", "message": "vehicle not found" }
+          }
+        }
+      }
+    }
+  }
+}

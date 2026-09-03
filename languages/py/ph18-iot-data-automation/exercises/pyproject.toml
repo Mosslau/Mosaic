@@ -1,0 +1,9 @@
+# exercises/pyproject.toml —— 本目录 ruff 校验基准（sol-01~sol-04 统一配置）
+# 运行：ruff check . && ruff format --check .（在本目录内执行）
+# 验证状态：已验证（Python 3.13.12 环境下本机实测，见各文件头）
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

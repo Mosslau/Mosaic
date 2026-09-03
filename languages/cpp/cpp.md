@@ -893,6 +893,8 @@ public:
 
 ## 18. 性能优化与 Profiling 阶段
 
+> 📖 详细展开版见 [ph18-perf-profiling/18-perf-profiling.md](./ph18-perf-profiling/18-perf-profiling.md)
+
 ### 目标
 
 能基于数据定位性能瓶颈，而不是凭感觉优化。

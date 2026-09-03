@@ -451,7 +451,7 @@ func addVec(a, b []int32) []int32 {
 
 ### 下一阶段
 
-[Go 版本与工具链阶段](../ph15-version-toolchain/15-version-toolchain.md)（ph15，roadmap 第 15 节）— 本阶段反复强调的"版本敏感点"（Go 1.24 的 Swiss map、Go 1.21 的 panic(nil)、扩容取整随架构变化）正是 ph15"工具链版本统一与依赖升级"的动机来源；届时本阶段的机制认知会落到"如何在不同 Go 版本间稳定复现构建与行为"——go env / go install / go work 多模块 workspace、toolchain 指令、模块版本与语义化版本策略。当前已建目录止于 ph17（ph18~ph21 的阶段目录尚未建立），roadmap 见 [`languages/go/go.md`](../go.md)。
+[Go 版本与工具链阶段](../ph15-version-toolchain/15-version-toolchain.md)（ph15，roadmap 第 15 节）— 本阶段反复强调的"版本敏感点"（Go 1.24 的 Swiss map、Go 1.21 的 panic(nil)、扩容取整随架构变化）正是 ph15"工具链版本统一与依赖升级"的动机来源；届时本阶段的机制认知会落到"如何在不同 Go 版本间稳定复现构建与行为"——go env / go install / go work 多模块 workspace、toolchain 指令、模块版本与语义化版本策略。当前已建目录至 ph18（ph19~ph21 的阶段目录尚未建立），roadmap 见 [`languages/go/go.md`](../go.md)。
 
 ---
 

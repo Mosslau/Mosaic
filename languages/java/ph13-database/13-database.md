@@ -16,7 +16,7 @@ ph12 单元测试与工程质量阶段用 HSQLDB 内存库写过最小 JDBC CRUD
 | ORM 与迁移 | MyBatis（SQL 映射）、JPA/Hibernate（对象关系映射、脏检查、JPQL）、Flyway 版本化迁移 |
 | 数据库选型 | HSQLDB 内存库（本机实测）、MySQL / PostgreSQL / Redis（Redis 本机实测；MySQL/PG 概念讲解） |
 
-这个阶段只涉及**单机数据库编程**（SQL/JDBC/连接池/事务/索引/Redis 缓存/MyBatis/JPA/Flyway），**不涉及 Web 层与框架的数据库集成**（Servlet/Spring MVC 中怎么管事务与数据源——[ph14 Web 后端开发阶段](../ph14-web-backend/14-web-backend.md) / [ph15 Spring 全家桶阶段](../ph15-spring-family/15-spring-family.md)，roadmap 第 15 节）、**不涉及分布式数据库、分库分表与分布式事务**（ph16 微服务与分布式阶段，roadmap 第 16 节，目录待建）、**不涉及消息队列中的持久化与搜索索引**（[ph17 消息队列与搜索阶段](../ph17-mq-search/17-mq-search.md)，roadmap 第 17 节）、**不涉及缓存一致性、缓存穿透/击穿/雪崩等高并发缓存架构**（ph18 缓存与高并发阶段，roadmap 第 18 节，目录待建）、**不涉及数据库运维与 CI/CD 中的迁移落地**（ph19 DevOps 与部署阶段，roadmap 第 19 节，目录待建）。本阶段承接 ph12——那里的 HSQLDB 集成测试证明了「代码 + SQL 能协作」，本阶段把「能协作」升级为「协作得对、快、稳」。
+这个阶段只涉及**单机数据库编程**（SQL/JDBC/连接池/事务/索引/Redis 缓存/MyBatis/JPA/Flyway），**不涉及 Web 层与框架的数据库集成**（Servlet/Spring MVC 中怎么管事务与数据源——[ph14 Web 后端开发阶段](../ph14-web-backend/14-web-backend.md) / [ph15 Spring 全家桶阶段](../ph15-spring-family/15-spring-family.md)，roadmap 第 15 节）、**不涉及分布式数据库、分库分表与分布式事务**（ph16 微服务与分布式阶段，roadmap 第 16 节，目录待建）、**不涉及消息队列中的持久化与搜索索引**（[ph17 消息队列与搜索阶段](../ph17-mq-search/17-mq-search.md)，roadmap 第 17 节）、**不涉及缓存一致性、缓存穿透/击穿/雪崩等高并发缓存架构**（[ph18 缓存与高并发阶段](../ph18-cache-concurrency/18-cache-concurrency.md)，roadmap 第 18 节）、**不涉及数据库运维与 CI/CD 中的迁移落地**（ph19 DevOps 与部署阶段，roadmap 第 19 节，目录待建）。本阶段承接 ph12——那里的 HSQLDB 集成测试证明了「代码 + SQL 能协作」，本阶段把「能协作」升级为「协作得对、快、稳」。
 
 ## 2. 来源与演变
 
@@ -225,7 +225,7 @@ examples/ex05 是本阶段唯一需要**外部服务**的示例：测试用 `Red
 - `Jedis` 客户端做同一件事——对照「手写协议 vs 客户端库」：库封装的就是 RESP 帧
 - **Cache-Aside 缓存旁路**（缓存策略的基本型）：先查缓存，未命中回源（数据库）并回填缓存（带过期时间兜底）；第二次缓存命中时不再回源——实测中「删掉数据库」后仍能读到值，证明读的是缓存
 
-> 本阶段只讲**缓存旁路（Cache-Aside）这一种基本策略**。**缓存一致性、缓存穿透/击穿/雪崩、分布式锁的 Redis 实现**属于 ph18 缓存与高并发阶段，这里只需理解「缓存是数据库前面的加速层，过期时间防脏数据永生」。
+> 本阶段只讲**缓存旁路（Cache-Aside）这一种基本策略**。**缓存一致性、缓存穿透/击穿/雪崩、分布式锁的 Redis 实现**属于 [ph18 缓存与高并发阶段](../ph18-cache-concurrency/18-cache-concurrency.md)，这里只需理解「缓存是数据库前面的加速层，过期时间防脏数据永生」。
 
 ### 3.6 MyBatis 与 Flyway：SQL 映射与版本化迁移
 
@@ -371,7 +371,7 @@ B+ 树索引（有索引）：根 ──▶ 中间层 ──▶ 叶子（有序�
 ```
 
 - **索引为什么不是越多越好**：每次写入都要同步维护所有索引树（写放大），索引占磁盘，优化器还要在多个索引里选——所以「索引影响查询和写入成本」，建索引前先想清楚这条查询高频吗、这个列选择性高吗
-- **覆盖索引**：`SELECT email FROM users WHERE email = ?` 若索引含全部所需列，可只扫索引不碰数据页（Index-Only Scan）——本阶段了解概念即可，实践在 ph18 高并发阶段
+- **覆盖索引**：`SELECT email FROM users WHERE email = ?` 若索引含全部所需列，可只扫索引不碰数据页（Index-Only Scan）——本阶段了解概念即可，实践在 [ph18 缓存与高并发阶段](../ph18-cache-concurrency/18-cache-concurrency.md)
 - **执行计划是数据库的「选择」**：`EXPLAIN` 显示的是优化器基于统计信息（行数、分布）选定的执行方式，索引建了但选择性太差时优化器仍会全表扫描——**用执行计划验证，而不是假设**
 
 ### 4.5 Redis 单线程事件循环与过期机制
@@ -424,7 +424,7 @@ Redis 是**单线程事件循环**（epoll/kqueue 多路复用）驱动的：所
 - **Web 层与框架的数据库集成**（Spring 的 `DataSource`/事务管理/`@Transactional`）——[ph14 Web 后端开发阶段](../ph14-web-backend/14-web-backend.md) / [ph15 Spring 全家桶阶段](../ph15-spring-family/15-spring-family.md)（roadmap 第 15 节）；本阶段用纯 JDBC/MyBatis/JPA 的裸 API
 - **分库分表、读写分离与分布式事务**——ph16 微服务与分布式阶段（roadmap 第 16 节，目录待建）
 - **消息队列的持久化与搜索索引**（Kafka/Elasticsearch 的数据存储机制）——[ph17 消息队列与搜索阶段](../ph17-mq-search/17-mq-search.md)（roadmap 第 17 节）
-- **缓存穿透/击穿/雪崩、缓存一致性协议**——ph18 缓存与高并发阶段（roadmap 第 18 节，目录待建）
+- **缓存穿透/击穿/雪崩、缓存一致性协议**——[ph18 缓存与高并发阶段](../ph18-cache-concurrency/18-cache-concurrency.md)（roadmap 第 18 节）
 - **数据库运维**（备份恢复、主从复制、监控告警、迁移进 CI/CD）——ph19 DevOps 与部署阶段（roadmap 第 19 节，目录待建）
 
 **跨语言对比（简短）**：Java 的 JDBC 是「接口标准 + 厂商驱动」，C++ 的常见路线是 libpq / mysql++（厂商 SDK 或薄封装），Go 的 `database/sql` 与 JDBC 同构（`sql.DB` 自带连接池，`db.QueryRow` 对应 `PreparedStatement` 心智），Python 的 DB-API 2.0 也走「连接 + 游标 + 参数化」同一模式——**数据访问的接口形状全语言收敛**，差异在连接池是否内置（Go 内置、Java 靠 HikariCP）。Redis 客户端在 Java（Jedis/Lettuce）、Python（redis-py）、Go（go-redis）里都是 RESP 协议的封装，协议本身与语言无关——这是为 analysis/ 与 Tenet 合成积累的素材。

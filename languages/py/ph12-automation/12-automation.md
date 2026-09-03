@@ -19,7 +19,7 @@ Python 自动化脚本阶段的目标是：**用 Python 提升日常工作效率
 | CAN 日志解析 | candump 格式解析、按 ID 统计信号值（呼应全库车辆主题） |
 | 脚本工程化 | logging + 错误处理、argparse 参数化、安全重跑、可审计（四个必会概念） |
 
-这个阶段只涉及**单机日常自动化的完整闭环**——文件批处理、Excel 自动化、日志分析、接口测试、报表生成、邮件发送、定时任务、CAN 日志解析与脚本工程化四要素，**不涉及并发与异步深入（asyncio/aiohttp 大规模并发抓取）、测试工程体系（pytest/fixture/mock/覆盖率/CI）、生产部署运维（Docker、CI/CD、监控告警）和数据分析深入（pandas 透视表与可视化）** — 那些是 [ph14 并发、并行与异步阶段](../ph14-concurrency-async/14-concurrency-async.md)（roadmap 第 14 节）、ph13 测试与工程质量阶段、[ph16 部署与 DevOps 阶段](../ph16-deploy-devops/16-deploy-devops.md)（roadmap 第 16 节）和 ph09 数据分析阶段的内容；完整 DBC 信号矩阵解析、反爬与规模化抓取属 ph18 车联网 / 数据平台 / 自动化方向阶段（roadmap 第 18 节，目录待建）。爬虫在本阶段只取其起点（requests 拉取 + 解析响应），深入不涉及。本阶段承接 ph11 数据库与缓存阶段——脚本能安全地读写数据、批量入库、从库取数生成报表，爬虫抓取的数据也有了落库与去重的去处。本阶段四层交付物已就位：主文档 + [`examples/`](./examples/) + [`exercises/`](./exercises/) + [`project/`](./project/)，入口见第 6、7 章。
+这个阶段只涉及**单机日常自动化的完整闭环**——文件批处理、Excel 自动化、日志分析、接口测试、报表生成、邮件发送、定时任务、CAN 日志解析与脚本工程化四要素，**不涉及并发与异步深入（asyncio/aiohttp 大规模并发抓取）、测试工程体系（pytest/fixture/mock/覆盖率/CI）、生产部署运维（Docker、CI/CD、监控告警）和数据分析深入（pandas 透视表与可视化）** — 那些是 [ph14 并发、并行与异步阶段](../ph14-concurrency-async/14-concurrency-async.md)（roadmap 第 14 节）、ph13 测试与工程质量阶段、[ph16 部署与 DevOps 阶段](../ph16-deploy-devops/16-deploy-devops.md)（roadmap 第 16 节）和 ph09 数据分析阶段的内容；完整 DBC 信号矩阵解析、反爬与规模化抓取属 [ph18 车联网 / 数据平台 / 自动化方向阶段](../ph18-iot-data-automation/18-iot-data-automation.md)（roadmap 第 18 节，目录已建）。爬虫在本阶段只取其起点（requests 拉取 + 解析响应），深入不涉及。本阶段承接 ph11 数据库与缓存阶段——脚本能安全地读写数据、批量入库、从库取数生成报表，爬虫抓取的数据也有了落库与去重的去处。本阶段四层交付物已就位：主文档 + [`examples/`](./examples/) + [`exercises/`](./exercises/) + [`project/`](./project/)，入口见第 6、7 章。
 
 ## 2. 来源与演变
 
@@ -328,7 +328,7 @@ data = bytes.fromhex(m.group(4))                # 负载 HEX 字符串转字节
 要点：
 
 - **candump 格式一行 = 时间戳 + 接口 + ID + 负载**：`(1629946800.123456) can0 123#1E00000000000000`——时间戳是「秒.微秒」浮点，ID 是十六进制（candump 输出不带 0x 前缀，如 `123`；`--filter-id` 参数才支持 `0x123` 写法），负载是 HEX 字符串（2 字符 = 1 字节）。
-- **信号值的简化约定**：本阶段「负载首字节即信号值」（车速 30 → 0x1E）；真实场景信号跨字节、有缩放因子与字节序，需要 DBC 文件描述——**完整 DBC 信号矩阵解析属 ph18 车联网 / 数据平台 / 自动化方向阶段（roadmap 第 18 节，目录待建）**，这里用简化约定把「解析 → 统计 → 报表」链路打通。
+- **信号值的简化约定**：本阶段「负载首字节即信号值」（车速 30 → 0x1E）；真实场景信号跨字节、有缩放因子与字节序，需要 DBC 文件描述——**完整 DBC 信号矩阵解析属 [ph18 车联网 / 数据平台 / 自动化方向阶段](../ph18-iot-data-automation/18-iot-data-automation.md)（roadmap 第 18 节，目录已建）**，这里用简化约定把「解析 → 统计 → 报表」链路打通。
 - **无效行容错是必须的**：抓包日志里夹杂乱行、空行、注释行，解析器要计数跳过而不是崩溃（project 的 `invalid` 计数 + 测试用例）。
 
 ## 4. 底层原理

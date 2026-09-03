@@ -872,6 +872,8 @@ client → gateway → service-a → service-b → database
 
 ## 18. 缓存与高并发阶段
 
+> 📖 详细展开版见 [ph18-cache-concurrency/18-cache-concurrency.md](./ph18-cache-concurrency/18-cache-concurrency.md)
+
 ### 目标
 
 掌握高性能后端系统设计。

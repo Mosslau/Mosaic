@@ -2,7 +2,7 @@
 
 ## 需求
 
-把 roadmap §17 推荐项目「车联网设备管理服务」落地为一个**分层单体**：设备注册、状态查询、心跳上报、固件升级、指令受理走 HTTP 管理面（`cmd/deviceapi`），内部按 handler（HTTP 翻译）/ service（业务规则）/ store（内存与 JSON 文件两种存储实现，repository 角色）/ domain（领域模型）/ errs（业务错误码）/ config（配置）分层，构造函数注入组装，service 与 handler 各带单元测试。管理面只做"设备的注册与状态管理"，**不做设备协议接入**（MQTT/WebSocket 遥测上行属 ph21 IoT / 车联网 / 嵌入式相关 Go 阶段，roadmap 第 21 节，目录待建），也不做对外 API 契约设计（属 ph18 API 设计与兼容性阶段，roadmap 第 18 节，目录待建）。
+把 roadmap §17 推荐项目「车联网设备管理服务」落地为一个**分层单体**：设备注册、状态查询、心跳上报、固件升级、指令受理走 HTTP 管理面（`cmd/deviceapi`），内部按 handler（HTTP 翻译）/ service（业务规则）/ store（内存与 JSON 文件两种存储实现，repository 角色）/ domain（领域模型）/ errs（业务错误码）/ config（配置）分层，构造函数注入组装，service 与 handler 各带单元测试。管理面只做"设备的注册与状态管理"，**不做设备协议接入**（MQTT/WebSocket 遥测上行属 ph21 IoT / 车联网 / 嵌入式相关 Go 阶段，roadmap 第 21 节，目录待建），也不做对外 API 契约设计（属 [ph18 API 设计与兼容性阶段](../../ph18-api-design-compat/18-api-design-compat.md)，roadmap 第 18 节）。
 
 ## 功能清单
 
@@ -77,7 +77,7 @@ curl -s -X POST http://127.0.0.1:18084/api/devices/car-0001/commands -d '{"comma
 
 ## 扩展方向
 
-- 把「handler 直接序列化 domain.Device」升级为 DTO 隔离：请求/响应结构与领域模型解耦，字段可独立演进（对外契约稳定化的完整纪律属 ph18 API 设计与兼容性阶段，目录待建）
+- 把「handler 直接序列化 domain.Device」升级为 DTO 隔离：请求/响应结构与领域模型解耦，字段可独立演进（对外契约稳定化的完整纪律属 [ph18 API 设计与兼容性阶段](../../ph18-api-design-compat/18-api-design-compat.md)）
 - 给 `store/file.go` 加写时临时文件 + rename 原子替换，避免进程被杀留下半截文件（本实现为教学简化）
 - 把 service 的"心跳决定在线"换成**租约过期**模型（超时未上报自动 offline），为 ph21 真实设备生命周期打底
 - 把"指令受理"扩展为异步命令队列 + ACK 追踪，管理面与投递链分离（投递链实现属 ph21 IoT / 车联网 / 嵌入式相关 Go 阶段）

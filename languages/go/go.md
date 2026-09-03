@@ -851,6 +851,8 @@ handler → service → repository → database
 
 ## 18. API 设计与兼容性阶段
 
+> 📖 详细展开版见 [ph18-api-design-compat/18-api-design-compat.md](./ph18-api-design-compat/18-api-design-compat.md)
+
 ### 目标
 
 设计稳定、清晰、可演进的 API。

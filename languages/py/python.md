@@ -860,6 +860,8 @@ def count():
 
 ## 18. 车联网 / 数据平台 / 自动化方向阶段
 
+> 📖 详细展开版见 [ph18-iot-data-automation/18-iot-data-automation.md](./ph18-iot-data-automation/18-iot-data-automation.md)
+
 ### 目标
 
 用 Python 支撑车联网数据分析、自动化测试和 AI 原型。

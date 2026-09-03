@@ -36,7 +36,7 @@ SOH 是**要预测的目标，不是特征**——把 SOH 喂进模型去预测 
 
 ## 扩展方向
 
-- **日志异常检测**（roadmap 另一个推荐项目）：把目标从「电池健康」换成「文本/数值日志是否异常」——练习 3 的马氏距离/IsolationForest 思路 + 练习 4 的日志文本向量化都可复用，数据换成 ph18 车联网方向会遇到的 CAN/遥测日志
+- **日志异常检测**（roadmap 另一个推荐项目）：把目标从「电池健康」换成「文本/数值日志是否异常」——练习 3 的马氏距离/IsolationForest 思路 + 练习 4 的日志文本向量化都可复用，数据换成 [ph18 车联网 / 数据平台 / 自动化方向阶段](../../ph18-iot-data-automation/18-iot-data-automation.md)会遇到的 CAN/遥测日志
 - 模型换线性基线对照：`StandardScaler + Ridge`（需要缩放——树模型不需要）对比 RandomForest，观察非线性分段老化率让 RF 领先多少（示例 ex04 的方法直接可用）
 - 服务化：把 `BatteryHealthPipeline.load + predict` 包成 FastAPI 端点（ph10 Web 后端阶段技能；异步推理入口见 ph14 的异步 FastAPI 示例），容器化部署衔接 [ph16 部署与 DevOps 阶段](../../ph16-deploy-devops/16-deploy-devops.md)（roadmap 第 16 节）
 - 体检数据接入：用 ph09 的数据读取/清洗把真实体检记录读进来替换合成数据，特征工程（时间窗聚合）走本阶段 3.4 的方法

@@ -865,6 +865,8 @@ tracing = "0.1"
 
 ## 18. Borrow Checker 调试专项阶段
 
+> 📖 详细展开版见 [ph18-borrow-checker-debug/18-borrow-checker-debug.md](./ph18-borrow-checker-debug/18-borrow-checker-debug.md)
+
 ### 目标
 
 系统掌握借用检查错误的定位与重构方法。

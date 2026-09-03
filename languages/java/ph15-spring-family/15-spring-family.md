@@ -17,7 +17,7 @@
 | Spring Data | Repository 接口即实现、方法名派生查询、`@Query` JPQL、分页排序、事务归属 |
 | Spring Security | 认证 vs 授权、Filter 链心智、URL 级/方法级授权、401/403 统一 JSON、BCrypt、JWT 无状态接入（Filter 链原生版） |
 
-这个阶段只涉及 **单体 Spring 应用内的容器机制与官方全家桶组件**，**不涉及微服务架构、注册发现、网关、熔断与分布式事务**（ph16 微服务与分布式阶段，roadmap 第 16 节）、**不涉及消息队列与搜索中间件**（Kafka/ES，ph17 消息队列与搜索阶段）、**不涉及缓存穿透/击穿/雪崩、限流等并发架构**（ph18 缓存与高并发阶段）、**不涉及部署运维**（Docker/CI/CD，ph19 DevOps 与部署阶段）、**不涉及 Netty 与高性能网络编程**（ph20 高级 Java 阶段）、**不涉及 reactive 栈与 Quarkus/Micronaut 对比深入**（本阶段只在第 5 章一句话带过）。也不重复 ph13 已讲的 JDBC/JPA/Hibernate 基础（本阶段用简单实体聚焦 Spring Data 抽象，复杂关联映射不展开）与 ph14 已讲的 REST 注解用法、统一响应、CORS、springdoc（本阶段直接沿用其结果）。本阶段承接 [ph14 Web 后端开发阶段](../ph14-web-backend/14-web-backend.md)——那里的每个「框架替你做了 X」在本阶段都有机制答案；并为 [ph16 微服务与分布式阶段](../ph16-microservices/16-microservices.md)（roadmap 第 16 节）备好单体底座。
+这个阶段只涉及 **单体 Spring 应用内的容器机制与官方全家桶组件**，**不涉及微服务架构、注册发现、网关、熔断与分布式事务**（ph16 微服务与分布式阶段，roadmap 第 16 节）、**不涉及消息队列与搜索中间件**（Kafka/ES，ph17 消息队列与搜索阶段）、**不涉及缓存穿透/击穿/雪崩、限流等并发架构**（[ph18 缓存与高并发阶段](../ph18-cache-concurrency/18-cache-concurrency.md)）、**不涉及部署运维**（Docker/CI/CD，ph19 DevOps 与部署阶段）、**不涉及 Netty 与高性能网络编程**（ph20 高级 Java 阶段）、**不涉及 reactive 栈与 Quarkus/Micronaut 对比深入**（本阶段只在第 5 章一句话带过）。也不重复 ph13 已讲的 JDBC/JPA/Hibernate 基础（本阶段用简单实体聚焦 Spring Data 抽象，复杂关联映射不展开）与 ph14 已讲的 REST 注解用法、统一响应、CORS、springdoc（本阶段直接沿用其结果）。本阶段承接 [ph14 Web 后端开发阶段](../ph14-web-backend/14-web-backend.md)——那里的每个「框架替你做了 X」在本阶段都有机制答案；并为 [ph16 微服务与分布式阶段](../ph16-microservices/16-microservices.md)（roadmap 第 16 节）备好单体底座。
 
 ## 2. 来源与演变
 
@@ -282,7 +282,7 @@ http.authorizeHttpRequests(auth -> auth
 | 组件/方向 | 一句话定位 | 去向 |
 |----------|-----------|------|
 | Spring WebFlux | 响应式 Web 栈（R2DBC/Netty），高吞吐低线程 | 不展开（ph20 高级 Java 涉及 reactive/Netty 心智） |
-| Spring Cache / Data Redis | 方法级缓存注解、Redis 存取 | Redis 用法与缓存策略属 ph13/ph18 |
+| Spring Cache / Data Redis | 方法级缓存注解、Redis 存取 | Redis 用法属 ph13；缓存策略属 [ph18 缓存与高并发阶段](../ph18-cache-concurrency/18-cache-concurrency.md) |
 | Spring Cloud 家族 | 注册发现/配置中心/网关/熔断 | ph16 微服务与分布式阶段 |
 | springdoc-openapi / Validation | API 文档、参数校验 | ph14 已实测，本阶段沿用 |
 | actuator + Micrometer | 可观测性 | ph19 DevOps 阶段做监控告警时深用 |

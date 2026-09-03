@@ -1,0 +1,22 @@
+# examples/docker-compose.yml —— 本阶段唯一需要的中间件：Redis 单节点（未在本环境验证，本机无 docker）
+# 用途：ex01（Spring Data Redis）与 project/exercises 里所有标「需本地 Redis」的验证
+# 验证状态：未在本环境验证（本机无 docker/无 Redis；文件按官方镜像口径编写，需在装有 docker 的机器上实测）
+# 启动：
+#   docker compose up -d redis
+#   docker compose ps                    # 健康检查 STATUS 应为 healthy
+#   redis-cli -h localhost -p 6379 ping  # 返回 PONG 即就绪
+# 清理：
+#   docker compose down
+# 说明：Redis 用 7.x（7-alpine 滚动大版本标签）；数据存内存，无需持久化配置即可跑通本阶段全部教学。
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: ph18-redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 10

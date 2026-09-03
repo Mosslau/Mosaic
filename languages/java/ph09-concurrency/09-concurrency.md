@@ -4,7 +4,7 @@
 
 ## 1. 概述
 
-Java 多线程与并发阶段的目标是：**能写安全的并发 Java 程序**——理解线程与竞态的本质，掌握从底层原语（synchronized、Lock）到高级工具（线程池、并发集合、CompletableFuture）的完整武器库，并跟上 Java 21 虚拟线程带来的并发范式变革。并发是后端事故的高发区：数据错乱、死锁、OOM 大多源于并发处理不当；本阶段建立「先想清楚线程模型，再写代码」的习惯，为 ph15 Spring 全家桶阶段、ph16 微服务与分布式阶段和 ph18 缓存与高并发阶段打好基础。
+Java 多线程与并发阶段的目标是：**能写安全的并发 Java 程序**——理解线程与竞态的本质，掌握从底层原语（synchronized、Lock）到高级工具（线程池、并发集合、CompletableFuture）的完整武器库，并跟上 Java 21 虚拟线程带来的并发范式变革。并发是后端事故的高发区：数据错乱、死锁、OOM 大多源于并发处理不当；本阶段建立「先想清楚线程模型，再写代码」的习惯，为 [ph15 Spring 全家桶阶段](../ph15-spring-family/15-spring-family.md)、[ph16 微服务与分布式阶段](../ph16-microservices/16-microservices.md)和 [ph18 缓存与高并发阶段](../ph18-cache-concurrency/18-cache-concurrency.md)打好基础。
 
 | 核心维度 | 覆盖内容 |
 |----------|---------|
