@@ -805,6 +805,8 @@ go build -pgo=cpu.pprof ./cmd/server
 
 ## 17. 架构设计与代码分层阶段
 
+> 📖 详细展开版见 [ph17-architecture-layering/17-architecture-layering.md](./ph17-architecture-layering/17-architecture-layering.md)
+
 ### 目标
 
 能组织中大型 Go 服务代码，避免业务逻辑混乱。

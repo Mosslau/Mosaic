@@ -68,4 +68,4 @@ template MSRV: Rust 1.85（见 Cargo.toml rust-version）
 - 把模板改成 workspace（`[workspace]` + 多 crate），观察 rust-toolchain.toml 对整个 workspace 生效——工作区组织属 ph06 已讲，这里只体会「一份工具链文件管全部」
 - 给 CI 加依赖审计 job（cargo-deny / cargo-audit）——**供应链安全属于 ph24 安全、供应链与发布阶段（roadmap 第 24 节，目录待建）**，这里只留扩展位
 - 用 examples/ex03 的流程把模板升到 edition 2024，记录迁移 diff——注意 `[lints]` 与 rust-version 在 2024 下的 resolver v3 行为（主文档 3.6 已实测）
-- crate 选型与依赖树膨胀控制是下一阶段 ph17（roadmap 第 17 节，目录待建）的主题，模板的「依赖引入约定」表即为其伏笔
+- crate 选型与依赖树膨胀控制是下一阶段 [ph17 Crate 生态选择与常用库阶段](../../ph17-crate-ecosystem/17-crate-ecosystem.md) 的主题，模板的「依赖引入约定」表即为其伏笔

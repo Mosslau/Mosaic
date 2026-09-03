@@ -1,0 +1,27 @@
+[package]
+name = "fetch-core"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+description = "fetch-cli 下载核心的库骨架（ph17 project 可选扩展，不含实现）"
+license = "MIT OR Apache-2.0"
+
+# 库型 crate 的依赖纪律（主文档 3.9 / project REPORT.md 扩展方向）：
+# 1. 默认特性只含「最少可用」；重型/可选能力全部做成 feature，由下游决定
+# 2. 运行时相关依赖用可选依赖（自动生成同名 feature）；用 dep: 语法避免暴露成下游可乱开的 feature 名
+# 3. TLS 后端二选一是互斥配置：用独占 feature（dep:tokio-rustls）而非并集可同时打开的普通 feature
+# 未在本环境验证 —— 本文件为特性设计骨架，不保证 cargo build 通过（无 src 实现）。
+
+[features]
+default = []                          # 默认不带 TLS/进度回调，纯 core
+progress = ["dep:indicatif"]           # dep: 语法：indicatif 只作为内部可选依赖，不暴露成同名 feature
+tls-rustls = ["dep:tokio-rustls"]     # 互斥后端 A（独占）
+tls-native = ["dep:native-tls"]       # 互斥后端 B（独占；与 A 同开属库作者失职，用 cfg 断言防御）
+
+[dependencies]
+tokio = { version = "1", default-features = false, features = ["rt", "time"] }
+http = "1"
+# 可选依赖：开对应 feature 才引入
+indicatif = { version = "0.17", optional = true }
+tokio-rustls = { version = "0.26", optional = true }
+native-tls = { version = "0.2", optional = true }

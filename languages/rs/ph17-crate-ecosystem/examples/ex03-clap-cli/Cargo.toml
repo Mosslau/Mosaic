@@ -1,0 +1,12 @@
+[package]
+name = "ex03-clap-cli"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+
+# 本示例配套主文档 3.6（clap derive vs builder）。
+# 验证环境：rustc/cargo 1.92.0（edition 2021）；依赖需联网从 crates.io 拉取（国内配 rsproxy 镜像）。
+# 编译/运行/测试：cargo run -- --help / cargo run -- greet world / cargo test —— 未在本环境验证。
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }

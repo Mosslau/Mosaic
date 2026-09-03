@@ -826,6 +826,8 @@ client → gateway → service-a → service-b → database
 
 ## 17. 消息队列与搜索阶段
 
+> 📖 详细展开版见 [ph17-mq-search/17-mq-search.md](./ph17-mq-search/17-mq-search.md)
+
 ### 目标
 
 掌握高并发系统常用中间件。

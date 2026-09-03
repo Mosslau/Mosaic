@@ -1,0 +1,9 @@
+# examples/pyproject.toml —— 本目录 ruff 校验基准（ex01~ex07 的 .py 统一 lint/格式配置）
+# 运行：ruff check . && ruff format --check .（在本目录内执行）
+# 验证状态：未在本环境验证（纯写作环境未执行 ruff）
+[tool.ruff]
+line-length = 100
+target-version = "py311"  # 与 ph16 规则环境一致（py311 语法集，运行基线仍为 3.13）
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

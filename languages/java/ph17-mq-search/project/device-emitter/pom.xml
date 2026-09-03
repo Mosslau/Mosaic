@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- project/device-emitter/pom.xml —— 模拟设备：把事件发往 Kafka topic device-events（key=sn）
+     验证环境：OpenJDK 17 + Maven 3.9 + Spring Boot 3.3.0 父 POM + kafka-clients 3.7.0 + jackson
+     运行命令（需 Kafka；在 project/ 根目录执行，联网环境去掉 -o 参数）：
+       mvn -o -Dmaven.repo.local=/tmp/m2clone -pl device-emitter exec:java \
+         -Dexec.mainClass=com.example.device.emitter.DeviceEmitter -Dexec.args="100"
+     验证状态：未在本环境验证（需要 Kafka broker；exec-maven-plugin 需联网或缓存有该插件，
+       缺插件时改用 examples/ex01 的 spring-boot:run 方式拉 main-class） -->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.example</groupId>
+    <artifactId>device-event-search</artifactId>
+    <version>1.0.0</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>device-emitter</artifactId>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.apache.kafka</groupId>
+      <artifactId>kafka-clients</artifactId>
+      <version>${kafka.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

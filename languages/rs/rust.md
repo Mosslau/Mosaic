@@ -818,6 +818,8 @@ components = ["rustfmt", "clippy"]
 
 ## 17. Crate 生态选择与常用库阶段
 
+> 📖 详细展开版见 [ph17-crate-ecosystem/17-crate-ecosystem.md](./ph17-crate-ecosystem/17-crate-ecosystem.md)
+
 ### 目标
 
 能评估并选择可靠 crate，避免盲目引入依赖。

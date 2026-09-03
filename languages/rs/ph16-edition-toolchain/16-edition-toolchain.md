@@ -418,4 +418,4 @@ cargo build --locked                     # 锁与清单失配时：error: the lo
 
 ### 下一阶段
 
-**ph17+（roadmap 第 17 节，目录待建）**：Crate 生态选择与常用库阶段——本阶段的 MSRV 检查（sol-02 脚本）、`cargo metadata` 元数据、锁文件与 resolver 语义，正是评估「这个 crate 能不能引进来」的工具底座；project/ 模板里的「依赖引入约定」登记表（用途/维护活跃度/MSRV 影响）就是下一阶段评审清单的最小原型。在此之前可先按推荐学习顺序巩固本阶段的迁移演练与模板项目。
+[Crate 生态选择与常用库阶段](../ph17-crate-ecosystem/17-crate-ecosystem.md) — 把本阶段的 MSRV 检查（sol-02 脚本）、`cargo metadata` 元数据与锁文件 / resolver 语义正式用起来，评估「这个 crate 能不能引进来」；project/ 模板里的「依赖引入约定」登记表将在那里升级为完整的依赖评审清单。

@@ -35,7 +35,7 @@
 - 加 `config.get_bool(key, default)` 与 `config.get_list(key)`（为 ph09 文件/网络系统编程打底）
 - 加 `--config <path>` 命令行参数解析（复用 ph05 参数处理）
 - 把 logger 换成异步输出（为 ph08 并发编程打底）
-- 加 JSON/YAML 后端（为 ph17 序列化打底）
+- 加 JSON/YAML 后端（为 ph09 文件、网络与系统编程阶段的 JSON 与配置文件处理打底）
 
 ## 验证环境
 

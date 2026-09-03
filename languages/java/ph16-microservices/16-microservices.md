@@ -528,4 +528,4 @@ SET NX PX 原子占位 + token 持有者校验 + Lua 原子释放；测试用 Pr
 
 ### 下一阶段
 
-**ph17+（roadmap 第 17 节，目录待建）——消息队列与搜索阶段**：本阶段埋了三条线索都指向那里——Saga 补偿失败的异步重投、本地消息表、削峰解耦都依赖 Kafka/RocketMQ/RabbitMQ；日志与业务检索交给 Elasticsearch（倒排索引）。届时以 roadmap 第 17 节为准，本阶段不再向前引用不存在的文件。
+[消息队列与搜索阶段](../ph17-mq-search/17-mq-search.md) — 本阶段埋的三条线索都在那里收口：Saga 补偿失败的异步重投（MQ 重试与死信）、本地消息表（RocketMQ 事务消息 / Kafka 事务 + Outbox）、削峰解耦（生产消费链路）；日志与业务检索交给 Elasticsearch（倒排索引）。届时以 roadmap 第 17 节与该展开版为准。

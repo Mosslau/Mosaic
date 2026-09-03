@@ -1,0 +1,16 @@
+[package]
+name = "ex04-tracing-log"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+
+# 本示例配套主文档 3.7（tracing 与 log）。
+# 验证环境：rustc/cargo 1.92.0（edition 2021）；依赖需联网从 crates.io 拉取（国内配 rsproxy 镜像）；
+# 运行时还要能访问 https://example.com。
+# 编译/运行：cargo build / RUST_LOG=ph17_demo=debug cargo run —— 未在本环境验证。
+
+[dependencies]
+tokio = { version = "1", default-features = false, features = ["rt-multi-thread", "macros", "time"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] } # fmt 在默认特性里

@@ -1,0 +1,13 @@
+[package]
+name = "ex02-serde-basics"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+
+# 本示例配套主文档 3.3（serde 序列化教学）。
+# 验证环境：rustc/cargo 1.92.0（edition 2021）；依赖需联网从 crates.io 拉取（国内配 rsproxy 镜像）。
+# 编译/运行/测试：cargo run / cargo test —— 已验证（cargo 1.92.0 本机实测构建+运行通过）。
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

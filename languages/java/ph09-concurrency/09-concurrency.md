@@ -18,7 +18,7 @@ Java 多线程与并发阶段的目标是：**能写安全的并发 Java 程序*
 | 结构化并发与 Scoped Values | StructuredTaskScope（预览）、ScopedValue（Java 25 正式化） |
 | 并发排查 | 死锁、竞态、可见性问题定位（jstack 等） |
 
-这个阶段只涉及单机 JVM 内的线程模型与并发工具（Thread/线程池/锁/并发集合/异步编排/虚拟线程），**不涉及 JVM 内存模型底层调优、GC 参数与性能诊断**（那些是 ph10 JVM 阶段的内容）、**不涉及 Spring 的并发抽象与事务管理**（ph15 Spring 全家桶阶段，roadmap 第 15 节）、**不涉及分布式锁、分布式事务与集群一致性**（ph16 微服务与分布式阶段，roadmap 第 16 节，目录待建）、**不涉及消息队列削峰与异步解耦**（ph17 消息队列与搜索阶段，roadmap 第 17 节，目录待建）、**不涉及 Netty 自研线程模型与 Actor 框架**（ph20 高级 Java 阶段，roadmap 第 20 节，目录待建）。本阶段承接 ph08 Lambda 与 Stream 阶段——CompletableFuture 与 Stream 一脉相承的函数式风格。
+这个阶段只涉及单机 JVM 内的线程模型与并发工具（Thread/线程池/锁/并发集合/异步编排/虚拟线程），**不涉及 JVM 内存模型底层调优、GC 参数与性能诊断**（那些是 ph10 JVM 阶段的内容）、**不涉及 Spring 的并发抽象与事务管理**（ph15 Spring 全家桶阶段，roadmap 第 15 节）、**不涉及分布式锁、分布式事务与集群一致性**（ph16 微服务与分布式阶段，roadmap 第 16 节，目录待建）、**不涉及消息队列削峰与异步解耦**（[ph17 消息队列与搜索阶段](../ph17-mq-search/17-mq-search.md)，roadmap 第 17 节）、**不涉及 Netty 自研线程模型与 Actor 框架**（ph20 高级 Java 阶段，roadmap 第 20 节，目录待建）。本阶段承接 ph08 Lambda 与 Stream 阶段——CompletableFuture 与 Stream 一脉相承的函数式风格。
 
 ## 2. 来源与演变
 

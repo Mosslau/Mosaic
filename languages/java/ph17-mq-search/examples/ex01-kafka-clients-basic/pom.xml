@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- examples/ex01-kafka-clients-basic/pom.xml —— Kafka 裸客户端生产者/消费者骨架（主文档 3.2/3.3）
+     验证环境：OpenJDK 17 + Maven 3.9 + Spring Boot 3.3.0 父 POM（依赖管理基线）+ kafka-clients 3.7.0
+     验证命令：mvn -o -Dmaven.repo.local=/tmp/m2clone spring-boot:run -Dspring-boot.run.main-class=com.example.ex01.ProducerMain
+               （消费端把 main-class 换成 com.example.ex01.ConsumerMain；联网环境去掉 -o 参数）
+     前置条件：本目录 docker-compose.yml 已起 Kafka（docker compose up -d kafka）
+     验证状态：未在本环境验证（需本地 Kafka 服务，见 examples/README.md） -->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.3.0</version>
+    <relativePath/>
+  </parent>
+  <groupId>com.example</groupId>
+  <artifactId>ex01-kafka-clients-basic</artifactId>
+  <version>1.0.0</version>
+
+  <properties>
+    <java.version>17</java.version>
+    <kafka.version>3.7.0</kafka.version>
+  </properties>
+
+  <dependencies>
+    <!-- Kafka 官方 Java 客户端（spring-kafka 的底层也是它） -->
+    <dependency>
+      <groupId>org.apache.kafka</groupId>
+      <artifactId>kafka-clients</artifactId>
+      <version>${kafka.version}</version>
+    </dependency>
+    <!-- 消息体用 JSON（Boot 父 POM 统一管 jackson 版本） -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <!-- 用 spring-boot:run 拉起任意 main-class（本项目没有 Spring 上下文，只借类路径管理） -->
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

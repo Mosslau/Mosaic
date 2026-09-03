@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- project/search-service/pom.xml —— 设备事件消费 + 双引擎索引 + REST 检索
+     验证环境：OpenJDK 17 + Maven 3.9 + Spring Boot 3.3.0 父 POM（spring-kafka 3.2.0 由 BOM 管理）
+     依赖：starter-web + spring-kafka + elasticsearch-java 8.13.4（不在本机离线缓存，联网首次拉取）+ starter-test
+     运行命令（在 project/ 根目录执行；联网环境去掉 -o 参数）：
+       mvn -o -Dmaven.repo.local=/tmp/m2clone -pl search-service spring-boot:run \
+         -Dspring-boot.run.main-class=com.example.device.search.SearchServiceApplication \
+         -Dspring-boot.run.arguments=--app.search.engine=es
+     测试命令（memory 引擎相关单测，无需中间件）：
+       mvn -o -Dmaven.repo.local=/tmp/m2clone -pl search-service test
+     验证状态：未在本环境验证（README 模式 A/B 分别对应无中间件/完整链路） -->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.example</groupId>
+    <artifactId>device-event-search</artifactId>
+    <version>1.0.0</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>search-service</artifactId>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.kafka</groupId>
+      <artifactId>spring-kafka</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>co.elastic.clients</groupId>
+      <artifactId>elasticsearch-java</artifactId>
+      <version>${elasticsearch.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

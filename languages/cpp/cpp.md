@@ -842,6 +842,8 @@ TEST(CalculatorTest, Add) {
 
 ## 17. 设计模式与架构能力阶段
 
+> 📖 详细展开版见 [ph17-design-patterns-architecture/17-design-patterns-architecture.md](./ph17-design-patterns-architecture/17-design-patterns-architecture.md)
+
 ### 目标
 
 用恰当抽象组织中大型 C++ 项目。

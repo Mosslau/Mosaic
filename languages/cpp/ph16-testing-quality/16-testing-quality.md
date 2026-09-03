@@ -15,7 +15,7 @@
 | 覆盖率 | llvm-cov source-based 三步流；gcov/lcov 路线对照（`ex05`） |
 | CI 集成 | 四道闸门（格式 → 静态分析 → 测试矩阵 → Sanitizer+覆盖率）的 GitHub Actions 模板（`ex06`） |
 
-这个阶段只涉及质量工具链的使用与工程化（测试框架、静态分析、格式化、Sanitizer 构建矩阵、覆盖率、CI 接入），**不涉及 UB 的系统分类与识别（ph15 未定义行为 UB 与内存安全阶段）、并发同步规则与内存序（ph08 并发编程阶段）、构建系统与调试器本身（ph10 构建、调试与工具链阶段）、设计模式与架构（ph17 设计模式与架构能力阶段，目录待建）和性能剖析与 benchmark（ph18 性能优化与 Profiling 阶段，目录待建）** — 那些是其他阶段的内容。
+这个阶段只涉及质量工具链的使用与工程化（测试框架、静态分析、格式化、Sanitizer 构建矩阵、覆盖率、CI 接入），**不涉及 UB 的系统分类与识别（ph15 未定义行为 UB 与内存安全阶段）、并发同步规则与内存序（ph08 并发编程阶段）、构建系统与调试器本身（ph10 构建、调试与工具链阶段）、设计模式与架构（ph17 设计模式与架构能力阶段）和性能剖析与 benchmark（ph18 性能优化与 Profiling 阶段，目录待建）** — 那些是其他阶段的内容。
 
 ## 2. 来源与演变
 
@@ -102,7 +102,7 @@ target_link_libraries(my_tests PRIVATE GTest::gtest_main)
 
 **本机无框架时的同构演示**（已验证）：`examples/ex01-mini-test.h` 用约 60 行实现同构模式——`MINI_TEST` 宏生成静态注册器（全局对象构造函数在 main 之前登记用例，GoogleTest 同原理）、`MINI_EXPECT_*` 断言计数、`RUN_ALL_TESTS` 汇总并返回退出码。它与真框架的差距在 fixture、参数化、死亡测试等进阶能力——但「用例 + 断言 + 退出码」的骨架一模一样，练手足够（已验证输出见 examples/README.md 示例 1）。
 
-> 本阶段只用测试框架的基本断言与用例组织，**mock 框架（GoogleMock）与集成测试的分层设计属于 ph17 设计模式与架构能力阶段（目录待建）**，这里只需理解「单元测试覆盖稳定逻辑」（roadmap 必会概念）。
+> 本阶段只用测试框架的基本断言与用例组织，**mock 框架（GoogleMock）与集成测试的分层设计属于 [ph17 设计模式与架构能力阶段](../ph17-design-patterns-architecture/17-design-patterns-architecture.md)**，这里只需理解「单元测试覆盖稳定逻辑」（roadmap 必会概念）。
 
 ### 3.2 静态分析：clang-tidy 与 cppcheck
 
@@ -306,7 +306,7 @@ clang-tidy 的检查器工作在编译器前端的数据结构上（所以它需
 
 **什么时候不用它**：
 
-- mock 与集成测试的分层设计属 ph17 设计模式与架构能力阶段（目录待建）——本阶段只要求「单元测试覆盖稳定逻辑」；
+- mock 与集成测试的分层设计属 [ph17 设计模式与架构能力阶段](../ph17-design-patterns-architecture/17-design-patterns-architecture.md)——本阶段只要求「单元测试覆盖稳定逻辑」；
 - 性能回归门禁（benchmark in CI）属 ph18 性能优化与 Profiling 阶段（目录待建）；
 - 覆盖率不是 KPI：强追 100% 会逼出「只调用不断言」的假测试——覆盖率用于**找缺口**（3.5）。
 
@@ -424,4 +424,4 @@ public:
 
 ### 下一阶段
 
-**ph17+（roadmap 第 17 节，目录待建）：设计模式与架构能力阶段** — 本阶段把「代码写对」闭环了（测试 + 静态分析 + Sanitizer + CI），ph17 回答「代码怎么组织」：工厂/策略/观察者/适配器、依赖注入、分层架构与模块边界——架构设计要服务测试和演进（本阶段「可测试性从接口开始」的伏笔在那里展开）。在 ph17 落地前，可把本阶段 project/ 的 `make check` 当作日常开发的闭环模板复用到任何 C++ 项目。
+[设计模式与架构能力阶段](../ph17-design-patterns-architecture/17-design-patterns-architecture.md) — 本阶段把「代码写对」闭环了（测试 + 静态分析 + Sanitizer + CI），ph17 回答「代码怎么组织」：工厂/策略/观察者/适配器、依赖注入、分层架构与模块边界——架构设计要服务测试和演进（本阶段「可测试性从接口开始」的伏笔在那里展开，mock = 注入接口的另一实现）。本阶段 project/ 的 `make check` 仍可当作日常开发的闭环模板复用到任何 C++ 项目（ph17 的代码层同样沿用 `-std=c++17 -Wall -Wextra` 零警告与退出码即 CI 信号的纪律）。

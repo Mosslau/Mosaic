@@ -811,6 +811,8 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 
 ## 17. 高级 Python 阶段
 
+> 📖 详细展开版见 [ph17-advanced-python/17-advanced-python.md](./ph17-advanced-python/17-advanced-python.md)
+
 ### 目标
 
 理解 Python 底层机制和高级特性。

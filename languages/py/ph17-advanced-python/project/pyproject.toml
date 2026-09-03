@@ -1,0 +1,29 @@
+# project/pyproject.toml —— streamlog：流式日志处理器（依赖 + ruff / pytest 配置）
+# 运行：python3 -m pytest（project 目录内）；ruff check . && ruff format --check .
+# 验证状态：未在本环境验证（纯写作环境未执行任何命令）
+[project]
+name = "streamlog"
+version = "0.1.0"
+description = "ph17 阶段项目：流式日志处理器（生成器管线 + 装饰器横切 + 上下文管理器资源管理）"
+requires-python = ">=3.11"
+
+[project.scripts]
+streamlog = "streamlog.cli:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"  # 与 ph16 规则环境一致（py311 语法集，运行基线仍为 3.13）
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+pythonpath = ["."]
