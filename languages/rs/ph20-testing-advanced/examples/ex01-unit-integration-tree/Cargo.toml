@@ -1,0 +1,18 @@
+#
+# 验证环境：rustc/cargo 1.92.0（macOS arm64，rustup 管理）；第三方依赖版本见 dev-dependencies 与 Cargo.lock。
+# 验证状态：已验证（本机 cargo test / cargo bench 全绿；cargo fmt --check 干净、clippy --all-targets -- -D warnings 零告警）。
+[package]
+name = "ex01-unit-integration-tree"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# examples/ex01：单元测试 vs 集成测试的目录组织演示。
+# - 单元测试：src/lib.rs 内的 #[cfg(test)] 模块（贴代码测内部），含 assert_styles 断言宏演示；
+# - 集成测试：tests/*.rs（独立 crate，只走 pub API），共享辅助放 tests/common/mod.rs；
+# - doctest：src/lib.rs 顶部 ```rust 示例（cargo test 默认跑 --doc）。
+# 质量闸门（在项目目录内执行）：
+#   CARGO_TARGET_DIR=/tmp/ph20-target cargo test
+#   CARGO_TARGET_DIR=/tmp/ph20-target cargo test ignored_full_log -- --ignored   # 跑被 #[ignore] 的用例
+#   CARGO_TARGET_DIR=/tmp/ph20-target cargo fmt --check
+#   CARGO_TARGET_DIR=/tmp/ph20-target cargo clippy --all-targets -- -D warnings

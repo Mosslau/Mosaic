@@ -18,7 +18,7 @@
 | API 文档 | springdoc-openapi 自动生成 OpenAPI 3 文档 + Swagger UI |
 | Spring MVC / Spring Boot | `@RestController` 注解体系、`@RequestMapping/@GetMapping/@PathVariable/@RequestBody`、内嵌 Tomcat 自动配置、starter 依赖、`spring-boot:run` |
 
-这个阶段只涉及 **Web 层本身**（HTTP 协议、Servlet 容器、REST 设计、框架注解），**不涉及 Spring 的 IOC/DI、Bean 生命周期、AOP、事务管理等容器机制**（那是 [ph15 Spring 全家桶阶段](../ph15-spring-family/15-spring-family.md)的内容，roadmap 第 15 节）、**不涉及微服务架构、服务注册发现、网关与熔断**（ph16 微服务与分布式阶段，roadmap 第 16 节，目录待建）、**不涉及消息队列与搜索中间件**（[ph17 消息队列与搜索阶段](../ph17-mq-search/17-mq-search.md)，roadmap 第 17 节）、**不涉及缓存穿透/击穿/雪崩、限流等高并发架构**（[ph18 缓存与高并发阶段](../ph18-cache-concurrency/18-cache-concurrency.md)，roadmap 第 18 节）、**不涉及服务的部署运维**（Docker/CI/CD，[ph19 DevOps 与部署阶段](../ph19-devops-deploy/19-devops-deploy.md)）、**不涉及网络编程深入与 Netty**（ph20 高级 Java 阶段，roadmap 第 20 节，目录待建）。本阶段承接 [ph13 数据库阶段](../ph13-database/13-database.md)——那里讲透了「数据层怎么写得对」，本阶段把它们包成「别人能调的接口」，`VehicleStore` 之类的数据层接口形状保持不变、实现可平移。
+这个阶段只涉及 **Web 层本身**（HTTP 协议、Servlet 容器、REST 设计、框架注解），**不涉及 Spring 的 IOC/DI、Bean 生命周期、AOP、事务管理等容器机制**（那是 [ph15 Spring 全家桶阶段](../ph15-spring-family/15-spring-family.md)的内容，roadmap 第 15 节）、**不涉及微服务架构、服务注册发现、网关与熔断**（ph16 微服务与分布式阶段，roadmap 第 16 节，目录待建）、**不涉及消息队列与搜索中间件**（[ph17 消息队列与搜索阶段](../ph17-mq-search/17-mq-search.md)，roadmap 第 17 节）、**不涉及缓存穿透/击穿/雪崩、限流等高并发架构**（[ph18 缓存与高并发阶段](../ph18-cache-concurrency/18-cache-concurrency.md)，roadmap 第 18 节）、**不涉及服务的部署运维**（Docker/CI/CD，[ph19 DevOps 与部署阶段](../ph19-devops-deploy/19-devops-deploy.md)）、**不涉及网络编程深入与 Netty**（[ph20 高级 Java 阶段](../ph20-advanced-java/20-advanced-java.md)）。本阶段承接 [ph13 数据库阶段](../ph13-database/13-database.md)——那里讲透了「数据层怎么写得对」，本阶段把它们包成「别人能调的接口」，`VehicleStore` 之类的数据层接口形状保持不变、实现可平移。
 
 ## 2. 来源与演变
 

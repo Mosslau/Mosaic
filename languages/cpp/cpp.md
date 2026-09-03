@@ -993,6 +993,8 @@ extern "C" void DestroyPlugin(Plugin* plugin);
 
 ## 20. C++ 与 C / Python / Rust 互操作阶段
 
+> 📖 详细展开版见 [ph20-ffi-python-rust/20-ffi-python-rust.md](./ph20-ffi-python-rust/20-ffi-python-rust.md)
+
 ### 目标
 
 能在跨语言系统中安全暴露 C++ 能力。

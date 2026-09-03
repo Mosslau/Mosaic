@@ -1,0 +1,30 @@
+#
+# 验证环境：rustc/cargo 1.92.0（macOS arm64，rustup 管理）；第三方依赖版本见 dev-dependencies 与 Cargo.lock。
+# 验证状态：已验证（本机 cargo test / cargo bench 全绿；cargo fmt --check 干净、clippy --all-targets -- -D warnings 零告警）。
+[package]
+name = "record-test-suite"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# ph20 阶段项目「record 解析测试套件」：roadmap 第 20 节推荐项目落地。
+# 被测对象：src/record.rs（复刻 ph19 wal-record-parser 的迷你 record 解析器）。
+# 套件四层：单元（src 内 cfg(test)）/集成（tests/ + fixtures 真实与错误样例）/
+# 属性（proptest）/基准（criterion，benches/）。详见 project/README.md。
+#
+# 质量闸门（在项目目录内执行，仓库零构建产物）：
+#   CARGO_TARGET_DIR=/tmp/ph20-target cargo test
+#   CARGO_TARGET_DIR=/tmp/ph20-target cargo bench --bench parse_bench
+#   CARGO_TARGET_DIR=/tmp/ph20-target cargo fmt --check
+#   CARGO_TARGET_DIR=/tmp/ph20-target cargo clippy --all-targets -- -D warnings
+# 基线对比演练：
+#   CARGO_TARGET_DIR=/tmp/ph20-target cargo bench --bench parse_bench -- --save-baseline v1
+#   CARGO_TARGET_DIR=/tmp/ph20-target cargo bench --bench parse_bench -- --baseline v1
+
+[dev-dependencies]
+proptest = "1"
+criterion = "0.8"
+
+[[bench]]
+name = "parse_bench"
+harness = false

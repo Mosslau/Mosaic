@@ -1,0 +1,17 @@
+#
+# 验证环境：rustc/cargo 1.92.0（macOS arm64，rustup 管理）；第三方依赖版本见 dev-dependencies 与 Cargo.lock。
+# 验证状态：已验证（本机 cargo test / cargo bench 全绿；cargo fmt --check 干净、clippy --all-targets -- -D warnings 零告警）。
+[package]
+name = "ex03-fake-mock"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# examples/ex03：mock 与 fake 演示（零第三方依赖）。
+# - fake：src/store.rs 的 MemoryStore —— 完整实现 Store trait 的内存存储（生产/测试两用）；
+# - mock：tests/interactions.rs 的手写 MockStore —— 记录调用、可注入失败；
+# - 被测对象 replay_to 只依赖 Store trait（依赖注入 + 接口边界，见主文档 3.4/3.7）。
+# 质量闸门（在项目目录内执行）：
+#   CARGO_TARGET_DIR=/tmp/ph20-target cargo test
+#   CARGO_TARGET_DIR=/tmp/ph20-target cargo fmt --check
+#   CARGO_TARGET_DIR=/tmp/ph20-target cargo clippy --all-targets -- -D warnings

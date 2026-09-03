@@ -121,7 +121,7 @@ func (r *Registry) Discover(service string) []string { /* 惰性剔除超 TTL �
 | 配置中心 | 配置集中管理、动态下发（改配置不重启） | etcd、Consul、Nacos、Apollo |
 | API Gateway | 统一入口：路由、鉴权、限流、协议转换 | Kong、APISIX、Envoy |
 
-> 配置中心的完整落地属 ph20 配置管理与发布策略阶段（roadmap 第 20 节，目录待建）、API Gateway 的完整落地属 ph12 云原生与部署阶段（roadmap 第 12 节），本阶段只理解注册发现的机制本身。
+> 配置中心的完整落地属 [ph20 配置管理与发布策略阶段](../ph20-config-release/20-config-release.md)、API Gateway 的完整落地属 ph12 云原生与部署阶段（roadmap 第 12 节），本阶段只理解注册发现的机制本身。
 
 ### 3.5 负载均衡 · 超时 · 熔断 · 限流（概念 + 简单实现）
 

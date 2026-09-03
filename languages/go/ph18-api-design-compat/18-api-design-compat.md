@@ -19,7 +19,7 @@
 | 文档与实现同步 | spec-first、OpenAPI 结构与最小解析器、契约测试（双向对账）、生成器/校验器工具链 |
 | protobuf / gRPC | wire format 兼容机制、字段号纪律、gRPC 接口设计、google.rpc 错误模型与 HTTP 状态映射 |
 
-这个阶段只涉及"对外 API 契约"的设计与兼容纪律（REST 与 gRPC 两种形态），**不涉及消息中间件与事件驱动架构、事件 schema 的版本管理（属 [ph19 消息队列与事件驱动深入阶段](../ph19-mq-event-driven/19-mq-event-driven.md)）、配置中心与 feature flag 灰度发布（属 ph20 配置管理与发布策略阶段，roadmap 第 20 节，目录待建）、设备遥测上行与实时协议接入 MQTT/WebSocket（属 ph21 IoT / 车联网 / 嵌入式相关 Go 阶段，roadmap 第 21 节，目录待建）、服务间 RPC 的注册发现与负载均衡（ph11 微服务与 RPC 阶段已讲，本阶段只借用其 gRPC 技术形态讲接口设计）** —— 本阶段把"接口本身怎么定、怎么演进"讲透；消息、发布、设备接入是其它阶段的事。
+这个阶段只涉及"对外 API 契约"的设计与兼容纪律（REST 与 gRPC 两种形态），**不涉及消息中间件与事件驱动架构、事件 schema 的版本管理（属 [ph19 消息队列与事件驱动深入阶段](../ph19-mq-event-driven/19-mq-event-driven.md)）、配置中心与 feature flag 灰度发布（属 [ph20 配置管理与发布策略阶段](../ph20-config-release/20-config-release.md)）、设备遥测上行与实时协议接入 MQTT/WebSocket（属 ph21 IoT / 车联网 / 嵌入式相关 Go 阶段，roadmap 第 21 节，目录待建）、服务间 RPC 的注册发现与负载均衡（ph11 微服务与 RPC 阶段已讲，本阶段只借用其 gRPC 技术形态讲接口设计）** —— 本阶段把"接口本身怎么定、怎么演进"讲透；消息、发布、设备接入是其它阶段的事。
 
 ## 2. 来源与演变
 
@@ -177,7 +177,7 @@ func (s *Server) handleGetV1(w http.ResponseWriter, r *http.Request) {
 
 **下线的纪律**：弃用（deprecate）不是删除，RFC 8594 给出标准通告——每次响应带 `Deprecation: true`（或 RFC 版本日期）与 `Sunset: <HTTP-date>`，告诉客户端"该搬家了，最后期限是 X"。到期下线的两条注意：① 下线后老 URL 回 **410 Gone**（资源曾存在、故意不再提供）比 404 更有信息量——404 会让人以为只是路径写错；② 移除 v1 时契约测试会提醒你哪些客户端能力一并消失（project 的 contract_test 覆盖了 v1 路径集合，是"下线审计"的自动化雏形）。
 
-> 灰度发布（新旧共存期间的流量切分、按版本路由、回滚）属 ph20 配置管理与发布策略阶段（roadmap 第 20 节，目录待建）；本阶段只管"契约层面新旧如何共存"，不管"流量层面如何切"。事件/消息里的 schema 版本管理（protobuf 兼容规则在消息队列里的同类问题）属 [ph19 消息队列与事件驱动深入阶段](../ph19-mq-event-driven/19-mq-event-driven.md)。
+> 灰度发布（新旧共存期间的流量切分、按版本路由、回滚）属 [ph20 配置管理与发布策略阶段](../ph20-config-release/20-config-release.md)；本阶段只管"契约层面新旧如何共存"，不管"流量层面如何切"。事件/消息里的 schema 版本管理（protobuf 兼容规则在消息队列里的同类问题）属 [ph19 消息队列与事件驱动深入阶段](../ph19-mq-event-driven/19-mq-event-driven.md)。
 
 ### 3.4 错误结构与错误码演进
 

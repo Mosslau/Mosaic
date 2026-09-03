@@ -968,6 +968,8 @@ CMD ["java", "-jar", "app.jar"]
 
 ## 20. 高级 Java 阶段
 
+> 📖 详细展开版见 [ph20-advanced-java/20-advanced-java.md](./ph20-advanced-java/20-advanced-java.md)
+
 ### 目标
 
 理解 Java 底层和大型工程设计能力。

@@ -1,0 +1,6 @@
+{
+  "port": 9091,
+  "name": "fleet-api-test",
+  "debug": true,
+  "dbDsn": "postgres://test@test-db:5432/fleet"
+}

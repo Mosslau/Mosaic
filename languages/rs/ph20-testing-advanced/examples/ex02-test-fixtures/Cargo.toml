@@ -1,0 +1,17 @@
+#
+# 验证环境：rustc/cargo 1.92.0（macOS arm64，rustup 管理）；第三方依赖版本见 dev-dependencies 与 Cargo.lock。
+# 验证状态：已验证（本机 cargo test / cargo bench 全绿；cargo fmt --check 干净、clippy --all-targets -- -D warnings 零告警）。
+[package]
+name = "ex02-test-fixtures"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# examples/ex02：test fixtures 演示。
+# - 数据夹具：tests/fixtures/*.hex —— 真实/错误/边界样例落成文本文件（# 注释行 + 十六进制字节）；
+# - 构造辅助：tests/common/mod.rs 的 decode_hex_fixture / build_log / TempFile(设备夹具, Drop 自动清理)；
+# - 测试读取路径统一用 env!("CARGO_MANIFEST_DIR") 拼接，保证任何工作目录下都能跑。
+# 质量闸门（在项目目录内执行）：
+#   CARGO_TARGET_DIR=/tmp/ph20-target cargo test
+#   CARGO_TARGET_DIR=/tmp/ph20-target cargo fmt --check
+#   CARGO_TARGET_DIR=/tmp/ph20-target cargo clippy --all-targets -- -D warnings

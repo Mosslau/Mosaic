@@ -16,7 +16,7 @@ Go 版本、工具链阶段的目标是（引用 Roadmap）：**理解 Go 版本
 | 工具链要求 | go.mod 的 go 行（语言版本门槛 + 最小工具链）与 toolchain 行（首选工具链）、GOTOOLCHAIN=auto/local/版本 |
 | 模块版本 | 语义化版本 v1.2.3（数字段比较、预发布、+build）、大版本 /vN 路径规则、伪版本、依赖升级与测试验证 |
 
-这个阶段只涉及版本管理与工具链的使用和机制，**不涉及 Go 语言底层机制本身（GMP/GC/interface 分派等属 [ph14 高级 Go 阶段](../ph14-advanced-go/14-advanced-go.md)）、性能剖析与优化的工具用法（pprof/benchmark/逃逸分析属 ph13 性能优化阶段）、PGO 与用生产 profile 指导编译（属 ph16 PGO 与高级性能优化阶段）、容器与 CI/CD 里的工具链编排（多阶段 Dockerfile、CI 矩阵属 ph12 云原生与部署阶段）、多环境发布里的版本号与构建信息策略（灰度/回滚属 ph20 配置管理与发布策略阶段，roadmap 第 20 节，目录待建）** — 本阶段把"版本"固定在 go 命令与 go.mod 这一层；发布层怎么用这些版本是 ph20 的事。
+这个阶段只涉及版本管理与工具链的使用和机制，**不涉及 Go 语言底层机制本身（GMP/GC/interface 分派等属 [ph14 高级 Go 阶段](../ph14-advanced-go/14-advanced-go.md)）、性能剖析与优化的工具用法（pprof/benchmark/逃逸分析属 ph13 性能优化阶段）、PGO 与用生产 profile 指导编译（属 ph16 PGO 与高级性能优化阶段）、容器与 CI/CD 里的工具链编排（多阶段 Dockerfile、CI 矩阵属 ph12 云原生与部署阶段）、多环境发布里的版本号与构建信息策略（灰度/回滚属 [ph20 配置管理与发布策略阶段](../ph20-config-release/20-config-release.md)）** — 本阶段把"版本"固定在 go 命令与 go.mod 这一层；发布层怎么用这些版本是 ph20 的事。
 
 ## 2. 来源与演变
 
@@ -110,7 +110,7 @@ s += "go version(build): " + bi.GoVersion + "\n"
 // for _, kv := range bi.Settings { … vcs.revision / vcs.time / vcs.modified … }
 ```
 
-**实测（ex01，go1.25.6，TenetLang 仓库内构建）**：`go build -ldflags "-X main.version=v1.2.3"` 后运行，输出 `runtime.Version(): go1.25.6`、`version var: v1.2.3`、`main module: …ex01-buildinfo (devel)`、`go version(build): go1.25.6`、`setting vcs.revision : 10e66b4…`。三个要点：① **模块版本来自 VCS tag**——仓库打了 v1.2.3 的 tag 才显示 v1.2.3，没打 tag 一律 `(devel)`（伪版本机制见 3.7）；② **`-ldflags "-X main.version=…"` 是构建期注入业务版本号的官方手法**（`-X` 写的是包级变量的值），配合 VCS 印章（vcs.revision / vcs.time / vcs.modified，默认在有 .git 的目录构建时自动盖）就构成"这个二进制是谁、哪个 commit、什么 go 版本编出来的"的完整答案——线上排障第一件事 `go version -m`；③ 业务发布层怎么编排这些版本号（灰度对照、回滚判断）属 ph20（roadmap 第 20 节，目录待建），本阶段只讲"信息怎么进二进制"。
+**实测（ex01，go1.25.6，TenetLang 仓库内构建）**：`go build -ldflags "-X main.version=v1.2.3"` 后运行，输出 `runtime.Version(): go1.25.6`、`version var: v1.2.3`、`main module: …ex01-buildinfo (devel)`、`go version(build): go1.25.6`、`setting vcs.revision : 10e66b4…`。三个要点：① **模块版本来自 VCS tag**——仓库打了 v1.2.3 的 tag 才显示 v1.2.3，没打 tag 一律 `(devel)`（伪版本机制见 3.7）；② **`-ldflags "-X main.version=…"` 是构建期注入业务版本号的官方手法**（`-X` 写的是包级变量的值），配合 VCS 印章（vcs.revision / vcs.time / vcs.modified，默认在有 .git 的目录构建时自动盖）就构成"这个二进制是谁、哪个 commit、什么 go 版本编出来的"的完整答案——线上排障第一件事 `go version -m`；③ 业务发布层怎么编排这些版本号（灰度对照、回滚判断）属 [ph20 配置管理与发布策略阶段](../ph20-config-release/20-config-release.md)，本阶段只讲"信息怎么进二进制"。
 
 ### 3.4 go install：@version 后缀与模块代理
 
@@ -304,7 +304,7 @@ GOMODCACHE/cache/download/example.com/greet/@v/     ← 与 proxy 同构的本�
 - **容器里的工具链编排**（多阶段 Dockerfile、CI 版本矩阵、镜像内 go 版本）：属 ph12——本阶段讲"go 命令怎么选版本"，ph12 讲"镜像/流水线怎么管版本"
 - **性能剖析工具**（pprof/benchmark 怎么用）：属 ph13——版本与工具链不是性能话题
 - **PGO**（用生产 profile 指导编译，`go build -pgo=…`）：属 ph16 PGO 与高级性能优化阶段——它与本阶段的 toolchain 行同属"构建期配置"，但流程属 ph16
-- **发布侧版本策略**（灰度对照、回滚判断、多环境版本号注入）：属 ph20（roadmap 第 20 节，目录待建）——本阶段只保证"版本信息进得去、查得出"
+- **发布侧版本策略**（灰度对照、回滚判断、多环境版本号注入）：属 [ph20 配置管理与发布策略阶段](../ph20-config-release/20-config-release.md)——本阶段只保证"版本信息进得去、查得出"
 
 ## 6. 代码示例
 

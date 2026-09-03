@@ -1,0 +1,7 @@
+{
+  "port": 9090,
+  "name": "release-server-dev",
+  "debug": true,
+  "logLevel": "debug",
+  "dbDsn": "postgres://dev@localhost:5432/fleet"
+}

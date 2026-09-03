@@ -967,6 +967,8 @@ fn read_u16_be(buf: &[u8]) -> Option<u16> {
 
 ## 20. 测试体系进阶阶段
 
+> 📖 详细展开版见 [ph20-testing-advanced/20-testing-advanced.md](./ph20-testing-advanced/20-testing-advanced.md)
+
 ### 目标
 
 建立覆盖单元、集成、属性和基准的测试体系。

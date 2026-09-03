@@ -17,7 +17,7 @@ JVM 阶段的目标是：**能理解 Java 程序从源码到字节码再到运�
 | 诊断工具 | jps、jstack、jmap、jstat、jcmd、jinfo、jfr、Arthas |
 | 问题排查 | 死锁与阻塞、内存泄漏、OOM、GC 停顿 |
 
-这个阶段只涉及单机 JVM 内部的运行机制与诊断（class 文件与字节码、类加载、GC、JIT、内存模型、JVM 参数与诊断工具），**不涉及构建工程化、依赖管理与多模块工程**（ph11 Maven/Gradle 与工程化阶段，目录已建）、**不涉及单元测试与工程质量体系**（见 [ph12 单元测试与工程质量阶段](../ph12-testing-quality/12-testing-quality.md)）、**不涉及 Web 框架与 Spring 生态的启动优化、连接池与 JVM 联动**（ph15 Spring 全家桶阶段，roadmap 第 15 节）、**不涉及分布式环境下的内存与并发问题**（ph16 微服务与分布式阶段，roadmap 第 16 节，目录待建）、**不涉及缓存中间件与高并发架构的 JVM 侧实践**（[ph18 缓存与高并发阶段](../ph18-cache-concurrency/18-cache-concurrency.md)，roadmap 第 18 节）、**不涉及 Netty 与高级性能调优框架**（ph20 高级 Java 阶段，roadmap 第 20 节，目录待建）。本阶段承接 ph09 多线程与并发阶段——synchronized 锁升级改写的对象头 Mark Word、线程池工作线程与内存区域的关系、JMM 的 happens-before 规则（ph09 4.1 已讲），都将在本阶段的机制与实证里找到落点。
+这个阶段只涉及单机 JVM 内部的运行机制与诊断（class 文件与字节码、类加载、GC、JIT、内存模型、JVM 参数与诊断工具），**不涉及构建工程化、依赖管理与多模块工程**（ph11 Maven/Gradle 与工程化阶段，目录已建）、**不涉及单元测试与工程质量体系**（见 [ph12 单元测试与工程质量阶段](../ph12-testing-quality/12-testing-quality.md)）、**不涉及 Web 框架与 Spring 生态的启动优化、连接池与 JVM 联动**（ph15 Spring 全家桶阶段，roadmap 第 15 节）、**不涉及分布式环境下的内存与并发问题**（ph16 微服务与分布式阶段，roadmap 第 16 节，目录待建）、**不涉及缓存中间件与高并发架构的 JVM 侧实践**（[ph18 缓存与高并发阶段](../ph18-cache-concurrency/18-cache-concurrency.md)，roadmap 第 18 节）、**不涉及 Netty 与高级性能调优框架**（[ph20 高级 Java 阶段](../ph20-advanced-java/20-advanced-java.md)）。本阶段承接 ph09 多线程与并发阶段——synchronized 锁升级改写的对象头 Mark Word、线程池工作线程与内存区域的关系、JMM 的 happens-before 规则（ph09 4.1 已讲），都将在本阶段的机制与实证里找到落点。
 
 ## 2. 来源与演变
 

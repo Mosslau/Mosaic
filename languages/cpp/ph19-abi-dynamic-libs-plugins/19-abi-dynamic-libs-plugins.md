@@ -525,6 +525,6 @@ clang++ -std=c++20 -Wall -Wextra ex06-abi-evolution.cpp -o /tmp/ph19cpp-ex06 && 
 
 ### 下一阶段
 
-下一阶段是 **ph20 C++ 与 C / Python / Rust 互操作阶段**（roadmap 第 20 节，目录待建）：本阶段学会的「C ABI + opaque + 版本检查 + 生命周期纪律」正是跨语言绑定的全部地基——把 C++ 能力暴露给 C/Python（pybind11）与 Rust（cxx/FFI）调用时，异常到错误码的转换、字符串与容器的所有权交接、跨语言构建与错误路径测试，都是把本阶段的边界纪律换一个接收方重讲一遍；届时 roadmap 的推荐项目「C++ 存储引擎暴露 C ABI」「Python 调用 C++ 向量检索库」会直接复用本阶段 project 的接口形状。
+下一阶段是 [**ph20 C++ 与 C / Python / Rust 互操作阶段**](../ph20-ffi-python-rust/20-ffi-python-rust.md)：本阶段学会的「C ABI + opaque + 版本检查 + 生命周期纪律」正是跨语言绑定的全部地基——把 C++ 能力暴露给 C/Python（pybind11）与 Rust（cxx/FFI）调用时，异常到错误码的转换、字符串与容器的所有权交接、跨语言构建与错误路径测试，都是把本阶段的边界纪律换一个接收方重讲一遍；届时 roadmap 的推荐项目「C++ 存储引擎暴露 C ABI」「Python 调用 C++ 向量检索库」会直接复用本阶段 project 的接口形状。
 
 

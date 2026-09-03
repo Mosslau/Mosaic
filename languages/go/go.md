@@ -947,6 +947,8 @@ handler → service → repository → database
 
 ## 20. 配置管理与发布策略阶段
 
+> 📖 详细展开版见 [ph20-config-release/20-config-release.md](./ph20-config-release/20-config-release.md)
+
 ### 目标
 
 让服务在多环境中安全发布和运行。

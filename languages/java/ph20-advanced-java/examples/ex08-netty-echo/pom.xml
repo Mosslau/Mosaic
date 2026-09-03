@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- examples/ex08-netty-echo/pom.xml —— 用 Maven 运行本示例的依赖声明（供有 mvn 的环境使用）
+     本机无 mvn，采用「手动拉 jar + javac/java」方式实测通过；pom 本身未经 mvn 验证。
+     用法：mvn -q compile && mvn -q exec:java -Dexec.mainClass=EchoServer
+     （exec 插件未配，直接 mvn package 后 java -cp 也可，见 examples/README） -->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.tenet</groupId>
+  <artifactId>ex08-netty-echo</artifactId>
+  <version>1.0.0</version>
+  <packaging>jar</packaging>
+
+  <properties>
+    <maven.compiler.source>17</maven.compiler.source>
+    <maven.compiler.target>17</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-all</artifactId>
+      <version>4.1.137.Final</version>
+    </dependency>
+  </dependencies>
+</project>

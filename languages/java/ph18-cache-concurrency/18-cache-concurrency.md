@@ -18,7 +18,7 @@ ph17 主文档「下一阶段」的预告在这里逐一兑现：**Redis/Caffein
 | 秒杀架构 | 从入口限流到存储保护的分层防御、预扣库存、本地标记优化、异步下单衔接 |
 | 连接池与批处理 | DB / Redis / HTTP 连接池参数、批量写入与 Pipeline、异步化与读写分离 |
 
-这个阶段只涉及**缓存与高并发防护的设计、语义与单机实现**，**不涉及 Redis/MySQL 的集群部署、分片与运维调优、监控告警、Docker/Kubernetes 部署**（[ph19 DevOps 与部署阶段](../ph19-devops-deploy/19-devops-deploy.md)；本阶段只用单节点 docker Redis 把 API 跑通）、**不涉及 AQS/Netty 等并发与网络编程底层、JVM 调优**（ph20 高级 Java 阶段，roadmap 第 20 节，目录待建）、**不涉及车联网方向的组合应用**（ph21 车联网 / 智能电动车方向 Java 阶段，roadmap 第 21 节，目录待建；本阶段的车辆状态缓存只在练习层面用商品/车辆兜底）、**不涉及网关治理框架的接入**（Sentinel/Resilience4j 的规则配置与服务治理属于 ph16 微服务阶段，这里讲的是算法与分布式语义本身）、**不重复 ph17 的 MQ 可靠性细节**（本阶段只在秒杀异步下单处引用其结论：削峰已由 MQ 扛，缓存与限流是再下一层）、**不重复 ph09 的线程池与 AQS 基础**（本阶段直接使用其结论）与 ph13 的 Redis 基础入门（本阶段默认你会 `redis-cli` 与基本数据类型）。
+这个阶段只涉及**缓存与高并发防护的设计、语义与单机实现**，**不涉及 Redis/MySQL 的集群部署、分片与运维调优、监控告警、Docker/Kubernetes 部署**（[ph19 DevOps 与部署阶段](../ph19-devops-deploy/19-devops-deploy.md)；本阶段只用单节点 docker Redis 把 API 跑通）、**不涉及 AQS/Netty 等并发与网络编程底层、JVM 调优**（[ph20 高级 Java 阶段](../ph20-advanced-java/20-advanced-java.md)）、**不涉及车联网方向的组合应用**（ph21 车联网 / 智能电动车方向 Java 阶段，roadmap 第 21 节，目录待建；本阶段的车辆状态缓存只在练习层面用商品/车辆兜底）、**不涉及网关治理框架的接入**（Sentinel/Resilience4j 的规则配置与服务治理属于 ph16 微服务阶段，这里讲的是算法与分布式语义本身）、**不重复 ph17 的 MQ 可靠性细节**（本阶段只在秒杀异步下单处引用其结论：削峰已由 MQ 扛，缓存与限流是再下一层）、**不重复 ph09 的线程池与 AQS 基础**（本阶段直接使用其结论）与 ph13 的 Redis 基础入门（本阶段默认你会 `redis-cli` 与基本数据类型）。
 
 ## 2. 来源与演变
 
@@ -76,7 +76,7 @@ redis.opsForZSet().add("ex01:rank", "sn001", 88);                             //
 
 为什么「删缓存」而不是「改缓存」？改缓存要处理两个并发写把旧值写回的竞态，删缓存则让下一次读自然 miss、回源拿到新值——**删比改多一次读 miss 的代价，但少一整类不一致 bug**。Redis 键命名用 `业务:域:标识`（如 `ex01:user:1:name`）便于按前缀清理与排查。
 
-> 本阶段只用 Spring Data Redis 的同步 API 与命令原语；**ReactiveRedisTemplate / Lettuce 异步客户端属 ph20 高级 Java 阶段（roadmap 第 20 节，目录待建）的高性能 IO 话题**，这里只需理解「Redis 客户端连接池怎么配」（3.8）。
+> 本阶段只用 Spring Data Redis 的同步 API 与命令原语；**ReactiveRedisTemplate / Lettuce 异步客户端属 [ph20 高级 Java 阶段](../ph20-advanced-java/20-advanced-java.md)的高性能 IO 话题**，这里只需理解「Redis 客户端连接池怎么配」（3.8）。
 
 ### 3.2 Caffeine 本地缓存与多级分层
 
