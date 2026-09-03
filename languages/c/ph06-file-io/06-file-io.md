@@ -19,7 +19,7 @@
 
 本阶段直接承接 ph05：`fread`/`fwrite` 一次性读写结构体数组，是 ph05 内存布局知识的实战出口；ph04 养成的"检查 malloc 返回值"习惯，延伸为"检查每个 IO 返回值"。
 
-**范围边界**：承接 ph05 的结构体与内存管理；**不涉及** mmap/Page Cache 与 fsync 落盘语义（ph13）、WAL/存储引擎（ph17）、文件系统内部机制与文件描述符系统编程（ph08）、网络 IO（ph08）、字节序与跨平台二进制格式（ph12）。
+**范围边界**：承接 ph05 的结构体与内存管理；**不涉及** mmap/Page Cache 与 fsync 落盘语义（ph13）、WAL/存储引擎（ph16 数据库存储引擎基础）、文件系统内部机制与文件描述符系统编程（ph08）、网络 IO（ph08）、字节序与跨平台二进制格式（ph12）。
 
 ## 2. 来源与演变
 
@@ -295,7 +295,7 @@ C 标准只定义文本流与二进制流的抽象区别，具体映射由平台
 
 **不适合**此阶段的事项：
 - mmap 内存映射文件、Page Cache 调优与 fsync 落盘边界（ph13 可靠文件 IO）
-- WAL、崩溃恢复、SSTable 等存储引擎设计（ph17 数据库存储引擎基础）
+- WAL、崩溃恢复、SSTable 等存储引擎设计（ph16 数据库存储引擎基础）
 - 网络 IO、socket、非阻塞/异步 IO（ph08 Linux 系统编程）
 - 多线程并发读写同一文件、文件锁（ph08）
 
@@ -510,7 +510,7 @@ int main(void) {
 要点：
 - **结构体只含定长字段**——如果 `name` 是 `char *`，写进文件的只是堆地址，重启后无效。
 - `fread` 返回 1 表示读满一条；文件被截断时返回 0 且 `ferror` 可能未置位，可再配合 `feof` 判断"是否恰好结束"。
-- 记录按 `sizeof(Record)` 等长排列，天然支持 `fseek(fp, N * sizeof(Record), SEEK_SET)` 随机读第 N 条；跨机器迁移需考虑 padding 与字节序（ph12），严谨格式会加 magic/版本/校验（ph17 起）。
+- 记录按 `sizeof(Record)` 等长排列，天然支持 `fseek(fp, N * sizeof(Record), SEEK_SET)` 随机读第 N 条；跨机器迁移需考虑 padding 与字节序（ph12），严谨格式会加 magic/版本/校验（ph16 起）。
 
 ### 示例 5：append-only 日志文件
 
@@ -550,7 +550,7 @@ int main(void) {
 
 完整文件：`examples/ex05-append-log.c`（运行生成 app.log，验证后清理）
 
-**append-only 的含义**：只允许在文件末尾追加，绝不修改/删除已有记录——天然抗并发写冲突，是 WAL（ph17）、LSM 顺序写（ph17）的核心思想雏形，也是推荐项目"append-only 数据文件"的骨架。
+**append-only 的含义**：只允许在文件末尾追加，绝不修改/删除已有记录——天然抗并发写冲突，是 WAL（ph16）、LSM 顺序写（ph16）的核心思想雏形，也是推荐项目"append-only 数据文件"的骨架。
 
 **关于持久化的两层保证**：
 

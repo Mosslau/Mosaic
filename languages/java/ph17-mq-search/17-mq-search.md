@@ -18,7 +18,7 @@ ph16 的「下一阶段」预告里埋了三条线索，本阶段逐一收口：
 | Elasticsearch | 倒排索引原理、分词与分析器、映射 Mapping、查询 DSL、写入链路、与 MySQL 定位差异 |
 | 日志检索架构 | 业务日志 → Kafka → 消费清洗 → ES → 检索的典型链路，衔接 ph16 的异步与一致性话题 |
 
-这个阶段只涉及**消息中间件与检索引擎的「用」与「原理」**：会配客户端、会写生产/消费/检索代码、能解释可靠性与一致性的取舍，**不涉及 Kafka 集群的运维与调优参数全集**（分区数规划、broker 配置调优、JMX 指标体系、滚动升级——ph19 DevOps 与部署阶段）、**不涉及 ES 集群的分片规划、节点角色与性能调优**（同样是 ph19；本阶段只在单机 docker 容器上跑通 API）、**不涉及缓存与高并发架构**（Redis 缓存三兄弟、限流、秒杀、连接池——ph18 缓存与高并发阶段；本阶段提到的 Redis 只出现在「去重表」这种可选方案里，不展开）、**不涉及 MQ/ES 背后的网络编程与 JVM 并发底层**（Netty 之类的通信细节——ph20 高级 Java 阶段）、**不涉及车联网方向的组合应用**（ph21 车联网方向；本阶段的车辆数据消费练习只到「消费 + 处理」为止）。也不重复 ph15 已讲的 Spring 容器/AOP/事务（本阶段每个消费者仍是那套单体结构），以及 ph16 已讲的 Saga/TCC/幂等键（本阶段在消息语义上复用其结论：**补偿要幂等、重试要幂等**）。
+这个阶段只涉及**消息中间件与检索引擎的「用」与「原理」**：会配客户端、会写生产/消费/检索代码、能解释可靠性与一致性的取舍，**不涉及 Kafka 集群的运维与调优参数全集**（分区数规划、broker 配置调优、JMX 指标体系、滚动升级——ph19 DevOps 与部署阶段，roadmap 第 19 节，目录待建）、**不涉及 ES 集群的分片规划、节点角色与性能调优**（同样是 ph19 DevOps 与部署阶段，roadmap 第 19 节，目录待建；本阶段只在单机 docker 容器上跑通 API）、**不涉及缓存与高并发架构**（Redis 缓存三兄弟、限流、秒杀、连接池——ph18 缓存与高并发阶段，roadmap 第 18 节，目录待建；本阶段提到的 Redis 只出现在「去重表」这种可选方案里，不展开）、**不涉及 MQ/ES 背后的网络编程与 JVM 并发底层**（Netty 之类的通信细节——ph20 高级 Java 阶段，roadmap 第 20 节，目录待建）、**不涉及车联网方向的组合应用**（ph21 车联网 / 智能电动车方向 Java 阶段，roadmap 第 21 节，目录待建；本阶段的车辆数据消费练习只到「消费 + 处理」为止）。也不重复 ph15 已讲的 Spring 容器/AOP/事务（本阶段每个消费者仍是那套单体结构），以及 ph16 已讲的 Saga/TCC/幂等键（本阶段在消息语义上复用其结论：**补偿要幂等、重试要幂等**）。
 
 ## 2. 来源与演变
 
@@ -37,7 +37,7 @@ ph16 的「下一阶段」预告里埋了三条线索，本阶段逐一收口：
 
 搜索一侧的谱系更老：1999 年 Doug Cutting 写 Lucene，确立**倒排索引**作为全文检索的核心数据结构（几十年未变）；2004 年 CNET 在 Lucene 之上做 Solr 并捐给 Apache，是 2010 年前的检索事实标准；2010 年 Shay Banon 发布 **Elasticsearch**——把 Lucene 包成**分布式 + RESTful** 的搜索引擎（存进去的是 JSON 文档，查出来的是 HTTP 响应），2011 年起在日志检索（ELK：Elasticsearch + Logstash + Kibana）领域爆发。ES 版本演进有一个大跳跃（1.x → 2.x → 5.x，2016 年与全家桶版本对齐），此后：6.0 弃用 mapping type、7.0 移除 type 并把默认分片数降为 1、8.0（2022）默认开启安全并把 Java 客户端换代为 `elasticsearch-java`（老 TransportClient 与 RestHighLevelClient 均移除）。
 
-> 本阶段只用 ES 8.x 的新客户端与 REST API；**集群部署、分片规划与调优属 ph19 DevOps 与部署阶段**，这里只需在 docker 容器里把 API 跑通。
+> 本阶段只用 ES 8.x 的新客户端与 REST API；**集群部署、分片规划与调优属 ph19 DevOps 与部署阶段（roadmap 第 19 节，目录待建）**，这里只需在 docker 容器里把 API 跑通。
 
 本文示例以 **Kafka 3.7 / RocketMQ 5.x（概念基线）/ RabbitMQ 3.x（概念基线）/ Elasticsearch 8.x** 为基线（选择理由：Kafka 与 ES 是 roadmap 示例链路的主件，且 Kafka 3.x 与 ES 8.x 正是当前生态的长期稳定线；RocketMQ/RabbitMQ 本阶段只讲机制与代码片段，不跑工程）。验证工具链 **OpenJDK 17 + Maven 3.9 + Spring Boot 3.3.0**（与 ph14/ph15/ph16 完全同基线），Kafka 用 **kafka-clients 3.7.0** 与 **spring-kafka 3.2.0**（Boot 3.3.0 依赖管理默认版本），ES 用 **co.elastic.clients:elasticsearch-java 8.x**。**本环境未运行任何中间件**：examples/project 中依赖真 Kafka/ES 的代码全部标注「未在本环境验证」，需要时用 `docker compose` 起服务后按命令验证（见各 README）；两个纯 Java 教学片段（ex03 死信/延迟、ex04 手写倒排）已在 OpenJDK 17 本机实测通过并标注「已验证」。消息队列与检索的「三个环节、两种一致性」心智模型十年未变——变的是版本号，不变的是「可靠投递靠哪几层、幂等为什么必须设计在消费端」。
 
@@ -460,7 +460,7 @@ topic「orders」分区 0 的三副本（AR = 分配给该分区的全部副本�
 
 ## 6. 代码示例
 
-> 完整可运行版在 [`examples/`](./examples/)（五个示例 + 一键 `docker compose` 起 Kafka/ES）。验证环境：OpenJDK 17 + Maven 3.9 + Spring Boot 3.3.0（spring-kafka 3.2.0 / kafka-clients 3.7.0 / ES 8.x Java client），命令统一 `mvn -o -Dmaven.repo.local=/tmp/m2clone test`（联网环境 `mvn test`）。**本环境未运行任何中间件，全部代码标注「未在本环境验证」**；需要真 Kafka/ES 的示例必须先起服务（命令见 `examples/README.md`）。
+> 完整可运行版在 [`examples/`](./examples/)（五个示例 + 一键 `docker compose` 起 Kafka/ES）。验证环境：OpenJDK 17 + Maven 3.9 + Spring Boot 3.3.0（spring-kafka 3.2.0 / kafka-clients 3.7.0 / ES 8.x Java client），命令统一 `mvn -o -Dmaven.repo.local=/tmp/m2clone test`（联网环境 `mvn test`）。**本环境未运行任何中间件**：依赖真 Kafka/ES 的代码（ex01/ex02/ex05/project/exercises）标注「未在本环境验证」；**两个纯 Java 示例 ex03/ex04 已在本机实测通过并标注「已验证」**。需要真 Kafka/ES 的示例必须先起服务（命令见 `examples/README.md`）。
 
 ```java
 // examples/ex01-kafka-clients-basic/.../ConsumerMain.java —— 手动提交消费骨架（未在本环境验证）

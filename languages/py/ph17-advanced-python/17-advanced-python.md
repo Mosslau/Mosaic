@@ -48,16 +48,18 @@ Python 高级 Python 阶段的目标是：**理解 Python 底层机制和高级�
 | PEP 703 free-threaded | 2023 提案 / 3.13 实验 | 无 GIL 实验构建；标准构建仍带 GIL |
 | pydantic v2 | 2023 | Rust 核心（pydantic-core），校验性能数倍提升 |
 
-本文示例以 **Python 3.13** 为基线（当前 CPython 稳定大版本；3.13 恰好是「带 GIL 的标准构建」与「实验性 free-threaded 构建」并存的版本，讲 GIL 正合适），验证工具链 **Python 3.13.9 + pytest 8 + ruff 0.12**（对齐 ph13/ph16 的工具链基线；代码层依赖 pydantic 2.x 处单独标注）。本阶段的语法与协议（迭代器/描述符/上下文管理器/`yield from`/`__init_subclass__`）是 Python 3.x 时代**最稳定的接口层**，十余年未变；free-threaded 按实验特性简述（4.3），不改变任何面向标准构建的写法。**验证纪律**：当前写作环境为只读代理（未执行任何 python/pytest/ruff 命令），全部代码按上述工具链编写、人工校对语法，一律标注「未在本环境验证」并给出可复现命令——本笔记不虚构任何验证结果。
+本文示例以 **Python 3.13** 为基线（当前 CPython 稳定大版本；3.13 恰好是「带 GIL 的标准构建」与「实验性 free-threaded 构建」并存的版本，讲 GIL 正合适），验证工具链 **Python 3.13.9 + pytest 8 + ruff 0.12**（对齐 ph13/ph16 的工具链基线；代码层依赖 pydantic 2.x 处单独标注）。本阶段的语法与协议（迭代器/描述符/上下文管理器/`yield from`/`__init_subclass__`）是 Python 3.x 时代**最稳定的接口层**，十余年未变；free-threaded 按实验特性简述（4.3），不改变任何面向标准构建的写法。**验证纪律**：examples/exercises/project 全部代码已在 Python 3.13.9 + pytest 8.4.2 + ruff 0.12.0 本机实测通过（main 自检与 pytest 断言全绿、ruff check/format 全绿），文件头与 README 标注「已验证」，命令见文件头与各 README；本文内嵌代码为教学骨架或摘录，验证状态以对应文件为准。
 
 ## 3. 语法与参数
+
+> 本节内嵌代码块为**教学骨架或摘录**：为聚焦单个知识点做了简化。完整可运行文件与验证命令见第 6 章与 [`examples/`](./examples/)——examples/exercises/project 全部已在 Python 3.13.9 本机实测通过（标注「已验证」，见各文件头）。
 
 ### 3.1 迭代器协议：`for` 循环的展开
 
 `for x in xs:` 并不认识「列表」，它只认识**可迭代对象**。可迭代对象 = 能交给 `iter()` 的对象：
 
 ```python
-# examples/ex01-iterator-generator.py —— 迭代器协议与 for 展开（未在本环境验证）
+# examples/ex01-iterator-generator.py —— 迭代器协议与 for 展开
 xs = [10, 20, 30]
 it = iter(xs)          # list.__iter__() → 迭代器
 print(next(it))        # 10  —— iterator.__next__()
@@ -92,7 +94,7 @@ while True:
 **生成器函数 = 含 `yield` 的函数**。调用它不执行函数体，而是返回一个**生成器对象**（也是迭代器）；函数体在每次 `next()`/`send()` 时执行到下一个 `yield` 暂停，帧状态（局部变量、执行位置）被完整保存。**必会概念「生成器适合惰性处理大数据」的机制**：值是一次一个生产出来的，内存占用 O(1)，不预先构建整份序列：
 
 ```python
-# examples/ex01-iterator-generator.py —— 惰性与 send/yield from（未在本环境验证）
+# examples/ex01-iterator-generator.py —— 惰性与 send/yield from
 def countdown(n):                  # 生成器函数
     while n > 0:
         yield n                    # 暂停点：产出 n，等下一次 next/send
@@ -142,7 +144,7 @@ def wrapper():
 **闭包是装饰器的底座**：内层函数引用外层函数的变量，外层函数返回后这些变量仍被捕获（编译成 cell 对象而非随栈消失）。没有闭包，装饰器的 `wrapper` 就无法「记住」被装饰的函数与参数。
 
 ```python
-# examples/ex02-decorators-advanced.py —— 闭包与 wraps（未在本环境验证）
+# examples/ex02-decorators-advanced.py —— 闭包与 wraps
 import functools
 import time
 
@@ -193,7 +195,7 @@ def retry(times: int = 3):
 **`with` 语句 = 资源获取/释放的协议化**。`with expr as x:` 等价于「调用 `expr.__enter__()` 得到 x 绑定；离开块时无论如何调用 `expr.__exit__(exc_type, exc_val, exc_tb)`」。协议只认这两个方法，不认类层级——任何对象实现它们就能被 `with` 使用：
 
 ```python
-# examples/ex03-context-managers.py —— 协议与 contextlib（未在本环境验证）
+# examples/ex03-context-managers.py —— 协议与 contextlib
 class ManagedFile:
     def __init__(self, path):
         self.path = path
@@ -244,7 +246,7 @@ obj.attr 查找顺序（data descriptor 优先于实例字典）：
 - **`@property` 是 data 描述符**：`property(fget, fset, fdel, doc)` 在 C 层实现 `__get__`/`__set__`/`__delete__`——它抢在实例字典之前（第 2 步），所以「赋值给 property 会走 setter 而不是在实例字典里新建同名属性」。**用纯 Python 手写一个极简 property** 是理解本节的标志性练习：
 
 ```python
-# examples/ex04-descriptor-metaclass.py —— 手写 property 等价物（未在本环境验证）
+# examples/ex04-descriptor-metaclass.py —— 手写 property 等价物
 class my_property:
     def __init__(self, fget=None, fset=None):
         self.fget, self.fset = fget, fset
@@ -281,7 +283,7 @@ class my_property:
 **类也是对象，类是 `type` 的实例**（ph04 4.1 已立此认知）。元类 = 实例是类的类：`class` 语句执行时，Python 调用元类（默认 `type`）的 `__new__` 创建类对象、`__init__` 初始化它。自定义元类 = 继承 `type` 并覆写这些方法：
 
 ```python
-# examples/ex04-descriptor-metaclass.py —— 元类与 __init_subclass__（未在本环境验证）
+# examples/ex04-descriptor-metaclass.py —— 元类与 __init_subclass__
 class UpperMeta(type):
     def __new__(mcls, name, bases, namespace, **kw):
         cleaned = {k: (v.upper() if isinstance(v, str) else v)
@@ -344,7 +346,7 @@ ph13 已把 `@dataclass` 当工程工具用过（自动生成 `__init__`/`__repr
 **`@dataclass` 的机制：类装饰器做代码生成**。`@dataclass` 在类定义完成后，读类注解（`__annotations__`），按字段顺序生成 `__init__`（无默认值字段在前）、`__repr__`、`__eq__`（比较是按字段元组的相等）、`__hash__`（`eq=True` 且 `frozen=True` 时按字段生成；否则置 `None` 使实例不可哈希——与普通类一致）、`__post_init__` 钩子（在 `__init__` 末尾调用，做校验/派生字段）。它是**编译期等价替换**——`@dataclass class P: x: int` 生成的 `__init__` 与手写 `def __init__(self, x): self.x = x` 无异，不引入运行期魔法：
 
 ```python
-# examples/ex06-dataclass-pydantic.py —— dataclass 机制与三选一（未在本环境验证）
+# examples/ex06-dataclass-pydantic.py —— dataclass 机制与三选一
 from dataclasses import dataclass, field, asdict
 
 @dataclass(frozen=True)                      # 冻结：实例不可变（hash 可用）
@@ -419,7 +421,7 @@ Task 的机制核心：协程每次 `await` 挂起后，控制权回到循环；
 | Cython | Python 超集（`.pyx`），可选加 C 类型标注，编译为 C 再编成扩展 | 是 | 中 | 渐进加速既有 Python 代码（uvloop 即用 Cython 实现） |
 
 ```python
-# examples/ex07-import-gc-memory.py —— ctypes 调 libc 的最小形态（未在本环境验证）
+# examples/ex07-import-gc-memory.py —— ctypes 调 libc 的最小形态
 import ctypes
 libc = ctypes.CDLL(None)                    # None = 当前进程已加载的库（含 libc）
 libc.strlen.argtypes = [ctypes.c_char_p]
@@ -428,7 +430,7 @@ print(libc.strlen(b"hello"))                # 5 —— 纯 C 调用，不经 Pyt
 ```
 
 ```cython
-# examples/ex07-import-gc-memory.py 附录的 Cython 形态（.pyx 片段，未在本环境验证）
+# Cython 教学片段（.pyx 语法展示，仅示范构建命令；无对应 examples 文件 —— 未在本环境验证，需 pip install cython 后构建）
 # 文件: sum_range.pyx —— 加 C 类型标注后，循环编译为 C 的 for
 def sum_range(long n):
     cdef long total = 0
@@ -471,7 +473,7 @@ PyObject 内存头（每个对象都带）
 **CPython 主回收机制是引用计数**（非标记-清除扫全堆）：`obj = ...` 使 `ob_refcnt += 1`，离开作用域/被覆盖/`del` 使计数减一；归零立即回收内存并调 `__del__`（若定义）。**优点：及时（对象一死就回收，无需停顿扫描）、确定性（与语言级 try/finally 同节奏）**；**缺点：循环引用计数永不归零**——两个对象互相引用、但外界无人引用它们时，计数各为 1，永不释放：
 
 ```python
-# examples/ex07-import-gc-memory.py —— 循环引用与 gc（未在本环境验证）
+# examples/ex07-import-gc-memory.py —— 循环引用与 gc
 class Node:
     def __init__(self):
         self.peer = None
@@ -541,14 +543,14 @@ CPython 是**字节码解释器**：源码先编译为 code object（内含字�
 
 ## 6. 代码示例
 
-本节展示完整可运行示例的关键片段，完整文件（含文件头验证环境与运行命令）在 [`examples/`](./examples/) 目录，对照 [`examples/README.md`](./examples/README.md) 逐条验证。验证环境：Python 3.13.9 + pytest 8 + ruff 0.12（目标工具链）；pydantic 2.x 仅 ex06 需要。**全部示例未在本环境验证**（当前为只读写作环境，未执行任何命令），运行命令见文件头与 README。
+本节展示完整可运行示例的关键片段，完整文件（含文件头验证环境与运行命令）在 [`examples/`](./examples/) 目录，对照 [`examples/README.md`](./examples/README.md) 逐条验证。验证环境：Python 3.13.9 + pytest 8 + ruff 0.12（目标工具链）；pydantic 2.x 仅 ex06 需要。**全部示例已验证**（Python 3.13.9 + pytest 8.4.2 + ruff 0.12.0 本机实测：main 自检、pytest 断言、ruff check/format 全绿），运行命令见文件头与 README。
 
 ### 示例 1：迭代器协议与生成器进阶（呼应 3.1/3.2）
 
 完整文件 `examples/ex01-iterator-generator.py`：手写迭代器、`for` 循环展开、`iter()` 的回退协议（`__getitem__` 序列兜底）、生成器惰性（对比内存）、`send`/`throw`/`close`、`yield from` 链与子生成器返回值。
 
 ```python
-# examples/ex01-iterator-generator.py —— 迭代器/生成器协议演示（未在本环境验证）
+# examples/ex01-iterator-generator.py —— 迭代器/生成器协议演示
 def gen_echo() -> Iterator[str]:   # send 双向通信：yield 表达式的值 = send 的参数
     got = yield "ready"            # 首次 send(None)/next 走到这，产出 ready
     yield f"got:{got}"
@@ -601,7 +603,7 @@ print("send 启动:", next(e), "| send 注入:", e.send("ping"))
 9. **GIL 是引用计数简单性的历史税**：计算占锁（5ms 时间片）、等待放锁（IO 重叠）；CPU 密集靠多进程（ph14 实测、ph16 pre-fork），free-threaded 是 3.13 起的渐进出路（4.3）
 10. **内存 = 引用计数（及时） + 分代 GC（补循环引用）**：`__del__` 不可依赖、缓存用 weakref、百万实例用 `__slots__`（4.1/4.2）
 11. **性能边界四代形态**：ctypes 调、cffi 绑、C API 写、Cython 渐进——只对热点，且按成本递增（3.10）
-12. **验证纪律**：本阶段为纯写作环境，全部代码标注「未在本环境验证」并给出可复现命令——请按文件头命令实际执行后再采信
+12. **验证纪律**：全部代码已在 Python 3.13.9 + pytest 8.4.2 + ruff 0.12.0 本机实测通过（main 自检与 pytest 断言全绿、ruff check/format 全绿），文件头与 README 标注「已验证」——请按文件头命令复现即可
 
 ### 阶段验收清单
 

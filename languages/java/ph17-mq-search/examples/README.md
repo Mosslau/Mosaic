@@ -4,7 +4,7 @@
 
 ## 验证状态（重要，如实标注）
 
-**本环境未运行任何中间件、未执行任何构建**：ex01/ex02/ex05 需要本地 Kafka/ES 服务（本目录 `docker-compose.yml` 一键起），ex03/ex04 是纯 Java 单文件（`javac`/`java` 即可，无中间件依赖）。**全部示例均标注「未在本环境验证」**——README 给出的命令与依赖是按代码与官方文档口径写的，请在起好中间件的机器上按命令实测，不要假设本仓库已替你跑过。
+**本环境未运行 Kafka/ES 中间件、未执行 Maven 构建**：ex01/ex02/ex05 需要本地 Kafka/ES 服务（本目录 `docker-compose.yml` 一键起），依赖真中间件的代码标注「未在本环境验证」；**ex03/ex04 是纯 Java 单文件，已在本机实测通过并标注「已验证」**（`javac`/`java` 即可，无中间件依赖）——请在起好中间件的机器上按命令实测依赖 Kafka/ES 的示例，不要假设本仓库已替你跑过。
 
 依赖可用性（仅按本机离线仓库目录 `ls` 复核，非构建验证）：`kafka-clients 3.7.0`、`spring-kafka 3.2.0` 目录在 `/tmp/m2clone` 可见；ES 8.x 的 `elasticsearch-java` 不在离线缓存，需联网环境首次 `mvn test` 拉取。命令统一支持离线模式 `mvn -o -Dmaven.repo.local=/tmp/m2clone …`（依赖缺失时先联网 `mvn …` 拉一次），联网环境直接 `mvn …`。
 
@@ -28,8 +28,8 @@ docker compose down
 |------|------|------|---------|---------|
 | ex01-kafka-clients-basic/ | Kafka 生产者/消费者骨架：acks=all + 幂等 + 回调、消费组 + 手动提交 | kafka-clients 3.7.0 + jackson | 先 `docker compose up -d kafka`，再 `mvn -o -Dmaven.repo.local=/tmp/m2clone spring-boot:run -Dspring-boot.run.main-class=com.example.ex01.ProducerMain`（消费端换 `ConsumerMain`） | 未在本环境验证 |
 | ex02-spring-kafka-idempotent-consume/ | spring-kafka 注解式可靠消费：ack-mode=MANUAL + TTL 去重表，重复投递只处理一次 | spring-kafka 3.2.0（Boot 管理）+ jackson | 先起 kafka，再 `mvn -o -Dmaven.repo.local=/tmp/m2clone spring-boot:run -Dspring-boot.run.main-class=com.example.ex02.Ex02Application`，另开终端用 ex01 的 ProducerMain 连发消息 | 未在本环境验证 |
-| ex03-mq-dead-letter-delay-demo/ex03-mq-dead-letter-delay-demo.java | 死信 + 延迟消息语义：失败重试→死信、到期才投递（虚拟时钟，结果确定） | 无（纯 Java 17） | `javac ex03-mq-dead-letter-delay-demo.java && java DeadLetterDelayDemo` | 未在本环境验证 |
-| ex04-inverted-index-demo/ex04-inverted-index-demo.java | 手写倒排索引：分词→词项→文档集，term/match 查询、AND/OR | 无（纯 Java 17） | `javac ex04-inverted-index-demo.java && java InvertedIndexDemo` | 未在本环境验证 |
+| ex03-mq-dead-letter-delay-demo/ex03-mq-dead-letter-delay-demo.java | 死信 + 延迟消息语义：失败重试→死信、到期才投递（虚拟时钟，结果确定） | 无（纯 Java 17） | `javac ex03-mq-dead-letter-delay-demo.java && java DeadLetterDelayDemo` | 已验证（OpenJDK 17.0.18 本机实测 PASS） |
+| ex04-inverted-index-demo/ex04-inverted-index-demo.java | 手写倒排索引：分词→词项→文档集，term/match 查询、AND/OR | 无（纯 Java 17） | `javac ex04-inverted-index-demo.java && java InvertedIndexDemo` | 已验证（OpenJDK 17.0.18 本机实测 PASS） |
 | ex05-elasticsearch-java-client/ | ES 8.x 检索：建索引/映射→写文档→match/bool/range 查询 | elasticsearch-java 8.13.4 | 先 `docker compose up -d elasticsearch`，再 `mvn -o -Dmaven.repo.local=/tmp/m2clone spring-boot:run -Dspring-boot.run.main-class=com.example.ex05.EsSearchDemo` | 未在本环境验证 |
 
 ## 示例速览与教学点
@@ -46,13 +46,13 @@ docker compose down
 - `DedupStore`（TTL 去重表）占位成功才处理，重复投递同一条 `orderId` 只建单一次（日志里 `created` 计数只 +1）——对应主文档 3.4「为什么重复不可避免 + 去重表方案」
 - 把 ex01 的 ProducerMain 连续跑两遍（同 key 的消息被重复投递），观察去重效果
 
-### ex03：死信与延迟消息语义（纯 Java，未在本环境验证）
+### ex03：死信与延迟消息语义（纯 Java，已验证）
 
 - 虚拟时钟驱动，无真实时间依赖：消息带 `availableAt`，broker 只投「已到期」的消息——延迟消息 = 把 `availableAt` 设到未来
 - 场景一「失败重试→死信」：处理恒失败，attempt 达到上限进 DLQ（对应 Kafka `.dlt` / RocketMQ `%DLQ%` / RabbitMQ DLX）
 - 场景二「延迟投递」：两条消息先后入队、后一条到期时间更晚，断言投递顺序按到期时间而非入队顺序
 
-### ex04：手写倒排索引（纯 Java，未在本环境验证）
+### ex04：手写倒排索引（纯 Java，已验证）
 
 - 小写化 + 按非字母数字切分的简易分词（对比 ES 的 standard 分析器），建「词项 → 文档 id 集合」倒排表
 - `searchTerm`（term 查询）、`searchAny`（OR）、`searchAll`（AND）与相关性计数排序——直观回答「为什么倒排检索不用扫全表」
