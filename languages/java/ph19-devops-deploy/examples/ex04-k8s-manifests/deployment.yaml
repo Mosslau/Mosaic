@@ -1,0 +1,79 @@
+# examples/ex04-k8s-manifests/deployment.yaml
+# Deployment + 三类探针 + 资源上限 + 优雅停机 preStop（对应主文档 3.5 / 3.11）
+# 教学点：
+#   1. 滚动更新策略：maxUnavailable=0 先起新再停旧，maxSurge=1 最多多一个副本 —— 零停机前提
+#   2. 三类探针分工：startup 等 JVM 慢启动、readiness 摘流量不杀、liveness 杀容器重启（语义见主文档 3.5 表）
+#   3. preStop sleep：给 Service 摘除端点留缓冲，再让容器优雅停机（时序见主文档 3.11）
+#   4. resources.requests 是调度依据、limits 是硬上限，与镜像内 MaxRAMPercentage=75 配套（主文档 4.4）
+#   5. image 用不可变 tag（1.4.2）—— 回滚目标（主文档 3.3/3.12）
+# 验证命令（有 kubectl 的环境）：
+#   kubectl apply -f namespace.yaml -f configmap.yaml -f secret.yaml -f deployment.yaml
+#   kubectl rollout status deployment/myapp -n myapp
+#   kubectl get pods -n myapp -o wide
+#   # 静态校验（不需要集群也能查 schema 级错误）：kubectl apply --dry-run=client -f deployment.yaml
+# 验证状态：未在本环境实际构建验证（本机无 kubectl/集群）
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+  namespace: myapp
+  labels:
+    app: myapp
+spec:
+  replicas: 2
+  revisionHistoryLimit: 10            # 保留 10 个历史 revision，回滚能退到不止上一版
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0               # 滚动期间不允许出现「少于期望副本」→ 先起新的
+      maxSurge: 1                     # 最多额外多起 1 个（旧的还没停完就能起新的）
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      terminationGracePeriodSeconds: 40   # > preStop sleep(5) + 优雅停机超时(30s)，给足收尾时间
+      containers:
+        - name: myapp
+          image: myregistry/myapp:1.4.2
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: myapp-config
+            - secretRef:
+                name: myapp-secret
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          startupProbe:               # 慢启动宽限：最多 30 次 × 2s = 60s，期间不执行 liveness
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            failureThreshold: 30
+            periodSeconds: 2
+          readinessProbe:             # 就绪：false → 从 Service 摘除，不接新流量
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:              # 存活：连续失败 → kubelet 杀容器重启（死锁兜底）
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 5"]   # 让 Service 摘端点后再收 SIGTERM

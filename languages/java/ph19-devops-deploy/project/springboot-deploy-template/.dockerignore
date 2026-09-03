@@ -1,0 +1,11 @@
+# project/springboot-deploy-template/.dockerignore
+.git
+.gitignore
+target
+out
+purejava
+*.class
+*.iml
+.idea
+.vscode
+**/.DS_Store

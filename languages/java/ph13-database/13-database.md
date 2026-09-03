@@ -16,7 +16,7 @@ ph12 单元测试与工程质量阶段用 HSQLDB 内存库写过最小 JDBC CRUD
 | ORM 与迁移 | MyBatis（SQL 映射）、JPA/Hibernate（对象关系映射、脏检查、JPQL）、Flyway 版本化迁移 |
 | 数据库选型 | HSQLDB 内存库（本机实测）、MySQL / PostgreSQL / Redis（Redis 本机实测；MySQL/PG 概念讲解） |
 
-这个阶段只涉及**单机数据库编程**（SQL/JDBC/连接池/事务/索引/Redis 缓存/MyBatis/JPA/Flyway），**不涉及 Web 层与框架的数据库集成**（Servlet/Spring MVC 中怎么管事务与数据源——[ph14 Web 后端开发阶段](../ph14-web-backend/14-web-backend.md) / [ph15 Spring 全家桶阶段](../ph15-spring-family/15-spring-family.md)，roadmap 第 15 节）、**不涉及分布式数据库、分库分表与分布式事务**（ph16 微服务与分布式阶段，roadmap 第 16 节，目录待建）、**不涉及消息队列中的持久化与搜索索引**（[ph17 消息队列与搜索阶段](../ph17-mq-search/17-mq-search.md)，roadmap 第 17 节）、**不涉及缓存一致性、缓存穿透/击穿/雪崩等高并发缓存架构**（[ph18 缓存与高并发阶段](../ph18-cache-concurrency/18-cache-concurrency.md)，roadmap 第 18 节）、**不涉及数据库运维与 CI/CD 中的迁移落地**（ph19 DevOps 与部署阶段，roadmap 第 19 节，目录待建）。本阶段承接 ph12——那里的 HSQLDB 集成测试证明了「代码 + SQL 能协作」，本阶段把「能协作」升级为「协作得对、快、稳」。
+这个阶段只涉及**单机数据库编程**（SQL/JDBC/连接池/事务/索引/Redis 缓存/MyBatis/JPA/Flyway），**不涉及 Web 层与框架的数据库集成**（Servlet/Spring MVC 中怎么管事务与数据源——[ph14 Web 后端开发阶段](../ph14-web-backend/14-web-backend.md) / [ph15 Spring 全家桶阶段](../ph15-spring-family/15-spring-family.md)，roadmap 第 15 节）、**不涉及分布式数据库、分库分表与分布式事务**（ph16 微服务与分布式阶段，roadmap 第 16 节，目录待建）、**不涉及消息队列中的持久化与搜索索引**（[ph17 消息队列与搜索阶段](../ph17-mq-search/17-mq-search.md)，roadmap 第 17 节）、**不涉及缓存一致性、缓存穿透/击穿/雪崩等高并发缓存架构**（[ph18 缓存与高并发阶段](../ph18-cache-concurrency/18-cache-concurrency.md)，roadmap 第 18 节）、**不涉及数据库运维与 CI/CD 中的迁移落地**（[ph19 DevOps 与部署阶段](../ph19-devops-deploy/19-devops-deploy.md)）。本阶段承接 ph12——那里的 HSQLDB 集成测试证明了「代码 + SQL 能协作」，本阶段把「能协作」升级为「协作得对、快、稳」。
 
 ## 2. 来源与演变
 
@@ -425,7 +425,7 @@ Redis 是**单线程事件循环**（epoll/kqueue 多路复用）驱动的：所
 - **分库分表、读写分离与分布式事务**——ph16 微服务与分布式阶段（roadmap 第 16 节，目录待建）
 - **消息队列的持久化与搜索索引**（Kafka/Elasticsearch 的数据存储机制）——[ph17 消息队列与搜索阶段](../ph17-mq-search/17-mq-search.md)（roadmap 第 17 节）
 - **缓存穿透/击穿/雪崩、缓存一致性协议**——[ph18 缓存与高并发阶段](../ph18-cache-concurrency/18-cache-concurrency.md)（roadmap 第 18 节）
-- **数据库运维**（备份恢复、主从复制、监控告警、迁移进 CI/CD）——ph19 DevOps 与部署阶段（roadmap 第 19 节，目录待建）
+- **数据库运维**（备份恢复、主从复制、监控告警、迁移进 CI/CD）——[ph19 DevOps 与部署阶段](../ph19-devops-deploy/19-devops-deploy.md)
 
 **跨语言对比（简短）**：Java 的 JDBC 是「接口标准 + 厂商驱动」，C++ 的常见路线是 libpq / mysql++（厂商 SDK 或薄封装），Go 的 `database/sql` 与 JDBC 同构（`sql.DB` 自带连接池，`db.QueryRow` 对应 `PreparedStatement` 心智），Python 的 DB-API 2.0 也走「连接 + 游标 + 参数化」同一模式——**数据访问的接口形状全语言收敛**，差异在连接池是否内置（Go 内置、Java 靠 HikariCP）。Redis 客户端在 Java（Jedis/Lettuce）、Python（redis-py）、Go（go-redis）里都是 RESP 协议的封装，协议本身与语言无关——这是为 analysis/ 与 Tenet 合成积累的素材。
 

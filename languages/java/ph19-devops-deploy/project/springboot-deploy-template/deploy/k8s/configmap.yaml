@@ -1,0 +1,12 @@
+# project/springboot-deploy-template/deploy/k8s/configmap.yaml
+# 非敏感配置外置（主文档 3.5：配置与代码分离）。验证状态：未在本环境实际构建验证
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: myapp-config
+  namespace: myapp
+data:
+  SPRING_PROFILES_ACTIVE: "k8s"
+  DB_URL: "jdbc:mysql://mysql:3306/myapp?useSSL=false&serverTimezone=UTC&characterEncoding=utf8"
+  DB_USERNAME: "app"
+  REDIS_HOST: "redis"

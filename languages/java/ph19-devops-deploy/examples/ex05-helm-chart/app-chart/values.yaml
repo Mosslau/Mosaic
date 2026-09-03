@@ -1,0 +1,49 @@
+# examples/ex05-helm-chart/app-chart/values.yaml
+# 默认参数（对应主文档 3.6）：所有可变点集中一处，部署时 --set / -f values-prod.yaml 覆盖
+# 验证状态：未在本环境实际构建验证（本机无 helm）
+replicaCount: 2
+
+image:
+  repository: myregistry/myapp
+  tag: "1.4.2"           # 发布时 --set image.tag=<git sha> 覆盖 → 不可变 tag 进集群
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []     # 私有仓库拉取凭据（secret name 列表），无则留空
+
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 80
+
+# 探针路径/端口集中在这，改一处生效
+probes:
+  port: 8080
+  readinessPath: /actuator/health/readiness
+  livenessPath: /actuator/health/liveness
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+# 环境变量注入来源：configmap 的 data 与 secret 的 stringData 在这里声明
+config:
+  SPRING_PROFILES_ACTIVE: "k8s"
+  DB_URL: "jdbc:mysql://mysql:3306/myapp?useSSL=false&serverTimezone=UTC&characterEncoding=utf8"
+  DB_USERNAME: "app"
+secret:
+  DB_PASSWORD: "app123"
+  REDIS_PASSWORD: "redis123"
+
+# 优雅停机与终止宽限（主文档 3.11）
+terminationGracePeriodSeconds: 40
+preStopSleepSeconds: 5
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

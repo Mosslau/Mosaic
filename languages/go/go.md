@@ -900,6 +900,8 @@ handler → service → repository → database
 
 ## 19. 消息队列与事件驱动深入阶段
 
+> 📖 详细展开版见 [ph19-mq-event-driven/19-mq-event-driven.md](./ph19-mq-event-driven/19-mq-event-driven.md)
+
 ### 目标
 
 掌握异步解耦和高吞吐数据处理设计。

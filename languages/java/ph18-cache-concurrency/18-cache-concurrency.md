@@ -18,7 +18,7 @@ ph17 主文档「下一阶段」的预告在这里逐一兑现：**Redis/Caffein
 | 秒杀架构 | 从入口限流到存储保护的分层防御、预扣库存、本地标记优化、异步下单衔接 |
 | 连接池与批处理 | DB / Redis / HTTP 连接池参数、批量写入与 Pipeline、异步化与读写分离 |
 
-这个阶段只涉及**缓存与高并发防护的设计、语义与单机实现**，**不涉及 Redis/MySQL 的集群部署、分片与运维调优、监控告警、Docker/Kubernetes 部署**（ph19 DevOps 与部署阶段，roadmap 第 19 节，目录待建；本阶段只用单节点 docker Redis 把 API 跑通）、**不涉及 AQS/Netty 等并发与网络编程底层、JVM 调优**（ph20 高级 Java 阶段，roadmap 第 20 节，目录待建）、**不涉及车联网方向的组合应用**（ph21 车联网 / 智能电动车方向 Java 阶段，roadmap 第 21 节，目录待建；本阶段的车辆状态缓存只在练习层面用商品/车辆兜底）、**不涉及网关治理框架的接入**（Sentinel/Resilience4j 的规则配置与服务治理属于 ph16 微服务阶段，这里讲的是算法与分布式语义本身）、**不重复 ph17 的 MQ 可靠性细节**（本阶段只在秒杀异步下单处引用其结论：削峰已由 MQ 扛，缓存与限流是再下一层）、**不重复 ph09 的线程池与 AQS 基础**（本阶段直接使用其结论）与 ph13 的 Redis 基础入门（本阶段默认你会 `redis-cli` 与基本数据类型）。
+这个阶段只涉及**缓存与高并发防护的设计、语义与单机实现**，**不涉及 Redis/MySQL 的集群部署、分片与运维调优、监控告警、Docker/Kubernetes 部署**（[ph19 DevOps 与部署阶段](../ph19-devops-deploy/19-devops-deploy.md)；本阶段只用单节点 docker Redis 把 API 跑通）、**不涉及 AQS/Netty 等并发与网络编程底层、JVM 调优**（ph20 高级 Java 阶段，roadmap 第 20 节，目录待建）、**不涉及车联网方向的组合应用**（ph21 车联网 / 智能电动车方向 Java 阶段，roadmap 第 21 节，目录待建；本阶段的车辆状态缓存只在练习层面用商品/车辆兜底）、**不涉及网关治理框架的接入**（Sentinel/Resilience4j 的规则配置与服务治理属于 ph16 微服务阶段，这里讲的是算法与分布式语义本身）、**不重复 ph17 的 MQ 可靠性细节**（本阶段只在秒杀异步下单处引用其结论：削峰已由 MQ 扛，缓存与限流是再下一层）、**不重复 ph09 的线程池与 AQS 基础**（本阶段直接使用其结论）与 ph13 的 Redis 基础入门（本阶段默认你会 `redis-cli` 与基本数据类型）。
 
 ## 2. 来源与演变
 
@@ -37,7 +37,7 @@ ph17 主文档「下一阶段」的预告在这里逐一兑现：**Redis/Caffein
 
 两个与高并发直接相关的「协议层演进」值得单列：**分布式锁**从社区自发用 `SETNX`（2009 前后）起家，踩过「没超时 → 死锁」「裸 DEL → 误删他人锁」两个大坑后，2016 年 Redis 官方给出 `SET key value NX EX` 原子拿锁 + Lua 原子释放的标准姿势，Antirez 同年提出 **Redlock**（多节点 quorum 拿锁，争议不断、工程少用——主从切换窗口下仍有双锁风险，见 4.4）；Java 侧 **Redisson**（2014 开源）把「拿锁 + 看门狗续期 + Lua 释放」封装成一行 API。**限流**的算法谱系：令牌桶思想源自 1980 年代的网络流量整形（token bucket，RFC 里给网卡限速的算法），2012 年 Guava 把它带进 Java 应用层（`RateLimiter`，平滑突发/平滑预热），2018 年阿里开源 **Sentinel** 把「滑动窗口计数 + 匀速排队 + 熔断」做成分布式服务治理标准（接入属 ph16，算法本阶段 3.5 讲透）。
 
-> 本阶段只用 Redis 单节点 + 官方客户端做「语义与协议」，**集群部署、分片规划与运维调优属 ph19 DevOps 与部署阶段（roadmap 第 19 节，目录待建）**，这里只需在 docker 容器里把 API 跑通。
+> 本阶段只用 Redis 单节点 + 官方客户端做「语义与协议」，**集群部署、分片规划与运维调优属 [ph19 DevOps 与部署阶段](../ph19-devops-deploy/19-devops-deploy.md)**，这里只需在 docker 容器里把 API 跑通。
 
 本文示例以 **OpenJDK 17 + Maven 3.9 + Spring Boot 3.3.0 + Spring Data Redis（Lettuce）+ Caffeine 3.1.8 + Redis 7.x（docker 单节点）** 为基线（选择理由：与 ph14~ph17 完全同基线，Boot 3.3 依赖管理自带 Redis/Caffeine 版本；Caffeine 3.1.8 与 Redisson 3.27.2 在仓库离线 Maven 缓存 `/tmp/m2clone` 中可见）。**本环境无 docker、无 Redis、无 mvn**：依赖真 Redis 的代码（examples/ex01 及全部 Lua/Spring Data 片段）一律标注「未在本环境验证」，需要时用 `docker compose up -d redis` 起服务后按各 README 命令实测；**六个不依赖外部服务的示例（examples/ex02~ex07）已在 OpenJDK 17.0.18 本机实测通过并标注「已验证」**（ex02/ex07 需 Caffeine 3.1.8 离线 jar，classpath 见 examples/README）。缓存与并发的「分层防御心智」多年未变——变的只是组件名与版本号，不变的是「缓存挡读、限流挡洪峰、锁挡并发写、幂等挡重放、最终一致靠 TTL 与对账」。
 
@@ -114,7 +114,7 @@ String v = cache.getIfPresent("session:1");         // 手动读；miss 返回 n
 | 失效 | 广播收到即 invalidate + TTL 兜底 | 删除为主，不主动改 | 见 4.2「删除利用 miss 即回源」 |
 | 粒度 | 业务键（商品 id、配置 key） | 同左 | 两级同键名，广播才能对上 |
 
-> 本阶段默认单节点、单 Redis；**L1 的失效广播、多实例一致性在 4.2 用 CPU 缓存一致性视角讲透**，集群形态（Redis Cluster/哨兵）仍属 ph19 DevOps 与部署阶段（roadmap 第 19 节，目录待建）。
+> 本阶段默认单节点、单 Redis；**L1 的失效广播、多实例一致性在 4.2 用 CPU 缓存一致性视角讲透**，集群形态（Redis Cluster/哨兵）仍属 [ph19 DevOps 与部署阶段](../ph19-devops-deploy/19-devops-deploy.md)。
 
 ### 3.3 缓存三大问题：穿透、击穿、雪崩
 
@@ -325,7 +325,7 @@ return 0
 
 **异步下单**：真正下单（写订单表、扣优惠券、通知）耗时且要写多个系统，同步做完会拖垮秒杀接口——所以秒杀常拆成「**同步预扣**（在锁内快速扣 Redis 库存，返回抢到）+ **异步落单**（发消息给 MQ，消费者写订单表）」。这一步衔接 ph17：**削峰由 MQ 扛住**，而本阶段的缓存与锁保证「预扣阶段」不被打穿。
 
-> 秒杀做完只是高并发架构的开始：**它的姊妹题「多级缓存一致性」「最终对账」在本阶段 4.2 与 5 章收尾**，真实集群的压测与容量规划属 ph19 DevOps 与部署阶段（roadmap 第 19 节，目录待建）。
+> 秒杀做完只是高并发架构的开始：**它的姊妹题「多级缓存一致性」「最终对账」在本阶段 4.2 与 5 章收尾**，真实集群的压测与容量规划属 [ph19 DevOps 与部署阶段](../ph19-devops-deploy/19-devops-deploy.md)。
 
 ### 3.8 连接池优化：把「每次都用新连接」改掉
 
@@ -557,4 +557,4 @@ Caffeine L1 + 模拟 Redis L2 + DB 三级读；更新广播让 A/B 两实例 L1 
 
 ### 下一阶段
 
-ph19 DevOps 与部署阶段（roadmap 第 19 节，目录待建，届时以 roadmap 为准）——本阶段的单节点 Redis 与手压并发要变成生产形态：Docker 镜像打包（ph18 的秒杀 demo 换成 Dockerfile + compose 起 Java + MySQL + Redis）、CI/CD、监控告警（命中率、QPS、连接池水位都要可观测）、集群与容量规划。本阶段埋的前置：秒杀 demo 的「模拟后端换真 Redis」、缓存命中率监控指标、连接池调优参数——都是 ph19 上生产时要接的线；roadmap 第 21 节的车辆状态实时缓存则以本阶段的两级缓存与失效广播为地基。
+[ph19 DevOps 与部署阶段](../ph19-devops-deploy/19-devops-deploy.md)——本阶段的单节点 Redis 与手压并发要变成生产形态：Docker 镜像打包（ph18 的秒杀 demo 换成 Dockerfile + compose 起 Java + MySQL + Redis）、CI/CD、监控告警（命中率、QPS、连接池水位都要可观测）、集群与容量规划。本阶段埋的前置：秒杀 demo 的「模拟后端换真 Redis」、缓存命中率监控指标、连接池调优参数——都是 ph19 上生产时要接的线；roadmap 第 21 节的车辆状态实时缓存则以本阶段的两级缓存与失效广播为地基。

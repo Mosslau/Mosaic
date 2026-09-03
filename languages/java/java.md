@@ -919,6 +919,8 @@ client → gateway → service-a → service-b → database
 
 ## 19. DevOps 与部署阶段
 
+> 📖 详细展开版见 [ph19-devops-deploy/19-devops-deploy.md](./ph19-devops-deploy/19-devops-deploy.md)
+
 ### 目标
 
 把 Java 服务部署到生产环境。

@@ -1,0 +1,31 @@
+# examples/ex02-spring-boot-jar-packaging/src/main/resources/application.yml
+# 部署相关配置（对应主文档 3.2/3.5/3.10/3.11）—— 本文件属工程资源，随 jar 打包；环境差异用 profile/ConfigMap 外置
+# 验证状态：未在本环境验证（需真 Boot 应用运行；配置项均为 Boot 3.3 官方属性）
+
+server:
+  port: 8080
+  shutdown: graceful                    # SIGTERM 后优雅停机：拒新连接、等存量请求完成（3.11）
+  tomcat:
+    threads:
+      max: 200
+
+spring:
+  application:
+    name: myapp
+  lifecycle:
+    timeout-per-shutdown-phase: 30s     # 优雅停机的每一阶段最多等 30s，超时强制结束（3.11）
+
+# Actuator：把健康探针与 Prometheus 端点开出来给平台层用（3.5/3.10）
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true                   # 开放 /actuator/health/liveness 与 /actuator/health/readiness
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}   # 所有指标带上应用名，多服务聚合时好区分

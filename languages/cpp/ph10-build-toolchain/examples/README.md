@@ -55,7 +55,7 @@ nm /tmp/ex02-app | grep -o "_Z3gcdii\|_Z3lcmii"    # gcd/lcm 在
 
 本机实测输出要点（已验证）：`ar t` 列出 `__.SYMDEF SORTED`（LLVM ar 的符号索引成员）、`ex02-libstat.o`、`ex02-libmath.o` 三个条目；`nm` 显示 `libex02.a(ex02-libstat.o): T __Z3gcdii ...` 与 `libex02.a(ex02-libmath.o): T __Z8is_primei ...`；链接后运行输出 `gcd(48,36)=12  lcm(6,8)=24` 断言 pass；可执行文件符号表确认 is_prime/factorial 未并入——**静态库按成员（.o）粒度按需抽取**。
 
-> 符号名 `__Z3gcdii` 带前缀下划线是 Apple/LLVM（Mach-O）惯例，Linux（GNU binutils，ELF）对应 `_Z3gcdii`。ABI/符号命名细节属于 ph19 ABI、动态库与插件机制阶段（目录待建），这里只需会用 nm 辨认 T/t/U 即可。
+> 符号名 `__Z3gcdii` 带前缀下划线是 Apple/LLVM（Mach-O）惯例，Linux（GNU binutils，ELF）对应 `_Z3gcdii`。ABI/符号命名细节属于 [ph19 ABI、动态库与插件机制阶段](../../ph19-abi-dynamic-libs-plugins/19-abi-dynamic-libs-plugins.md)，这里只需会用 nm 辨认 T/t/U 即可。
 
 ## 示例 3：动态库（ex03 系列，构建 + 运行时查找）
 

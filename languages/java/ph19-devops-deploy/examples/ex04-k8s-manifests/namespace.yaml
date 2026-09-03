@@ -1,0 +1,8 @@
+# examples/ex04-k8s-manifests/namespace.yaml
+# 命名空间：环境隔离（prod 与 dev 的清单同名也不冲突）
+# 验证命令（有 kubectl 的环境）：kubectl apply -f namespace.yaml
+# 验证状态：未在本环境实际构建验证（本机无 kubectl/集群）
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: myapp

@@ -1,0 +1,55 @@
+# project/springboot-deploy-template/docker-compose.yml
+# app + mysql + redis 一键编排（对应主文档 3.4；app 的 DB/Redis 依赖由 pom 里加 starter 后生效，
+# 本模板 app 无 DB 代码时仍可起——探活走 /actuator/health，DB 只影响 readiness 指标）
+# 验证命令（有 docker 的环境）：
+#   docker compose up -d --build && docker compose ps
+# 验证状态：未在本环境实际构建验证（本机无 docker）
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: myapp
+      MYSQL_USER: app
+      MYSQL_PASSWORD: app123
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./deploy/sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-papp123"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 20s
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--requirepass", "redis123"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis123", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  app:
+    build: .
+    image: myapp:dev
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: compose
+      DB_URL: jdbc:mysql://mysql:3306/myapp?useSSL=false&serverTimezone=UTC&characterEncoding=utf8
+      DB_USERNAME: app
+      DB_PASSWORD: app123
+      REDIS_HOST: redis
+      REDIS_PASSWORD: redis123
+    ports:
+      - "8080:8080"
+    mem_limit: 512m
+    cpus: "1.0"
+
+volumes:
+  mysql-data:

@@ -74,4 +74,4 @@ curl -s -o /dev/null -w '%{http_code}\n' -X DELETE http://127.0.0.1:18110/v1/dev
 - 规范与实现的 version 演进（v3）：在 openapi.json 中追加 /v3 路径并写迁移说明，观察 v1→v3 期间三层保险如何约束你
 - v1 下线流程：Sunset 到期后从 spec 与 Routes() 同时移除 v1 路径——契约测试会提醒你哪些客户端契约一并消失
 - 把错误结构升级为带 `requestId`/`details` 的 v2 错误体（字段只增不删的又一次演练，参考 examples/ex02）
-- 项目与 ph11/ph19 衔接：本 API 一旦被多个服务调用，接口版本与错误语义就成了跨服务的契约——消息事件里的 schema 版本管理属 ph19 消息队列与事件驱动深入阶段（roadmap 第 19 节，目录待建）
+- 项目与 ph11/ph19 衔接：本 API 一旦被多个服务调用，接口版本与错误语义就成了跨服务的契约——消息事件里的 schema 版本管理属 [ph19 消息队列与事件驱动深入阶段](../../ph19-mq-event-driven/19-mq-event-driven.md)

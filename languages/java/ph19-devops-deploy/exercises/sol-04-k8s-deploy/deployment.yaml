@@ -1,0 +1,64 @@
+# exercises/sol-04-k8s-deploy/deployment.yaml —— 练习 4 参考实现（对应主文档 3.5/3.11/3.12）
+# 答案要点：
+#   1. maxUnavailable=0 + maxSurge=1：滚动期间不少副本、最多多 1 → 零停机前提（3.5/3.12）
+#   2. 三类探针分工：startup 给 JVM 慢启动宽限（30×2s=60s）、readiness 摘流量、liveness 杀容器。
+#      探针路径用 actuator 的 liveness/readiness 两个独立端点 —— liveness 只反映进程死活（不掺 DB），
+#      DB 抖动只让 readiness 转 DOWN → 摘流量不重启，避免全实例连环重启风暴（3.5）
+#   3. resources：limits 是硬墙、requests 是调度依据；与镜像里 MaxRAMPercentage=75 配套（4.4）
+#   4. preStop sleep + terminationGracePeriodSeconds：让 Service 摘端点后容器再优雅停机（3.11）
+# 验证命令（有 kubectl 的环境）：
+#   kubectl apply -f . && kubectl rollout status deployment/myapp -n myapp
+#   kubectl get pods,svc,hpa -n myapp
+# 无集群静态校验：kubectl apply --dry-run=client -f deployment.yaml
+# 验证状态：未在本环境实际构建验证（本机无 kubectl/集群）
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+  namespace: myapp
+spec:
+  replicas: 2
+  revisionHistoryLimit: 10
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      terminationGracePeriodSeconds: 40
+      containers:
+        - name: myapp
+          image: myregistry/myapp:1.4.2
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef: { name: myapp-config }
+            - secretRef: { name: myapp-secret }
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }
+            limits:   { cpu: "1", memory: 1Gi }
+          startupProbe:
+            httpGet: { path: /actuator/health/liveness, port: http }
+            failureThreshold: 30
+            periodSeconds: 2
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: http }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 5"]

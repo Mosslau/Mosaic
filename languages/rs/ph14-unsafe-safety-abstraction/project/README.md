@@ -60,7 +60,7 @@ stress 断言通过（泄漏归零）
 
 ## 扩展方向（可选）
 
-- 用 `Layout::array::<T>` 泛型化（对标 `Vec<T>` 的极简版）——承接 ph19 内存布局、零拷贝与协议解析阶段（目录待建）
+- 用 `Layout::array::<T>` 泛型化（对标 `Vec<T>` 的极简版）——承接 [ph19 内存布局、零拷贝与协议解析阶段](../../ph19-memory-layout-zero-copy/19-memory-layout-zero-copy.md)
 - 加 `into_raw_parts` / `from_raw_parts` 导出与重建（`Box::into_raw` 家族，衔接 ph10 智能指针阶段）
 - 用 Miri（nightly）跑一遍全部路径——Miri 是 unsafe 代码的标准检查工具（本环境未装 nightly，未实测，如实标注）
 - 多线程安全版本（`Mutex<SafeBuffer>` 或内部锁）——承接 ph12 并发与异步阶段

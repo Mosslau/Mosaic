@@ -944,6 +944,8 @@ perf report
 
 ## 19. ABI、动态库与插件机制阶段
 
+> 📖 详细展开版见 [ph19-abi-dynamic-libs-plugins/19-abi-dynamic-libs-plugins.md](./ph19-abi-dynamic-libs-plugins/19-abi-dynamic-libs-plugins.md)
+
 ### 目标
 
 理解二进制边界，能设计稳定插件接口。

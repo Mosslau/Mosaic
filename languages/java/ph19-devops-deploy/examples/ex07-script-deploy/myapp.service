@@ -1,0 +1,29 @@
+# examples/ex07-script-deploy/myapp.service
+# systemd unit：托管 Java 服务的生命周期声明（对应主文档 3.1 完整版）
+# 教学点：
+#   1. User=低权限用户、Restart=on-failure、After=network.target —— 崩了自动拉起、开机自启、不跑 root
+#   2. TimeoutStopSec=30 与 Spring 的 graceful shutdown 配套：先 SIGTERM 优雅收尾，超时才 SIGKILL
+# 安装（Linux）：
+#   sudo ./deploy.sh install-unit
+# 或手动：sudo cp myapp.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable myapp
+# 验证状态：未在本环境实际验证（需 Linux systemd）
+[Unit]
+Description=MyApp Spring Boot Service
+After=network.target
+
+[Service]
+Type=simple
+User=myapp
+Group=myapp
+WorkingDirectory=/opt/myapp
+Environment=SPRING_PROFILES_ACTIVE=prod
+Environment=JAVA_OPTS=-XX:MaxRAMPercentage=75.0
+ExecStart=/usr/bin/java ${JAVA_OPTS} -jar /opt/myapp/myapp.jar
+ExecStop=/bin/kill -TERM $MAINPID
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=30
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

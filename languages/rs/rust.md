@@ -915,6 +915,8 @@ items.push(4);
 
 ## 19. 内存布局、零拷贝与协议解析阶段
 
+> 📖 详细展开版见 [ph19-memory-layout-zero-copy/19-memory-layout-zero-copy.md](./ph19-memory-layout-zero-copy/19-memory-layout-zero-copy.md)
+
 ### 目标
 
 理解数据布局和字节处理，能实现高效、安全的协议解析。

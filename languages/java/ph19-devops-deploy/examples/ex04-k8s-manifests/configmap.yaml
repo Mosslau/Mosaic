@@ -1,0 +1,20 @@
+# examples/ex04-k8s-manifests/configmap.yaml
+# 配置外置（roadmap 必会概念「配置与代码分离」）：非敏感的环境差异都放 ConfigMap
+# 注入方式两种：envFrom（全部键变环境变量）或挂载成文件（本清单用 envFrom，见 deployment.yaml）
+# 教学点：镜像/tag 不变，只改 ConfigMap + 重启滚动，环境差异就生效 —— 不需要为环境重打镜像
+# 验证命令（有 kubectl 的环境）：
+#   kubectl apply -f configmap.yaml
+#   kubectl get configmap myapp-config -n myapp -o yaml
+# 验证状态：未在本环境实际构建验证（本机无 kubectl/集群）
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: myapp-config
+  namespace: myapp
+data:
+  SPRING_PROFILES_ACTIVE: "k8s"
+  DB_URL: "jdbc:mysql://mysql:3306/myapp?useSSL=false&serverTimezone=UTC&characterEncoding=utf8"
+  DB_USERNAME: "app"
+  REDIS_HOST: "redis"
+  # 日志级别等可调项也走这里：调日志不用发版
+  LOGGING_LEVEL_COM_EXAMPLE: "INFO"
