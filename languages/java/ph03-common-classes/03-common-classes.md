@@ -50,6 +50,22 @@ for (int i = 0; i < 10000; i++) {
 }
 ```
 
+**String 常用方法速查**（高频方法不用背，会查 javadoc 即可；真正要记的是"不可变 → 每次操作返回新串"这一条）：
+
+| 方法 | 作用 | 示例 |
+|------|------|------|
+| `split(regex)` | 按分隔符拆成数组 | `"a,b".split(",")` → `["a", "b"]` |
+| `String.join(delim, parts)` | 静态方法，把序列拼成串 | `String.join("-", list)` → `"a-b-c"` |
+| `strip()` / `trim()` | 去首尾空白（`strip` 处理 Unicode，Java 11+） | `" x ".strip()` → `"x"` |
+| `indexOf` / `lastIndexOf` | 查找子串位置，找不到返回 -1 | `"hello".indexOf("l")` → 2 |
+| `startsWith` / `endsWith` | 前后缀判断 | `name.endsWith(".java")` |
+| `toUpperCase` / `toLowerCase` | 大小写转换 | `"ab".toUpperCase()` → `"AB"` |
+| `isEmpty` / `isBlank` | 空判断（`isBlank` 含纯空白串，Java 11+） | `"  ".isBlank()` → true |
+| `repeat(n)` | 重复自身（Java 11+） | `"-".repeat(3)` → `"---"` |
+| `formatted(args)` | 模板格式化（Java 15+） | `"%s:%d".formatted("id", 1)` |
+
+工程直觉：`split`、`strip`、`isBlank`、`formatted` 在日志解析与文本处理里几乎是日常标配；而判断字符串是否相等永远用 `equals`，`==` 只比较引用——这是 Java 新手第一大坑。
+
 ### 3.2 StringBuilder：可变字符串
 
 StringBuilder 在同一个内部缓冲区上修改，避免中间对象。常用 `append`、`insert`、`delete`、`reverse`，支持链式调用。
@@ -78,6 +94,21 @@ String result = new StringBuilder()
 | StringBuffer | 是（synchronized） | Java 1.0 | 多线程拼接（极少使用） |
 
 StringBuffer 所有公开方法都用 `synchronized` 修饰，性能不如 StringBuilder。除非明确需要跨线程共享可变字符串缓冲区，否则始终用 StringBuilder。
+
+**容量与扩容**：`StringBuilder` 内部是一个 `char[]` 缓冲区，`new StringBuilder()` 默认容量 16；追加内容超过容量时自动扩容（新数组容量变大并搬移旧内容），频繁扩容有搬移成本：
+
+```java
+StringBuilder sb = new StringBuilder();       // 默认容量 16
+System.out.println(sb.capacity());            // 16
+sb.append("0123456789abcdef");                // 长度 16，恰好不触发扩容
+
+StringBuilder big = new StringBuilder(1024);  // 预分配：能预估长度就给出容量
+for (String line : lines) {
+    big.append(line);
+}
+```
+
+`capacity()`（缓冲区容量）与 `length()`（当前有效长度）是两个概念：容量 ≥ 长度。**能预估最终长度时用 `new StringBuilder(capacity)` 预分配**，把多次扩容压成一次——这正是 5 章选型表里"循环内大量拼接"场景的完整姿势。
 
 ### 3.3 Text Blocks（Java 15+）
 
@@ -141,6 +172,15 @@ a.compareTo(b);         // 比较数值大小（不要用 equals）
 
 `equals` 同时比较数值和 scale，因此 `new BigDecimal("2.0").equals(new BigDecimal("2.00"))` 为 `false`。比较数值大小始终用 `compareTo`。
 
+**金额的另一种工业做法：整数"分"存储**。BigDecimal 精确但慢（对象 + 大整数运算），适合汇率、多小数位、任意精度场景；而**纯金额（人民币、美元都只有两位小数）常见做法是直接用 `long` 存"分"**：
+
+| 方案 | 表示 | 优点 | 代价 |
+|------|------|------|------|
+| `long`（分） | `1999` = 19.99 元 | 快、省内存、无精度问题 | 展示要自己除以 100；乘法后注意溢出（金额大时用 `BigInteger` 或小心） |
+| `BigDecimal` | `"19.99"` | 任意精度、语义清晰 | 慢、代码啰嗦 |
+
+取舍口诀：**跨系统/协议传金额用分单位整数最省心（避免序列化的精度坑）；系统内部做复杂财务计算（分摊、汇率）用 BigDecimal**。两者互转要小心：`BigDecimal.valueOf(1999L, 2)` 表示 1999 分 → 19.99。
+
 ### 3.6 java.time：日期与时间
 
 Java 8 的 `java.time` 是不可变且线程安全的。核心类为 `LocalDate`（日期）、`LocalDateTime`（日期+时间）、`DateTimeFormatter`（格式化）。
@@ -165,6 +205,26 @@ today.isAfter(LocalDate.of(2026, 1, 1));  // 比较先后
 ```
 
 禁止使用 `new Date()` 和 `Calendar`（除非维护遗留代码处理旧 API 边界）。
+
+**时间戳与跨时区：Instant 与互转**。`LocalDate`/`LocalDateTime` 是"本地视角"（不带时区），跨进程传递时间（存数据库、前后端传 JSON）应使用**时间戳（UTC 绝对时刻）**：
+
+```java
+Instant now = Instant.now();              // 当前 UTC 时间戳
+long epoch = now.getEpochSecond();        // 秒级时间戳（存库/传参用这个）
+Instant back = Instant.ofEpochSecond(epoch);  // 从时间戳还原
+
+// LocalDateTime ↔ Instant 必须经过时区
+ZonedDateTime zdt = LocalDateTime.of(2026, 8, 8, 14, 30)
+        .atZone(ZoneId.of("Asia/Shanghai"));
+Instant inst = zdt.toInstant();                    // 本地时间 → UTC 时刻
+LocalDateTime restored = inst.atZone(ZoneId.of("Asia/Shanghai")).toLocalDateTime();
+
+// 与遗留 java.util.Date 互转（旧代码边界）
+Date legacy = Date.from(inst);
+Instant again = legacy.toInstant();
+```
+
+工程约定一句话：**存储与传输一律用 UTC（`Instant`/epoch 秒），只有展示时才转本地时区**——否则服务器时区一换，全库的时间全错。`LocalDateTime` 的命名容易误导：它不代表"某个真实时刻"，只是"墙上时间"，脱离时区它不能唯一对应一个时刻。
 
 ### 3.7 包装类型与自动装箱拆箱
 
@@ -194,6 +254,28 @@ System.out.println(i3 == i4);  // false（超出缓存，不同对象）
 ```
 
 结论：包装类型比较内容始终用 `equals()`，不要用 `==`。
+
+**拆箱的另一面：null 会抛 NPE**。自动拆箱的本质是调用 `xxxValue()`——包装对象为 `null` 时拆箱即空指针：
+
+```java
+Integer count = null;
+int n = count;              // NPE!拆箱 → count.intValue()
+
+Integer score = null;
+if (score > 60) { ... }     // NPE!score 与 int 比较时先自动拆箱
+
+// 典型现场：从 Map/List 取值赋给基本类型
+Integer raw = map.get("age");   // 键不存在时返回 null
+int age = raw;                  // NPE——很多线上空指针都长这样
+```
+
+| 场景 | 为什么炸 | 修法 |
+|------|---------|------|
+| `int n = 包装null` | 拆箱调 `intValue()` 遇 null | 先判空再拆箱，或让 `Integer` 一路保持到使用处 |
+| 包装类型参与算术/比较 | 运算前自动拆箱 | 参与运算前确认非 null（`Objects.requireNonNull` 或显式判空） |
+| `Map.get` / `List.get` 结果直接赋基本类型 | 容器允许 null | 判空 + 给默认值（`map.getOrDefault` 等） |
+
+**"包装类型可以持有 null"是它与基本类型最本质的差别**——它是"能表示缺失"的对象，而 `int` 不行。这个特性让包装类型适合做"可空字段"，代价就是拆箱 NPE；本阶段建立"拆箱即取值、取值先判空"的反射，比记住所有 NPE 场景更有效。
 
 ## 4. 底层原理
 
