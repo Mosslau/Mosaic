@@ -181,6 +181,21 @@ double average(std::span<const double> values) {
 
 **接口设计口诀**：只读 → `string_view` / `span<const T>` / `const&` / 按值小对象；读写 → `T&` / `span<T>`；拥有 → 按值 / `unique_ptr`。**视图进接口 = 承诺"我只观察、不拥有、不改动"**——这正是 ph13 讲过的"所有权通过类型体现"在只读一侧的镜像。
 
+### 3.7 auto 与 decltype：const 在类型推导中的去留
+
+3.1 讲"拷贝/推导时顶层 const 脱落、底层 const 保留"，这里把四种常见写法一次列全（`ex01` [4] 有 static_assert 实证）：
+
+| 写法 | 推导结果 | 机制 |
+|------|---------|------|
+| `auto x = cx;`（`cx` 是 `const int`） | `int` | 拷贝初始化：顶层 const 脱落 |
+| `auto& r = cx;` | `const int&` | 引用初始化：保留底层 const（去掉会违反只读性） |
+| `const auto& cr = cx;` | `const int&` | 显式声明，等效于上面但意图更直白 |
+| `auto* p = &cx;` | `const int*` | 指针初始化：指向对象的 const 保留 |
+| `decltype(cx)` | `const int` | decltype 原样保留顶层 const（不推导） |
+| `decltype((cx))` | `const int&` | 加括号变成表达式 → 按左值引用推导 |
+
+**工程意义**：写 `auto` 时"我到底拿的是值还是只读句柄"取决于右侧——`auto n : v` 是拷贝、`const auto& n : v` 是只读不拷贝、`auto& n : v` 才是可修改（这三选在 ph01 的遍历小节已见，这里从类型规则上解释它们为什么不同）。**给只读遍历写 `const auto&` 不是啰嗦，是把底层 const 明示出来**——少写一个 `const` 往往就从"只读"变成了"拷贝"或"可改"。
+
 ## 4. 底层原理
 
 ### 4.1 编译器视角：const 是编译期概念，不是运行期标签
@@ -236,7 +251,34 @@ std::string_view          std::span<const double>
    不拥有：析构什么都不做     不拥有：析构什么都不做
 ```
 
-视图只是"借来的眼睛"——构造零拷贝、传递零拷贝、析构零开销；代价是**生命周期必须短于数据源**（4.6 的警告）。`span<const T>` vs `span<T>` 的唯一区别是指针的底层 const：前者只能读，后者可写——**同一个类型，const 层级决定接口承诺**（3.6）。
+视图只是"借来的眼睛"——构造零拷贝、传递零拷贝、析构零开销；代价是**生命周期必须短于数据源**（3.6 第 4 点的警告）。`span<const T>` vs `span<T>` 的唯一区别是指针的底层 const：前者只能读，后者可写——**同一个类型，const 层级决定接口承诺**（3.6）。
+
+### 4.5 const 静态成员与 ODR：为什么 header-only 曾经这么麻烦
+
+类内声明的 `static const` / `static constexpr` 成员涉及"声明 vs 定义"的边界——这正是 ODR（One Definition Rule）在 const 上的具体体现：
+
+```cpp
+// C++17 之前：constexpr static 数据成员若被 odr-used（取地址/绑定引用），仍需类外定义
+struct Cfg {
+    static constexpr int kDefaultPort = 8080;   // 类内声明（含初始化）
+};
+// 旧代码里常见这种"补丁"：
+// constexpr int Cfg::kDefaultPort;             // 类外定义（C++17 前若 odr-used 必需）
+
+// C++17 起：static constexpr 数据成员隐式 inline —— 不再需要类外定义
+// C++17 的 inline 变量同样解决非 constexpr 的静态成员：
+struct Registry {
+    inline static const std::string kName = "cfg";   // inline 静态成员，头文件安全
+};
+```
+
+| 时期 | `static const int` | `static constexpr` | `inline static` |
+|------|--------------------|--------------------|-----------------|
+| C++98 | 整型可在类内初始化，odr-used 需类外定义 | 无 constexpr | 无 |
+| C++11/14 | 同上 | 类内初始化，odr-used 需类外定义 | 无 |
+| C++17+ | 加 `inline` 可头文件安全 | **隐式 inline**，无需类外定义 | 头文件安全 |
+
+**为什么对 ph13 的 header-only 项目（本阶段 project 的 Config 就是 header-only）重要**：头文件会被多个编译单元包含，若静态成员"每个编译单元都定义一次"，链接期就报 multiple definition——C++17 的 inline 语义让"头文件里定义的静态成员只有一个实体"，项目里的 `static constexpr` 常量因此无需任何类外定义就能跨编译单元安全使用。
 
 ## 5. 使用场景
 
@@ -252,6 +294,24 @@ std::string_view          std::span<const double>
 - 需要修改时不要硬标 const——用非 const 引用/`span<T>`/可变句柄，签名诚实比"看起来只读"重要（3.5 的正例对照）
 - 需要拥有数据时不要用视图——`string_view`/`span` 只观察，拥有用 `std::string`/`std::vector`（ph04）；视图不能当"延迟拷贝"用（生命周期陷阱）
 - 编译期常量用 `constexpr`（ph05/ph06），运行期才定、构造后不变用 `const` 成员——两者分工不同（本阶段只讲 const 成员，不展开 constexpr）
+
+**工程落地：给旧代码库补 const 的四步迁移**——把"const 正确性"从新代码纪律变成存量改造时，按这个顺序推进：
+
+1. **从读路径开始**：优先挑"只读查询函数 + 只读大对象参数"这类最清晰的目标，收益大、争议小；
+2. **从外到内**：先改函数签名（参数加 `const&`、成员函数标 const），让编译器把连锁错误一次性列出来——它就是你接下来的待办清单；
+3. **逐个消化编译器报错**：函数体内"误改"暴露时问三问——这本就不该改（补 const 正确）？这是 mutable 的正当场景（缓存/锁/计数）？还是接口设计错了（返回了可变句柄）？
+4. **收尾验证**：`-Wall -Wextra` 零警告 + 全量编译通过即"承诺成立"；review 时专门盯 `const_cast` 与裸 `mutable`——它们是迁移中偷懒的产物。
+
+**const 反模式自查表**：
+
+| 反模式 | 问题 | 修正 |
+|--------|------|------|
+| `void f(const int n)` 给按值参数加 const | 顶层 const 不影响调用方与函数类型，纯噪声 | 去掉；需要改就复制一份局部变量 |
+| 只读函数漏标 const | const 对象用不了，接口被"非 const 对象"绑架 | 按 Con.2 补 const（3.2） |
+| getter 只提供返回 `T&` 的版本 | 可变句柄外泄，const 保护被绕开 | 配 `const T&` 只读版本（3.2 规则 3） |
+| 把 mutable 当"const 里也能改"的通用开关 | 对象逻辑状态被悄悄修改 | 回到 3.4 三场景判据，多数情况应重设计 |
+| `string_view`/`span` 存成员或从函数返回 | 悬挂（视图长于数据源） | 视图只做参数与局部，存储用 `std::string`/`std::vector` |
+| 用 const_cast 适配老代码却不注释 | 承诺被静默撕毁，review 无迹可查 | 能改签名就改签名；必须用时加注释说明边界（3.5） |
 
 **与其他语言的对比**（为 analysis/ 与 Tenet 合成积累素材）：
 
