@@ -58,6 +58,16 @@ public class WelcomeService {
 
 **关键概念：容器是「谁依赖谁」的单一真相**——依赖缺失在容器启动（refresh）时就 fail-fast 抛异常，而不是运行到那一行才 NPE（ex01 实测：只注册 `WelcomeService` 不注册 `WelcomeRepository` → 启动即报错）。这是「把对象图交给容器」的最大收益：装配错误早暴露。
 
+**装配失败的三张常见报错脸**（启动日志往**根因**看，别被层层包装吓住）：
+
+| 报错（节选） | 含义 | 修法 |
+|-------------|------|------|
+| `NoSuchBeanDefinitionException: No qualifying bean of type 'X'` | 容器里根本没有 X 类型的 Bean | 检查 X 有没有 `@Component`/`@Bean`/被扫描到（3.1 注册三式） |
+| `NoUniqueBeanDefinitionException: expected single matching bean but found 2` | 同类型有两个 Bean，容器不知道该给谁 | 默认者标 `@Primary`，或注入点用 `@Qualifier` 点名 |
+| `UnsatisfiedDependencyException ... nested exception is ...` | 依赖链上某层装配失败（**外层包装，根因在 nested 里**） | 读 `Caused by` 链最内层，那里才是真正的缺 Bean/类型不匹配 |
+
+启动失败的排查惯例：**从堆栈最底部（Caused by 最内层）往上读**，前两层包装（`UnsatisfiedDependencyException`/`BeanCreationException`）通常只是"哪个 Bean 在创建时挂了"，根因才是"为什么挂"。
+
 ### 3.2 Bean 生命周期与作用域
 
 Bean 的生命周期 = **实例化 → 属性/依赖注入 → 初始化回调 → 就绪 → 销毁回调**。初始化回调有三代 API，同一 Bean 上叠满时触发顺序是 Spring 官方语义、ex01 实测背书：
@@ -162,6 +172,16 @@ ex04 实测 `REQUIRES_NEW`：外层 `outerDebitThenFailWithMarker` 扣款后调 
 
 **事务边界放哪**：roadmap 必会概念落到代码——**Service 方法**（一个业务用例 = 一个事务），Repository 方法各自原子但不管多步业务；Controller 开事务是反面（HTTP 语义层不该管一致性）。自调用陷阱同样作用于事务（ex04：绕过代理 = 没有事务，扣款各自自动提交、无人回滚）。
 
+**`@Transactional` 误用自查表**（"事务怎么没生效/回滚没生效"的排查清单）：
+
+| 症状 | 常见原因 | 修法 |
+|------|---------|------|
+| 事务完全没生效（异常后数据还在） | 方法在 Service 内被 `this.xxx()` 自调用（绕代理） | 拆类或用 `proxiedSelf()`（3.3） |
+| 异常后没回滚 | 抛的是受检异常且没写 `rollbackFor` | 业务失败建模为运行时异常，或显式 `rollbackFor`（3.4 表） |
+| 事务方法里 try-catch 吞了异常 | 异常没传出去，拦截器看不到 | 不要吞；确需处理先记日志再 `throw` |
+| `@Transactional` 标在 Controller/私有方法上 | 边界放错层 / 私有方法不进代理 | 移到 Service 公共方法 |
+| 事务范围过大（一个方法做十件事） | 长事务占连接、锁久 | 按业务用例拆小（事务边界 = 用例边界） |
+
 ### 3.5 MVC 拦截器：请求链上的横切
 
 ph14 已用 `HandlerInterceptor` 验 JWT；本阶段把它当「MVC 层的横切机制」讲全：`preHandle`（进 Controller 前，返回 false 短路）→ Controller → `postHandle`（返回后、渲染前）→ `afterCompletion`（请求完成后，无论成败——`finally` 语义）。多拦截器按注册顺序执行 pre，post/after **倒序收尾（栈式）**；ex03 实测完整时序：
@@ -253,6 +273,16 @@ public interface BookRepository extends JpaRepository<Book, Long> {
 
 **事务归属**：`JpaRepository` 自带默认事务（find 只读、写操作为原子事务），**多步业务的事务边界仍在 Service 的 `@Transactional`**（ex05 实测：Service 方法两条 save 后抛异常 → 一条不留）。与 ph13 的对照：底层还是 JPA/Hibernate（ph13 讲过实体映射与方言），Spring Data 换掉的是**访问层的实现方式**——「接口形状保持不变、实现由框架生成」在 ph14 的 `VehicleStore` 之后又进一步。HSQLDB 2.5.0 低于 Hibernate 官方下限的 WARN 及仲裁说明见第 2 章与 examples/README（实测无碍）。
 
+**方法名派生还是 @Query（可读性临界点）**：派生查询的名字会随条件增长——两个 `And` 以上、带排序与分页条件时，方法名往往比 JPQL 还难读：
+
+| 查询复杂度 | 选派生方法名 | 选 `@Query` JPQL |
+|-----------|------------|-----------------|
+| 单条件 / 一个 And | `findByTitleContaining(...)` ✅ 自解释 | 不必 |
+| 两个以上条件 + 排序 | 名字开始像天书 | `@Query("... where ... and ... order by ...")` ✅ |
+| 统计 / 连表 / 动态条件 | 表达不了或名字失控 | ✅ 或 Specification（进阶） |
+
+工程惯例一句话：**能派生就派生（读接口名即懂），一复杂就 `@Query`（读 JPQL 即懂），别硬把查询塞进方法名**——可读性是分界线，不是"派生态度"。
+
 ### 3.10 Spring Security：认证与授权的事实标准
 
 ph14 用 jjwt + 手写拦截器完成了「认证」（你是谁），把「授权」（你能干什么）留给了本阶段。Spring Security 把两者做成了**一条 Filter 链 + 声明式规则**：
@@ -276,6 +306,17 @@ http.authorizeHttpRequests(auth -> auth
 **401/403 出口分两层**（实测）：Filter 层拒绝（未认证、URL 级授权不过）走 `authenticationEntryPoint`/`accessDeniedHandler` 写统一 JSON——不写的话默认 HTML 错误页会破坏接口契约（ex06 匿名 401、project 的 USER 访问 `/api/users` 被 403 都实测走这条，code 40100/40300）。方法级 `@PreAuthorize` 拦下时抛 `AccessDeniedException`，其出口取决于应用有没有 `@RestControllerAdvice`：ex06 没有 advice，异常一路传回 Security 的 Filter 链、由 `accessDeniedHandler` 收尾写 403 JSON（实测 code 40300）；若应用有 advice（project 的 `GlobalExceptionHandler` 为 `AccessDeniedException` 预留了分支），方法级授权失败会在 MVC 层被 advice 接住转 403——本项目未使用方法级授权，分工以 ex06/project 代码为准。统一响应壳 `{code,message,data}` 沿用 ph14 契约；业务码在本阶段按语义重排为 **40100 未认证、40101 登录失败、40300 无权限**（ph14 project/ex06 的码义不同——40100 指密码错/登录失败、40101 指未登录——跨阶段对照代码时勿混用）。
 
 **JWT 无状态接入（exercises/sol-05 与 project 实测，Tests run: 7 / 10）**：Basic 认证每次请求带明文密码，只适合内部调试；生产 REST 用 JWT——自定义 `OncePerRequestFilter` 插进 Filter 链：`Authorization: Bearer <jwt>` → `JwtService.parse` 验签 → 按 role 构造 `Authentication` 写进 `SecurityContextHolder` → 后续授权照常读它。这就是「ph14 的 Controller 拦截器版升级为 Filter 链原生版」的接缝：**认证方式（Basic/JWT/OAuth2）只是 Filter 链里的一段，授权规则完全不变**。REST 无状态（不发 cookie）所以可以 `csrf.disable()`——CSRF 防的是「浏览器自动带上 cookie 的伪造请求」，Bearer token 在 Header 里不会自动携带。
+
+**认证方式的演进谱系**（单体应用内按需升级，不必一步到位）：
+
+| 阶段 | 形态 | 适合 | 局限 |
+|------|------|------|------|
+| ① 内存用户 + Basic | 配置写死用户、每次请求带密码 | 本地开发/演示（ex06 起步形态） | 用户不能变、明文密码过网 |
+| ② 数据库用户 + Basic | `UserDetailsService` 查库（project 形态） | 内部系统、有 TLS 的环境 | 密码每请求都过一遍 |
+| ③ JWT 无状态 | 登录签发 token、请求只带 token（sol-05/project） | 无状态 REST、前后端分离 | token 吊销要靠过期时间/黑名单 |
+| ④ OAuth2/OIDC | 交给授权服务器（第三方登录/SSO） | 开放平台、多端接入 | 引入授权服务器与协议复杂度（ph16 及后续深入） |
+
+每升一级，「用户从哪来」「密码怎么验」这两个抽象（`UserDetailsService` + `PasswordEncoder`）不变，变的只是认证入口——这正是 Security 把「认证」做成可插拔 Filter 的回报。
 
 ### 3.11 生态地图：全家桶之外还有什么
 
@@ -344,6 +385,8 @@ AutoConfigurationImportSelector 读取 classpath 所有
 
 **为什么条件注解能做到「缺 class 就不配」**：`@ConditionalOnClass` 的求值发生在类加载前——用 `ASM` 读字节码看注解与 classpath，而不是真的加载类（加载了缺的类反而会 ClassNotFound）。这就是「引了 starter-web 就配 MVC、没引 ActiveMQ 的类就不配 ActiveMQ」的机制答案，也是 ex02 报告里 146 条 Positive / 295 条 Negative 的来源（Negative 里全是没引的中间件自动配置）。
 
+**一条使用纪律**：条件装配是「框架做自动配置」的机制，**业务代码别把核心 Bean 也挂到 `@ConditionalOnClass` 这类 classpath 条件上**——它会让"某个类在不在 classpath"决定你的业务是否装配，隐式且难查。业务要开关功能，用 `@ConditionalOnProperty`（配置显式、可运维，3.7 的 feature-enabled 就是正例）；框架的 classpath 条件留给框架自己用。
+
 ### 4.4 Security 的 Filter 链与认证流程（JWT 版）
 
 ```mermaid
@@ -373,6 +416,14 @@ sequenceDiagram
 - **什么时候不用/少用全家桶**：纯内部工具或极简演示用 ph14 ex01 的裸 `HttpServer` 就够；对启动体积/延迟极敏感、或要云原生构建期优化（native image）时，Quarkus/Micronaut 更合适（它们 CDI 规范 + 构建期处理，见 java-coding-standards [QUARKUS] 节）——本阶段学的容器/AOP/事务心智在那里直接平移（同一批概念、不同方言）。
 - **各组件怎么选**（roadmap 必会概念的工程落点）：横切逻辑先问「哪一层」——Servlet 容器级用 Filter、需要知道目标方法用拦截器、安全用 Security、日志/计时/审计/事务用 AOP；事务边界永远在 Service；「用户从哪来」抽象成 `UserDetailsService`，换数据库只换实现；可观测性默认 actuator。
 - **与其他语言的对比**（为 analysis/ 与 Tenet 合成积累素材）：Java 的 Spring 是**注解声明式 + 运行时容器**的极致——框架替你管对象图、横切、安全，代价是「魔法感」与学习曲线；Go 的主流（标准库 + 显式中间件）反着来——依赖用手工构造器传入（`func NewService(repo Repo)`），横切用显式 middleware 链，无反射、可读性优先，代价是样板代码；Python FastAPI 用装饰器 + 类型注解做依赖注入（函数级、按需解析），介于两者之间；Quarkus 的 CDI 与 Spring 是同一套概念的两个实现（注释与作用域关键词不同）。三种语言对「谁来管依赖」给出三种答案：Java 容器托管、Go 手工人传、Python 请求级注入——这是 Tenet 语言设计时「依赖管理正交化」的绝佳素材。
+
+**遇到 Spring 异常的三步诊断法**（把「框架黑盒」变成可定位的问题）：
+
+1. **启动失败**：从堆栈最底部（`Caused by` 最内层）读起——外层是 `BeanCreationException`/`UnsatisfiedDependencyException` 包装，内层才是缺哪个 Bean、哪个属性配错（对照 3.1 的三张报错脸）；
+2. **请求 404/405/500 但代码没错**：先查「这个类到底进容器没有」——`/actuator/beans` 或启动日志的 bean 清单里搜类名；没在 = 扫描包没覆盖 / 少了 `@Component`（对照 3.1 注册三式与 3.6 报告）；
+3. **"逻辑没生效"（事务没回滚、切面没计数）**：默认是代理问题——先按 3.4 误用自查表过一遍（自调用？标错层？吞异常？），再用「在方法入口打印日志看有没有走代理」验证。
+
+三条都指向同一个根因树：**容器里有没有这个 Bean → 代理有没有包住这个方法 → 拦截器/通知有没有按规则执行**——本阶段的 4.1/4.2/4.3 就是这棵树的三层机制。
 
 ## 6. 代码示例
 
@@ -423,6 +474,7 @@ Repository 接口即实现：开箱 CRUD、方法名派生查询（`findByTitleC
 - **profile + 条件装配 + 类型安全配置**三件套解决「多环境差异」：profile 文件覆盖 base、`@ConditionalOnProperty` 按开关装配、`@ConfigurationProperties` 强类型绑定
 - **Spring Data：接口即实现**——方法名即查询、`@Query` 兜底、分页开箱、事务边界仍在 Service
 - **Security：认证与授权分清**——UserDetailsService 抽象「用户从哪来」、BCrypt 存哈希、URL 粗粒度 + 方法细粒度授权、JWT 只是 Filter 链里的一段认证方式
+- **三根柱子是机制层主线**：容器（谁依赖谁）、代理（横切与事务同源）、条件（自动配置按 classpath 求值）——全家桶每个组件都能挂到这三根柱子上解释
 
 ### 阶段验收清单
 
@@ -433,6 +485,7 @@ Repository 接口即实现：开箱 CRUD、方法名派生查询（`findByTitleC
 - [ ] 能区分 Filter 与 HandlerInterceptor（包的位置、能看到什么），能说出拦截器短路时谁收到 afterCompletion
 - [ ] 能用 `--debug` 或 `ConditionEvaluationReport` 追踪任意一个自动配置为什么生效/不生效
 - [ ] 能用 profile + `@ConfigurationProperties` 搭 dev/prod 两套环境，并解释配置覆盖顺序
+- [ ] 能按"三步诊断法"定位典型故障：启动失败看 Caused by 根因、404 先查 Bean 在不在容器、逻辑没生效先查代理（5 章诊断段）
 - [ ] 能用 Spring Data 接口写出派生查询 + `@Query` + 分页，能说出事务边界归属
 - [ ] 能说清 Security 的认证（你是谁：UserDetailsService + PasswordEncoder）与授权（你能干什么：URL/方法级）分层，能接出 JWT 无状态认证并保持 401/403 统一 JSON
 
