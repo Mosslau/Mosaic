@@ -304,6 +304,18 @@ set 没有这种保证；如果需要有序且不重复，应使用 `dict.fromke
 - 需要保持插入顺序的去重：用 `dict.fromkeys()` 或 `collections.OrderedDict`
 - 需要大量数学矩阵运算：用 NumPy（第三方库）
 
+**本阶段高频坑自查表**：
+
+| 坑 | 症状 | 修法 |
+|----|------|------|
+| 单元素 tuple 忘逗号 | `type((5))` 是 `int` 不是 `tuple` | 写 `(5,)`——逗号才是 tuple 的标记 |
+| 大列表上反复 `x in list` | 越来越慢（O(n) × 次数） | 只需判断成员就转 `set`（O(1)）；需要保序就 `dict.fromkeys` 去重 |
+| 遍历时增删容器 | `RuntimeError: dictionary changed size during iteration` | 收集要删的项，遍历完再删（或用推导式重建） |
+| `b = a` 当拷贝用 | 改 `b` 影响了 `a` | 要独立副本用 `a[:]` / `list(a)`（浅拷贝；嵌套结构的深拷贝在 ph04 展开，ph01 的 4.5 已埋线） |
+| `sorted(s)` 忘赋值 | 原序列"没变化"——sorted 返回新列表不原地改 | 记住：`sort()` 原地、`sorted()` 返回新对象 |
+| `zip` 静默截断 | 两序列长度不同，结果悄悄少了一截 | 长度必然对齐才用 zip；否则先校验长度（或后续阶段学 `zip_longest`） |
+| 遍历 dict 想拿"删除后的快照" | 边删边遍历报错 | `for k in list(d.keys()):`——先拷出键列表再遍历 |
+
 ## 6. 代码示例
 
 > 完整可运行文件见 [`examples/`](./examples/)，每个示例对应一个 `ex0*-*.py`，已在本环境用 Python 3.13.12 验证通过（示例 5 需要输入，验证时通过管道喂入）。
@@ -451,6 +463,8 @@ for level, names in groups.items():
 6. **推导式要服务于可读性**：复杂逻辑优先使用普通循环
 7. **sorted 的 key 参数**让按属性排序变得简洁
 8. **嵌套结构（list of dict）是表达记录集的常用方式**
+9. **复杂度是选结构的判据**：成员判断 list 是 O(n)、set/dict 是 O(1)（大量 `in` 检查先转 set）；dict 保插入序、set 无序——"去重且保序"用 `dict.fromkeys`（3.7+ 插入序规范）
+10. **别名与拷贝要分清**：`b = a` 是绑定同一对象，要独立副本用切片/`list()`；不可变对象才能当 dict key、set 元素（4.2/4.3）
 
 ### 跨语言对比：数据结构
 
