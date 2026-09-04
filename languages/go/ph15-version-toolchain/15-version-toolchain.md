@@ -58,6 +58,8 @@ Go 版本、工具链阶段的目标是（引用 Roadmap）：**理解 Go 版本
 
 > 先给一个本阶段的结论：**生产项目应把 go.mod 的 go 行定在"语言功能够用"的最低版本（见 3.6），并用 CI 锁一个受支持的 minor**；跟不跟最新 minor 是团队节奏，但停在已 EOL 的线 = 没有安全修复。
 
+**如何读一份 Go release notes**（升级决策的依据，官方 [go.dev/doc/go1.N](https://golang.google.cn/doc/go1.N) 按此结构组织）：① **语言变化**——决定 go 行是否要抬（3.6 的 range-over-int 就是 Go 1.22 的语言变化）；② **标准库**——行为变化（可能触发 4.2 的 GODEBUG 开关）与新增 API；③ **工具链**——`go` 子命令行为变化；④ **runtime**——GC/调度/内存相关。升级纪律：**同 minor 内升补丁只看安全公告**（补丁只修不增，3.1），**跨 minor 升级必读这四段**再决定"go 行抬不抬、行为有没有变"。
+
 ### 3.2 go env：环境变量与四类路径
 
 **`go env` 输出"go 命令实际看到的环境"**——它把默认值、GOENV 配置文件（`go env -w` 的落点）与进程环境变量合并成最终值。运行 `go env`（或 `go env <键>...`、`go env -json`）即可查询；`go env -w KEY=value` 持久化到 GOENV 文件、`go env -u KEY` 撤销。本环境实测（重定位后）：
@@ -241,6 +243,16 @@ FAIL
 
 **教学点**：semver 承诺的是 **API 兼容，不是行为不变**——改输出、改默认值、修"bug"都可能破坏下游的可观察行为。所以升级的正确姿势永远是：读 changelog → 升 go.mod（`go get m@新版本` 或编辑 require）→ **跑测试** → 适配或回滚（sol-02 两条路都实测全绿）。这也正是 roadmap 必会概念「依赖升级需要测试验证」的落点：测试是依赖升级的安全网，没有它，v1.1.0 的"小改动"会在生产里变成事故。
 
+**三种"版本号"别混**：Go 工程里会同时出现三个叫"版本"的东西，各自用途不同：
+
+| 形态 | 例子 | 谁在用 | 规则 |
+|------|------|--------|------|
+| 应用/业务版本 | UI 里显示的 `v2.3.1` | 用户、发布流程（ph20 灰度/回滚） | 惯例 semver，`-ldflags -X main.version` 注入（3.3） |
+| 模块版本 | go.mod 的 `require example.com/kit v1.4.0` | go 工具（MVS、proxy） | **必须** semver 可排序；MAJOR ≥ 2 走 /vN 路径 |
+| 二进制内嵌版本 | `go version -m` 的 main module version | 排障、合规 | 来自仓库 VCS tag，无 tag = `(devel)` |
+
+**工程建议**：一个仓库对应一个应用时，**发版 tag 直接用应用版本**（打 `v2.3.1` tag 即发布 v2.3.1）——go 构建自动把 tag 写进二进制，`go version -m` 读出的模块版本就与应用版本一致；否则会出现"UI 显示 v2.3.1、`go version -m` 显示另一个"的对不上，排障时两个版本打架。
+
 ## 4. 底层原理
 
 ### 4.1 go 命令如何选择工具链
@@ -266,6 +278,17 @@ toolchain 行 > 当前（且 GOTOOLCHAIN=auto）？── 是 ──▶ 切到 t
 
 **两个机制要点**（都有 3.6 的实测消息背书）：① **新工具链 = 一个普通模块**：`golang.org/toolchain@v0.0.1-go1.99.0.darwin-arm64`——所以"自动切换工具链"在实现上就是一次 GOPROXY 下载，离线/内网会像实测那样失败在 `Get "https://proxy.golang.org/…": i/o timeout`；② **local 模式是"无视 toolchain 行、仍执行 go 行"**：实测里 toolchain go1.26.0 + local 构建成功（exit 0），go 1.99.0 + local 直接报错——两个门槛的执行路径不同，这也是 sol-03 与 project 里三态判定（fail/warn/ok）的设计依据。
 
+**GOTOOLCHAIN 四种取值速查**（选哪种 = 你要"多自动"）：
+
+| 取值 | 行为 | 适合 |
+|------|------|------|
+| `auto`（默认） | go 行不满足则下载最新工具链；toolchain 行高于当前则切换 | 个人开发、CI 跟随项目声明 |
+| `local` | 绝不下载、忽略 toolchain 行（go 行仍强制） | 离线环境、构建必须用本机工具链的场合 |
+| `goX.Y.Z`（指定版本） | 直接切换到该版本（版本不存在则报错） | 临时锁死某个精确版本验证 |
+| `path` | 跟随 PATH 里的 go 命令 | 用版本管理器（如 homebrew 切换）时 |
+
+**工程默认**：开发机与 CI 用 `auto`（让 go.mod 声明说了算），需要"绝对可复现"的发布构建用固定版本或 `local` + 预装工具链——两种都在 3.6/4.1 的机制之内，只是"自动程度"的取舍。
+
 ### 4.2 语言版本门槛：go 行怎么变成编译行为
 
 **go 行不是注释，它决定编译器的 `-lang` 参数与标准库/运行时的默认行为**。语言侧：编译器按 go 行设置语言版本，分两种门禁——**语法门禁**：低于 go 行的语法直接报错，3.6 实测的报错文本里那句 `(-lang was set to go1.21; check go.mod)` 就是证据：**报错的是编译器（-lang），提示查的是 go.mod**；**语义门禁**：同一份代码按 go 行取对应语言档——Go 1.22 起 for 循环变量每次迭代独立、range-over-int 可用，而 go 行 < 1.22 的模块仍按旧语义编译（3.6 实测 1 里 range-over-int 在 `go 1.21.0` 下报错、`go 1.22.0` 下通过，就是 -lang 在起作用）。**语言侧的这两类门禁都走 -lang，不是 GODEBUG**。标准库/运行时侧：Go 用 GODEBUG 机制管理"行为默认值随版本演进"的兼容开关——go.mod 的 go 行决定这批开关取新默认还是旧默认（如 Go 1.22 起 net/http ServeMux 新路由语法的 httpmuxgo121 开关：go 行 ≥ 1.22 的模块默认启用新行为，旧模块保持 Go 1.21 行为；此类开关也可用 GODEBUG 环境变量临时覆盖），升 go 行 = 一次性切到新默认（此机制属官方 [go.dev/doc/godebug](https://golang.google.cn/doc/godebug) 文档内容，本环境未逐项实测，标注以官方文档为准）。
@@ -286,6 +309,19 @@ GOMODCACHE/cache/download/example.com/greet/@v/     ← 与 proxy 同构的本�
 
 **本阶段动手自建过 file:// proxy（3.4 实测）**，所以这条路是"亲手走过"的：proxy 协议 = GOMODCACHE 里 cache/download 目录的镜像；`go mod download` 就是把 proxy 文件搬进 cache；校验与 go.sum 由 GOSUMDB（sum.golang.org）背书——go.sum 记录每个版本的 zip/mod 哈希，保证"下载过的东西不被换"（`go mod verify` 复核）。**发布态四件套**：提交 go.mod + go.sum、go 行写明最低版本、依赖版本写进 go.mod（`go get`/`go mod tidy` 维护）、GOFLAGS=-mod=readonly 防止构建时偷偷改 go.mod。离线/内网团队按同样的结构搭 file:// proxy 或共享 GOMODCACHE，就能复现本阶段的全部实验。
 
+### 4.4 版本锁定的三层：从声明到二进制
+
+"版本统一"不是一句口号，它是四层接力，每一层回答一个问题：
+
+| 层 | 声明在哪 | 锁什么 | 回答的问题 |
+|----|---------|--------|-----------|
+| ① 语言版本 | go.mod 的 go 行 | 语法与标准库默认行为（-lang + GODEBUG 档） | "这份代码按哪个语言规范写" |
+| ② 工具链版本 | go.mod 的 toolchain 行 + GOTOOLCHAIN | 编译器/工具自身版本 | "用什么工具编它" |
+| ③ 依赖版本 | go.mod 的 require + go.sum | 每个模块的精确版本与哈希 | "依赖了哪些模块的哪个版本" |
+| ④ 二进制画像 | `runtime.Version()` + VCS 印章 + `-ldflags` | 编译结果里留存的证据 | "这个产物是谁、什么时候、什么环境编的" |
+
+前两层在 3.6、第三层在 4.3、第四层在 3.3 分别实测——**可复现构建 = 四层都锁住**：换台机器、换个 CI，go 行/工具链行/依赖/产物画像全对得上。ph14 的"版本敏感点"（Swiss map、panic(nil)）在这里得到正面回答：机制随语言版本走（层①），复现实验要锁层②——这正是"写代码按机制设计、复现实验按版本锁定"的完整版。
+
 ## 5. 使用场景
 
 | 场景 | 用什么 | 对应小节 |
@@ -297,6 +333,8 @@ GOMODCACHE/cache/download/example.com/greet/@v/     ← 与 proxy 同构的本�
 | 某个依赖想先用本地未发布版本验证 | replace => 本地目录 | 3.5 |
 | 团队统一工具链、构建可复现 | go.mod 的 go/toolchain 行 + 检查脚本 | 3.6 + project |
 | 升级依赖（含安全补丁） | go get @新版本 + 契约测试 | 3.7 |
+| 紧急打安全补丁 | 目标 minor 内的最新补丁版：改 require → tidy → 跑测试（只修不增，风险面最小） | 3.1 / 3.7 |
+| CI 里记录"用的什么 go 编的" | project/toolcheck + go env GOVERSION 写入构建产物 | 3.6 + project |
 | 离线/内网构建 | GOPROXY=file:// + 共享 GOMODCACHE | 3.4 / 4.3 |
 
 **不适合**此阶段的事项：
@@ -305,6 +343,16 @@ GOMODCACHE/cache/download/example.com/greet/@v/     ← 与 proxy 同构的本�
 - **性能剖析工具**（pprof/benchmark 怎么用）：属 ph13——版本与工具链不是性能话题
 - **PGO**（用生产 profile 指导编译，`go build -pgo=…`）：属 ph16 PGO 与高级性能优化阶段——它与本阶段的 toolchain 行同属"构建期配置"，但流程属 ph16
 - **发布侧版本策略**（灰度对照、回滚判断、多环境版本号注入）：属 [ph20 配置管理与发布策略阶段](../ph20-config-release/20-config-release.md)——本阶段只保证"版本信息进得去、查得出"
+
+**版本治理三场景检查清单**（把 3.1~3.7 串成操作）：
+
+| 场景 | 逐项检查 | 依据 |
+|------|---------|------|
+| 接手新项目 | `go version` 与 go.mod 的 go/toolchain 行是否一致？`go env` 四路径是否在意料内？`go mod verify` 是否通过？ | 3.2 / 3.6 / 4.3 |
+| 发布前 | `go mod tidy` 干净、go.sum 已提交、go 行是最低可用版本、`go build -mod=readonly` 可过、产物 `go version -m` 含版本画像 | 4.3 / 3.3 |
+| 升级（依赖或工具链） | 读 release notes/changelog → 改版本 → `go mod tidy` → 跑全量测试 → 适配或回滚；跨 minor 升工具链先动 CI 与本地、go 行原地不动逐个解锁 | 3.1 / 3.7 / 4.2 |
+
+三条纪律贯穿：**版本信息要能查**（二进制画像、go.mod 声明、CI 记录）；**升级必须有测试兜底**（行为可能变，API 兼容不是行为不变）；**最低版本进代码、精确版本进 CI**（go 行定下限、toolchain 行/CI 定团队实际用哪个）。
 
 ## 6. 代码示例
 
@@ -425,6 +473,7 @@ func run() string {
 - [ ] 能管理多模块开发：workspace 建/加/查模块（init/use/edit、GOWORK、go list -m Main:true），说清与 replace 的取舍（示例 4 / 练习 1）
 - [ ] 能稳定复现构建环境：说清 go/toolchain 行与 GOTOOLCHAIN=auto/local 的行为差异，会用 sol-03 / project/toolcheck 检查 go.mod 要求是否被当前工具链满足
 - [ ] 能执行一次"带测试验证"的依赖升级：升 require → tidy → 契约测试拦截或通过 → 适配/回滚（练习 2 实测输出）
+- [ ] 能按"版本治理三场景清单"走一遍接手/发布/升级流程，能读 release notes 的四段结构判断升级影响（5 章清单 / 3.1）
 - [ ] 能用 go version -m / debug.ReadBuildInfo 回答"这个二进制是谁编的"（示例 1）
 - [ ] 能完成项目验收标准：toolcheck 三态判定与 go 命令实测行为一致、`go test -race ./...` 通过
 
