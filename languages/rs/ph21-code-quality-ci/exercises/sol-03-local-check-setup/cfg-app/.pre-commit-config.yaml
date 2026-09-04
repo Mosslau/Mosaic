@@ -1,0 +1,16 @@
+# .pre-commit-config.yaml —— pre-commit 框架配置（sol-03 参考解，cfg-app 根）。
+#
+# 验证状态：未在本环境实际运行验证 —— 本机无 pre-commit 框架；rev 指向编写时的社区常用 tag，
+# 安装前请核对真实存在，hook id 以对应仓库 README 为准（主文档 3.7 已声明此边界）。
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+
+  - repo: https://github.com/doublify/pre-commit-rust
+    rev: v1.0.0
+    hooks:
+      - id: fmt
+      - id: cargo-check

@@ -1,0 +1,64 @@
+# ci-template/.github/workflows/ci.yml —— Rust CI 模板的完整质量门禁 workflow。
+#
+# 验证状态：未在本环境实际运行验证（GitHub Actions 需远端 runner）；YAML 经 Ruby psych
+# 静态解析通过，三条 run 与 scripts/check.sh 逐条一致（本地侧已实测全绿）。
+#
+# 特性清单（主文档 3.5/3.6）：
+#   1. 触发器：push / pull_request / workflow_dispatch（页面手动触发调试）；
+#   2. concurrency：同分支连续 push 自动取消旧 run，省 runner；
+#   3. 矩阵：OS × 工具链；fail-fast: false 让所有组合都拿到结果；
+#      rust: ["stable", "1.85"] 是 MSRV 矩阵（1.85 按你的 rust-version 改，ph16）；
+#   4. 缓存：Swatinem/rust-cache（key 自动含 rustc 版本 + Cargo.lock hash）；
+#   5. 可复现：cargo test --locked（主文档 3.6）。
+# 预留（模板的「为什么这里空着」注释，展开属于后续阶段）：
+#   - ph24 安全、供应链与发布阶段：依赖漏洞审计 cargo audit / cargo deny、许可证检查、
+#     secret 管理在此追加 step 或独立 job（roadmap 第 24 节，目录待建）；
+#   - ph22 性能优化与 Profiling 阶段：性能回归 job（criterion --save-baseline 对比）在此追加
+#     （roadmap 第 22 节，目录待建）。
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: ${{ matrix.rust }} / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        rust: [stable, "1.85"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: 门禁 1/3：格式化断言
+        run: cargo fmt --all --check
+
+      - name: 门禁 2/3：clippy 零告警
+        run: cargo clippy --all-targets --workspace -- -D warnings
+
+      - name: 门禁 3/3：测试（--locked 防 lock 漂移）
+        run: cargo test --workspace --locked
+
+  # ── 预留位（打开注释并补 job 即启用，属于后续阶段）─────────────────────
+  #
+  # 安全审计（ph24，roadmap 第 24 节，目录待建）：
+  #   - run: cargo install cargo-audit 或用容器镜像
+  #   - run: cargo audit
+  # 性能回归（ph22，roadmap 第 22 节，目录待建）：
+  #   - run: cargo bench --bench <name> -- --save-baseline ci
+  #   - 用 change 输出做阈值判红

@@ -1,0 +1,3 @@
+# clippy.toml —— cfg-app 的阈值类配置（主文档 3.4：级别策略在 Cargo.toml [lints]，阈值在这里）。
+# 验证状态：阈值行为已在 /tmp 对照 crate 中实测（阈值=12 时 10 参函数不再触发 too_many_arguments）。
+too-many-arguments-threshold = 7

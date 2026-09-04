@@ -1015,6 +1015,8 @@ ThreadPoolExecutor executor = new ThreadPoolExecutor(core, max, 60, TimeUnit.SEC
 
 ## 21. 车联网 / 智能电动车方向 Java 阶段
 
+> 📖 详细展开版见 [ph21-vehicle-iot/21-vehicle-iot.md](./ph21-vehicle-iot/21-vehicle-iot.md)
+
 ### 目标
 
 用 Java 构建车联网后端、设备管理、OTA 和数据服务。

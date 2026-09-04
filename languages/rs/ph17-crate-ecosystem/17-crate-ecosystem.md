@@ -4,7 +4,7 @@
 
 ## 1. 概述
 
-Rust Crate 生态选择与常用库阶段对应 roadmap 第 17 节，目标是**能评估并选择可靠 crate，避免盲目引入依赖**。具体定位是：**会用 crates.io 与 docs.rs 两个生态入口找 crate 并读 API 文档；掌握一套评估 crate 的六维清单（维护活跃度 / API 稳定性 / 依赖树膨胀 / 许可证兼容 / unsafe 面 / MSRV）；把 serde、tokio、reqwest、clap、tracing 五员大将的定位、选型边界与常见坑讲透；给 sqlx / diesel / sea-orm 三个 ORM 做一次有依据的三选一；把 semver 与 feature flags 当「依赖间的契约语言」理解；用 cargo tree / cargo audit / cargo deny / cargo diet 做依赖治理，为 ph24 的完整供应链安全打前置**。本阶段承接 ph06 模块化与 Cargo 阶段（Cargo.toml 的依赖写法与 `cargo build` 基础）、ph13 文件、网络与系统编程阶段（serde / clap 已被「用」过，阻塞式网络已见）、ph16 Rust Edition、工具链与版本管理阶段（那里预告：MSRV 检查、`cargo metadata`、锁文件与 resolver 语义正是「评估 crate 能不能引进来」的工具底座——本阶段 3.2 正式兑现，并把 ph16 project/ 的「依赖引入约定」登记表升级为完整评审清单）；并为 [ph18 Borrow Checker 调试专项阶段](../ph18-borrow-checker-debug/18-borrow-checker-debug.md)、ph21 Clippy、rustfmt、CI 与代码质量阶段（roadmap 第 21 节，目录待建；依赖治理进 CI 闸门）、ph24 安全、供应链与发布阶段（roadmap 第 24 节，目录待建；完整供应链安全）铺路。
+Rust Crate 生态选择与常用库阶段对应 roadmap 第 17 节，目标是**能评估并选择可靠 crate，避免盲目引入依赖**。具体定位是：**会用 crates.io 与 docs.rs 两个生态入口找 crate 并读 API 文档；掌握一套评估 crate 的六维清单（维护活跃度 / API 稳定性 / 依赖树膨胀 / 许可证兼容 / unsafe 面 / MSRV）；把 serde、tokio、reqwest、clap、tracing 五员大将的定位、选型边界与常见坑讲透；给 sqlx / diesel / sea-orm 三个 ORM 做一次有依据的三选一；把 semver 与 feature flags 当「依赖间的契约语言」理解；用 cargo tree / cargo audit / cargo deny / cargo diet 做依赖治理，为 ph24 的完整供应链安全打前置**。本阶段承接 ph06 模块化与 Cargo 阶段（Cargo.toml 的依赖写法与 `cargo build` 基础）、ph13 文件、网络与系统编程阶段（serde / clap 已被「用」过，阻塞式网络已见）、ph16 Rust Edition、工具链与版本管理阶段（那里预告：MSRV 检查、`cargo metadata`、锁文件与 resolver 语义正是「评估 crate 能不能引进来」的工具底座——本阶段 3.2 正式兑现，并把 ph16 project/ 的「依赖引入约定」登记表升级为完整评审清单）；并为 [ph18 Borrow Checker 调试专项阶段](../ph18-borrow-checker-debug/18-borrow-checker-debug.md)、[ph21 Clippy、rustfmt、CI 与代码质量阶段](../ph21-code-quality-ci/21-code-quality-ci.md)（依赖治理进 CI 闸门）、ph24 安全、供应链与发布阶段（roadmap 第 24 节，目录待建；完整供应链安全）铺路。
 
 | 核心维度 | 覆盖内容 |
 |----------|---------|
@@ -256,7 +256,7 @@ struct ShowArgs {
 
 **进阶认知**：`#[command(flatten)]` 把一组参数抽成公共结构体复用（如全局 `--verbose`/`--config`）；`value_parser` 可以挂自定义校验（如枚举值）；`clap_complete` 生成 bash/zsh/fish 补全脚本。**与 ph11 错误处理衔接**：clap 的解析错误默认带 usage 提示与退出码，`try_parse` 可以把错误并进你自己的错误枚举——CLI 应用常用 `anyhow::Result` + `Cli::parse()` 的薄组合。
 
-> 本阶段只讲 clap 的**选型与 derive 机制**；过程宏展开细节（clap_derive 生成了什么）属 ph15 宏与元编程阶段；CLI 工程化（补全脚本、CI 里测 help 输出）属 ph21 Clippy、rustfmt、CI 与代码质量阶段（roadmap 第 21 节，目录待建）。
+> 本阶段只讲 clap 的**选型与 derive 机制**；过程宏展开细节（clap_derive 生成了什么）属 ph15 宏与元编程阶段；CLI 工程化（补全脚本、CI 里测 help 输出）属 [ph21 Clippy、rustfmt、CI 与代码质量阶段](../ph21-code-quality-ci/21-code-quality-ci.md)。
 
 ### 3.7 tracing 与 log：日志生态的现在与过去
 
@@ -450,7 +450,7 @@ Cargo.toml 需求                 crates.io 索引                 解析结果
 
 ## 6. 代码示例
 
-本节展示示例的关键片段，完整可运行文件在 [`examples/`](./examples/) 目录（验证环境 rustc/cargo 1.92.0 macOS arm64 + rustup 1.28.2；依赖 crates.io 的示例经 rsproxy 镜像拉取；**验证说明**：ex02（serde）与 sol-04（feature+reqwest）已在 cargo 1.92.0 本机实测构建（ex02 运行亦通过）并标注「已验证」；ex03（clap）、ex04（tracing）、lib-skeleton 依赖未入本机缓存、需联网拉取，标注「未在本环境验证」（命令在联网环境可复现，国内可用 rsproxy 镜像）：
+本节展示示例的关键片段，完整可运行文件在 [`examples/`](./examples/) 目录（验证环境 rustc/cargo 1.92.0 macOS arm64 + rustup 1.28.2；依赖 crates.io 的示例经 rsproxy 镜像拉取；**验证说明**：ex02（serde）与 sol-04（feature+reqwest）已在 cargo 1.92.0 本机实测构建（ex02 运行亦通过）并标注「已验证」；ex03（clap）、ex04（tracing）、lib-skeleton 依赖未入本机缓存、需联网拉取，标注「未在本环境验证」（命令在联网环境可复现，国内可用 rsproxy 镜像））：
 
 ### 示例 1：crate 六维评审脚本（ex01-crate-review.sh）
 

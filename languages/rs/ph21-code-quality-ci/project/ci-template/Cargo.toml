@@ -1,0 +1,23 @@
+# ci-template —— workspace 根 Cargo.toml（Rust CI 模板工程）
+#
+# 模板说明：把整个 ci-template/ 复制到新项目（CLI / 服务端 / 库均可），改三个名字即可：
+#   - 本文件 members 下的 crate 名（demo-app → 你的 crate）
+#   - demo-app/Cargo.toml 的 package.name
+#   - .github/workflows/ci.yml 若需要调整矩阵
+# 验证环境：rustc/cargo/clippy 1.92.0、rustfmt 1.8.0（macOS arm64），edition 2021。
+# 验证状态：详见 project/README.md（demo-app 治理后全绿已实测；workflow 未在远端实际运行）。
+#
+# [workspace.lints] 是整仓 lint 策略的单一事实来源（主文档 3.4）：
+# 成员 crate 用 [lints] workspace = true 继承，改策略只改这里。
+[workspace]
+resolver = "2"
+members = ["demo-app"]
+
+[workspace.lints.rust]
+unsafe_code = "deny"        # 模板默认禁 unsafe：数据基础设施类项目的第一条红线（ph14/ph24 呼应）
+
+[workspace.lints.clippy]
+all = "warn"                # 三连门禁下 clippy 默认组保持 warn（配合 scripts/check.sh 的 -D warnings）
+pedantic = "allow"          # pedantic 不整组开；需要个别条目就加一行 + 理由注释
+# 例：库项目想让「Result 必须被处理」成硬约束时可加：
+# must_use_candidate = "allow"    # 需要逐条评估后放开，勿整组开

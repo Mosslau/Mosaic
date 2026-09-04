@@ -1,0 +1,22 @@
+# .pre-commit-config.yaml —— pre-commit 框架配置示例（未在本环境实际运行验证）。
+#
+# 本机无 pre-commit 框架（`pre-commit` 命令不存在），此文件按社区通用形态给出、
+# 未实际安装验证：rev 需要指向真实存在的 tag（下方为编写时的社区常用 tag，安装前请核对），
+# hook id 以对应仓库 README 为准。安装验证流程：
+#   pip install pre-commit        # 或 brew install pre-commit
+#   pre-commit install
+#   pre-commit run --all-files
+repos:
+  # 通用文本钩子：修行尾空白 / 文件末尾换行
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+
+  # Rust 专用钩子（社区维护，包装 cargo fmt / clippy）
+  - repo: https://github.com/doublify/pre-commit-rust
+    rev: v1.0.0
+    hooks:
+      - id: fmt
+      - id: cargo-check

@@ -1,0 +1,51 @@
+# ex05-matrix-cache/.github/workflows/handwritten-cache.yml —— 手写 actions/cache 的对照版。
+#
+# 与 matrix-cache.yml 的唯一差异：缓存不引 Swatinem/rust-cache，而是手写 actions/cache。
+# 用途：理解 rust-cache 到底替你做了什么（主文档 3.6/4.3），以及零第三方 action 约束下的写法。
+#
+# 验证状态：未在本环境实际运行验证（需远端 runner）；YAML 经 Ruby psych 静态解析通过。
+# key 设计三个要点（缺一不可，否则缓存会「命中但用错」）：
+#   1. runner.os —— 不同 OS 的 registry/target 不通用；
+#   2. rustc 版本 —— 不同 rustc 编出的 target 不兼容（最易漏的一条）；
+#   3. Cargo.lock hash —— 依赖一变，registry 与重编需求都变，必须 miss。
+# restore-keys 容忍近失配：key 未命中时退回「前缀最近」的缓存，cargo 靠 fingerprint 自行重编纠正。
+name: ci-handwritten-cache
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  quality:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ runner.os }}-${{ steps.toolchain.outputs.rustc }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ runner.os }}-${{ steps.toolchain.outputs.rustc }}-
+            cargo-${{ runner.os }}-
+
+      - name: 门禁 1/3：格式化断言
+        run: cargo fmt --all --check
+
+      - name: 门禁 2/3：clippy 零告警
+        run: cargo clippy --all-targets --workspace -- -D warnings
+
+      - name: 门禁 3/3：测试
+        run: cargo test --workspace

@@ -1,0 +1,6 @@
+# sol-01 —— workspace 根（虚拟清单）
+# 验证环境：rustc/cargo/clippy 1.92.0（macOS arm64），edition 2021。
+# 验证状态：已验证（本地复刻 CI 步骤的 verify-local.sh 全绿；ci.yml 未在远端实际运行，见其头注）。
+[workspace]
+resolver = "2"
+members = ["app"]

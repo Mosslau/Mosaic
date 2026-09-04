@@ -994,6 +994,8 @@ APP_ENV=prod ./server
 
 ## 21. IoT / 车联网 / 嵌入式相关 Go 阶段
 
+> 📖 详细展开版见 [ph21-iot-vehicle-edge/21-iot-vehicle-edge.md](./ph21-iot-vehicle-edge/21-iot-vehicle-edge.md)
+
 ### 目标
 
 用 Go 构建车联网后端、边缘网关和数据平台。

@@ -1015,6 +1015,8 @@ fn parses_number() {
 
 ## 21. Clippy、rustfmt、CI 与代码质量阶段
 
+> 📖 详细展开版见 [ph21-code-quality-ci/21-code-quality-ci.md](./ph21-code-quality-ci/21-code-quality-ci.md)
+
 ### 目标
 
 用工具链自动化保持代码风格、质量和可交付性。

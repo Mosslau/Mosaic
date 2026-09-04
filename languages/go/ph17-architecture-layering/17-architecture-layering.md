@@ -16,7 +16,7 @@
 | 工程横切设施 | 配置（flag/env/文件）、结构化日志 slog、错误码与错误包装、接口边界与循环依赖控制、internal/ 包布局 |
 | 演进路径 | 单体到服务化：拆的时机、拆什么、模块化单体路径，衔接 ph11 的技术形态与 ph16 的性能前提 |
 
-这个阶段只涉及"单个服务内部"的分层组织与工程横切设施，**不涉及 REST/gRPC 接口设计、版本管理与向后兼容（属 [ph18 API 设计与兼容性阶段](../ph18-api-design-compat/18-api-design-compat.md)）、服务间 RPC 通信与注册发现（ph11 微服务与 RPC 阶段已讲，本阶段只在"拆的时机"层面衔接）、容器化部署与可观测性工具链（ph12 云原生与部署阶段已讲）、性能剖析与优化的工具用法（ph13 性能优化阶段与 ph16 PGO 与高级性能优化阶段已讲，本阶段只保证"分层让热点可被接口形态承载"）、配置中心与 feature flag 发布控制（属 [ph20 配置管理与发布策略阶段](../ph20-config-release/20-config-release.md)）、车联网设备的实时协议接入（MQTT/WebSocket 遥测上行属 ph21 IoT / 车联网 / 嵌入式相关 Go 阶段，roadmap 第 21 节，目录待建——本阶段 project 的"设备管理"止于 HTTP 管理面）** — 本阶段把"组织代码"本身讲透；接口长什么样、跨服务怎么调用、怎么发布，是其它阶段的事。
+这个阶段只涉及"单个服务内部"的分层组织与工程横切设施，**不涉及 REST/gRPC 接口设计、版本管理与向后兼容（属 [ph18 API 设计与兼容性阶段](../ph18-api-design-compat/18-api-design-compat.md)）、服务间 RPC 通信与注册发现（ph11 微服务与 RPC 阶段已讲，本阶段只在"拆的时机"层面衔接）、容器化部署与可观测性工具链（ph12 云原生与部署阶段已讲）、性能剖析与优化的工具用法（ph13 性能优化阶段与 ph16 PGO 与高级性能优化阶段已讲，本阶段只保证"分层让热点可被接口形态承载"）、配置中心与 feature flag 发布控制（属 [ph20 配置管理与发布策略阶段](../ph20-config-release/20-config-release.md)）、车联网设备的实时协议接入（MQTT/WebSocket 遥测上行属 [ph21 IoT / 车联网 / 嵌入式相关 Go 阶段](../ph21-iot-vehicle-edge/21-iot-vehicle-edge.md)——本阶段 project 的"设备管理"止于 HTTP 管理面）** — 本阶段把"组织代码"本身讲透；接口长什么样、跨服务怎么调用、怎么发布，是其它阶段的事。
 
 ## 2. 来源与演变
 
@@ -541,4 +541,4 @@ func TestNotifyRetriesUntilSuccess(t *testing.T) {
 
 ---
 
-*验证说明：全部代码（examples/exercises/project）均已在 go1.25.6 本机实测（go vet / go build / go test 全绿、gofmt 合规），文件头与 README 标注「已验证」；运行环境零第三方依赖，GOCACHE/GOMODCACHE 可重定位到 /tmp。文中对 ph21 等未建阶段的引用按仓库惯例保留「roadmap 第 N 节，目录待建」措辞（ph18/ph20 已建）。*
+*验证说明：全部代码（examples/exercises/project）均已在 go1.25.6 本机实测（go vet / go build / go test 全绿、gofmt 合规），文件头与 README 标注「已验证」；运行环境零第三方依赖，GOCACHE/GOMODCACHE 可重定位到 /tmp。文中引用的后续阶段均已链到真实目录（Go 路线共 21 节，本阶段之后为 ph21 IoT / 车联网 / 嵌入式相关 Go，已建成）。*

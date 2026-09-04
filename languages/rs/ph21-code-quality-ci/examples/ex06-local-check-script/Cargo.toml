@@ -1,0 +1,6 @@
+# ex06 本地质量门禁 workspace 根：唯一成员 demo-crate。
+# 验证环境：rustc/cargo/clippy 1.92.0、bash 3.2+（macOS 自带），edition 2021。
+# 验证状态：scripts/check.sh 已验证（干净状态退出 0；注入 lint 后按门禁顺序失败并退出非零）。
+[workspace]
+resolver = "2"
+members = ["demo-crate"]

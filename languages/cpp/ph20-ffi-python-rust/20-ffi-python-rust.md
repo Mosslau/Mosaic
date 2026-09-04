@@ -18,7 +18,7 @@
 | 内存所有权 | 谁分配谁释放：opaque create/destroy、调用者缓冲 vs 库内分配 + 释放函数、各语言侧的 RAII 收口 |
 | 心智模型 | 公共边界越简单越稳定；互操作测试必须覆盖错误路径；跨语言所有权靠约定与语言侧 RAII 双重落实 |
 
-这个阶段只涉及**把 C++ 能力暴露给 C / Python / Rust 的 FFI 与绑定工程**：C 包装层、ctypes/cffi、pybind11、extern "C" FFI、cxx 双向桥、CMake 跨语言构建、异常/字符串/容器/所有权的跨语言转换，**不涉及 ph21 数据结构与算法（roadmap 第 21 节，目录待建——本阶段的示例只用最简单的数组与线性扫描，任何「用哪种数据结构」的讨论都留给它）、ph22 存储引擎与数据库内核在 C ABI 层的商业化（roadmap 第 22 节，目录待建——真实 WAL/SSTable/Compaction 引擎对外暴露稳定 C ABI 的工程结合，本阶段 project 的「向量检索库」只是玩具级 C ABI demo）、ph23 向量检索与 AI 推理的完整产品化（roadmap 第 23 节，目录待建——HNSW/IVF-PQ 近似索引、SIMD 距离、Faiss/TensorRT 的工程体系，本阶段只做 brute-force 距离计算与线性 top-k，且仅作为 FFI 的教学载体）**。动态库的加载机制、符号可见性、dlopen 细节属于 ph19，本阶段引用结论不再展开；本阶段是 ph21~ph23 的「跨语言前置课」——届时把存储引擎、向量检索库卖给 Python 生态时，走的正是这里学的 C ABI + 绑定。
+这个阶段只涉及**把 C++ 能力暴露给 C / Python / Rust 的 FFI 与绑定工程**：C 包装层、ctypes/cffi、pybind11、extern "C" FFI、cxx 双向桥、CMake 跨语言构建、异常/字符串/容器/所有权的跨语言转换，**不涉及 [ph21 数据结构与算法](../ph21-data-structures-algorithms/21-data-structures-algorithms.md)（本阶段的示例只用最简单的数组与线性扫描，任何「用哪种数据结构」的讨论都留给它）、ph22 存储引擎与数据库内核在 C ABI 层的商业化（roadmap 第 22 节，目录待建——真实 WAL/SSTable/Compaction 引擎对外暴露稳定 C ABI 的工程结合，本阶段 project 的「向量检索库」只是玩具级 C ABI demo）、ph23 向量检索与 AI 推理的完整产品化（roadmap 第 23 节，目录待建——HNSW/IVF-PQ 近似索引、SIMD 距离、Faiss/TensorRT 的工程体系，本阶段只做 brute-force 距离计算与线性 top-k，且仅作为 FFI 的教学载体）**。动态库的加载机制、符号可见性、dlopen 细节属于 ph19，本阶段引用结论不再展开；本阶段是 ph21~ph23 的「跨语言前置课」——届时把存储引擎、向量检索库卖给 Python 生态时，走的正是这里学的 C ABI + 绑定。
 
 ## 2. 来源与演变
 
@@ -538,4 +538,4 @@ clang++ -std=c++20 -Wall -Wextra ex05-error-host.cpp -L/tmp -lvtest -o /tmp/ph20
 
 ### 下一阶段
 
-下一阶段是 **ph21 数据结构与算法阶段**（roadmap 第 21 节，目录待建）：本阶段学会的「C ABI + 绑定」将服务于真实数据结构——当存储引擎、向量索引开始用 LRU/HNSW/SkipList 这些结构时，本阶段的教训（谁拥有内存、谁翻译类型、谁在边界测试错误）会决定每个结构能否被 Python/Rust 生态真正用起来；届时 roadmap 的「Bloom Filter」「HNSW toy」等项目若想暴露成库，走的正是本阶段的 C 包装层路线。数据结构本身的复杂度分析、STL 容器选型、边界输入处理是 ph21 的主体，本阶段只把「结构内部实现的效率」留给了它。
+下一阶段是 [**ph21 数据结构与算法阶段**](../ph21-data-structures-algorithms/21-data-structures-algorithms.md)：本阶段学会的「C ABI + 绑定」将服务于真实数据结构——当存储引擎、向量索引开始用 LRU/HNSW/SkipList 这些结构时，本阶段的教训（谁拥有内存、谁翻译类型、谁在边界测试错误）会决定每个结构能否被 Python/Rust 生态真正用起来；届时 roadmap 的「Bloom Filter」「HNSW toy」等项目若想暴露成库，走的正是本阶段的 C 包装层路线。数据结构本身的复杂度分析、STL 容器选型、边界输入处理是 ph21 的主体，本阶段只把「结构内部实现的效率」留给了它。

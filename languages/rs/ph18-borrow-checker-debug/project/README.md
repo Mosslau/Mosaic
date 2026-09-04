@@ -41,6 +41,6 @@ mkdir c04-your-error-code
 
 ## 扩展方向（可选）
 
-- 把 `verify.sh` 挂进 CI 作为回归闸门 —— 完整 CI 体系属 ph21 Clippy、rustfmt、CI 与代码质量阶段（roadmap 第 21 节，目录待建）
+- 把 `verify.sh` 挂进 CI 作为回归闸门 —— 完整 CI 体系属 [ph21 Clippy、rustfmt、CI 与代码质量阶段](../../ph21-code-quality-ci/21-code-quality-ci.md)
 - 增加「按错误码检索」索引页，把主文档 3.1 地图、examples、sol-01 与 cases 四处的案例统一编目（为 analysis/ 的 Rust 借用检查设计解剖积累语料）
 - 给案例标注「修法家族」（缩短作用域 / 索引快照 / clone / 拥有化 / 字段拆分 / 消费式 API），统计自己最常落入哪一族 —— 那是你所有权心智的薄弱点

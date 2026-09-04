@@ -18,7 +18,7 @@
 | 底层原理 | test harness 如何收集 `#[test]`、proptest 收缩算法直觉、criterion 统计（重采样置信区间/显著性）、fixtures 与 CI 缓存（4） |
 | 场景与练习 | 测试金字塔落地 + Go testing / Java JUnit / Python pytest 跨语言对比；examples/exercises/project 四层配套（5~7） |
 
-这个阶段只涉及 **Rust 进程内测试体系的工程化组织与工具链使用**，**不涉及代码质量工具链的系统集成**（cargo fmt / cargo clippy / lint 等级管理 / GitHub Actions 的矩阵构建与缓存策略——本阶段只在 4.4 点到「fixtures 与 CI 缓存」的直觉，CI 编排本身属 ph21 Clippy、rustfmt、CI 与代码质量阶段，roadmap 第 21 节，目录待建）、**系统化性能剖析方法论**（本阶段 criterion 只做「同一代码优化前后的相对对比」测量工具，讲清噪声控制与基线概念；perf/flamegraph、profile 配置调优、内存分配剖析、缓存局部性测量属 ph22 性能优化与 Profiling 阶段，roadmap 第 22 节，目录待建）、**跨语言与安全边界的测试**（FFI 导出函数的 ABI/错误码测试、跨进程 mock，属 ph23 Rust FFI 与跨语言接口设计阶段；依赖审计、供应链与发布质量的 CI 环节属 ph24 安全、供应链与发布阶段，均 roadmap 目录待建）。同时与两条相邻知识点划清边界：**入门级测试语法**（`#[test]`/`#[should_panic]`/Result 测试/`rustc --test`）在 ph11 错误处理与工程质量阶段已讲，本阶段直接用不重复；**被测对象本身**（WAL record 的布局与解析安全纪律）属于 ph19 内存布局、零拷贝与协议解析阶段——本阶段只把它当「代码库」，不解释它的字节格式来历。
+这个阶段只涉及 **Rust 进程内测试体系的工程化组织与工具链使用**，**不涉及代码质量工具链的系统集成**（cargo fmt / cargo clippy / lint 等级管理 / GitHub Actions 的矩阵构建与缓存策略——本阶段只在 4.4 点到「fixtures 与 CI 缓存」的直觉，CI 编排本身属 [ph21 Clippy、rustfmt、CI 与代码质量阶段](../ph21-code-quality-ci/21-code-quality-ci.md)）、**系统化性能剖析方法论**（本阶段 criterion 只做「同一代码优化前后的相对对比」测量工具，讲清噪声控制与基线概念；perf/flamegraph、profile 配置调优、内存分配剖析、缓存局部性测量属 ph22 性能优化与 Profiling 阶段，roadmap 第 22 节，目录待建）、**跨语言与安全边界的测试**（FFI 导出函数的 ABI/错误码测试、跨进程 mock，属 ph23 Rust FFI 与跨语言接口设计阶段；依赖审计、供应链与发布质量的 CI 环节属 ph24 安全、供应链与发布阶段，均 roadmap 目录待建）。同时与两条相邻知识点划清边界：**入门级测试语法**（`#[test]`/`#[should_panic]`/Result 测试/`rustc --test`）在 ph11 错误处理与工程质量阶段已讲，本阶段直接用不重复；**被测对象本身**（WAL record 的布局与解析安全纪律）属于 ph19 内存布局、零拷贝与协议解析阶段——本阶段只把它当「代码库」，不解释它的字节格式来历。
 
 ## 2. 来源与演变
 
@@ -396,7 +396,7 @@ criterion 不报告单次计时，而是报告一组统计量。机制直觉：�
 
 ### 4.4 fixtures 与 CI 缓存
 
-夹具在 CI 里的两个特性值得点破。**① 数据夹具是提交的资产**：`.hex` 样例随代码入库，每次 CI 全量重跑但输入恒等——错误样例矩阵因此是确定性回归（同一输入永远该报同一类错）；夹具文件小、文本化，diff 友好。**② 设备夹具与缓存的关系**：CI 缓存策略只缓存「慢且不变」的东西（cargo 的依赖与 registry、可选 sccache 编译缓存），**不缓存测试产物**——否则 stale 的 target/criterion 基线会让基准对比失真。fixtures 本身不用缓存（轻、常变、应每次现读）。把「缓存依赖、重跑测试、基准另存基线」三件事分开，是 CI 设计里让测试可信的前提；CI 的矩阵/编排本身属 ph21 Clippy、rustfmt、CI 与代码质量阶段（roadmap 第 21 节，目录待建），本阶段只需理解「夹具恒等 + 产物不缓存」这两条测试侧原则。
+夹具在 CI 里的两个特性值得点破。**① 数据夹具是提交的资产**：`.hex` 样例随代码入库，每次 CI 全量重跑但输入恒等——错误样例矩阵因此是确定性回归（同一输入永远该报同一类错）；夹具文件小、文本化，diff 友好。**② 设备夹具与缓存的关系**：CI 缓存策略只缓存「慢且不变」的东西（cargo 的依赖与 registry、可选 sccache 编译缓存），**不缓存测试产物**——否则 stale 的 target/criterion 基线会让基准对比失真。fixtures 本身不用缓存（轻、常变、应每次现读）。把「缓存依赖、重跑测试、基准另存基线」三件事分开，是 CI 设计里让测试可信的前提；CI 的矩阵/编排本身属 [ph21 Clippy、rustfmt、CI 与代码质量阶段](../ph21-code-quality-ci/21-code-quality-ci.md)，本阶段只需理解「夹具恒等 + 产物不缓存」这两条测试侧原则。
 
 ## 5. 使用场景
 
@@ -575,4 +575,4 @@ group.bench_with_input(BenchmarkId::new("owned_with_copy", format!("{records}x{v
 
 ### 下一阶段
 
-**ph21 Clippy、rustfmt、CI 与代码质量阶段**（roadmap 第 21 节，目录待建）——本阶段把测试体系搭起来了，下一阶段回答「如何让这套体系被强制遵守」：`cargo fmt --check` 与 `cargo clippy -- -D warnings` 作为质量门禁进 CI，lint 等级与例外管理，GitHub Actions 的矩阵构建与缓存策略——把本阶段手敲的每条质量命令变成每次 PR 自动执行的关卡；届时本阶段的 record-test-suite 正好当第一个接入 CI 的样板工程。
+[**ph21 Clippy、rustfmt、CI 与代码质量阶段**](../ph21-code-quality-ci/21-code-quality-ci.md)——本阶段把测试体系搭起来了，下一阶段回答「如何让这套体系被强制遵守」：`cargo fmt --check` 与 `cargo clippy -- -D warnings` 作为质量门禁进 CI，lint 等级与例外管理，GitHub Actions 的矩阵构建与缓存策略——把本阶段手敲的每条质量命令变成每次 PR 自动执行的关卡；届时本阶段的 record-test-suite 正好当第一个接入 CI 的样板工程。

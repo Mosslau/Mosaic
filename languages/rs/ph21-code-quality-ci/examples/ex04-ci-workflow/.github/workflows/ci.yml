@@ -1,0 +1,38 @@
+# ex04-ci-workflow/.github/workflows/ci.yml —— 最小质量门禁 workflow（roadmap §21 示例的完整形态）。
+#
+# 验证状态：未在本环境实际运行验证 —— GitHub Actions 需要远端 runner 才能执行，本机无 runner；
+# 本文件经 Ruby psych 静态 YAML 解析通过，并按官方 action 用法逐字段人工核对
+# （actions/checkout@v4、dtolnay/rust-toolchain、三连命令语义见主文档 3.5）。
+# 结构为 Rust 社区通用形态：checkout → 装工具链 → fmt/clippy/test 三个独立 step。
+#
+# 教学要点（对应主文档 3.5）：
+#   1. step 是日志折叠单位：fmt/clippy/test 分开，失败直接定位是哪个门禁红；
+#   2. 顺序 = 最便宜的在前：fmt 毫秒级、clippy 秒级、test 最贵最后（fail fast）；
+#   3. clippy 用 --all-targets（连 tests 一起查）+ -D warnings（零告警硬约束）；
+#   4. dtolnay/rust-toolchain 会读取仓库根的 rust-toolchain.toml（ph16），
+#      本示例显式声明 components 以便在无 toolchain 文件的仓库也可用。
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  quality-gate:
+    name: fmt / clippy / test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: 门禁 1/3：格式化断言
+        run: cargo fmt --all --check
+
+      - name: 门禁 2/3：clippy 零告警
+        run: cargo clippy --all-targets --workspace -- -D warnings
+
+      - name: 门禁 3/3：测试
+        run: cargo test --workspace

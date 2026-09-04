@@ -58,6 +58,6 @@ CARGO_TARGET_DIR=/tmp/ph20-target cargo clippy --all-targets -- -D warnings
 ## 扩展方向（可选）
 
 - **换被测对象**：把 `src/record.rs` 换成 ph25 的 SSTable block reader / length-prefix frame 解析器，fixtures 与矩阵骨架直接复用——本套件的价值正是「模板可移植」
-- **CI 门禁化**：把质量闸门接进 GitHub Actions（fmt/clippy/test/bench 基线）——属 ph21 Clippy、rustfmt、CI 与代码质量阶段（roadmap 第 21 节，目录待建）
+- **CI 门禁化**：把质量闸门接进 GitHub Actions（fmt/clippy/test/bench 基线）——属 [ph21 Clippy、rustfmt、CI 与代码质量阶段](../../ph21-code-quality-ci/21-code-quality-ci.md)
 - **回归阈值自动化**：用 `--save-baseline` + 解析 `change` 输出做「性能回归 CI 判红」，criterion 深层统计与阈值配套属 ph22 性能优化与 Profiling 阶段（roadmap 第 22 节，目录待建）
 - **真引擎对接**：把测试里的假引擎换成 ph25 的真实 MemTable/WAL replay，套件不变——那是 ph25 Rust 数据基础设施专项阶段（roadmap 第 25 节，目录待建）的落点

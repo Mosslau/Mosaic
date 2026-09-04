@@ -1043,6 +1043,8 @@ extern "C" int add(int a, int b) {
 
 ## 21. 数据结构与算法阶段
 
+> 📖 详细展开版见 [ph21-data-structures-algorithms/21-data-structures-algorithms.md](./ph21-data-structures-algorithms/21-data-structures-algorithms.md)
+
 ### 目标
 
 具备面试、工程建模和性能优化所需的数据结构基础。

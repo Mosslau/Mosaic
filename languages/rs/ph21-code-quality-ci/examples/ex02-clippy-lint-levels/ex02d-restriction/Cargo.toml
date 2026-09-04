@@ -1,0 +1,8 @@
+#
+# 验证环境：rustc/cargo/clippy 1.92.0（macOS arm64），edition 2021。
+# 验证状态：已验证（clippy 触发名单与退出码均本机实测，见 ex02 README）。
+[package]
+name = "ex02d-restriction"
+version = "0.1.0"
+edition = "2021"
+publish = false

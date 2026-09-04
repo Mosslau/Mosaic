@@ -1,0 +1,11 @@
+#
+# 验证环境：rustc/cargo/clippy 1.92.0（macOS arm64），edition 2021。
+# 验证状态：已验证（期望落空产生的 unfulfilled_lint_expectations 警告为本机实测输出）。
+# 注意：本子 crate 是「红态演示」——src/main.rs 里故意留一个期望落空的 #[expect]，
+# 因此 cargo clippy -- -D warnings 会失败；这正是 #[expect] 优于 #[allow] 的要点
+# （allow 在例外不再需要后还赖着不动，expect 会主动报告「该清理了」）。
+[package]
+name = "expect-demo"
+version = "0.1.0"
+edition = "2021"
+publish = false
