@@ -35,11 +35,12 @@
 |--------|---------|----------------|
 | [`analysis/rs/`](analysis/rs/) | Rust：内存安全如何成为编译期保证 | 所有权与借用 / 生命周期 / trait 与泛型 / Option·Result / Send·Sync |
 | [`analysis/cpp/`](analysis/cpp/) | C++：零成本抽象与多范式并存 | RAII / 移动语义 / 多范式 / STL 设计 / constexpr |
+| [`analysis/java/`](analysis/java/) | Java：托管运行时（JVM）的工程赌注 | GC 与自动内存 / 类型系统·泛型擦除 / 单继承与接口 / 受检异常 / JMM 与并发原语 |
 | [`analysis/py/`](analysis/py/) | Python：开发者体验优先的取舍 | 动态类型 / 数据模型 / 装饰器 / 生成器 / 上下文管理器 |
 
 ## ⚙️ Part 3 · Tenet 语言与编译器
 
-分析完三/六门语言，**继承优点、拒绝包袱**，合成 Tenet——并实现一个
+分析完四/六门语言，**继承优点、拒绝包袱**，合成 Tenet——并实现一个
 **clang / rustc 式原生编译器**：`tenet build hello.tenet` 产出可直接运行的二进制。
 
 ```text
