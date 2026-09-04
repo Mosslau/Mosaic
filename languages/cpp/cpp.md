@@ -1093,6 +1093,8 @@ tasks.push(3);
 
 ## 22. 存储引擎与数据库内核专项阶段
 
+> 📖 详细展开版见 [ph22-storage-engine-db-kernel/22-storage-engine-db-kernel.md](./ph22-storage-engine-db-kernel/22-storage-engine-db-kernel.md)
+
 ### 目标
 
 理解 C++ 在数据库内核、KV 存储和高性能存储引擎中的使用方式，能实现 Mini KV / Mini LSM 的核心模块。

@@ -18,7 +18,7 @@
 | 底层原理 | test harness 如何收集 `#[test]`、proptest 收缩算法直觉、criterion 统计（重采样置信区间/显著性）、fixtures 与 CI 缓存（4） |
 | 场景与练习 | 测试金字塔落地 + Go testing / Java JUnit / Python pytest 跨语言对比；examples/exercises/project 四层配套（5~7） |
 
-这个阶段只涉及 **Rust 进程内测试体系的工程化组织与工具链使用**，**不涉及代码质量工具链的系统集成**（cargo fmt / cargo clippy / lint 等级管理 / GitHub Actions 的矩阵构建与缓存策略——本阶段只在 4.4 点到「fixtures 与 CI 缓存」的直觉，CI 编排本身属 [ph21 Clippy、rustfmt、CI 与代码质量阶段](../ph21-code-quality-ci/21-code-quality-ci.md)）、**系统化性能剖析方法论**（本阶段 criterion 只做「同一代码优化前后的相对对比」测量工具，讲清噪声控制与基线概念；perf/flamegraph、profile 配置调优、内存分配剖析、缓存局部性测量属 ph22 性能优化与 Profiling 阶段，roadmap 第 22 节，目录待建）、**跨语言与安全边界的测试**（FFI 导出函数的 ABI/错误码测试、跨进程 mock，属 ph23 Rust FFI 与跨语言接口设计阶段；依赖审计、供应链与发布质量的 CI 环节属 ph24 安全、供应链与发布阶段，均 roadmap 目录待建）。同时与两条相邻知识点划清边界：**入门级测试语法**（`#[test]`/`#[should_panic]`/Result 测试/`rustc --test`）在 ph11 错误处理与工程质量阶段已讲，本阶段直接用不重复；**被测对象本身**（WAL record 的布局与解析安全纪律）属于 ph19 内存布局、零拷贝与协议解析阶段——本阶段只把它当「代码库」，不解释它的字节格式来历。
+这个阶段只涉及 **Rust 进程内测试体系的工程化组织与工具链使用**，**不涉及代码质量工具链的系统集成**（cargo fmt / cargo clippy / lint 等级管理 / GitHub Actions 的矩阵构建与缓存策略——本阶段只在 4.4 点到「fixtures 与 CI 缓存」的直觉，CI 编排本身属 [ph21 Clippy、rustfmt、CI 与代码质量阶段](../ph21-code-quality-ci/21-code-quality-ci.md)）、**系统化性能剖析方法论**（本阶段 criterion 只做「同一代码优化前后的相对对比」测量工具，讲清噪声控制与基线概念；perf/flamegraph、profile 配置调优、内存分配剖析、缓存局部性测量属 [ph22 性能优化与 Profiling 阶段](../ph22-perf-profiling/22-perf-profiling.md)）、**跨语言与安全边界的测试**（FFI 导出函数的 ABI/错误码测试、跨进程 mock，属 ph23 Rust FFI 与跨语言接口设计阶段；依赖审计、供应链与发布质量的 CI 环节属 ph24 安全、供应链与发布阶段，均 roadmap 目录待建）。同时与两条相邻知识点划清边界：**入门级测试语法**（`#[test]`/`#[should_panic]`/Result 测试/`rustc --test`）在 ph11 错误处理与工程质量阶段已讲，本阶段直接用不重复；**被测对象本身**（WAL record 的布局与解析安全纪律）属于 ph19 内存布局、零拷贝与协议解析阶段——本阶段只把它当「代码库」，不解释它的字节格式来历。
 
 ## 2. 来源与演变
 

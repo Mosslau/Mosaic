@@ -16,7 +16,7 @@
 | 事件驱动设计 | 同步回调、事件对象、发布-订阅、与异步事件循环的边界 |
 | 心智模型 | 组合优于继承、依赖倒置、SOLID 在 C++ 的落地、「模式是沟通语言不是套模板」 |
 
-这个阶段只涉及**对象级**的代码组织：roadmap §17 点名的四个模式与其直接变体、依赖注入、分层架构与模块边界、接口隔离与 pimpl、进程内同步的事件驱动设计，**不涉及模板/编译期形态的模式改写（CRTP、policy-based design——ph05 模板与泛型编程、元编程阶段）、并发与异步形态的事件驱动（线程安全通知、事件循环、actor——ph08 并发编程阶段）、模式引入的间接层的性能实测与基准（[ph18 性能优化与 Profiling 阶段](../ph18-perf-profiling/18-perf-profiling.md)）、跨动态库边界的稳定接口与插件 ABI（[ph19 ABI、动态库与插件机制阶段](../ph19-abi-dynamic-libs-plugins/19-abi-dynamic-libs-plugins.md)）、跨语言互操作层的接口设计（[ph20 C++ 与 C / Python / Rust 互操作阶段](../ph20-ffi-python-rust/20-ffi-python-rust.md)）和真实存储引擎内核（WAL/MemTable/SSTable/索引——ph22 存储引擎与数据库内核专项阶段，目录待建）** — 那些是其他阶段的内容。
+这个阶段只涉及**对象级**的代码组织：roadmap §17 点名的四个模式与其直接变体、依赖注入、分层架构与模块边界、接口隔离与 pimpl、进程内同步的事件驱动设计，**不涉及模板/编译期形态的模式改写（CRTP、policy-based design——ph05 模板与泛型编程、元编程阶段）、并发与异步形态的事件驱动（线程安全通知、事件循环、actor——ph08 并发编程阶段）、模式引入的间接层的性能实测与基准（[ph18 性能优化与 Profiling 阶段](../ph18-perf-profiling/18-perf-profiling.md)）、跨动态库边界的稳定接口与插件 ABI（[ph19 ABI、动态库与插件机制阶段](../ph19-abi-dynamic-libs-plugins/19-abi-dynamic-libs-plugins.md)）、跨语言互操作层的接口设计（[ph20 C++ 与 C / Python / Rust 互操作阶段](../ph20-ffi-python-rust/20-ffi-python-rust.md)）和真实存储引擎内核（WAL/MemTable/SSTable/索引——[ph22 存储引擎与数据库内核专项阶段](../ph22-storage-engine-db-kernel/22-storage-engine-db-kernel.md)）** — 那些是其他阶段的内容。
 
 ## 2. 来源与演变
 
@@ -296,7 +296,7 @@ pimpl 陷阱：① `unique_ptr<Impl>` 的析构/移动若内联在头文件，�
 
 **模块边界的物理化**：逻辑分层要落到物理边界才守得住——目录结构（每层一个目录）、命名空间（`storage::`/`executor::` 等）、**头文件所有权**（谁的头文件谁改，跨层 include 即跨层依赖，ph10 的构建目标拆分在此复用）。检查手段很朴素：`grep '#include'` 看依赖方向、`nm` 看符号归属（ph10 工具）、把「高层的 .cpp 直接 include 低层实现头」视为设计事故。分层不是越多越好：两层能讲清的事别拆五层——每多一层多一份间接与转发样板。
 
-> 本阶段只要「接口 + 实现分层」的组织骨架，**真实存储引擎内核（WAL/MemTable/SSTable/Compaction/Buffer Pool）属于 ph22 存储引擎与数据库内核专项阶段（目录待建）**，这里用最小内存表演示的是「层怎么切、依赖怎么走」，不是引擎本身。
+> 本阶段只要「接口 + 实现分层」的组织骨架，**真实存储引擎内核（WAL/MemTable/SSTable/Compaction/Buffer Pool）属于 [ph22 存储引擎与数据库内核专项阶段](../ph22-storage-engine-db-kernel/22-storage-engine-db-kernel.md)**，这里用最小内存表演示的是「层怎么切、依赖怎么走」，不是引擎本身。
 
 ### 3.9 事件驱动设计：回调、事件对象与发布-订阅
 
@@ -548,7 +548,7 @@ clang++ -std=c++17 -Wall -Wextra ex05-di.cpp -o /tmp/ph17cpp-ex05
 
 ### 阶段项目
 
-本阶段综合项目见 [`project/`](./project/)：**查询执行器接口设计 demo**——接口 + 分层的小工程（`IStorage` → `IExecutor` → 组装层 `QueryEngine`），把本阶段几乎全部手法（接口抽象、分层与依赖方向、工厂组装、DI 注册表、完成事件、可诊断失败）收敛进一个可运行 demo（`make run`）与自测（`make test`）。roadmap 的另一个推荐项目「存储引擎模块分层 demo」的思路由 project/ 的 `IStorage` 抽象 + 练习 3 覆盖；**本项目是模块组织 demo，不是真引擎——真引擎内核属 ph22 存储引擎与数据库内核专项阶段（目录待建），README 中已注明边界**。建议完成练习后再动手。
+本阶段综合项目见 [`project/`](./project/)：**查询执行器接口设计 demo**——接口 + 分层的小工程（`IStorage` → `IExecutor` → 组装层 `QueryEngine`），把本阶段几乎全部手法（接口抽象、分层与依赖方向、工厂组装、DI 注册表、完成事件、可诊断失败）收敛进一个可运行 demo（`make run`）与自测（`make test`）。roadmap 的另一个推荐项目「存储引擎模块分层 demo」的思路由 project/ 的 `IStorage` 抽象 + 练习 3 覆盖；**本项目是模块组织 demo，不是真引擎——真引擎内核属 [ph22 存储引擎与数据库内核专项阶段](../ph22-storage-engine-db-kernel/22-storage-engine-db-kernel.md)，README 中已注明边界**。建议完成练习后再动手。
 
 - [ ] 完成 exercises/ 全部练习并对照参考实现复盘
 - [ ] 独立完成 project/ 并通过其验收标准（`make clean && make test` 退出码 0、双编译器零警告）

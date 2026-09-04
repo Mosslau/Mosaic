@@ -1,6 +1,6 @@
 # ph17 阶段项目：查询执行器接口设计 demo
 
-对应 roadmap ph17「推荐项目」第二个「查询执行器接口设计 demo」（第一个「存储引擎模块分层 demo」的思路以本项目中的 `IStorage` 抽象 + 练习 3 覆盖）。**边界声明：本项目是「接口 + 分层」的模块组织 demo，不是真查询引擎**——无 SQL 解析器、无索引、无 WAL/MemTable/SSTable/Compaction/Buffer Pool，那些是 ph22 存储引擎与数据库内核专项阶段（目录待建）的内容。本项目只演示一件事：**中大型模块怎么靠接口、分层、工厂与依赖注入组织起来**（roadmap 阶段目标「用恰当抽象组织中大型 C++ 项目」）。
+对应 roadmap ph17「推荐项目」第二个「查询执行器接口设计 demo」（第一个「存储引擎模块分层 demo」的思路以本项目中的 `IStorage` 抽象 + 练习 3 覆盖）。**边界声明：本项目是「接口 + 分层」的模块组织 demo，不是真查询引擎**——无 SQL 解析器、无索引、无 WAL/MemTable/SSTable/Compaction/Buffer Pool，那些是 [ph22 存储引擎与数据库内核专项阶段](../../ph22-storage-engine-db-kernel/22-storage-engine-db-kernel.md)的内容。本项目只演示一件事：**中大型模块怎么靠接口、分层、工厂与依赖注入组织起来**（roadmap 阶段目标「用恰当抽象组织中大型 C++ 项目」）。
 
 ## 需求
 
@@ -44,7 +44,7 @@ storage.h/cpp（存储层：IStorage 契约 + MemoryTable 实现）
 
 ## 扩展方向（可选）
 
-- **第二个存储实现**：写 `FileStorage`（把行追加到文本文件）或 `IndexedStorage`（内存中按列建索引），`add_table` 一行注册即换底层——`IStorage` 契约的替换价值立刻可见（衔接 ph22 存储引擎阶段，目录待建）
+- **第二个存储实现**：写 `FileStorage`（把行追加到文本文件）或 `IndexedStorage`（内存中按列建索引），`add_table` 一行注册即换底层——`IStorage` 契约的替换价值立刻可见（衔接 [ph22 存储引擎与数据库内核专项阶段](../../ph22-storage-engine-db-kernel/22-storage-engine-db-kernel.md)）
 - **谓词下推**：`LimitExecutor` 提示的 early stop 只是起点；把过滤条件「下推」进 scan 让 scan 直接跳过不满足的行（真引擎的优化骨架，性能实测属 ph18 性能优化与 Profiling 阶段，目录待建）
 - **打印执行计划树**：`describe()` 目前是递归拼接的线性文本；改成真正的树形打印（缩进 + 分支）需要给每个节点加 `children()`——顺带练习接口演进
 - **类型化列**：把 `Row` 的字符串值换成 `std::variant<int64_t, double, std::string>`，比较器由类型决定（不再需要 engine.cpp 里的字符串猜测）

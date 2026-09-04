@@ -242,7 +242,7 @@ std::string_view          std::span<const double>
 
 **真实工程中的用途**：
 
-- **存储引擎 / 数据库内核**：只读路径是接口设计的主干——SSTable 是不可变文件，读接口天然 `const`；RocksDB/LevelDB 的 `Get()`、`Iterator::Key()/Value()` 返回 Slice/string_view 这类只读视图（RocksDB/LevelDB 用自家 Slice，与 string_view 同思路，早于 C++17），把"读不写"变成类型强制；Buffer Pool 的 `const` 查询接口与 `mutable` 的锁/统计是"逻辑 const + 物理 mutable"的标准组合（承接 ph13 与 ph22 存储引擎阶段，目录待建）
+- **存储引擎 / 数据库内核**：只读路径是接口设计的主干——SSTable 是不可变文件，读接口天然 `const`；RocksDB/LevelDB 的 `Get()`、`Iterator::Key()/Value()` 返回 Slice/string_view 这类只读视图（RocksDB/LevelDB 用自家 Slice，与 string_view 同思路，早于 C++17），把"读不写"变成类型强制；Buffer Pool 的 `const` 查询接口与 `mutable` 的锁/统计是"逻辑 const + 物理 mutable"的标准组合（承接 ph13 与 [ph22 存储引擎与数据库内核专项阶段](../ph22-storage-engine-db-kernel/22-storage-engine-db-kernel.md)）
 - **配置与快照**：只读配置对象（本阶段 project 落地）——接口全 const、无修改方法、"改配置"只能构造新对象，拷贝即只读快照；设备状态快照模型同理：快照 = 不可变对象，天然可安全共享（roadmap 推荐项目②，project 扩展方向）
 - **并发读**：`const` 成员函数 + `mutable std::mutex` 是线程安全读的标准骨架（`ex05` [3]）——"接口承诺不修改"与"实现要加锁"用 mutable 调和（承接 ph08 并发编程阶段的 RAII 锁）
 - **跨库边界**：`const char*` / `string_view` 进出 C 库与日志/序列化层，零拷贝 + 只读承诺（C 库的 const 语义与 C++ 不同，属 ph11 可移植性阶段 / [ph20 C++ 与 C / Python / Rust 互操作阶段](../ph20-ffi-python-rust/20-ffi-python-rust.md)）
@@ -439,7 +439,7 @@ c++ -std=c++20 -Wall -Wextra ex06-readonly-view.cpp -o /tmp/ph14-ex06 && /tmp/ph
 | 编译期强制 | 编译器执行 + const_cast 逃逸口 | 借用检查器强制（无逃逸） | 无 | 部分 | 无 |
 | 违反的代价 | UB 或设计气味 | 编译期拒绝 | 无此概念 | 反射可绕 | 无此概念 |
 
-一句话：**C++ 用"编译器执行 + 开发者自律"换 const 正确性的可迁移性**——规则学会了，Rust 的借用、Go 的惯例、Java 的 final 都能一眼看懂；本阶段训练的"接口即承诺"心智直接服务于 ph22 存储引擎阶段（目录待建）的只读路径设计（SSTable 不可变文件、Iterator 只读视图、配置快照）。
+一句话：**C++ 用"编译器执行 + 开发者自律"换 const 正确性的可迁移性**——规则学会了，Rust 的借用、Go 的惯例、Java 的 final 都能一眼看懂；本阶段训练的"接口即承诺"心智直接服务于 [ph22 存储引擎阶段](../ph22-storage-engine-db-kernel/22-storage-engine-db-kernel.md)的只读路径设计（SSTable 不可变文件、Iterator 只读视图、配置快照）。
 
 ### 动手练习
 

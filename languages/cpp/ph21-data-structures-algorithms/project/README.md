@@ -1,6 +1,6 @@
 # ph21 阶段项目：SkipList MemTable（有序内存 KV 结构）
 
-对应 roadmap §21「推荐项目」之一，**落地选择「SkipList MemTable」**：roadmap §21 推荐了四个项目——LRU 缓存库（已由 examples/ex03 + 练习 1 覆盖）、Bloom Filter（结构认知见主文档 3.2/5 节，生产落地属 ph22 的 SSTable 过滤，roadmap 第 22 节，目录待建）、HNSW toy implementation（属 ph23 向量检索，roadmap 第 23 节，目录待建）、SkipList MemTable（本 project）。**边界声明：本项目交付的是「内存有序 KV 结构」——把 Skip List 写成 RAII 的生产级组件并证明它正确；不涉及把 MemTable 接 WAL/SSTable/Compaction（那是 ph22 存储引擎与数据库内核专项，roadmap 第 22 节，目录待建）**——但结构的接口（put/get/erase + 有序扫描）就是按「ph22 的 MemTable 读面」设计的，flush 方向已在 demo 第 3 节演示。
+对应 roadmap §21「推荐项目」之一，**落地选择「SkipList MemTable」**：roadmap §21 推荐了四个项目——LRU 缓存库（已由 examples/ex03 + 练习 1 覆盖）、Bloom Filter（结构认知见主文档 3.2/5 节，生产落地属 [ph22 存储引擎与数据库内核专项](../../ph22-storage-engine-db-kernel/22-storage-engine-db-kernel.md)的 SSTable 过滤）、HNSW toy implementation（属 ph23 向量检索，roadmap 第 23 节，目录待建）、SkipList MemTable（本 project）。**边界声明：本项目交付的是「内存有序 KV 结构」——把 Skip List 写成 RAII 的生产级组件并证明它正确；不涉及把 MemTable 接 WAL/SSTable/Compaction（那是 ph22 存储引擎与数据库内核专项，roadmap 第 22 节，目录待建）**——但结构的接口（put/get/erase + 有序扫描）就是按「ph22 的 MemTable 读面」设计的，flush 方向已在 demo 第 3 节演示。
 
 ## 需求
 
@@ -19,7 +19,7 @@
 - [ ] `make clean && make test` 退出码 0，输出含 `[1] memtable basic semantics passed`、`[2] random replay vs std::map: 4000 ops, all checkpoints passed`、`[3] flush-read shape`、末行 `ph21-project-memtable OK`（已验证）
 - [ ] Apple clang 21.0.0 与 Homebrew clang 21.1.8 双编译器 `-std=c++20 -Wall -Wextra` 零警告、断言全绿（`make cross`，已验证）
 - [ ] 能口头说清：Skip List 为什么是「概率平衡」、p=1/2 时期望高度 2、`find_value` 返回的指针为什么在 erase 前有效（节点不搬家）、`unique_ptr` 链如何让析构/删除自动回收、为什么拷贝要禁用
-- [ ] 能画出项目与 ph22 的接缝：本项目的 `put/get/erase` = MemTable 写读路径，`begin()/end() + lower_bound` 有序迭代 = 向 SSTable flush 的读面——接 WAL 的 replay 与 Compaction 是 ph22 的事（roadmap 第 22 节，目录待建）
+- [ ] 能画出项目与 ph22 的接缝：本项目的 `put/get/erase` = MemTable 写读路径，`begin()/end() + lower_bound` 有序迭代 = 向 SSTable flush 的读面——接 WAL 的 replay 与 Compaction 是 [ph22 存储引擎与数据库内核专项](../../ph22-storage-engine-db-kernel/22-storage-engine-db-kernel.md)的事
 
 ## 扩展方向（与 ph22/ph23 的关系）
 

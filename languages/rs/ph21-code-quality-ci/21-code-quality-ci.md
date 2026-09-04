@@ -18,7 +18,7 @@
 | 底层原理 | clippy 在编译管线上的 lint pass（HIR/MIR 视角）、rustfmt 的解析-打印两段式、CI 缓存命中机制（4） |
 | 场景与练习 | 何时开 pedantic/restriction + Go/Java/Python 跨语言对照；examples/exercises/project 四层配套（5~7） |
 
-这个阶段只涉及 **fmt/clippy 工具链用法、lint 等级管理与 CI 编排本身**，**不涉及系统化性能剖析方法论**（clippy 的 `perf` 组本阶段只当「默认开的 lint 组」使用，讲到「热路径要不要按 perf 建议改」时点到为止——profiling/flamegraph、`[profile]` 调优、分配剖析与缓存局部性测量属 ph22 性能优化与 Profiling 阶段，roadmap 第 22 节，目录待建）、**供应链安全与发布流水线**（依赖漏洞审计 `cargo audit`/`cargo deny`、许可证检查、secret 管理与制品签名——本阶段 CI 模板只留「预留注释位」，这些属 ph24 安全、供应链与发布阶段，roadmap 第 24 节，目录待建）、**FFI 与跨语言接口**（本阶段的可复现构建对 ph23 的 cdylib 同样适用，但 ABI/所有权跨边界不涉及，属 ph23 阶段，roadmap 第 23 节，目录待建）和 **Rust 数据基础设施组件本身**（本阶段 CI 模板会被 ph25 的 KV/LSM 项目直接拿去用，但 WAL/MemTable/SSTable 属 ph25 阶段，roadmap 第 25 节，目录待建）。同时与三条相邻知识划清边界：**工具链与版本管理**（rustup、rust-toolchain.toml、Cargo.lock 格式、MSRV 的字段语义属 ph16 阶段，本阶段直接「使用」它们——在 CI 里钉工具链、用 `--locked`——但不重讲字段含义）；**入门级 fmt/clippy 命令**（ph06 已带过，本阶段直接用、不重复）; **测试怎么写**（ph20 刚讲完，本阶段只把 `cargo test` 请进门禁，不动测试内容）。
+这个阶段只涉及 **fmt/clippy 工具链用法、lint 等级管理与 CI 编排本身**，**不涉及系统化性能剖析方法论**（clippy 的 `perf` 组本阶段只当「默认开的 lint 组」使用，讲到「热路径要不要按 perf 建议改」时点到为止——profiling/flamegraph、`[profile]` 调优、分配剖析与缓存局部性测量属 [ph22 性能优化与 Profiling 阶段](../ph22-perf-profiling/22-perf-profiling.md)）、**供应链安全与发布流水线**（依赖漏洞审计 `cargo audit`/`cargo deny`、许可证检查、secret 管理与制品签名——本阶段 CI 模板只留「预留注释位」，这些属 ph24 安全、供应链与发布阶段，roadmap 第 24 节，目录待建）、**FFI 与跨语言接口**（本阶段的可复现构建对 ph23 的 cdylib 同样适用，但 ABI/所有权跨边界不涉及，属 ph23 阶段，roadmap 第 23 节，目录待建）和 **Rust 数据基础设施组件本身**（本阶段 CI 模板会被 ph25 的 KV/LSM 项目直接拿去用，但 WAL/MemTable/SSTable 属 ph25 阶段，roadmap 第 25 节，目录待建）。同时与三条相邻知识划清边界：**工具链与版本管理**（rustup、rust-toolchain.toml、Cargo.lock 格式、MSRV 的字段语义属 ph16 阶段，本阶段直接「使用」它们——在 CI 里钉工具链、用 `--locked`——但不重讲字段含义）；**入门级 fmt/clippy 命令**（ph06 已带过，本阶段直接用、不重复）; **测试怎么写**（ph20 刚讲完，本阶段只把 `cargo test` 请进门禁，不动测试内容）。
 
 ## 2. 来源与演变
 
@@ -545,4 +545,4 @@ fn crc_matches(expected: u32, _actual: u32) -> bool {
 
 ### 下一阶段
 
-**ph22 性能优化与 Profiling 阶段**（roadmap 第 22 节，目录待建）——本阶段把代码质量的门禁立起来了，下一阶段回答「质量之上，性能怎么证明与提升」：release/profile 配置（`[profile.release]` 的 lto/codegen-units）、criterion 基准、flamegraph/perf 采样、内存分配剖析——届时本阶段 CI 模板中「只留占位」的性能回归 job 将成为落地对象；clippy `perf` 组在本阶段只是默认开的一组 lint，到 ph22 你会明白它的每条建议背后都有一台测量仪器。
+[**ph22 性能优化与 Profiling 阶段**](../ph22-perf-profiling/22-perf-profiling.md)——本阶段把代码质量的门禁立起来了，下一阶段回答「质量之上，性能怎么证明与提升」：release/profile 配置（`[profile.release]` 的 lto/codegen-units）、criterion 基准、flamegraph/perf 采样、内存分配剖析——届时本阶段 CI 模板中「只留占位」的性能回归 job 将成为落地对象；clippy `perf` 组在本阶段只是默认开的一组 lint，到 ph22 你会明白它的每条建议背后都有一台测量仪器。

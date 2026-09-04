@@ -1,0 +1,16 @@
+[package]
+name = "ex04-cache-locality"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# ex04：缓存局部性 —— 访问模式(顺序 vs 随机)与数据布局(AoS vs SoA)的实测。
+# 验证环境：rustc/cargo 1.92.0，无第三方依赖。
+# 验证状态：已验证（本机 macOS arm64；缓存行 128B 由 hw.cachelinesize 实测）。
+# 构建/运行命令（在示例目录内执行）：
+#   CARGO_TARGET_DIR=/tmp/ph22-ex04-target cargo build --release
+#   /tmp/ph22-ex04-target/release/ex04-cache-locality
+# 质量闸门：
+#   CARGO_TARGET_DIR=/tmp/ph22-ex04-target cargo fmt --check
+#   CARGO_TARGET_DIR=/tmp/ph22-ex04-target cargo clippy --all-targets -- -D warnings
+#   CARGO_TARGET_DIR=/tmp/ph22-ex04-target cargo test

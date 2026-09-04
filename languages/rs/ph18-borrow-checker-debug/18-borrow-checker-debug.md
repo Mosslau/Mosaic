@@ -20,7 +20,7 @@
 | 底层原理 | lifetime 是类型的一部分、NLL 数据流分析、reservation/activation 两阶段、借用栈心智（4） |
 | 场景与练习 | 何时 clone / 何时必须重构；examples/exercises/project 四层配套（5~7） |
 
-这个阶段只涉及**读懂并修复借用错误**——即「编译器报错 → 归因 → 选择修法家族 → 重构出干净所有权流」这一闭环，**不涉及内存布局、零拷贝与协议解析**（借用切片的零拷贝用法是 [ph19 内存布局、零拷贝与协议解析阶段](../ph19-memory-layout-zero-copy/19-memory-layout-zero-copy.md)的事）、**性能优化**（clone 的性能代价在本阶段只作「取舍判据」，实际剖析与基准属 ph22 性能优化与 Profiling 阶段，roadmap 第 22 节，目录待建）、**跨语言 FFI**（所有权跨边界属 ph23 Rust FFI 与跨语言接口设计阶段，roadmap 第 23 节，目录待建）、**依赖与供应链安全**（ph24 安全、供应链与发布阶段，roadmap 第 24 节，目录待建）。
+这个阶段只涉及**读懂并修复借用错误**——即「编译器报错 → 归因 → 选择修法家族 → 重构出干净所有权流」这一闭环，**不涉及内存布局、零拷贝与协议解析**（借用切片的零拷贝用法是 [ph19 内存布局、零拷贝与协议解析阶段](../ph19-memory-layout-zero-copy/19-memory-layout-zero-copy.md)的事）、**性能优化**（clone 的性能代价在本阶段只作「取舍判据」，实际剖析与基准属 [ph22 性能优化与 Profiling 阶段](../ph22-perf-profiling/22-perf-profiling.md)）、**跨语言 FFI**（所有权跨边界属 ph23 Rust FFI 与跨语言接口设计阶段，roadmap 第 23 节，目录待建）、**依赖与供应链安全**（ph24 安全、供应链与发布阶段，roadmap 第 24 节，目录待建）。
 
 同时与两条前置知识点划清边界：RefCell / Mutex 的**运行时**借用检查（`BorrowMutError`）属于 ph10 智能指针阶段，本阶段只讲编译期借用检查，二者机制不同——一个在编译期保证、一个把检查推迟到运行时并可能 panic；`unsafe` 与别名模型的正式语义（Stacked Borrows / Miri）属于 ph14 Unsafe Rust 与安全抽象阶段，本阶段 4.4 的「借用栈」只作为读代码的心智模型，不涉及 unsafe 语义。
 
@@ -461,7 +461,7 @@ let r1 = &mut data;        // 栈底：对 data 的可变借用 L1
 | 低频一次性读取（初始化时读一次配置） | clone 可接受 | 一次性成本，换来代码直白 |
 | 只需要 `Copy` 值（i32/bool/&str） | **优先索引/快照，不是 clone** | Copy 零成本，clone 概念上多余 |
 | 数据由你设计，冲突频发 | **必须重构结构**（拆结构体/拥有化） | 数据模型与访问模式不匹配，clone 治标不治本 |
-| 性能敏感热路径 | **必须重构** | 分配次数是 ph22 性能优化与 Profiling 阶段（roadmap 第 22 节，目录待建）的首要优化对象，先在这里把 clone 消灭掉 |
+| 性能敏感热路径 | **必须重构** | 分配次数是 [ph22 性能优化与 Profiling 阶段](../ph22-perf-profiling/22-perf-profiling.md)的首要优化对象，先在这里把 clone 消灭掉 |
 | 原型/教学代码、可读性优先 | clone 可接受 | 先跑通再优化；但要注释「此处 clone 是临时的，正式版应…… 」 |
 
 一句话决策：**clone 之前先回答三个问题——这份数据多大？多久一次？除了 clone 还有没有不改变数据结构的办法？** 都答不上来就重构。rust-patterns 的反模式清单里「.clone() 只是为了满足 borrow checker」排在显眼位置，与本阶段的口径一致。

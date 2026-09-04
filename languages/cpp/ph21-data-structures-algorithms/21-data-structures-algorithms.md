@@ -32,10 +32,10 @@
 | 并查集 | ❌ 无 | — | 手写：路径压缩 + 按秩合并，代码极短（见 3.6） |
 | Trie | ❌ 无 | — | 手写：注意节点所有权用 `unique_ptr`，字符集决定子节点容器（见 3.7） |
 | LRU Cache | ❌ 无（需 `list`+`unordered_map` 组合） | 组合即标准答案 | 手写时防迭代器失效、cap=0 边界（见 3.8/ex03/练习 1） |
-| SkipList / Bloom Filter | ❌ 无 | — | ph22 存储引擎要用的生产结构：ph21 project 落地 SkipList MemTable 原型，Bloom Filter 见 ph22（roadmap 第 22 节，目录待建） |
+| SkipList / Bloom Filter | ❌ 无 | — | ph22 存储引擎要用的生产结构：ph21 project 落地 SkipList MemTable 原型，Bloom Filter 见 [ph22 存储引擎与数据库内核专项专项](../ph22-storage-engine-db-kernel/22-storage-engine-db-kernel.md) |
 | HNSW | ❌ 无 | — | 属于 ph23 向量检索（roadmap 第 23 节，目录待建），本阶段只提不展开 |
 
-这个阶段只涉及**在内存中组织和操作数据：线性/哈希/树/堆/图结构、并查集/Trie/LRU 的手写、排序二分与算法模式，以及全部结构的复杂度分析与 STL 工程选型**，**不涉及把结构接进持久化与存储内核（把 SkipList MemTable 接 WAL/SSTable/Compaction、给 SSTable 加 Bloom Filter、Buffer Pool 用 LRU/Clock 管脏页 pin/unpin 是 ph22 存储引擎与数据库内核专项（roadmap 第 22 节，目录待建）的内容——本阶段所有结构都「脱离磁盘」演示）、不涉及向量检索与 AI 推理引擎方向（HNSW 的工业级实现、图库接入、IVF/PQ、SIMD 距离与 Faiss 体系是 ph23（roadmap 第 23 节，目录待建）的内容——roadmap §21 推荐项目里的「HNSW toy implementation」本阶段不做，它会被 ph23 作为入门级 demo 吸收；roadmap §21 推荐项目里的「Bloom Filter」「LRU 缓存库」同理，前者本阶段给出结构认知、落地留给 ph22，后者以 examples/ex03 + 练习 1 形式落在本阶段）、不涉及 STL 容器 API 的逐个教学（那是 ph04 的内容，本阶段引用结论不再展开）**。同时本阶段不重复 ph20 的 C ABI 层：所有结构与示例都是纯 C++ 进程内形态；若未来想把这些结构暴露给 Python/Rust 生态，走的正是 ph20 学的 C 包装层路线。
+这个阶段只涉及**在内存中组织和操作数据：线性/哈希/树/堆/图结构、并查集/Trie/LRU 的手写、排序二分与算法模式，以及全部结构的复杂度分析与 STL 工程选型**，**不涉及把结构接进持久化与存储内核（把 SkipList MemTable 接 WAL/SSTable/Compaction、给 SSTable 加 Bloom Filter、Buffer Pool 用 LRU/Clock 管脏页 pin/unpin 是 [ph22 存储引擎与数据库内核专项](../ph22-storage-engine-db-kernel/22-storage-engine-db-kernel.md)的内容——本阶段所有结构都「脱离磁盘」演示）、不涉及向量检索与 AI 推理引擎方向（HNSW 的工业级实现、图库接入、IVF/PQ、SIMD 距离与 Faiss 体系是 ph23（roadmap 第 23 节，目录待建）的内容——roadmap §21 推荐项目里的「HNSW toy implementation」本阶段不做，它会被 ph23 作为入门级 demo 吸收；roadmap §21 推荐项目里的「Bloom Filter」「LRU 缓存库」同理，前者本阶段给出结构认知、落地留给 ph22，后者以 examples/ex03 + 练习 1 形式落在本阶段）、不涉及 STL 容器 API 的逐个教学（那是 ph04 的内容，本阶段引用结论不再展开）**。同时本阶段不重复 ph20 的 C ABI 层：所有结构与示例都是纯 C++ 进程内形态；若未来想把这些结构暴露给 Python/Rust 生态，走的正是 ph20 学的 C 包装层路线。
 
 ## 2. 来源与演变
 
@@ -100,7 +100,7 @@ q.push(10); q.push(20);          // BFS 的标准队列（3.12）
 
 **工程判断的真相是「操作频率 × 复杂度」**：中间插入 O(n) 的 vector 在 n 很小时依旧比 list 快（cache + 单次分配 vs 每节点分配），所以「插入多就用 list」是刷题结论，工程上要先问 n 的量级。queue/stack 作为适配器不自己分配内存，BFS 用 `queue`、表达式求值/DFS 非递归用 `stack`，直接使用即可——它们的正确用法就是本阶段的边界条件教学（空队列 front 是 UB，先判 empty）。
 
-> 本阶段只用 C++20 的标准容器；**自定义分配器（arena/内存池）与对容器做内存布局定制属于 ph22 存储引擎（roadmap 第 22 节，目录待建）**，练习 4（内存池）只是提前用结构视角碰一次 free-list，不展开 allocator 模板参数。
+> 本阶段只用 C++20 的标准容器；**自定义分配器（arena/内存池）与对容器做内存布局定制属于 [ph22 存储引擎与数据库内核专项阶段](../ph22-storage-engine-db-kernel/22-storage-engine-db-kernel.md)**，练习 4（内存池）只是提前用结构视角碰一次 free-list，不展开 allocator 模板参数。
 
 ### 3.2 哈希表：std::unordered_map 的工程真相
 
@@ -172,7 +172,7 @@ for (auto it2 = m.lower_bound(2); it2 != m.end(); ++it2) {
 
 `std::multimap`/`multiset` 允许重复键（`equal_range` 取区间）；`std::map` 的节点地址永不移动是它区别于 vector 的稳定性保证——工程里「结构活在整个进程生命周期、外部还持有指向元素的引用」时，`std::map` 比 vector 安全。红黑树本身的五条不变量与旋转细节本阶段不展开：**它是 ph12/ph04 已声明的「用 API 不需要懂实现细节」的教学点**，本阶段只需知道「有序 + O(log n) + 节点稳定」三条结论并会测它。
 
-> 二叉树的遍历与递归模板（pre/in/post 序、层序）是练习 3「查询计划树 demo」与 3.11 递归思想的直接素材；**B+Tree（磁盘友好、扇出高）属于 ph22 存储引擎（roadmap 第 22 节，目录待建）**——内存里红黑树、磁盘上 B+Tree 的分工正是 LSM 与 B+Tree 之争的背景。
+> 二叉树的遍历与递归模板（pre/in/post 序、层序）是练习 3「查询计划树 demo」与 3.11 递归思想的直接素材；**B+Tree（磁盘友好、扇出高）属于 [ph22 存储引擎与数据库内核专项阶段](../ph22-storage-engine-db-kernel/22-storage-engine-db-kernel.md)**——内存里红黑树、磁盘上 B+Tree 的分工正是 LSM 与 B+Tree 之争的背景。
 
 ### 3.4 堆与 priority_queue
 
@@ -671,5 +671,5 @@ clang++ -std=c++20 -Wall -Wextra exNN-<名>.cpp -o /tmp/ph21-exNN && /tmp/ph21-e
 
 ### 下一阶段
 
-**ph22 存储引擎与数据库内核专项（roadmap 第 22 节，目录待建）** — 本阶段预告的兑现点：把 SkipList MemTable 接上 WAL 的写入与 replay、把有序扫描喂给 SSTable 的 flush、给 SSTable 点查加 Bloom Filter、让 Buffer Pool 用 LRU/Clock 管淘汰——结构已在 ph21 备好（练习 1 的 LRU = Buffer Pool 的心、project 的 SkipList MemTable = 存储引擎的写路径、3.2 的哈希 = Bloom 位哈希的思想原型），ph22 把它们从「内存结构」变成「磁盘上的引擎模块」，并回答 ph21 刻意回避的问题：结构要活成「跨崩溃、跨并发、管脏页、管淘汰」的样子需要补什么。
+[**ph22 存储引擎与数据库内核专项**](../ph22-storage-engine-db-kernel/22-storage-engine-db-kernel.md)（roadmap 第 22 节，现已建成） — 本阶段预告的兑现点：把 SkipList MemTable 接上 WAL 的写入与 replay、把有序扫描喂给 SSTable 的 flush、给 SSTable 点查加 Bloom Filter、让 Buffer Pool 用 LRU/Clock 管淘汰——结构已在 ph21 备好（练习 1 的 LRU = Buffer Pool 的心、project 的 SkipList MemTable = 存储引擎的写路径、3.2 的哈希 = Bloom 位哈希的思想原型），ph22 把它们从「内存结构」变成「磁盘上的引擎模块」，并回答 ph21 刻意回避的问题：结构要活成「跨崩溃、跨并发、管脏页、管淘汰」的样子需要补什么。
 

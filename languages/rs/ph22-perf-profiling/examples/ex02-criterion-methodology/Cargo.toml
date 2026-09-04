@@ -1,0 +1,28 @@
+[package]
+name = "ex02-criterion-methodology"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# ex02：把 ph20 的 criterion 用法升级为「系统化基准方法论」。
+#   benches/log_parse.rs —— 同一批日志行、两种解析路径（借用 vs 复制），
+#   用 benchmark_group + Throughput + BenchmarkId 扫「规模 × 路径」二维；
+#   回归检测：用 --save-baseline / --baseline 两次存档对比（命令见文件头与 README）。
+# 验证环境：rustc/cargo 1.92.0；dev-dependencies criterion 0.8（本机已缓存 0.8.2）。
+# 验证状态：已验证（cargo test / cargo bench 全绿，实测数字见 README）。
+# 构建/运行命令（在示例目录内执行）：
+#   CARGO_TARGET_DIR=/tmp/ph22-ex02-target cargo test
+#   CARGO_TARGET_DIR=/tmp/ph22-ex02-target cargo bench --no-run   # 先只编译 bench
+#   CARGO_TARGET_DIR=/tmp/ph22-ex02-target cargo bench            # 全量跑
+#   CARGO_TARGET_DIR=/tmp/ph22-ex02-target cargo bench -- --save-baseline v1
+#   CARGO_TARGET_DIR=/tmp/ph22-ex02-target cargo bench -- --baseline v1
+# 质量闸门：
+#   CARGO_TARGET_DIR=/tmp/ph22-ex02-target cargo fmt --check
+#   CARGO_TARGET_DIR=/tmp/ph22-ex02-target cargo clippy --all-targets -- -D warnings
+
+[dev-dependencies]
+criterion = "0.8"
+
+[[bench]]
+name = "log_parse"
+harness = false

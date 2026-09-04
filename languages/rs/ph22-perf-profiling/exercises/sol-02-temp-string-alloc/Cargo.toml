@@ -1,0 +1,19 @@
+[package]
+name = "sol-02-temp-string-alloc"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# sol-02：练习 2 参考实现 —— 「减少临时 String 分配」+ 分配计数对照。
+# 演示：把 N 个 (key, value) 拼成 `k=v` 报告行的两种写法——
+#   naive（每行一次 format! 新 String）vs 复用缓冲（clear + write!），
+#   main 用全局计数分配器给出优化前后「分配次数/字节」。
+# 验证环境：rustc/cargo 1.92.0，无第三方依赖。
+# 验证状态：已验证（本机实测数字见 README/主文档）。
+# 运行命令（本目录内）：
+#   CARGO_TARGET_DIR=/tmp/ph22-ex-sol02-target cargo build --release
+#   /tmp/ph22-ex-sol02-target/release/sol-02-temp-string-alloc
+# 质量闸门：
+#   CARGO_TARGET_DIR=/tmp/ph22-ex-sol02-target cargo fmt --check
+#   CARGO_TARGET_DIR=/tmp/ph22-ex-sol02-target cargo clippy --all-targets -- -D warnings
+#   CARGO_TARGET_DIR=/tmp/ph22-ex-sol02-target cargo test

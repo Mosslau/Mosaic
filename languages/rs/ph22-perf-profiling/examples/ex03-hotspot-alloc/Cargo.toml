@@ -1,0 +1,18 @@
+[package]
+name = "ex03-hotspot-alloc"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# ex03：分配热点定位 —— 用全局计数分配器找出「时间之外」的分配代价。
+# 场景沿用 ph19/ph20 的迷你 WAL record（src/wal.rs，教学简化去 CRC）：
+#   Path A 零拷贝回放（分配 ≈ 0 次） vs Path B 每 record 转 owned 收集（每行多次分配）。
+# 验证环境：rustc/cargo 1.92.0，无第三方依赖。
+# 验证状态：已验证（实测分配次数/耗时见 README 与主文档）。
+# 构建/运行命令（在示例目录内执行）：
+#   CARGO_TARGET_DIR=/tmp/ph22-ex03-target cargo build --release
+#   /tmp/ph22-ex03-target/release/ex03-hotspot-alloc [record 数]
+# 质量闸门：
+#   CARGO_TARGET_DIR=/tmp/ph22-ex03-target cargo fmt --check
+#   CARGO_TARGET_DIR=/tmp/ph22-ex03-target cargo clippy --all-targets -- -D warnings
+#   CARGO_TARGET_DIR=/tmp/ph22-ex03-target cargo test

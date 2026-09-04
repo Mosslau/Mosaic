@@ -1,0 +1,24 @@
+[package]
+name = "sol-01-hotspot-bench"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# sol-01：练习 1 参考实现 —— 「为热点函数建立基准」的最小完整 crate。
+# 被测对象：把 `user:42` 型 key 拆成 (prefix, id) 的两种实现
+#   （借用切片 vs 复制成 String），bench 见 benches/key_split.rs。
+# 验证环境：rustc/cargo 1.92.0；dev-dependencies criterion 0.8。
+# 验证状态：已验证（本机 cargo test / cargo bench 全绿，数字见本目录 README.md 或主文档）。
+# 运行命令（本目录内）：
+#   CARGO_TARGET_DIR=/tmp/ph22-ex-sol01-target cargo test
+#   CARGO_TARGET_DIR=/tmp/ph22-ex-sol01-target cargo bench
+# 质量闸门：
+#   CARGO_TARGET_DIR=/tmp/ph22-ex-sol01-target cargo fmt --check
+#   CARGO_TARGET_DIR=/tmp/ph22-ex-sol01-target cargo clippy --all-targets -- -D warnings
+
+[dev-dependencies]
+criterion = "0.8"
+
+[[bench]]
+name = "key_split"
+harness = false

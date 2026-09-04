@@ -1,0 +1,49 @@
+#
+# 验证环境：rustc/cargo 1.92.0（macOS arm64，rustup 管理）。本 crate 无第三方依赖。
+# 验证状态：已验证（cargo build 三档 profile 均成功，运行时间/二进制大小实测见 README）。
+#
+# 演示对象：同一个 crate 用三种 [profile] 构建，对比「编译时间 × 运行时间 × 二进制大小」。
+#   1. release        —— Cargo 默认（opt-level=3, lto=false, codegen-units=16, panic=unwind）
+#   2. release-lto    —— roadmap 第 22 节示例形态：lto="fat" + codegen-units=1
+#   3. release-thin-abort —— lto="thin" + panic="abort"
+#
+# 热点函数刻意放在 path 依赖 hotcore 里：无 LTO 时 rustc 看不到另一个 crate 的内部，
+# 跨 crate 调用保持「真实调用边界」——LTO 的收益（跨 crate 内联 + 常量传播）才有对象。
+# 构建命令（在示例目录内执行）：
+#   CARGO_TARGET_DIR=/tmp/ph22-ex01-target cargo build --release
+#   CARGO_TARGET_DIR=/tmp/ph22-ex01-target cargo build --profile release-lto
+#   CARGO_TARGET_DIR=/tmp/ph22-ex01-target cargo build --profile release-thin-abort
+#   time 前缀可测编译时间；运行 target/<profile>/ex01-profile-config 测运行时间；
+#   ls -l target/<profile>/ex01-profile-config 测二进制大小。
+# 质量闸门：
+#   CARGO_TARGET_DIR=/tmp/ph22-ex01-target cargo fmt --check
+#   CARGO_TARGET_DIR=/tmp/ph22-ex01-target cargo clippy --all-targets -- -D warnings
+
+[package]
+name = "ex01-profile-config"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+# path 依赖：LTO 的实验对象（跨 crate 边界在默认 release 下不优化）
+hotcore = { path = "hotcore" }
+
+# 档 1：显式写出 Cargo release 的默认值，便于与下面两档对照
+[profile.release]
+opt-level = 3            # 默认：最高运行时优化
+lto = false              # 默认：不做跨 crate 链接期优化
+codegen-units = 16       # 默认：16 个并行编译单元（快，但牺牲少量跨单元优化）
+panic = "unwind"         # 默认：panic 走栈展开（保留 unwinding 元数据，二进制偏大）
+
+# 档 2：roadmap 示例形态 —— 全程序链接期优化 + 单编译单元
+[profile.release-lto]
+inherits = "release"
+lto = "fat"              # 整个依赖图做链接期优化（比 thin 更彻底、更慢）
+codegen-units = 1        # 单个编译单元：LLVM 能看到全 crate 再做优化
+
+# 档 3：thin LTO + panic=abort（常见于追求最小二进制/嵌入式/服务端最终形态）
+[profile.release-thin-abort]
+inherits = "release"
+lto = "thin"             # 增量式跨 crate 优化，编译时间比 fat 温和
+panic = "abort"          # panic 直接 abort：删掉 unwind 表，二进制明显变小

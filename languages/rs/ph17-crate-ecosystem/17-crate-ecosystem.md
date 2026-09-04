@@ -441,7 +441,7 @@ Cargo.toml 需求                 crates.io 索引                 解析结果
 | CLI 工具 | clap(derive) + anyhow + tracing(+subscriber) | 手写参数解析；unwrap 满屏 |
 | Web API 服务 | tokio + axum（hyper/tower 底座）+ serde_json + sqlx/sea-orm | 自己拼 hyper 当框架 |
 | HTTP 客户端 | reqwest(rustls-tls, json) | 直接 hyper；默认 native-tls 无脑开 |
-| 批量数据处理 | serde + csv/serde_json + rayon（ph22 性能优化与 Profiling 阶段再深入，roadmap 第 22 节，目录待建） | 为 1 万行引分布式框架 |
+| 批量数据处理 | serde + csv/serde_json + rayon（[ph22 性能优化与 Profiling 阶段](../ph22-perf-profiling/22-perf-profiling.md)再深入） | 为 1 万行引分布式框架 |
 | 配置管理 | serde + toml；复杂配置加 figment/config crate | 手写解析器 |
 | 日志 | tracing + tracing-subscriber（EnvFilter） | log + env_logger 新项目（除非兼容老库） |
 | 错误处理 | 库用 thiserror、应用用 anyhow（ph11 已讲） | Box<dyn Error> 裸奔（rust-patterns 反模式） |

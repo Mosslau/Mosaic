@@ -1063,6 +1063,8 @@ steps:
 
 ## 22. 性能优化与 Profiling 阶段
 
+> 📖 详细展开版见 [ph22-perf-profiling/22-perf-profiling.md](./ph22-perf-profiling/22-perf-profiling.md)
+
 ### 目标
 
 能基于测量进行优化，而不是凭感觉修改代码。

@@ -325,7 +325,7 @@ class WithThrowingMove {
 | 拷贝语义 | 值类型深拷贝 + move（Rule 0/3/5 抉择） | move 语义 + 借用检查（编译期强制） | 值拷贝/引用，无所有权概念 | 引用语义，无所有权概念 | 引用计数 + GC，无所有权概念 |
 | 手写释放的代价 | 漏写即泄漏/double-free（ASan 抓） | 编译器拒绝（所有权规则） | defer 顺序错误即 bug | 忘写 close 即泄漏 | 忘写 __exit__ 即泄漏 |
 
-一句话：**C++ 的 RAII 是"编译器保证 + 开发者抉择"——释放必然发生（析构），但拷贝/移动语义要开发者按 Rule 0/3/5 抉择；Rust 把同一套思想做成编译期强制（drop + 所有权检查）；Go/Java/Python 用显式 `defer`/`try-with-resources`/`with` 把"释放时机"交给开发者手动声明**——C++ 处于"确定性 + 需自律"的位置，这正是它适合数据库内核、存储引擎的原因（本阶段训练"资源类设计"能力，是后面 ph22 存储引擎阶段 Buffer Pool/WAL 资源管理的直接前置，目录待建）。
+一句话：**C++ 的 RAII 是"编译器保证 + 开发者抉择"——释放必然发生（析构），但拷贝/移动语义要开发者按 Rule 0/3/5 抉择；Rust 把同一套思想做成编译期强制（drop + 所有权检查）；Go/Java/Python 用显式 `defer`/`try-with-resources`/`with` 把"释放时机"交给开发者手动声明**——C++ 处于"确定性 + 需自律"的位置，这正是它适合数据库内核、存储引擎的原因（本阶段训练"资源类设计"能力，是后面 [ph22 存储引擎与数据库内核专项阶段](../ph22-storage-engine-db-kernel/22-storage-engine-db-kernel.md) Buffer Pool/WAL 资源管理的直接前置）。
 
 ## 6. 代码示例
 
@@ -516,7 +516,7 @@ c++ -std=c++20 -Wall -Wextra ex06-exception-safety.cpp -o /tmp/ph13-ex06 && /tmp
 | 异常路径 | 栈展开自动析构（E.6） | unwind 时 drop | defer 照常执行 | finally 执行 | `__exit__` 执行 |
 | 漏写释放的后果 | 泄漏/double-free（ASan 抓） | 编译器拒绝 | 顺序错即 bug | 泄漏 | 泄漏 |
 
-一句话：**C++ 用"编译器保证析构必然执行 + 开发者抉择拷贝/移动语义"换来确定性的资源释放时机**——这是它适合数据库内核、存储引擎的核心原因；Rust 把抉择也交给编译器（所有权强制），GC 语言放弃精确时机换省心。本阶段训练的"资源类设计"能力直接服务于 ph22 存储引擎阶段（目录待建）的 Buffer Pool/WAL/SSTable 资源管理。
+一句话：**C++ 用"编译器保证析构必然执行 + 开发者抉择拷贝/移动语义"换来确定性的资源释放时机**——这是它适合数据库内核、存储引擎的核心原因；Rust 把抉择也交给编译器（所有权强制），GC 语言放弃精确时机换省心。本阶段训练的"资源类设计"能力直接服务于 [ph22 存储引擎阶段](../ph22-storage-engine-db-kernel/22-storage-engine-db-kernel.md)的 Buffer Pool/WAL/SSTable 资源管理。
 
 ### 动手练习
 
