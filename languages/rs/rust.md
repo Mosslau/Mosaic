@@ -1159,6 +1159,8 @@ pub extern "C" fn add(a: i32, b: i32) -> i32 {
 
 ## 24. 安全、供应链与发布阶段
 
+> 📖 详细展开版见 [ph24-supply-chain-release/24-supply-chain-release.md](./ph24-supply-chain-release/24-supply-chain-release.md)
+
 ### 目标
 
 能发布可信 Rust 软件，并管理依赖、漏洞和制品。

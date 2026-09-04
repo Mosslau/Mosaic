@@ -54,5 +54,5 @@ git checkout -- demo-app/src/main.rs     # ③ 恢复全绿基线（模板部署
 
 - **MSRV 矩阵调优**：把 `ci.yml` 的 `rust: ["stable", "1.85"]` 改为你的 `rust-version`；库项目可只留 Linux 上的 MSRV 组合省成本（主文档 3.6）
 - **perf 回归 job**：按 `ci.yml` 预留位接 criterion `--save-baseline` 阈值判红——[ph22 性能优化与 Profiling 阶段](../../ph22-perf-profiling/22-perf-profiling.md)
-- **供应链 step**：按预留位加 `cargo audit` / `cargo deny`、许可证与 secret 检查——ph24 安全、供应链与发布阶段（roadmap 第 24 节，目录待建）
+- **供应链 step**：按预留位加 `cargo audit` / `cargo deny`、许可证与 secret 检查——[ph24 安全、供应链与发布阶段](../../ph24-supply-chain-release/24-supply-chain-release.md)
 - **换被测对象**：ph25 的 KV/LSM crate 直接以本模板起步，把 `demo-app` 换成真实组件（roadmap 第 25 节，目录待建）

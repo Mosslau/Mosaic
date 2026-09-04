@@ -1,0 +1,13 @@
+[package]
+name = "ph24-pkgdemo"
+version = "0.1.0"
+edition = "2021"
+description = "ph24 发布演练演示 crate（零第三方依赖）"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://example.invalid/ph24-pkgdemo"
+keywords = ["supply-chain", "demo"]
+categories = ["development-tools"]
+
+[lib]
+name = "ph24_pkgdemo"

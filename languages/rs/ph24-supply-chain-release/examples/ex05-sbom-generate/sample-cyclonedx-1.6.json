@@ -1,0 +1,159 @@
+{
+  "bomFormat": "CycloneDX",
+  "components": [
+    {
+      "author": "",
+      "bom-ref": "CycloneDxRef-Component-libc-0.2.189",
+      "description": "Raw FFI bindings to platform libraries like libc.",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/rust-lang/libc"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "name": "libc",
+      "purl": "pkg:cargo/libc@0.2.189",
+      "type": "library",
+      "version": "0.2.189"
+    },
+    {
+      "author": "Peter Atashian <retep998@gmail.com>",
+      "bom-ref": "CycloneDxRef-Component-kernel32-sys-0.2.2",
+      "description": "Contains function definitions for the Windows API library kernel32. See winapi for types and constants.",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://retep998.github.io/doc/kernel32/"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/retep998/winapi-rs"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT"
+        }
+      ],
+      "name": "kernel32-sys",
+      "purl": "pkg:cargo/kernel32-sys@0.2.2",
+      "type": "library",
+      "version": "0.2.2"
+    },
+    {
+      "author": "The Rust Project Developers",
+      "bom-ref": "CycloneDxRef-Component-time-0.1.35",
+      "description": "Utilities for working with time-related functions in Rust.\n",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://doc.rust-lang.org/time"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/rust-lang/time"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/rust-lang/time"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "name": "time",
+      "purl": "pkg:cargo/time@0.1.35",
+      "type": "library",
+      "version": "0.1.35"
+    },
+    {
+      "author": "Peter Atashian <retep998@gmail.com>",
+      "bom-ref": "CycloneDxRef-Component-winapi-0.2.8",
+      "description": "Types and constants for WinAPI bindings. See README for list of crates providing function bindings.",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://retep998.github.io/doc/winapi/"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/retep998/winapi-rs"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT"
+        }
+      ],
+      "name": "winapi",
+      "purl": "pkg:cargo/winapi@0.2.8",
+      "type": "library",
+      "version": "0.2.8"
+    }
+  ],
+  "dependencies": [
+    {
+      "dependsOn": [
+        "CycloneDxRef-Component-libc-0.2.189",
+        "CycloneDxRef-Component-winapi-0.2.8",
+        "CycloneDxRef-Component-kernel32-sys-0.2.2"
+      ],
+      "ref": "CycloneDxRef-Component-time-0.1.35"
+    },
+    {
+      "dependsOn": [
+        "CycloneDxRef-Component-time-0.1.35"
+      ],
+      "ref": "CycloneDxRef-Component-ph24-vulndemo-0.1.0"
+    },
+    {
+      "dependsOn": [
+        "CycloneDxRef-Component-winapi-0.2.8"
+      ],
+      "ref": "CycloneDxRef-Component-kernel32-sys-0.2.2"
+    }
+  ],
+  "metadata": {
+    "authors": [
+      {
+        "name": "ninebot"
+      }
+    ],
+    "component": {
+      "components": [
+        {
+          "author": "",
+          "bom-ref": "CycloneDxRef-Component-ph24-vulndemo-0.1.0",
+          "externalReferences": [],
+          "licenses": [
+            {
+              "expression": "NOASSERTION"
+            }
+          ],
+          "name": "ph24-vulndemo",
+          "type": "application",
+          "version": "0.1.0"
+        }
+      ],
+      "name": "vulndemo",
+      "type": "application"
+    },
+    "timestamp": "2026-09-04T07:22:07.027Z",
+    "tools": [
+      {
+        "name": "cargo-sbom",
+        "version": "0.10.0"
+      }
+    ]
+  },
+  "serialNumber": "urn:uuid:7a9ce2f8-bccc-4350-8840-53bf1f08c404",
+  "specVersion": "1.6",
+  "version": 1
+}

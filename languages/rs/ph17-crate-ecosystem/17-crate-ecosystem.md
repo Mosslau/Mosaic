@@ -4,7 +4,7 @@
 
 ## 1. 概述
 
-Rust Crate 生态选择与常用库阶段对应 roadmap 第 17 节，目标是**能评估并选择可靠 crate，避免盲目引入依赖**。具体定位是：**会用 crates.io 与 docs.rs 两个生态入口找 crate 并读 API 文档；掌握一套评估 crate 的六维清单（维护活跃度 / API 稳定性 / 依赖树膨胀 / 许可证兼容 / unsafe 面 / MSRV）；把 serde、tokio、reqwest、clap、tracing 五员大将的定位、选型边界与常见坑讲透；给 sqlx / diesel / sea-orm 三个 ORM 做一次有依据的三选一；把 semver 与 feature flags 当「依赖间的契约语言」理解；用 cargo tree / cargo audit / cargo deny / cargo diet 做依赖治理，为 ph24 的完整供应链安全打前置**。本阶段承接 ph06 模块化与 Cargo 阶段（Cargo.toml 的依赖写法与 `cargo build` 基础）、ph13 文件、网络与系统编程阶段（serde / clap 已被「用」过，阻塞式网络已见）、ph16 Rust Edition、工具链与版本管理阶段（那里预告：MSRV 检查、`cargo metadata`、锁文件与 resolver 语义正是「评估 crate 能不能引进来」的工具底座——本阶段 3.2 正式兑现，并把 ph16 project/ 的「依赖引入约定」登记表升级为完整评审清单）；并为 [ph18 Borrow Checker 调试专项阶段](../ph18-borrow-checker-debug/18-borrow-checker-debug.md)、[ph21 Clippy、rustfmt、CI 与代码质量阶段](../ph21-code-quality-ci/21-code-quality-ci.md)（依赖治理进 CI 闸门）、ph24 安全、供应链与发布阶段（roadmap 第 24 节，目录待建；完整供应链安全）铺路。
+Rust Crate 生态选择与常用库阶段对应 roadmap 第 17 节，目标是**能评估并选择可靠 crate，避免盲目引入依赖**。具体定位是：**会用 crates.io 与 docs.rs 两个生态入口找 crate 并读 API 文档；掌握一套评估 crate 的六维清单（维护活跃度 / API 稳定性 / 依赖树膨胀 / 许可证兼容 / unsafe 面 / MSRV）；把 serde、tokio、reqwest、clap、tracing 五员大将的定位、选型边界与常见坑讲透；给 sqlx / diesel / sea-orm 三个 ORM 做一次有依据的三选一；把 semver 与 feature flags 当「依赖间的契约语言」理解；用 cargo tree / cargo audit / cargo deny / cargo diet 做依赖治理，为 ph24 的完整供应链安全打前置**。本阶段承接 ph06 模块化与 Cargo 阶段（Cargo.toml 的依赖写法与 `cargo build` 基础）、ph13 文件、网络与系统编程阶段（serde / clap 已被「用」过，阻塞式网络已见）、ph16 Rust Edition、工具链与版本管理阶段（那里预告：MSRV 检查、`cargo metadata`、锁文件与 resolver 语义正是「评估 crate 能不能引进来」的工具底座——本阶段 3.2 正式兑现，并把 ph16 project/ 的「依赖引入约定」登记表升级为完整评审清单）；并为 [ph18 Borrow Checker 调试专项阶段](../ph18-borrow-checker-debug/18-borrow-checker-debug.md)、[ph21 Clippy、rustfmt、CI 与代码质量阶段](../ph21-code-quality-ci/21-code-quality-ci.md)（依赖治理进 CI 闸门）、[ph24 安全、供应链与发布阶段](../ph24-supply-chain-release/24-supply-chain-release.md)（完整供应链安全）铺路。
 
 | 核心维度 | 覆盖内容 |
 |----------|---------|
@@ -21,7 +21,7 @@ Rust Crate 生态选择与常用库阶段对应 roadmap 第 17 节，目标是**
 | 底层原理 | cargo 依赖解析：版本区间、resolver、feature 统一、Cargo.lock 与 metadata 的关系（4） |
 | 场景与练习 | 何时引、何时不引、何时升级；examples/exercises/project 四层配套（5~7） |
 
-这个阶段只涉及 crate 的**评估、选择与依赖治理**，以及 serde / tokio / reqwest / clap / tracing / 三 ORM 的**选型级认知与教学性使用**，**不涉及 tokio 内部机制与 async/await 语言层面的深入用法（runtime 工作原理、`select!` 宏细节、任务调度调优——属于 ph12 并发与异步阶段；阻塞式文件网络系统编程本身属于 ph13 文件、网络与系统编程阶段，tokio 版的网络用法已在 ph12/ph13 用过）、derive 宏的展开实现细节（属于 ph15 宏与元编程阶段，本阶段只讲「用 serde 的 derive 时要带哪些认知」）、完整供应链安全体系（SBOM、签名、发布完整性——属于 ph24 安全、供应链与发布阶段，roadmap 第 24 节，目录待建，本阶段只做「评审 + 审计命令」的前置）、借用错误的系统化调试（属于 [ph18 Borrow Checker 调试专项阶段](../ph18-borrow-checker-debug/18-borrow-checker-debug.md)）**。本阶段在 3.x 引用的 crate 版本区间、行为与维护状态以写作时 crates.io 为准；代码验证状态按文件头与 README 标注为准——ex02（serde）与 sol-04（feature 控制）已在 cargo 1.92.0 本机实测并标注「已验证」，其余依赖联网拉取 crate 的示例标注「未在本环境验证」，需要时按各文件头注释给出的命令在联网环境复跑。
+这个阶段只涉及 crate 的**评估、选择与依赖治理**，以及 serde / tokio / reqwest / clap / tracing / 三 ORM 的**选型级认知与教学性使用**，**不涉及 tokio 内部机制与 async/await 语言层面的深入用法（runtime 工作原理、`select!` 宏细节、任务调度调优——属于 ph12 并发与异步阶段；阻塞式文件网络系统编程本身属于 ph13 文件、网络与系统编程阶段，tokio 版的网络用法已在 ph12/ph13 用过）、derive 宏的展开实现细节（属于 ph15 宏与元编程阶段，本阶段只讲「用 serde 的 derive 时要带哪些认知」）、完整供应链安全体系（SBOM、签名、发布完整性——属于 [ph24 安全、供应链与发布阶段](../ph24-supply-chain-release/24-supply-chain-release.md)，本阶段只做「评审 + 审计命令」的前置）、借用错误的系统化调试（属于 [ph18 Borrow Checker 调试专项阶段](../ph18-borrow-checker-debug/18-borrow-checker-debug.md)）**。本阶段在 3.x 引用的 crate 版本区间、行为与维护状态以写作时 crates.io 为准；代码验证状态按文件头与 README 标注为准——ex02（serde）与 sol-04（feature 控制）已在 cargo 1.92.0 本机实测并标注「已验证」，其余依赖联网拉取 crate 的示例标注「未在本环境验证」，需要时按各文件头注释给出的命令在联网环境复跑。
 
 ## 2. 来源与演变
 
@@ -101,7 +101,7 @@ src 链接（每页顶部）                        ← 从签名跳实现，看
 - **「最新即最好」**：追着刚发布的 0.x / 大版本第一天就升——大版本 0 天升仓是踩 breaking change 的高发姿势；生产依赖至少等一个 patch 周期
 - **「别人都在用就不用评」**：下载量高只说明历史采用面大，不说明「现在还在维护」——近 90 天下载量与最近 publish 日期才是活跃度信号，star 数可以长期不动
 
-> 本阶段把评审做成「清单 + 命令」的可执行流程；**把评审沉淀成 CI 门禁、SBOM、发布签名等完整供应链体系属于 ph24 安全、供应链与发布阶段（roadmap 第 24 节，目录待建）**，这里只需理解「引入前评审」是那道防线的第一环。
+> 本阶段把评审做成「清单 + 命令」的可执行流程；**把评审沉淀成 CI 门禁、SBOM、发布签名等完整供应链体系属于 [ph24 安全、供应链与发布阶段](../ph24-supply-chain-release/24-supply-chain-release.md)**，这里只需理解「引入前评审」是那道防线的第一环。
 
 ### 3.3 serde：序列化的事实标准
 
@@ -385,7 +385,7 @@ cargo tree --depth 2           # 只看两层（依赖树膨胀的第一道体�
 | cargo-deny | `cargo install cargo-deny --locked` | **许可证 + 漏洞 + 重复依赖 + 源码许可**四合一门禁，deny.toml 配策略 | `cargo deny check licenses` / `cargo deny check bans` / `cargo deny check advisories` | 引入前评审 + CI 门禁（ph24 完整化） |
 | cargo-diet | `cargo install cargo-diet` | **打包体检**：`cargo package` 会带上哪些文件、缺不缺 license/README | `cargo diet -n`（列将打包文件）/ `cargo package --list` 对照 | 库发布前（衔接 ph24 发布） |
 
-**供应链安全前置（本阶段做到哪一层）**：本阶段把供应链安全落成三个「评审习惯」——**① 引入前六维评审**（3.2，含 unsafe 面与维护活跃度）；**② 引入后立即 `cargo audit` 与 `cargo deny check advisories` 扫雷**；**③ 升级时看 changelog + `cargo semver-checks` 防隐蔽破坏**。更完整的体系——SBOM 生成、依赖签名验证（cargo 的 spdx/SBOM 支持）、发布完整性、私仓镜像、`cargo vendor` 离线供应链——**属于 ph24 安全、供应链与发布阶段（roadmap 第 24 节，目录待建）**，本阶段不展开，但 3.2 的评审清单与本节命令就是 ph24 的第一层地基。
+**供应链安全前置（本阶段做到哪一层）**：本阶段把供应链安全落成三个「评审习惯」——**① 引入前六维评审**（3.2，含 unsafe 面与维护活跃度）；**② 引入后立即 `cargo audit` 与 `cargo deny check advisories` 扫雷**；**③ 升级时看 changelog + `cargo semver-checks` 防隐蔽破坏**。更完整的体系——SBOM 生成、依赖签名验证（cargo 的 spdx/SBOM 支持）、发布完整性、私仓镜像、`cargo vendor` 离线供应链——**属于 [ph24 安全、供应链与发布阶段](../ph24-supply-chain-release/24-supply-chain-release.md)**，本阶段不展开，但 3.2 的评审清单与本节命令就是 ph24 的第一层地基。
 
 **治理流程收口（结合 ph16 的锁文件策略）**：应用型工程 = 提交 Cargo.lock + `cargo build --locked` 守 CI（ph16）+ 每次 `cargo update` 后跑 `cargo audit` + `cargo test` + 抽查 `cargo tree -d`；库型工程 = 依赖面控制（`default-features = false` 文化）+ 发布前 `cargo diet -n` + `cargo semver-checks`。两型工程共同的底线：**CI 里至少一道 `cargo audit`（或 cargo-deny advisories）**——它不贵、不慢，是「已知漏洞」的唯一自动防线。
 
@@ -423,7 +423,7 @@ Cargo.toml 需求                 crates.io 索引                 解析结果
 
 ### 4.3 unsafe 面与「安全依赖」的静态观察
 
-`cargo geiger` 类工具按 crate 统计 unsafe 块数量与涉及函数，把 3.2 的维度⑤变成可扫的数字；但要警惕**数字的欺骗性**——`unsafe` 集中在 FFI 封装层的 crate（如 `libc`）反而是「封装良好」的信号，散布全库且无 `// SAFETY` 注释才是危险信号。判据不是「有没有 unsafe」而是「**unsafe 是否被约束在最小、可审计、有注释的边界内**」。RustSec 公告库给出「unsafe 实现细节被利用」的真实案例模式——本阶段只需建立观察习惯，系统性的安全审查方法属 ph14 Unsafe 与安全抽象阶段与 ph24 安全、供应链与发布阶段（roadmap 第 24 节，目录待建）。
+`cargo geiger` 类工具按 crate 统计 unsafe 块数量与涉及函数，把 3.2 的维度⑤变成可扫的数字；但要警惕**数字的欺骗性**——`unsafe` 集中在 FFI 封装层的 crate（如 `libc`）反而是「封装良好」的信号，散布全库且无 `// SAFETY` 注释才是危险信号。判据不是「有没有 unsafe」而是「**unsafe 是否被约束在最小、可审计、有注释的边界内**」。RustSec 公告库给出「unsafe 实现细节被利用」的真实案例模式——本阶段只需建立观察习惯，系统性的安全审查方法属 ph14 Unsafe 与安全抽象阶段与 [ph24 安全、供应链与发布阶段](../ph24-supply-chain-release/24-supply-chain-release.md)。
 
 ## 5. 使用场景
 

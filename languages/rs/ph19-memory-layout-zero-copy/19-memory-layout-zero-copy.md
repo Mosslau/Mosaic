@@ -19,7 +19,7 @@
 | 底层原理 | 布局引擎重排、胖指针内存表示、memcpy vs 借用、缓存行点到即止（4） |
 | 场景与练习 | 何时零拷贝 / 何时 copy 更简单；与 C 的裸指针解析对比；examples/exercises/project 四层配套（5~7） |
 
-这个阶段只涉及 **Rust 进程内的内存布局、字节序与二进制格式解析手艺**，**不涉及系统级性能优化**（缓存行、分配次数在本阶段只到「点到即止」的直觉层面，真实剖析与基准属 [ph22 性能优化与 Profiling 阶段](../ph22-perf-profiling/22-perf-profiling.md)）、**跨语言 ABI**（把结构体导出给 C/Python、布局承诺跨语言生效，属 [ph23 Rust FFI 与跨语言接口设计阶段](../ph23-ffi-interop/23-ffi-interop.md)）、**依赖与供应链安全**（bytes/nom 的选型、审计与锁版本策略属 ph24 安全、供应链与发布阶段，roadmap 第 24 节，目录待建）、**存储引擎全貌**（本阶段只解析 WAL record / SSTable block header 的字节格式，append/replay、MemTable、compaction 等引擎机制属 ph25 Rust 数据基础设施专项阶段，roadmap 第 25 节，目录待建）。
+这个阶段只涉及 **Rust 进程内的内存布局、字节序与二进制格式解析手艺**，**不涉及系统级性能优化**（缓存行、分配次数在本阶段只到「点到即止」的直觉层面，真实剖析与基准属 [ph22 性能优化与 Profiling 阶段](../ph22-perf-profiling/22-perf-profiling.md)）、**跨语言 ABI**（把结构体导出给 C/Python、布局承诺跨语言生效，属 [ph23 Rust FFI 与跨语言接口设计阶段](../ph23-ffi-interop/23-ffi-interop.md)）、**依赖与供应链安全**（bytes/nom 的选型、审计与锁版本策略属 [ph24 安全、供应链与发布阶段](../ph24-supply-chain-release/24-supply-chain-release.md)）、**存储引擎全貌**（本阶段只解析 WAL record / SSTable block header 的字节格式，append/replay、MemTable、compaction 等引擎机制属 ph25 Rust 数据基础设施专项阶段，roadmap 第 25 节，目录待建）。
 
 同时与两条相邻知识点划清边界：**unsafe 的字节→结构体转换**（`transmute`、裸指针 cast 的对齐/别名/未初始化**形式语义**、Miri/Stacked Borrows 验证）属于 ph14 Unsafe Rust 与安全抽象阶段——本阶段 3.7 只站在安全码一侧解释「为什么编译器拦着你」，不在本阶段手写这类 unsafe；**crate 的选型方法论**（该不该引入 bytes/nom、怎么评审）属于 ph17 Crate 生态选择与常用库阶段，本阶段直接使用并给出锁定版本。
 
