@@ -24,7 +24,9 @@
 | 层级 | 位置 | 内容 |
 |------|------|------|
 | Roadmap 总览 | `languages/<语言>/<语言>.md` | 分阶段学习路线：目标 / 学习内容 / 必会概念 / 示例 / 练习 / 阶段验收 / 推荐项目 |
-| 阶段详解 | `languages/<语言>/ph01..ph10/` | 每个阶段的完整展开：来源与演变 / 语法与参数 / 底层原理 / 代码示例 / 总结验收 |
+| 阶段详解 | `languages/<语言>/ph01..phNN-<主题>/`（NN 为末阶段编号，随 roadmap 规划） | 每个阶段的完整展开：来源与演变 / 语法与参数 / 底层原理 / 代码示例 / 总结验收 |
+
+> ✅ 6 条路线已全部建成：C 16 · Python 18 · Go 21 · Java 21 · C++ 23 · Rust 25，合计 **124 个编号阶段**，每阶段均含 examples / exercises / project 代码层。
 
 ## 🔬 Part 2 · 语言设计分析
 
@@ -38,9 +40,11 @@
 | [`analysis/java/`](analysis/java/) | Java：托管运行时（JVM）的工程赌注 | GC 与自动内存 / 类型系统·泛型擦除 / 单继承与接口 / 受检异常 / JMM 与并发原语 |
 | [`analysis/py/`](analysis/py/) | Python：开发者体验优先的取舍 | 动态类型 / 数据模型 / 装饰器 / 生成器 / 上下文管理器 |
 
+> 待建：`go`（并发与 channel 设计）、`c`（零抽象代价与指针）两门分析台——`analysis/` 目前覆盖 rs / cpp / java / py 四门。
+
 ## ⚙️ Part 3 · Tenet 语言与编译器
 
-分析完四/六门语言，**继承优点、拒绝包袱**，合成 Tenet——并实现一个
+在 `languages/` 六门路线与 `analysis/` 已建分析的基础上，**继承优点、拒绝包袱**，合成 Tenet——并实现一个
 **clang / rustc 式原生编译器**：`tenet build hello.tenet` 产出可直接运行的二进制。
 
 ```text
