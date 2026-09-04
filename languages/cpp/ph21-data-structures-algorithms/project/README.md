@@ -1,6 +1,6 @@
 # ph21 阶段项目：SkipList MemTable（有序内存 KV 结构）
 
-对应 roadmap §21「推荐项目」之一，**落地选择「SkipList MemTable」**：roadmap §21 推荐了四个项目——LRU 缓存库（已由 examples/ex03 + 练习 1 覆盖）、Bloom Filter（结构认知见主文档 3.2/5 节，生产落地属 [ph22 存储引擎与数据库内核专项](../../ph22-storage-engine-db-kernel/22-storage-engine-db-kernel.md)的 SSTable 过滤）、HNSW toy implementation（属 ph23 向量检索，roadmap 第 23 节，目录待建）、SkipList MemTable（本 project）。**边界声明：本项目交付的是「内存有序 KV 结构」——把 Skip List 写成 RAII 的生产级组件并证明它正确；不涉及把 MemTable 接 WAL/SSTable/Compaction（那是 ph22 存储引擎与数据库内核专项，roadmap 第 22 节，目录待建）**——但结构的接口（put/get/erase + 有序扫描）就是按「ph22 的 MemTable 读面」设计的，flush 方向已在 demo 第 3 节演示。
+对应 roadmap §21「推荐项目」之一，**落地选择「SkipList MemTable」**：roadmap §21 推荐了四个项目——LRU 缓存库（已由 examples/ex03 + 练习 1 覆盖）、Bloom Filter（结构认知见主文档 3.2/5 节，生产落地属 [ph22 存储引擎与数据库内核专项](../../ph22-storage-engine-db-kernel/22-storage-engine-db-kernel.md)的 SSTable 过滤）、HNSW toy implementation（属 [ph23 向量检索与 AI 推理引擎方向 C++ 阶段](../../ph23-vector-search-ai-inference/23-vector-search-ai-inference.md)）、SkipList MemTable（本 project）。**边界声明：本项目交付的是「内存有序 KV 结构」——把 Skip List 写成 RAII 的生产级组件并证明它正确；不涉及把 MemTable 接 WAL/SSTable/Compaction（那是 ph22 存储引擎与数据库内核专项，roadmap 第 22 节，目录待建）**——但结构的接口（put/get/erase + 有序扫描）就是按「ph22 的 MemTable 读面」设计的，flush 方向已在 demo 第 3 节演示。
 
 ## 需求
 
@@ -29,7 +29,7 @@
 - **并发改造**：单节点锁 vs 无锁 skip-list（Pugh 1992 的并发算法是 RocksDB memtable 无锁化的基础）——本项目把单线程正确性做扎实后，ph22/并发专题再加锁才有对照基准
 - **arena/内存池化**：练习 4 的固定块池 + `std::pmr`（或自定义分配器）把节点分配摊平成 slab——ph22 Buffer Pool / 写入路径的标配
 - **对比 std::map 的实测**：用 `std::chrono` 对相同操作集计时（Per.6：先测再说），体验「红黑树 vs skip-list 常数因子」——属于 ph18 性能优化思路在本结构的应用
-- 若选做另三个 roadmap §21 推荐项目：LRU 缓存库 = examples/ex03 + 练习 1 的收口形态；Bloom Filter 见 ph22；HNSW toy implementation 正式归 ph23（roadmap 第 23 节，目录待建）
+- 若选做另三个 roadmap §21 推荐项目：LRU 缓存库 = examples/ex03 + 练习 1 的收口形态；Bloom Filter 见 ph22；HNSW toy implementation 正式归 [ph23 向量检索与 AI 推理引擎方向 C++ 阶段](../../ph23-vector-search-ai-inference/23-vector-search-ai-inference.md)
 
 ## 验证环境与状态
 

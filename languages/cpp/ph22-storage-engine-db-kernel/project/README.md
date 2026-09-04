@@ -68,4 +68,4 @@ ph22-project-minilsm OK
 - **Buffer Pool 接文件页**：本 project 的 SSTable 直接整文件读内存；换成 examples/ex04 的帧缓存 + LRU/Clock 淘汰即接近真实引擎
 - **MVCC/Snapshot**：在 MemTable/记录上挂版本号（主文档 3.8）→ 引擎从"最新值"变"每个快照一致的值"
 - **键分区 + 范围挑文件**：compaction 与查询按 key 区间只碰相关文件（本 project 按全量处理，见主文档 3.5 leveled 的挑文件优化）
-- **向量索引持久化**：SSTable/Buffer Pool 的磁盘管理思路会被 ph23 向量检索与 AI 推理引擎方向 C++（roadmap 第 23 节，目录待建）的向量索引持久化复用；阶段预告与验收清单见 ph22 主文档 [22-storage-engine-db-kernel.md](../22-storage-engine-db-kernel.md) 第 7 章
+- **向量索引持久化**：SSTable/Buffer Pool 的磁盘管理思路会被 [ph23 向量检索与 AI 推理引擎方向 C++ 阶段](../../ph23-vector-search-ai-inference/23-vector-search-ai-inference.md)的向量索引持久化复用；阶段预告与验收清单见 ph22 主文档 [22-storage-engine-db-kernel.md](../22-storage-engine-db-kernel.md) 第 7 章

@@ -1,0 +1,16 @@
+# ex05：cbindgen —— 从 Rust 导出 C/C++ 可用的头文件
+# 教学流程：rust_lib（Rust 实现，带 doc 注释与导出注解）→ cargo install cbindgen 命令生成
+# header.h → C 程序 include 生成的 header 并链接 rust_lib 的静态库运行。
+# 验证环境：cargo/rustc 1.92.0 + Apple clang 21.0.0（macOS arm64）；cbindgen 0.27.0（本机 cargo install 0.27.0）
+[package]
+name = "ex05-rust-lib"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "ex05_rust_lib"
+crate-type = ["staticlib", "cdylib"] # staticlib 供 C 链接；cdylib 供运行时加载
+
+[profile.release]
+opt-level = 3

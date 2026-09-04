@@ -19,7 +19,7 @@
 | 底层原理 | 布局引擎重排、胖指针内存表示、memcpy vs 借用、缓存行点到即止（4） |
 | 场景与练习 | 何时零拷贝 / 何时 copy 更简单；与 C 的裸指针解析对比；examples/exercises/project 四层配套（5~7） |
 
-这个阶段只涉及 **Rust 进程内的内存布局、字节序与二进制格式解析手艺**，**不涉及系统级性能优化**（缓存行、分配次数在本阶段只到「点到即止」的直觉层面，真实剖析与基准属 [ph22 性能优化与 Profiling 阶段](../ph22-perf-profiling/22-perf-profiling.md)）、**跨语言 ABI**（把结构体导出给 C/Python、布局承诺跨语言生效，属 ph23 Rust FFI 与跨语言接口设计阶段，roadmap 第 23 节，目录待建）、**依赖与供应链安全**（bytes/nom 的选型、审计与锁版本策略属 ph24 安全、供应链与发布阶段，roadmap 第 24 节，目录待建）、**存储引擎全貌**（本阶段只解析 WAL record / SSTable block header 的字节格式，append/replay、MemTable、compaction 等引擎机制属 ph25 Rust 数据基础设施专项阶段，roadmap 第 25 节，目录待建）。
+这个阶段只涉及 **Rust 进程内的内存布局、字节序与二进制格式解析手艺**，**不涉及系统级性能优化**（缓存行、分配次数在本阶段只到「点到即止」的直觉层面，真实剖析与基准属 [ph22 性能优化与 Profiling 阶段](../ph22-perf-profiling/22-perf-profiling.md)）、**跨语言 ABI**（把结构体导出给 C/Python、布局承诺跨语言生效，属 [ph23 Rust FFI 与跨语言接口设计阶段](../ph23-ffi-interop/23-ffi-interop.md)）、**依赖与供应链安全**（bytes/nom 的选型、审计与锁版本策略属 ph24 安全、供应链与发布阶段，roadmap 第 24 节，目录待建）、**存储引擎全貌**（本阶段只解析 WAL record / SSTable block header 的字节格式，append/replay、MemTable、compaction 等引擎机制属 ph25 Rust 数据基础设施专项阶段，roadmap 第 25 节，目录待建）。
 
 同时与两条相邻知识点划清边界：**unsafe 的字节→结构体转换**（`transmute`、裸指针 cast 的对齐/别名/未初始化**形式语义**、Miri/Stacked Borrows 验证）属于 ph14 Unsafe Rust 与安全抽象阶段——本阶段 3.7 只站在安全码一侧解释「为什么编译器拦着你」，不在本阶段手写这类 unsafe；**crate 的选型方法论**（该不该引入 bytes/nom、怎么评审）属于 ph17 Crate 生态选择与常用库阶段，本阶段直接使用并给出锁定版本。
 
@@ -84,7 +84,7 @@ println!("packed  : size = {:>2}, align = {}", size_of::<PackedLayout>(), align_
 
 **repr(transparent)** 常见于 newtype：`#[repr(transparent)] struct MonotonicId(u64)` 的 size/align 与裸 `u64` 完全一致（实测 8/8），跨 FFI 时既能换更严格的类型、又不改变内存表示。**repr(packed) 的红线**值得单独强调：packed 字段可能未对齐，编译器拒绝借用它——`println!("{}", p.stamp)` 会被 format 机制按 `&u64` 借用而报 **E0793** `reference to packed field is unaligned`，只能「按值拷出 Copy 字段」（编译器负责未对齐读的合法性，见 ex01 实测）。这条红线与 3.7 的三大红线同源：**别创建指向未对齐数据的引用**。
 
-> 本阶段用 repr 家族回答「如何让字节与结构体对应」；**跨语言 ABI 稳定（extern "C" 导出、cbindgen 生成头文件）属于 ph23 Rust FFI 与跨语言接口设计阶段（roadmap 第 23 节，目录待建）**，这里只需理解「repr(C) + 固定宽度整数 = 可跨边界的结构体」，不必会写导出代码。
+> 本阶段用 repr 家族回答「如何让字节与结构体对应」；**跨语言 ABI 稳定（extern "C" 导出、cbindgen 生成头文件）属于 [ph23 Rust FFI 与跨语言接口设计阶段](../ph23-ffi-interop/23-ffi-interop.md)**，这里只需理解「repr(C) + 固定宽度整数 = 可跨边界的结构体」，不必会写导出代码。
 
 ### 3.2 对齐 alignment 与 padding
 

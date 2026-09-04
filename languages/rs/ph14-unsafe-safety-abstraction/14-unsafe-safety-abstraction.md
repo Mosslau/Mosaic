@@ -15,7 +15,7 @@ Rust Unsafe 与安全抽象阶段对应 roadmap 第 14 节，目标是**理解 u
 | FFI 调用基础 | `extern "C"` 声明、调用 libc（strlen/malloc/free/abs）、调自建 C 库（cc 编译 .dylib + rustc 链接）、CString/CStr（3.5） |
 | 安全抽象封装 | 安全 API + unsafe 内部 + 不变量维护的封装模式、MiniVec 最小实现（3.6） |
 
-这个阶段只涉及 unsafe 关键字的五类操作、裸指针、`unsafe fn` 契约、FFI **调用**基础与安全抽象封装，**不涉及宏与元编程（`macro_rules!` 与过程宏）、Rust 导出给 C（`#[no_mangle]`/cdylib/staticlib）、bindgen/cbindgen 与 pyo3、性能剖析与优化、`repr` 内存布局与字节序深入** — 那些是 [ph15 宏与元编程阶段](../ph15-macros-metaprogramming/15-macros-metaprogramming.md)、ph23 Rust FFI 与跨语言接口设计阶段（roadmap 第 23 节，目录待建）、[ph22 性能优化与 Profiling 阶段](../ph22-perf-profiling/22-perf-profiling.md)、[ph19 内存布局、零拷贝与协议解析阶段](../ph19-memory-layout-zero-copy/19-memory-layout-zero-copy.md)的内容（ph15/ph19/ph22 目录已建）。借用检查错误的系统化调试（E0382/E0499/E0502/E0597 的重构方法）属 [ph18 Borrow Checker 调试专项阶段](../ph18-borrow-checker-debug/18-borrow-checker-debug.md)，本阶段只把「借用检查在 unsafe 内依然生效」作为必会认知实测呈现。承接 [ph10 智能指针阶段](../ph10-smart-pointers/10-smart-pointers.md)：`Box::into_raw`/`from_raw` 是「所有权转成裸指针再收回」的安全抽象先例；承接 [ph12 并发与异步阶段](../ph12-concurrency-async/12-concurrency-async.md)：`unsafe impl Send/Sync` 在 ph12 是「绝不使用」的禁区，本阶段讲清它的证明责任；承接 [ph13 文件、网络与系统编程阶段](../ph13-file-network-sys/13-file-network-sys.md)：fd 与系统资源模型是 FFI 调用系统库的预备知识。
+这个阶段只涉及 unsafe 关键字的五类操作、裸指针、`unsafe fn` 契约、FFI **调用**基础与安全抽象封装，**不涉及宏与元编程（`macro_rules!` 与过程宏）、Rust 导出给 C（`#[no_mangle]`/cdylib/staticlib）、bindgen/cbindgen 与 pyo3、性能剖析与优化、`repr` 内存布局与字节序深入** — 那些是 [ph15 宏与元编程阶段](../ph15-macros-metaprogramming/15-macros-metaprogramming.md)、[ph23 Rust FFI 与跨语言接口设计阶段](../ph23-ffi-interop/23-ffi-interop.md)、[ph22 性能优化与 Profiling 阶段](../ph22-perf-profiling/22-perf-profiling.md)、[ph19 内存布局、零拷贝与协议解析阶段](../ph19-memory-layout-zero-copy/19-memory-layout-zero-copy.md)的内容（ph15/ph19/ph22 目录已建）。借用检查错误的系统化调试（E0382/E0499/E0502/E0597 的重构方法）属 [ph18 Borrow Checker 调试专项阶段](../ph18-borrow-checker-debug/18-borrow-checker-debug.md)，本阶段只把「借用检查在 unsafe 内依然生效」作为必会认知实测呈现。承接 [ph10 智能指针阶段](../ph10-smart-pointers/10-smart-pointers.md)：`Box::into_raw`/`from_raw` 是「所有权转成裸指针再收回」的安全抽象先例；承接 [ph12 并发与异步阶段](../ph12-concurrency-async/12-concurrency-async.md)：`unsafe impl Send/Sync` 在 ph12 是「绝不使用」的禁区，本阶段讲清它的证明责任；承接 [ph13 文件、网络与系统编程阶段](../ph13-file-network-sys/13-file-network-sys.md)：fd 与系统资源模型是 FFI 调用系统库的预备知识。
 
 ## 2. 来源与演变
 
@@ -265,7 +265,7 @@ unsafe { free(p); } // 谁分配谁释放——不变量由开发者维护
 
 关键认知：**C 函数不报告错误**——`strlen` 假定字符串合法、`malloc` 失败返回空指针（要自己 `is_null()` 检查）、错误码走 errno 约定——这与 Rust 的 `Result` 体系完全不同（错误处理工程化见 ph11 错误处理与工程质量阶段）。字符串跨边界用 `CString`（Rust → C，拥有 `\0`）与 `CStr`（C → Rust，借用不复制，见 ex06 的 `greet()`）。
 
-> 本阶段只做 FFI **调用**基础（调 libc / 调自建 C 库）；**Rust 导出给 C（`#[no_mangle]`/cdylib）、bindgen/cbindgen 自动生成绑定、pyo3 给 Python 用，以及「谁分配谁释放」的完整所有权约定属于 ph23 Rust FFI 与跨语言接口设计阶段（目录待建）**，这里只需掌握「声明 + 调用 + 手写 C 库联调」的最小闭环。
+> 本阶段只做 FFI **调用**基础（调 libc / 调自建 C 库）；**Rust 导出给 C（`#[no_mangle]`/cdylib）、bindgen/cbindgen 自动生成绑定、pyo3 给 Python 用，以及「谁分配谁释放」的完整所有权约定属于 [ph23 Rust FFI 与跨语言接口设计阶段](../ph23-ffi-interop/23-ffi-interop.md)**，这里只需掌握「声明 + 调用 + 手写 C 库联调」的最小闭环。
 
 ### 3.6 安全抽象封装
 

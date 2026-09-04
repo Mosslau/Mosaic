@@ -1,0 +1,14 @@
+# ex07：所有权与内存释放跨边界 —— Box::into_raw / from_raw 转移
+# 验证环境：cargo/rustc 1.92.0（macOS arm64）；Apple clang 21.0.0
+[package]
+name = "ex07-ownership-box-transfer"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "ex07_ownership"
+crate-type = ["cdylib", "rlib"]
+
+[profile.release]
+opt-level = 3

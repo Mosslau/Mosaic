@@ -1,0 +1,15 @@
+# ex02：CString/CStr —— 字符串跨 FFI 边界的三种形态
+# 验证环境：cargo/rustc 1.92.0（macOS arm64）；Apple clang 21.0.0
+# crate-type 含 rlib 是为了让 cargo test 能链接单元测试（rlib= Rust 内部消费形态，对照 cdylib）
+[package]
+name = "ex02-cstring-boundary"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "ex02_cstring"
+crate-type = ["cdylib", "rlib"]
+
+[profile.release]
+opt-level = 3

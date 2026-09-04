@@ -33,9 +33,9 @@
 | Trie | ❌ 无 | — | 手写：注意节点所有权用 `unique_ptr`，字符集决定子节点容器（见 3.7） |
 | LRU Cache | ❌ 无（需 `list`+`unordered_map` 组合） | 组合即标准答案 | 手写时防迭代器失效、cap=0 边界（见 3.8/ex03/练习 1） |
 | SkipList / Bloom Filter | ❌ 无 | — | ph22 存储引擎要用的生产结构：ph21 project 落地 SkipList MemTable 原型，Bloom Filter 见 [ph22 存储引擎与数据库内核专项专项](../ph22-storage-engine-db-kernel/22-storage-engine-db-kernel.md) |
-| HNSW | ❌ 无 | — | 属于 ph23 向量检索（roadmap 第 23 节，目录待建），本阶段只提不展开 |
+| HNSW | ❌ 无 | — | 属于 [ph23 向量检索与 AI 推理引擎方向 C++ 阶段](../ph23-vector-search-ai-inference/23-vector-search-ai-inference.md)，本阶段只提不展开 |
 
-这个阶段只涉及**在内存中组织和操作数据：线性/哈希/树/堆/图结构、并查集/Trie/LRU 的手写、排序二分与算法模式，以及全部结构的复杂度分析与 STL 工程选型**，**不涉及把结构接进持久化与存储内核（把 SkipList MemTable 接 WAL/SSTable/Compaction、给 SSTable 加 Bloom Filter、Buffer Pool 用 LRU/Clock 管脏页 pin/unpin 是 [ph22 存储引擎与数据库内核专项](../ph22-storage-engine-db-kernel/22-storage-engine-db-kernel.md)的内容——本阶段所有结构都「脱离磁盘」演示）、不涉及向量检索与 AI 推理引擎方向（HNSW 的工业级实现、图库接入、IVF/PQ、SIMD 距离与 Faiss 体系是 ph23（roadmap 第 23 节，目录待建）的内容——roadmap §21 推荐项目里的「HNSW toy implementation」本阶段不做，它会被 ph23 作为入门级 demo 吸收；roadmap §21 推荐项目里的「Bloom Filter」「LRU 缓存库」同理，前者本阶段给出结构认知、落地留给 ph22，后者以 examples/ex03 + 练习 1 形式落在本阶段）、不涉及 STL 容器 API 的逐个教学（那是 ph04 的内容，本阶段引用结论不再展开）**。同时本阶段不重复 ph20 的 C ABI 层：所有结构与示例都是纯 C++ 进程内形态；若未来想把这些结构暴露给 Python/Rust 生态，走的正是 ph20 学的 C 包装层路线。
+这个阶段只涉及**在内存中组织和操作数据：线性/哈希/树/堆/图结构、并查集/Trie/LRU 的手写、排序二分与算法模式，以及全部结构的复杂度分析与 STL 工程选型**，**不涉及把结构接进持久化与存储内核（把 SkipList MemTable 接 WAL/SSTable/Compaction、给 SSTable 加 Bloom Filter、Buffer Pool 用 LRU/Clock 管脏页 pin/unpin 是 [ph22 存储引擎与数据库内核专项](../ph22-storage-engine-db-kernel/22-storage-engine-db-kernel.md)的内容——本阶段所有结构都「脱离磁盘」演示）、不涉及向量检索与 AI 推理引擎方向（HNSW 的工业级实现、图库接入、IVF/PQ、SIMD 距离与 Faiss 体系是 [ph23 向量检索与 AI 推理引擎方向 C++ 阶段](../ph23-vector-search-ai-inference/23-vector-search-ai-inference.md)的内容——roadmap §21 推荐项目里的「HNSW toy implementation」本阶段不做，它会被 ph23 作为入门级 demo 吸收；roadmap §21 推荐项目里的「Bloom Filter」「LRU 缓存库」同理，前者本阶段给出结构认知、落地留给 ph22，后者以 examples/ex03 + 练习 1 形式落在本阶段）、不涉及 STL 容器 API 的逐个教学（那是 ph04 的内容，本阶段引用结论不再展开）**。同时本阶段不重复 ph20 的 C ABI 层：所有结构与示例都是纯 C++ 进程内形态；若未来想把这些结构暴露给 Python/Rust 生态，走的正是 ph20 学的 C 包装层路线。
 
 ## 2. 来源与演变
 

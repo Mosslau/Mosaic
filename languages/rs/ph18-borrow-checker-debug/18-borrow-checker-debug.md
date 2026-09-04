@@ -20,7 +20,7 @@
 | 底层原理 | lifetime 是类型的一部分、NLL 数据流分析、reservation/activation 两阶段、借用栈心智（4） |
 | 场景与练习 | 何时 clone / 何时必须重构；examples/exercises/project 四层配套（5~7） |
 
-这个阶段只涉及**读懂并修复借用错误**——即「编译器报错 → 归因 → 选择修法家族 → 重构出干净所有权流」这一闭环，**不涉及内存布局、零拷贝与协议解析**（借用切片的零拷贝用法是 [ph19 内存布局、零拷贝与协议解析阶段](../ph19-memory-layout-zero-copy/19-memory-layout-zero-copy.md)的事）、**性能优化**（clone 的性能代价在本阶段只作「取舍判据」，实际剖析与基准属 [ph22 性能优化与 Profiling 阶段](../ph22-perf-profiling/22-perf-profiling.md)）、**跨语言 FFI**（所有权跨边界属 ph23 Rust FFI 与跨语言接口设计阶段，roadmap 第 23 节，目录待建）、**依赖与供应链安全**（ph24 安全、供应链与发布阶段，roadmap 第 24 节，目录待建）。
+这个阶段只涉及**读懂并修复借用错误**——即「编译器报错 → 归因 → 选择修法家族 → 重构出干净所有权流」这一闭环，**不涉及内存布局、零拷贝与协议解析**（借用切片的零拷贝用法是 [ph19 内存布局、零拷贝与协议解析阶段](../ph19-memory-layout-zero-copy/19-memory-layout-zero-copy.md)的事）、**性能优化**（clone 的性能代价在本阶段只作「取舍判据」，实际剖析与基准属 [ph22 性能优化与 Profiling 阶段](../ph22-perf-profiling/22-perf-profiling.md)）、**跨语言 FFI**（所有权跨边界属 [ph23 Rust FFI 与跨语言接口设计阶段](../ph23-ffi-interop/23-ffi-interop.md)）、**依赖与供应链安全**（ph24 安全、供应链与发布阶段，roadmap 第 24 节，目录待建）。
 
 同时与两条前置知识点划清边界：RefCell / Mutex 的**运行时**借用检查（`BorrowMutError`）属于 ph10 智能指针阶段，本阶段只讲编译期借用检查，二者机制不同——一个在编译期保证、一个把检查推迟到运行时并可能 panic；`unsafe` 与别名模型的正式语义（Stacked Borrows / Miri）属于 ph14 Unsafe Rust 与安全抽象阶段，本阶段 4.4 的「借用栈」只作为读代码的心智模型，不涉及 unsafe 语义。
 

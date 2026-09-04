@@ -1,0 +1,17 @@
+# sol-03：把 Rust 函数包装成 Python 扩展（练习 3 参考实现）
+# 验证环境：cargo/rustc 1.92.0（macOS arm64）+ pyo3 0.23.5 + Python 3.13.12；本机实测「已验证」
+#
+# macOS 手动构建 extension-module 需放开动态查找（ex06 与主文档 3.10 说明）：
+#   export RUSTFLAGS="-C link-arg=-Wl,-undefined,dynamic_lookup"
+[package]
+name = "sol03-pyo3-extension"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "sol03_fastwords"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.23.5", features = ["extension-module"] }

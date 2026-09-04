@@ -1111,6 +1111,8 @@ codegen-units = 1
 
 ## 23. Rust FFI 与跨语言接口设计阶段
 
+> 📖 详细展开版见 [ph23-ffi-interop/23-ffi-interop.md](./ph23-ffi-interop/23-ffi-interop.md)
+
 ### 目标
 
 能安全地把 Rust 与 C、C++、Python 或其他语言集成。

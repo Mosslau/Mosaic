@@ -1,0 +1,14 @@
+# ex03：错误处理跨 FFI —— 错误码 + out 参数 + catch_unwind 护栏
+# 验证环境：cargo/rustc 1.92.0（macOS arm64）；Apple clang 21.0.0
+[package]
+name = "ex03-error-code-outparam"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "ex03_error"
+crate-type = ["cdylib", "rlib"]
+
+[profile.release]
+opt-level = 3

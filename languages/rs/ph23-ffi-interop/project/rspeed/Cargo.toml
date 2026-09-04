@@ -1,0 +1,29 @@
+# rspeed —— ph23 阶段项目：Rust 加速库（供 Python 调用）
+#
+# 设计要点：
+# - 纯 Rust 核心函数默认可 `cargo test`（rlib）；Python 绑定由 feature "python" 门控，
+#   开启后同时产出 cdylib（extension-module）。这避免「cdylib-only 无法 cargo test」
+#   的困境，也示范了「核心算法与语言绑定分离」的架构（主文档 3.10）。
+# - macOS 手动构建 python 绑定需放开动态查找（见主文档 3.10 / examples ex06）：
+#     export RUSTFLAGS="-C link-arg=-Wl,-undefined,dynamic_lookup"
+#
+# 验证环境：cargo/rustc 1.92.0（macOS arm64）+ pyo3 0.23.5 + Python 3.13.12；本机实测「已验证」
+[package]
+name = "rspeed"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "rspeed"
+crate-type = ["rlib", "cdylib"] # 默认 rlib（可测试）；--features python 时 cdylib 才含绑定
+
+[features]
+default = []
+python = ["dep:pyo3"]
+
+[dependencies]
+pyo3 = { version = "0.23.5", optional = true, features = ["extension-module"] }
+
+[profile.release]
+opt-level = 3

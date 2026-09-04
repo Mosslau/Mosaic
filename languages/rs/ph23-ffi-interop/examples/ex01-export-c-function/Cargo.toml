@@ -1,0 +1,15 @@
+# ex01：把 Rust 函数导出成 C 可调用的库（同时产出 staticlib 与 cdylib 两种形态）
+# 验证环境：cargo/rustc 1.92.0（macOS arm64）；Apple clang 21.0.0
+# 构建/链接/运行命令见顶层 examples/README.md 与 caller/main.c 头注释
+[package]
+name = "ex01-export-c-function"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "ex01_export"
+crate-type = ["staticlib", "cdylib"] # 一次构建同时产出 libex01_export.a 与 .dylib
+
+[profile.release]
+opt-level = 3

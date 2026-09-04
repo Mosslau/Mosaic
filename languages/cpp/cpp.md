@@ -1178,6 +1178,8 @@ public:
 
 ## 23. 向量检索与 AI 推理引擎方向 C++ 阶段
 
+> 📖 详细展开版见 [ph23-vector-search-ai-inference/23-vector-search-ai-inference.md](./ph23-vector-search-ai-inference/23-vector-search-ai-inference.md)
+
 ### 目标
 
 面向向量数据库、RAG 检索、Faiss、CUDA/TensorRT 和推理服务，掌握 C++ 在 AI Infra 底层的使用方式。
