@@ -19,7 +19,7 @@
 | 底层原理 | 布局引擎重排、胖指针内存表示、memcpy vs 借用、缓存行点到即止（4） |
 | 场景与练习 | 何时零拷贝 / 何时 copy 更简单；与 C 的裸指针解析对比；examples/exercises/project 四层配套（5~7） |
 
-这个阶段只涉及 **Rust 进程内的内存布局、字节序与二进制格式解析手艺**，**不涉及系统级性能优化**（缓存行、分配次数在本阶段只到「点到即止」的直觉层面，真实剖析与基准属 [ph22 性能优化与 Profiling 阶段](../ph22-perf-profiling/22-perf-profiling.md)）、**跨语言 ABI**（把结构体导出给 C/Python、布局承诺跨语言生效，属 [ph23 Rust FFI 与跨语言接口设计阶段](../ph23-ffi-interop/23-ffi-interop.md)）、**依赖与供应链安全**（bytes/nom 的选型、审计与锁版本策略属 [ph24 安全、供应链与发布阶段](../ph24-supply-chain-release/24-supply-chain-release.md)）、**存储引擎全貌**（本阶段只解析 WAL record / SSTable block header 的字节格式，append/replay、MemTable、compaction 等引擎机制属 ph25 Rust 数据基础设施专项阶段，roadmap 第 25 节，目录待建）。
+这个阶段只涉及 **Rust 进程内的内存布局、字节序与二进制格式解析手艺**，**不涉及系统级性能优化**（缓存行、分配次数在本阶段只到「点到即止」的直觉层面，真实剖析与基准属 [ph22 性能优化与 Profiling 阶段](../ph22-perf-profiling/22-perf-profiling.md)）、**跨语言 ABI**（把结构体导出给 C/Python、布局承诺跨语言生效，属 [ph23 Rust FFI 与跨语言接口设计阶段](../ph23-ffi-interop/23-ffi-interop.md)）、**依赖与供应链安全**（bytes/nom 的选型、审计与锁版本策略属 [ph24 安全、供应链与发布阶段](../ph24-supply-chain-release/24-supply-chain-release.md)）、**存储引擎全貌**（本阶段只解析 WAL record / SSTable block header 的字节格式，append/replay、MemTable、compaction 等引擎机制属 [ph25 Rust 数据基础设施专项阶段](../ph25-data-infrastructure/25-data-infrastructure.md)）。
 
 同时与两条相邻知识点划清边界：**unsafe 的字节→结构体转换**（`transmute`、裸指针 cast 的对齐/别名/未初始化**形式语义**、Miri/Stacked Borrows 验证）属于 ph14 Unsafe Rust 与安全抽象阶段——本阶段 3.7 只站在安全码一侧解释「为什么编译器拦着你」，不在本阶段手写这类 unsafe；**crate 的选型方法论**（该不该引入 bytes/nom、怎么评审）属于 ph17 Crate 生态选择与常用库阶段，本阶段直接使用并给出锁定版本。
 
@@ -166,7 +166,7 @@ fn payload_of<'a>(buf: &'a [u8]) -> Option<&'a [u8]> {
 
 **「零拷贝」的精确表述是「读零拷贝、写要独占」**：`&[u8]` 给的是一堆只读视图，想原地改写字节（解密、转义、位翻转）必须持有 `&mut [u8]` 或拥有 `Vec<u8>`——借用规则保证「同一时刻最多一个可变视图」，改写永远不会与别人的读取并发。真实 I/O 管线因此常呈两段式：**fill 阶段**把网络/磁盘数据写进独占缓冲（此时它是 `&mut Vec`/`BytesMut`），**parse 阶段**把填充好的缓冲冻结为 `&[u8]` 并到处派发只读子切片。两阶段之间那道「独占变共享」的边界，就是 ph18 借用规则在协议解析里的日常形态。
 
-> 本阶段只讲进程内缓冲的借用视图；**文件 mmap、网络 read_buf 直接落入缓冲的完整 I/O 管线属于 ph13 文件、网络与系统编程阶段与 ph25 Rust 数据基础设施专项阶段（roadmap 第 25 节，目录待建）的内容**，这里把 `&[u8]` 的手艺练熟，将来接真 I/O 时解析层代码一行不用改。
+> 本阶段只讲进程内缓冲的借用视图；**文件 mmap、网络 read_buf 直接落入缓冲的完整 I/O 管线属于 ph13 文件、网络与系统编程阶段与 [ph25 Rust 数据基础设施专项阶段](../ph25-data-infrastructure/25-data-infrastructure.md)的内容**，这里把 `&[u8]` 的手艺练熟，将来接真 I/O 时解析层代码一行不用改。
 
 ### 3.5 bytes crate：拥有型的零拷贝——引用计数共享缓冲
 
@@ -276,7 +276,7 @@ fn parse_frame<'a>(buf: &'a [u8]) -> Result<Frame<'a>, FrameErr> {
 
 ### 3.8 实战：WAL record 与 SSTable block header 解析
 
-把 3.1~3.7 全部串起来的真实格式，取存储引擎最常解析的两类。**WAL（Write-Ahead Log）**是 KV 存储崩溃恢复的支柱：所有写操作先追加进一段只追加的日志，系统崩溃后重放日志恢复内存态——它的 record 格式就是「字节 → 结构化记录」的教科书（完整引擎机制属 ph25 Rust 数据基础设施专项阶段，roadmap 第 25 节，目录待建，本阶段只解析字节）。本仓库教学用 record 格式（字段一律小端）：
+把 3.1~3.7 全部串起来的真实格式，取存储引擎最常解析的两类。**WAL（Write-Ahead Log）**是 KV 存储崩溃恢复的支柱：所有写操作先追加进一段只追加的日志，系统崩溃后重放日志恢复内存态——它的 record 格式就是「字节 → 结构化记录」的教科书（完整引擎机制属 [ph25 Rust 数据基础设施专项阶段](../ph25-data-infrastructure/25-data-infrastructure.md)，本阶段只解析字节）。本仓库教学用 record 格式（字段一律小端）：
 
 | 字段 | 宽度 | 偏移 | 作用 |
 |------|-----:|-----:|------|

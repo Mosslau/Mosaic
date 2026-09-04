@@ -1207,6 +1207,8 @@ allow = ["MIT", "Apache-2.0"]
 
 ## 25. Rust 数据基础设施专项阶段
 
+> 📖 详细展开版见 [ph25-data-infrastructure/25-data-infrastructure.md](./ph25-data-infrastructure/25-data-infrastructure.md)
+
 ### 目标
 
 面向 KV 存储、LSM Tree、Raft KV、向量检索和 Agent 工具后端，构建安全、高性能、可测试的数据基础设施组件。

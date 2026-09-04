@@ -47,7 +47,7 @@ CARGO_TARGET_DIR=/tmp/ph19-target cargo clippy --all-targets -- -D warnings
 
 ## 扩展方向（可选）
 
-- **重放状态机**：把 `records` 迭代出的 Put/Delete 应用到内存表，做成 Mini MemTable —— 完整 WAL append/replay、crash recovery 语义属 ph25 Rust 数据基础设施专项阶段（roadmap 第 25 节，目录待建），本库的「损坏即终止」语义正是为它准备的
+- **重放状态机**：把 `records` 迭代出的 Put/Delete 应用到内存表，做成 Mini MemTable —— 完整 WAL append/replay、crash recovery 语义属 [ph25 Rust 数据基础设施专项阶段](../../ph25-data-infrastructure/25-data-infrastructure.md)，本库的「损坏即终止」语义正是为它准备的
 - **流式解码**：改为边读文件边喂缓冲（替代整读），用 3.7 的「半帧等待」处理尾部残缺——那是崩溃断电在文件尾留下的常态，属工程解析而非错误
 - **换成 bytes crate**：把 CLI 的整读改为 `Bytes` 持有，`split_to` 剥头不 memmove（3.5），观察大量 record 时分配次数下降——对比测量属 [ph22 性能优化与 Profiling 阶段](../../ph22-perf-profiling/22-perf-profiling.md)
 - **属性测试**：用 proptest 随机生成 Put/Delete 序列做 roundtrip —— 那是 [ph20 测试体系进阶阶段](../../ph20-testing-advanced/20-testing-advanced.md)的推荐练习

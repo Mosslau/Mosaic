@@ -329,7 +329,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 **判据收口**：写 SQL 且要 async → sqlx；大型同步 CRUD + 成熟迁移 → diesel；async + 领域对象模型 → sea-orm。**「全都要」的代价**：对象模型（sea-orm）会限制你对 SQL 的完全控制，编译期连库检查（sqlx `query!`）会把构建与数据库耦合——选型本质是选「把哪个复杂度放在哪一层」。
 
-> ⚠️ 三个 crate 都要求你**先懂 SQL**：ORM/DSL 是「省写 SQL 样板」不是「免学 SQL」。另外三者的连接池/事务/迁移 API 各不相同，本阶段只到选型与 hello-world 级使用（见 examples 与 exercises），**数据基础设施的深入（分库分表、连接池调优、审计表设计）属 ph25 Rust 数据基础设施专项阶段（roadmap 第 25 节，目录待建）**。
+> ⚠️ 三个 crate 都要求你**先懂 SQL**：ORM/DSL 是「省写 SQL 样板」不是「免学 SQL」。另外三者的连接池/事务/迁移 API 各不相同，本阶段只到选型与 hello-world 级使用（见 examples 与 exercises），**数据基础设施的深入（分库分表、连接池调优、审计表设计）属 [ph25 Rust 数据基础设施专项阶段](../ph25-data-infrastructure/25-data-infrastructure.md)**。
 
 ### 3.9 semver 与 feature flags：依赖间的契约语言
 

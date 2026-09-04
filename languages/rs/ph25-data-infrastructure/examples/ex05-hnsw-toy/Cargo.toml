@@ -1,0 +1,7 @@
+[package]
+name = "ex05-hnsw-toy"
+version = "0.1.0"
+edition = "2021"
+description = "ph25 ex05：HNSW 图索引 toy + recall/QPS/P95/内存实测（纯 std，零第三方依赖）"
+
+[dependencies]

@@ -1,0 +1,7 @@
+[package]
+name = "ex04-mini-raft-state-machine"
+version = "0.1.0"
+edition = "2021"
+description = "ph25 ex04：Mini Raft 单节点日志复制状态机 + 选举概念（纯 std，零第三方依赖）"
+
+[dependencies]

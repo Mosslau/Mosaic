@@ -19,7 +19,7 @@
 | 底层原理 | 采样 vs 插桩、缓存行与伪共享、分配器行为、LTO 编译期权衡（4） |
 | 场景与练习 | 何时优化/何时不优化 + C++/Go 跨语言对照；examples/exercises/project 四层配套（5~7） |
 
-这个阶段只涉及 **Rust 进程内的通用代码路径性能**（CPU 时间、分配、缓存、分发），**不涉及 FFI 与跨语言边界的性能设计**（跨语言边界的优化——copy 策略、跨 ABI 调用开销、为 Python 暴露的加速函数该在哪一侧分配——属 [ph23 Rust FFI 与跨语言接口设计阶段](../ph23-ffi-interop/23-ffi-interop.md)）、**依赖供应链与发布安全**（本阶段的基准 CI job 会用到 ph21 模板，但依赖漏洞、审计、许可证与制品安全属 [ph24 安全、供应链与发布阶段](../ph24-supply-chain-release/24-supply-chain-release.md)）、**数据基础设施的专项调优**（本阶段的优化对象是**通用**代码路径——WAL/日志的解析与聚合只是载体；WAL append/replay、MemTable/SSTable、compaction 吞吐与写放大等引擎级专项优化属 ph25 Rust 数据基础设施专项阶段，roadmap 第 25 节，目录待建）。同时与两条相邻知识划清边界：**安全抽象的 unsafe 性能手段**（`get_unchecked`、`from_raw_parts` 这类「最后手段」属 ph14 Unsafe 与安全抽象阶段——本阶段先测出瓶颈再说，正文不鼓励为性能引入 unsafe）；**汇编/SIMD 级的指令优化**（本阶段只到「结构性格局」层——缓存、分配、分发；手写 SIMD/内联汇编的极致优化超出本阶段范围）。
+这个阶段只涉及 **Rust 进程内的通用代码路径性能**（CPU 时间、分配、缓存、分发），**不涉及 FFI 与跨语言边界的性能设计**（跨语言边界的优化——copy 策略、跨 ABI 调用开销、为 Python 暴露的加速函数该在哪一侧分配——属 [ph23 Rust FFI 与跨语言接口设计阶段](../ph23-ffi-interop/23-ffi-interop.md)）、**依赖供应链与发布安全**（本阶段的基准 CI job 会用到 ph21 模板，但依赖漏洞、审计、许可证与制品安全属 [ph24 安全、供应链与发布阶段](../ph24-supply-chain-release/24-supply-chain-release.md)）、**数据基础设施的专项调优**（本阶段的优化对象是**通用**代码路径——WAL/日志的解析与聚合只是载体；WAL append/replay、MemTable/SSTable、compaction 吞吐与写放大等引擎级专项优化属 [ph25 Rust 数据基础设施专项阶段](../ph25-data-infrastructure/25-data-infrastructure.md)）。同时与两条相邻知识划清边界：**安全抽象的 unsafe 性能手段**（`get_unchecked`、`from_raw_parts` 这类「最后手段」属 ph14 Unsafe 与安全抽象阶段——本阶段先测出瓶颈再说，正文不鼓励为性能引入 unsafe）；**汇编/SIMD 级的指令优化**（本阶段只到「结构性格局」层——缓存、分配、分发；手写 SIMD/内联汇编的极致优化超出本阶段范围）。
 
 ## 2. 来源与演变
 

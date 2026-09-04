@@ -67,7 +67,7 @@ export PATH="$HOME/.cargo/bin:$PATH"
 
 ## 扩展方向
 
-- **换被测对象**：把 `src/lib.rs` 换成你的真实 crate（ph25 的 KV/LSM 组件将直接以本模板起步，roadmap 第 25 节，目录待建）——本工程的 deny.toml/release-check.sh/CI 模板原样可搬
+- **换被测对象**：把 `src/lib.rs` 换成你的真实 crate（[ph25 Rust 数据基础设施专项阶段](../../ph25-data-infrastructure/25-data-infrastructure.md)的 KV/LSM 组件将直接以本模板起步）——本工程的 deny.toml/release-check.sh/CI 模板原样可搬
 - **收紧发布物**：step 7 的 `package --list` 人审目前能发现 deny.toml/release-check.sh 混入发布包——可给 `Cargo.toml` 配 `include`/`exclude` 让流水线脚本不进 `.crate`
 - **SBOM 进发布**：CI 的 publish job 已预留 `cargo sbom` 生成 SPDX 并 attach 到 release（3.9）
 - **yank 演练**：发布后事故流程（`cargo yank` + 立即发修复版）可在本地用 `cargo yank --dry-run` 语义演示（真实 yank 需 token，未验证）

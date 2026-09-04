@@ -19,7 +19,7 @@
 | 底层原理 | repr(C) 与 C 编译器对齐、unwind 穿越 FFI 的 UB 机制、Box 与 malloc 指针差异、GIL 与 pyo3（4） |
 | 场景与练习 | 何时 FFI / 何时重写 + C++/Go 跨语言策略对照；examples/exercises/project 四层配套（5~7） |
 
-这个阶段只涉及**跨语言边界本身的设计与工程化**（ABI、产物、字符串/结构体传递、错误与所有权翻译、绑定与头文件生成、Python 扩展的基础形态），**不涉及跨语言边界的系统化安全审计**（FFI 的 unsafe 安全审查这里只到「每个 unsafe 写清 soundness 前提」的纪律层面，漏洞扫描、供应链审计、制品签名与发布属 [ph24 安全、供应链与发布阶段](../ph24-supply-chain-release/24-supply-chain-release.md)）、**不涉及用 FFI 接数据库驱动与数据基础设施组件的工程化**（pyo3 模块的完整打包发布、maturin 多版本构建、给 KV/向量库做 Python 加速接口属 ph25 Rust 数据基础设施专项阶段，roadmap 第 25 节，目录待建）。同时与三条相邻知识划清边界：**unsafe 与裸指针本身**（`extern` 声明语法、裸指针算术、`as` 转换是 ph14 Unsafe 与安全抽象阶段的内容，这里默认已会，只讨论边界用法）；**内存布局的一般知识**（对齐/padding/`repr(C)` 的原理性讲解属 ph19 内存布局与零拷贝阶段，这里复用它做边界协议）；**Python 语言本身**（本阶段只需要会 import 一个模块、写几行冒烟脚本，Python 的语法与工程化不在 Rust 学习路线内展开）。
+这个阶段只涉及**跨语言边界本身的设计与工程化**（ABI、产物、字符串/结构体传递、错误与所有权翻译、绑定与头文件生成、Python 扩展的基础形态），**不涉及跨语言边界的系统化安全审计**（FFI 的 unsafe 安全审查这里只到「每个 unsafe 写清 soundness 前提」的纪律层面，漏洞扫描、供应链审计、制品签名与发布属 [ph24 安全、供应链与发布阶段](../ph24-supply-chain-release/24-supply-chain-release.md)）、**不涉及用 FFI 接数据库驱动与数据基础设施组件的工程化**（pyo3 模块的完整打包发布、maturin 多版本构建、给 KV/向量库做 Python 加速接口属 [ph25 Rust 数据基础设施专项阶段](../ph25-data-infrastructure/25-data-infrastructure.md)）。同时与三条相邻知识划清边界：**unsafe 与裸指针本身**（`extern` 声明语法、裸指针算术、`as` 转换是 ph14 Unsafe 与安全抽象阶段的内容，这里默认已会，只讨论边界用法）；**内存布局的一般知识**（对齐/padding/`repr(C)` 的原理性讲解属 ph19 内存布局与零拷贝阶段，这里复用它做边界协议）；**Python 语言本身**（本阶段只需要会 import 一个模块、写几行冒烟脚本，Python 的语法与工程化不在 Rust 学习路线内展开）。
 
 ph22 主文档「下一阶段」预告的逐条兑现如下——它就是本阶段的验收骨架：
 

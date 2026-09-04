@@ -1,0 +1,7 @@
+[package]
+name = "ex03-compaction-sim"
+version = "0.1.0"
+edition = "2021"
+description = "ph25 ex03：Compaction 归并语义与读/写/空间放大量化（纯 std，零第三方依赖）"
+
+[dependencies]

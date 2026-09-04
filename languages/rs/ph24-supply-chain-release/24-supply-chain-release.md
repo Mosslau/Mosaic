@@ -20,7 +20,7 @@
 | 底层原理 | cargo 依赖解析与 Cargo.lock 精确锁定、RustSec advisory 结构与版本匹配、crates.io 校验与 yank 机制（4） |
 | 场景与练习 | 库作者 vs 内部应用分级 + npm/Gradle/Go 供应链对照；examples/exercises/project 四层配套（5~7） |
 
-这个阶段只涉及**依赖与发布维度的信任链建设**（漏洞审计、许可/来源门禁、SBOM、secret 注入纪律、可复现构建、crates.io 发布流程、版本策略），**不涉及 Rust 数据基础设施组件的运行时安全与加密存储**（KV/LSM 组件的 WAL 校验、加密、权限模型与 Agent 工具后端的权限/审计/可观测性属于 ph25 Rust 数据基础设施专项阶段，roadmap 第 25 节，目录待建，届时本阶段的 deny.toml/audit job 会被 ph25 的工程直接拿去用）；**不重复 ph23 FFI 阶段已讲透的跨语言 unsafe 审查细节**（`extern "C"` 导出的 soundness 前提、panic 护栏、谁分配谁释放的纪律是 ph23 的内容，本阶段只从「制品进入审计与发布流水线」的视角引用其 cdylib/pyo3 产物形态，不再重讲边界安全写法）。同时与相邻知识划清边界：**unsafe/FFI 的语言级安全模型**（ph14 Unsafe 阶段与 ph23 已覆盖，这里的「安全」指供应链与依赖信任，不是内存安全）；**依赖选择与评审清单**（ph17 Crate 生态阶段已讲六维评审与 `cargo tree`，这里默认会看依赖树，只讲「评审之后怎么用策略与门禁持续把关」）；**Edition/工具链固定的一般知识**（ph16 已讲 rust-toolchain.toml 与 Cargo.lock 策略，本阶段 3.8 在其上深化可复现构建的验证方法）。
+这个阶段只涉及**依赖与发布维度的信任链建设**（漏洞审计、许可/来源门禁、SBOM、secret 注入纪律、可复现构建、crates.io 发布流程、版本策略），**不涉及 Rust 数据基础设施组件的运行时安全与加密存储**（KV/LSM 组件的 WAL 校验、加密、权限模型与 Agent 工具后端的权限/审计/可观测性属于 [ph25 Rust 数据基础设施专项阶段](../ph25-data-infrastructure/25-data-infrastructure.md)，届时本阶段的 deny.toml/audit job 会被 ph25 的工程直接拿去用）；**不重复 ph23 FFI 阶段已讲透的跨语言 unsafe 审查细节**（`extern "C"` 导出的 soundness 前提、panic 护栏、谁分配谁释放的纪律是 ph23 的内容，本阶段只从「制品进入审计与发布流水线」的视角引用其 cdylib/pyo3 产物形态，不再重讲边界安全写法）。同时与相邻知识划清边界：**unsafe/FFI 的语言级安全模型**（ph14 Unsafe 阶段与 ph23 已覆盖，这里的「安全」指供应链与依赖信任，不是内存安全）；**依赖选择与评审清单**（ph17 Crate 生态阶段已讲六维评审与 `cargo tree`，这里默认会看依赖树，只讲「评审之后怎么用策略与门禁持续把关」）；**Edition/工具链固定的一般知识**（ph16 已讲 rust-toolchain.toml 与 Cargo.lock 策略，本阶段 3.8 在其上深化可复现构建的验证方法）。
 
 上一阶段的预告在本阶段逐条兑现，它就是本阶段的验收骨架：
 
@@ -727,7 +727,7 @@ examples/ex07 的 `cargo package --list`/`--no-verify` 实测输出已在 3.10 �
 
 ### 下一阶段
 
-**ph25 Rust 数据基础设施专项阶段**（roadmap 第 25 节，目录待建）——本阶段把「交付物可信」的流水线立起来了；下一阶段进入数据基础设施实现：WAL/MemTable/SSTable、Bloom Filter 与 Compaction、Mini Raft、HNSW 向量检索与 Agent 工具服务——届时 ph24 沉淀的 deny.toml、audit job 与 release-check.sh 会被 KV/LSM 工程直接拿去用（KV 组件的运行时安全与加密存储、Agent 后端的权限/审计/可观测性也在那里展开），「安全地写出来」与「可信地发出去」在 ph25 汇合成「安全可信的数据基础设施」。
+[**ph25 Rust 数据基础设施专项阶段**](../ph25-data-infrastructure/25-data-infrastructure.md)（roadmap 第 25 节——Rust 路线最后一个阶段，现已建成）——本阶段把「交付物可信」的流水线立起来了；下一阶段进入数据基础设施实现：WAL/MemTable/SSTable、Bloom Filter 与 Compaction、Mini Raft、HNSW 向量检索与 Agent 工具服务——届时 ph24 沉淀的 deny.toml、audit job 与 release-check.sh 会被 KV/LSM 工程直接拿去用（KV 组件的运行时安全与加密存储、Agent 后端的权限/审计/可观测性也在那里展开），「安全地写出来」与「可信地发出去」在 ph25 汇合成「安全可信的数据基础设施」。
 
 
 

@@ -80,5 +80,5 @@ rm -f rspeed.so
 - **换 C ABI + ctypes 通道**：若目标环境没有 pyo3/maturin，可把同一核心用 `extern "C"` 导出 + ctypes `CDLL` 调用（examples ex01 的形态）；对比 pyo3 与 ctypes 两条通道的转换开销差异。
 - **向量负载放大**：加批量（n×d 矩阵）接口，用 ph19/ph22 的 SoA/缓存纪律优化热路径，并接入 criterion 做回归基线。
 - **chunk 负载改造**：把字符窗口换成**词窗口**（`chunk_words`，按空白切分），Python 侧需逐词 Python 级循环时，Rust 优势才显性——可自行用 bench.py 的骨架验证「换负载后加速比翻正」。
-- **接 ph25 数据基础设施专项**（roadmap 第 25 节，目录待建）：ph25 的 pyo3 模块工程化（maturin 打包、`pyproject.toml`、多 Python 版本构建）在这里的代码形态上继续——本工程的 feature 门控结构可以直接被 maturin 项目复用。
+- **接 [ph25 Rust 数据基础设施专项阶段](../../ph25-data-infrastructure/25-data-infrastructure.md)**：ph25 的 pyo3 模块工程化（maturin 打包、`pyproject.toml`、多 Python 版本构建）在这里的代码形态上继续——本工程的 feature 门控结构可以直接被 maturin 项目复用。
 - **绑定类型深化**：用 `Bound<PyAny>`/`numpy` 数组零拷贝视图替代 `Vec<f64>` 提取，把转换成本从 O(n) 降到 O(1)（引入 numpy 依赖，属于进阶）。

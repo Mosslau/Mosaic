@@ -1,0 +1,3 @@
+# macOS 扩展模块不链接 libpython：允许在加载时由解释器解析未定义符号
+[target.aarch64-apple-darwin]
+rustflags = ["-C", "link-arg=-undefined", "-C", "link-arg=dynamic_lookup"]

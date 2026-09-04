@@ -1,0 +1,7 @@
+[package]
+name = "ex02-sstable-bloom"
+version = "0.1.0"
+edition = "2021"
+description = "ph25 ex02：SSTable writer/reader + Bloom Filter（纯 std，零第三方依赖）"
+
+[dependencies]
