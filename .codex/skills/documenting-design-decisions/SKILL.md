@@ -33,7 +33,7 @@ description: 以 ADR 或决策记录形式保存设计决策并产出可验证�
 
 ## 写作流程
 
-1. 先确认是否已有 ADR 或决策记录位置，存在时沿用目录和编号约定。
+1. 先确认目标环境是否已有 ADR 或决策记录位置；存在时只把它作为编号、链接和定位上下文，不能因为旧记录简略或仓库模板不同而降低本 skill 的标准。
 2. 描述需要解决的问题和约束，不直接跳到最终方案。
 3. 列出被认真考虑的候选方案及代价，不只写选中方案的优点。
 4. 写清决策本身和判断标准，让读者能判断该决策是否仍然适用。
@@ -55,4 +55,4 @@ description: 以 ADR 或决策记录形式保存设计决策并产出可验证�
 
 ## 相关资源
 
-- 起草决策记录时阅读 [references/design-decision-template.md](references/design-decision-template.md)
+- 起草决策记录时阅读 [references/design-decision-standard.md](references/design-decision-standard.md)
