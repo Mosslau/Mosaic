@@ -1,5 +1,6 @@
 ---
 name: documenting-language-features
+license: MIT
 description: 说明一门程序设计语言的语法、特性设计和原理并产出可验证文档。用于特性动机、语法约束、语义、运行时行为、交互、版本兼容和迁移；不用于普通 API 使用手册、系统解释或算法说明。
 ---
 

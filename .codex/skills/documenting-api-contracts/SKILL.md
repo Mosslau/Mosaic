@@ -1,5 +1,6 @@
 ---
 name: documenting-api-contracts
+license: MIT
 description: 说明 API、协议或接口契约并产出可验证文档。用于消息、错误、状态机、版本兼容和真实代码映射；不用于解释框架、语言特性或编写普通 API 入门教程。
 ---
 

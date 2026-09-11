@@ -1,5 +1,6 @@
 ---
 name: documenting-runbooks
+license: MIT
 description: 编写运维、诊断、修复和回滚 runbook 并产出可验证文档。用于故障症状、处置步骤、回滚和恢复验证；不用于解释系统架构或编写普通操作教程。
 ---
 

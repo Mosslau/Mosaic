@@ -1,5 +1,6 @@
 ---
 name: documenting-data-models
+license: MIT
 description: 说明数据或存储模型并产出可验证文档。用于实体、字段、类型、约束、关系、索引和迁移；不用于解释单个算法、API 契约或整个系统。
 ---
 

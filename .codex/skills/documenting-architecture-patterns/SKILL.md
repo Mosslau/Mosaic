@@ -1,5 +1,6 @@
 ---
 name: documenting-architecture-patterns
+license: MIT
 description: 说明一个架构设计模式并产出可验证文档。用于上下文与问题、参与者、结构、协作流、优缺点、适用性、反模式、演进与替代方案；不用于解释完整系统的当前架构或算法细节。
 ---
 
