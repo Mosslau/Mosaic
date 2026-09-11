@@ -12,6 +12,14 @@
     python3 check_doc_quality.py <文件或目录> [...]
     python3 check_doc_quality.py --json docs/
     python3 check_doc_quality.py --only placeholder docs/
+    python3 check_doc_quality.py --allow-pending algorithms/ engineering/
+
+骨架文档:
+    以「状态：⬜ 未开始 / 待实现 / 骨架」标记的文档视为骨架文档，其模板占位
+    是合法的待办标记。加 --allow-pending 时，骨架文档中的占位降为 warning 并
+    计入统计；未加该参数时仍按 error 报告（严格模式，默认）。
+    标记为「已完成 / 理论文档」或没有状态行的文档不属于骨架文档，其占位始终
+    是 error —— 占位本身不是问题，占位出现在声称已完成的文档里才是问题。
 
 退出码: 0 = 无 error；1 = 存在 error（warning 不影响退出码）。
 """
@@ -41,6 +49,9 @@ NOT_APPLICABLE = "不适用"
 
 # 以全角/半角括号开头的整段，视为模板占位提示句
 PLACEHOLDER_RE = re.compile(r"^\s*[（(][^）)]{6,}[）)]\s*$")
+
+# 骨架文档标记：状态行声明未开始/待实现/骨架时，其模板占位是合法待办
+PENDING_MARKER_RE = re.compile(r"未开始|待实现|骨架|TODO\s*[:：]\s*待|⬜")
 
 # 统一词表之外的旧标签，出现即提示收敛
 LEGACY_LABELS = [
@@ -88,15 +99,30 @@ def iter_markdown(targets: list[Path]):
             yield target
 
 
-def check_placeholder(path: Path, lines: list[str]) -> list[Finding]:
-    findings = []
+def is_pending_doc(lines: list[str]) -> bool:
+    """状态行声明未开始/待实现/骨架的文档，其模板占位是合法待办标记。
+
+    只检查文档开头 12 行，避免把正文里出现的「未开始」误判为文档状态。
+    """
+    return any(PENDING_MARKER_RE.search(line) for line in lines[:12])
+
+
+def check_placeholder(
+    path: Path, lines: list[str], allow_pending: bool = False
+) -> list[Finding]:
+    findings: list[Finding] = []
+    pending = is_pending_doc(lines)
+    # 骨架文档 + 显式放行：占位降为 warning；否则始终是 error
+    level = "warning" if (pending and allow_pending) else "error"
+    message = (
+        "骨架文档的待办占位（已由 --allow-pending 放行）"
+        if level == "warning"
+        else "残留模板占位段落；不适用内容应写「不适用」并给理由"
+    )
     in_fence = False
-    fence_open = 0
     for i, line in enumerate(lines, 1):
         if FENCE_RE.match(line):
             in_fence = not in_fence
-            if in_fence:
-                fence_open = i
             continue
         if in_fence:
             continue
@@ -105,9 +131,9 @@ def check_placeholder(path: Path, lines: list[str]) -> list[Finding]:
                 Finding(
                     str(path),
                     i,
-                    "error",
+                    level,
                     "placeholder",
-                    "残留模板占位段落；不适用内容应写「不适用」并给理由",
+                    message,
                     line.strip()[:80],
                 )
             )
@@ -196,12 +222,30 @@ def check_output_marks(path: Path, lines: list[str]) -> list[Finding]:
     return findings
 
 
-CHECKS = {
-    "placeholder": check_placeholder,
-    "legacy-label": check_labels,
-    "untraceable-number": check_numbers,
-    "unmarked-output": check_output_marks,
-}
+def make_placeholder_check(allow_pending: bool):
+    """生成绑定 allow_pending 的占位检查，使各检查可统一调用。"""
+
+    def run(path: Path, lines: list[str]) -> list[Finding]:
+        return check_placeholder(path, lines, allow_pending=allow_pending)
+
+    return run
+
+
+def build_checks(allow_pending: bool) -> dict:
+    return {
+        "placeholder": make_placeholder_check(allow_pending),
+        "legacy-label": check_labels,
+        "untraceable-number": check_numbers,
+        "unmarked-output": check_output_marks,
+    }
+
+
+CHECK_NAMES = [
+    "placeholder",
+    "legacy-label",
+    "untraceable-number",
+    "unmarked-output",
+]
 
 
 def main() -> int:
@@ -209,9 +253,14 @@ def main() -> int:
     parser.add_argument("targets", nargs="+", help="要检查的文件或目录")
     parser.add_argument("--json", action="store_true", help="以 JSON 输出")
     parser.add_argument(
+        "--allow-pending",
+        action="store_true",
+        help="骨架文档（状态：⬜ 未开始/待实现/骨架）的待办占位降为 warning",
+    )
+    parser.add_argument(
         "--only",
         action="append",
-        choices=sorted(CHECKS),
+        choices=CHECK_NAMES,
         help="只运行指定检查，可重复",
     )
     args = parser.parse_args()
@@ -222,9 +271,11 @@ def main() -> int:
         print(f"路径不存在: {', '.join(missing)}", file=sys.stderr)
         return 1
 
-    selected = args.only or sorted(CHECKS)
+    checks = build_checks(args.allow_pending)
+    selected = args.only or CHECK_NAMES
     findings: list[Finding] = []
     files_checked = 0
+    pending_files = 0
 
     for path in iter_markdown(targets):
         files_checked += 1
@@ -232,19 +283,25 @@ def main() -> int:
             lines = path.read_text(encoding="utf-8").splitlines()
         except UnicodeDecodeError:
             continue
+        if is_pending_doc(lines):
+            pending_files += 1
         for name in selected:
-            findings.extend(CHECKS[name](path, lines))
+            findings.extend(checks[name](path, lines))
 
     errors = [f for f in findings if f.level == "error"]
     warnings = [f for f in findings if f.level == "warning"]
+    pending_placeholders = [f for f in warnings if f.kind == "placeholder"]
 
     if args.json:
         print(
             json.dumps(
                 {
                     "files_checked": files_checked,
+                    "pending_files": pending_files,
+                    "allow_pending": args.allow_pending,
                     "errors": len(errors),
                     "warnings": len(warnings),
+                    "pending_placeholders": len(pending_placeholders),
                     "findings": [asdict(f) for f in findings],
                 },
                 ensure_ascii=False,
@@ -259,6 +316,16 @@ def main() -> int:
         print(
             f"\n检查 {files_checked} 个文件：{len(errors)} 个 error，{len(warnings)} 个 warning"
         )
+        if pending_files:
+            if args.allow_pending:
+                print(
+                    f"其中骨架文档 {pending_files} 个，已放行 {len(pending_placeholders)} 处待办占位"
+                )
+            else:
+                print(
+                    f"其中骨架文档 {pending_files} 个，其待办占位按严格模式计为 error；"
+                    f"如属合法待办可加 --allow-pending"
+                )
 
     return 1 if errors else 0
 

@@ -358,6 +358,7 @@ python /Users/minghui.liu/.codex/skills/.system/skill-creator/scripts/quick_vali
 python .codex/skills/_design/check_doc_quality.py <文件或目录>
 python .codex/skills/_design/check_doc_quality.py --only placeholder docs/
 python .codex/skills/_design/check_doc_quality.py --json docs/
+python .codex/skills/_design/check_doc_quality.py --allow-pending algorithms/ engineering/
 ```
 
 检查项与对应质量门：
@@ -372,6 +373,19 @@ python .codex/skills/_design/check_doc_quality.py --json docs/
 退出码 0 表示无 error。本脚本只是质量门的下限检查，不能替代人工判断内容正确性。
 
 本 skill 家族自身应保持 `0 error / 0 warning` 通过，作为回归基线。
+
+#### 骨架文档与待办占位
+
+仓库中存在尚未开工的条目（29 个 `状态：⬜ 未开始` 的 README），它们用模板搭了骨架，括号内是写给作者的待办提问。这些占位在实现之前**不可能**填成真内容——强行填写会违反本家族「没有真实实现时不得虚构文件和函数」的原则。
+
+因此脚本区分两种情况：
+
+- **骨架文档**：状态行声明 `未开始` / `待实现` / `骨架`。加 `--allow-pending` 时其占位降为 warning，exit code 为 0。
+- **非骨架文档**：状态为「已完成 / 理论文档」或没有状态行。其占位**始终**是 error，即使加了 `--allow-pending`。
+
+这条区分是本规范的核心判断：**占位本身不是问题，占位出现在声称已完成的文档里才是问题**。默认（不加参数）保持严格模式，避免依赖开发者记得加 flag 才能发现真实缺陷。
+
+不建议为通过检查而修改骨架文档内容；要么用 `--allow-pending` 承认它们是待办，要么等实现后再写。
 
 ### 行为级验证
 
