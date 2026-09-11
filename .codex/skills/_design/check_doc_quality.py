@@ -38,31 +38,38 @@ FACT_LABELS = [
     "源码确认",
     "运行确认",
     "规范确认",
+    "来源确认",
     "文档确认",
     "设计意图",
     "未验证",
 ]
 LABEL_ALT = "|".join(FACT_LABELS)
 
-# 「不适用」是允许的通过结果
-NOT_APPLICABLE = "不适用"
-
-# 以全角/半角括号开头的整段，视为模板占位提示句
-PLACEHOLDER_RE = re.compile(r"^\s*[（(][^）)]{6,}[）)]\s*$")
-
-# 骨架文档标记：状态行声明未开始/待实现/骨架时，其模板占位是合法待办
-PENDING_MARKER_RE = re.compile(r"未开始|待实现|骨架|TODO\s*[:：]\s*待|⬜")
-
-# 统一词表之外的旧标签，出现即提示收敛
+# 词表外的旧标签：仅在「标签位」出现时报告（见 check_labels）
 LEGACY_LABELS = [
-    "尚未实测",
-    "尚未验证",
     "生产验证",
     "测试环境验证",
     "迁移文件确认",
     "ORM 确认",
     "契约文件确认",
 ]
+
+# 说明性标记：括号内容在解释「这份文档/这条注释」自身，而不是向作者提问
+NOTE_MARKERS = re.compile(
+    r"本文件|本文|本目录|本 skill|契约|reference|规范建议|调用方|"
+    r"不适用|未验证|未实测|来源确认|源码确认|运行确认|规范确认|设计意图|"
+    r"见 |参见|详见|即 |等价于"
+)
+
+# 「不适用」是允许的通过结果
+NOT_APPLICABLE = "不适用"
+
+# 以全角/半角括号开头的整段：真占位是「裸提示」，说明性括号不算
+PLACEHOLDER_RE = re.compile(r"^\s*[（(]([^）)]{6,})[）)]\s*$")
+_LABEL_PREFIX_RE = re.compile(r"^(来源|源码|运行|规范|文档|设计|未验证)")
+
+# 骨架文档标记：状态行声明未开始/待实现/骨架时，其模板占位是合法待办
+PENDING_MARKER_RE = re.compile(r"未开始|待实现|骨架|TODO\s*[:：]\s*待|⬜")
 
 # 数字形态：整数/小数/倍数/百分比/毫秒等
 NUMBER_RE = re.compile(r"(?<![\w.\-/])(\d+(?:\.\d+)?)\s*(%|ms|us|µs|ns|s\b|MB|GB|KB|x|倍)")
@@ -107,6 +114,22 @@ def is_pending_doc(lines: list[str]) -> bool:
     return any(PENDING_MARKER_RE.search(line) for line in lines[:12])
 
 
+def _is_placeholder(line: str) -> bool:
+    """判断整段括号是否为模板占位提示句。
+
+    真占位是「裸提示」——直接向作者提问或命令作者做什么，例如
+    「（关键公式与推导过程，手推一遍再写代码）」。说明性括号在解释这条
+    注释/这份文档自身（含「本文件/不适用/来源确认/见 …」等标记），不算占位。
+    """
+    match = PLACEHOLDER_RE.match(line)
+    if not match:
+        return False
+    body = match.group(1)
+    if NOTE_MARKERS.search(body) or _LABEL_PREFIX_RE.match(body):
+        return False
+    return True
+
+
 def check_placeholder(
     path: Path, lines: list[str], allow_pending: bool = False
 ) -> list[Finding]:
@@ -126,7 +149,7 @@ def check_placeholder(
             continue
         if in_fence:
             continue
-        if PLACEHOLDER_RE.match(line):
+        if _is_placeholder(line):
             findings.append(
                 Finding(
                     str(path),
@@ -141,25 +164,48 @@ def check_placeholder(
 
 
 def check_labels(path: Path, lines: list[str]) -> list[Finding]:
-    """报告词表外标签。用于讨论/收敛旧标签的句子不算使用，跳过。"""
+    """报告处于「标签位」的词表外旧标签。
+
+    只在旧标签被当作标签使用时报错，即位于反引号内、句末、斜杠分隔的并列标签中，
+    或答案行的行首。这样既不会误报讨论旧标签的句子，也不会误报
+    「在测试环境验证过」这类自然叙述——而后者正是上一轮的误报来源。
+    """
     findings = []
     reconciliation_hint = re.compile(r"收敛|统一到|词表|旧标签|例如|如下|等说法|不再")
     for i, line in enumerate(lines, 1):
         if reconciliation_hint.search(line):
             continue
         for legacy in LEGACY_LABELS:
-            if legacy in line:
-                findings.append(
-                    Finding(
-                        str(path),
-                        i,
-                        "warning",
-                        "legacy-label",
-                        f"使用了词表外标签「{legacy}」，应收敛到统一词表（如「未验证」）",
-                        line.strip()[:80],
-                    )
+            if legacy not in line:
+                continue
+            if not _is_label_position(line, legacy):
+                continue
+            findings.append(
+                Finding(
+                    str(path),
+                    i,
+                    "warning",
+                    "legacy-label",
+                    f"使用了词表外标签「{legacy}」，应收敛到统一词表（如「来源确认」或「未验证」）",
+                    line.strip()[:80],
                 )
+            )
     return findings
+
+
+def _is_label_position(line: str, label: str) -> bool:
+    """判断 label 是否处在「标签位」而非自然语句中。"""
+    escaped = re.escape(label)
+    patterns = [
+        rf"`{escaped}`",  # 反引号包裹
+        rf"{escaped}\s*[）)]\s*$",  # 句末括号收口
+        rf"{escaped}\s*$",  # 直接句末
+        rf"{escaped}\s*[、／/|]\s*(?:{LABEL_ALT})",  # 并列标签
+        rf"(?:{LABEL_ALT})\s*[、／/|]\s*{escaped}",  # 并列标签（另一侧）
+        rf"^\s*(?:[-*>]\s*)?{escaped}\s*[:：]",  # 列表项/表格单元格的行首标签
+        rf"\|\s*{escaped}\s*\|",  # 表格单元格
+    ]
+    return any(re.search(p, line) for p in patterns)
 
 
 def check_numbers(path: Path, lines: list[str]) -> list[Finding]:
