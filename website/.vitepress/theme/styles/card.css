@@ -1,0 +1,49 @@
+/* ============================================================================
+   共享的「图纸格」版式：`section` 小标题 + `lattice` 细线格。
+   卡片之间共用 1px 分隔线，不用阴影与圆角堆叠——信息靠线，不靠盒子。
+   ========================================================================== */
+
+.section + .section {
+  margin-top: 76px;
+}
+
+.section__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 16px;
+  margin: 0 0 22px;
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--t-ink);
+}
+
+.section__note {
+  font-size: 13.5px;
+  font-weight: 400;
+  color: var(--t-ink-3);
+}
+
+.lattice {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: var(--t-hair) solid var(--t-rule);
+  border-left: var(--t-hair) solid var(--t-rule);
+}
+
+.lattice > li {
+  position: relative;
+  border-right: var(--t-hair) solid var(--t-rule);
+  border-bottom: var(--t-hair) solid var(--t-rule);
+  background: var(--t-surface);
+}
+
+@media (max-width: 640px) {
+  .lattice {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

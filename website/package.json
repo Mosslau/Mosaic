@@ -1,0 +1,20 @@
+{
+  "name": "tenetlang-website",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "TenetLang 文档站：languages / analysis / tenet 三族的卡片式 VitePress 站点",
+  "scripts": {
+    "sync": "node scripts/sync-docs.mjs",
+    "dev": "node scripts/dev.mjs",
+    "dev:once": "npm run sync && vitepress dev .",
+    "build": "npm run sync && vitepress build .",
+    "preview": "vitepress preview ."
+  },
+  "devDependencies": {
+    "@fontsource/ibm-plex-mono": "^5.1.1",
+    "@fontsource/ibm-plex-sans": "^5.1.1",
+    "vitepress": "^1.6.4",
+    "vue": "^3.5.13"
+  }
+}
