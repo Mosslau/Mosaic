@@ -59,7 +59,9 @@ ARTIFACT_INFIX = (".log.", ".dSYM/", "/build/", "/target/")
 ARTIFACT_DIRS = {"build", "target", "__pycache__", "node_modules", ".pytest_cache", ".ruff_cache", ".mypy_cache"}
 ARTIFACT_NAMES = {"a.out", "kvlog", "wal_tool", "test_buffer", "logdemo", "file_sync"}
 TEXT_SUFFIX = {".md", ".py", ".c", ".h", ".cpp", ".hpp", ".go", ".java", ".rs", ".txt",
-               ".toml", ".json", ".yml", ".yaml", ".xml", ".properties", ".sql", ".sh", ".cfg", ".ini"}
+               ".toml", ".json", ".yml", ".yaml", ".xml", ".properties", ".sql", ".sh", ".cfg", ".ini",
+               # 文档站（website/）的源文件格式
+               ".vue", ".css", ".mjs", ".mts", ".ts", ".js", ".svg", ".markdown"}
 # 无扩展名但确实是源码/文档的常见文件名，避免误报
 SOURCE_NAMES = {"Makefile", "Dockerfile", "LICENSE", "NOTICE", "README", "CHANGELOG",
                 "CMakeLists.txt", "go.mod", "go.sum", "Cargo.lock", "compose.yaml"}
@@ -301,8 +303,12 @@ def is_binary_file(path: Path) -> bool:
         return True
     if not head:
         return False
-    printable = sum(1 for b in head if 32 <= b < 127 or b in (9, 10, 13))
-    return printable / len(head) < 0.85
+    # 按「字符」而非「字节」统计可打印率：本仓库注释大量使用中文，UTF-8 下每个汉字占 3 字节
+    # 且全部 >= 0x80，按字节算可打印率会掉到 0.8 以下，把纯文本源码误判成二进制。
+    # errors="replace" 兜住「4096 字节截断在多字节字符中间」的情况。
+    text = head.decode("utf-8", errors="replace")
+    printable = sum(1 for ch in text if ch.isprintable() or ch in "\t\n\r")
+    return printable / len(text) < 0.85
 
 
 def check_git(root: Path) -> bool:
