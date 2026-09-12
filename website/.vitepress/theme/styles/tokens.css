@@ -15,7 +15,9 @@
   --t-surface-sunken: #e5ebf2;
   --t-ink: #101a2b;
   --t-ink-2: #46566b;
-  --t-ink-3: #7a8798;
+  /* 小号说明文字（阶段数、阅读时长、卡片脚注）都走 ink-3，
+     取值需满足 WCAG AA 普通文字 4.5:1 —— 白底 5.0:1 */
+  --t-ink-3: #66707f;
 
   /* 图纸网格线 */
   --t-rule: #d3dbe4;
@@ -51,7 +53,8 @@ html.dark {
   --t-surface-sunken: #0d1a27;
   --t-ink: #e9f0f8;
   --t-ink-2: #a6bacd;
-  --t-ink-3: #6f8598;
+  /* 深色下 ink-3 需 ≥4.5:1，蓝图底 5.6:1 */
+  --t-ink-3: #8098ad;
 
   --t-rule: #1d3348;
   --t-rule-strong: #2e4d6a;

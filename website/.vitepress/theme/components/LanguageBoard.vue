@@ -181,6 +181,9 @@ const totalHours = computed(() => Math.max(1, Math.round(totalMinutes.value / 60
   font-size: 13px;
   line-height: 1.7;
   color: var(--t-ink-2);
+  /* 卡片正文栏窄，中英混排容易在末行留下「法。」这样的孤字；
+     pretty 对中文断行无效，用 balance 把两三行拉匀 */
+  text-wrap: balance;
 }
 
 .ch__code {

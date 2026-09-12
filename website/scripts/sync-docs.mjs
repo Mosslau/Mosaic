@@ -421,7 +421,10 @@ function parseTenet() {
     if (!m) continue
     const cells = line.split('|').map((c) => c.trim())
     compilers.push({
-      slug: m[1],
+      // slug 是短名（rs/cpp/arm64），dir 是磁盘目录名（compiler-rs），
+      // 消费方统一用 `compiler-${slug}` 拼显示名
+      slug: m[1].replace(/^compiler-/, ''),
+      dir: m[1],
       link: routeOf(docsPathOf(path.resolve(path.dirname(readme), m[2], 'README.md'))),
       frontend: stripMd(cells[2] ?? ''),
       backend: stripMd(cells[3] ?? ''),
@@ -508,8 +511,6 @@ for (const lang of languages) {
       'aside: false',
       'outline: false',
       '---',
-      '',
-      '本页由 `scripts/sync-docs.mjs` 生成，内容真源见仓库 `languages/' + lang.id + '/`。',
       '',
       `<LanguageBoard lang="${lang.id}" />`,
       '',

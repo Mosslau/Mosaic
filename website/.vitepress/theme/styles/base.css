@@ -9,7 +9,10 @@
   --vp-font-family-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo,
     Consolas, 'Liberation Mono', monospace;
 
-  --vp-layout-max-width: 1520px;
+  /* 不要调大：VitePress 大量使用 calc((100vw - var(--vp-layout-max-width)) / 2 + …)
+     来计算导航与正文两侧的内边距。视口窄于该值时算出负值，导航右侧内边距会从 32px
+     缩水、正文的 padding-left 甚至会把内容压到侧边栏下面。1440px 是它自己的默认值。 */
+  --vp-layout-max-width: 1440px;
   --vp-sidebar-width: 276px;
 
   /* 内容色 */
@@ -70,10 +73,6 @@ body {
   border-bottom: var(--t-hair) solid var(--t-rule);
 }
 
-.VPNavBar.has-sidebar .curtain {
-  display: none;
-}
-
 /* 侧边栏：去掉圆角与阴影，回到图纸的直角分隔 */
 .VPSidebar {
   border-right: var(--t-hair) solid var(--t-rule);
@@ -92,12 +91,8 @@ body {
   font-size: 14px;
 }
 
-/* 当前条目用左侧色条标记而非整行底色 */
-.VPSidebarItem.is-active > .item .text {
-  color: var(--vp-c-brand-1);
-  font-weight: 500;
-}
-
+/* 当前条目：VitePress 默认已给出品牌色，这里只补一条左侧色标，
+   位置与 VPSidebarItem 的 .item 对齐 */
 .VPSidebarItem.is-active > .item::before {
   content: '';
   position: absolute;
@@ -110,6 +105,14 @@ body {
 
 .VPSidebarItem .item {
   position: relative;
+}
+
+/* VitePress 的折叠箭头是一个 32px 定宽盒子（图标居中）+ margin-right:-7px，
+   结果图标右缘离侧边栏右边框还有 ~42px，而左侧文字内边距只有 16px，左右不对称、看着发飘。
+   这里让图标贴齐右侧 16px 内边距，与左边对齐。 */
+.VPSidebarItem > .item .caret {
+  justify-content: flex-end;
+  margin-right: -16px;
 }
 
 /* ---------------------------------------------------------------- 正文排印 */

@@ -16,8 +16,9 @@ const compilers = tenet.compilers
       <span class="design__label">完整文档</span>
       <span class="design__title">{{ tenet.design.title }}</span>
       <span class="design__meta">
-        设计溯源 / 语言规范 / 架构 / LLVM 后端 / 实现 / 演进 · 约 {{ tenet.design.minutes }} 分钟
+        设计溯源 / 语言规范 / 架构 / LLVM 后端 / 实现 / 演进
       </span>
+      <span class="design__meta">约 {{ tenet.design.minutes }} 分钟</span>
     </a>
 
     <ul class="lattice lattice--compilers">

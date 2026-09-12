@@ -22,10 +22,17 @@ onMounted(() => {
 
 onBeforeUnmount(() => cancelAnimationFrame(frame))
 
-/** 每条导轨从语言所在行出发，弯折汇入最右侧的同一个点 */
+/**
+ * 每条导轨从语言所在行出发，弯折汇入最右侧的同一个点。
+ *
+ * `knee` 按「离中心行的距离」取反：离得越远（C / Rust，垂直行程最大）越早弯折，
+ * 留出更长的曲线；离得越近（Go / Java）越晚弯折。这样上半场与下半场关于中轴镜像，
+ * 而不是随序号单调变化——后者会画出一个明显歪掉的扇形。
+ */
 function railPath(index) {
   const y = index * ROW + ROW / 2
-  const knee = 130 + index * 12
+  const middle = (languages.length - 1) / 2
+  const knee = 130 + (middle - Math.abs(index - middle)) * 34
   return `M0,${y} L${knee},${y} C${knee + 60},${y} 210,${centerY} 300,${centerY}`
 }
 
@@ -137,7 +144,11 @@ const railClass = (index) => ({
 
 .rig__label {
   position: relative;
-  display: flex;
+  /* 固定宽度的名字列：让「N 阶段」在所有行从同一个 x 起排。
+     flex 布局会跟随各语言名的自然宽度（C / C++ / Go / Java / Python / Rust 长度不一），
+     结果是数字参差不齐。 */
+  display: grid;
+  grid-template-columns: 64px auto;
   align-items: center;
   gap: 10px;
   height: 100%;
