@@ -10,9 +10,10 @@ Rust 基础语法阶段的定位是：**能写简单 Rust 程序，理解 Rust �
 |----------|---------|
 | 工具链 | `rustup`、`cargo`、`rustc` |
 | 函数 | `fn main`、表达式 vs 语句、`println!` 宏 |
-| 变量 | `let`、`mut`、常量、阴影（Shadowing） |
+| 变量 | `let`、`mut`、阴影（Shadowing）、常量（const） |
 | 类型 | 基本类型、元组（Tuple）、数组 |
 | 控制流 | 运算符、`if`、`loop`、`while`、`for`、`match` |
+| 测试 | `#[test]`、`assert_eq!`、`cargo test` |
 
 第一天就要用上 `cargo`——这是 Rust 与其他语言最显著的工具链差异。
 
@@ -26,7 +27,7 @@ Rust 由 Graydon Hoare 于 2006 年开始设计，Mozilla 于 2009 年赞助，2
 | 1.0 | 2015 | 稳定版发布，确立向后兼容承诺 |
 | Edition 2018 | 2018 | `impl Trait`、`dyn Trait`、`?` 随处可用、模块路径改进 |
 | Edition 2021 | 2021 | 闭包捕获规则更精细、`IntoIterator` for arrays |
-| Edition 2024 | 2024 | let 链（`if let ... && let ...`）、`impl Trait` 生命周期捕获改进、`unsafe fn` 内 unsafe 操作需显式 `unsafe` 块（lint 默认警告） |
+| Edition 2024 | 2024 | `impl Trait` 生命周期捕获改进、`unsafe fn` 内 unsafe 操作需显式 `unsafe` 块（lint 默认警告） |
 
 **Edition（版次）不是编译器版本**：同一编译器可以编译不同 Edition 的代码，Edition 控制语法和语义的**可选变更**。
 
@@ -69,7 +70,16 @@ fn main() {
 
 每个 Rust 程序都有 `fn main()` 作为入口。`println!` 后跟 `!` 表示它是**宏（Macro）**而非普通函数——宏在编译时展开为代码。
 
-### 3.3 变量：let、mut、Shadowing
+### 3.3 变量：let、mut、Shadowing、const
+
+| 概念 | 说明 |
+|------|------|
+| 默认不可变 | 变量声明后默认不能修改，增强代码安全性 |
+| `mut` | 显式声明为可变变量 |
+| 阴影（Shadowing） | 用 `let` 重新声明同名变量，可以改变类型 |
+| 常量 `const` | 编译期常量，必须标注类型，命名惯例全大写 |
+
+**关键概念**：`let x = 5` 的 `=` 是**绑定（Binding）**——将值绑定到名称，而不是给已存在的变量赋值。Rust 的术语中更常说"绑定"而非"变量"。
 
 ```rust
 let x = 5;           // 默认不可变（Immutable）
@@ -84,14 +94,22 @@ let z = z + 1;       // z = 6，新变量"遮蔽"旧变量
 let z = "hello";     // 甚至可以改变类型！
 ```
 
-| 概念 | 说明 |
-|------|------|
-| 默认不可变 | 变量声明后默认不能修改，增强代码安全性 |
-| `mut` | 显式声明为可变变量 |
-| 阴影（Shadowing） | 用 `let` 重新声明同名变量，可以改变类型 |
-| 常量 `const` | 编译期常量，必须标注类型，命名惯例全大写 |
+`const` 与 `mut` 的区别：
 
-**关键概念**：`let x = 5` 的 `=` 是**绑定（Binding）**——将值绑定到名称，而不是给已存在的变量赋值。Rust 的术语中更常说"绑定"而非"变量"。
+| 对比项 | `let mut` | `const` |
+|--------|-----------|---------|
+| 可变性 | 运行时可修改 | 永远不可变 |
+| 类型标注 | 可省略（推导） | **必须**显式标注 |
+| 值 | 任意表达式 | 只能是编译期常量表达式 |
+| 命名惯例 | snake_case | SCREAMING_SNAKE_CASE |
+
+```rust
+const MAX_POINTS: u32 = 100_000;   // 必须标注类型，编译期确定
+// const MAX: u32 = compute();     // 编译错误！不能是运行时才能算出的值
+
+let mut count = 0;
+count += 1;                        // mut：运行时可变，作用域内
+```
 
 ### 3.4 基本类型
 
@@ -112,12 +130,37 @@ let flag = true;           // 类型推导
 let heart_eyed_cat = '😻'; // Rust char 支持 Unicode（4 字节）
 ```
 
+**数字字面量可读性**——下划线分隔与进制前缀：
+
+```rust
+let million = 1_000_000;   // 下划线纯为可读性，编译时忽略
+let hex = 0xff;            // 十六进制 = 255
+let octal = 0o77;          // 八进制 = 63
+let binary = 0b1010;       // 二进制 = 10
+let byte = b'A';           // 字节字面量（u8）= 65
+```
+
+**String 与 &str 的基础操作**——本阶段只需掌握创建与拼接：
+
+```rust
+let s1 = String::from("Hello");  // 堆上可增长的字符串
+let s2 = "world";                // 字符串字面量，类型是 &str
+
+let joined = format!("{} {}", s1, s2);  // 拼接首选 format!，返回新 String
+println!("{}", joined);                 // Hello world
+
+let owned = s1 + " " + s2;       // + 拼接也行，但会"消耗"s1（原因在 ph02 所有权）
+// println!("{}", s1);           // 编译错误！s1 已被移动
+```
+
+> 本阶段先记住两条实践规则：拼接用 `format!`（直观且不消耗原值）；`String` 和 `&str` 为什么不能随意互转，等 ph02 讲清所有权就明白了。
+
 ### 3.5 复合类型：元组与数组
 
 ```rust
 // 元组（Tuple）：固定长度，元素类型可不同
 let tup: (i32, f64, char) = (500, 6.4, 'A');
-let (x, y, z) = tup;       // 解构（Destructuring）
+let (x, y, _) = tup;       // 解构（Destructuring）；用不到的元素用 _ 丢弃，避免 unused warning
 println!("{} {}", tup.0, tup.1);  // 索引访问
 
 // 数组（Array）：固定长度，元素类型相同，分配在栈上
@@ -261,6 +304,49 @@ let big: i64 = 42_i32 as i64;  // 拓宽也要显式写
 
 > ⚠️ `as` 是"尽力转换"：截断、可能溢出（`u8` 转成放不下的值会回绕）都不报错。需要"转换失败就报错"的场景要用 `TryFrom`/`parse`——`"42".parse::<i32>()` 返回 `Result`，这是 ph02 之后错误处理阶段的内容；本阶段掌握 `as` 的基础转换即可。
 
+### 3.10 单元测试：#[test] 与 assert_eq!
+
+cargo 内置测试框架，不需要任何依赖。测试函数用 `#[test]` 标注，写在被测代码同一个文件底部即可：
+
+```rust
+fn add(a: i32, b: i32) -> i32 {
+    a + b
+}
+
+fn add_u8(x: u8, y: u8) -> u8 { x + y }   // 独立函数：编译器不做跨函数常量折叠
+
+#[cfg(test)]
+mod tests {
+    use super::*;   // 引入外层模块的函数
+
+    #[test]
+    fn test_add() {
+        assert_eq!(add(2, 3), 5);       // 相等断言：失败会打印两个值
+        assert_ne!(add(2, 3), 6);       // 不相等断言
+        assert!(add(2, 3) > 0);         // 布尔断言
+    }
+
+    #[test]
+    #[should_panic]                     // 预期 panic 的测试
+    fn test_overflow() {
+        add_u8(255, 1);   // 运行时溢出 panic（debug 模式，见 3.6）
+        // 注意：直接写 255_u8 + 1 会在编译期被 arithmetic_overflow 拦下，
+        // 连测试都编不过——所以运行时溢出要用函数参数传入
+    }
+}
+```
+
+> 💡 上面这个"溢出测试"还隐藏了一课：`arithmetic_overflow` lint 会在**编译期**拦截常量溢出表达式（这正是 Rust 静态检查的价值），想演示运行时 panic 必须让值经过函数参数传进来。
+
+运行方式：
+
+```bash
+cargo test     # 运行全部测试，输出 passed/failed 统计
+cargo test test_add   # 只跑名字匹配的测试
+```
+
+要点：测试代码放在 `#[cfg(test)]` 模块里，只在 `cargo test` 时编译，`cargo build` 会跳过它们。本阶段的练习和项目都要求为每个函数补上 `assert_eq!` 断言——这也是验证"函数返回值 = 最后一个表达式"最直接的方式。
+
 ## 4. 底层原理
 
 ### 4.1 Rust 编译流程
@@ -309,7 +395,8 @@ let status = if ok { "success" } else { "error" };
 ```rust
 println!("{0} + {1} = {2}", a, b, a + b);
 println!("{name} is {age} years old", name="Alice", age=30);
-println!("{:#?}", complex_struct);  // 美化调试输出
+println!("{:?}", (1, "two", 3.0));   // Debug 输出，元组可直接打印：`(1, "two", 3.0)`
+// println!("{:#?}", some_struct);   // 美化 Debug 输出——struct 是 ph02 之后的内容，此处先埋个钩子
 ```
 
 `println!` 后的 `!` 表示宏调用。宏在编译期展开为代码，可以接收可变数量的参数并进行**编译期格式字符串检查**——格式错误会在编译时报错，而不是运行时报错。
@@ -319,11 +406,11 @@ println!("{:#?}", complex_struct);  // 美化调试输出
 | 格式 | 用途 | 示例 |
 |------|------|------|
 | `{}` | 默认 Display 输出（面向用户） | `println!("{}", 42)` → `42` |
-| `{:?}` | Debug 输出（面向开发者） | `println!("{:?}", vec![1,2])` → `[1, 2]` |
+| `{:?}` | Debug 输出（面向开发者） | `println!("{:?}", (1, 2))` → `(1, 2)` |
 | `{:#?}` | 美化 Debug 输出 | 多行缩进显示结构 |
 | `{:p}` | 指针地址 | `println!("{:p}", &x)` |
 
-**关键区别**：`{}` 需要类型实现 `Display` trait，`{:?}` 需要实现 `Debug` trait。基础阶段最实用的技巧——给结构体加 `#[derive(Debug)]` 就能用 `{:?}` 打印调试信息。
+**关键区别**：`{}` 需要类型实现 `Display` trait，`{:?}` 需要实现 `Debug` trait。基础阶段先记住：基本类型、元组、数组都自带 `Debug`，可直接用 `{:?}` 打印；自定义类型加 `#[derive(Debug)]` 也能用（struct还没学到，这里是预告）。
 
 ### 4.5 编译器是学习伙伴：把报错当提示
 
@@ -528,9 +615,11 @@ fn main() {
 
 - [ ] 能独立创建并运行 cargo 项目（`cargo new` / `cargo run`）
 - [ ] 能解释 `mut`、shadowing、表达式返回值的含义
+- [ ] 能区分 `const` 与 `let mut` 的适用场景
 - [ ] 能写出使用 `if`、`loop`、`for`、`match` 的程序
 - [ ] 能根据编译错误定位基础语法问题并修复
 - [ ] 能使用 `println!` 进行格式化输出和调试
+- [ ] 能用 `#[test]` + `assert_eq!` 为函数编写基本测试
 
 ### 动手练习
 
