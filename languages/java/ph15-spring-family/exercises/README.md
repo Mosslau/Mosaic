@@ -3,7 +3,7 @@
 > 先自己做，再对照 sol-* 参考实现。每题标注难度（★~★★★）。
 > 验证环境：OpenJDK 17.0.18（`javac -version` → 17.0.18）+ Maven 3.9.12（`mvn -version` → 3.9.12）+ Spring Boot 3.3.0（父 POM 统一管 Spring Framework 6.1.8 / Hibernate 6.5.2 / AspectJ 1.9.22 / Spring Security 6.3.4）+ jjwt 0.12.5 + HSQLDB 2.5.0。本机 Maven 实测用 `mvn -o` 离线模式（依赖来自本地缓存 `/tmp/m2clone`）；正常联网环境直接 `mvn clean test` 即可。
 
-**与 roadmap「ph15 Spring 全家桶阶段」练习小节的对应**：roadmap 列的「REST API 服务 / 统一响应结构」是 ph14 已练过的题目（REST Todo API、统一响应 `{code,message,data}` 分别在 ph14 练习 1/4/5 与 project），「Redis 缓存」在 [ph13 数据库阶段练习 4](../ph13-database/exercises/README.md) 已落地（需本机 redis-server），故本阶段五题对准 §15 学习内容本身的容器机制与工程设施——练习 1 手写 DI 管「对象创建与依赖」，练习 2 生命周期/循环依赖，练习 3 profile 管「环境差异」，练习 4 AOP/事务管「横切与一致性」，练习 5 用 Security 重做「JWT 登录认证」（ph14 的 Controller 拦截器版升级为 Filter 链原生版）。
+**与 roadmap「ph15 Spring 全家桶阶段」练习小节的对应**：roadmap 列的「REST API 服务 / 统一响应结构」是 ph14 已练过的题目（REST Todo API、统一响应 `{code,message,data}` 分别在 ph14 练习 1/4/5 与 project），「Redis 缓存」在 [ph13 数据库阶段练习 4](../../ph13-database/exercises/README.md) 已落地（需本机 redis-server），故本阶段五题对准 §15 学习内容本身的容器机制与工程设施——练习 1 手写 DI 管「对象创建与依赖」，练习 2 生命周期/循环依赖，练习 3 profile 管「环境差异」，练习 4 AOP/事务管「横切与一致性」，练习 5 用 Security 重做「JWT 登录认证」（ph14 的 Controller 拦截器版升级为 Filter 链原生版）。
 
 sol-* 为参考实现（文件头已注明验证环境、命令与实测数字），做完再看。sol-01 是零依赖单文件（在 exercises/ 目录就地 `javac` + `java`，命令见练习 1 与文件头）；sol-02~05 是「源代码合集 + 注释里的 pom 来源」，按文件内注释把每个文件写入标准 Maven 工程后 `mvn -o -Dmaven.repo.local=/tmp/m2clone test` 验证（pom 分别复制 examples/ex01/ex02/ex04/ex06 的）。
 
