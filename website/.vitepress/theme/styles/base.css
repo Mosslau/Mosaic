@@ -61,6 +61,39 @@ body {
 
 /* ---------------------------------------------------------------- 站点外壳 */
 
+/* GitHub 图标默认排在亮暗切换之后（DOM 顺序是 search → menu → appearance → social-links）。
+   用 flex order 把它提到菜单正后方，即「仓库总览」右边、亮暗切换左边。
+   两个都是 .content-body 的直接子元素；其余项 order 默认为 0，所以它们自然排在前面。 */
+.VPNavBarSocialLinks {
+  order: 1;
+}
+
+.VPNavBarAppearance {
+  order: 2;
+}
+
+/* VitePress 的分隔竖线是按 DOM 相邻关系画的（.menu + .appearance::before、
+   .appearance + .social-links::before …）。order 只改视觉顺序，这些线会错位夹在
+   GitHub 与亮暗切换之间，所以要按元素本身关掉，而不是按相邻关系。
+   选择器刻意用满四层类名，压过 VitePress 的 (0,3,0)。 */
+.VPNavBar .container .content .VPNavBarSocialLinks::before,
+.VPNavBar .container .content .VPNavBarAppearance::before {
+  content: none;
+}
+
+/* 原来两处控件的间距是那条竖线自带的 margin（8px / 16px）撑起来的，线去掉后会塌成 0。
+   这里显式给一组等距值，并把两者外框统一成 36px 高，与 GitHub 图标外框一致：
+   GitHub 图标 36px 外框 + 左右各 8px 外边距、开关外框 36px，
+   于是「菜单 → 图标」与「图标 → 开关」的视觉间距都是 16px（图标外框内含 8px 内边距）。 */
+.VPNavBar .content-body .VPNavBarSocialLinks {
+  margin-left: 8px;
+  margin-right: 8px;
+}
+
+.VPNavBar .content-body .VPNavBarAppearance {
+  height: 36px;
+}
+
 /* 站点名用等宽字，和卡片上的语言字标同源 */
 .VPNavBarTitle .title {
   font-family: var(--vp-font-family-mono);
@@ -69,9 +102,8 @@ body {
   letter-spacing: -0.01em;
 }
 
-.VPNavBar {
-  border-bottom: var(--t-hair) solid var(--t-rule);
-}
+/* 导航底边线交给 VitePress 自带的 .divider-line（1px，色值已由 --vp-c-gutter → --t-rule 接管）。
+   之前这里额外加过 border-bottom，与它相邻叠成 2px：侧边栏右侧粗、侧边栏上方细，拐角也对不齐。 */
 
 /* 侧边栏：去掉圆角与阴影，回到图纸的直角分隔 */
 .VPSidebar {
@@ -113,6 +145,45 @@ body {
 .VPSidebarItem > .item .caret {
   justify-content: flex-end;
   margin-right: -16px;
+}
+
+/* ------------------------------------------------- 侧边栏折叠（自定义） */
+
+/* 折叠状态由 html.sidebar-collapsed 标记，由 SidebarResizer 写入、并在首次绘制前由
+   config.mts 注入的内联脚本按 localStorage 恢复，避免「先展开再收起」的闪动。
+
+   选择器都写成 html.sidebar-collapsed … 的 (0,n,1) 形式，比 VitePress 自带的
+   .VPNavBar.has-sidebar .content[data-v-x] 等规则多一个元素，因此不依赖样式注入顺序。 */
+@media (min-width: 960px) {
+  html.sidebar-collapsed .VPSidebar {
+    transform: translateX(-100%);
+    opacity: 0;
+    pointer-events: none;
+    visibility: hidden;
+    /* visibility 延迟到滑出动画结束，否则会瞬间消失、动画看不到 */
+    transition: opacity 0.35s ease, transform 0.25s ease, visibility 0s linear 0.35s;
+  }
+
+  /* 正文占满腾出来的空间 */
+  html.sidebar-collapsed .VPContent.has-sidebar {
+    padding-left: 0;
+  }
+
+  /* 导航底部的分隔线原本左侧留出侧边栏的宽度，折叠后铺满 */
+  html.sidebar-collapsed .VPNavBar.has-sidebar .divider {
+    padding-left: 0;
+  }
+}
+
+@media (min-width: 1440px) {
+  /* ≥1440px 时 VitePress 会让正文整体内缩 (100vw - max) / 2，折叠后保持这个外缘 */
+  html.sidebar-collapsed .VPContent.has-sidebar {
+    padding-left: calc((100vw - var(--vp-layout-max-width)) / 2);
+  }
+
+  html.sidebar-collapsed .VPNavBar.has-sidebar .divider {
+    padding-left: 0;
+  }
 }
 
 /* ---------------------------------------------------------------- 正文排印 */

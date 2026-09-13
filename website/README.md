@@ -106,6 +106,38 @@ dev server 或需你手动重启一次，改内容则完全即时。）
 它同时作用于构建期的索引和浏览器端的查询。注意该函数会被序列化进页面（`new Function` 还原），
 必须自包含，不能引用模块作用域变量。
 
+## 侧边导航栏（折叠 / 调宽）
+
+VitePress 默认主题在桌面端**没有**整栏折叠，也没有运行时调宽（汉堡按钮在 `@media (min-width: 768px)`
+里就是 `display: none`，只有 <960px 的抽屉）。这两项由 `theme/components/SidebarResizer.vue` 补上：
+
+| 操作 | 方式 |
+|---|---|
+| 折叠整栏 | 悬停侧边栏右缘的细线，点出现的箭头；收起后箭头常驻视口左缘，点它展开 |
+| 拖拽调宽 | 拖动右缘细线，范围 200–440px，**双击复位**到 276px |
+| 键盘 | Tab 聚焦细线后用 ←/→ 调 8px，`Shift` + ←/→ 调 32px |
+| 记忆 | 折叠状态与宽度存在 `localStorage`（`tenetlang:sidebar-collapsed` / `tenetlang:sidebar-width`） |
+
+折叠按钮整体落在侧边栏**内侧**、右缘距分割线 16px，与侧边栏分组折叠箭头同一个内缩位置——
+两者对齐而不是骑在线上。按钮与拖拽线是两个各自定位的元素，位置由 JS 实测侧边栏右缘后写入
+`--line-x` / `--btn-x`。
+
+两个实现要点：
+
+- **把手位置实测而非复刻公式**：侧边栏在 ≥1440px 断点的宽度是
+  `calc((100% - (max - 64)) / 2 + var(--vp-sidebar-width) - 32px)`，自己算容易算漏；
+  改用 `getBoundingClientRect()` 实测右缘，任何断点/主题改动都自动跟随。
+  折叠时不做测量（此刻侧边栏正在 `translateX(-100%)` 过渡中，会量到旧位置），直接钉在视口左缘。
+- **折叠态不依赖过渡**：`visibility: hidden` + `pointer-events: none` 独立保证不可见不可交互，
+  `transform` / `opacity` 只负责滑出动画——过渡被中断或降级也不影响功能。
+
+折叠状态由 `config.mts` 注入的内联脚本在**首次绘制前**恢复，避免「先展开再收起」的闪动；
+该脚本与组件共用同一组 localStorage 键，改键名需同步两处。
+
+> 注意：≥1440px 视口下 VitePress 会让侧边栏随屏幕变宽（1920 视口下约 516px）。若希望大屏上也固定
+> 276px，需要额外覆盖 `@media (min-width: 1440px)` 下 `.VPSidebar` / `.VPContent.has-sidebar` /
+> `.VPNavBar.has-sidebar .content` 三处的 `calc()` 公式，属于本仓库尚未采用的设计选择。
+
 ## 链接校验
 
 `npm run sync` 会逐条校验所有相对链接，并分三类处理：

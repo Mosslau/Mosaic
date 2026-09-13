@@ -146,6 +146,17 @@ export default defineConfig({
   head: [
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
     ['meta', { name: 'theme-color', content: '#f2f5f8' }],
+    // 首次绘制前恢复侧边栏的折叠状态与宽度，避免「先展开再收起」的闪动。
+    // 与 SidebarResizer.vue 共用同一组 localStorage 键，键名改动需同步。
+    [
+      'script',
+      {},
+      `(function(){try{var d=document.documentElement;` +
+        `if(localStorage.getItem('tenetlang:sidebar-collapsed')==='1'){d.classList.add('sidebar-collapsed');}` +
+        `var w=parseInt(localStorage.getItem('tenetlang:sidebar-width')||'',10);` +
+        `if(w>=200&&w<=440){d.style.setProperty('--vp-sidebar-width',w+'px');}` +
+        `}catch(e){}})();`,
+    ],
   ],
   markdown: {
     theme: { light: 'github-light', dark: 'github-dark' },
@@ -180,6 +191,10 @@ export default defineConfig({
     logo: { light: '/logo.svg', dark: '/logo-dark.svg' },
     nav,
     sidebar,
+    // 仓库入口。默认会排在亮暗切换之后，样式里用 order 把它提到「仓库总览」正后方。
+    socialLinks: [
+      { icon: 'github', link: 'https://github.com/Mosslau/TenetLang', ariaLabel: 'GitHub 仓库' },
+    ],
     outline: { level: [2, 3], label: '本页目录' },
     docFooter: { prev: '上一节', next: '下一节' },
     darkModeSwitchLabel: '外观',

@@ -20,10 +20,13 @@ import ConvergenceHero from './components/ConvergenceHero.vue'
 import LanguageBoard from './components/LanguageBoard.vue'
 import LanguageGrid from './components/LanguageGrid.vue'
 import StatStrip from './components/StatStrip.vue'
+import ThemeLayout from './components/ThemeLayout.vue'
 import ThreePaths from './components/ThreePaths.vue'
 
 export default {
   extends: DefaultTheme,
+  // 默认主题的 Layout 之上挂侧边栏把手（折叠按钮 + 拖拽调宽）
+  Layout: ThemeLayout,
   enhanceApp({ app }) {
     app.component('ConvergenceHero', ConvergenceHero)
     app.component('StatStrip', StatStrip)
