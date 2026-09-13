@@ -102,3 +102,5 @@ languages/cpp/ph15-ub-memory-safety/project/build/
 # Go 构建产物（go build 默认产物名 = 模块目录名，无扩展名）
 # 各 examples/exercises 独立 module 只提交源码；构建一律输出到 /tmp，若误落盘需手动清理
 languages/go/ph18-api-design-compat/examples/ex01-rest-design/ex01-rest-design
+
+.workbuddy
