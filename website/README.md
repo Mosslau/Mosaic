@@ -3,6 +3,12 @@
 把仓库里 `languages/`、`analysis/`、`tenet/` 三个目录族的 Markdown 构建成卡片式的
 [VitePress](https://vitepress.dev) 站点：六门语言 → 设计分析 → Tenet 语言与编译器。
 
+## 本文档的边界
+
+本文档只讲站点工程：内容如何被转换成页面、主题与导航怎么组织、如何构建与预览。
+它不规定内容本身怎么写。笔记的阶段结构、四层交付物与排版规范在
+`.dsh/skills/tenetlang-notes/SKILL.md`。两者冲突时，内容格式以那份为准，站点如何呈现以本文档为准。
+
 ## 快速开始
 
 ```bash
@@ -41,8 +47,8 @@ website/docs/                                          ← 生成物：已被 .g
 http://localhost:5173                                  ← 站点
 ```
 
-`docs/` 不进版本库（`git add website/` 只会带上 24 个源文件），所以你永远不会面对
-「改了原文还要不要改副本」的问题——那份副本在构建意义上不存在。
+`docs/` 不进版本库（`git add website/` 只带源文件，不含任何产物），所以你永远不会面对
+「改了原文还要不要改副本」的问题：那份副本在构建意义上不存在。
 
 需要重新生成时，删掉整个目录也可以：`rm -rf docs && npm run sync`。
 
@@ -72,14 +78,45 @@ website/
    代码层入口（示例 / 练习 / 项目），产出 `curriculum.json`；
 4. **生成**每种语言的卡片总览页。
 
+结构数据写成 JSON 而不是 `.mjs` 是有意的：`config.mts` 要在 Node 侧同步读取它来生成导航与侧边栏，
+而主题组件通过 Vite 的 JSON 导入消费同一份，两边读的是同一个文件。
+
 同步是**增量**的：只有内容真的变了才落盘（脚本末尾会打印「写入变更 N 个文件」），
 源文档被删除或改名留下的残留页会被自动清理。这样监听模式下改一篇文档只影响那一页，
 不会触发整站 HMR。
 
-想加一门语言，只需在 `scripts/sync-docs.mjs` 的 `LANGUAGES` 里补一项，
-并在 `theme/styles/tokens.css` 里给它一个身份色——导航、侧边栏、卡片网格会自动跟上。
-（新增/删除阶段会改变 `curriculum.json`，侧边栏依赖它；这种情况 VitePress 会自行重启
-dev server 或需你手动重启一次，改内容则完全即时。）
+## 改内容时要动什么
+
+`npm run dev` 下改文档不需要手动做任何事（监听 + 增量同步）；**生产构建不区分内容与代码，
+任何内容变化都要重新 `npm run build`**。区别在于是否要碰代码，以及 dev 下是否即时：
+
+| 操作 | 改代码 | dev 下 |
+|---|---|---|
+| 修改文档正文 | 否 | 即时 |
+| 新增文档 | 否 | 即时（新路由与 `docs/` 产物都会生成） |
+| 新增阶段 | 否¹ | **阶段卡片即时**；导航/侧边栏要**手动重启 dev server** |
+| 新增分析笔记 | 否² | 同上 |
+| 新增一门语言 | **是，见下** | 同上 |
+
+¹ 阶段要在 roadmap（`languages/<语言>/<语言>.md`）里补一个 `## N. <名>阶段` 段，并写上
+`> 📖 详细展开版见 [phNN-主题/NN-主题.md](./phNN-主题/NN-主题.md)`，解析器读的就是这两处约定。
+
+² 分析笔记要在 `analysis/<语言>/README.md` 的表格里补一行；分析卡片与侧边栏都读那张表。
+
+**为什么结构性变更要重启 dev server**：导航与侧边栏由 `config.mts` 在启动时从
+`curriculum.json` 生成，而 VitePress 只在 `config.mts` 本身（或它被 esbuild 记录为依赖的文件）
+变化时重启：JSON 是被内联进 config bundle 的，不在它的依赖清单里，所以改了不会自动重启。
+卡片网格走的是另一条路（组件 `import` 该 JSON，由 Vite HMR 更新），因此即时。
+
+新增一门语言要动三处代码：
+
+1. `scripts/sync-docs.mjs` 的 `LANGUAGES` 数组加一项 `{ id, name, token }`；
+2. `theme/styles/tokens.css` 里给 `--t-<token>` 在 `:root` **和** `html.dark` 各加一行
+   （两处都要，否则深色模式下该色未定义）；
+3. 若要为它建分析台，还要把它加进 `scripts/sync-docs.mjs` 的
+   `const analysis = [...]` 数组，并在 `parseAnalysis` 的显示名映射里补一项。
+
+其余（导航、侧边栏、卡片网格、首页汇流台）全部按数据自动生成。
 
 ## 视觉系统
 
@@ -87,12 +124,14 @@ dev server 或需你手动重启一次，改内容则完全即时。）
 
 - `theme/styles/tokens.css` — 纸面/墨色、六种语言的身份色、尺度与动效曲线。
   浅色是纸面，深色是蓝图（cyanotype）。语言色是**语义色**，在导轨、卡片骨架、字标处始终指向同一门语言。
+- `theme/styles/base.css` — 站点外壳（导航、侧边栏、正文排印），以及把设计令牌接到 VitePress 主题变量上。
 - `theme/styles/card.css` — 共享的「图纸格」版式（`.section` + `.lattice`），
   卡片之间共用 1px 分隔线，不用阴影堆叠。
+- `theme/styles/landing.css` — 落地页（`layout: page`）的版心与节奏。
 - `theme/components/` — 首页的汇流台（`ConvergenceHero`）、三条主线、语言卡片网格、
   分析卡片网格、编译器卡片网格，以及每门语言的阶段卡片页（`LanguageBoard`）。
 
-## 两个容易踩的坑（已在管线里处理）
+## 两个容易踩的坑
 
 - **Vue 插值**：正文里的 `{{ … }}`（Go 模板、C 初始化列表、CI 的 `${{ }}`）会被 Vue 当成插值。
   所有行内 `<code>` 都加了 `v-pre`。
@@ -102,56 +141,37 @@ dev server 或需你手动重启一次，改内容则完全即时。）
 ## 全文搜索
 
 用 VitePress 内置的本地搜索（MiniSearch），无需外部服务。MiniSearch 默认按空白与标点切词，
-中文长句会变成一个整词导致搜不到，因此 `config.mts` 里注入了 `Intl.Segmenter` 词级分词器——
-它同时作用于构建期的索引和浏览器端的查询。注意该函数会被序列化进页面（`new Function` 还原），
-必须自包含，不能引用模块作用域变量。
+中文长句会变成一个整词导致搜不到，因此 `config.mts` 注入了 `Intl.Segmenter` 词级分词器，
+构建期索引与浏览器端查询共用同一套切分。该分词的写法受 VitePress 的函数序列化机制约束，
+详见 `config.mts` 内的注释。
 
 ## 侧边导航栏（折叠 / 调宽）
 
-VitePress 默认主题在桌面端**没有**整栏折叠，也没有运行时调宽（汉堡按钮在 `@media (min-width: 768px)`
-里就是 `display: none`，只有 <960px 的抽屉）。这两项由 `theme/components/SidebarResizer.vue` 补上：
+VitePress 默认主题在桌面端没有整栏折叠，也没有运行时调宽（汉堡按钮在 `@media (min-width: 768px)`
+里就是 `display: none`，只有 <960px 的抽屉）。这两项由 `theme/components/SidebarResizer.vue` 提供：
+折叠状态与宽度记在 `localStorage`，由 `config.mts` 注入的内联脚本在首次绘制前恢复，避免闪动。
+把手的位置计算、以及折叠态为什么不依赖过渡动画，都写在那个组件的注释里。
 
-| 操作 | 方式 |
-|---|---|
-| 折叠整栏 | 悬停侧边栏右缘的细线，点出现的箭头；收起后箭头常驻视口左缘，点它展开 |
-| 拖拽调宽 | 拖动右缘细线，范围 200–440px，**双击复位**到 276px |
-| 键盘 | Tab 聚焦细线后用 ←/→ 调 8px，`Shift` + ←/→ 调 32px |
-| 记忆 | 折叠状态与宽度存在 `localStorage`（`tenetlang:sidebar-collapsed` / `tenetlang:sidebar-width`） |
-
-折叠按钮整体落在侧边栏**内侧**、右缘距分割线 16px，与侧边栏分组折叠箭头同一个内缩位置——
-两者对齐而不是骑在线上。按钮与拖拽线是两个各自定位的元素，位置由 JS 实测侧边栏右缘后写入
-`--line-x` / `--btn-x`。
-
-两个实现要点：
-
-- **把手位置实测而非复刻公式**：侧边栏在 ≥1440px 断点的宽度是
-  `calc((100% - (max - 64)) / 2 + var(--vp-sidebar-width) - 32px)`，自己算容易算漏；
-  改用 `getBoundingClientRect()` 实测右缘，任何断点/主题改动都自动跟随。
-  折叠时不做测量（此刻侧边栏正在 `translateX(-100%)` 过渡中，会量到旧位置），直接钉在视口左缘。
-- **折叠态不依赖过渡**：`visibility: hidden` + `pointer-events: none` 独立保证不可见不可交互，
-  `transform` / `opacity` 只负责滑出动画——过渡被中断或降级也不影响功能。
-
-折叠状态由 `config.mts` 注入的内联脚本在**首次绘制前**恢复，避免「先展开再收起」的闪动；
-该脚本与组件共用同一组 localStorage 键，改键名需同步两处。
-
-> 注意：≥1440px 视口下 VitePress 会让侧边栏随屏幕变宽（1920 视口下约 516px）。若希望大屏上也固定
-> 276px，需要额外覆盖 `@media (min-width: 1440px)` 下 `.VPSidebar` / `.VPContent.has-sidebar` /
-> `.VPNavBar.has-sidebar .content` 三处的 `calc()` 公式，属于本仓库尚未采用的设计选择。
+一个尚未采纳的设计选择：≥1440px 视口下 VitePress 会让侧边栏随屏幕变宽（1920 视口下约 516px）。
+若要在大屏上也固定 276px，需要覆盖 `@media (min-width: 1440px)` 下 `.VPSidebar` /
+`.VPContent.has-sidebar` / `.VPNavBar.has-sidebar .content` 三处的 `calc()` 公式。本仓库没有这样做，
+因为那会改变 VitePress 让整页在大屏上居中的布局。
 
 ## 链接校验
 
-`npm run sync` 会逐条校验所有相对链接，并分三类处理：
+`npm run sync` 逐条校验所有相对链接，并分三类处理：
 
-- **站内页面** —— 正常解析；
-- **未收录的源码资产**（`.py`/`.rs`/`.yml`/只有源码的目录等，共约 240 条）—— 登记进
-  `ignoreDeadLinks`，链接保留，在站点上点开会 404，与 GitHub 上的行为一致；
-- **失效链接**（目标路径根本不存在）—— 会在同步输出里以 ⚠️ 列出。
+- **站内页面**：正常解析；
+- **未收录的源码资产**（`.py`/`.rs`/`.yml`/只有源码的目录等）：登记进 `ignoreDeadLinks`，链接保留，
+  在站点上点开会 404，与 GitHub 上的行为一致；
+- **失效链接**（目标路径根本不存在）：在同步输出里以 ⚠️ 列出，生产构建也会因死链直接失败。
 
-当前 570 篇文档共 1309 条相对链接，失效 **0** 条。
+各分类的条数以 `npm run sync` 的输出为准，本文档不复述具体数字。
 
-顺带修掉了仓库里原有的两处死链（`languages/java/ph15-spring-family/` 下少写了一层 `../`）：
+## 改完怎么验证
 
-- `exercises/README.md` → `../../ph13-database/exercises/README.md`
-- `project/README.md` → `../../ph14-web-backend/project/README.md`
-
-这两条修复后已从 `ignoreDeadLinks` 白名单中移除，因此现在由 VitePress 的死链检查真正把关。
+1. `npm run build` 必须零警告结束。死链、Vue 模板错误都在这一步暴露；
+2. `npm run sync` 的输出里不应出现 ⚠️ 行，那是失效链接清单；
+3. 结构性改动（新增语言、新增阶段）之后，确认导航与侧边栏已跟上。它们由配置生成，不随 HMR 更新，
+   需要重启 `npm run dev`；
+4. 想确认产物确实可丢弃：`rm -rf docs && npm run sync`，再构建一次应得到相同结果。

@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 /**
  * 把仓库里的 Markdown 同步进 VitePress 的 srcDir（`docs/`），并把课程结构解析成
- * 主题组件消费的数据模块（`.vitepress/data/curriculum.mjs`）。
+ * 主题组件消费的数据模块（`.vitepress/data/curriculum.json`）。
  *
  * `docs/` 是纯产物目录：随时可以删掉重建，任何手工编辑都会在下次 sync 时丢失。
  * 内容唯一真源始终是仓库里的 `languages/`、`analysis/`、`tenet/`。
+ * 站点工程的整体说明见 `website/README.md`。
  *
  * 用法：node scripts/sync-docs.mjs
  */
