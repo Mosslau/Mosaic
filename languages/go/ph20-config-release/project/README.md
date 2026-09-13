@@ -103,4 +103,4 @@ docker run -d -p 8500:8500 --name consul hashicorp/consul:1.20
 - 迁移真实化：接入 golang-migrate / goose 的迁移文件与顺序，预检直接从迁移目录读 ID/破坏性标记，而非手工构造
 - 把 release 预检挂成 `cmd/release-server check` 子命令供 CI 调用，exit code 按有无 FAIL 返回（当前 Render 已区分文本）
 - 配置加密：dbDsn 等 secret 用 KMS/age 加密落盘，加载时解密（对应 roadmap 必会概念「敏感信息不能进仓库」的再进一步）
-- 与 ph21 衔接：release-server 作为服务骨架，接上 MQTT/车辆遥测消费即进入车联网数据平台（roadmap 第 21 节，目录待建）
+- 与 ph21 衔接：release-server 作为服务骨架，接上 MQTT/车辆遥测消费即进入车联网数据平台（roadmap 第 21 节）

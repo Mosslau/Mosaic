@@ -17,7 +17,7 @@
 | 进程与线程 | fork/exec/waitpid、与 std::thread 的取舍 |
 | 动态库与插件 | dlopen/dlsym、extern "C"、稳定接口与 ABI |
 
-**范围边界**：本阶段承接 ph08 并发阶段——多线程程序要把日志刷盘、socket 收发放进独立线程；这个阶段只涉及文件 IO、文件系统、配置解析、阻塞 socket 网络编程、进程与动态库插件机制，**不涉及构建调试工具链（ph10）、C++ 标准/编译器可移植性（ph11）、对象生命周期、值类别与所有权深入（ph12 对象生命周期、值类别与所有权深入阶段）、ABI 与插件机制深入（[ph19 ABI、动态库与插件机制阶段](../ph19-abi-dynamic-libs-plugins/19-abi-dynamic-libs-plugins.md)）和性能优化（ph18，目录待建）** — 那些是后续阶段的内容；epoll/io_uring 异步 IO 与高性能网络框架也不展开——本阶段用阻塞 socket + 超时把协议写对，是异步化的前提，异步化留给 ph18 性能优化阶段与 [ph22 存储引擎阶段](../ph22-storage-engine-db-kernel/22-storage-engine-db-kernel.md)的 IO 密集场景。
+**范围边界**：本阶段承接 ph08 并发阶段——多线程程序要把日志刷盘、socket 收发放进独立线程；这个阶段只涉及文件 IO、文件系统、配置解析、阻塞 socket 网络编程、进程与动态库插件机制，**不涉及构建调试工具链（ph10）、C++ 标准/编译器可移植性（ph11）、对象生命周期、值类别与所有权深入（ph12 对象生命周期、值类别与所有权深入阶段）、ABI 与插件机制深入（[ph19 ABI、动态库与插件机制阶段](../ph19-abi-dynamic-libs-plugins/19-abi-dynamic-libs-plugins.md)）和性能优化（ph18）** — 那些是后续阶段的内容；epoll/io_uring 异步 IO 与高性能网络框架也不展开——本阶段用阻塞 socket + 超时把协议写对，是异步化的前提，异步化留给 ph18 性能优化阶段与 [ph22 存储引擎阶段](../ph22-storage-engine-db-kernel/22-storage-engine-db-kernel.md)的 IO 密集场景。
 
 ## 2. 来源与演变
 

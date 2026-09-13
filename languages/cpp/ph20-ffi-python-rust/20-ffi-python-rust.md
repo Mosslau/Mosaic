@@ -531,7 +531,7 @@ clang++ -std=c++20 -Wall -Wextra ex05-error-host.cpp -L/tmp -lvtest -o /tmp/ph20
 
 ### 阶段项目
 
-本阶段综合项目见 [`project/`](./project/)：**Python 调用 C++ 向量检索库**——C++ 核心实现 brute-force 最近邻检索（add/search），经 C 包装层（opaque + 错误码 + 版本检查）暴露，Python 侧用 ctypes 建索引、查询并断言 top-k 正确，C 驱动测试覆盖错误路径；构建用 Makefile 编排（等价的 CMake 编排思路见 examples/ex06）。roadmap §20 另三个推荐项目——「Rust 调用 C++ 距离计算模块」与本项目共享全部 C 包装层手法、把 Python 驱动换成 ex04 的 Rust FFI 即可落地；「C++ 存储引擎暴露 C ABI」是同一接口形状在真实存储内核上的商业化（衔接 roadmap 第 22 节存储引擎与数据库内核，目录待建）；「pybind11 包装 C++ 查询执行组件」把 ex03 的类绑定手法套到查询算子类上即可起步。project/README 的扩展方向都给出了继续路径。建议完成练习后再动手。
+本阶段综合项目见 [`project/`](./project/)：**Python 调用 C++ 向量检索库**——C++ 核心实现 brute-force 最近邻检索（add/search），经 C 包装层（opaque + 错误码 + 版本检查）暴露，Python 侧用 ctypes 建索引、查询并断言 top-k 正确，C 驱动测试覆盖错误路径；构建用 Makefile 编排（等价的 CMake 编排思路见 examples/ex06）。roadmap §20 另三个推荐项目——「Rust 调用 C++ 距离计算模块」与本项目共享全部 C 包装层手法、把 Python 驱动换成 ex04 的 Rust FFI 即可落地；「C++ 存储引擎暴露 C ABI」是同一接口形状在真实存储内核上的商业化（衔接 roadmap 第 22 节存储引擎与数据库内核）；「pybind11 包装 C++ 查询执行组件」把 ex03 的类绑定手法套到查询算子类上即可起步。project/README 的扩展方向都给出了继续路径。建议完成练习后再动手。
 
 - [ ] 完成 exercises/ 全部练习并对照参考实现复盘
 - [ ] 独立完成 project/ 并通过其验收标准（`make clean && make test` 退出码 0、ctypes 检索断言全绿、错误路径断言通过）

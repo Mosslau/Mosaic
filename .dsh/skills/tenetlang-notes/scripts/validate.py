@@ -14,9 +14,10 @@
     - roadmap ↔ ph 目录双向核对、四层交付物存在性、题解数量对应
     - 主文档 7 章齐全、单一 H1、标题前后空行、章节空壳
     - 相对链接可解析（含 ../ 跨阶段链接）
+    - 建设状态断言与磁盘核对：断言「待建」的阶段必须真的不存在
 
 不覆盖（仍需人工深检，见 SKILL.md 场景 D 第 4 步）：
-    知识点覆盖、教学增量、代码是否正确、README 与实现的契约一致性、「已验证」证据是否属实。
+    知识点覆盖、教学增量、代码是否正确、「待建」之外的契约定性描述、「已验证」证据是否属实。
 --deep 只把「需要人工核对的漂移项」列出来，不做判定。
 """
 
@@ -50,7 +51,13 @@ SUMMARY_SECTIONS = ["### 关键要点", "### 阶段验收清单", "### 动手练
 BARE_VERIFIED = re.compile(r"已验证(?![：:，,]?\s*\S)")
 LINE_REF = re.compile(r"[\w./-]+\.\w{1,6}:\d+")
 VERSION_CLAIM = re.compile(r"(?:Apple clang|clang|gcc|g\+\+|go1?|rustc|Python|OpenJDK|javac)\s*\d+\.\d+(?:\.\d+)?")
-TODO_DIR = re.compile(r"(?:目录待建|待建|仍在规划|尚未创建)")
+
+# 建设状态断言：「待建」类措辞后引用的阶段编号，必须与磁盘（phNN 目录）一致。
+# 阶段落地后旧的「目录待建」断言就成了假事实——这是「README 与实现契约一致性」里可自动判定的一类。
+BUILD_CLAIM = re.compile(r"(?:目录待建|待建|仍在规划|尚未创建)")
+SECTION_REF = re.compile(r"第\s*(\d+(?:\s*[~～\-、,，/]\s*\d+)*)\s*节")
+# 只认独立的 phNN（排除 ../ph17-mq-search/ 这类路径与 ph17-foo 这类目录名）
+PH_REF = re.compile(r"(?<![\w/])ph(\d{1,2})(?![\d-])")
 
 # 提交纪律：这些文件名/后缀落在未跟踪或已修改项里，几乎一定是构建产物误入提交
 ARTIFACT_SUFFIX = (".o", ".obj", ".dSYM", ".log", ".class", ".jar", ".pyc", ".so", ".dylib", ".a", ".exe")
@@ -253,6 +260,69 @@ def check_phase_code(root: Path, d: Path) -> None:
                 f"{rel(ex, root)}: 题目 {asked} 道 vs 参考实现 {len(sols)} 份（一题多解请用 sol-05a/sol-05b 命名）")
 
 
+def expand_sections(spec: str) -> list[int]:
+    """展开「18~23」「22/23」「16」这类节号写法为整数列表。"""
+    out: list[int] = []
+    for part in re.split(r"[、,，/]", spec):
+        part = part.strip()
+        rng = re.fullmatch(r"(\d+)\s*[~～\-]\s*(\d+)", part)
+        if rng:
+            lo, hi = int(rng.group(1)), int(rng.group(2))
+            if lo <= hi:
+                out.extend(range(lo, hi + 1))
+        elif part.isdigit():
+            out.append(int(part))
+    return out
+
+
+def check_build_status(root: Path, lang_root: Path, files: list[Path]) -> None:
+    """建设状态断言：文档说「待建」的阶段，磁盘上必须真的不存在。
+
+    这是「README 与实现契约一致性」里可自动判定的一类。阶段建成后旧的
+    「目录待建」断言会变成假事实，所以它与实现漂移是同一个缺陷：文档描述
+    的对象已经变了。反向不检查——阶段未写成「待建」不等于它必须被提到。
+
+    引用解析优先取「第 N 节」（本仓库唯一权威的节号体系），仅在整行没有节号时
+    才退回 phNN。否则「ph17 已落地，roadmap 第 18~23 节仍在规划中」会因为行内
+    出现已建成的 ph17 而误报。
+    """
+    on_disk: dict[str, dict[int, str]] = {}
+    for lang_dir in sorted(p for p in lang_root.iterdir() if p.is_dir()):
+        found: dict[int, str] = {}
+        for d in sorted(lang_dir.glob("ph*")):
+            m = re.match(r"ph(\d+)-", d.name)
+            if d.is_dir() and m:
+                found[int(m.group(1))] = d.name
+        on_disk[lang_dir.name] = found
+
+    for f in files:
+        parts = f.relative_to(lang_root).parts
+        lang = parts[0] if parts else ""
+        if lang not in on_disk:
+            continue
+        lines = f.read_text(encoding="utf-8", errors="replace").split("\n")
+        fences = strip_fences(lines)
+        for i, line in enumerate(visible_lines(lines)):
+            if fences[i] or not BUILD_CLAIM.search(line):
+                continue
+            tag = f"{rel(f, root)}:{i + 1}"
+            sections: list[int] = []
+            for m in SECTION_REF.finditer(line):
+                sections.extend(expand_sections(m.group(1)))
+            if sections:
+                targets = sorted(set(sections))
+            else:
+                targets = sorted({int(n) for n in PH_REF.findall(line)})
+            if not targets:
+                warnings.append(f"{tag}: 建设状态断言未给出阶段编号，无法自动核对 → 请人工与磁盘比对")
+                continue
+            for n in targets:
+                if n in on_disk[lang]:
+                    problems.append(
+                        f"{tag}: 断言「待建」的阶段已建成 → {lang}/{on_disk[lang][n]}"
+                        "（假事实：阶段落地后应清除该断言）")
+
+
 def check_deep(root: Path, files: list[Path]) -> None:
     """只列出需人工核对的漂移项，不做判定。"""
     for f in files:
@@ -269,8 +339,6 @@ def check_deep(root: Path, files: list[Path]) -> None:
                 warnings.append(f"{tag}: 行号引用 → {LINE_REF.search(view[i]).group(0)}（源码编辑后易漂移）")
             if VERSION_CLAIM.search(view[i]):
                 warnings.append(f"{tag}: 版本声明 → {VERSION_CLAIM.search(view[i]).group(0)}（请与 --version 实测比对）")
-            if TODO_DIR.search(view[i]):
-                warnings.append(f"{tag}: 建设状态断言（目录待建/规划中）→ 请与磁盘核对")
 
 
 def looks_like_artifact(rel_path: str, real: Path | None = None) -> bool:
@@ -409,6 +477,7 @@ def main() -> int:
                 check_phase_doc(root, doc)
                 check_phase_code(root, doc.parent)
         check_links(root, governed)
+        check_build_status(root, lang_root, governed)
         if args.deep:
             check_deep(root, governed)
 

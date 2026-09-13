@@ -83,7 +83,7 @@ aggregate/optimized_50000lines   time: 4.65 ms  thrpt: 10.74 Melem/s   (≈1.22x
 
 ## 扩展方向
 
-- **接 ph25 数据基础设施**：把 `line.rs` 的文本解析换成 WAL/SSTable 二进制 record（ph19/ph20 的格式），聚合器与优化闭环原样复用——本工程就是「数据基础设施的通用解析+聚合路径」的优化样板（roadmap 第 25 节，目录待建）。
+- **接 ph25 数据基础设施**：把 `line.rs` 的文本解析换成 WAL/SSTable 二进制 record（ph19/ph20 的格式），聚合器与优化闭环原样复用——本工程就是「数据基础设施的通用解析+聚合路径」的优化样板（roadmap 第 25 节）。
 - **多线程压力**：用 `std::thread` 多线程灌日志，观察分配器争用让分配次数的代价在 p50/p95 上显形（ph12 的并发知识 + 本阶段的测量方法）。
 - **接入 CI 性能回归**：用 `cargo bench -- --save-baseline` + 阈值判红，把本工程挂进 ph21 模板预留的性能 job（ph21 project 扩展方向已留位）。
 - **换 jemalloc/mimalloc**：本机 system allocator 下分配免费，换 tcmalloc 系 allocator 重测，理解 allocator 行为对测量的影响（对应主文档 4.3）。

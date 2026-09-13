@@ -17,7 +17,7 @@ Python 并发、并行与异步阶段的目标是：**处理 IO 密集和 CPU �
 | 异步 FastAPI | 承接 ph10 async def 入门，进程内 uvicorn 并发压测、阻塞端点反例 |
 | 并发代码测试 | 标准 pytest + `asyncio.run` 包装的最小测法（project 落地），pytest-asyncio 仅提及 |
 
-这个阶段只涉及**单机并发 / 并行 / 异步**——threading、multiprocessing、asyncio、concurrent.futures、aiohttp / httpx async、异步 FastAPI，以及「并发代码怎么测」的最小测法，**不涉及分布式消息队列与跨机集群并发（Kafka / MQ、百万级连接架构——ph10/ph11 曾预告此项属本阶段，这里明确边界：本阶段覆盖单机 asyncio 的万级并发网络 IO，消息队列属更大的架构主题，见 roadmap 第 18 节车联网 / 数据平台方向阶段，目录待建）、并发 / 异步测试的框架体系（pytest-asyncio 等——本阶段用标准 pytest + `asyncio.run` 演示最小测法，完整框架属生态工程实践，测试方法论本身是 ph13 测试与工程质量阶段的内容）和数据分析 / AI 训练中的并行（NumPy 的 SIMD 向量化、PyTorch 的 GPU 并行——ph09 数据分析阶段 / ph15 AI 与机器学习阶段的内容）**。本阶段承接 ph06 标准库阶段（选型口诀与 GIL 铺垫）与 ph10 Web 后端阶段（async def 入门），把「选型口诀」升级为「实测数据 + 机制理解」；ph13 测试与工程质量阶段承诺的「怎么测并发与异步代码」也在本阶段落地（3.9 与 project）。本阶段四层交付物已就位：主文档 + [`examples/`](./examples/) + [`exercises/`](./exercises/) + [`project/`](./project/)，入口见第 6、7 章。
+这个阶段只涉及**单机并发 / 并行 / 异步**——threading、multiprocessing、asyncio、concurrent.futures、aiohttp / httpx async、异步 FastAPI，以及「并发代码怎么测」的最小测法，**不涉及分布式消息队列与跨机集群并发（Kafka / MQ、百万级连接架构——ph10/ph11 曾预告此项属本阶段，这里明确边界：本阶段覆盖单机 asyncio 的万级并发网络 IO，消息队列属更大的架构主题，见 roadmap 第 18 节车联网 / 数据平台方向阶段）、并发 / 异步测试的框架体系（pytest-asyncio 等——本阶段用标准 pytest + `asyncio.run` 演示最小测法，完整框架属生态工程实践，测试方法论本身是 ph13 测试与工程质量阶段的内容）和数据分析 / AI 训练中的并行（NumPy 的 SIMD 向量化、PyTorch 的 GPU 并行——ph09 数据分析阶段 / ph15 AI 与机器学习阶段的内容）**。本阶段承接 ph06 标准库阶段（选型口诀与 GIL 铺垫）与 ph10 Web 后端阶段（async def 入门），把「选型口诀」升级为「实测数据 + 机制理解」；ph13 测试与工程质量阶段承诺的「怎么测并发与异步代码」也在本阶段落地（3.9 与 project）。本阶段四层交付物已就位：主文档 + [`examples/`](./examples/) + [`exercises/`](./exercises/) + [`project/`](./project/)，入口见第 6、7 章。
 
 ## 2. 来源与演变
 
@@ -324,7 +324,7 @@ FastAPI 跑在 **ASGI** 之上（ph10 4.1 已讲：应用是接收 `(scope, rece
 
 **不适合此阶段的事项**：
 
-- 分布式消息队列与跨机集群并发（Kafka / MQ、百万级连接架构）：roadmap 第 18 节车联网 / 数据平台方向阶段（目录待建）或团队工程实践——ph10/ph11 曾把「大规模异步与消息」预告到 ph14，本阶段明确其边界：**单机 asyncio 覆盖万级并发网络 IO，消息队列是跨机架构话题**，不在此展开
+- 分布式消息队列与跨机集群并发（Kafka / MQ、百万级连接架构）：roadmap 第 18 节车联网 / 数据平台方向阶段或团队工程实践——ph10/ph11 曾把「大规模异步与消息」预告到 ph14，本阶段明确其边界：**单机 asyncio 覆盖万级并发网络 IO，消息队列是跨机架构话题**，不在此展开
 - 并发 / 异步测试的框架体系（pytest-asyncio 等）：本阶段用标准 pytest + `asyncio.run` 演示最小测法（3.9），框架属生态工程实践
 - 数据分析与 AI 训练中的并行（NumPy SIMD 向量化、PyTorch GPU 并行）：ph09 数据分析阶段 / [ph15 AI 与机器学习阶段](../ph15-ai-ml/15-ai-ml.md)（深度学习与 GPU 训练超出 ph15 可验证范围，仅概念层）
 - 分布式计算框架（ray、dask）：超出本路线的阶段划分

@@ -36,7 +36,7 @@
 - 把 `make check` 搬进 CI：对照 examples/ex06-ci/github-actions.yml 写一个真实工作流（未在本环境验证）
 - 给 `ring_buffer` 加并发读写接口（生产者/消费者），让 TSan 复跑真正有意义（承接 ph08）
 - 覆盖率门槛化：CI 里解析 llvm-cov 输出，`stl_utils.h` 低于 100% 即失败（覆盖率不是越高越好，但「库代码」可以要求全测）
-- 性能基准：加 Google Benchmark 对比 `ring_buffer` 与 `std::deque`（属 ph18 性能优化与 Profiling 阶段，目录待建）
+- 性能基准：加 Google Benchmark 对比 `ring_buffer` 与 `std::deque`（属 ph18 性能优化与 Profiling 阶段）
 
 ## 验证环境
 
