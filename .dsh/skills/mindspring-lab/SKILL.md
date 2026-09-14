@@ -72,7 +72,9 @@ engineering/<NN-项目>/                # 01-text-corpus-pipeline ~ 06-ai-platfo
 | 🚧 进行中 | 部分段落已填 | `> 状态：🚧 进行中` |
 | ✅ 已完成 | 六段齐全、双跑对照有实数 | `> 状态：✅ 已完成（YYYY-MM-DD）` |
 
-**✅ 的门槛**：双跑对照完成、实验结果有真实数字与复现命令、README 无占位段落。pytest 全绿**不是** ✅ 的门槛，是 `validate.py --pytest` 的可选执行项。✅ 必须带完成日期；索引表（`algorithms/README.md` / `engineering/README.md`）的状态与日期必须与各 README 一致。
+**✅ 的门槛**：双跑对照完成、实验结果有真实数字与复现命令、README 无占位段落（`validate.py` 对 ✅ 状态的占位/空段记硬伤）。pytest 全绿**不是** ✅ 的门槛，是 `validate.py --pytest` 的可选执行项。✅ 必须带完成日期；索引表（`algorithms/README.md` / `engineering/README.md`）的状态与日期必须与各 README 一致。
+
+**状态迁移不设中间限制**：允许 ⬜ 直接推进到 ✅（跳过 🚧），只要 ✅ 门槛全部满足。
 
 ### ⑤ 验证状态声明规范
 
@@ -157,7 +159,7 @@ engineering/<NN-项目>/                # 01-text-corpus-pipeline ~ 06-ai-platfo
 
 ## README 结构规范
 
-- **算法实验**：六段式——设计原理 / 数学推导 / 手写实现要点 / 对照（框架对照 或 基线对照，段名按算法族）/ 实验结果 / 局限与延伸。完整模板与填充示例见 `references/algorithm-readme-template.md`。允许在「手写实现要点」前加一段「目录形态」表格（文件 × 角色 × 接口），A* 实验是参照
+- **算法实验**：六段式——设计原理 / 数学推导 / 手写实现要点 / 对照（框架对照 或 基线对照，段名按算法族）/ 实验结果 / 局限与延伸。完整模板与填充示例见 `references/algorithm-readme-template.md`。允许在「手写实现要点」前加一段「目录形态」表格（文件 × 角色 × 接口），格式见算法模板
 - **工程项目**：六段式——目标 / 技术栈 / 系统架构 / 复用的算法实验 / 验收标准 / 实施笔记。模板见 `references/engineering-readme-template.md`
 - 模板即权威结构，不指向任何具体存量文件（存量会重构，模板不过期）
 
@@ -167,19 +169,20 @@ engineering/<NN-项目>/                # 01-text-corpus-pipeline ~ 06-ai-platfo
 - 结构：多用表格对比维度（指标对比、文件角色）；代码块带语言标注
 - 代码：带行内注释解释关键步骤与坑；数学公式用文本或 LaTeX 记法，与代码变量名对应
 - 阶段隔离与链接：提到其他实验/项目时用相对链接（`../mcts/`）；「局限与延伸」必须指出后续方向
-- 索引表维护：每完成一个实验，把索引表状态改为 ✅ 并记录日期——索引表是唯一现状快照
+- 索引表维护：每完成一个实验，把索引表状态改为 ✅ 并记录日期——索引表是唯一现状快照。索引表的**列序是 `validate.py` 的解析契约**，格式规范见 `references/index-format.md`
 
 ## Resources
 
 ### scripts/
 
-- `scripts/validate.py` — 场景 D 的存在性与纪律自动检查。覆盖：索引表 ↔ 目录双向核对、状态/日期一致性、README 六段齐全、占位段检测、章节锚点有效性、`impl.py` 违禁 import 扫描、engineering 阶段编号一致性；`--pytest` 实跑测试，`--git` 核对变更集，`--deep` 列出需人工核对的漂移项。退出码 0 = 无问题，1 = 存在问题（可作提交前门禁）。**不管**推导质量、结果分析深度等教学判断——那些按场景 D 第 3 步人工深检。
+- `scripts/validate.py` — 场景 D 的存在性与纪律自动检查。覆盖：索引表 ↔ 目录双向核对（含 ✅ 日期一致性）、状态一致性、README 六段齐全、占位段检测（✅ 状态下为硬伤）、章节锚点有效性、`impl.py` 违禁 import 与属性调用扫描、engineering 阶段编号一致性、✅ 项目验收标准打勾核对；`--pytest` 实跑测试，`--git` 核对变更集，`--deep` 列出需人工核对的漂移项（并打印 git 基线供记忆落盘引用）。退出码 0 = 无问题，1 = 存在问题（可作提交前门禁）。**不管**推导质量、结果分析深度等教学判断——那些按场景 D 第 3 步人工深检。
 
 ### references/
 
-- `references/algorithm-readme-template.md` — 算法实验 README 六段式权威模板（含填充示例）
+- `references/algorithm-readme-template.md` — 算法实验 README 六段式权威模板（含自含填充示例）
 - `references/engineering-readme-template.md` — 工程项目 README 六段式权威模板
 - `references/algorithm-families.md` — 算法族接口约定（四族的自然接口与对照对象，新增实验时先查）
+- `references/index-format.md` — 两条线索引表的列序契约（validate.py 按此解析，调整前先读）
 
 ### 记忆落点
 

@@ -14,11 +14,11 @@
 
 ## 项目总览（对应 roadmap 六个学习阶段）
 
-| 阶段 | 项目 | 验收标准一句话 | 状态 |
-|---|---|---|---|
-| 一 | [01-text-corpus-pipeline](01-text-corpus-pipeline/) | 10GB 文本清洗 + 去重 + embedding 流水线跑通 | ⬜ |
-| 二 | [02-rag-knowledge-base](02-rag-knowledge-base/) | 企业知识库问答系统，检索 + 生成 + 引用溯源 | ⬜ |
-| 三 | [03-lakehouse-vector](03-lakehouse-vector/) | 向量化数据湖，Iceberg/Delta + 向量索引统一管理 | ⬜ |
-| 四 | [04-gpu-scheduler-demo](04-gpu-scheduler-demo/) | K8s GPU 调度平台 Demo，能提交/监控训练任务 | ⬜ |
-| 五 | [05-inference-server](05-inference-server/) | OpenAI 兼容推理服务，压测出 TTFT/TPOT/tokens/s | ⬜ |
-| 六 | [06-ai-platform](06-ai-platform/) | 端到端整合：数据接入 → 清洗 → RAG → 微调 → 调度 → 推理 → 监控 | ⬜ |
+| 阶段 | 项目 | 验收标准一句话 | 状态 | 完成日期 |
+|---|---|---|---|---|
+| 一 | [01-text-corpus-pipeline](01-text-corpus-pipeline/) | 10GB 文本清洗 + 去重 + embedding 流水线跑通 | ⬜ | |
+| 二 | [02-rag-knowledge-base](02-rag-knowledge-base/) | 企业知识库问答系统，检索 + 生成 + 引用溯源 | ⬜ | |
+| 三 | [03-lakehouse-vector](03-lakehouse-vector/) | 向量化数据湖，Iceberg/Delta + 向量索引统一管理 | ⬜ | |
+| 四 | [04-gpu-scheduler-demo](04-gpu-scheduler-demo/) | K8s GPU 调度平台 Demo，能提交/监控训练任务 | ⬜ | |
+| 五 | [05-inference-server](05-inference-server/) | OpenAI 兼容推理服务，压测出 TTFT/TPOT/tokens/s | ⬜ | |
+| 六 | [06-ai-platform](06-ai-platform/) | 端到端整合：数据接入 → 清洗 → RAG → 微调 → 调度 → 推理 → 监控 | ⬜ | |

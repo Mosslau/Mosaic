@@ -9,8 +9,10 @@
 
 退出码：0 = 无问题，1 = 存在问题（可作提交前门禁）。
 
-覆盖：索引表 ↔ 目录双向核对、状态/日期一致性、README 六段齐全、占位段检测、
-章节锚点有效性、impl.py 违禁 import 扫描、engineering 阶段编号一致性。
+覆盖：索引表 ↔ 目录双向核对、状态/日期一致性（algorithms 与 engineering 两线）、
+README 六段齐全、占位段检测（✅ 状态下升级为硬伤）、章节锚点有效性、
+impl.py 违禁 import 与属性调用扫描、engineering 阶段编号一致性、
+✅ 项目验收标准打勾核对。
 不管：推导质量、结果分析深度等教学判断——那些按场景 D 第 3 步人工深检。
 """
 
@@ -49,14 +51,32 @@ FORBIDDEN_IMPORT_PATTERNS = [
     (re.compile(r"^\s*(from|import)\s+torchvision\.models\b", re.M), "torchvision.models"),
 ]
 
+# 属性调用绕过：`import torch` 后直接用 torch.nn.* 不会出现违禁 import 语句。
+# 这类扫描有误报面（字符串/注释中提及），已剔除纯注释行，命中记 🟡 人工确认。
+FORBIDDEN_USAGE_PATTERNS = [
+    (re.compile(r"\bsklearn\."), "sklearn"),
+    (re.compile(r"\btorch\.nn\."), "torch.nn"),
+    (re.compile(r"\btorch\.optim\."), "torch.optim"),
+    (re.compile(r"\btorchvision\.models\."), "torchvision.models"),
+]
+
 CN_NUMERALS = {"一": 1, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6,
                "七": 7, "八": 8, "九": 9, "十": 10}
 
 STATUS_RE = re.compile(r"^>\s*状态：([⬜🚧✅])\s*(未开始|进行中|已完成)?（?(\d{4}-\d{2}-\d{2})?）?",
                        re.M)
 ANCHOR_RE = re.compile(r"第\s*(\d+(?:\.\d+)+)\s*章")
-ENG_STAGE_RE = re.compile(r"对应\s*roadmap\s*阶段：第\s*([一二三四五六七八九十]+)\s*阶段")
-INDEX_ROW_RE = re.compile(r"\|[^|]*\[([^\]]+)\]\(([^)]+?/?)\)[^|]*\|([^|]*)\|([^|]*)\|?([^|\n]*)")
+ENG_STAGE_RE = re.compile(r"对应\s*roadmap\s*阶段：第\s*([一二三四五六七八九十0-9]+)\s*阶段")
+LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)]+?/?)\)")
+# 占位段：整段只有一行模板提示语。兼容全角括号（...）与尖括号 <...> 两种模板占位风格
+PLACEHOLDER_RE = re.compile(r"[（<][^\n]{4,}[）>]")
+
+
+def stage_to_int(text: str) -> int | None:
+    """阶段号：兼容中文数字（三）与阿拉伯数字（3）。"""
+    if text.isdigit():
+        return int(text)
+    return CN_NUMERALS.get(text)
 
 
 @dataclass
@@ -92,32 +112,50 @@ def parse_roadmap_chapters() -> set[str]:
     return chapters
 
 
-def parse_algo_index() -> dict[str, dict]:
-    """解析 algorithms/README.md 索引表：{相对目录: {chapter, status, date}}。"""
+def parse_algo_index(rep: Report) -> dict[str, dict]:
+    """解析 algorithms/README.md 索引表：{相对目录: {chapter, status, date}}。
+
+    列序契约（见 references/index-format.md）：实验(链接) | 章节 | 状态 | 完成日期
+    表格之外的链接（推荐顺序列表、blockquote 导航）不解析。
+    """
     entries: dict[str, dict] = {}
-    for m in INDEX_ROW_RE.finditer(read_text(ALGO_INDEX)):
-        link = m.group(2)
-        if not re.match(r"^\d{2}-[\w-]+/[\w-]+/?$", link):
+    for lineno, line in enumerate(read_text(ALGO_INDEX).splitlines(), 1):
+        if not line.lstrip().startswith("|") or "](" not in line:
             continue
-        entries[link.rstrip("/")] = {
-            "chapter": m.group(3).strip(),
-            "status": m.group(4).strip(),
-            "date": m.group(5).strip(),
-        }
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        m = LINK_RE.search(cells[0]) if cells else None
+        if m is None or len(cells) < 4:
+            rep.warn(f"algorithms/README.md 第 {lineno} 行：疑似索引条目但解析失败"
+                     f"（列序契约见 references/index-format.md）")
+            continue
+        link = m.group(2).rstrip("/")
+        if not re.match(r"^\d{2}-[\w-]+/[\w-]+$", link):
+            rep.warn(f"algorithms/README.md 第 {lineno} 行：链接 {link} 不符合 <NN-族>/<算法名> 形态")
+            continue
+        entries[link] = {"chapter": cells[1], "status": cells[2], "date": cells[3]}
     return entries
 
 
-def parse_eng_index() -> dict[str, dict]:
-    """解析 engineering/README.md 项目总览表：{目录名: {stage, status}}。"""
+def parse_eng_index(rep: Report) -> dict[str, dict]:
+    """解析 engineering/README.md 项目总览表：{目录名: {stage, status, date}}。
+
+    列序契约（见 references/index-format.md）：阶段 | 项目(链接) | 验收标准一句话 | 状态 | 完成日期
+    """
     entries: dict[str, dict] = {}
-    for m in INDEX_ROW_RE.finditer(read_text(ENG_INDEX)):
-        link = m.group(2)
-        if not re.match(r"^\d{2}-[\w-]+/?$", link):
+    for lineno, line in enumerate(read_text(ENG_INDEX).splitlines(), 1):
+        if not line.lstrip().startswith("|") or "](" not in line:
             continue
-        entries[link.rstrip("/")] = {
-            "stage": m.group(1).strip(),  # 中文数字阶段
-            "status": m.group(4).strip(),
-        }
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        m = LINK_RE.search(cells[1]) if len(cells) > 1 else None
+        if m is None or len(cells) < 5:
+            rep.warn(f"engineering/README.md 第 {lineno} 行：疑似总览条目但解析失败"
+                     f"（列序契约见 references/index-format.md）")
+            continue
+        link = m.group(2).rstrip("/")
+        if not re.match(r"^\d{2}-[\w-]+$", link):
+            rep.warn(f"engineering/README.md 第 {lineno} 行：链接 {link} 不符合 <NN-项目> 形态")
+            continue
+        entries[link] = {"stage": cells[0], "status": cells[3], "date": cells[4]}
     return entries
 
 
@@ -139,8 +177,12 @@ def check_status_block(readme: str, rel: str, rep: Report) -> tuple[str, str | N
 
 
 def check_sections(readme: str, rel: str, is_algo: bool, rep: Report,
-                   active: bool) -> None:
-    """六段齐全 + 占位段检测。active=False（⬜ 未开始）时占位不警告——骨架本该是空的。"""
+                   symbol: str) -> None:
+    """六段齐全 + 占位段检测。
+
+    力度按状态分级：⬜ 骨架不查占位（本该是空的）；🚧 占位/空段记 🟡；
+    ✅ 占位/空段记 ❌——「无占位段落」是 ✅ 门槛，不能软放行。
+    """
     headings = set(re.findall(r"^##\s+(.+?)\s*$", readme, re.M))
     required = list(ALGO_SECTIONS_FIXED) if is_algo else list(ENG_SECTIONS)
     for sec in required:
@@ -151,15 +193,38 @@ def check_sections(readme: str, rel: str, is_algo: bool, rep: Report,
     ):
         rep.err(f"{rel}：缺少对照章节（## 框架对照 或 ## 基线对照，按算法族二选一）")
 
-    if not active:
+    if symbol == "⬜":
         return
-    # 占位段检测：整段只有一行全角括号提示语 → 🟡
+    gate = symbol == "✅"
+    report = rep.err if gate else rep.warn
+    suffix = "——✅ 门槛要求无空段/占位段" if gate else ""
     for m in re.finditer(r"^##\s+(.+?)\s*\n(.*?)(?=^##\s|\Z)", readme, re.M | re.S):
         title, body = m.group(1), m.group(2).strip()
         if not body:
-            rep.warn(f"{rel}：章节「{title}」为空")
-        elif re.fullmatch(r"（[^\n]{4,}）", body):
-            rep.warn(f"{rel}：章节「{title}」疑似模板占位（整段仍是一行括号提示语）")
+            report(f"{rel}：章节「{title}」为空{suffix}")
+        elif PLACEHOLDER_RE.fullmatch(body):
+            report(f"{rel}：章节「{title}」仍是模板占位（整段只有一行提示语）{suffix}")
+
+
+def find_anchor_line(readme: str, pattern: re.Pattern) -> re.Match | None:
+    """锚点只从 blockquote 行（> 开头）中取，防止把正文里的章节引用误当锚点。"""
+    for line in readme.splitlines():
+        if line.lstrip().startswith(">"):
+            m = pattern.search(line)
+            if m:
+                return m
+    return None
+
+
+def check_verification_claims(readme: str, rel: str, rep: Report) -> None:
+    """纪律⑤启发式：出现「已验证」但无任何命令样式——疑似裸写声明。"""
+    claims = [
+        line for line in readme.splitlines()
+        if "已验证" in line and "未在本环境验证" not in line
+    ]
+    if claims and not any("python" in line or "`" in line for line in claims):
+        rep.hint(f"{rel}：出现「已验证」但未见命令/代码样式——是否裸写声明？"
+                 f"（纪律⑤要求命令+输入+观察结果三要素）")
 
 
 def check_algo_unit(unit: Path, idx: dict | None, chapters: set[str], rep: Report,
@@ -172,10 +237,10 @@ def check_algo_unit(unit: Path, idx: dict | None, chapters: set[str], rep: Repor
         return
 
     symbol, date = check_status_block(readme, rel, rep)
-    check_sections(readme, rel, True, rep, active=symbol != "⬜")
+    check_sections(readme, rel, True, rep, symbol)
 
-    # 章节锚定：有效性
-    anchor = ANCHOR_RE.search(readme)
+    # 章节锚定：有效性（只在 blockquote 行中找）
+    anchor = find_anchor_line(readme, ANCHOR_RE)
     if not anchor:
         rep.err(f"{rel}：缺少章节锚点（> 对应文档章节：… 第 X.Y.Z 章）")
     elif anchor.group(1) not in chapters:
@@ -192,7 +257,7 @@ def check_algo_unit(unit: Path, idx: dict | None, chapters: set[str], rep: Repor
         if anchor and idx["chapter"] and idx["chapter"] != anchor.group(1):
             rep.warn(f"{rel}：索引表章节 {idx['chapter']} 与 README 锚点 {anchor.group(1)} 不一致")
 
-    # 手写纪律：impl.py 违禁 import
+    # 手写纪律：impl.py 违禁 import + 属性调用绕过
     impl = unit / "impl.py"
     if impl.exists():
         src = read_text(impl)
@@ -200,6 +265,13 @@ def check_algo_unit(unit: Path, idx: dict | None, chapters: set[str], rep: Repor
             if pat.search(src):
                 rep.err(f"{rel}/impl.py：违禁 import「{lib}」——核心算法必须手写"
                         f"（对照实现请放 framework.py/baseline.py）")
+        code = "\n".join(
+            line for line in src.splitlines() if not line.strip().startswith("#")
+        )
+        for pat, lib in FORBIDDEN_USAGE_PATTERNS:
+            if pat.search(code):
+                rep.warn(f"{rel}/impl.py：疑似通过属性调用使用「{lib}」"
+                         f"（如 import torch 后直接 torch.nn.*）——请人工确认是否绕过手写纪律")
     elif symbol != "⬜":
         rep.warn(f"{rel}：状态 {symbol} 但缺少 impl.py")
 
@@ -216,8 +288,12 @@ def check_algo_unit(unit: Path, idx: dict | None, chapters: set[str], rep: Repor
             math_sec = re.search(r"^##\s*数学推导\s*\n(.*?)(?=^##\s|\Z)", readme, re.M | re.S)
             if math_sec and len(math_sec.group(1).strip()) < 50:
                 rep.hint(f"{rel}：✅ 但「数学推导」过短——是否存在推导真空？")
+            if not (unit / "demo.py").exists():
+                rep.hint(f"{rel}：✅ 但缺少 demo.py——双跑对照的入口在哪？"
+                         f"（若对照内嵌于其他文件，请在 README「目录形态」段说明）")
             for m in re.finditer(r"\w+\.py:\d+", readme):
                 rep.hint(f"{rel}：行号引用「{m.group(0)}」易漂移，改为引用符号/片段内容")
+        check_verification_claims(readme, rel, rep)
 
 
 def check_eng_unit(unit: Path, idx: dict | None, rep: Report, deep: bool) -> None:
@@ -227,29 +303,40 @@ def check_eng_unit(unit: Path, idx: dict | None, rep: Report, deep: bool) -> Non
         rep.err(f"{rel}：缺少 README.md")
         return
 
-    symbol, _ = check_status_block(readme, rel, rep)
-    check_sections(readme, rel, False, rep, active=symbol != "⬜")
+    symbol, date = check_status_block(readme, rel, rep)
+    check_sections(readme, rel, False, rep, symbol)
 
-    # 阶段编号一致性：目录 NN ↔ 「第 N 阶段」
+    # 阶段编号一致性：目录 NN ↔ 「第 N 阶段」（中文/阿拉伯数字均可）
     dir_num = int(unit.name.split("-", 1)[0])
-    m = ENG_STAGE_RE.search(readme)
+    m = find_anchor_line(readme, ENG_STAGE_RE)
     if not m:
         rep.err(f"{rel}：缺少阶段锚点（> 对应 roadmap 阶段：第 N 阶段）")
-    elif CN_NUMERALS.get(m.group(1)) != dir_num:
+    elif stage_to_int(m.group(1)) != dir_num:
         rep.err(f"{rel}：目录编号 {dir_num:02d} 与「第 {m.group(1)} 阶段」不一致")
 
-    if idx is not None and idx["status"] and idx["status"] != symbol:
-        rep.err(f"{rel}：README 状态 {symbol} 与项目总览表 {idx['status']} 不一致")
+    # 索引一致性（状态 + ✅ 日期）
+    if idx is not None:
+        if idx["status"] and idx["status"] != symbol:
+            rep.err(f"{rel}：README 状态 {symbol} 与项目总览表 {idx['status']} 不一致")
+        if idx["status"] == "✅" and date and idx["date"] and idx["date"] != date:
+            rep.err(f"{rel}：README 日期 {date} 与项目总览表 {idx['date']} 不一致")
+        if idx["status"] == "✅" and not idx["date"]:
+            rep.err(f"{rel}：项目总览表 ✅ 但完成日期为空")
+
+    # ✅ 门槛：验收标准必须全部打勾
+    if symbol == "✅" and re.search(r"^-\s*\[ \]", readme, re.M):
+        rep.err(f"{rel}：✅ 但仍有未勾选的验收标准（- [ ]）——✅ 门槛要求全部打勾")
 
     if deep:
         reuse = re.search(r"^##\s*复用的算法实验\s*\n(.*?)(?=^##\s|\Z)", readme, re.M | re.S)
         if reuse and symbol in ("🚧", "✅"):
             body = reuse.group(1).strip()
-            if not body or re.fullmatch(r"（[^\n]{4,}）", body):
+            if not body or PLACEHOLDER_RE.fullmatch(body):
                 rep.hint(f"{rel}：「复用的算法实验」未填——闭环断了；没有用到的实验也要写明'无'及原因")
             for link in re.findall(r"\]\((\.\./algorithms/[^)]+)\)", body):
                 if not (unit / link).resolve().exists():
                     rep.err(f"{rel}：「复用的算法实验」引用了不存在的路径 {link}")
+        check_verification_claims(readme, rel, rep)
 
 
 def check_git() -> list[str]:
@@ -271,6 +358,27 @@ def check_git() -> list[str]:
     return problems
 
 
+def print_baseline() -> None:
+    """--deep 末尾打印 git 基线，供场景 D 第 4 步记忆落盘直接引用。"""
+    try:
+        sha = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=ROOT, capture_output=True, text=True, check=True,
+        ).stdout.strip()
+        branch = subprocess.run(
+            ["git", "branch", "--show-current"],
+            cwd=ROOT, capture_output=True, text=True, check=True,
+        ).stdout.strip()
+        dirty = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=ROOT, capture_output=True, text=True, check=True,
+        ).stdout.strip()
+        suffix = "（工作区有未提交变更）" if dirty else ""
+        print(f"\n📌 基线：{branch} @ {sha}{suffix}")
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="MindSpring 存在性与纪律检查")
     ap.add_argument("--deep", action="store_true", help="额外列出需人工核对的项")
@@ -284,7 +392,7 @@ def main() -> int:
         rep.warn(f"无法解析 {ALGO_ROADMAP.relative_to(ROOT)} 的章节号，章节锚定检查被跳过")
 
     # --- algorithms 线 ---
-    algo_idx = parse_algo_index()
+    algo_idx = parse_algo_index(rep)
     algo_dirs = sorted(
         p for p in ROOT.glob("algorithms/[0-9][0-9]-*/*") if p.is_dir()
     )
@@ -299,7 +407,7 @@ def main() -> int:
         rep.err(f"algorithms/README.md 索引表登记了 {rel}，但磁盘目录不存在")
 
     # --- engineering 线 ---
-    eng_idx = parse_eng_index()
+    eng_idx = parse_eng_index(rep)
     for unit in sorted(p for p in ROOT.glob("engineering/[0-9][0-9]-*") if p.is_dir()):
         idx = eng_idx.pop(unit.name, None)
         if idx is None:
@@ -329,6 +437,8 @@ def main() -> int:
             print(f"🔍 [人工核对] {msg}")
     print(f"\n汇总：{len(rep.errors)} 个硬伤，{len(rep.warnings)} 个警告"
           + (f"，{len(rep.deep_hints)} 项待人工核对" if args.deep else ""))
+    if args.deep:
+        print_baseline()
     return 1 if rep.errors else 0
 
 
