@@ -1,0 +1,37 @@
+[package]
+name = "s18_worktree_isolation"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# HTTP 客户端。s13 起主循环改用异步客户端（reqwest::Client）：
+#   - 流式 SSE 读取（call_llm_streaming 边收 text_delta 边打印）
+#   - 429/529 退避用 tokio::time::sleep，不阻塞 runtime
+# blocking feature 保留仅为与全轨依赖声明一致（s13 起代码里已无 blocking 引用）。
+# rustls-tls 是纯 Rust 的 TLS 实现，避免依赖系统 OpenSSL。
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+# JSON 序列化/反序列化：messages、tools、API 请求响应全靠它
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# 读取根目录 .env 文件（ANTHROPIC_API_KEY / MODEL_ID 等）
+dotenvy = "0.15"
+# std::process 没有内置超时，这个 crate 给 Child 加 wait_timeout()
+wait-timeout = "0.2"
+# 文件模式匹配（s02 新增）
+glob = "0.3"
+# YAML frontmatter 解析（s07 新增）
+serde_yaml = "0.9"
+# s11 新增：指数退避的随机抖动 —— 并发重试不在同一时刻打回 API
+rand = "0.8"
+# s13 新增：async 运行时（多线程）。三个用途：
+#   1. SSE 流式读取（call_llm_streaming 边收 text_delta 边打印）
+#   2. 并行工具执行（spawn_blocking 同步 handler，不占 async worker）
+#   3. 后台任务（慢命令丢 spawn_blocking，完成注入 <task_notification>）
+tokio = { version = "1", features = ["full"] }
+# s14 新增：本地时间与日历运算 —— cron 五字段匹配需要 分钟/小时/日/月/星期，
+# chrono::Local::now() 提供"现在"的各字段，纯函数不依赖 chrono（时间注入可单测）
+chrono = "0.4"
+# s14 新增：Gate 3 用户确认用 libc::read 直读 fd 0 —— 绕开 std::io::stdin 的
+# 全局互斥锁（REPL 的 tokio stdin 后台读线程持锁等待输入时,permission_hook
+# 的 io::stdin().lock() 会卡死——实测：定时轮里 bash 必须按 Enter 才能继续）
+libc = "0.2"

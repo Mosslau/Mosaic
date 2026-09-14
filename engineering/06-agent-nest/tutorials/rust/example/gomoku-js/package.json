@@ -1,0 +1,14 @@
+{
+  "name": "gomoku-js",
+  "version": "1.0.0",
+  "description": "A dependency-free Gomoku (five-in-a-row) game written in JavaScript.",
+  "type": "module",
+  "scripts": {
+    "start": "node src/cli.js",
+    "test": "node --test test/"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}

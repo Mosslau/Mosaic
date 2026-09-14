@@ -1,0 +1,48 @@
+{
+  "mcpServers": {
+    "docs": {
+      "tools": [
+        {
+          "name": "search",
+          "description": "Search documentation. (readOnly)",
+          "inputSchema": {
+            "type": "object",
+            "properties": { "query": { "type": "string" } },
+            "required": ["query"]
+          },
+          "handler": "docs_search"
+        },
+        {
+          "name": "get_version",
+          "description": "Get API version. (readOnly)",
+          "inputSchema": { "type": "object", "properties": {}, "required": [] },
+          "handler": "docs_get_version"
+        }
+      ]
+    },
+    "deploy": {
+      "tools": [
+        {
+          "name": "trigger",
+          "description": "Trigger a deployment. (destructive — requires approval in real CC)",
+          "inputSchema": {
+            "type": "object",
+            "properties": { "service": { "type": "string" } },
+            "required": ["service"]
+          },
+          "handler": "deploy_trigger"
+        },
+        {
+          "name": "status",
+          "description": "Check deployment status. (readOnly)",
+          "inputSchema": {
+            "type": "object",
+            "properties": { "service": { "type": "string" } },
+            "required": ["service"]
+          },
+          "handler": "deploy_status"
+        }
+      ]
+    }
+  }
+}
