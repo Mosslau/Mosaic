@@ -12,7 +12,7 @@
 | 产出 | 笔记 + 手写 vs 框架对比实验 | 可部署的服务 / 平台 Demo |
 | 评价标准 | 指标与框架对齐 | 达到验收标准、能跑通端到端 |
 
-## 项目总览（对应 roadmap 六个学习阶段）
+## 项目总览（对应 roadmap 七个学习阶段）
 
 | 阶段 | 项目 | 验收标准一句话 | 状态 | 完成日期 |
 |---|---|---|---|---|
@@ -21,4 +21,5 @@
 | 三 | [03-lakehouse-vector](03-lakehouse-vector/) | 向量化数据湖，Iceberg/Delta + 向量索引统一管理 | ⬜ | |
 | 四 | [04-gpu-scheduler-demo](04-gpu-scheduler-demo/) | K8s GPU 调度平台 Demo，能提交/监控训练任务 | ⬜ | |
 | 五 | [05-inference-server](05-inference-server/) | OpenAI 兼容推理服务，压测出 TTFT/TPOT/tokens/s | ⬜ | |
-| 六 | [06-ai-platform](06-ai-platform/) | 端到端整合：数据接入 → 清洗 → RAG → 微调 → 调度 → 推理 → 监控 | ⬜ | |
+| 六 | [06-agent-nest](06-agent-nest/) | Agent 平台底座 + 可插拔运行时（四框架 + 自研内核），端口契约被至少一个运行时实证 | 🚧 | |
+| 七 | [07-ai-platform](07-ai-platform/) | 端到端整合：数据接入 → 清洗 → RAG → 微调 → 调度 → 推理 → 监控 | ⬜ | |

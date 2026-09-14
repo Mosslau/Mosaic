@@ -33,7 +33,7 @@
 
 规则：
 
-- 阶段用中文数字（一~六），与目录编号 NN 一致（validate.py 按目录编号 ↔ README 锚点核对）
+- 阶段用中文数字（一~七），与目录编号 NN 一致（validate.py 按目录编号 ↔ README 锚点核对）
 - 链接是相对 `engineering/` 的目录链接，形如 `01-text-corpus-pipeline/`
 - 状态与日期规则同 algorithms 线
 

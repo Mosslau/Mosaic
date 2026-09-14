@@ -30,7 +30,7 @@ algorithms/<NN-族>/<算法名>/          # 01-search/a-star, 04-transformer/att
 ├── framework.py 或 baseline.py      # 对照版：框架 或 基线算法（按算法族二选一）
 └── demo.py                          # 同数据双跑对比的入口
 
-engineering/<NN-项目>/                # 01-text-corpus-pipeline ~ 06-ai-platform
+engineering/<NN-项目>/                # 01-text-corpus-pipeline ~ 07-ai-platform
 ├── README.md                        # 项目主文档（六段式，必含）
 └── <项目源码>                       # 可运行系统
 ```
