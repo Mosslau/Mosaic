@@ -27,7 +27,7 @@
 
 | 实验 | 章节 | 状态 | 完成日期 |
 |---|---|---|---|
-| [A* 启发式搜索](01-search/a-star/) | 2.2.1 | ✅ | 2026-08-29 |
+| [A* 启发式搜索](01-search/a-star/) | 2.2.1 | ✅ | 2026-09-14 |
 | [Minimax 与 Alpha-Beta 剪枝](01-search/minimax-alphabeta/) | 2.2.1 | ⬜ | |
 | [蒙特卡洛树搜索 MCTS](01-search/mcts/) | 2.2.1 | ⬜ | |
 

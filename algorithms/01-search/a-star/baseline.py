@@ -21,4 +21,4 @@ def dijkstra(
 
 
 if __name__ == "__main__":
-    raise SystemExit("请先完成 dijkstra()，由 demo.py 统一调用对比")
+    raise SystemExit("本文件是 Dijkstra 对照库，由 demo.py 统一双跑对比：python3 demo.py")
