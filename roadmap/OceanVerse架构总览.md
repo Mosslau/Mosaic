@@ -548,6 +548,20 @@ AI 应用           ← Python RAG + Tool Calling
 
 ## 4.4 24 个月架构演进节奏
 
+### 总览
+
+```
+第 1 阶段        第 2 阶段         第 3 阶段         第 4 阶段        第 5 阶段
+0-3 月           3-6 月            6-12 月           12-18 月         18-24 月
+最小可用链路 →   湖仓建模+K8s  →   AI 应用接入  →    平台化      →   技术品牌
+(管道工)         (数据架构师)      (AI 工程师)       (平台负责人)    (行业影响力)
+```
+
+每个阶段都是上一阶段产物的自然生长，不是推倒重来。
+**每个阶段的技术栈只在该阶段才引入——这是刻意的：期①不碰 K8s，期②不碰 RAG，期③不碰平台。贪心是长线项目最大的死因。**
+
+> 为什么是"链路先行"而不是"平台先行"：平台是对重复劳动的抽象，必须先亲手跑通业务链路、踩过三次重复的坑，期④的平台化抽象才有真实需求撑腰；且平台能力一律向开源借力(Gravitino/WeDataSphere 等),稀缺的是车联网场景能力,先做后者。
+
 | 阶段 | 时间 | 架构重点 | 新增能力 |
 |------|------|----------|----------|
 | 第 1 阶段 | 0-3 月 | 最小可用链路 | Go 网关 → Kafka → Flink → ClickHouse → Java API |
@@ -555,6 +569,122 @@ AI 应用           ← Python RAG + Tool Calling
 | 第 3 阶段 | 6-12 月 | AI 应用接入 | RAG 管道、Vector DB、Tool Calling、评测体系、Ray 并行计算(批量推理/训练/多模态处理) |
 | 第 4 阶段 | 12-18 月 | 平台化 | 10 大平台能力、数据资产地图、SLA 分级 |
 | 第 5 阶段 | 18-24 月 | 技术品牌 | 辅攻深度项目、核心文章、代表项目输出 |
+
+---
+
+### 第 1 阶段（0-3 月）：最小可用链路 —— 让数据流起来
+
+**技术栈**
+
+| 层 | 技术 |
+|---|---|
+| 接入 | **Go**（net/http、MQTT 客户端、gRPC、Prometheus client、pprof） |
+| 消息 | **Kafka** |
+| 实时计算 | **Flink**（Flink SQL 为主） |
+| 存储/查询 | **ClickHouse**、PostgreSQL/MySQL、Redis |
+| 服务 | **Java**（Spring Boot、MyBatis Plus）、**Python**（FastAPI、Pandas） |
+| 可视化/运维 | Grafana、Docker Compose、Git |
+
+**怎么一步步做**：
+
+1. `docker-compose` 拉起 Kafka + ClickHouse + MinIO + Grafana
+2. **Go 网关**：HTTP 上报接口 → 协议解析 → 写 Kafka；再加设备鉴权、限流、metrics、pprof；最后写模拟设备产生器压测
+3. **Flink SQL**：消费 Kafka → 窗口聚合 → 写 ClickHouse（先 3 个作业：在线数、故障数、高温电池）
+4. **Java 微服务 ×5**：车辆档案 / 电池资产 / 故障码 / 告警规则 / 指标查询——每个都带 REST + MySQL 表 + Redis 缓存 + Kafka 收发 + 鉴权 + 统一异常 + 单测 + Dockerfile
+5. **Python 分析服务**：FastAPI 提供健康评分 / 故障码解释 / 电池风险 API（查 ClickHouse）
+6. **Grafana 看板**：车辆在线数、故障数、电池风险、OTA 版本分布
+7. 写文档《实时数据平台 v1 架构设计》
+
+---
+
+### 第 2 阶段（3-6 月）：湖仓建模 + K8s —— 从"链路"到"平台雏形"
+
+**技术栈**
+
+| 层 | 技术 |
+|---|---|
+| 湖仓 | **Iceberg**（表格式）+ **MinIO**（对象存储）+ Parquet |
+| 离线 | Flink 批模式 / Spark（暂缓）、**Flink CDC/Debezium**、DataX、调度 **DolphinScheduler** |
+| 建模 | ODS→DWD→DWS→ADS + DIM 分层方法论 |
+| 部署 | **Kubernetes**、Helm、Ingress、HPA、ConfigMap/Secret |
+| 可观测 | **OpenTelemetry** + Prometheus + Grafana + AlertManager |
+| 治理 | 指标口径字典 + 数据资产清单（Markdown/表）+ 质量日检脚本 |
+
+**怎么一步步做**：
+
+1. **MinIO + Iceberg 入链路**：Flink 双写（ClickHouse 做 serving，Iceberg 做底座真相源）
+2. **数据分层**：把期①的原始流整理成 ODS；建 14 张核心表——`dwd_vehicle_status_event`、`dwd_battery_status_event`、`dwd_trip_event`、`dwd_fault_event`、`dwd_ota_event`、`dwd_work_order`、`dim_vehicle/user/battery/model/store`、`dws_vehicle_health_day`、`dws_battery_risk_day`、`ads_after_sales_diagnosis` 等
+3. **离线通道**：CDC 接业务库 + 文件接收服务（铁律：文件本体→MinIO，只元数据进 Kafka）
+4. **实时指标扩到 7 个**：在线数、故障数、高温电池、离线车辆、OTA 失败率、区域风险、异常骑行
+5. **K8s 化**：所有服务 Helm Chart 化 → 探针/HPA/Ingress → 灰度发布 → OTel 链路追踪 → 告警规则
+6. **最小控制面**：指标口径字典（新指标先登记后开发）+ 资产清单 + 质量日检
+7. 写文档《数据中台 v1.0 设计》《车辆实时故障告警系统设计与实现》
+
+---
+
+### 第 3 阶段（6-12 月）：AI 应用接入 —— 把数据"用起来"
+
+**技术栈**
+
+| 层 | 技术 |
+|---|---|
+| LLM | OpenAI / DeepSeek / Qwen API |
+| 框架 | **LangChain / LangGraph**（Tool Calling、多轮对话） |
+| RAG | **Milvus/Qdrant**（向量库）、混合检索 + 重排序、文档切分 |
+| AI 算力 | **Ray**（批量推理、embedding、多模态预处理） |
+| 工程化 | Prompt 版本管理、评测集、幻觉检测、调用审计、Token 成本统计 |
+| 模型管理 | MLflow（后期）、vLLM（推理服务，可选） |
+
+**怎么一步步做**：
+
+1. **先做 Tool Calling 后做 RAG**：诊断助手 v1 = LLM + 工具调用（查车辆状态/故障历史/电池风险/OTA 版本，全部走期②的 Java API——AI 权限边界 = 数据权限边界）
+2. **知识库建设**：故障码库 + 维修手册 + 历史工单 → 切分 → 向量化 → Milvus → 混合检索 + 重排序 → RAG v2
+3. **4 个应用逐个落地**：售后诊断助手（旗舰）→ 故障码解释助手 → 数据分析 Copilot（只消费口径字典登记的指标）→ 运维 Copilot
+4. **工程化补齐**：引用来源、置信度评估、兜底策略、人工审核、灰度发布、评测集（召回率/幻觉）、调用日志与费用统计
+5. **Ray 上线**：工单照片/客服录音的批量解析、embedding 批量生成
+6. 写文档《大模型诊断助手设计》《企业级 RAG 在车联网的落地实践》
+
+---
+
+### 第 4 阶段（12-18 月）：平台化 —— 从"项目系统"到"平台系统"
+
+**技术栈**
+
+| 能力域 | 借力对象 |
+|---|---|
+| 统一目录 | **Gravitino / DataHub**（不自研） |
+| 开发工作台 | **WeDataSphere**（Linkis + DSS + Qualitis）研究复用 |
+| 质量/血缘 | Qualitis / Great Expectations、**OpenLineage** |
+| 安全 | Ranger / Catalog 内建行列级权限 |
+| 调度 | DolphinScheduler（已有，平台化封装） |
+
+**怎么一步步做**：
+
+1. **统一目录落地**：表/模型/特征/指标一处注册（替代期②的 Markdown 字典），血缘自动采集
+2. **10 大平台能力**：接入/开发/实时计算/指标/标签/特征/质量/血缘/权限/API 服务平台——优先把期①②③里重复三次以上的手工操作产品化
+3. **治理系统化**：质量规则内建流水线（不通过即阻断）、权限一点配置全栈生效、成本归因
+4. **资产化**：数据资产地图、指标体系地图、AI 应用地图、SLA 分级、成本治理方案
+5. 输出平台 Roadmap + 团队技术规范（即使团队只有你，规范也是作品）
+
+---
+
+### 第 5 阶段（18-24 月）：技术品牌 —— 辅攻深度兑现
+
+**技术栈**
+
+| 方向 | 技术 |
+|---|---|
+| 辅攻语言 | **Rust**（主力）、C++（读源码用） |
+| 内核学习 | RocksDB/LevelDB 存储引擎、ClickHouse/DuckDB 执行器源码 |
+| 分布式 | Raft、一致性哈希、Quorum、CAP、Exactly-Once |
+| 动手项目 | Rust KV Store → Mini LSM → Mini Raft KV → Mini SQL Engine → **车联网时序 KV 原型** |
+
+**怎么做**：
+
+1. 按 5 级动手项目逐级实现（每个都是独立可展示的小项目）
+2. 形成 **5 篇核心文章**：总体架构 / 千万级实时接入 / Flink+Iceberg+CK 湖仓 / 大模型诊断落地 / 数据基础设施演进
+3. 凝练 **3 个代表项目**：车联网实时数据平台、售后诊断大模型应用、车辆健康与电池风险预测系统
+4. 形成完整技术叙事："我能从 0 到 1 建数据平台，同时懂数据库内核与分布式底层"
 
 ## 4.5 差距与路线对照
 
