@@ -53,10 +53,12 @@ until docker info >/dev/null 2>&1; do sleep 5; done && echo "engine ready"
 | Kafka 3.9.1 (KRaft) | 消息总线 | `localhost:19092`（宿主机）/ 容器网内 `kafka:9092` | 无认证（期①本地） |
 | ClickHouse 25.8 | OLAP serving 层 | HTTP `http://localhost:8123` / native `localhost:9000` | `ov_admin` / `ov_pass_2026` |
 | MinIO | 对象存储（期②湖仓底座） | S3 API `http://localhost:9001` / 控制台 `http://localhost:9002` | `ov_minio` / `ov_minio_2026` |
+| EMQX 5.8 | MQTT Broker（车端长连接接入） | MQTT `localhost:1883` / Dashboard `http://localhost:18083` | `admin` / `public`（**登录后立即改密**，或启动前设 `EMQX_DASHBOARD_PASSWORD` 环境变量） |
 | Grafana OSS | 看板 | `http://localhost:3000` | `admin` / `admin` |
 
 默认数据库：ClickHouse 自动建 `oceanverse` 库。
 Grafana 启动后**自动配好名为 `ClickHouse` 的数据源**（provisioning，见 `deploy/grafana/provisioning/datasources/clickhouse.yaml`）。
+EMQX 启动后**自动加载声明式规则**（`deploy/emqx/emqx.conf`）：把 `ov/+/status|battery|fault` 的消息经 Webhook 转发到 Go 网关（Dashboard → 集成 → 规则 可见 `ov_vehicle_ingress`）。
 
 > 端口避让说明：MinIO 的 S3 API 映射到宿主 `9001`、控制台映射到 `9002`，因为 ClickHouse native 协议已占用 `9000`。
 
@@ -110,6 +112,11 @@ open http://localhost:9002   # 控制台, ov_minio / ov_minio_2026 登录
 curl -s http://localhost:3000/api/health   # 期望: {"database":"ok",...}
 open http://localhost:3000   # admin / admin 登录
 # 左侧 Connections → Data sources → 应看到已配好的 "ClickHouse"
+
+# ⑤ EMQX：状态 + Dashboard
+curl -s http://localhost:18083/status    # 期望: ok
+open http://localhost:18083              # admin / public 登录(建议立即改密)
+# Dashboard → 集成 → 规则: 应看到 ov_vehicle_ingress 规则 + webhook:device_gateway 动作
 ```
 
 全部通过后，期①底座就绪，下一步是 Go 网关骨架（往 Kafka 写第一条车端数据）。
@@ -145,3 +152,9 @@ for i in 1 2 3 4 5; do docker compose pull && break || sleep 5; done
 
 **Q6：Grafana 数据源没有自动出现**
 Grafana 首次启动需下载 ClickHouse 插件（`GF_INSTALL_PLUGINS`），网络慢时会等较久；看 `docker compose logs -f grafana`。插件装好后数据源才会生效，必要时 `docker compose restart grafana`。
+
+**Q7：EMQX Dashboard 里看不到 `ov_vehicle_ingress` 规则**
+规则由 `deploy/emqx/emqx.conf` 声明式定义。先确认挂载生效：`docker exec ov-emqx cat /opt/emqx/etc/emqx.conf | grep ov_vehicle_ingress`。若文件对但规则没生效，看 `docker compose logs emqx` 是否有配置解析错误（HOCON 字段名对版本敏感）；兜底方案：Dashboard → 集成 → 规则 → 手动新建（SQL 和 webhook 参数直接抄 `emqx.conf` 里对应段），5 分钟可完成。
+
+**Q8：EMQX webhook 转发失败（规则监控里失败计数上涨）**
+最常见是 EMQX 容器访问不到宿主机网关。依次试：① 确认网关已在本机 8080 启动；② 进入容器测试 `docker exec ov-emqx wget -qO- http://host.docker.internal:8080/health`；不通则把 `emqx.conf` 里 webhook url 的 `host.docker.internal` 换成 `host.lima.internal` 或宿主机局域网 IP，然后 `docker compose restart emqx`。

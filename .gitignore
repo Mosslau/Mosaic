@@ -26,4 +26,13 @@ replay_pid*
 # macOS
 .DS_Store
 
+# Go
+bin/
+*.test
+*.out
+# go build 在各 cmd 目录下产生的同名二进制
+server
+simulator
+mqtt-simulator
+
 .workbuddy
