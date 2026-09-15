@@ -22,4 +22,4 @@
 | 四 | [04-gpu-scheduler-demo](04-gpu-scheduler-demo/) | K8s GPU 调度平台 Demo，能提交/监控训练任务 | ⬜ | |
 | 五 | [05-inference-server](05-inference-server/) | OpenAI 兼容推理服务，压测出 TTFT/TPOT/tokens/s | ⬜ | |
 | 六 | [06-agent-nest](06-agent-nest/) | Agent 平台底座 + 可插拔运行时（四框架 + 自研内核），端口契约被至少一个运行时实证 | 🚧 | |
-| 七 | [07-ai-platform](07-ai-platform/) | 端到端整合：数据接入 → 清洗 → RAG → 微调 → 调度 → 推理 → 监控 | ⬜ | |
+| 七 | [07-ai-platform](07-ai-platform/) | 端到端整合：数据接入 → 清洗 → RAG → 微调 → 调度 → 推理 → Agent 托管 → 监控 → 成本统计 | ⬜ | |
