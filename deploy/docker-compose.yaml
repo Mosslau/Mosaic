@@ -1,0 +1,114 @@
+name: oceanverse
+
+# OceanVerse 期① 最小可用链路基础设施
+# 组件: Kafka(KRaft 单节点) + ClickHouse + MinIO + Grafana
+# 用法: cd deploy && docker compose up -d
+# 注意: 使用 Rancher Desktop(moby) 运行, 非 Docker Desktop
+
+services:
+  # ---------- 消息总线 ----------
+  kafka:
+    image: apache/kafka:3.9.1
+    container_name: ov-kafka
+    ports:
+      - "19092:19092"   # 宿主机访问(开发调试用)
+      - "9092:9092"     # 容器网络内访问
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CLUSTER_ID: oceanverse-kraft-cluster-01
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:19092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:19092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    networks: [ov-net]
+
+  # ---------- OLAP 查询加速层 (serving) ----------
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.8
+    container_name: ov-clickhouse
+    ports:
+      - "8123:8123"     # HTTP 接口
+      - "9000:9000"     # native 协议
+    environment:
+      CLICKHOUSE_DB: oceanverse
+      CLICKHOUSE_USER: ov_admin
+      CLICKHOUSE_PASSWORD: ov_pass_2026
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [ov-net]
+
+  # ---------- 对象存储 (期②湖仓底座, 期①先就位) ----------
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    container_name: ov-minio
+    ports:
+      - "9001:9000"     # S3 API (宿主端口 9001, 避免与 ClickHouse native 冲突)
+      - "9002:9001"     # 控制台
+    environment:
+      MINIO_ROOT_USER: ov_minio
+      MINIO_ROOT_PASSWORD: ov_minio_2026
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "mc ready local || curl -f http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [ov-net]
+
+  # ---------- 可视化看板 ----------
+  grafana:
+    # 注意: 不要钉具体小版本号(如 12.2.0), 国内镜像站经常缺特定 tag; latest 实测可拉取
+    image: grafana/grafana-oss:latest
+    container_name: ov-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      # 预装 ClickHouse 数据源插件
+      GF_INSTALL_PLUGINS: grafana-clickhouse-datasource
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks: [ov-net]
+
+volumes:
+  kafka_data:
+  clickhouse_data:
+  minio_data:
+  grafana_data:
+
+networks:
+  ov-net:
+    driver: bridge
