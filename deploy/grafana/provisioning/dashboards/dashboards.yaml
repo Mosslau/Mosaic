@@ -1,0 +1,14 @@
+apiVersion: 1
+
+# Grafana 启动时自动加载本目录下的 *.json 面板(面板即代码, 随仓版本化)
+providers:
+  - name: oceanverse
+    orgId: 1
+    folder: ''
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true   # 允许 UI 上调试; 改动不会写回 JSON, 定型后需重新导出固化
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false
