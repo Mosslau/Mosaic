@@ -35,6 +35,17 @@ venv/
 *.d
 *.a
 
+.workbuddy/
+
+# pytest/运行缓存
+.pytest_cache/
+
+# ruff 缓存
+.ruff_cache/
+
+# mypy 缓存
+.mypy_cache/
+
 # 语言设计分析 demo 构建产物（analysis/cpp/demos 下与 .cpp 同名的可执行文件）
 analysis/cpp/demos/01_raii
 analysis/cpp/demos/02_move
@@ -49,58 +60,3 @@ tenet/compiler-cpp/test_tenet
 # compiler-arm64 构建产物
 tenet/compiler-arm64/tenet
 tenet/compiler-arm64/test_tenet
-
-.workbuddy/memory
-# py ph08 示例运行产物（ex03 写当前目录）
-languages/py/ph08-third-party/vehicle.csv
-languages/py/ph08-third-party/vehicle_analysis.png
-
-# pytest/运行缓存
-.pytest_cache/
-
-# ruff 缓存
-.ruff_cache/
-
-# mypy 缓存
-.mypy_cache/
-
-# ph09 示例/项目运行产物
-languages/c/ph09-portability/project/app.log*
-languages/c/ph09-portability/project/logdemo
-languages/cpp/ph09-files-network/project/file_sync
-
-# ph10 示例/项目构建产物（build/ 子目录，正常 make clean 会清掉，此处兜底）
-languages/cpp/ph10-build-toolchain/examples/ex05-make/build/
-languages/cpp/ph10-build-toolchain/exercises/sol-05-make/build/
-languages/cpp/ph10-build-toolchain/project/build/
-
-# ph14 示例/项目构建产物（build/ 子目录，正常 make clean 会清掉，此处兜底）
-languages/cpp/ph14-const-correctness/project/build/
-
-# c ph11 sanitizer 阶段测试产物（make test 生成）
-languages/c/ph11-sanitizer-testing/project/test_buffer
-languages/c/ph11-sanitizer-testing/project/test_buffer.dSYM/
-
-# java ph11 示例构建产物（javac/jar/jlink 手工构建产物, README 有清理命令, 此处兜底；Maven 的 target/ 已由上方 target 规则覆盖）
-languages/java/ph11-build-tooling/examples/build/
-languages/java/ph11-build-tooling/examples/build-lib/
-languages/java/ph11-build-tooling/examples/build-app/
-languages/java/ph11-build-tooling/examples/**/*.jar
-languages/java/ph11-build-tooling/examples/runtime-min/
-languages/java/ph11-build-tooling/examples/runtime-base/
-
-# c ph12 构建产物（make 生成）
-languages/c/ph12-endian-binary/project/wal_tool
-languages/c/ph12-endian-binary/project/wal_tool.dSYM/
-
-# c ph13 构建产物
-languages/c/ph13-mmap-page-cache/project/kvlog
-languages/c/ph13-mmap-page-cache/project/kvlog.dSYM/
-*.dSYM/
-languages/cpp/ph15-ub-memory-safety/project/build/
-
-# Go 构建产物（go build 默认产物名 = 模块目录名，无扩展名）
-# 各 examples/exercises 独立 module 只提交源码；构建一律输出到 /tmp，若误落盘需手动清理
-languages/go/ph18-api-design-compat/examples/ex01-rest-design/ex01-rest-design
-
-.workbuddy
