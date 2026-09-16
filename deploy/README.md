@@ -167,4 +167,19 @@ Grafana 首次启动需下载 ClickHouse 插件（`GF_INSTALL_PLUGINS`），网�
 规则由 `deploy/emqx/emqx.conf` 声明式定义。先确认挂载生效：`docker exec ov-emqx cat /opt/emqx/etc/emqx.conf | grep ov_vehicle_ingress`。若文件对但规则没生效，看 `docker compose logs emqx` 是否有配置解析错误（HOCON 字段名对版本敏感）；兜底方案：Dashboard → 集成 → 规则 → 手动新建（SQL 和 webhook 参数直接抄 `emqx.conf` 里对应段），5 分钟可完成。
 
 **Q8：EMQX webhook 转发失败（规则监控里失败计数上涨）**
-最常见是 EMQX 容器访问不到宿主机网关。依次试：① 确认网关已在本机 8080 启动；② 进入容器测试 `docker exec ov-emqx wget -qO- http://host.docker.internal:8080/health`；不通则把 `emqx.conf` 里 webhook url 的 `host.docker.internal` 换成 `host.lima.internal` 或宿主机局域网 IP，然后 `docker compose restart emqx`。
+最常见是 EMQX 容器访问不到宿主机网关。依次试：① 确认网关已在本机 18080 启动；② 进入容器测试 `docker exec ov-emqx wget -qO- http://host.docker.internal:18080/health`；不通则把 `emqx.conf` 里 webhook url 的 `host.docker.internal` 换成 `host.lima.internal` 或宿主机局域网 IP，然后 `docker compose restart emqx`。
+
+**Q9：宿主机跑 MQTT 模拟器，并发连接永远卡 ≈185、`connection reset by peer`**
+Rancher Desktop 端口转发层（宿主→VM→容器）并发上限 ≈185 连接/端口（2026-09-16 实测：裸 socket 复现，网内直连 300/300 正常），EMQX 与网关无辜。**MQTT 压测改在容器网内跑**：
+
+```bash
+# 交叉编译 linux 二进制(静态, 任何镜像可承载)
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o /tmp/msim-linux ./cmd/mqtt-simulator
+cp /tmp/msim-linux .tmp-msim   # 放 workspace(Rancher 只共享 $HOME 给 VM, /tmp 挂不进)
+docker run --rm --network oceanverse_ov-net -v $PWD/.tmp-msim:/msim:ro \
+  --entrypoint /msim grafana/grafana-oss:latest \
+  -broker tcp://emqx:1883 -devices 5000 -interval 5s -duration 60s
+rm .tmp-msim
+```
+
+另注意：默认 6GB/2CPU 的 Rancher VM 跑 1 万 MQTT 长连接会**整机崩溃**（实测），本机 MQTT 档位上限按 5 千计；更大档位去专用压测节点。

@@ -29,6 +29,7 @@ var (
 	interval = flag.Duration("interval", 5*time.Second, "单设备上报间隔")
 	duration = flag.Duration("duration", 60*time.Second, "压测总时长 (0=不限, Ctrl+C 停止)")
 	faultPct = flag.Float64("fault-pct", 0.01, "每次上报附带故障消息的概率 [0,1]")
+	withAuth = flag.Bool("auth", false, "携带 username/password 连接(模拟生产一车一密; 本地匿名联调时保持 false)")
 )
 
 var (
@@ -95,19 +96,32 @@ func runDevice(ctx context.Context, id int) {
 	opts := mqtt.NewClientOptions().
 		AddBroker(*broker).
 		SetClientID(clientID).
-		SetUsername(clientID).        // 生产: EMQX 按 username 认证; 本地匿名放行
-		SetPassword("dev-only").      // 生产: 每车一密
 		SetAutoReconnect(true).
 		SetConnectRetry(true).
 		SetConnectRetryInterval(5 * time.Second).
 		SetKeepAlive(60 * time.Second).
 		SetCleanSession(true)
+	if *withAuth {
+		// 生产形态: EMQX 按 username 认证, 每车一密。
+		// 注意: 本地若残留 Dashboard 建的认证器, 带凭证会被拒(bad user name or password)——
+		// 本地联调默认匿名(不带凭证直接跳过认证器), 仅验证生产认证链路时才加 -auth。
+		opts.SetUsername(clientID).SetPassword("dev-only")
+	}
 	client := mqtt.NewClient(opts)
 
-	token := client.Connect()
-	if !token.WaitTimeout(10 * time.Second) || token.Error() != nil {
+	// 初次连接允许重试(真实设备行为): 千台开局是连接风暴, 单次 10s 超时就放弃
+	// 会把"瞬时拥塞"误判成"大批永久离线"; 失败计数照记(反映风暴压力), 但继续重试。
+	for {
+		token := client.Connect()
+		if token.WaitTimeout(10*time.Second) && token.Error() == nil {
+			break
+		}
 		connFail.Add(1)
-		return
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(2 * time.Second):
+		}
 	}
 	connOK.Add(1)
 	defer client.Disconnect(1000)
