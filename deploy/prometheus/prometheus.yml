@@ -1,0 +1,16 @@
+# OceanVerse 期① Prometheus 抓取配置
+# 注意: 网关跑在宿主机(go run / 二进制), 容器经 host.docker.internal 访问——
+# 与 emqx.conf webhook 同一主机名(排障见 deploy/README Q8)。
+global:
+  scrape_interval: 5s   # 压测/故障演练要看清瞬时曲线, 期①本机资源充裕
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: device-gateway
+    metrics_path: /metrics
+    static_configs:
+      # 本机 8080~8083 被公司 Java 服务占用, 开发期网关跑 18080(GATEWAY_PORT=18080)
+      # 与 emqx.conf webhook url 同端口(§5.3 对齐线); 若 8080 腾出可整体改回
+      - targets: ["host.docker.internal:18080"]
+        labels:
+          service: device-gateway

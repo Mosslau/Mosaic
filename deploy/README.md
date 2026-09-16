@@ -2,7 +2,7 @@
 
 > 适用阶段：第 1 阶段第 1 步——最小可用链路的底座
 > 容器运行时：**Rancher Desktop**（moby 引擎，非 Docker Desktop，符合本机策略）
-> 一键启动后你将得到：Kafka + ClickHouse + MinIO + Grafana 四个组件
+> 一键启动后你将得到：Kafka + ClickHouse + MinIO + EMQX + Grafana + Prometheus 六个组件
 
 ---
 
@@ -55,6 +55,7 @@ until docker info >/dev/null 2>&1; do sleep 5; done && echo "engine ready"
 | MinIO | 对象存储（期②湖仓底座） | S3 API `http://localhost:9001` / 控制台 `http://localhost:9002` | `ov_minio` / `ov_minio_2026` |
 | EMQX 5.8 | MQTT Broker（车端长连接接入） | MQTT `localhost:1883` / Dashboard `http://localhost:18083` | `admin` / `public`（**登录后立即改密**，或启动前设 `EMQX_DASHBOARD_PASSWORD` 环境变量） |
 | Grafana OSS | 看板 | `http://localhost:3000` | `admin` / `admin` |
+| Prometheus | 指标采集（网关 `/metrics`，5s 抓取） | `http://localhost:9090` | 无认证（期①本地） |
 
 默认数据库：ClickHouse 自动建 `oceanverse` 库。
 Grafana 启动后**自动配好名为 `ClickHouse` 的数据源**（provisioning，见 `deploy/grafana/provisioning/datasources/clickhouse.yaml`）。
@@ -117,7 +118,16 @@ open http://localhost:3000   # admin / admin 登录
 curl -s http://localhost:18083/status    # 期望: ok
 open http://localhost:18083              # admin / public 登录(建议立即改密)
 # Dashboard → 集成 → 规则: 应看到 ov_vehicle_ingress 规则 + webhook:device_gateway 动作
+
+# ⑥ Prometheus：抓取目标 + 网关指标(需网关已在宿主机运行)
+curl -s 'http://localhost:9090/api/v1/targets?state=active' | grep -o '"health":"[a-z]*"'
+# 期望: "health":"up"; 网关未启动时显示 down 属正常
+curl -s -g 'http://localhost:9090/api/v1/query?query=up{job="device-gateway"}'
 ```
+
+> **端口避让（本机实测）**：公司 Java 服务占用 8080~8083，网关开发期用 `GATEWAY_PORT=18080` 启动；
+> `deploy/prometheus/prometheus.yml` 抓取目标与 `deploy/emqx/emqx.conf` webhook url 已对齐 18080（§5.3 对齐线）。
+> 若在 8080 空闲的机器上开发，两处改回 8080 即可。
 
 全部通过后，期①底座就绪，下一步是 Go 网关骨架（往 Kafka 写第一条车端数据）。
 
