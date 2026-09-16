@@ -10,6 +10,9 @@ import (
 	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/model"
 )
 
+// SimModel 仿真车型。真实车队多车型接入后, 可按车型扩展构造器。
+const SimModel = "A100"
+
 // BuildVehicleStatus 构造一条仿真的整车状态上报。
 // soc 由调用方持有(每辆车独立), 本函数模拟行驶耗电与换电满电。
 func BuildVehicleStatus(vin string, rng *rand.Rand, soc *float64) *model.VehicleReport {
@@ -22,6 +25,9 @@ func BuildVehicleStatus(vin string, rng *rand.Rand, soc *float64) *model.Vehicle
 		VIN:  vin,
 		Ts:   time.Now().Unix(),
 		Type: model.ReportVehicleStatus,
+		// 信封 v2: 新产生的数据显式携带版本与车型
+		SchemaVersion: model.SchemaV1,
+		Model:         SimModel,
 		Data: model.ReportData{
 			Speed:    f64(speed),
 			SOC:      f64(*soc),
@@ -42,6 +48,9 @@ func BuildFault(vin string, rng *rand.Rand) *model.VehicleReport {
 		VIN:  vin,
 		Ts:   time.Now().Unix(),
 		Type: model.ReportFault,
+		// 信封 v2
+		SchemaVersion: model.SchemaV1,
+		Model:         SimModel,
 		Data: model.ReportData{
 			FaultCodes: []string{codes[rng.IntN(len(codes))]},
 		},

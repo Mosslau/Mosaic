@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 )
@@ -119,6 +120,35 @@ func TestValidate_Type(t *testing.T) {
 	}
 }
 
+func TestValidate_SchemaEnvelope(t *testing.T) {
+	// 缺省回填 v1(历史报文无该字段)
+	r := validReport()
+	if err := r.Validate(); err != nil {
+		t.Fatalf("合法上报应通过, 实际: %v", err)
+	}
+	if r.SchemaVersion != SchemaV1 {
+		t.Errorf("schema_version 缺省应回填 %q, 实际 %q", SchemaV1, r.SchemaVersion)
+	}
+	// 显式 v1 保持不变
+	r = validReport()
+	r.SchemaVersion = SchemaV1
+	if err := r.Validate(); err != nil {
+		t.Errorf("显式 v1 应通过, 实际 %v", err)
+	}
+	// 未知版本拒绝(fail-fast, 防止按错误格式解析未来报文)
+	r = validReport()
+	r.SchemaVersion = "v99"
+	if err := r.Validate(); err == nil {
+		t.Error("未知 schema_version 应拒绝")
+	}
+	// model 可缺省、可携带
+	r = validReport()
+	r.Model = "A100"
+	if err := r.Validate(); err != nil {
+		t.Errorf("携带 model 应通过, 实际 %v", err)
+	}
+}
+
 func TestKeyAndEncode(t *testing.T) {
 	r := validReport()
 	if string(r.Key()) != r.VIN {
@@ -130,5 +160,25 @@ func TestKeyAndEncode(t *testing.T) {
 	}
 	if len(b) == 0 {
 		t.Error("Encode 结果为空")
+	}
+}
+
+// 信封 v2: Validate 通过后再 Encode 的消息必须显式携带 schema_version,
+// 保证 Kafka/数据湖里的数据自带版本(期④ Schema Registry 接管的前提)。
+func TestEncode_IncludesSchemaVersion(t *testing.T) {
+	r := validReport()
+	if err := r.Validate(); err != nil { // 触发缺省回填
+		t.Fatalf("Validate 应通过: %v", err)
+	}
+	b, err := r.Encode()
+	if err != nil {
+		t.Fatalf("Encode 失败: %v", err)
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal(b, &decoded); err != nil {
+		t.Fatalf("Encode 结果应为合法 JSON: %v", err)
+	}
+	if decoded["schema_version"] != SchemaV1 {
+		t.Errorf("编码后应显式携带 schema_version=%q, 实际 %v", SchemaV1, decoded["schema_version"])
 	}
 }

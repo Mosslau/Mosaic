@@ -50,17 +50,35 @@ type ReportData struct {
 	FaultCodes []string `json:"fault_codes,omitempty"`
 }
 
-// VehicleReport 车端上报标准消息(平台数据契约 v1)
+// SchemaV1 契约初始版本。首批固件冻结前的历史报文没有 schema_version 字段,
+// 缺省一律视为 v1(信封 v2 修订, 设计文档 §4.4)。
+const SchemaV1 = "v1"
+
+// VehicleReport 车端上报标准消息(平台数据契约)
 type VehicleReport struct {
 	VIN  string     `json:"vin"`  // 车辆唯一标识(车架号)
 	Ts   int64      `json:"ts"`   // 事件时间戳(Unix 秒)
 	Type ReportType `json:"type"` // 数据类型
 	Data ReportData `json:"data"` // 数据载荷
+
+	// 信封 v2 字段:
+	//   SchemaVersion: 契约版本, 缺省回填为 SchemaV1; 网关只接受已知版本, 未知版本拒绝(fail-fast)
+	//   Model: 车型, 用于按车型选择校验/解析规则; 暂可缺省, Schema Registry 落地(期④)后必填
+	SchemaVersion string `json:"schema_version,omitempty"`
+	Model         string `json:"model,omitempty"`
 }
 
 // Validate 校验一条上报是否合法。返回 nil 表示通过。
 // 网关第一道防线: 不让垃圾数据污染 Kafka 和数据湖。
+// 注意: 会做缺省回填(schema_version 空→v1), 调用方应在 Validate 通过后再 Encode,
+// 以保证写进 Kafka 的消息显式携带版本(回填放在双通道的唯一漏斗里, 不会漏)。
 func (r *VehicleReport) Validate() error {
+	if r.SchemaVersion == "" {
+		r.SchemaVersion = SchemaV1
+	}
+	if r.SchemaVersion != SchemaV1 {
+		return fmt.Errorf("未知 schema_version: %q (当前仅支持 %s)", r.SchemaVersion, SchemaV1)
+	}
 	if len(r.VIN) < 5 || len(r.VIN) > 32 {
 		return fmt.Errorf("vin 长度必须在 5~32 之间, 实际 %d", len(r.VIN))
 	}
