@@ -30,9 +30,9 @@ replay_pid*
 bin/
 *.test
 *.out
-# go build 在各 cmd 目录下产生的同名二进制
-server
-simulator
-mqtt-simulator
+# go build 在 cmd 目录下产生的同名二进制(锚定完整路径, 避免误伤同名目录)
+/ingest/device-gateway/cmd/server/server
+/ingest/device-gateway/cmd/simulator/simulator
+/ingest/device-gateway/cmd/mqtt-simulator/mqtt-simulator
 
 .workbuddy
