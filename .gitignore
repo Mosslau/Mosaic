@@ -14,7 +14,7 @@
 /ingest/device-gateway/cmd/simulator/simulator
 /ingest/device-gateway/cmd/mqtt-simulator/mqtt-simulator
 
-# ---------- Java (期① services/) ----------
+# ---------- Java (第 1 阶段 services/) ----------
 target/
 *.class
 *.jar
@@ -22,7 +22,7 @@ target/
 hs_err_pid*
 replay_pid*
 
-# ---------- Python (期① analysis/) ----------
+# ---------- Python (第 1 阶段 analysis/) ----------
 __pycache__/
 *.py[cod]
 .venv/

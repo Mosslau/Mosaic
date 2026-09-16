@@ -1,4 +1,4 @@
-// Package config 从环境变量加载网关配置。期①坚持最小化: 只用环境变量, 不引配置文件库。
+// Package config 从环境变量加载网关配置。第 1 阶段坚持最小化: 只用环境变量, 不引配置文件库。
 package config
 
 import (

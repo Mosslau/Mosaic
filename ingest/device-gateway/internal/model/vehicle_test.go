@@ -164,7 +164,7 @@ func TestKeyAndEncode(t *testing.T) {
 }
 
 // 信封 v2: Validate 通过后再 Encode 的消息必须显式携带 schema_version,
-// 保证 Kafka/数据湖里的数据自带版本(期④ Schema Registry 接管的前提)。
+// 保证 Kafka/数据湖里的数据自带版本(第 4 阶段 Schema Registry 接管的前提)。
 func TestEncode_IncludesSchemaVersion(t *testing.T) {
 	r := validReport()
 	if err := r.Validate(); err != nil { // 触发缺省回填

@@ -1,6 +1,6 @@
 name: oceanverse
 
-# OceanVerse 期① 最小可用链路基础设施
+# OceanVerse 第 1 阶段 最小可用链路基础设施
 # 组件: Kafka(KRaft 单节点) + ClickHouse + MinIO + Grafana
 # 用法: cd deploy && docker compose up -d
 # 注意: 使用 Rancher Desktop(moby) 运行, 非 Docker Desktop
@@ -57,7 +57,7 @@ services:
       retries: 10
     networks: [ov-net]
 
-  # ---------- 对象存储 (期②湖仓底座, 期①先就位) ----------
+  # ---------- 对象存储 (第 2 阶段湖仓底座, 第 1 阶段先就位) ----------
   minio:
     image: minio/minio:RELEASE.2025-09-07T16-13-09Z
     container_name: ov-minio

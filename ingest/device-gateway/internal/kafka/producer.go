@@ -22,7 +22,7 @@ type Producer struct {
 //   - Balancer=Hash: 按消息 key(VIN) 哈希分区 → 同一辆车的数据保序
 //   - Async=true + Completion: 发送不阻塞 HTTP 链路, 失败在回调里计数
 //   - BatchSize/BatchTimeout: 攒批 200 条或 50ms, 吞吐优先, 延迟代价 ≈50ms
-//   - RequiredAcks=RequireOne: 期①性能优先; 升级 All 可获得更强持久性
+//   - RequiredAcks=RequireOne: 第 1 阶段性能优先; 升级 All 可获得更强持久性
 func New(brokers []string, topic string) *Producer {
 	w := &kafka.Writer{
 		Addr:         kafka.TCP(brokers...),

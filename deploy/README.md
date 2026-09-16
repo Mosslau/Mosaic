@@ -1,4 +1,4 @@
-# OceanVerse 期① 基础设施部署文档
+# OceanVerse 第 1 阶段 基础设施部署文档
 
 > 适用阶段：第 1 阶段第 1 步——最小可用链路的底座
 > 容器运行时：**Rancher Desktop**（moby 引擎，非 Docker Desktop，符合本机策略）
@@ -50,12 +50,12 @@ until docker info >/dev/null 2>&1; do sleep 5; done && echo "engine ready"
 
 | 组件 | 角色 | 宿主机入口 | 账号 |
 |---|---|---|---|
-| Kafka 3.9.1 (KRaft) | 消息总线 | `localhost:19092`（宿主机）/ 容器网内 `kafka:9092` | 无认证（期①本地） |
+| Kafka 3.9.1 (KRaft) | 消息总线 | `localhost:19092`（宿主机）/ 容器网内 `kafka:9092` | 无认证（第 1 阶段本地） |
 | ClickHouse 25.8 | OLAP serving 层 | HTTP `http://localhost:8123` / native `localhost:9000` | `ov_admin` / `ov_pass_2026` |
-| MinIO | 对象存储（期②湖仓底座） | S3 API `http://localhost:9001` / 控制台 `http://localhost:9002` | `ov_minio` / `ov_minio_2026` |
+| MinIO | 对象存储（第 2 阶段湖仓底座） | S3 API `http://localhost:9001` / 控制台 `http://localhost:9002` | `ov_minio` / `ov_minio_2026` |
 | EMQX 5.8 | MQTT Broker（车端长连接接入） | MQTT `localhost:1883` / Dashboard `http://localhost:18083` | `admin` / `public`（**登录后立即改密**，或启动前设 `EMQX_DASHBOARD_PASSWORD` 环境变量） |
 | Grafana OSS | 看板 | `http://localhost:3000` | `admin` / `admin` |
-| Prometheus | 指标采集（网关 `/metrics`，5s 抓取） | `http://localhost:9090` | 无认证（期①本地） |
+| Prometheus | 指标采集（网关 `/metrics`，5s 抓取） | `http://localhost:9090` | 无认证（第 1 阶段本地） |
 
 默认数据库：ClickHouse 自动建 `oceanverse` 库。
 Grafana 启动后**自动配好名为 `ClickHouse` 的数据源**（provisioning，见 `deploy/grafana/provisioning/datasources/clickhouse.yaml`）。
@@ -129,7 +129,7 @@ curl -s -g 'http://localhost:9090/api/v1/query?query=up{job="device-gateway"}'
 > `deploy/prometheus/prometheus.yml` 抓取目标与 `deploy/emqx/emqx.conf` webhook url 已对齐 18080（§5.3 对齐线）。
 > 若在 8080 空闲的机器上开发，两处改回 8080 即可。
 
-全部通过后，期①底座就绪，下一步是 Go 网关骨架（往 Kafka 写第一条车端数据）。
+全部通过后，第 1 阶段底座就绪，下一步是 Go 网关骨架（往 Kafka 写第一条车端数据）。
 
 ---
 

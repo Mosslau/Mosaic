@@ -63,7 +63,7 @@ type VehicleReport struct {
 
 	// 信封 v2 字段:
 	//   SchemaVersion: 契约版本, 缺省回填为 SchemaV1; 网关只接受已知版本, 未知版本拒绝(fail-fast)
-	//   Model: 车型, 用于按车型选择校验/解析规则; 暂可缺省, Schema Registry 落地(期④)后必填
+	//   Model: 车型, 用于按车型选择校验/解析规则; 暂可缺省, Schema Registry 落地(第 4 阶段)后必填
 	SchemaVersion string `json:"schema_version,omitempty"`
 	Model         string `json:"model,omitempty"`
 }

@@ -268,7 +268,7 @@
 
 **企业级要求**:接入任务可配置化(非硬编码)、断点续传、脏数据隔离(DLQ)、接入审计、Schema 契约管理。
 
-**OceanVerse 落点**:实时通道(Go 网关)+ 离线通道(文件服务/CDC/MinIO),期①建设;连接器生态不自建,需要时引入 SeaTunnel。
+**OceanVerse 落点**:实时通道(Go 网关)+ 离线通道(文件服务/CDC/MinIO),第 1 阶段建设;连接器生态不自建,需要时引入 SeaTunnel。
 
 ## ② 存储底座(Storage Foundation)
 
@@ -285,7 +285,7 @@
 
 **关键认知**:湖(Iceberg)是**底座与真相源**,OLAP 引擎(ClickHouse)是 **serving 加速层**——两者不是竞品,是分工。平台成熟度的标志之一是"任何一张服务层的表都能从湖仓重建"。
 
-**OceanVerse 落点**:Iceberg + MinIO(期①底座)+ ClickHouse(serving 层);数据分层规约见 1.1 总览架构图的湖仓层。
+**OceanVerse 落点**:Iceberg + MinIO(第 1 阶段底座)+ ClickHouse(serving 层);数据分层规约见 1.1 总览架构图的湖仓层。
 
 ## ③ 计算引擎(Compute Engines)
 
@@ -319,7 +319,7 @@
 
 **业界实践**:Unity Catalog(Databricks)、DataHub、OpenMetadata、**Apache Gravitino**(面向 Data+AI 统一目录,含模型/文件,最年轻也最有方向感)、Hive Metastore(上一代事实标准)。
 
-**OceanVerse 落点**:期①–② 用"指标口径字典 + 数据资产清单"(Markdown+表)做最小真相源;第 4 阶段(平台化)评估引入 **Gravitino/DataHub**,不自研。
+**OceanVerse 落点**:第 1–2 阶段 用"指标口径字典 + 数据资产清单"(Markdown+表)做最小真相源;第 4 阶段(平台化)评估引入 **Gravitino/DataHub**,不自研。
 
 ## ⑤ 开发工作台(Development Workbench)
 
@@ -336,7 +336,7 @@
 
 **业界实践**:**WeDataSphere(微众银行开源套件:Linkis 计算中间件 + DataSphere Studio 工作台 + Qualitis 质量 + Exchangis 交换)**——国内最完整的开源参照;商业对标 DataWorks/DataLeap 的开发空间。
 
-**OceanVerse 落点**:DolphinScheduler(调度)+ Git(脚本资产化)起步;工作台不自研,期④研究 WeDataSphere 复用。
+**OceanVerse 落点**:DolphinScheduler(调度)+ Git(脚本资产化)起步;工作台不自研,第 4 阶段研究 WeDataSphere 复用。
 
 ## ⑥ 数据治理(Governance,控制面核心)
 
@@ -351,7 +351,7 @@
 
 **企业级要求**:质量规则**内建于流水线**(不通过即阻断/告警),而非事后扫描;血缘自动采集(非人工登记);权限一点配置全栈生效。
 
-**OceanVerse 落点**:期②起交付最小控制面(质量日检 + 资产清单 + 审计);血缘与安全随统一目录(④)在第 4 阶段系统化。
+**OceanVerse 落点**:第 2 阶段起交付最小控制面(质量日检 + 资产清单 + 审计);血缘与安全随统一目录(④)在第 4 阶段系统化。
 
 ## ⑦ 语义与服务(Semantic & Serving)
 
@@ -366,7 +366,7 @@
 
 **企业级要求**:指标口径字典是强约束(新指标先登记后开发);所有出口(报表/API/AI)引用同一口径——**"昨天故障率"在任何出口答案一致**。
 
-**OceanVerse 落点**:指标口径字典(期②)+ Java 指标服务(期②)+ Grafana/Superset 看板;AI 问数(期③)只消费字典登记的指标。
+**OceanVerse 落点**:指标口径字典(第 2 阶段)+ Java 指标服务(第 2 阶段)+ Grafana/Superset 看板;AI 问数(第 3 阶段)只消费字典登记的指标。
 
 ## ⑧ AI 工程化(AI Engineering)
 
@@ -388,7 +388,7 @@
 
 **企业级铁律**:AI 的权限边界 = 数据权限边界(AI 经 API 取数,不直连库);AI 输出可追溯(血缘到源数据);AI 成本可计价。
 
-**OceanVerse 落点**:期③ 诊断助手 + 问数 Copilot(Tool Calling 调 API,RAG 后置);Ray 提供算力底座;评测集与调用审计内建。
+**OceanVerse 落点**:第 3 阶段 诊断助手 + 问数 Copilot(Tool Calling 调 API,RAG 后置);Ray 提供算力底座;评测集与调用审计内建。
 
 ---
 
@@ -544,9 +544,9 @@ AI 应用           ← Python RAG + Tool Calling
 ```
 
 每个阶段都是上一阶段产物的自然生长，不是推倒重来。
-**每个阶段的技术栈只在该阶段才引入——这是刻意的：期①不碰 K8s，期②不碰 RAG，期③不碰平台。贪心是长线项目最大的死因。**
+**每个阶段的技术栈只在该阶段才引入——这是刻意的：第 1 阶段不碰 K8s，第 2 阶段不碰 RAG，第 3 阶段不碰平台。贪心是长线项目最大的死因。**
 
-> 为什么是"链路先行"而不是"平台先行"：平台是对重复劳动的抽象，必须先亲手跑通业务链路、踩过三次重复的坑，期④的平台化抽象才有真实需求撑腰；且平台能力一律向开源借力(Gravitino/WeDataSphere 等),稀缺的是车联网场景能力,先做后者。
+> 为什么是"链路先行"而不是"平台先行"：平台是对重复劳动的抽象，必须先亲手跑通业务链路、踩过三次重复的坑，第 4 阶段的平台化抽象才有真实需求撑腰；且平台能力一律向开源借力(Gravitino/WeDataSphere 等),稀缺的是车联网场景能力,先做后者。
 
 | 阶段 | 时间 | 架构重点 | 新增能力 |
 |------|------|----------|----------|
@@ -595,7 +595,7 @@ AI 应用           ← Python RAG + Tool Calling
 **怎么一步步做**：
 
 1. **MinIO + Iceberg 入链路**：Flink 双写（ClickHouse 做 serving，Iceberg 做底座真相源）
-2. **数据分层**：把期①的原始流整理成 ODS；建 14 张核心表——`dwd_vehicle_status_event`、`dwd_battery_status_event`、`dwd_trip_event`、`dwd_fault_event`、`dwd_ota_event`、`dwd_work_order`、`dim_vehicle/user/battery/model/store`、`dws_vehicle_health_day`、`dws_battery_risk_day`、`ads_after_sales_diagnosis` 等
+2. **数据分层**：把第 1 阶段的原始流整理成 ODS；建 14 张核心表——`dwd_vehicle_status_event`、`dwd_battery_status_event`、`dwd_trip_event`、`dwd_fault_event`、`dwd_ota_event`、`dwd_work_order`、`dim_vehicle/user/battery/model/store`、`dws_vehicle_health_day`、`dws_battery_risk_day`、`ads_after_sales_diagnosis` 等
 3. **离线通道**：CDC 接业务库 + 文件接收服务（铁律：文件本体→MinIO，只元数据进 Kafka）
 4. **实时指标扩到 7 个**：在线数、故障数、高温电池、离线车辆、OTA 失败率、区域风险、异常骑行
 5. **K8s 化**：所有服务 Helm Chart 化 → 探针/HPA/Ingress → 灰度发布 → OTel 链路追踪 → 告警规则
@@ -617,7 +617,7 @@ AI 应用           ← Python RAG + Tool Calling
 
 **怎么一步步做**：
 
-1. **先做 Tool Calling 后做 RAG**：诊断助手 v1 = LLM + 工具调用（查车辆状态/故障历史/电池风险/OTA 版本，全部走期②的 Java API——AI 权限边界 = 数据权限边界）
+1. **先做 Tool Calling 后做 RAG**：诊断助手 v1 = LLM + 工具调用（查车辆状态/故障历史/电池风险/OTA 版本，全部走第 2 阶段的 Java API——AI 权限边界 = 数据权限边界）
 2. **知识库建设**：故障码库 + 维修手册 + 历史工单 → 切分 → 向量化 → Milvus → 混合检索 + 重排序 → RAG v2
 3. **4 个应用逐个落地**：售后诊断助手（旗舰）→ 故障码解释助手 → 数据分析 Copilot（只消费口径字典登记的指标）→ 运维 Copilot
 4. **工程化补齐**：引用来源、置信度评估、兜底策略、人工审核、灰度发布、评测集（召回率/幻觉）、调用日志与费用统计
@@ -638,8 +638,8 @@ AI 应用           ← Python RAG + Tool Calling
 
 **怎么一步步做**：
 
-1. **统一目录落地**：表/模型/特征/指标一处注册（替代期②的 Markdown 字典），血缘自动采集
-2. **10 大平台能力**：接入/开发/实时计算/指标/标签/特征/质量/血缘/权限/API 服务平台——优先把期①②③里重复三次以上的手工操作产品化
+1. **统一目录落地**：表/模型/特征/指标一处注册（替代第 2 阶段的 Markdown 字典），血缘自动采集
+2. **10 大平台能力**：接入/开发/实时计算/指标/标签/特征/质量/血缘/权限/API 服务平台——优先把第 1~3 阶段里重复三次以上的手工操作产品化
 3. **治理系统化**：质量规则内建流水线（不通过即阻断）、权限一点配置全栈生效、成本归因
 4. **资产化**：数据资产地图、指标体系地图、AI 应用地图、SLA 分级、成本治理方案
 5. 输出平台 Roadmap + 团队技术规范（即使团队只有你，规范也是作品）
@@ -666,14 +666,14 @@ AI 应用           ← Python RAG + Tool Calling
 
 | 能力域 | OceanVerse 现状 | 落点 |
 |---|---|---|
-| ① 数据集成 | 实时通道雏形(无鉴权限流),离线通道无 | **期①** |
-| ② 存储底座 | CK 已部署无分层;Iceberg/MinIO 未建 | **期①** |
-| ③ 计算引擎 | 3 个演示 Flink SQL;无状态管理 | **期①**(Ray 期③) |
-| ④ 统一目录 | 无 | 期②字典/清单起步,第 4 阶段引 Gravitino/DataHub |
-| ⑤ 开发工作台 | 无;DS 期①引入 | 期①起步,工作台不自研 |
-| ⑥ 数据治理 | 无 | 期②最小控制面 |
-| ⑦ 语义与服务 | analysis-service 雏形,口径未统一 | 期② |
-| ⑧ AI 工程化 | 无 | 期③ |
+| ① 数据集成 | 实时通道雏形(无鉴权限流),离线通道无 | **第 1 阶段** |
+| ② 存储底座 | CK 已部署无分层;Iceberg/MinIO 未建 | **第 1 阶段** |
+| ③ 计算引擎 | 3 个演示 Flink SQL;无状态管理 | **第 1 阶段**(Ray 第 3 阶段) |
+| ④ 统一目录 | 无 | 第 2 阶段字典/清单起步,第 4 阶段引 Gravitino/DataHub |
+| ⑤ 开发工作台 | 无;DS 第 1 阶段引入 | 第 1 阶段起步,工作台不自研 |
+| ⑥ 数据治理 | 无 | 第 2 阶段最小控制面 |
+| ⑦ 语义与服务 | analysis-service 雏形,口径未统一 | 第 2 阶段 |
+| ⑧ AI 工程化 | 无 | 第 3 阶段 |
 
 > 原则:**平台能力向开源借力(④⑤⑥),场景能力(车联网领域模型、告警→工单闭环、售后诊断 AI)自己深耕。**
 

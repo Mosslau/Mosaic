@@ -20,7 +20,7 @@
                                                           Kafka vehicle-report-raw
                                                           (Key=VIN, 同车同分区保序)
 
- 离线通道(期②): file-receiver(文件/多模态 → MinIO, 只元数据进 Kafka)
+ 离线通道(第 2 阶段): file-receiver(文件/多模态 → MinIO, 只元数据进 Kafka)
 ```
 
 ## 两条实时通道的职责边界
@@ -52,7 +52,7 @@
 - 全链路无同步阻塞点, 唯一同步等待是"消息进内存队列"
 
 ### 可扩展
-- 网关无状态: 水平扩 N 个副本, 前面挂 LB 即可(期② K8s HPA)
+- 网关无状态: 水平扩 N 个副本, 前面挂 LB 即可(第 2 阶段 K8s HPA)
 - EMQX 集群化: compose 再加 emqx-2 节点, `discovery_strategy=static` + seeds 即集群
 - Kafka 扩容: 加分区即可(VIN 哈希天然均匀)
 - 扩展顺序: 先扩 Kafka 分区 → 再扩网关副本 → 最后扩 EMQX 节点
@@ -79,7 +79,7 @@
 | webhook 密钥 | 默认值 | 强随机 + 密钥轮换 |
 | Kafka 持久性 | RequireOne | RequireAll + min.insync.replicas=2 |
 | EMQX | 单节点 | 3 节点集群 + LB |
-| 审计 | metrics | + 消息抽样落审计表(期②控制面) |
+| 审计 | metrics | + 消息抽样落审计表(第 2 阶段控制面) |
 
 ## 目录
 
@@ -93,10 +93,10 @@ ingest/
     ├── cmd/simulator            ← HTTP 通道压测器
     ├── cmd/mqtt-simulator       ← MQTT 长连接压测器
     └── internal/                ← 治理流水线五件套(model/auth/ratelimit/kafka/metrics)
-    (file-receiver 期②加入: 离线通道)
+    (file-receiver 第 2 阶段加入: 离线通道)
 ```
 
-## 当前状态（期①）
+## 当前状态（第 1 阶段）
 
 | 项 | 状态 |
 |---|---|

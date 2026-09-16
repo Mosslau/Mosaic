@@ -1,6 +1,6 @@
 # device-gateway 车端接入网关
 
-> OceanVerse 期①第 2 步 —— 平台的数据"国门"
+> OceanVerse 第 1 阶段第 2 步 —— 平台的数据"国门"
 > 职责: 设备鉴权 → 限流 → 协议解析/校验 → 写 Kafka → 全程可观测
 > 原则: 网关无业务逻辑、无状态、不直连数据库; 越"笨"越稳。
 > 📐 设计文档（含成熟度评估）：《docs/接入层与车端接入网关设计-v1.md》
@@ -155,7 +155,7 @@ curl -s http://localhost:8080/metrics | grep 'gateway_requests_total'
 #    Dashboard → 集成 → 规则 → ov_vehicle_ingress(命中率/成功率)
 ```
 
-## Docker 构建（可选，期①后续上编排用）
+## Docker 构建（可选，第 1 阶段后续上编排用）
 
 ```bash
 docker build -t oceanverse/device-gateway:dev .
@@ -167,7 +167,7 @@ docker run --rm -p 8080:8080 \
 
 ## 已知边界（刻意不做）
 
-- 鉴权是静态白名单；期②接车辆档案服务改为动态校验
+- 鉴权是静态白名单；第 2 阶段接车辆档案服务改为动态校验
 - Kafka RequiredAcks=RequireOne 性能优先；要更强持久性改 `kafka.RequireAll`
 - gRPC/TCP 私有协议通道后续在 `internal/` 下平级扩展（HTTP 与 MQTT 已实现）
 - 消息清洗/字段加工不做（那是 Flink 计算层的职责）

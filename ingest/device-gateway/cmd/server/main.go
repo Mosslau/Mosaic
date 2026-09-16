@@ -43,7 +43,7 @@ func main() {
 	reportHandler := handler.NewReportHandler(producer)
 
 	mux := http.NewServeMux()
-	// 方法级路由("POST /path")是 Go 1.22+ ServeMux 原生能力: 期①不引第三方路由库。
+	// 方法级路由("POST /path")是 Go 1.22+ ServeMux 原生能力: 第 1 阶段不引第三方路由库。
 	// metrics.Instrument 放最外层: 连被鉴权/限流拒绝的请求也要计数, 否则拒绝率不可见。
 	// 通道一: 设备直连 HTTP(鉴权 + 双层限流)
 	mux.Handle("POST /api/v1/vehicle/report",
