@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -79,10 +80,75 @@ func main() {
 	go func() { <-quit; slog.Info("收到退出信号, 优雅关闭..."); cancel() }()
 
 	var consumed, decoded, dlqed int64
+	var mu sync.Mutex
+	var pendingReports, pendingDLQ []kafka.Message
+	var pendingMsgs []kafka.Message // 待提交的原始消息(与产出同批提交)
+
+	// flush 批量写出 + 提交位移: 全部成功才提交, 崩溃/失败 → 重读(at-least-once, 下游幂等)
+	flush := func() {
+		mu.Lock()
+		defer mu.Unlock()
+		if len(pendingMsgs) == 0 {
+			return
+		}
+		t0 := time.Now()
+		var dWrite, dCommit time.Duration
+		ok := true
+		if len(pendingReports) > 0 {
+			if err := parsedWriter.WriteMessages(ctx, pendingReports...); err != nil {
+				ok = false
+				slog.Error("批量投递解析产物失败", "msgs", len(pendingReports), "err", err)
+			} else {
+				decoded += int64(len(pendingReports))
+			}
+		}
+		if len(pendingDLQ) > 0 {
+			if err := dlqWriter.WriteMessages(ctx, pendingDLQ...); err != nil {
+				ok = false
+				slog.Error("批量投递 DLQ 失败", "msgs", len(pendingDLQ), "err", err)
+			} else {
+				dlqed += int64(len(pendingDLQ))
+			}
+		}
+		dWrite = time.Since(t0)
+		if ok {
+			t1 := time.Now()
+			if err := reader.CommitMessages(ctx, pendingMsgs...); err != nil {
+				slog.Error("提交位移失败", "err", err)
+			}
+			dCommit = time.Since(t1)
+		}
+		if d := time.Since(t0); d > 200*time.Millisecond {
+			slog.Warn("flush 耗时过长", "total", d, "write", dWrite, "commit", dCommit, "msgs", len(pendingMsgs))
+		}
+		pendingReports = pendingReports[:0]
+		pendingDLQ = pendingDLQ[:0]
+		pendingMsgs = pendingMsgs[:0]
+	}
+
+	// 定时冲刷: 消息稀疏时微批不积压(攒批 200 条 / 100ms)
+	go func() {
+		t := time.NewTicker(100 * time.Millisecond)
+		stats := time.NewTicker(5 * time.Second)
+		defer t.Stop()
+		defer stats.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				flush()
+			case <-stats.C:
+				slog.Info("处理统计", "consumed", consumed, "decoded", decoded, "dlq", dlqed)
+			}
+		}
+	}()
+
 	for {
 		msg, err := reader.FetchMessage(ctx)
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
+				flush()
 				break
 			}
 			slog.Error("拉取消息失败", "err", err)
@@ -92,43 +158,28 @@ func main() {
 		consumed++
 
 		reports, dlqs := process(msg.Value)
-		failed := false
-
+		mu.Lock()
 		for i := range reports {
 			payload, err := reports[i].Encode()
 			if err != nil {
-				failed = true
 				slog.Error("解析产物序列化失败", "vin", reports[i].VIN, "err", err)
-				break
+				continue
 			}
-			if err := parsedWriter.WriteMessages(ctx, kafka.Message{
-				Key: reports[i].Key(), Value: payload, Time: time.Now(),
-			}); err != nil {
-				failed = true
-				slog.Error("投递解析产物失败", "vin", reports[i].VIN, "err", err)
-				break
-			}
-			decoded++
+			pendingReports = append(pendingReports, kafka.Message{Key: reports[i].Key(), Value: payload, Time: time.Now()})
 		}
 		for _, d := range dlqs {
 			b, err := json.Marshal(d)
 			if err != nil {
-				failed = true
 				continue
 			}
-			if err := dlqWriter.WriteMessages(ctx, kafka.Message{Key: []byte(d.VIN), Value: b, Time: time.Now()}); err != nil {
-				failed = true
-				slog.Error("投递 DLQ 失败", "err", err)
-			}
-			dlqed++
+			pendingDLQ = append(pendingDLQ, kafka.Message{Key: []byte(d.VIN), Value: b, Time: time.Now()})
 			slog.Warn("消息进 DLQ", "stage", d.Stage, "reason", d.Reason, "vin", d.VIN)
 		}
-
-		// 全部写出成功才提交位移: 崩溃/失败 → 重读, at-least-once(下游按 (vin,ts) 幂等)
-		if !failed {
-			if err := reader.CommitMessages(ctx, msg); err != nil {
-				slog.Error("提交位移失败", "err", err)
-			}
+		pendingMsgs = append(pendingMsgs, msg)
+		needFlush := len(pendingMsgs) >= 200
+		mu.Unlock()
+		if needFlush {
+			flush()
 		}
 		if consumed%1000 == 0 {
 			slog.Info("处理统计", "consumed", consumed, "decoded", decoded, "dlq", dlqed)
