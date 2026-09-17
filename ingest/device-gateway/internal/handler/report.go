@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/Mosslau/OceanVerse/contracts/vehicle"
 	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/metrics"
 	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/model"
 )
@@ -36,7 +37,7 @@ func (h *ReportHandler) Report(w http.ResponseWriter, r *http.Request) {
 
 	// ① 限制请求体最大 64KB, 防畸形大报文打爆内存
 	r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
-	var report model.VehicleReport
+	var report vehicle.VehicleReport
 	if err := json.NewDecoder(r.Body).Decode(&report); err != nil {
 		metrics.RequestsTotal.WithLabelValues(path, "invalid_body").Inc()
 		model.WriteError(w, model.CodeInvalidBody, "JSON 解析失败: "+err.Error())

@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Mosslau/OceanVerse/contracts/vehicle"
 	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/model"
 )
 
@@ -62,7 +63,7 @@ func TestReport_OK(t *testing.T) {
 		t.Errorf("Kafka key 应为 VIN, 实际 %q", fs.messages[0].key)
 	}
 	// payload 应可解析回契约
-	var r model.VehicleReport
+	var r vehicle.VehicleReport
 	if err := json.Unmarshal([]byte(fs.messages[0].payload), &r); err != nil {
 		t.Errorf("投递 payload 应为合法契约 JSON: %v", err)
 	}

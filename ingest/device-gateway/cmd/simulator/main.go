@@ -23,7 +23,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/model"
+	"github.com/Mosslau/OceanVerse/contracts/vehicle"
 	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/simdata"
 )
 
@@ -138,7 +138,7 @@ func runDevice(ctx context.Context, client *http.Client, id int) {
 // send 发送一条上报并统计结果。
 // 只有 202 计成功: 被限流(429)/被拒(400/401)也算失败——压测要看到真实的拒绝率,
 // 否则限流策略把请求掐了、报表上还显示"100% 成功"。
-func send(ctx context.Context, client *http.Client, r *model.VehicleReport, token string) {
+func send(ctx context.Context, client *http.Client, r *vehicle.VehicleReport, token string) {
 	body, err := json.Marshal(r)
 	if err != nil {
 		sentFail.Add(1)

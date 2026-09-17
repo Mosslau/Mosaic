@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Mosslau/OceanVerse/contracts/vehicle"
 	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/metrics"
 	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/model"
 )
@@ -34,14 +35,14 @@ type emqxMessage struct {
 	Topic    string          `json:"topic"`
 	QoS      int             `json:"qos"`
 	Ts       int64           `json:"ts"`      // EMQX 时间戳(毫秒)
-	Payload  json.RawMessage `json:"payload"` // 设备原始上报(model.VehicleReport JSON)
+	Payload  json.RawMessage `json:"payload"` // 设备原始上报(vehicle.VehicleReport JSON)
 }
 
 // topic 后缀 → 数据类型(设备没填 type 时按 topic 推断)
-var topicTypeMap = map[string]model.ReportType{
-	"status":  model.ReportVehicleStatus,
-	"battery": model.ReportBatteryStatus,
-	"fault":   model.ReportFault,
+var topicTypeMap = map[string]vehicle.ReportType{
+	"status":  vehicle.ReportVehicleStatus,
+	"battery": vehicle.ReportBatteryStatus,
+	"fault":   vehicle.ReportFault,
 }
 
 // Ingest POST /api/v1/mqtt/ingest
@@ -70,7 +71,7 @@ func (h *MQTTIngestHandler) Ingest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// ③ 解析设备载荷为平台契约
-	var report model.VehicleReport
+	var report vehicle.VehicleReport
 	if err := json.Unmarshal(msg.Payload, &report); err != nil {
 		metrics.RequestsTotal.WithLabelValues(path, "invalid_body").Inc()
 		model.WriteError(w, model.CodeInvalidBody, "设备载荷解析失败: "+err.Error())

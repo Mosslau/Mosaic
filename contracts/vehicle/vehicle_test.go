@@ -1,4 +1,4 @@
-package model
+package vehicle
 
 import (
 	"encoding/json"

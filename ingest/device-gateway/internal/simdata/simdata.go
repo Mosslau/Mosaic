@@ -7,7 +7,7 @@ import (
 	"math/rand/v2"
 	"time"
 
-	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/model"
+	"github.com/Mosslau/OceanVerse/contracts/vehicle"
 )
 
 // SimModel 仿真车型。真实车队多车型接入后, 可按车型扩展构造器。
@@ -15,20 +15,20 @@ const SimModel = "A100"
 
 // BuildVehicleStatus 构造一条仿真的整车状态上报。
 // soc 由调用方持有(每辆车独立), 本函数模拟行驶耗电与换电满电。
-func BuildVehicleStatus(vin string, rng *rand.Rand, soc *float64) *model.VehicleReport {
+func BuildVehicleStatus(vin string, rng *rand.Rand, soc *float64) *vehicle.VehicleReport {
 	speed := rng.Float64() * 45 // 0~45 km/h 市区骑行
 	*soc -= 0.01 + rng.Float64()*0.05
 	if *soc < 5 {
 		*soc = 100 // 模拟换电
 	}
-	return &model.VehicleReport{
+	return &vehicle.VehicleReport{
 		VIN:  vin,
 		Ts:   time.Now().Unix(),
-		Type: model.ReportVehicleStatus,
+		Type: vehicle.ReportVehicleStatus,
 		// 信封 v2: 新产生的数据显式携带版本与车型
-		SchemaVersion: model.SchemaV1,
+		SchemaVersion: vehicle.SchemaV1,
 		Model:         SimModel,
-		Data: model.ReportData{
+		Data: vehicle.ReportData{
 			Speed:    f64(speed),
 			SOC:      f64(*soc),
 			Voltage:  f64(55 + rng.Float64()*12),   // 48V/60V 平台
@@ -42,16 +42,16 @@ func BuildVehicleStatus(vin string, rng *rand.Rand, soc *float64) *model.Vehicle
 }
 
 // BuildFault 构造一条故障码上报(事件触发型, 与周期状态不同)
-func BuildFault(vin string, rng *rand.Rand) *model.VehicleReport {
+func BuildFault(vin string, rng *rand.Rand) *vehicle.VehicleReport {
 	codes := []string{"E1001", "E2003", "E3002", "P0A7F", "B1012"}
-	return &model.VehicleReport{
+	return &vehicle.VehicleReport{
 		VIN:  vin,
 		Ts:   time.Now().Unix(),
-		Type: model.ReportFault,
+		Type: vehicle.ReportFault,
 		// 信封 v2
-		SchemaVersion: model.SchemaV1,
+		SchemaVersion: vehicle.SchemaV1,
 		Model:         SimModel,
-		Data: model.ReportData{
+		Data: vehicle.ReportData{
 			FaultCodes: []string{codes[rng.IntN(len(codes))]},
 		},
 	}
