@@ -182,3 +182,51 @@ func TestEncode_IncludesSchemaVersion(t *testing.T) {
 		t.Errorf("编码后应显式携带 schema_version=%q, 实际 %v", SchemaV1, decoded["schema_version"])
 	}
 }
+
+// v1.3/v1.4 新增字段(0x08/0x09/0x80/0x81 载体)的校验边界
+func TestValidate_ExtendedFields(t *testing.T) {
+	str := func(s string) *string { return &s }
+	i64 := func(v int64) *int64 { return &v }
+
+	// work 类型入枚举
+	r := validReport()
+	r.Type = ReportWork
+	if err := r.Validate(); err != nil {
+		t.Errorf("type=work 应通过, 实际 %v", err)
+	}
+
+	cases := []struct {
+		name   string
+		mutate func(*VehicleReport)
+		ok     bool
+	}{
+		{"cell 电压合法", func(r *VehicleReport) { r.Data.CellVoltages = []float64{3.276, 3.28} }, true},
+		{"cell 电压越界", func(r *VehicleReport) { r.Data.CellVoltages = []float64{5.1} }, false},
+		{"探针温度边界", func(r *VehicleReport) { r.Data.ProbeTemps = []float64{-40, 150} }, true},
+		{"探针温度越界", func(r *VehicleReport) { r.Data.ProbeTemps = []float64{151} }, false},
+		{"剩余充电合法", func(r *VehicleReport) { r.Data.RemainChargeMin = i64(45) }, true},
+		{"剩余充电越界", func(r *VehicleReport) { r.Data.RemainChargeMin = i64(6001) }, false},
+		{"仓号下界", func(r *VehicleReport) { r.Data.SlotNo = i64(1) }, true},
+		{"仓号非法", func(r *VehicleReport) { r.Data.SlotNo = i64(0) }, false},
+		{"ride_state 合法", func(r *VehicleReport) { r.Data.RideState = str("riding") }, true},
+		{"ride_state 非法", func(r *VehicleReport) { r.Data.RideState = str("flying") }, false},
+		{"ride_mode 合法", func(r *VehicleReport) { r.Data.RideMode = str("sport") }, true},
+		{"ride_mode 非法", func(r *VehicleReport) { r.Data.RideMode = str("turbo") }, false},
+		{"转速合法", func(r *VehicleReport) { r.Data.MotorRPM = i64(20000) }, true},
+		{"转速越界", func(r *VehicleReport) { r.Data.MotorRPM = i64(20001) }, false},
+		{"转把边界", func(r *VehicleReport) { r.Data.Throttle = i64(100) }, true},
+		{"转把越界", func(r *VehicleReport) { r.Data.Throttle = i64(101) }, false},
+		{"负转矩合法(能量回收)", func(r *VehicleReport) { r.Data.MotorTorque = f64(-3.5) }, true},
+	}
+	for _, c := range cases {
+		r := validReport()
+		c.mutate(&r)
+		err := r.Validate()
+		if c.ok && err != nil {
+			t.Errorf("%s: 应通过, 实际 %v", c.name, err)
+		}
+		if !c.ok && err == nil {
+			t.Errorf("%s: 应拒绝", c.name)
+		}
+	}
+}

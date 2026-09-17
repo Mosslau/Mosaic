@@ -13,7 +13,8 @@ import (
 type Config struct {
 	Port          int      // HTTP 监听端口
 	KafkaBrokers  []string // Kafka broker 列表
-	KafkaTopic    string   // 车端数据 topic
+	KafkaTopic    string   // 车端数据 topic(JSON 通道)
+	KafkaBinTopic string   // 二进制原始帧 topic(§7: ov.raw.binary.v1)
 	DeviceTokens  []string // 合法设备 token 白名单
 	WebhookToken  string   // EMQX webhook 来源鉴权密钥
 	DevMode       bool     // 开发模式: 接受所有 "dev-" 前缀 token (仅本地压测用!)
@@ -30,6 +31,7 @@ func Load() (*Config, error) {
 		Port:          envInt("GATEWAY_PORT", 8080),
 		KafkaBrokers:  envList("KAFKA_BROKERS", []string{"localhost:19092"}),
 		KafkaTopic:    envStr("KAFKA_TOPIC", "vehicle-report-raw"),
+		KafkaBinTopic: envStr("KAFKA_BIN_TOPIC", "ov.raw.binary.v1"),
 		DeviceTokens:  envList("DEVICE_TOKENS", []string{"demo-token-001"}),
 		WebhookToken:  envStr("GATEWAY_WEBHOOK_TOKEN", "dev-webhook-secret"),
 		DevMode:       envBool("GATEWAY_DEV_MODE", false),
@@ -44,6 +46,9 @@ func Load() (*Config, error) {
 	}
 	if cfg.KafkaTopic == "" {
 		return nil, fmt.Errorf("KAFKA_TOPIC 不能为空")
+	}
+	if cfg.KafkaBinTopic == "" {
+		return nil, fmt.Errorf("KAFKA_BIN_TOPIC 不能为空")
 	}
 	if !cfg.DevMode && len(cfg.DeviceTokens) == 0 {
 		return nil, fmt.Errorf("生产模式下 DEVICE_TOKENS 不能为空 (或显式开启 GATEWAY_DEV_MODE)")

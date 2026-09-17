@@ -21,6 +21,7 @@ const (
 	ReportBatteryStatus ReportType = "battery_status" // 电池详细状态(BMS)
 	ReportFault         ReportType = "fault"          // 故障码上报
 	ReportCharging      ReportType = "charging"       // 充电状态
+	ReportWork          ReportType = "work"           // 工况(骑行状态/电机, 0x81 载体, v1.4 新增)
 )
 
 // validTypes 合法类型集合
@@ -29,6 +30,7 @@ var validTypes = map[ReportType]bool{
 	ReportBatteryStatus: true,
 	ReportFault:         true,
 	ReportCharging:      true,
+	ReportWork:          true,
 }
 
 // ReportData 上报数据载荷。字段全部可选(omitempty), 不同 type 使用不同子集。
@@ -52,6 +54,26 @@ type ReportData struct {
 	Lat        *float64 `json:"lat,omitempty"`
 	Odometer   *float64 `json:"odometer,omitempty"`
 	FaultCodes []string `json:"fault_codes,omitempty"`
+
+	// battery_status 扩展(0x08/0x09 载体, 映射文档 §5.1):
+	CellVoltages []float64 `json:"cell_voltages,omitempty"` // 单体电压 V, 元素 ∈ [0,5]
+	ProbeTemps   []float64 `json:"probe_temps,omitempty"`   // 探针温度 ℃, 元素 ∈ [-40,150]
+
+	// charging 扩展(0x80 载体, 映射文档 §5.2):
+	RemainChargeMin *int64   `json:"remain_charge_min,omitempty"` // 剩余充电时间 min ∈ [0,6000]
+	ChargePower     *float64 `json:"charge_power,omitempty"`      // 充电功率 kW ∈ [0,100]
+	ChargeKWh       *float64 `json:"charge_kwh,omitempty"`        // 本次充电电量 kWh ∈ [0,100]
+	PileID          *int64   `json:"pile_id,omitempty"`           // 充电桩号, 0=无
+	StationID       *int64   `json:"station_id,omitempty"`        // 换电站 ID, 0=无
+	SlotNo          *int64   `json:"slot_no,omitempty"`           // 换电柜仓号 ∈ [1,254]
+
+	// work 工况扩展(0x81 载体, 映射文档 §5.2):
+	RideState   *string  `json:"ride_state,omitempty"`  // riding/parked/pushing/reverse
+	RideMode    *string  `json:"ride_mode,omitempty"`   // eco/standard/sport
+	MotorRPM    *int64   `json:"motor_rpm,omitempty"`   // 电机转速 ∈ [0,20000]
+	MotorTorque *float64 `json:"motor_torque,omitempty"` // N·m, 负=能量回收
+	MotorPower  *float64 `json:"motor_power,omitempty"`  // W, 负=能量回收
+	Throttle    *int64   `json:"throttle,omitempty"`     // 转把开度 % ∈ [0,100]
 }
 
 // SchemaV1 契约初始版本。首批固件冻结前的历史报文没有 schema_version 字段,
@@ -112,8 +134,49 @@ func (r *VehicleReport) Validate() error {
 	if r.Type == ReportFault && len(r.Data.FaultCodes) == 0 {
 		return fmt.Errorf("type=fault 时 fault_codes 不能为空")
 	}
+	// battery_status 扩展(§5.1)
+	for i, v := range r.Data.CellVoltages {
+		if v < 0 || v > 5 {
+			return fmt.Errorf("cell_voltages[%d] 超出 [0,5]: %v", i, v)
+		}
+	}
+	for i, t := range r.Data.ProbeTemps {
+		if t < -40 || t > 150 {
+			return fmt.Errorf("probe_temps[%d] 超出 [-40,150]: %v", i, t)
+		}
+	}
+	// charging 扩展(§5.2)
+	if v := r.Data.RemainChargeMin; v != nil && (*v < 0 || *v > 6000) {
+		return fmt.Errorf("remain_charge_min 超出 [0,6000]: %v", *v)
+	}
+	if v := r.Data.ChargePower; v != nil && (*v < 0 || *v > 100) {
+		return fmt.Errorf("charge_power 超出 [0,100]: %v", *v)
+	}
+	if v := r.Data.ChargeKWh; v != nil && (*v < 0 || *v > 100) {
+		return fmt.Errorf("charge_kwh 超出 [0,100]: %v", *v)
+	}
+	if v := r.Data.SlotNo; v != nil && (*v < 1 || *v > 254) {
+		return fmt.Errorf("slot_no 超出 [1,254]: %v", *v)
+	}
+	// work 扩展(§5.2)
+	if v := r.Data.RideState; v != nil && !validRideState[*v] {
+		return fmt.Errorf("未知 ride_state: %q", *v)
+	}
+	if v := r.Data.RideMode; v != nil && !validRideMode[*v] {
+		return fmt.Errorf("未知 ride_mode: %q", *v)
+	}
+	if v := r.Data.MotorRPM; v != nil && (*v < 0 || *v > 20000) {
+		return fmt.Errorf("motor_rpm 超出 [0,20000]: %v", *v)
+	}
+	if v := r.Data.Throttle; v != nil && (*v < 0 || *v > 100) {
+		return fmt.Errorf("throttle 超出 [0,100]: %v", *v)
+	}
 	return nil
 }
+
+// 枚举值集合(§5.2: L1 数字码由 codec 译为 L2 字符串)
+var validRideState = map[string]bool{"riding": true, "parked": true, "pushing": true, "reverse": true}
+var validRideMode = map[string]bool{"eco": true, "standard": true, "sport": true}
 
 // Key 返回 Kafka 消息 key: 用 VIN 保证同一辆车的数据进入同一分区(局部有序)。
 func (r *VehicleReport) Key() []byte {

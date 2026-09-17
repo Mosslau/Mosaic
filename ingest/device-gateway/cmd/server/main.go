@@ -36,6 +36,7 @@ func main() {
 	}
 
 	producer := kafka.New(cfg.KafkaBrokers, cfg.KafkaTopic)
+	binProducer := kafka.New(cfg.KafkaBrokers, cfg.KafkaBinTopic)
 
 	// 处理链: metrics(最外) → auth → ratelimit → handler(最内)
 	authMw := auth.New(cfg.DeviceTokens, cfg.DevMode)
@@ -54,6 +55,11 @@ func main() {
 	mux.Handle("POST /api/v1/mqtt/ingest",
 		metrics.Instrument("/api/v1/mqtt/ingest",
 			http.HandlerFunc(mqttHandler.Ingest)))
+	// 通道三: 二进制透传(EMQX webhook, 不解帧 → ov.raw.binary.v1, 映射文档 §7)
+	binHandler := handler.NewBinIngestHandler(binProducer, cfg.WebhookToken)
+	mux.Handle("POST /api/v1/bin/ingest",
+		metrics.Instrument("/api/v1/bin/ingest",
+			http.HandlerFunc(binHandler.IngestBin)))
 	mux.HandleFunc("/health", handler.Health)
 	metrics.RegisterHandlers(mux) // /metrics + /debug/pprof/
 
@@ -91,6 +97,9 @@ func main() {
 	limiter.Close()
 	if err := producer.Close(); err != nil {
 		slog.Error("Kafka producer 关闭异常", "err", err)
+	}
+	if err := binProducer.Close(); err != nil {
+		slog.Error("Kafka bin producer 关闭异常", "err", err)
 	}
 	slog.Info("网关已退出")
 }
