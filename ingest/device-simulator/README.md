@@ -1,5 +1,8 @@
 # device-simulator —— 车端数据模拟器（接入层仿真工具）
 
+> 📚 **简称约定**：《接入层设计》= 《../docs/接入层与车端接入网关设计-v1.md》｜《GB32960 映射》= 《../docs/GB32960-二进制协议与字段映射-v1.md》。下文以这两个简称标注跨文档引用。
+> 📐 **设计见**《接入层设计》§10.1（模拟与验证方案）；帧规格见《GB32960 映射》
+
 > 模拟真实车队，三条通道各一个产生器；共享 `internal/simdata`（数据分布）与
 > `internal/simframe`（GB/T 32960 二进制造帧），保证跨通道数据分布一致、可横向对比。
 > 本模块是**测试工具**，不进生产部署；与 device-codec 解码器互为对拍（独立实现同一规格）。
@@ -11,7 +14,7 @@
 | `cmd/http-simulator` | HTTP → 网关 `/api/v1/vehicle/report` | 联调 + HTTP 通道压测 |
 | `cmd/mqtt-simulator` | MQTT(JSON) → EMQX `ov/{vin}/{status,battery,fault}` | 完整链路验证 + 长连接压测 |
 | `cmd/bin-simulator` | MQTT(GB/T 32960 二进制帧) → EMQX `ov/{vin}/bin` | 二进制链路联调/压测/对拍数据源 |
-| `cmd/security-check` | MQTT(TLS 8883) | 公网路径安全基线六项自检（设计文档 §8.3） |
+| `cmd/security-check` | MQTT(TLS 8883) | 公网路径安全基线六项自检（《接入层设计》§8.3） |
 
 ## 用法
 
@@ -46,9 +49,9 @@ ingest/device-simulator/
 ├── cmd/http-simulator/     # HTTP 通道
 ├── cmd/mqtt-simulator/     # MQTT JSON 通道
 ├── cmd/bin-simulator/      # MQTT 二进制帧通道
-├── cmd/security-check/     # 公网安全基线自检(§8.3)
+├── cmd/security-check/     # 公网安全基线自检(《接入层设计》§8.3)
 └── internal/
     ├── simconn/            # MQTT 连接助手(两身份形态: dev 匿名 / 生产 TLS+一车一密)
     ├── simdata/            # 仿真数据分布(车速/SOC/电池明细/充电/工况)
-    └── simframe/           # GB/T 32960 造帧器(§5/§5.1/§5.2 布局 + 黄金样本测试)
+    └── simframe/           # GB/T 32960 造帧器(《GB32960 映射》§5/§5.1/§5.2 布局 + 黄金样本测试)
 ```

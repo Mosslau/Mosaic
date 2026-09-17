@@ -1,9 +1,11 @@
 # device-gateway 车端接入网关
 
+> 📚 **简称约定**：《接入层设计》= 《../docs/接入层与车端接入网关设计-v1.md》｜《GB32960 映射》= 《../docs/GB32960-二进制协议与字段映射-v1.md》。下文以这两个简称标注跨文档引用。
+
 > OceanVerse 第 1 阶段第 2 步 —— 平台的数据"国门"
 > 职责: 设备鉴权 → 限流 → 协议解析/校验 → 写 Kafka → 全程可观测
 > 原则: 网关无业务逻辑、无状态、不直连数据库; 越"笨"越稳。
-> 📐 设计文档（含成熟度评估）：《../docs/接入层与车端接入网关设计-v1.md》
+> 📐 **设计见**《接入层设计》（含 §12 成熟度评估）；二进制链路见《GB32960 映射》
 
 ## 处理链与端口
 
@@ -179,7 +181,7 @@ curl -s http://localhost:18080/metrics | grep 'gateway_requests_total'
 GATEWAY_DEV_MODE=true go run ./cmd/server
 cd ../device-codec && go run ./cmd/server
 
-# 2. 用二进制模拟器发帧(100 台车, 每台 10s 一帧——§3.1 频率基线; 1% 概率带 0x07 报警)
+# 2. 用二进制模拟器发帧(100 台车, 每台 10s 一帧——《GB32960 映射》§3.1 频率基线; 1% 概率带 0x07 报警)
 (cd ../device-simulator && go run ./cmd/bin-simulator -broker tcp://localhost:1883 -devices 100 -interval 10s -duration 60s)
 
 # 3. codec 输出应进 vehicle-report-raw(与 JSON 通道汇合, 下游无感)
@@ -223,5 +225,5 @@ docker run --rm --network oceanverse_ov-net -p 18080:18080 \
 
 - 鉴权是静态白名单；第 2 阶段接车辆档案服务改为动态校验
 - Kafka RequiredAcks=RequireOne 性能优先；要更强持久性改 `kafka.RequireAll`
-- gRPC/TCP 私有协议通道后续在 `internal/` 下平级扩展（HTTP 与 MQTT 已实现）
+- 已实现**三通道**：HTTP / MQTT-JSON(webhook) / 二进制透传（`bin_ingest.go`，不解帧）；gRPC 内部通道第 2 阶段加；TCP 私有协议按《../docs/GB32960-二进制协议与字段映射-v1.md》§7 作为**分级 fallback**（网关新增 TCP 监听）
 - 消息清洗/字段加工不做（那是 Flink 计算层的职责）

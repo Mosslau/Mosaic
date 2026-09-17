@@ -1,5 +1,7 @@
 # OceanVerse 第 1 阶段 基础设施部署文档
 
+> 📚 **简称约定**：《接入层设计》= 《../ingest/docs/接入层与车端接入网关设计-v1.md》｜《GB32960 映射》= 《../ingest/docs/GB32960-二进制协议与字段映射-v1.md》。
+
 > 适用阶段：第 1 阶段第 1 步——最小可用链路的底座
 > 容器运行时：**Rancher Desktop**（moby 引擎，非 Docker Desktop，符合本机策略）
 > 一键启动后你将得到：Kafka + ClickHouse + MinIO + EMQX + Grafana + Prometheus 六个组件
@@ -126,7 +128,7 @@ curl -s -g 'http://localhost:9090/api/v1/query?query=up{job="device-gateway"}'
 ```
 
 > **端口避让（本机实测）**：公司 Java 服务占用 8080~8083，网关开发期用 `GATEWAY_PORT=18080` 启动；
-> `deploy/prometheus/prometheus.yml` 抓取目标与 `deploy/emqx/emqx.conf` webhook url 已对齐 18080（§5.3 对齐线）。
+> `deploy/prometheus/prometheus.yml` 抓取目标与 `deploy/emqx/emqx.conf` webhook url 已对齐 18080（《接入层设计》§5.3 对齐线）。
 > 若在 8080 空闲的机器上开发，两处改回 8080 即可。
 
 全部通过后，第 1 阶段底座就绪，下一步是 Go 网关骨架（往 Kafka 写第一条车端数据）。
@@ -191,7 +193,7 @@ rm .tmp-msim
 `pkill -f "go run ./cmd/server"` 只杀了 go run 包装进程，**编译产物子进程（exe/server）变孤儿还活着**，仍占着消费组成员位 → 新实例分不到分区。判据：`kafka-consumer-groups.sh --describe --group device-codec-v1 --members` 出现多个 member 且持分区者不是当前实例；`lsof -nP -iTCP:19092 -sTCP:ESTABLISHED` 数进程。**处置**：`pkill -f "exe/server"` 杀干净，等僵尸成员会话超时（~1 分钟，`--state` 变 Empty），再启动单个实例。生产 K8s 无此问题（容器即进程）；本地联调优先用 `go build` 出二进制再跑，杀起来干净。
 
 **Q12：公网路径安全三件套（TLS / 一车一密 / ACL）怎么在本地跑起来**
-三步（设计文档 §8.3）：
+三步（《接入层设计》§8.3）：
 
 ```bash
 # ① 生成自签 CA + 服务器证书(仅本地! 生产换正式 CA)

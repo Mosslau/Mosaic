@@ -1,5 +1,8 @@
 # ingest/device-contracts —— 平台契约的 Go 绑定
 
+> 📚 **简称约定**：《接入层设计》= 《../docs/接入层与车端接入网关设计-v1.md》｜《GB32960 映射》= 《../docs/GB32960-二进制协议与字段映射-v1.md》。下文以这两个简称标注跨文档引用。
+> 📐 **设计见**《接入层设计》§4（L2 契约与版本化）
+
 > 根 `contracts/`（语言无关：proto/JSON Schema）的 **Go 投影**。
 > 独立 go.mod，供 device-gateway、device-codec、simulator 等本仓 Go 模块引用。
 > 修改本模块必须走评审（改动 = 契约改动）。
@@ -33,5 +36,5 @@ import "github.com/Mosslau/OceanVerse/ingest/device-contracts/vehicle"
 ## 纪律
 
 - 契约字段全可选（omitempty），新增字段向后兼容；删除/改语义 = 新版本
-- `schema_version` 未知版本拒绝（fail-fast），信封 v2 死线：首批固件冻结前（设计文档 §4.4）
+- `schema_version` 未知版本拒绝（fail-fast），信封 v2 死线：首批固件冻结前（《接入层设计》§4.4）
 - 二进制线协议 L1 ↔ 本契约 L2 的映射：《ingest/docs/GB32960-二进制协议与字段映射-v1.md》（已定稿 v1.4）
