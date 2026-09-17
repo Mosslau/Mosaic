@@ -75,13 +75,15 @@
 
 | 项 | 本地(现在) | 生产(目标) |
 |---|---|---|
-| MQTT 传输 | 1883 明文 | 8883 TLS + 设备证书 |
-| 设备认证 | 匿名(dev) | EMQX 内置库/对接车辆档案服务 HTTP 认证, 一车一密 |
-| Topic 授权 | 无 ACL | 设备只能 pub `ov/${clientid}/#` |
+| MQTT 传输 | 1883 明文(内网) + **8883 TLS 已演练** | 8883 TLS + 设备证书(正式 CA) |
+| 设备认证 | 1883 匿名(dev) + **8883 一车一密已演练** | 对接车辆档案服务 HTTP 认证, 一车一密(强随机) |
+| Topic 授权 | **ACL 已演练**(生产规则 + dev 前缀放行) | 设备只能 pub `ov/${clientid}/#`, 无 dev 例外 |
 | webhook 密钥 | 默认值 | 强随机 + 密钥轮换 |
 | Kafka 持久性 | RequireOne | RequireAll + min.insync.replicas=2 |
 | EMQX | 单节点 | 3 节点集群 + LB |
 | 审计 | metrics | + 消息抽样落审计表(第 2 阶段控制面) |
+
+> 已演练三项的细节与自检脚本见设计文档 §8.3 / `deploy/README.md` Q12；**生产替换物**：正式 CA 证书 + 强随机一车一密 + 去掉 dev 放行规则。
 
 ## 目录
 
@@ -99,11 +101,12 @@ ingest/
 │   ├── README.md
 │   ├── cmd/server
 │   └── internal/gbt32960/       ← v1 解码器(黄金样本对拍)
-├── simulator/                   ← 车端模拟器(测试工具, 不进生产)
+├── device-simulator/             ← 车端模拟器(测试工具, 不进生产)
 │   ├── cmd/http-simulator       ← HTTP 通道
 │   ├── cmd/mqtt-simulator       ← MQTT JSON 通道
 │   ├── cmd/bin-simulator        ← MQTT 二进制帧通道(GB/T 32960)
-│   └── internal/                ← simdata(数据分布) + simframe(造帧器)
+│   ├── cmd/security-check       ← 公网安全基线自检(六项)
+│   └── internal/                ← simconn(两身份形态) + simdata + simframe(造帧器)
 (file-receiver 第 2 阶段加入: 离线通道)
 ```
 
@@ -116,4 +119,5 @@ ingest/
 | EMQX 声明式规则 | ✅ `deploy/emqx/emqx.conf`（含二进制 `ov_binary_ingress`），启动自动加载 |
 | 压测实测数字 | ✅ 已回填（设计文档 §7.3，2026-09-16） |
 | 二进制链路 | ✅ **端到端联调通过**（2026-09-17）：bin-simulator → EMQX → 网关透传 → `ov.raw.binary.v1` → codec → `vehicle-report-raw`，四段对账平衡，DLQ=0 |
+| 公网安全基线 | ✅ **本地演练六项全过**（2026-09-17）：8883 TLS + 一车一密 + ACL，`cmd/security-check` 可重复自检（§8.3） |
 | 企业级成熟度 | 详见《docs/接入层与车端接入网关设计-v1.md》§12 |

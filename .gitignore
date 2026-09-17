@@ -37,3 +37,9 @@ venv/
 
 # ---------- 工具目录 ----------
 .workbuddy
+
+# ---------- 本地安全演练产物(可再生, 不入库) ----------
+# 自签证书与私钥: deploy/emqx/gen-certs.sh 一键重生
+deploy/emqx/certs/
+# 本机 compose 覆盖(如 1883 被 RabbitMQ 占用时 EMQX_MQTT_PORT=11883)
+deploy/.env

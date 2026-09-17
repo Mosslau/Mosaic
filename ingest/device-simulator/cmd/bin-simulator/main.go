@@ -8,6 +8,11 @@
 // 用法(100 台设备, 每台 10s 一帧——§3.1 频率基线建议值):
 //
 //	go run ./cmd/bin-simulator -broker tcp://localhost:1883 -devices 100 -interval 10s -duration 60s
+//
+// 公网安全形态(8883 TLS + 一车一密, 设计文档 §8.2; 需先跑 deploy/emqx/seed-users.sh):
+//
+//	go run ./cmd/bin-simulator -tls -cacert ../../deploy/emqx/certs/ca.crt \
+//	  -broker localhost:8883 -devices 100 -duration 60s
 package main
 
 import (
@@ -23,6 +28,7 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 
+	"github.com/Mosslau/OceanVerse/ingest/device-simulator/internal/simconn"
 	"github.com/Mosslau/OceanVerse/ingest/device-simulator/internal/simdata"
 	"github.com/Mosslau/OceanVerse/ingest/device-simulator/internal/simframe"
 )
@@ -33,7 +39,9 @@ var (
 	interval = flag.Duration("interval", 10*time.Second, "单设备上报间隔(国标基线: 建议 10s, §3.1)")
 	duration = flag.Duration("duration", 60*time.Second, "压测总时长 (0=不限, Ctrl+C 停止)")
 	faultPct = flag.Float64("fault-pct", 0.01, "每次上报附带报警信息体(0x07)的概率 [0,1]")
-	withAuth = flag.Bool("auth", false, "携带 username/password 连接(模拟生产一车一密; 本地匿名联调时保持 false)")
+	useTLS   = flag.Bool("tls", false, "公网形态: TLS(8883) + 一车一密; clientid/username=VIN, 密码=pwPrefix+VIN")
+	caCert   = flag.String("cacert", "../../deploy/emqx/certs/ca.crt", "TLS 校验用 CA 证书路径(自签 dev CA)")
+	pwPrefix = flag.String("password-prefix", "pw-", "一车一密密码前缀(与 seed-users.sh 规则一致)")
 )
 
 var (
@@ -97,18 +105,20 @@ func runDevice(ctx context.Context, id int) {
 	vin := fmt.Sprintf("OV%08d", id)
 	rng := rand.New(rand.NewPCG(uint64(id), uint64(id>>32)))
 
-	opts := mqtt.NewClientOptions().
-		AddBroker(*broker).
-		SetClientID("dev-" + vin).
-		SetAutoReconnect(true).
-		SetConnectRetry(true).
-		SetConnectRetryInterval(5 * time.Second).
-		SetKeepAlive(60 * time.Second). // §8-⑨: MQTT 路线保活走 keepalive, 省略心跳帧
-		SetCleanSession(true)
-	if *withAuth {
-		opts.SetUsername("dev-" + vin).SetPassword("dev-only")
+	client, err := simconn.New(simconn.Config{
+		Broker:     *broker,
+		TLS:        *useTLS,
+		CACert:     *caCert,
+		VIN:        vin,
+		PwPrefix:   *pwPrefix,
+		KeepAlive:  60 * time.Second, // §8-⑨: MQTT 路线保活走 keepalive, 省略心跳帧
+		AutoReconn: true,
+	})
+	if err != nil {
+		connFail.Add(1)
+		fmt.Printf("构造 MQTT 客户端失败: %v\n", err)
+		return
 	}
-	client := mqtt.NewClient(opts)
 
 	for {
 		token := client.Connect()

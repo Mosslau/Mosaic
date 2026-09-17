@@ -4,6 +4,11 @@
 // 用法(1000 台设备, 每台 5 秒一条状态, 随机 1% 概率附带故障):
 //
 //	go run ./cmd/mqtt-simulator -broker tcp://localhost:1883 -devices 1000 -interval 5s -duration 60s
+//
+// 公网安全形态(8883 TLS + 一车一密, 设计文档 §8.2; 需先跑 deploy/emqx/seed-users.sh):
+//
+//	go run ./cmd/mqtt-simulator -tls -cacert ../../deploy/emqx/certs/ca.crt \
+//	  -broker localhost:8883 -devices 100 -duration 60s
 package main
 
 import (
@@ -20,6 +25,7 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 
+	"github.com/Mosslau/OceanVerse/ingest/device-simulator/internal/simconn"
 	"github.com/Mosslau/OceanVerse/ingest/device-simulator/internal/simdata"
 )
 
@@ -29,7 +35,9 @@ var (
 	interval = flag.Duration("interval", 5*time.Second, "单设备上报间隔")
 	duration = flag.Duration("duration", 60*time.Second, "压测总时长 (0=不限, Ctrl+C 停止)")
 	faultPct = flag.Float64("fault-pct", 0.01, "每次上报附带故障消息的概率 [0,1]")
-	withAuth = flag.Bool("auth", false, "携带 username/password 连接(模拟生产一车一密; 本地匿名联调时保持 false)")
+	useTLS   = flag.Bool("tls", false, "公网形态: TLS(8883) + 一车一密; clientid/username=VIN, 密码=pwPrefix+VIN")
+	caCert   = flag.String("cacert", "../../deploy/emqx/certs/ca.crt", "TLS 校验用 CA 证书路径(自签 dev CA)")
+	pwPrefix = flag.String("password-prefix", "pw-", "一车一密密码前缀(与 seed-users.sh 规则一致)")
 )
 
 var (
@@ -90,24 +98,22 @@ loop:
 // runDevice 一台虚拟车辆: 建立 MQTT 长连接 → 周期发布 → ctx 取消时断连
 func runDevice(ctx context.Context, id int) {
 	vin := fmt.Sprintf("OV%08d", id)
-	clientID := "dev-" + vin
 	rng := rand.New(rand.NewPCG(uint64(id), uint64(id>>32)))
 
-	opts := mqtt.NewClientOptions().
-		AddBroker(*broker).
-		SetClientID(clientID).
-		SetAutoReconnect(true).
-		SetConnectRetry(true).
-		SetConnectRetryInterval(5 * time.Second).
-		SetKeepAlive(60 * time.Second).
-		SetCleanSession(true)
-	if *withAuth {
-		// 生产形态: EMQX 按 username 认证, 每车一密。
-		// 注意: 本地若残留 Dashboard 建的认证器, 带凭证会被拒(bad user name or password)——
-		// 本地联调默认匿名(不带凭证直接跳过认证器), 仅验证生产认证链路时才加 -auth。
-		opts.SetUsername(clientID).SetPassword("dev-only")
+	client, err := simconn.New(simconn.Config{
+		Broker:     *broker,
+		TLS:        *useTLS,
+		CACert:     *caCert,
+		VIN:        vin,
+		PwPrefix:   *pwPrefix,
+		KeepAlive:  60 * time.Second,
+		AutoReconn: true,
+	})
+	if err != nil {
+		connFail.Add(1)
+		fmt.Printf("构造 MQTT 客户端失败: %v\n", err)
+		return
 	}
-	client := mqtt.NewClient(opts)
 
 	// 初次连接允许重试(真实设备行为): 千台开局是连接风暴, 单次 10s 超时就放弃
 	// 会把"瞬时拥塞"误判成"大批永久离线"; 失败计数照记(反映风暴压力), 但继续重试。
