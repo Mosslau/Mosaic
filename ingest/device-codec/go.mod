@@ -2,10 +2,10 @@ module github.com/Mosslau/OceanVerse/ingest/device-codec
 
 go 1.25
 
-replace github.com/Mosslau/OceanVerse/contracts => ../../contracts
+replace github.com/Mosslau/OceanVerse/ingest/device-contracts => ../device-contracts
 
 require (
-	github.com/Mosslau/OceanVerse/contracts v0.0.0-00010101000000-000000000000
+	github.com/Mosslau/OceanVerse/ingest/device-contracts v0.0.0-00010101000000-000000000000
 	github.com/segmentio/kafka-go v0.4.49
 )
 

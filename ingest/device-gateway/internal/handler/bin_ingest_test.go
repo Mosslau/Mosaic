@@ -9,9 +9,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
-
-	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/simframe"
 )
 
 // goldenFrame 与 simframe 黄金样本一致的 58B 示例帧(0x08+0x09)
@@ -101,26 +98,30 @@ func TestBinIngest_BadBase64(t *testing.T) {
 	}
 }
 
-// TestBinIngest_SimframeRoundtrip 造帧器 → webhook 信封 → Kafka 信封 全链路往返:
-// 模拟器(simframe)产的帧经本 handler 透传后必须逐字节无损(透传纪律: 不解帧)
-func TestBinIngest_SimframeRoundtrip(t *testing.T) {
+// goldenFullFrame 全信息体黄金帧(142B: 0x01+0x05+0x06+0x07+0x08+0x09+0x80+0x81,
+// 由 simulator 模块的 simframe 生成后固化——gateway 不能 import 它的 internal,
+// 跨模块对拍由端到端联调承担, 本测试只验透传字节无损)
+const goldenFullFrameHex = "232302fe4f5632303236303030310000000000000001" +
+	"00751a09110c1e00" +
+	"010103ff01450001e2404effffffffffff" + // 0x01 整车
+	"050006ca96200157eee0" + // 0x05 位置
+	"06ffffffffffffffffffff4bffff44" + // 0x06 极值
+	"07010000000001000e1001000000" + // 0x07 报警(E1001)
+	"080101025a26dd00020001020ccc0cd0" + // 0x08 电压(2 节)
+	"0901010002474b" + // 0x09 温度
+	"8001000f002d00960050000004000000005803" + // 0x80 charging
+	"81010009010304b0007d03203c" + // 0x81 工况
+	"33" // BCC
+
+// TestBinIngest_FullFrameRoundtrip 全信息体帧经透传后必须逐字节无损(透传纪律: 不解帧)
+func TestBinIngest_FullFrameRoundtrip(t *testing.T) {
 	fs := &fakeSender{}
 	h := NewBinIngestHandler(fs, "test-secret")
 
-	// 用 simframe 造一帧全信息体(0x01+0x05+0x06+0x07+0x08+0x09+0x80+0x81)
-	now := time.Now()
-	frame := simframe.Frame(simframe.CmdRealtime, simframe.AckNone, "OV20260001",
-		simframe.DataUnit(now,
-			simframe.BodyVehicle(simframe.VehicleBody{VehicleStatus: 0x01, ChargeStatus: 0x03, SpeedKmh: 32.5, OdometerKm: 12345.6, SOC: 78}),
-			simframe.BodyPosition(113.94, 22.54),
-			simframe.BodyExtremes(35, 28),
-			simframe.BodyAlarm(0x01, []uint32{0xE1001}),
-			simframe.BodyBatteryVolt(simframe.BatteryVoltBody{Voltage: 60.2, Current: -5.1, CellVoltages: []float64{3.276, 3.28}}),
-			simframe.BodyBatteryTemp([]float64{31, 35}),
-			simframe.BodyCharging(simframe.ChargingBody{RemainMin: 45, PowerKW: 1.5, EnergyKWh: 0.8, PileID: 1024, StationID: 88, SlotNo: 3}),
-			simframe.BodyWork(simframe.WorkBody{RideState: simframe.RideRiding, RideMode: simframe.ModeSport, MotorRPM: 1200, MotorTorque: 12.5, MotorPower: 800, Throttle: 60}),
-		))
-
+	frame, err := hex.DecodeString(goldenFullFrameHex)
+	if err != nil {
+		t.Fatal(err)
+	}
 	body := `{"clientid":"dev-OV20260001","topic":"ov/OV20260001/bin","ts":1789619400123,"payload_b64":"` +
 		base64.StdEncoding.EncodeToString(frame) + `"}`
 	w := postBin(t, http.HandlerFunc(h.IngestBin), body, "test-secret")

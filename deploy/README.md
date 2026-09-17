@@ -174,7 +174,7 @@ Rancher Desktop 端口转发层（宿主→VM→容器）并发上限 ≈185 连
 
 ```bash
 # 交叉编译 linux 二进制(静态, 任何镜像可承载)
-CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o /tmp/msim-linux ./cmd/mqtt-simulator
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o /tmp/msim-linux ./ingest/device-simulator/cmd/mqtt-simulator
 cp /tmp/msim-linux .tmp-msim   # 放 workspace(Rancher 只共享 $HOME 给 VM, /tmp 挂不进)
 docker run --rm --network oceanverse_ov-net -v $PWD/.tmp-msim:/msim:ro \
   --entrypoint /msim grafana/grafana-oss:latest \

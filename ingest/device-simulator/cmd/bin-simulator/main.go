@@ -23,8 +23,8 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 
-	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/simdata"
-	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/simframe"
+	"github.com/Mosslau/OceanVerse/ingest/device-simulator/internal/simdata"
+	"github.com/Mosslau/OceanVerse/ingest/device-simulator/internal/simframe"
 )
 
 var (

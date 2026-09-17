@@ -3,7 +3,7 @@
 > OceanVerse 第 1 阶段收尾（提前量）——二进制链路的 L1→L2 翻译层
 > 职责：消费 `ov.raw.binary.v1` → 按 `proto_ver` 选解码器 → 输出 `VehicleReport` 到 `vehicle-report-raw`（与 JSON 通道汇合，下游无感）
 > 纪律：未知版本不猜、直接 DLQ；不做鉴权/限流/业务判断；无状态可横扩
-> 📐 规格：《../device-gateway/docs/GB32960-二进制协议与字段映射-v1.md》（已定稿 v1.4）
+> 📐 规格：《../docs/GB32960-二进制协议与字段映射-v1.md》（已定稿 v1.4）
 
 ## 链路位置
 
@@ -45,5 +45,5 @@ ingest/device-codec/
 
 ## 对拍关系
 
-本解码器与网关 `internal/simframe` 造帧器**独立实现同一规格**（映射文档 §5/§5.1/§5.2），
+本解码器与模拟器模块的 `internal/simframe` 造帧器（`ingest/device-simulator/`）**独立实现同一规格**（映射文档 §5/§5.1/§5.2），
 黄金样本（58B 示例帧）双端各存一份，对不上即 bug 或文档歧义——已实抓一处字节错位（0x08 子系统头偏移）。

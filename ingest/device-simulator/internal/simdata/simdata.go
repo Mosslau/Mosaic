@@ -7,7 +7,7 @@ import (
 	"math/rand/v2"
 	"time"
 
-	"github.com/Mosslau/OceanVerse/contracts/vehicle"
+	"github.com/Mosslau/OceanVerse/ingest/device-contracts/vehicle"
 )
 
 // SimModel 仿真车型。真实车队多车型接入后, 可按车型扩展构造器。

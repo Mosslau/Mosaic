@@ -2,10 +2,10 @@ module github.com/Mosslau/OceanVerse/ingest/device-gateway
 
 go 1.25
 
-replace github.com/Mosslau/OceanVerse/contracts => ../../contracts
+replace github.com/Mosslau/OceanVerse/ingest/device-contracts => ../device-contracts
 
 require (
-	github.com/Mosslau/OceanVerse/contracts v0.0.0-00010101000000-000000000000
+	github.com/Mosslau/OceanVerse/ingest/device-contracts v0.0.0-00010101000000-000000000000
 	github.com/eclipse/paho.mqtt.golang v1.5.0
 	github.com/prometheus/client_golang v1.23.2
 	github.com/segmentio/kafka-go v0.4.49

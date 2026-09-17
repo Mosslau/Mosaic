@@ -3,7 +3,7 @@
 > OceanVerse 第 1 阶段第 2 步 —— 平台的数据"国门"
 > 职责: 设备鉴权 → 限流 → 协议解析/校验 → 写 Kafka → 全程可观测
 > 原则: 网关无业务逻辑、无状态、不直连数据库; 越"笨"越稳。
-> 📐 设计文档（含成熟度评估）：《docs/接入层与车端接入网关设计-v1.md》
+> 📐 设计文档（含成熟度评估）：《../docs/接入层与车端接入网关设计-v1.md》
 
 ## 处理链与端口
 
@@ -120,11 +120,14 @@ curl -s http://localhost:8080/metrics | grep gateway_kafka_write_total
 ## 压测
 
 ```bash
+# 模拟器在独立模块 ingest/device-simulator(压测工具不进生产模块)
+cd ../device-simulator
+
 # 1 万设备、每台 5 秒一条(≈2000 QPS)、跑 60 秒
-go run ./cmd/simulator -devices 10000 -interval 5s -duration 60s
+go run ./cmd/http-simulator -target http://localhost:18080 -devices 10000 -interval 5s -duration 60s
 
 # 10 万设备(≈2 万 QPS) —— 注意本机 fd 限制, 必要时 ulimit -n 1000000
-go run ./cmd/simulator -devices 100000 -interval 5s -duration 120s
+go run ./cmd/http-simulator -target http://localhost:18080 -devices 100000 -interval 5s -duration 120s
 ```
 
 压测时观察：
@@ -146,7 +149,7 @@ go tool pprof http://localhost:8080/debug/pprof/profile?seconds=30
 GATEWAY_DEV_MODE=true go run ./cmd/server
 
 # 2. 用 MQTT 模拟器发数据(100 台车, 每台 5s 一条状态, 1% 概率带故障)
-go run ./cmd/mqtt-simulator -broker tcp://localhost:1883 -devices 100 -interval 5s -duration 60s
+(cd ../device-simulator && go run ./cmd/mqtt-simulator -broker tcp://localhost:1883 -devices 100 -interval 5s -duration 60s)
 
 # 3. Kafka 应消费到 MQTT 来源的消息(与 HTTP 通道同一个 topic)
 docker exec ov-kafka /opt/kafka/bin/kafka-console-consumer.sh \
@@ -169,8 +172,7 @@ GATEWAY_DEV_MODE=true go run ./cmd/server
 cd ../device-codec && go run ./cmd/server
 
 # 2. 用二进制模拟器发帧(100 台车, 每台 10s 一帧——§3.1 频率基线; 1% 概率带 0x07 报警)
-cd ../device-gateway
-go run ./cmd/bin-simulator -broker tcp://localhost:1883 -devices 100 -interval 10s -duration 60s
+(cd ../device-simulator && go run ./cmd/bin-simulator -broker tcp://localhost:1883 -devices 100 -interval 10s -duration 60s)
 
 # 3. codec 输出应进 vehicle-report-raw(与 JSON 通道汇合, 下游无感)
 docker exec ov-kafka /opt/kafka/bin/kafka-console-consumer.sh \

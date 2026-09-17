@@ -1,10 +1,11 @@
-// Package vehicle 定义 OceanVerse 平台的车端数据契约。
-// 本文件是全平台数据流的"宪法": Flink DDL、ClickHouse 表结构、
-// Java 服务 DTO、device-codec 解析产物均以此为源头派生。修改它必须走评审。
+// Package vehicle 定义 OceanVerse 平台的车端数据契约（Go 绑定）。
+// 本包是根 contracts/（语言无关形态）的 Go 投影；Kafka 上的 JSON 消息形态
+// 是全平台数据流的"宪法"：Flink DDL、ClickHouse 表结构、Java 服务 DTO、
+// device-codec 解析产物均与该 JSON 形态对齐。修改本包必须走评审。
 //
 // 位置说明: 本包原位于 ingest/device-gateway/internal/model，因 internal 包
-// 编译器私有（device-codec 等兄弟模块无法 import）迁至 contracts/ 共享模块
-// （设计文档 §11.4）。内容一行未改，纯搬家。
+// 编译器私有（device-codec 等兄弟模块无法 import）迁至共享模块；2026-09-17
+// 按"语言无关在根 contracts/、Go 绑定随消费者"定址 ingest/device-contracts/。
 package vehicle
 
 import (

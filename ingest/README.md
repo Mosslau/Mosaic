@@ -1,11 +1,11 @@
 # ingest 接入层 —— OceanVerse 的数据国门
 
-> 📐 完整设计文档：《device-gateway/docs/接入层与车端接入网关设计-v1.md》
+> 📐 完整设计文档：《docs/接入层与车端接入网关设计-v1.md》
 > 对应架构总览能力域①数据集成 / 架构图 Access Layer
 > 本层职责: 把"杂乱的设备流量"变成"干净、可信、有节制的标准数据流"
 > 本层不含业务逻辑——数据进来什么样, 进 Kafka 就什么样(除了清洗和标准化)
 
-> 📌 接入层决策（2026-09-16）：车端线协议定为**二进制（参照 GB/T 32960 帧框架）**；接入网关只做包头轻解析（帧同步/VIN/协议版本/CRC），编解码归独立 **device-codec 服务**（双向：上行解析**提前至第 1 阶段收尾**，下行编码第 2 阶段），解析产物为统一契约 `VehicleReport`。详见《device-gateway/docs/GB32960-二进制协议与字段映射-v1.md》（已定稿 v1.4）与《device-gateway/docs/接入层与车端接入网关设计-v1.md》§4/§11.4。
+> 📌 接入层决策（2026-09-16）：车端线协议定为**二进制（参照 GB/T 32960 帧框架）**；接入网关只做包头轻解析（帧同步/VIN/协议版本/CRC），编解码归独立 **device-codec 服务**（双向：上行解析**提前至第 1 阶段收尾**，下行编码第 2 阶段），解析产物为统一契约 `VehicleReport`。详见《docs/GB32960-二进制协议与字段映射-v1.md》（已定稿 v1.4）与《docs/接入层与车端接入网关设计-v1.md》§4/§11.4。
 
 ## 链路全景
 
@@ -88,18 +88,22 @@
 ```
 ingest/
 ├── README.md                    ← 本文件(接入层速览)
-├── device-gateway/              ← Go 实时通道(HTTP + MQTT-webhook + 二进制透传三入口)
+├── docs/                        ← 层文档(接入层设计 + GB/T 32960 映射, 跨模块/对固件团队)
+├── contracts/                   ← 契约的 Go 绑定(VehicleReport; 语言无关形态在根 contracts/)
+│   └── vehicle/
+├── device-gateway/              ← Go 网关本体(HTTP + MQTT-webhook + 二进制透传三入口)
 │   ├── README.md                ← 运行/验证/压测/测试手册
-│   ├── docs/                    ← 设计文档(含 §12 企业级成熟度评估)
 │   ├── cmd/server               ← 网关主程序
-│   ├── cmd/simulator            ← HTTP 通道压测器
-│   ├── cmd/mqtt-simulator       ← MQTT 长连接压测器(JSON)
-│   ├── cmd/bin-simulator        ← 二进制帧模拟器(GB/T 32960, MQTT 载荷)
-│   └── internal/                ← 治理流水线五件套 + simframe(二进制造帧器)
+│   └── internal/                ← 治理流水线(auth/ratelimit/handler/kafka/metrics/config/model)
 ├── device-codec/                ← 编解码服务(上行: raw topic → VehicleReport → parsed topic; DLQ)
 │   ├── README.md
 │   ├── cmd/server
 │   └── internal/gbt32960/       ← v1 解码器(黄金样本对拍)
+├── simulator/                   ← 车端模拟器(测试工具, 不进生产)
+│   ├── cmd/http-simulator       ← HTTP 通道
+│   ├── cmd/mqtt-simulator       ← MQTT JSON 通道
+│   ├── cmd/bin-simulator        ← MQTT 二进制帧通道(GB/T 32960)
+│   └── internal/                ← simdata(数据分布) + simframe(造帧器)
 (file-receiver 第 2 阶段加入: 离线通道)
 ```
 
@@ -108,8 +112,8 @@ ingest/
 | 项 | 状态 |
 |---|---|
 | 双通道链路 | ✅ HTTP + MQTT 已实现，编译通过 |
-| 单元测试 | ✅ 5 包 30+ 用例（`go test ./...`，核心包覆盖 77~100%） |
-| EMQX 声明式规则 | ✅ `deploy/emqx/emqx.conf`，启动自动加载 |
-| 压测实测数字 | ⏳ 待回填（设计文档 §7.3 基线表） |
-| 二进制链路 | ✅ 代码就绪（2026-09-17）：契约迁 `contracts/` ✅ + bin-simulator ✅ + 透传 handler + EMQX 规则 ✅ + device-codec v1 全套解码器 + DLQ ✅；黄金样本对拍通过；待端到端联调 |
-| 企业级成熟度 | 详见《device-gateway/docs/接入层与车端接入网关设计-v1.md》§12 |
+| 单元测试 | ✅ gateway 5 包 + codec 解码器 + contracts 契约 + simframe 黄金样本，全绿 |
+| EMQX 声明式规则 | ✅ `deploy/emqx/emqx.conf`（含二进制 `ov_binary_ingress`），启动自动加载 |
+| 压测实测数字 | ✅ 已回填（设计文档 §7.3，2026-09-16） |
+| 二进制链路 | ✅ **端到端联调通过**（2026-09-17）：bin-simulator → EMQX → 网关透传 → `ov.raw.binary.v1` → codec → `vehicle-report-raw`，四段对账平衡，DLQ=0 |
+| 企业级成熟度 | 详见《docs/接入层与车端接入网关设计-v1.md》§12 |

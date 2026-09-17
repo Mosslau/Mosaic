@@ -22,7 +22,7 @@ import (
 
 	"github.com/segmentio/kafka-go"
 
-	"github.com/Mosslau/OceanVerse/contracts/vehicle"
+	"github.com/Mosslau/OceanVerse/ingest/device-contracts/vehicle"
 	"github.com/Mosslau/OceanVerse/ingest/device-codec/internal/gbt32960"
 )
 
