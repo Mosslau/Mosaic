@@ -90,7 +90,7 @@
 ```
 ingest/
 ├── README.md                    ← 本文件(接入层速览)
-├── docs/                        ← 层文档(接入层设计 + GB/T 32960 映射, 跨模块/对固件团队)
+├── docs/                        ← 层文档(端到端流程说明 + 接入层设计 + GB/T 32960 映射, 跨模块/对固件团队)
 ├── contracts/                   ← 契约的 Go 绑定(VehicleReport; 语言无关形态在根 contracts/)
 │   └── vehicle/
 ├── device-gateway/              ← Go 网关本体(HTTP + MQTT-webhook + 二进制透传三入口)
