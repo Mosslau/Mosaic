@@ -88,14 +88,19 @@
 ```
 ingest/
 ├── README.md                    ← 本文件(接入层速览)
-└── device-gateway/              ← Go 实时通道(HTTP + MQTT-webhook 双入口)
-    ├── README.md                ← 运行/验证/压测/测试手册
-    ├── docs/                    ← 设计文档(含 §12 企业级成熟度评估)
-    ├── cmd/server               ← 网关主程序
-    ├── cmd/simulator            ← HTTP 通道压测器
-    ├── cmd/mqtt-simulator       ← MQTT 长连接压测器
-    └── internal/                ← 治理流水线五件套(model/auth/ratelimit/kafka/metrics)
-    (file-receiver 第 2 阶段加入: 离线通道)
+├── device-gateway/              ← Go 实时通道(HTTP + MQTT-webhook + 二进制透传三入口)
+│   ├── README.md                ← 运行/验证/压测/测试手册
+│   ├── docs/                    ← 设计文档(含 §12 企业级成熟度评估)
+│   ├── cmd/server               ← 网关主程序
+│   ├── cmd/simulator            ← HTTP 通道压测器
+│   ├── cmd/mqtt-simulator       ← MQTT 长连接压测器(JSON)
+│   ├── cmd/bin-simulator        ← 二进制帧模拟器(GB/T 32960, MQTT 载荷)
+│   └── internal/                ← 治理流水线五件套 + simframe(二进制造帧器)
+├── device-codec/                ← 编解码服务(上行: raw topic → VehicleReport → parsed topic; DLQ)
+│   ├── README.md
+│   ├── cmd/server
+│   └── internal/gbt32960/       ← v1 解码器(黄金样本对拍)
+(file-receiver 第 2 阶段加入: 离线通道)
 ```
 
 ## 当前状态（第 1 阶段）
@@ -106,5 +111,5 @@ ingest/
 | 单元测试 | ✅ 5 包 30+ 用例（`go test ./...`，核心包覆盖 77~100%） |
 | EMQX 声明式规则 | ✅ `deploy/emqx/emqx.conf`，启动自动加载 |
 | 压测实测数字 | ⏳ 待回填（设计文档 §7.3 基线表） |
-| 二进制链路 | 📐 协议规格已定稿 v1.4（全部单元清单就绪），上行提前至第 1 阶段收尾：契约迁 `contracts/` → 二进制模拟器 → 透传 handler → device-codec + DLQ |
+| 二进制链路 | ✅ 代码就绪（2026-09-17）：契约迁 `contracts/` ✅ + bin-simulator ✅ + 透传 handler + EMQX 规则 ✅ + device-codec v1 全套解码器 + DLQ ✅；黄金样本对拍通过；待端到端联调 |
 | 企业级成熟度 | 详见《device-gateway/docs/接入层与车端接入网关设计-v1.md》§12 |

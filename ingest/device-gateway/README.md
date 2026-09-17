@@ -13,12 +13,17 @@
                                                                                                                    ├─► Kafka 异步批量写入
 通道二(EMQX webhook):                                                                                              │   (VIN 哈希保序)
   车端设备 ──MQTT──► EMQX ──规则引擎 webhook──► POST /api/v1/mqtt/ingest: metrics → handler(验webhook密钥→校验) ──┘
+
+通道三(二进制透传, 不解帧):
+  车端设备 ──MQTT(GB/T 32960 二进制帧)──► EMQX ──webhook(base64)──► POST /api/v1/bin/ingest(验webhook密钥→套信封)
+                                                                    └─► Kafka ov.raw.binary.v1 → device-codec 解码 → vehicle-report-raw
 ```
 
 | 端点 | 说明 |
 |---|---|
 | `POST /api/v1/vehicle/report` | 车端上报(通道一: 设备直连 HTTP) |
 | `POST /api/v1/mqtt/ingest` | 车端上报(通道二: EMQX 规则引擎 webhook, 密钥头 `X-Webhook-Token`) |
+| `POST /api/v1/bin/ingest` | 二进制帧透传(通道三: **不解帧**, 套信封进 `ov.raw.binary.v1`, 解码归 device-codec) |
 | `GET /health` | 健康探针 |
 | `GET /metrics` | Prometheus 指标 |
 | `GET /debug/pprof/*` | 性能剖析 |
@@ -31,7 +36,8 @@
 |---|---|---|
 | `GATEWAY_PORT` | `8080` | HTTP 端口 |
 | `KAFKA_BROKERS` | `localhost:19092` | Kafka 地址(逗号分隔) |
-| `KAFKA_TOPIC` | `vehicle-report-raw` | 车端数据 topic |
+| `KAFKA_TOPIC` | `vehicle-report-raw` | 车端数据 topic(JSON 通道) |
+| `KAFKA_BIN_TOPIC` | `ov.raw.binary.v1` | 二进制原始帧 topic(通道三) |
 | `DEVICE_TOKENS` | `demo-token-001` | 设备令牌白名单(逗号分隔) |
 | `GATEWAY_WEBHOOK_TOKEN` | `dev-webhook-secret` | EMQX webhook 来源密钥, 须与 emqx.conf 一致 |
 | `GATEWAY_DEV_MODE` | `false` | ⚠️ 开发模式: 放行所有 `dev-` 前缀 token, 生产必须关 |
@@ -153,6 +159,30 @@ curl -s http://localhost:8080/metrics | grep 'gateway_requests_total'
 
 # 5. EMQX 侧观测: Dashboard → 客户端(应看到 100 个 dev-OV* 连接)
 #    Dashboard → 集成 → 规则 → ov_vehicle_ingress(命中率/成功率)
+```
+
+## 二进制通道验证（设备 → EMQX → 网关透传 → codec → Kafka）
+
+```bash
+# 1. 启动网关 + codec(codec 是独立模块, 另开终端)
+GATEWAY_DEV_MODE=true go run ./cmd/server
+cd ../device-codec && go run ./cmd/server
+
+# 2. 用二进制模拟器发帧(100 台车, 每台 10s 一帧——§3.1 频率基线; 1% 概率带 0x07 报警)
+cd ../device-gateway
+go run ./cmd/bin-simulator -broker tcp://localhost:1883 -devices 100 -interval 10s -duration 60s
+
+# 3. codec 输出应进 vehicle-report-raw(与 JSON 通道汇合, 下游无感)
+docker exec ov-kafka /opt/kafka/bin/kafka-console-consumer.sh \
+  --bootstrap-server localhost:9092 --topic vehicle-report-raw \
+  --from-beginning --timeout-ms 10000
+
+# 4. 失败帧(版本未知/CRC 错等)落 DLQ 排查:
+docker exec ov-kafka /opt/kafka/bin/kafka-console-consumer.sh \
+  --bootstrap-server localhost:9092 --topic ov.dlq.codec.v1 \
+  --from-beginning --timeout-ms 5000
+
+# 5. EMQX 规则 ov_binary_ingress 命中率 vs 网关 path="/api/v1/bin/ingest" 计数对账
 ```
 
 ## Docker 构建（可选，第 1 阶段后续上编排用）
