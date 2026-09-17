@@ -7,16 +7,23 @@
 
 ## 处理链与端口
 
-```
-通道一(设备直连 HTTP):
-  车端设备/模拟器 ──POST /api/v1/vehicle/report──► metrics → auth(token) → ratelimit(全局+单设备) → handler(校验) ──┐
-                                                                                                                   ├─► Kafka 异步批量写入
-通道二(EMQX webhook):                                                                                              │   (VIN 哈希保序)
-  车端设备 ──MQTT──► EMQX ──规则引擎 webhook──► POST /api/v1/mqtt/ingest: metrics → handler(验webhook密钥→校验) ──┘
-
-通道三(二进制透传, 不解帧):
-  车端设备 ──MQTT(GB/T 32960 二进制帧)──► EMQX ──webhook(base64)──► POST /api/v1/bin/ingest(验webhook密钥→套信封)
-                                                                    └─► Kafka ov.raw.binary.v1 → device-codec 解码 → vehicle-report-raw
+```mermaid
+flowchart TB
+  subgraph C1["通道一：设备直连 HTTP"]
+    A1["车端设备/模拟器"] -->|"POST /api/v1/vehicle/report"| B1["metrics → auth(token) → ratelimit(全局+单设备) → handler(校验)"]
+  end
+  subgraph C2["通道二：EMQX webhook（JSON）"]
+    A2["车端设备"] -->|"MQTT ov/{vin}/status·battery·fault"| B2["EMQX 规则引擎"] -->|"webhook POST /api/v1/mqtt/ingest<br/>metrics → 验 webhook 密钥 → 校验"| B2b["handler"]
+  end
+  subgraph C3["通道三：二进制透传（不解帧）"]
+    A3["车端设备"] -->|"MQTT 二进制帧 ov/{vin}/bin"| B3["EMQX webhook(base64)"] -->|"POST /api/v1/bin/ingest<br/>验密钥 → 套信封"| B3b["透传 handler"]
+  end
+  K1["Kafka vehicle-report-raw<br/>异步批量写入，VIN 哈希保序"]
+  K2["Kafka ov.raw.binary.v1"]
+  DC["device-codec 解码"]
+  B1 --> K1
+  B2b --> K1
+  B3b --> K2 --> DC --> K1
 ```
 
 | 端点 | 说明 |

@@ -7,11 +7,14 @@
 
 ## 链路位置
 
-```
-T-BOX → MQTT(二进制载荷) → EMQX → webhook → device-gateway 透传(不解帧)
-  → Kafka: ov.raw.binary.v1 {vin, ts, proto_ver, cmd, payload:base64}
-  → 本服务解码 → Kafka: vehicle-report-raw
-  → 失败 → Kafka: ov.dlq.codec.v1 (带原始帧 base64 + 失败原因 + stage)
+```mermaid
+flowchart LR
+  T["T-BOX<br/>MQTT 二进制载荷"] --> E["EMQX"] -->|"webhook"| G["device-gateway<br/>透传（不解帧）"]
+  G -->|"ov.raw.binary.v1<br/>{vin, ts, proto_ver, cmd, payload:base64}"| C["device-codec<br/>本服务：L1 → L2"]
+  C -->|"解码成功"| O["vehicle-report-raw"]
+  C -. "失败（帧级/单元级）" .-> D["ov.dlq.codec.v1<br/>原始帧 base64 + 原因 + stage"]
+  classDef dlq fill:#fee,stroke:#c33
+  class D dlq
 ```
 
 ## 运行

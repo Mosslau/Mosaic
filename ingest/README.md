@@ -9,21 +9,35 @@
 
 ## 链路全景
 
-```
-                        ┌──────────────── 实时通道 ────────────────┐
-                        │                                          │
- 车端设备 ──HTTP────► device-gateway(鉴权→限流→校验) ──────────┐  │
-                        │                                        │  │
- 车端设备 ──MQTT───► EMQX(协议终结/连接管理/QoS)                │  │
-                        │  规则引擎: SELECT * FROM "ov/+/..."    ▼  ▼
-                        │  Webhook(密钥头+连接池+磁盘缓冲重试)  device-gateway
-                        └────────────────────────────────────────│  │
-                                                                 ▼  ▼
-                                                          Kafka vehicle-report-raw
-                                                          (Key=VIN, 同车同分区保序)
+```mermaid
+flowchart LR
+  subgraph DEV["车端设备 / 模拟器"]
+    H["HTTP 设备<br/>App · 充电桩"]
+    M["T-BOX（MQTT 长连接）"]
+  end
 
- 离线通道(第 2 阶段): file-receiver(文件/多模态 → MinIO, 只元数据进 Kafka)
+  EMQX["EMQX<br/>协议终结 · 连接管理 · QoS<br/>规则引擎 + Webhook（密钥头/连接池/缓冲重试）"]
+  GW["device-gateway<br/>鉴权 → 限流 → 校验"]
+  DC["device-codec<br/>L1 → L2 翻译"]
+  K["Kafka vehicle-report-raw<br/>Key=VIN，同车同分区保序"]
+  BIN["Kafka ov.raw.binary.v1<br/>原始帧信封"]
+  OFF["file-receiver（第 2 阶段）<br/>文件/多模态 → MinIO，只元数据进 Kafka"]
+
+  H -->|"POST /api/v1/vehicle/report"| GW
+  M -->|"ov/{vin}/status · battery · fault"| EMQX
+  M -->|"ov/{vin}/bin（GB/T 32960 二进制帧）"| EMQX
+  EMQX -->|"webhook → /api/v1/mqtt/ingest"| GW
+  EMQX -->|"webhook → /api/v1/bin/ingest（不解帧）"| GW
+  GW --> K
+  GW --> BIN
+  BIN --> DC --> K
+  OFF -.-> K
+
+  classDef future fill:#f5f5f5,stroke:#999
+  class OFF future
 ```
+
+> 分流依据是 **topic**（`/bin` vs `/status·battery·fault`）；listener（1883 明文 / 8883 TLS+一车一密）只决定传输安全与设备认证。
 
 ## 两条实时通道的职责边界
 

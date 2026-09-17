@@ -43,3 +43,4 @@ venv/
 deploy/emqx/certs/
 # 本机 compose 覆盖(如 1883 被 RabbitMQ 占用时 EMQX_MQTT_PORT=11883)
 deploy/.env
+.tmp-mmdc/
