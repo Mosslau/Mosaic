@@ -70,12 +70,13 @@ go mod tidy
 go build ./...
 go vet ./...
 
-# 1.5 单元测试(五包 30+ 用例: 契约校验/鉴权/限流/双通道 handler/配置)
+# 1.5 单元测试(4 个测试包 30+ 用例: 鉴权/限流/三通道 handler/配置; 契约与造帧器已迁独立模块)
 go test ./... -count=1          # 全部通过
-go test ./... -cover            # auth 100% / ratelimit 85% / config 84% / handler 77% / model 69%
+go test ./... -cover            # 实测(2026-09-17): auth 100% / ratelimit 85.3% / config 82.4% / handler 75.2%
 
 # 2. 开发模式启动(允许 dev- 前缀 token, 方便联调压测)
-GATEWAY_DEV_MODE=true go run ./cmd/server
+#    注意: 本机 8080~8083 被其他服务占用, 开发期固定 18080(与 emqx.conf webhook / prometheus 抓取一致)
+GATEWAY_PORT=18080 GATEWAY_DEV_MODE=true go run ./cmd/server
 ```
 
 启动日志应看到：`车端接入网关启动 port=8080 topic=vehicle-report-raw ...`
@@ -86,7 +87,7 @@ GATEWAY_DEV_MODE=true go run ./cmd/server
 
 ```bash
 # 发一条(dev 模式)
-curl -i -X POST http://localhost:8080/api/v1/vehicle/report \
+curl -i -X POST http://localhost:18080/api/v1/vehicle/report \
   -H "Content-Type: application/json" \
   -H "X-Device-Token: dev-OV20260001" \
   -d '{"vin":"OV20260001","ts":'"$(date +%s)"',"type":"vehicle_status",
@@ -104,7 +105,7 @@ docker exec ov-kafka /opt/kafka/bin/kafka-console-consumer.sh \
 
 ```bash
 # 不带 token → 401
-curl -i -X POST http://localhost:8080/api/v1/vehicle/report -d '{}'
+curl -i -X POST http://localhost:18080/api/v1/vehicle/report -d '{}'
 # 期望: {"code":"UNAUTHORIZED",...}
 ```
 
@@ -112,7 +113,7 @@ curl -i -X POST http://localhost:8080/api/v1/vehicle/report -d '{}'
 
 ```bash
 # soc=300 超出范围 → 400 INVALID_DATA
-curl -X POST http://localhost:8080/api/v1/vehicle/report \
+curl -X POST http://localhost:18080/api/v1/vehicle/report \
   -H "X-Device-Token: dev-x" \
   -d '{"vin":"OV20260001","ts":'"$(date +%s)"',"type":"vehicle_status","data":{"soc":300}}'
 ```
@@ -120,8 +121,8 @@ curl -X POST http://localhost:8080/api/v1/vehicle/report \
 ### ④ 指标
 
 ```bash
-curl -s http://localhost:8080/metrics | grep gateway_requests_total
-curl -s http://localhost:8080/metrics | grep gateway_kafka_write_total
+curl -s http://localhost:18080/metrics | grep gateway_requests_total
+curl -s http://localhost:18080/metrics | grep gateway_kafka_write_total
 ```
 
 ## 压测
@@ -141,9 +142,9 @@ go run ./cmd/http-simulator -target http://localhost:18080 -devices 100000 -inte
 
 ```bash
 # 网关处理速率/结果分布
-curl -s http://localhost:8080/metrics | grep -E 'requests_total|inflight'
+curl -s http://localhost:18080/metrics | grep -E 'requests_total|inflight'
 # pprof 性能剖析(压测进行中抓取 30s CPU profile)
-go tool pprof http://localhost:8080/debug/pprof/profile?seconds=30
+go tool pprof http://localhost:18080/debug/pprof/profile?seconds=30
 ```
 
 ## MQTT 通道验证（企业级链路：设备 → EMQX → 规则引擎 → 网关 → Kafka）
@@ -164,7 +165,7 @@ docker exec ov-kafka /opt/kafka/bin/kafka-console-consumer.sh \
   --from-beginning --timeout-ms 10000
 
 # 4. 观察按通道区分的指标
-curl -s http://localhost:8080/metrics | grep 'gateway_requests_total'
+curl -s http://localhost:18080/metrics | grep 'gateway_requests_total'
 # 应同时看到 path="/api/v1/vehicle/report" 和 path="/api/v1/mqtt/ingest" 两个标签
 
 # 5. EMQX 侧观测: Dashboard → 客户端(应看到 100 个 dev-OV* 连接)
@@ -194,14 +195,28 @@ docker exec ov-kafka /opt/kafka/bin/kafka-console-consumer.sh \
 # 5. EMQX 规则 ov_binary_ingress 命中率 vs 网关 path="/api/v1/bin/ingest" 计数对账
 ```
 
-## Docker 构建（可选，第 1 阶段后续上编排用）
+## Docker 构建与运行（第 2 阶段上编排的前置验证）
+
+**⚠️ 构建上下文必须是仓库根**（契约模块在 `ingest/device-contracts`，`go.mod` 的 `replace` 指过去；
+在模块目录内 `docker build .` 会报 `replacement directory ../device-contracts does not exist`）：
 
 ```bash
-docker build -t oceanverse/device-gateway:dev .
-docker run --rm -p 8080:8080 \
-  -e KAFKA_BROKERS=host.docker.internal:19092 \
+# 在仓库根执行
+docker build -f ingest/device-gateway/Dockerfile -t oceanverse/device-gateway:dev .
+# 国内网络如拉依赖慢, 可覆盖代理: --build-arg GOPROXY=https://goproxy.cn,direct
+```
+
+**运行必须挂 compose 网络 + 用内部 broker 地址**（Kafka 的 `EXTERNAL` 监听器对外广播 `localhost:19092`，
+在容器里 `localhost` 指向容器自身 → 会 202 受理但写入失败，指标 `kafka_write_total{result="error"}` 可查）：
+
+```bash
+docker run --rm --network oceanverse_ov-net -p 18080:18080 \
+  -e GATEWAY_PORT=18080 \
+  -e KAFKA_BROKERS=kafka:9092 \          # 容器内走内部监听器(内部广播 kafka:9092)
   -e GATEWAY_DEV_MODE=true \
   oceanverse/device-gateway:dev
+# 容器里验证: curl -s localhost:18080/health  → {"status":"up"}
+#             打一条上报后看 topic offset 是否 +1(202 只代表受理, 不代表落盘)
 ```
 
 ## 已知边界（刻意不做）

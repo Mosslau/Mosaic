@@ -14,6 +14,21 @@ const goldenFrameHex = "232302fe" +
 	"0901010002474b" +
 	"65"
 
+// goldenFullFrameHex 142B 全信息体帧(由 device-simulator 的 simframe 生成后固化):
+// 0x01 整车 + 0x05 位置 + 0x06 极值 + 0x07 报警 + 0x08 电压 + 0x09 温度 + 0x80 charging + 0x81 work
+// —— 覆盖 vehicle_status 与 fault 两条主力解码路径(此前无用例)
+const goldenFullFrameHex = "232302fe4f5632303236303030310000000000000001" +
+	"00751a09110c1e00" +
+	"010103ff01450001e2404effffffffffff" + // 0x01: 状态01/充电03/运行ff, 车速 0145=32.5, 里程 0001e240=12345.6, SOC 4e=78, 其余无效
+	"050006ca96200157eee0" + // 0x05: 定位有效, lng 06ca9620=113.94, lat 0157eee0=22.54
+	"06ffffffffffffffffffff4bffff44" + // 0x06: 电压极值无效, temp_max 4b=35℃, temp_min 44=28℃
+	"07010000000001000e1001000000" + // 0x07: 等级01, 标志0, 1 个故障码 000e1001
+	"080101025a26dd00020001020ccc0cd0" + // 0x08: 60.2V / -5.1A / 单体 [3.276, 3.280]
+	"0901010002474b" + // 0x09: 探针 [31, 35]
+	"8001000f002d00960050000004000000005803" + // 0x80: 45min / 1.5kW / 0.8kWh / 桩1024 / 站88 / 仓3
+	"81010009010304b0007d03203c" + // 0x81: riding / sport / 1200rpm / 12.5N·m / 800W / 60%
+	"33"
+
 func mustHex(t *testing.T, s string) []byte {
 	t.Helper()
 	b, err := hex.DecodeString(s)
@@ -152,5 +167,119 @@ func TestDecode_UnknownCustomVersion(t *testing.T) {
 	}
 	if len(dlq) != 1 || dlq[0].UnitType != 0x80 {
 		t.Fatalf("应有 1 条 0x80 单元 DLQ, 实际 %+v", dlq)
+	}
+}
+
+// TestDecode_FullFrame_AllBodies 全信息体帧: 一条帧拆出 5 类 L2 消息, 覆盖
+// 0x01 整车 / 0x05 位置 / 0x06 极值 / 0x07 报警 四条此前无用例的解码路径(§8-④ 拆分规则)。
+func TestDecode_FullFrame_AllBodies(t *testing.T) {
+	f, err := ParseFrame(mustHex(t, goldenFullFrameHex))
+	if err != nil {
+		t.Fatalf("全信息体帧应解析成功: %v", err)
+	}
+	reports, dlq, err := DecodeV1(f)
+	if err != nil || len(dlq) != 0 {
+		t.Fatalf("应无错误无 DLQ: err=%v dlq=%v", err, dlq)
+	}
+	byType := map[string]int{}
+	for _, r := range reports {
+		byType[string(r.Type)]++
+	}
+	// 拆分规则: 0x01+0x05+0x06 合并一条 vehicle_status; 0x07 独立 fault;
+	// 0x08+0x09 合并 battery_status; 0x80/0x81 各一条 → 共 5 条
+	want := map[string]int{"vehicle_status": 1, "battery_status": 1, "fault": 1, "charging": 1, "work": 1}
+	if len(reports) != 5 {
+		t.Fatalf("应输出 5 条, 实际 %d 条: %v", len(reports), byType)
+	}
+	for k, v := range want {
+		if byType[k] != v {
+			t.Errorf("type=%s 应 %d 条, 实际 %d", k, v, byType[k])
+		}
+	}
+	if len(dlq) != 0 {
+		t.Errorf("不应有单元级 DLQ: %v", dlq)
+	}
+
+	for _, r := range reports {
+		switch r.Type {
+		case "vehicle_status":
+			// 0x01 整车
+			if got := *r.Data.Speed; got != 32.5 {
+				t.Errorf("speed 应 32.5, 实际 %v", got)
+			}
+			if got := *r.Data.Odometer; got != 12345.6 {
+				t.Errorf("odometer 应 12345.6, 实际 %v", got)
+			}
+			if got := *r.Data.SOC; got != 78 {
+				t.Errorf("soc 应 78, 实际 %v", got)
+			}
+			// 0x05 位置
+			if got := *r.Data.Lng; got != 113.94 {
+				t.Errorf("lng 应 113.94, 实际 %v", got)
+			}
+			if got := *r.Data.Lat; got != 22.54 {
+				t.Errorf("lat 应 22.54, 实际 %v", got)
+			}
+			// 0x06 极值
+			if got := *r.Data.TempMax; got != 35 {
+				t.Errorf("temp_max 应 35, 实际 %v", got)
+			}
+			if got := *r.Data.TempMin; got != 28 {
+				t.Errorf("temp_min 应 28, 实际 %v", got)
+			}
+		case "fault":
+			// 0x07 报警: 4B 十六进制码 → hex 大写无前缀(§8-⑤)
+			if len(r.Data.FaultCodes) != 1 || r.Data.FaultCodes[0] != "E1001" {
+				t.Errorf("fault_codes 应 [E1001], 实际 %v", r.Data.FaultCodes)
+			}
+		case "battery_status":
+			if got := *r.Data.Voltage; got != 60.2 {
+				t.Errorf("voltage 应 60.2, 实际 %v", got)
+			}
+			if len(r.Data.CellVoltages) != 2 || r.Data.CellVoltages[0] != 3.276 {
+				t.Errorf("cell_voltages 应 [3.276 3.28], 实际 %v", r.Data.CellVoltages)
+			}
+		case "charging":
+			if got := *r.Data.RemainChargeMin; got != 45 {
+				t.Errorf("remain_charge_min 应 45, 实际 %v", got)
+			}
+			if got := *r.Data.PileID; got != 1024 {
+				t.Errorf("pile_id 应 1024, 实际 %v", got)
+			}
+			if got := *r.Data.SlotNo; got != 3 {
+				t.Errorf("slot_no 应 3, 实际 %v", got)
+			}
+		case "work":
+			if got := *r.Data.RideState; got != "riding" {
+				t.Errorf("ride_state 应 riding, 实际 %v", got)
+			}
+			if got := *r.Data.MotorTorque; got != 12.5 {
+				t.Errorf("motor_torque 应 12.5, 实际 %v", got)
+			}
+			if got := *r.Data.MotorPower; got != 800 {
+				t.Errorf("motor_power 应 800, 实际 %v", got)
+			}
+		}
+	}
+}
+
+// TestDecode_InvalidValuesDropped 无效值(0xFF/0xFFFF)按 §5 约定丢弃, 不进 L2 也不进 DLQ
+func TestDecode_InvalidValuesDropped(t *testing.T) {
+	du := mustHex(t,
+		"1a09110c1e00"+
+			"01"+"ffffffffffffffffffffffffffffffff"+ // 0x01 整车: 全无效值(1B 类型 + 16B 国标体)
+			"06ffffffffffffffffffffffffffff") // 0x06 极值: 全无效值
+	f := &Frame{Cmd: 0x02, VIN: "OV20260001", Data: du}
+	reports, dlq, err := DecodeV1(f)
+	if err != nil || len(dlq) != 0 {
+		t.Fatalf("无效值不应报错/进 DLQ: err=%v dlq=%v", err, dlq)
+	}
+	if len(reports) != 1 || reports[0].Type != "vehicle_status" {
+		t.Fatalf("应仍产出 1 条 vehicle_status(字段缺省), 实际 %+v", reports)
+	}
+	d := reports[0].Data
+	if d.Speed != nil || d.Odometer != nil || d.SOC != nil || d.TempMax != nil || d.TempMin != nil {
+		t.Errorf("无效值字段应全部丢弃, 实际 speed=%v odo=%v soc=%v tmax=%v tmin=%v",
+			d.Speed, d.Odometer, d.SOC, d.TempMax, d.TempMin)
 	}
 }

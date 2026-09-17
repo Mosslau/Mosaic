@@ -31,6 +31,19 @@ CODEC_DLQ_TOPIC=ov.dlq.codec.v1
 CODEC_GROUP=device-codec-v1     # 消费者组(横扩 = 同组多副本)
 ```
 
+## Docker 构建与运行
+
+构建上下文同样是**仓库根**（依赖 `ingest/device-contracts` 的 replace）：
+
+```bash
+docker build -f ingest/device-codec/Dockerfile -t oceanverse/device-codec:dev .
+docker run --rm --network oceanverse_ov-net \
+  -e KAFKA_BROKERS=kafka:9092 \        # 容器内用内部监听器(host 侧是 localhost:19092)
+  oceanverse/device-codec:dev
+```
+
+无端口：输入输出都是 Kafka topic；容器内验证看消费组 lag 与 `vehicle-report-raw` 是否新增。
+
 ## 可靠性语义
 
 - **写出全部成功才提交位移**：崩溃/失败 → 重读，at-least-once（下游按 `(vin,ts)` 幂等）

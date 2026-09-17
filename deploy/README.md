@@ -53,13 +53,13 @@ until docker info >/dev/null 2>&1; do sleep 5; done && echo "engine ready"
 | Kafka 3.9.1 (KRaft) | 消息总线 | `localhost:19092`（宿主机）/ 容器网内 `kafka:9092` | 无认证（第 1 阶段本地） |
 | ClickHouse 25.8 | OLAP serving 层 | HTTP `http://localhost:8123` / native `localhost:9000` | `ov_admin` / `ov_pass_2026` |
 | MinIO | 对象存储（第 2 阶段湖仓底座） | S3 API `http://localhost:9001` / 控制台 `http://localhost:9002` | `ov_minio` / `ov_minio_2026` |
-| EMQX 5.8 | MQTT Broker（车端长连接接入） | MQTT `localhost:1883` / Dashboard `http://localhost:18083` | `admin` / `public`（**登录后立即改密**，或启动前设 `EMQX_DASHBOARD_PASSWORD` 环境变量） |
+| EMQX 5.8 | MQTT Broker（车端长连接接入；dev 明文 + 公网 TLS） | MQTT `localhost:1883`（本机被占用时 `deploy/.env` 设 `EMQX_MQTT_PORT=11883`）/ **TLS `localhost:8883`（一车一密 + ACL，见 Q12）** / Dashboard `http://localhost:18083` | `admin` / `public`（**登录后立即改密**，或启动前设 `EMQX_DASHBOARD_PASSWORD` 环境变量） |
 | Grafana OSS | 看板 | `http://localhost:3000` | `admin` / `admin` |
 | Prometheus | 指标采集（网关 `/metrics`，5s 抓取） | `http://localhost:9090` | 无认证（第 1 阶段本地） |
 
 默认数据库：ClickHouse 自动建 `oceanverse` 库。
 Grafana 启动后**自动配好名为 `ClickHouse` 的数据源**（provisioning，见 `deploy/grafana/provisioning/datasources/clickhouse.yaml`）。
-EMQX 启动后**自动加载声明式规则**（`deploy/emqx/emqx.conf`）：把 `ov/+/status|battery|fault` 的消息经 Webhook 转发到 Go 网关（Dashboard → 集成 → 规则 可见 `ov_vehicle_ingress`）。
+EMQX 启动后**自动加载声明式规则**（`deploy/emqx/emqx.conf`）：① `ov_vehicle_ingress` —— `ov/+/status|battery|fault` → Webhook → 网关 `/api/v1/mqtt/ingest`；② `ov_binary_ingress` —— `ov/+/bin`（GB/T 32960 二进制帧，base64）→ 网关 `/api/v1/bin/ingest` → `ov.raw.binary.v1` → device-codec（Dashboard → 集成 → 规则 可见两条）。
 
 > 端口避让说明：MinIO 的 S3 API 映射到宿主 `9001`、控制台映射到 `9002`，因为 ClickHouse native 协议已占用 `9000`。
 
@@ -91,7 +91,7 @@ docker compose down -v
 
 ---
 
-## 5. 启动后验证（四个组件逐一确认）
+## 5. 启动后验证（六个组件逐一确认）
 
 ```bash
 # ① Kafka：建一个测试 topic 并自检
@@ -204,3 +204,14 @@ cd ../ingest/device-simulator && go run ./cmd/security-check -vin OV20260001
 ```
 
 预期输出"六项全过"。生产形态连 8883：`go run ./cmd/bin-simulator -tls -broker localhost:8883 -cacert ../../deploy/emqx/certs/ca.crt`（clientid/username=VIN，无需改代码）。**注意**：8883 对外开放前必须完成自检；本地自签证书与 `pw-` 密码规则**不得**用于生产。
+
+**Q13：容器里的服务(网关/codec)写 Kafka 失败，但宿主机跑就正常**
+Kafka 用了双监听器：`PLAINTEXT://kafka:9092`（容器网内）与 `EXTERNAL://localhost:19092`（宿主机）。
+`EXTERNAL` 对外广播的地址是 `localhost:19092`——**在容器里 `localhost` 指向容器自身**，于是连不上（症状：网关 202 受理、
+但 `gateway_kafka_write_total{result="error"}` 上涨、topic offset 不增）。处置：容器一律
+
+```bash
+docker run --network oceanverse_ov-net -e KAFKA_BROKERS=kafka:9092 ...
+```
+
+对照表：宿主机进程 → `localhost:19092`；容器内进程 → `kafka:9092`（且必须挂 `oceanverse_ov-net`）。

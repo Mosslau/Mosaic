@@ -75,13 +75,13 @@ func DecodeV1(f *Frame) ([]vehicle.VehicleReport, []DLQItem, error) {
 				break
 			}
 			d := &vehicleStatus().Data
-			if v := du[i+1]; v != 0xFF { // 充电状态(无效值丢弃)
-				_ = v // 充电状态位暂不进 L2(契约字段演进时启用)
+			// 无效值约定(§5): 0xFFFF/0xFFFFFFFF 一律丢弃, 否则会解出 6553.5km/h 这类垃圾
+			if v := binary.BigEndian.Uint16(du[i+3 : i+5]); v != 0xFFFF {
+				d.Speed = f64(float64(v) * 0.1)
 			}
-			speed := float64(binary.BigEndian.Uint16(du[i+3:i+5])) * 0.1
-			odo := float64(binary.BigEndian.Uint32(du[i+5:i+9])) * 0.1
-			d.Speed = f64(speed)
-			d.Odometer = f64(odo)
+			if v := binary.BigEndian.Uint32(du[i+5 : i+9]); v != 0xFFFFFFFF {
+				d.Odometer = f64(float64(v) * 0.1)
+			}
 			if du[i+9] != 0xFF {
 				d.SOC = f64(float64(du[i+9]))
 			}
@@ -95,10 +95,12 @@ func DecodeV1(f *Frame) ([]vehicle.VehicleReport, []DLQItem, error) {
 			}
 			if du[i]&0x01 == 0 { // bit0=0 定位有效
 				d := &vehicleStatus().Data
-				lng := float64(binary.BigEndian.Uint32(du[i+1:i+5])) / 1e6
-				lat := float64(binary.BigEndian.Uint32(du[i+5:i+9])) / 1e6
-				d.Lng = f64(round6(lng))
-				d.Lat = f64(round6(lat))
+				if v := binary.BigEndian.Uint32(du[i+1 : i+5]); v != 0xFFFFFFFF {
+					d.Lng = f64(round6(float64(v) / 1e6))
+				}
+				if v := binary.BigEndian.Uint32(du[i+5 : i+9]); v != 0xFFFFFFFF {
+					d.Lat = f64(round6(float64(v) / 1e6))
+				}
 			}
 			i += 9
 
@@ -275,9 +277,16 @@ func decodeCharging(r *vehicle.VehicleReport, p []byte) *vehicle.VehicleReport {
 		return r // 长度不符: 字段全部不设置(保守); 严格化由版本演进处理
 	}
 	d := &r.Data
-	d.RemainChargeMin = i64(int64(binary.BigEndian.Uint16(p[0:2])))
-	d.ChargePower = f64(float64(binary.BigEndian.Uint16(p[2:4])) * 0.01)
-	d.ChargeKWh = f64(float64(binary.BigEndian.Uint16(p[4:6])) * 0.01)
+	// 无效值约定(§5): 0xFFFF 丢弃
+	if v := binary.BigEndian.Uint16(p[0:2]); v != 0xFFFF {
+		d.RemainChargeMin = i64(int64(v))
+	}
+	if v := binary.BigEndian.Uint16(p[2:4]); v != 0xFFFF {
+		d.ChargePower = f64(float64(v) * 0.01)
+	}
+	if v := binary.BigEndian.Uint16(p[4:6]); v != 0xFFFF {
+		d.ChargeKWh = f64(float64(v) * 0.01)
+	}
 	if v := binary.BigEndian.Uint32(p[6:10]); v != 0 {
 		d.PileID = i64(int64(v))
 	}
@@ -302,10 +311,19 @@ func decodeWork(r *vehicle.VehicleReport, p []byte) *vehicle.VehicleReport {
 	if m, ok := rideModeStr[p[1]]; ok {
 		d.RideMode = &m
 	}
-	d.MotorRPM = i64(int64(binary.BigEndian.Uint16(p[2:4])))
-	d.MotorTorque = f64(float64(int16(binary.BigEndian.Uint16(p[4:6]))) * 0.1)
-	d.MotorPower = f64(float64(int16(binary.BigEndian.Uint16(p[6:8]))))
-	d.Throttle = i64(int64(p[8]))
+	// 无效值约定(§5): 0xFFFF/0xFF 丢弃(有符号字段的 0xFFFF 同样视为无效)
+	if v := binary.BigEndian.Uint16(p[2:4]); v != 0xFFFF {
+		d.MotorRPM = i64(int64(v))
+	}
+	if v := binary.BigEndian.Uint16(p[4:6]); v != 0xFFFF {
+		d.MotorTorque = f64(float64(int16(v)) * 0.1)
+	}
+	if v := binary.BigEndian.Uint16(p[6:8]); v != 0xFFFF {
+		d.MotorPower = f64(float64(int16(v)))
+	}
+	if p[8] != 0xFF {
+		d.Throttle = i64(int64(p[8]))
+	}
 	return r
 }
 

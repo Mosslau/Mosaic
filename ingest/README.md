@@ -81,7 +81,7 @@ flowchart LR
 - 优雅退出: SIGTERM → 停收流量 → 冲刷 Kafka 缓冲批次(10s 宽限)
 
 ### 可配置
-- 网关 11 项配置全部环境变量(见 device-gateway/README 配置表), 无硬编码
+- 网关 12 项配置全部环境变量(见 device-gateway/README 配置表), 无硬编码
 - EMQX 全部行为(监听器/认证/规则/webhook)声明在 `deploy/emqx/emqx.conf` 一个文件
 - topic 契约改动 = 改 emqx.conf 的 rule SQL + 重启, 不动代码
 
@@ -131,7 +131,7 @@ ingest/
 | 项 | 状态 |
 |---|---|
 | 双通道链路 | ✅ HTTP + MQTT 已实现，编译通过 |
-| 单元测试 | ✅ gateway 5 包 + codec 解码器 + contracts 契约 + simframe 黄金样本，全绿 |
+| 单元测试 | ✅ gateway 4 个测试包 + codec 解码器 + contracts 契约 + simframe 黄金样本，全绿 |
 | EMQX 声明式规则 | ✅ `deploy/emqx/emqx.conf`（含二进制 `ov_binary_ingress`），启动自动加载 |
 | 压测实测数字 | ✅ 已回填（设计文档 §7.3，2026-09-16） |
 | 二进制链路 | ✅ **端到端联调通过**（2026-09-17）：bin-simulator → EMQX → 网关透传 → `ov.raw.binary.v1` → codec → `vehicle-report-raw`，四段对账平衡，DLQ=0 |
