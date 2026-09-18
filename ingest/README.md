@@ -115,7 +115,7 @@ flowchart LR
 | 设备认证 | 1883 匿名(dev) + **8883 一车一密已演练** | 对接车辆档案服务 HTTP 认证, 一车一密(强随机) |
 | Topic 授权 | **ACL 已演练**(生产规则 + dev 前缀放行) | 设备只能 pub `ov/${clientid}/#`, 无 dev 例外 |
 | webhook 密钥 | 默认值 | 强随机 + 密钥轮换 |
-| Kafka 持久性 | RequireOne | RequireAll + min.insync.replicas=2 |
+| Kafka 持久性 | **RequireAll**（2026-09-18 升级） | 多 broker + rf>=2 + min.insync.replicas>=2（断电级保证） |
 | EMQX | 单节点 | 3 节点集群 + LB |
 | 审计 | metrics | + 消息抽样落审计表(第 2 阶段控制面) |
 

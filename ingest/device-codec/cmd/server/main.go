@@ -183,14 +183,14 @@ func main() {
 	parsedWriter := &kafka.Writer{
 		Addr: kafka.TCP(cfg.brokers...), Topic: cfg.dstTopic,
 		Balancer:     &kafka.Hash{},
-		RequiredAcks: kafka.RequireOne,
+		RequiredAcks: kafka.RequireAll, // 2026-09-18 由 RequireOne 升级; 单 broker 下语义等价但不再依赖单副本假设(见 gateway producer.go 注释)
 		BatchSize:    200,
 		BatchTimeout: 50 * time.Millisecond,
 	}
 	dlqWriter := &kafka.Writer{
 		Addr: kafka.TCP(cfg.brokers...), Topic: cfg.dlqTopic,
 		Balancer:     &kafka.Hash{},
-		RequiredAcks: kafka.RequireOne,
+		RequiredAcks: kafka.RequireAll,
 		BatchSize:    200,
 		BatchTimeout: 50 * time.Millisecond,
 	}

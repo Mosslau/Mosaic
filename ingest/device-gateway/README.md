@@ -193,7 +193,7 @@ flowchart LR
 |---|---|---|
 | **同步投递** + 攒批 | 200 条 / 50ms，MaxAttempts=2、WriteTimeout=2s | 只有收到 broker 确认才回 202/204；失败沿调用链返回 5xx 让上游重试（§6 语义）。单次上报最坏阻塞约 4s < HTTP WriteTimeout 5s。**2026-09-18 前为 Async**：`WriteMessages` 立即返回 nil，失败只计数 → 已回 202 但未落盘且客户端不重试，同时 kafka-go 内部队列无上限（断连期 OOM） |
 | 分区 | `Hash(key=VIN)` | 同一辆车进同一分区 → 局部有序 |
-| 持久性档 | `RequireOne`（第 1 阶段） | 性能优先；事件类改 RequireAll 随 topic 家族拆分 |
+| 持久性档 | **`RequireAll`**（2026-09-18 由 RequireOne 升级） | 实测零性能代价（p99 98.50 vs 98.37 ms）；单 broker 下语义等价，断电级保证需多 broker（《接入层设计》§12.1） |
 | 失败语义 | 返回 5xx 让上游重试（EMQX 缓冲重试 / 设备重试） | 兜底不丢；重复由下游幂等 |
 | 优雅退出 | SIGTERM → 停收 → producer Close 冲刷（10s 宽限） | 压测实测受理≈落盘，零丢失 |
 
@@ -314,7 +314,7 @@ docker run --rm --network oceanverse_ov-net -p 18080:18080 \
 ## 11. 已知边界（刻意不做）
 
 - 鉴权是静态白名单；第 2 阶段接车辆档案服务改为动态校验
-- Kafka RequiredAcks=RequireOne 性能优先；要更强持久性改 `kafka.RequireAll`
+- Kafka `RequiredAcks=RequireAll`（2026-09-18 升级）；**单 broker 下不提供断电级持久性**，需多 broker（《接入层设计》§12.1）
 - 已实现**三通道**：HTTP / MQTT-JSON(webhook) / 二进制透传（`bin_ingest.go`，不解帧）；gRPC 内部通道第 2 阶段加；TCP 私有协议按《GB32960 映射》§7 作为**分级 fallback**（网关新增 TCP 监听）
 - 消息清洗/字段加工不做（那是 Flink 计算层的职责）
 

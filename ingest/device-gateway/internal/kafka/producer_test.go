@@ -240,7 +240,7 @@ func TestProducer_BrokerError_ReturnsErrorAndCounts(t *testing.T) {
 	waitMetric(t, topic, "error", beforeErr+1, 5*time.Second)
 }
 
-// TestProducer_WriterConfig 固化 §3.5 的投递参数与"同步 + 有界重试"不变量(配置漂移会被这条测试挡住)。
+// TestProducer_WriterConfig 固化 §3.5 的投递参数与"同步 + 有界重试 + RequireAll"不变量(配置漂移会被这条测试挡住)。
 func TestProducer_WriterConfig(t *testing.T) {
 	p := newProducer([]string{"localhost:19092"}, "vehicle-report-raw", nil)
 	defer p.Close()
@@ -252,8 +252,8 @@ func TestProducer_WriterConfig(t *testing.T) {
 	if w.BatchSize != 200 || w.BatchTimeout != 50*time.Millisecond {
 		t.Errorf("攒批应为 200 条/50ms, 实际 %d 条/%v", w.BatchSize, w.BatchTimeout)
 	}
-	if w.RequiredAcks != kafka.RequireOne {
-		t.Errorf("RequiredAcks 应为 RequireOne, 实际 %v", w.RequiredAcks)
+	if w.RequiredAcks != kafka.RequireAll {
+		t.Errorf("RequiredAcks 应为 RequireAll(2026-09-18 由 RequireOne 升级), 实际 %v", w.RequiredAcks)
 	}
 	if w.Async {
 		t.Error("必须为同步模式(async=false): Async 会让投递失败被吞掉, 破坏 §6 的 5xx 重试语义")
