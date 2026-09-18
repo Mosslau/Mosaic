@@ -205,12 +205,21 @@ echo "5) 网关受理 vs 落盘（同步投递下应逐条相等）"
 req=$(metric_sum "$GATEWAY_METRICS" '^gateway_requests_total.*result="ok"')
 wok=$(metric_sum "$GATEWAY_METRICS" '^gateway_kafka_write_total.*result="ok"')
 werr=$(metric_sum "$GATEWAY_METRICS" '^gateway_kafka_write_total.*result="error"')
-if [[ "$req" -eq 0 && "$wok" -eq 0 ]]; then
-  bad "读不到网关指标（${GATEWAY_METRICS}/metrics 不可达?）"
+# 注意: gateway_requests_total / kafka_write_total 都是 **CounterVec** ——
+# 在第一个 series 出现(即第一条请求)之前**根本不导出**。所以"求和得 0"有两种可能:
+#   (a) 端点不可达(真故障)  (b) 端点正常但该实例还没收到过流量(正常的空闲态, 如 CI 全新容器)
+# 必须先区分二者, 否则会把空闲态误报成故障(2026-09-18 CI 实测踩过: 判据 3 刚报端点可达,
+# 判据 5 却报"不可达", 自相矛盾)。
+if curl -sf -m 5 "${GATEWAY_METRICS}/metrics" >/dev/null 2>&1; then
+  if [[ "$req" -eq 0 && "$wok" -eq 0 ]]; then
+    ok "受理 == 落盘（该实例尚无流量, 两个 CounterVec 均未导出 series —— 空闲态正常）"
+  else
+    info "受理=${req} 落盘=${wok} 写失败=${werr}"
+    if [[ "$req" -eq "$wok" ]]; then ok "受理 == 落盘"; else bad "受理(${req}) != 落盘(${wok}) → 差 $((req-wok)) 条未落盘"; fi
+    if [[ "$werr" -eq 0 ]]; then ok "无写失败"; else bad "存在 ${werr} 条写失败（看网关日志与 Kafka 可用性）"; fi
+  fi
 else
-  info "受理=${req} 落盘=${wok} 写失败=${werr}"
-  if [[ "$req" -eq "$wok" ]]; then ok "受理 == 落盘"; else bad "受理(${req}) != 落盘(${wok}) → 差 $((req-wok)) 条未落盘"; fi
-  if [[ "$werr" -eq 0 ]]; then ok "无写失败"; else bad "存在 ${werr} 条写失败（看网关日志与 Kafka 可用性）"; fi
+  bad "网关指标端点不可达（${GATEWAY_METRICS}/metrics）→ 服务未运行或端口不对"
 fi
 
 # ---------- 6. 告警状态 ----------
