@@ -1,0 +1,85 @@
+name: CI
+
+# 最小 CI（2026-09-18 落地）：挡住三类曾真实发生的回归
+#   ① 代码回归      —— 四模块 build / vet / test（矩阵）
+#   ② 镜像断裂      —— 契约拆分曾导致 Dockerfile 静默构建失败（replace 目标在上下文外）
+#   ③ 文档漂移      —— 旧路径/裸引用/数字对不上/围栏嵌套（scripts/check-docs.sh）
+#
+# 触发: push 到 main + 所有 PR；并发同分支时取消旧跑（省 runner）
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GO_VERSION: "1.25"
+  GOTOOLCHAIN: local
+
+jobs:
+  # ---------- 四模块编译 + 静态检查 + 单测 ----------
+  go:
+    name: go (${{ matrix.module }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - ingest/device-contracts
+          - ingest/device-gateway
+          - ingest/device-codec
+          - ingest/device-simulator
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: ${{ matrix.module }}/go.sum
+      - name: build
+        working-directory: ${{ matrix.module }}
+        run: go build ./...
+      - name: vet
+        working-directory: ${{ matrix.module }}
+        run: go vet ./...
+      - name: test
+        working-directory: ${{ matrix.module }}
+        run: go test ./... -count=1 -cover
+
+  # ---------- 镜像可构建（根上下文, 契约模块在 replace 路径上） ----------
+  docker:
+    name: docker images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: build device-gateway image
+        run: docker build -f ingest/device-gateway/Dockerfile -t oceanverse/device-gateway:ci .
+      - name: build device-codec image
+        run: docker build -f ingest/device-codec/Dockerfile -t oceanverse/device-codec:ci .
+      - name: smoke run (health)
+        run: |
+          docker run -d --name gw-smoke -p 18080:18080 \
+            -e GATEWAY_PORT=18080 -e GATEWAY_DEV_MODE=true \
+            -e KAFKA_BROKERS=127.0.0.1:19092 \
+            oceanverse/device-gateway:ci
+          for _ in $(seq 1 20); do
+            if curl -sf http://localhost:18080/health; then ok=1; break; fi
+            sleep 1
+          done
+          docker logs gw-smoke | tail -5
+          test "${ok:-0}" = "1"
+          docker rm -f gw-smoke
+
+  # ---------- 文档事实校验 + Mermaid 渲染 ----------
+  docs:
+    name: docs (facts + mermaid)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: docs facts check
+        run: bash scripts/check-docs.sh
+      - name: mermaid render check
+        run: bash scripts/check-mermaid.sh

@@ -1,5 +1,7 @@
 # scripts —— 仓库工具脚本
 
+> 两个脚本都被 CI 调用（`.github/workflows/ci.yml` 的 `docs` 作业）；本地改动文档后先跑一遍再提交。
+
 ## check-mermaid.sh — 文档 Mermaid 图渲染校验
 
 文档里的流程图现在是**图即代码**：语法错了整张图不显示，且只在渲染端才暴露。改动任何 `.md` 里的 `mermaid` 块后跑一遍：
@@ -12,6 +14,23 @@ scripts/check-mermaid.sh ingest/README.md     # 只校验指定文件
 依赖 Docker（用 `minlag/mermaid-cli` 镜像渲染），临时产物在 `.tmp-mmdc/`（已 gitignore）。
 **注意**：挂载目录必须在 `$HOME` 下——Rancher Desktop 只共享 `$HOME` 给 VM，`/tmp` 挂不进（与 `deploy/README` Q9 同源限制）。
 
+## check-docs.sh — 文档事实校验
+
+把"人工审计"固化成可重复执行的门禁，覆盖三类**曾真实发生**的漂移：
+
+| 检查 | 挡住什么 |
+|---|---|
+| ① 禁用词/旧路径扫描 | 旧目录名（`ingest/simulator`）、旧的数量声明（`五包`、`11 项配置`）、旧端口（`localhost:8080`） <!-- check-docs:allow --> |
+| ② 章节引用检查 | 裸 `§x.y` 实际指向别的文档（跨文档引用必须带《》或"设计文档"） |
+| ③ 数字声明 vs 代码 | 配置项数、gateway 测试包数等"易腐数字"与实现对齐 |
+| ④ topic/QoS 单一源 | 该表只允许出现在设计文档 §4.2 |
+| ⑤ Mermaid 围栏嵌套 | ` ```text ` 里面又套 ` ```mermaid `（曾出现 4 处） |
+| ⑥ 引用目标存在性 | 指向不存在的 `.md` |
+
+```bash
+scripts/check-docs.sh        # 失败即非零退出（CI 门禁）
+```
+
 ## 文档图表约定
 
 | 用 Mermaid | 保留代码块（不转） |
@@ -21,7 +40,7 @@ scripts/check-mermaid.sh ingest/README.md     # 只校验指定文件
 其它要求：
 
 - **单一真相**：一处图只保留一种形式（转 Mermaid 即删 ASCII），避免两处漂移
-- **大图拆分**：一张图超过 ~40 行就拆（例：架构总览 §1.1 的 154 行 ASCII 拆成"分层总览 / 接入层细节 / 湖仓与计算细节"三张）
+- **大图拆分**：一张图超过 ~40 行就拆（例：《OceanVerse 架构总览》§1.1 的 154 行 ASCII 拆成"分层总览 / 接入层细节 / 湖仓与计算细节"三张）
 - **渲染前提**：Mermaid 需要渲染器（GitHub / VS Code / GitLab / 多数 Markdown 预览）；纯终端 `cat` 不可读——因此**面向排障的速查内容仍用文字/表格**
 
 ## 目录约定（2026-09-17 决定）
