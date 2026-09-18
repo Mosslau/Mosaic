@@ -1,0 +1,120 @@
+# OceanVerse 第 1 阶段告警规则
+#
+# 为什么需要它(2026-09-18 实测教训): 此前 Prometheus 只抓 2 个应用 target、**零条告警规则**,
+# 于是"Rancher VM 掉线导致整条链路静默停摆"在监控上的唯一表现是 Grafana 面板没数据 ——
+# 没有任何人会收到通知(那次是评审时人工发现的)。本文件把"静默停摆"变成"会响"。
+#
+# 加载方式: docker-compose.yaml 挂载到 /etc/prometheus/rules/, prometheus.yml 的 rule_files 引用。
+# 查看: Prometheus UI → Alerts (http://localhost:9090/alerts), 或
+#       curl -s localhost:9090/api/v1/rules | python3 -m json.tool
+#
+# 注意(如实说明能力边界): 本机**没有 Alertmanager**, 因此告警只会出现在 Prometheus UI/API 里,
+# 不会变成手机/邮件通知。第 2 阶段接 Alertmanager 后这批规则可直接复用(见设计文档 §12 清零清单⑥)。
+# 在那之前, 判据是"打开 /alerts 应看到 0 个 firing"; 这是本机可执行的复验动作。
+
+groups:
+  - name: oceanverse-critical
+    rules:
+      # ---------- 1. 组件掉线 ----------
+      # 覆盖: 网关/codec 进程被杀、六容器任一挂掉、VM 掉线(那时全部 target 一起 down)
+      - alert: TargetDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} 抓取目标掉线超过 1 分钟"
+          description: >-
+            Prometheus 连续 1 分钟抓不到 {{ $labels.job }} ({{ $labels.instance }})。
+            排查顺序: ① 宿主进程是否还在(lsof -nP -iTCP:<port> -sTCP:LISTEN);
+            ② 六容器是否健康(docker compose ps); ③ 若两者都正常 → 怀疑 Rancher 端口转发层
+            (deploy/README Q8/Q14)。runbook 见 deploy/README Q15。
+
+      # ---------- 2. 消息不落盘 ----------
+      # 覆盖: Kafka 侧写失败(网关同步投递失败会返回 5xx, 同时这个计数器增长)
+      - alert: GatewayKafkaWriteErrors
+        expr: increase(gateway_kafka_write_total{result="error"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "网关写 Kafka 失败(5 分钟内 {{ $value | printf \"%.0f\" }} 条)"
+          description: >-
+            消息未落盘, 已按设计返回 5xx 让上游重试。查 Kafka 可用性与
+            `docker exec ov-kafka /opt/kafka/bin/kafka-topics.sh --list`。
+
+      # ---------- 3. codec 投递失败(丢数据之前的第一道信号) ----------
+      - alert: CodecFlushFailures
+        expr: increase(codec_flush_failures_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "codec 微批写出/位移提交失败(5 分钟内 {{ $value | printf \"%.0f\" }} 次)"
+          description: >-
+            失败批次**保留在缓冲并退避重试**, 位移未提交 → 数据未丢, 但下游写不进去。
+            看 codec_pending_messages 是否持续增长; 恢复后应自行补写。
+
+      # ---------- 4. codec 缓冲堆积(长期不恢复意味着磁盘/内存压力) ----------
+      - alert: CodecBufferBacklog
+        expr: codec_pending_messages > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "codec 缓冲积压 {{ $value | printf \"%.0f\" }} 条且持续 5 分钟"
+          description: >-
+            正常情况下该值应为 0。持续 >1000 说明下游长时间不可写(此时不丢数据, 但内存占用上升)。
+
+      # ---------- 5. 消费滞后(实时性退化) ----------
+      - alert: CodecConsumerLag
+        expr: codec_consumer_lag > 5000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "codec 消费滞后 {{ $value | printf \"%.0f\" }} 条且持续 5 分钟"
+          description: >-
+            实时性退化(数据最终会到, 但延迟变大)。查 codec 是否卡在 flush、
+            Kafka 分区数是否够(扩展顺序见《接入层设计》§7.2)。
+
+      # ---------- 6. DLQ 增长(对端字节问题或契约演进不同步) ----------
+      # ⚠️ 基线说明(实测): 联调/演练期 DLQ 本来就会非空 —— 发送过畸形帧、跑过故障演练、
+      # 或用了会造非法载荷的探针, 都会让 codec_dlq_total 增长并让本条告警触发一次
+      # (increase 窗口 10 分钟, 之后自行消退)。判据不是"DLQ 是否为 0", 而是
+      # "是否在**没有已知原因**的情况下持续增长"; 查原因看 DLQ 里的 stage 与 raw_b64。
+      # 需要干净基线时: 删除 ov.dlq.codec.v1 重建(仅本地开发, 会丢历史原始帧)。
+      - alert: CodecDLQGrowing
+        expr: increase(codec_dlq_total[10m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "codec DLQ 增长(stage={{ $labels.stage }})"
+          description: >-
+            DLQ 非空即需人工看原因: parse/decode=对端帧字节问题, validate=契约不同步,
+            envelope=版本/信封问题, encode=平台侧序列化异常。原始帧在 raw_b64 里可还原。
+
+      # ---------- 7. 限流被持续击穿(可能是单设备发疯或容量不足) ----------
+      - alert: GatewayRateLimited
+        expr: increase(gateway_requests_total{result="rate_limited"}[5m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "网关限流放行失败增长(5 分钟 {{ $value | printf \"%.0f\" }} 次, path={{ $labels.path }})"
+          description: >-
+            单设备发疯会被单设备桶掐掉(设计预期); 若全局限流持续触发, 说明容量不足,
+            按《接入层设计》§7.2 的扩展顺序处理(先扩 Kafka 分区 → 再扩网关副本)。
+
+      # ---------- 8. VIN 越权(安全信号, 任何一次都值得看) ----------
+      - alert: GatewayVINMismatch
+        expr: increase(gateway_requests_total{result="vin_mismatch"}[10m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "检测到载荷 VIN 与 topic VIN 不一致(可能是伪造尝试)"
+          description: >-
+            设备声称的 VIN 与其发布 topic 不符, 已被 400 拒绝。若非联调误用,
+            按安全事件处理(该设备凭证可能被滥用)。

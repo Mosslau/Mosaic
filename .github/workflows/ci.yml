@@ -115,6 +115,63 @@ jobs:
           curl -sf http://localhost:18090/metrics | grep -q codec_consumed_total
           docker rm -f codec-smoke
 
+  # ---------- 链路健康自检（含 Q11 僵尸消费组判据；此前只能靠人工发现） ----------
+  pipeline-health:
+    name: pipeline health (Q11 zombie consumers)
+    runs-on: ubuntu-24.04
+    services:
+      kafka:
+        image: apache/kafka:3.9.1
+        ports: ["19092:19092"]
+        env:
+          KAFKA_NODE_ID: 1
+          KAFKA_PROCESS_ROLES: broker,controller
+          CLUSTER_ID: ci-health-cluster-01
+          KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:19092
+          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:19092
+          KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+          KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+          KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+          KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+          KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+        options: >-
+          --health-cmd "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092"
+          --health-interval 10s --health-timeout 10s --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: build images
+        run: |
+          docker build -f ingest/device-gateway/Dockerfile -t oceanverse/device-gateway:ci .
+          docker build -f ingest/device-codec/Dockerfile -t oceanverse/device-codec:ci .
+      - name: start gateway + codec (宿主网络, 模拟本机拓扑)
+        run: |
+          docker run -d --name gw-health --network host \
+            -e GATEWAY_PORT=18080 -e GATEWAY_DEV_MODE=true -e KAFKA_BROKERS=127.0.0.1:19092 \
+            oceanverse/device-gateway:ci
+          docker run -d --name codec-health --network host \
+            -e KAFKA_BROKERS=127.0.0.1:19092 \
+            oceanverse/device-codec:ci
+          for _ in $(seq 1 30); do
+            if curl -sf http://localhost:18080/health >/dev/null && curl -sf http://localhost:18090/health >/dev/null; then break; fi
+            sleep 2
+          done
+          docker logs gw-health | tail -3; docker logs codec-health | tail -3
+      - name: health check (Q11 判据 — 成员数/分区归属/端口监听者/计数活性/受理对账)
+        env:
+          # CI 的 Kafka 是 service container(名为 kafka), 本机是 ov-kafka → 必须覆盖,
+          # 否则脚本里 docker exec 找不到容器而误报
+          KAFKA_CONTAINER: kafka
+          # 不灌探针帧(CI 里没有 EMQX, 注入必然失败): PROBE=0 只做不依赖流量的判据
+          PROBE: "0"
+        run: bash scripts/check-pipeline-health.sh -w 15
+      - name: dump logs on failure
+        if: failure()
+        run: docker logs gw-health | tail -20; docker logs codec-health | tail -20
+      - name: cleanup
+        if: always()
+        run: docker rm -f gw-health codec-health || true
+
   # ---------- compose 可解析（语法/变量展开；此前 CI 完全不碰 compose） ----------
   compose:
     name: docker compose config

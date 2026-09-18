@@ -139,6 +139,9 @@ docker exec ov-emqx emqx ctl listeners | grep -E "tcp:default|ssl:default"
 curl -s 'http://localhost:9090/api/v1/targets?state=active' | grep -o '"health":"[a-z]*"'
 # 期望: "health":"up"; 网关未启动时显示 down 属正常
 curl -s -g 'http://localhost:9090/api/v1/query?query=up{job="device-gateway"}'
+# 告警规则已加载且无 firing(8 条, 含义见 Q16)
+curl -s http://localhost:9090/api/v1/rules | grep -c '"name"'    # 期望: 8
+curl -s http://localhost:9090/api/v1/alerts | grep -c '"state":"firing"' || true   # 期望: 0
 ```
 
 > **端口避让（本机实测）**：公司 Java 服务占用 8080~8083，网关开发期用 `GATEWAY_PORT=18080` 启动；
@@ -247,6 +250,33 @@ docker compose ps      # 无需任何 up 命令, 期望 6/6 healthy(实测通过
 ```
 
 > 注：`docker kill ov-kafka` 属于**显式停止**，`unless-stopped` 语义下不会自动拉起（这是预期行为）；验证自愈要用引擎重启。
+
+**Q16：链路静默停摆怎么第一时间知道？（告警与 runbook）**
+
+2026-09-18 前 Prometheus **零条告警规则** —— 那次 Rancher VM 掉线让整条链路停摆，监控上唯一的表现是 Grafana 没数据，**没有人会收到通知**（是评审时人工发现的）。
+现已补 8 条规则（`deploy/prometheus/rules/oceanverse-alerts.yml`）：
+
+| 告警 | 触发条件 | 含义 |
+|---|---|---|
+| `TargetDown` | `up == 0` 持续 1m | 网关/codec/六容器任一掉线（VM 掉线时全部一起 down） |
+| `GatewayKafkaWriteErrors` | 网关写 Kafka 失败 >0 | 消息未落盘，已返 5xx 让上游重试 |
+| `CodecFlushFailures` | codec 写出/提交失败 >0 | **丢数据之前的第一道信号**（此时数据仍在缓冲） |
+| `CodecBufferBacklog` | `pending_messages > 1000` 持续 5m | 下游长时间不可写 |
+| `CodecConsumerLag` | `consumer_lag > 5000` 持续 5m | 实时性退化 |
+| `CodecDLQGrowing` | DLQ 10 分钟内增长 | 对端字节问题或契约不同步 |
+| `GatewayRateLimited` | 5 分钟限流 >100 次 | 容量不足或单设备发疯 |
+| `GatewayVINMismatch` | 载荷 VIN ≠ topic VIN | **安全信号**，可能是伪造尝试 |
+
+**判据（一条命令，本机可执行）**：
+
+```bash
+curl -s localhost:9090/api/v1/alerts | python3 -c "import json,sys;print('firing:',len(json.load(sys.stdin)['data']['alerts']))"
+# 期望: firing: 0
+```
+
+**runbook 一行**：`firing > 0` → 先看面板确认范围 → 查 `docker compose ps`（容器）与 `lsof -nP -iTCP:18080 -sTCP:LISTEN`（宿主进程）→ 两者都正常则怀疑 Rancher 端口转发层（Q8）→ 恢复后复跑 `bash scripts/check-pipeline-health.sh` 确认无僵尸消费组。
+
+> **能力边界（如实说明）**：本机**没有 Alertmanager**，告警只出现在 Prometheus UI/API（<http://localhost:9090/alerts>），**不会**变成手机/邮件通知 —— 需要主动看，或让面板/巡检脚本看。接 Alertmanager 是第 2 阶段（设计文档 §12 清零清单⑥），这批规则可直接复用。
 
 **Q13：容器里的服务(网关/codec)写 Kafka 失败，但宿主机跑就正常**
 Kafka 用了双监听器：`PLAINTEXT://kafka:9092`（容器网内）与 `EXTERNAL://localhost:19092`（宿主机）。

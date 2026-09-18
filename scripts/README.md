@@ -14,6 +14,27 @@ scripts/check-mermaid.sh ingest/README.md     # 只校验指定文件
 依赖 Docker（用 `minlag/mermaid-cli` 镜像渲染），临时产物在 `.tmp-mmdc/`（已 gitignore）。
 **注意**：挂载目录必须在 `$HOME` 下——Rancher Desktop 只共享 `$HOME` 给 VM，`/tmp` 挂不进（与 `deploy/README` Q9 同源限制）。
 
+## check-pipeline-health.sh — 链路健康自检（含 Q11 僵尸消费组判据）
+
+把"消息明明被消费了、但**这个实例**的指标却冻结"这类**常规检查看不出来**的故障固化成一条命令。
+起因（2026-09-18 实测）：评测时被「新 codec 实例 `/metrics` 计数恒 0 + 消费组 `LAG=0` + offset 在涨」
+迷惑了十几分钟，真因是早期 `go run` 残留的**孤儿 codec 进程**仍持有分区 ——
+`docker compose ps` 全绿、Prometheus target 全 up、lag=0，全都看不出来。
+
+```bash
+scripts/check-pipeline-health.sh            # 6 组判据, 期望 "异常 0 项" 且 exit 0
+scripts/check-pipeline-health.sh -w 30      # 加长观测窗口
+scripts/check-pipeline-health.sh -m         # 多副本横扩后放宽"成员数=1"
+PROBE=0 scripts/check-pipeline-health.sh    # 空闲时不灌探针帧(不改动链路数据)
+```
+
+判据：① 消费组成员数（单副本应恒为 1）② 同一分区是否被多个成员持有
+③ 服务端口监听者数量（>1 = 孤儿实例）④ `/metrics` 的 `consumed` 活性
+（空闲时自动灌少量**合法**帧做强判据）⑤ 网关"受理 == 落盘"⑥ 自检前后是否**新增**告警。
+
+> 探针会用 `bin-simulator` 发合法帧（真实经过链路），所以 `consumed/decoded` 会小幅增加 —— 属预期。
+> 早期版本用 `"##probe"` 这类非法载荷，结果**探针自己触发了 `CodecDLQGrowing` 告警**（已修）。
+
 ## check-docs.sh — 文档事实校验
 
 把"人工审计"固化成可重复执行的门禁，覆盖三类**曾真实发生**的漂移：
