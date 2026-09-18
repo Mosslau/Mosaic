@@ -107,38 +107,55 @@ else
   bad "以下分区被多个成员同时持有: $(printf '%s' "$dup" | tr '\n' ' ')"
 fi
 
-# ---------- 3. 宿主上是否有孤儿服务进程 ----------
-echo "3) 宿主进程（每个服务只应有一个进程占住它的监听端口）"
-# 判据: 每个服务只应有一个进程占住它的**监听端口**。
-# 不用 "谁连着 Kafka" —— lsof 的 COMMAND 列被截断到 9 字符(gateway 显示为 device-ga),
-# 且网关是按需建连、平时没有 19092 长连接, 原判据会误报"没在运行"。
-# 判据用"实际能否执行"而不是 command -v: PATH 里存在同名但不可执行的占位脚本时,
+# ---------- 3. 服务存活 + 孤儿实例 ----------
+echo "3) 服务存活与孤儿实例"
+# 判据分两层, 因为它们的**可靠性不同**(2026-09-18 CI 实测教训):
+#   ① 存活: 用 curl 探端点 —— 跨平台可靠, 无论进程跑在宿主还是容器里;
+#   ② 孤儿: 用 lsof 数"占住监听端口的进程数" —— 在**本机**(宿主进程)可靠,
+#      但在 CI(runner 上跑 --network host 的容器)上 lsof 可能看不到该 socket,
+#      此时必须报"无法判定"而**不是**误报"未运行"(早期版本正是这样把工具/环境限制
+#      伪装成服务故障, 白烧了两轮 CI)。
+svc_url() { case "$1" in gateway) echo "${GATEWAY_METRICS}/metrics";; codec) echo "${CODEC_METRICS}/health";; esac; }
+
+# lsof 判据用"实际能否执行"而不是 command -v: PATH 里存在同名但不可执行的占位脚本时,
 # command -v 会返回成功而实际调用失败(测试 lsof 缺失场景时踩到)。
 # lsof 退出码 1 = 没有匹配项, 说明 lsof 本身可用。
 LSOF_OK=0
 lsof -nP -iTCP:1 -sTCP:LISTEN >/dev/null 2>&1
 case $? in 0|1) LSOF_OK=1;; esac
-if [[ "$LSOF_OK" -eq 0 ]]; then
-  # 关键: lsof 不可用时**必须显式报错** —— 早期版本用 2>/dev/null 吞掉了
-  # "command not found", 结果对每个服务都报"端口无监听", 在 CI(GitHub ubuntu runner
-  # 不预装 lsof)上把"工具缺失"伪装成"服务没起来", 排查代价极高(实测踩过)。
-  bad "lsof 缺失或不可执行, 无法做端口/孤儿检测（Debian/Ubuntu: apt-get install -y lsof; macOS 预装）"
-  info "跳过判据 3 的端口检测（已明确标注, 不再伪装成服务异常）"
-fi
-for pair in "${GATEWAY_PROC}:18080" "${CODEC_PROC}:18090"; do
-  [[ "$LSOF_OK" -eq 1 ]] || break
+
+inconclusive=0
+for pair in "gateway:18080" "codec:18090"; do
   role="${pair%%:*}"; port="${pair##*:}"
-  pids=$(lsof -nP -iTCP:"$port" -sTCP:LISTEN -t 2>/dev/null | sort -u | tr '\n' ' ')
-  n=$(printf '%s' "$pids" | wc -w | tr -d ' ')
-  if [[ "$n" -eq 0 ]]; then
-    bad "${role}: 端口 ${port} 无监听（未运行?）"
-  elif [[ "$n" -eq 1 ]]; then
-    ok "${role}: 1 个进程占住端口 ${port} (pid ${pids})"
+  url=$(svc_url "$role")
+  if curl -sf -m 5 "$url" >/dev/null 2>&1; then
+    alive=1
   else
+    alive=0
+  fi
+  n=-1
+  pids=""
+  if [[ "$LSOF_OK" -eq 1 ]]; then
+    pids=$(lsof -nP -iTCP:"$port" -sTCP:LISTEN -t 2>/dev/null | sort -u | tr '\n' ' ')
+    n=$(printf '%s' "$pids" | wc -w | tr -d ' ')
+  fi
+  if [[ "$alive" -eq 0 ]]; then
+    bad "${role}: 端点不可达（${url}）→ 未运行或未就绪"
+  elif [[ "$n" -eq 1 ]]; then
+    ok "${role}: 端点可达且仅 1 个进程占住端口 ${port} (pid ${pids})"
+  elif [[ "$n" -gt 1 ]]; then
     bad "${role}: ${n} 个进程占住端口 ${port} → 疑似孤儿实例（Q11 根因）: ${pids}"
     info "处置: go run 的包装进程被杀会留下编译产物孤儿（占消费组/端口）; 请用 go build 出的二进制起服务"
+  else
+    # 端点通 = 服务确实活着; lsof 看不到 → 环境限制, 不是故障
+    ok "${role}: 端点可达（${url}）"
+    why="常见于容器 --network host 环境"
+    [[ "$LSOF_OK" -eq 0 ]] && why="lsof 不可用"
+    info "lsof 看不到该端口的监听进程（${why}）→ 孤儿判据无法判定"
+    inconclusive=1
   fi
 done
+[[ "$inconclusive" -eq 1 ]] && info "提示: K8s/容器环境无宿主进程概念, 孤儿判据请以『消费组成员数』(判据 1) 为准"
 
 # ---------- 4. consumed 计数活性 ----------
 echo "4) codec 计数活性（冻结的计数 + topic 有新消息 = 消息被别的进程消费了）"
