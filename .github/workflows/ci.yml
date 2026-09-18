@@ -17,14 +17,15 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GO_VERSION: "1.25"
+  # 锁定工具链: 版本由各模块 go.mod 的 go 指令决定, 不自动下载其它 toolchain
   GOTOOLCHAIN: local
 
 jobs:
   # ---------- 四模块编译 + 静态检查 + 单测 ----------
   go:
     name: go (${{ matrix.module }})
-    runs-on: ubuntu-latest
+    # 显式钉 LTS: ubuntu-latest 将于 2026-10-19 迁往 Ubuntu 26, 钉住避免环境突变
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -34,11 +35,13 @@ jobs:
           - ingest/device-codec
           - ingest/device-simulator
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
-          go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: ${{ matrix.module }}/go.sum
+          # 用各模块 go.mod 里的 go 指令(1.25); Go 版本升级时无需改本文件
+          go-version-file: ${{ matrix.module }}/go.mod
+          # 缓存键基于 go.mod —— device-contracts 无 go.sum, 指向 go.sum 会报 "paths were not resolved"
+          cache-dependency-path: ${{ matrix.module }}/go.mod
       - name: build
         working-directory: ${{ matrix.module }}
         run: go build ./...
@@ -52,9 +55,9 @@ jobs:
   # ---------- 镜像可构建（根上下文, 契约模块在 replace 路径上） ----------
   docker:
     name: docker images
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: build device-gateway image
         run: docker build -f ingest/device-gateway/Dockerfile -t oceanverse/device-gateway:ci .
       - name: build device-codec image
@@ -76,9 +79,9 @@ jobs:
   # ---------- 文档事实校验 + Mermaid 渲染 ----------
   docs:
     name: docs (facts + mermaid)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: docs facts check
         run: bash scripts/check-docs.sh
       - name: mermaid render check

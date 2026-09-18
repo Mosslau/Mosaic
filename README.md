@@ -34,6 +34,8 @@
 
 本地等价执行：`bash scripts/check-docs.sh && bash scripts/check-mermaid.sh`（后者需 Docker）。
 
+环境约定：`runs-on: ubuntu-24.04`（显式钉 LTS，避开 `ubuntu-latest` 于 2026-10-19 迁往 Ubuntu 26）；`actions/checkout@v7` + `actions/setup-go@v7`（Node 24 运行时）；Go 版本来自各模块 `go.mod` 的 `go` 指令，升级 Go 无需改 workflow。
+
 ## Why "OceanVerse"?
 
 In Greek mythology, all rivers and springs eventually flow into Oceanus,
