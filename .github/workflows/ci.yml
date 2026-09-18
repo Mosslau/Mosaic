@@ -87,8 +87,15 @@ jobs:
           done
           docker logs gw-smoke | tail -5
           test "${ok:-0}" = "1"
+          # 真业务路径冒烟: /health 恒返回 up(handler/report.go), 鉴别力太低 ——
+          # 契约校验失败期望 400, 证明 handler 链真的接上了。
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:18080/api/v1/vehicle/report \
+            -H 'X-Device-Token: dev-OV00000001' -H 'Content-Type: application/json' -d '{"vin":"OV00000001"}')
+          test "$code" = "400" || { echo "契约校验应 400, 实际 $code"; docker logs gw-smoke | tail -5; exit 1; }
           # 指标端点必须独立于业务端口(2026-09-18 整改): 业务端口不再暴露 /metrics
-          curl -sf http://localhost:18081/metrics | grep -q gateway_requests_total
+          # 注意: 用 Gauge 断言而非 CounterVec —— 后者在首个 series 出现前**不导出**,
+          # 新容器里 grep gateway_requests_total 会失败(端点其实是 200)。
+          curl -sf http://localhost:18081/metrics | grep -q gateway_inflight_requests
           if curl -sf http://localhost:18080/metrics >/dev/null; then
             echo "业务端口不应暴露 /metrics"; docker logs gw-smoke | tail -5; exit 1
           fi
