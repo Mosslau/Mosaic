@@ -72,9 +72,9 @@ go mod tidy
 go build ./...
 go vet ./...
 
-# 1.5 单元测试(4 个测试包 30+ 用例: 鉴权/限流/三通道 handler/配置; 契约与造帧器已迁独立模块)
+# 1.5 单元测试(5 个测试包 40+ 用例: 鉴权/限流/三通道 handler/配置/Kafka 投递; 契约与造帧器已迁独立模块)
 go test ./... -count=1          # 全部通过
-go test ./... -cover            # 实测(2026-09-17): auth 100% / ratelimit 85.3% / config 82.4% / handler 75.2%
+go test ./... -cover            # 实测(2026-09-18): auth 100% / kafka 90% / ratelimit 85.3% / config 82.4% / handler 75.2%
 
 # 2. 开发模式启动(允许 dev- 前缀 token, 方便联调压测)
 #    注意: 本机 8080~8083 被其他服务占用, 开发期固定 18080(与 emqx.conf webhook / prometheus 抓取一致)

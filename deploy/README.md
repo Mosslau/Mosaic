@@ -72,6 +72,12 @@ EMQX 启动后**自动加载声明式规则**（`deploy/emqx/emqx.conf`）：①
 ```bash
 cd deploy
 
+# ⚠️ 首次启动前置：生成自签 CA 与 EMQX 服务器证书（8883 TLS 监听器需要）
+bash emqx/gen-certs.sh
+#   不跑会怎样：EMQX 仍能启动、dev 明文 1883 正常，但 8883 TLS 监听器因缺证书不可用
+#   （容器日志出现 cert_file_not_found: /opt/emqx/etc/certs/server.crt），
+#   且公网三件套自检（Q12）第 ① 项会直接失败。证书目录已 gitignore，克隆后必须自己生成。
+
 # 启动（首次会拉取镜像，约 1.5GB，视网络 5~20 分钟）
 docker compose up -d
 
@@ -114,12 +120,16 @@ open http://localhost:9002   # 控制台, ov_minio / ov_minio_2026 登录
 # ④ Grafana：健康检查 + 数据源
 curl -s http://localhost:3000/api/health   # 期望: {"database":"ok",...}
 open http://localhost:3000   # admin / admin 登录
-# 左侧 Connections → Data sources → 应看到已配好的 "ClickHouse"
+# 左侧 Connections → Data sources → 应看到两个数据源: "ClickHouse" 与 "Prometheus"(uid=ov-prometheus)
+# 左侧 Dashboards → 应看到 "device-gateway 车端接入网关" 面板(4 图: 请求速率/延迟分位/受理vsKafka对账/在途)
 
 # ⑤ EMQX：状态 + Dashboard
 curl -s http://localhost:18083/status    # 期望: ok
 open http://localhost:18083              # admin / public 登录(建议立即改密)
-# Dashboard → 集成 → 规则: 应看到 ov_vehicle_ingress 规则 + webhook:device_gateway 动作
+# Dashboard → 集成 → 规则: 应有两条 —— ov_vehicle_ingress(JSON: status/battery/fault)
+#                                              与 ov_binary_ingress(二进制: ov/+/bin, base64)
+# 监听器: 1883 明文(dev) + 8883 TLS(公网形态, 一车一密+ACL) —— 缺证书时 8883 不可用(见 §4 前置)
+docker exec ov-emqx emqx ctl listeners | grep -E "tcp:default|ssl:default"
 
 # ⑥ Prometheus：抓取目标 + 网关指标(需网关已在宿主机运行)
 curl -s 'http://localhost:9090/api/v1/targets?state=active' | grep -o '"health":"[a-z]*"'

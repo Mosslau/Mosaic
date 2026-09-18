@@ -129,7 +129,7 @@ ingest/
 | 项 | 状态 |
 |---|---|
 | 三通道链路 | ✅ HTTP + MQTT(JSON) + **二进制透传**(GB/T 32960)，构建/测试全绿 |
-| 单元测试 | ✅ gateway 4 个测试包 + codec 解码器 + contracts 契约 + simframe 黄金样本，全绿 |
+| 单元测试 | ✅ gateway 5 个测试包 + codec 解码器 + contracts 契约 + simframe 黄金样本，全绿 |
 | EMQX 声明式规则 | ✅ `deploy/emqx/emqx.conf`（含二进制 `ov_binary_ingress`），启动自动加载 |
 | 压测实测数字 | ✅ 已回填（《接入层设计》§7.3，2026-09-16） |
 | 二进制链路 | ✅ **端到端联调通过**（2026-09-17）：bin-simulator → EMQX → 网关透传 → `ov.raw.binary.v1` → codec → `vehicle-report-raw`，四段对账平衡，DLQ=0 |

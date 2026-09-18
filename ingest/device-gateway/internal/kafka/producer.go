@@ -17,13 +17,21 @@ type Producer struct {
 	topic  string
 }
 
-// New 创建 producer。
+// New 创建 producer(生产路径: 真实 broker)。
+func New(brokers []string, topic string) *Producer {
+	return newProducer(brokers, topic, nil)
+}
+
+// newProducer 内部构造。
 // 关键参数取舍:
 //   - Balancer=Hash: 按消息 key(VIN) 哈希分区 → 同一辆车的数据保序
 //   - Async=true + Completion: 发送不阻塞 HTTP 链路, 失败在回调里计数
 //   - BatchSize/BatchTimeout: 攒批 200 条或 50ms, 吞吐优先, 延迟代价 ≈50ms
 //   - RequiredAcks=RequireOne: 第 1 阶段性能优先; 升级 All 可获得更强持久性
-func New(brokers []string, topic string) *Producer {
+//
+// transport 非 nil 时注入自定义 RoundTripper —— 供单测用假 broker 验证
+// "投递内容/保序/失败计数"而无需真实 Kafka(见 producer_test.go)。
+func newProducer(brokers []string, topic string, transport kafka.RoundTripper) *Producer {
 	w := &kafka.Writer{
 		Addr:         kafka.TCP(brokers...),
 		Topic:        topic,
@@ -32,6 +40,7 @@ func New(brokers []string, topic string) *Producer {
 		BatchTimeout: 50 * time.Millisecond,
 		RequiredAcks: kafka.RequireOne,
 		Async:        true,
+		Transport:    transport,
 		Completion: func(msgs []kafka.Message, err error) {
 			if err != nil {
 				metrics.KafkaWriteTotal.WithLabelValues(topic, "error").Add(float64(len(msgs)))
