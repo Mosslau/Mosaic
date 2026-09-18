@@ -6,6 +6,7 @@ global:
   evaluation_interval: 15s
 
 scrape_configs:
+  # 网关: 请求速率/延迟/拒绝率/在途(门面指标)
   - job_name: device-gateway
     metrics_path: /metrics
     static_configs:
@@ -14,3 +15,12 @@ scrape_configs:
       - targets: ["host.docker.internal:18080"]
         labels:
           service: device-gateway
+
+  # 编解码服务: 消费/解码/DLQ/lag/flush(管道指标)
+  # 同为宿主机进程, 端口见 CODEC_METRICS_PORT(默认 18090); 指标口径见《接入层设计》§9
+  - job_name: device-codec
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["host.docker.internal:18090"]
+        labels:
+          service: device-codec

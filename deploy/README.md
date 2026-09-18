@@ -121,7 +121,9 @@ open http://localhost:9002   # 控制台, ov_minio / ov_minio_2026 登录
 curl -s http://localhost:3000/api/health   # 期望: {"database":"ok",...}
 open http://localhost:3000   # admin / admin 登录
 # 左侧 Connections → Data sources → 应看到两个数据源: "ClickHouse" 与 "Prometheus"(uid=ov-prometheus)
-# 左侧 Dashboards → 应看到 "device-gateway 车端接入网关" 面板(4 图: 请求速率/延迟分位/受理vsKafka对账/在途)
+# 左侧 Dashboards → 应看到两个面板:
+#   "device-gateway 车端接入网关" (请求速率/延迟分位/受理vsKafka对账/在途)
+#   "device-codec 编解码服务"     (消费vs解码/DLQ速率按stage/消费lag/微批耗时与批大小)
 
 # ⑤ EMQX：状态 + Dashboard
 curl -s http://localhost:18083/status    # 期望: ok
@@ -200,7 +202,9 @@ rm .tmp-msim
 宿主 1883 被别的 MQTT broker 抢了——模拟器连的是它，不是容器 EMQX（2026-09-17 实测：本机 RabbitMQ 装了 MQTT 插件，默认监听 1883；Rancher 端口映射后抢不过）。判据：`lsof -nP -iTCP:1883 -sTCP:LISTEN` 看到的不是容器转发进程；`docker exec ov-emqx emqx ctl clients list` 报 No clients。**处置（不动对方进程）**：compose 已参数化 `EMQX_MQTT_PORT`——写 `deploy/.env`（`EMQX_MQTT_PORT=11883`，已 gitignore）后 `docker compose up -d emqx` 永久生效，模拟器 `-broker tcp://localhost:11883`。同理，凡"连接正常但数据没到"先怀疑连错了 broker。
 
 **Q11：codec/网关重启后消费组不消费（lag 不涨不落、新实例 consumed 恒 0）**
-`pkill -f "go run ./cmd/server"` 只杀了 go run 包装进程，**编译产物子进程（exe/server）变孤儿还活着**，仍占着消费组成员位 → 新实例分不到分区。判据：`kafka-consumer-groups.sh --describe --group device-codec-v1 --members` 出现多个 member 且持分区者不是当前实例；`lsof -nP -iTCP:19092 -sTCP:ESTABLISHED` 数进程。**处置**：`pkill -f "exe/server"` 杀干净，等僵尸成员会话超时（~1 分钟，`--state` 变 Empty），再启动单个实例。生产 K8s 无此问题（容器即进程）；本地联调优先用 `go build` 出二进制再跑，杀起来干净。
+`pkill -f "go run ./cmd/server"` 只杀了 go run 包装进程，**编译产物子进程（exe/server）变孤儿还活着**，仍占着消费组成员位 → 新实例分不到分区。判据：`kafka-consumer-groups.sh --describe --group device-codec-v1 --members` 出现多个 member 且持分区者不是当前实例；`lsof -nP -iTCP:19092 -sTCP:ESTABLISHED` 数进程。**处置**：`pkill -f "exe/server"` 杀干净，等僵尸成员会话超时（~1 分钟，`--state` 变 Empty），再启动单个实例。
+**附带坑**：codec 的可观测端点 `:18090` 也会被旧实例占住 —— 新实例日志会出现 `bind: address already in use`（主流程照跑，但 Prometheus 抓不到、面板空）；
+重启前务必确认 `lsof -nP -iTCP:18090 -sTCP:LISTEN` 为空。生产 K8s 无此问题（容器即进程）；本地联调优先用 `go build` 出二进制再跑，杀起来干净。
 
 **Q12：公网路径安全三件套（TLS / 一车一密 / ACL）怎么在本地跑起来**
 三步（《接入层设计》§8.3）：

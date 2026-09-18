@@ -49,9 +49,14 @@ docker run --rm --network oceanverse_ov-net \
 ## 可观测（2026-09-18 补齐）
 
 ```bash
-curl -s localhost:18090/health    # {"lag":0,"status":"up"}  ← K8s liveness/readiness 用
+curl -s localhost:18090/health          # {"lag":0,"status":"up"}  ← K8s liveness/readiness 用
 curl -s localhost:18090/metrics | grep ^codec_
+go tool pprof http://localhost:18090/debug/pprof/profile?seconds=30   # 解码热点按需剖析
 ```
+
+**采集与可视化**（与网关同形态，2026-09-18 打通）：Prometheus `deploy/prometheus/prometheus.yml` 内 `job_name: device-codec` 5s 抓 `host.docker.internal:18090`；
+Grafana provisioning 面板 `device-codec 编解码服务`（4 图：消费 vs 解码 / DLQ 速率按 stage / 消费 lag / 微批耗时与批大小）。
+端口冲突时日志会打 `bind: address already in use`（主流程仍继续，但指标不可见）——重启前确保旧实例退净（deploy/README Q11）。
 
 | 指标 | 含义 | 告警建议 |
 |---|---|---|
