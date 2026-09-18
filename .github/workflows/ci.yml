@@ -1,9 +1,10 @@
 name: CI
 
 # 最小 CI（2026-09-18 落地）：挡住三类曾真实发生的回归
-#   ① 代码回归      —— 四模块 build / vet / test（矩阵）
+#   ① 代码回归      —— 四模块 gofmt / build / vet / test / test -race（矩阵）
 #   ② 镜像断裂      —— 契约拆分曾导致 Dockerfile 静默构建失败（replace 目标在上下文外）
 #   ③ 文档漂移      —— 旧路径/裸引用/数字对不上/围栏嵌套（scripts/check-docs.sh）
+#   ④ 编排断裂      —— compose 不可解析 / 镜像能构建但跑不起来（2026-09-18 补）
 #
 # 触发: push 到 main + 所有 PR；并发同分支时取消旧跑（省 runner）
 on:
@@ -42,6 +43,14 @@ jobs:
           go-version-file: ${{ matrix.module }}/go.mod
           # 缓存键基于 go.mod —— device-contracts 无 go.sum, 指向 go.sum 会报 "paths were not resolved"
           cache-dependency-path: ${{ matrix.module }}/go.mod
+      - name: gofmt
+        working-directory: ${{ matrix.module }}
+        # 格式门禁: 此前无此检查, 实测有 7 个文件长期未格式化而 CI 全绿
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "以下文件未 gofmt, 请执行 gofmt -w:"; echo "$unformatted"; exit 1
+          fi
       - name: build
         working-directory: ${{ matrix.module }}
         run: go build ./...
@@ -51,6 +60,10 @@ jobs:
       - name: test
         working-directory: ${{ matrix.module }}
         run: go test ./... -count=1 -cover
+      - name: test (race)
+        working-directory: ${{ matrix.module }}
+        # 竞态门禁: 此前无人跑 -race, codec 主循环的共享计数器竞态因此长期潜伏
+        run: go test -race ./... -count=1
 
   # ---------- 镜像可构建（根上下文, 契约模块在 replace 路径上） ----------
   docker:
@@ -62,9 +75,9 @@ jobs:
         run: docker build -f ingest/device-gateway/Dockerfile -t oceanverse/device-gateway:ci .
       - name: build device-codec image
         run: docker build -f ingest/device-codec/Dockerfile -t oceanverse/device-codec:ci .
-      - name: smoke run (health)
+      - name: smoke run (gateway health)
         run: |
-          docker run -d --name gw-smoke -p 18080:18080 \
+          docker run -d --name gw-smoke -p 18080:18080 -p 18081:18081 \
             -e GATEWAY_PORT=18080 -e GATEWAY_DEV_MODE=true \
             -e KAFKA_BROKERS=127.0.0.1:19092 \
             oceanverse/device-gateway:ci
@@ -74,7 +87,38 @@ jobs:
           done
           docker logs gw-smoke | tail -5
           test "${ok:-0}" = "1"
+          # 指标端点必须独立于业务端口(2026-09-18 整改): 业务端口不再暴露 /metrics
+          curl -sf http://localhost:18081/metrics | grep -q gateway_requests_total
+          if curl -sf http://localhost:18080/metrics >/dev/null; then
+            echo "业务端口不应暴露 /metrics"; docker logs gw-smoke | tail -5; exit 1
+          fi
           docker rm -f gw-smoke
+      - name: smoke run (codec health + metrics)
+        run: |
+          # 此前 codec 镜像只 build 不 run, CMD/环境变量/端点接线断了发现不了
+          docker run -d --name codec-smoke -p 18090:18090 \
+            -e KAFKA_BROKERS=127.0.0.1:19092 \
+            oceanverse/device-codec:ci
+          for _ in $(seq 1 20); do
+            if curl -sf http://localhost:18090/health; then ok=1; break; fi
+            sleep 1
+          done
+          docker logs codec-smoke | tail -5
+          test "${ok:-0}" = "1"
+          curl -sf http://localhost:18090/metrics | grep -q codec_consumed_total
+          docker rm -f codec-smoke
+
+  # ---------- compose 可解析（语法/变量展开；此前 CI 完全不碰 compose） ----------
+  compose:
+    name: docker compose config
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: compose config
+        working-directory: deploy
+        run: |
+          cp .env.example .env || true
+          docker compose config -q
 
   # ---------- 文档事实校验 + Mermaid 渲染 ----------
   docs:

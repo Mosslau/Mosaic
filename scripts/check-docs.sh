@@ -80,7 +80,9 @@ env_n = len(re.findall(r'env(?:Str|Int|Float|Bool|Dur|List)\("', cfg))
 claimed = set()
 for p in MD:
     for line in p.read_text(encoding='utf-8').split('\n'):
-        if allowed(line):
+        # 修订记录是**历史陈述**(记录当时的数字), 不参与"当前事实"校验 ——
+        # 与检查①对 '增补'/'修订' 的豁免口径保持一致(否则每次修订都会被自己判失败)。
+        if allowed(line) or '增补' in line or '修订' in line:
             continue
         for m in re.finditer(r'(\d+)\s*项配置', line):
             claimed.add(int(m.group(1)))
