@@ -7,12 +7,14 @@ global:
 
 scrape_configs:
   # 网关: 请求速率/延迟/拒绝率/在途(门面指标)
+  # 指标走**专用端口 18081**(GATEWAY_METRICS_PORT), 不再复用业务端口 18080:
+  # 业务端口只服务上报流量, /debug/pprof 另绑回环(127.0.0.1:18082)。
   - job_name: device-gateway
     metrics_path: /metrics
     static_configs:
       # 本机 8080~8083 被公司 Java 服务占用, 开发期网关跑 18080(GATEWAY_PORT=18080)
       # 与 emqx.conf webhook url 同端口(§5.3 对齐线); 若 8080 腾出可整体改回
-      - targets: ["host.docker.internal:18080"]
+      - targets: ["host.docker.internal:18081"]
         labels:
           service: device-gateway
 

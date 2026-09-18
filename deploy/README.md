@@ -5,6 +5,7 @@
 > 适用阶段：第 1 阶段第 1 步——最小可用链路的底座
 > 容器运行时：**Rancher Desktop**（moby 引擎，非 Docker Desktop，符合本机策略）
 > 一键启动后你将得到：Kafka + ClickHouse + MinIO + EMQX + Grafana + Prometheus 六个组件
+> （原计划四组件，实际多 EMQX/Prometheus；`roadmap/项目进度.md` 记录为"另含 EMQX/Prometheus"）
 
 ---
 
@@ -55,7 +56,7 @@ until docker info >/dev/null 2>&1; do sleep 5; done && echo "engine ready"
 | Kafka 3.9.1 (KRaft) | 消息总线 | `localhost:19092`（宿主机）/ 容器网内 `kafka:9092` | 无认证（第 1 阶段本地） |
 | ClickHouse 25.8 | OLAP serving 层 | HTTP `http://localhost:8123` / native `localhost:9000` | `ov_admin` / `ov_pass_2026` |
 | MinIO | 对象存储（第 2 阶段湖仓底座） | S3 API `http://localhost:9001` / 控制台 `http://localhost:9002` | `ov_minio` / `ov_minio_2026` |
-| EMQX 5.8 | MQTT Broker（车端长连接接入；dev 明文 + 公网 TLS） | MQTT `localhost:1883`（本机被占用时 `deploy/.env` 设 `EMQX_MQTT_PORT=11883`）/ **TLS `localhost:8883`（一车一密 + ACL，见 Q12）** / Dashboard `http://localhost:18083` | `admin` / `public`（**登录后立即改密**，或启动前设 `EMQX_DASHBOARD_PASSWORD` 环境变量） |
+| EMQX 5.8 | MQTT Broker（车端长连接接入；dev 明文 + 公网 TLS） | MQTT `localhost:1883`（**本机实测 1883 被 RabbitMQ MQTT 插件占用 → `.env` 已设 `EMQX_MQTT_PORT=11883`，即当前生效端口是 11883**；克隆后无 `.env` 则为 1883，模板见 `.env.example`）/ **TLS `localhost:8883`（一车一密 + ACL，见 Q12）** / Dashboard `http://localhost:18083` | `admin` / `public`（**登录后立即改密**，或启动前设 `EMQX_DASHBOARD_PASSWORD` 环境变量） |
 | Grafana OSS | 看板 | `http://localhost:3000` | `admin` / `admin` |
 | Prometheus | 指标采集（网关 `/metrics`，5s 抓取） | `http://localhost:9090` | 无认证（第 1 阶段本地） |
 
@@ -90,7 +91,8 @@ docker compose logs -f clickhouse
 docker compose logs -f minio
 docker compose logs -f grafana
 
-# 停止（数据保留在 volume 里）
+# 停止（数据保留在 volume 里；Kafka 亦已显式 KAFKA_LOG_DIRS=/var/lib/kafka/data，
+#  2026-09-18 前该卷是死配置、数据落在容器可写层，down+up 会丢全部 topic 与位移）
 docker compose down
 
 # 完全重置（⚠️ 删除所有数据）
@@ -126,7 +128,7 @@ open http://localhost:3000   # admin / admin 登录
 #   "device-codec 编解码服务"     (消费vs解码/DLQ速率按stage/消费lag/微批耗时与批大小)
 
 # ⑤ EMQX：状态 + Dashboard
-curl -s http://localhost:18083/status    # 期望: ok
+curl -s http://localhost:18083/status    # 期望: "Node emqx@127.0.0.1 is started" + "emqx is running"(非字面 "ok")
 open http://localhost:18083              # admin / public 登录(建议立即改密)
 # Dashboard → 集成 → 规则: 应有两条 —— ov_vehicle_ingress(JSON: status/battery/fault)
 #                                              与 ov_binary_ingress(二进制: ov/+/bin, base64)
@@ -219,7 +221,32 @@ bash emqx/seed-users.sh 0 100
 cd ../ingest/device-simulator && go run ./cmd/security-check -vin OV20260001
 ```
 
-预期输出"六项全过"。生产形态连 8883：`go run ./cmd/bin-simulator -tls -broker localhost:8883 -cacert ../../deploy/emqx/certs/ca.crt`（clientid/username=VIN，无需改代码）。**注意**：8883 对外开放前必须完成自检；本地自签证书与 `pw-` 密码规则**不得**用于生产。
+预期输出"六项全过"。生产形态连 8883：`go run ./cmd/bin-simulator -tls -broker localhost:8883 -cacert ../../deploy/emqx/certs/ca.crt`（clientid/username=VIN，无需改代码）。
+**注意**：8883 对外开放前必须完成自检；本地自签证书与 `pw-` 密码规则**不得**用于生产。
+
+**两个前提（2026-09-18 审计补充）**：
+
+- **VIN 必须在已灌范围内**：`seed-users.sh` 默认灌 `OV00000000..OV00000099`；若自检用的 VIN 不在其中（如默认的 `OV20260001`），①④ 会以 `not Authorized` 失败。大号 VIN 用 `bash emqx/seed-users.sh --vin OV20260001` 单独灌。
+- **容器重建后不必重新灌**：凭证存放在 mnesia 的 `data/mnesia/<节点名>/` 下。compose 已固定 `EMQX_NODE__NAME=emqx@127.0.0.1`（否则镜像 entrypoint 会按容器 IP 拼节点名，换 IP 即换空库 → 凭证静默失效，2026-09-18 实测 2/6 失败的根因）。重建后 `docker exec ov-emqx emqx eval 'node().'` 应仍为 `emqx@127.0.0.1`。
+
+**Q14：为什么宿主端口从 `0.0.0.0` 改成了 `127.0.0.1`？**
+
+第 1 阶段底座含弱口令（EMQX Dashboard `admin/public`、Grafana `admin/admin`）与无认证组件（Kafka、Prometheus）。
+绑 `0.0.0.0` 时，笔记本接入公司网/公共网就等于把它们连同 ClickHouse 数据一起暴露给同网段，因此 compose 已统一改为
+`127.0.0.1:PORT:PORT`。**容器间通信不受影响**（走 `ov-net`，用服务名 `kafka:9092`），README 里所有 `localhost:xxxx`
+命令继续有效。若确需从局域网访问（如手机连 MQTT），临时加一条端口映射即可，别改回全网卡。
+
+**Q15：容器为什么不自己恢复？**
+
+2026-09-18 前 compose 里**没有任何 `restart:` 策略**，引擎/宿主重启后六容器保持 `Exited(137)`，链路静默下线且无告警。
+现已统一 `restart: unless-stopped` + `mem_limit` + 日志轮转（`10m×3`）。验证方式：
+
+```bash
+rdctl shutdown && rdctl start --container-engine.name moby   # 模拟宿主重启
+docker compose ps      # 无需任何 up 命令, 期望 6/6 healthy(实测通过)
+```
+
+> 注：`docker kill ov-kafka` 属于**显式停止**，`unless-stopped` 语义下不会自动拉起（这是预期行为）；验证自愈要用引擎重启。
 
 **Q13：容器里的服务(网关/codec)写 Kafka 失败，但宿主机跑就正常**
 Kafka 用了双监听器：`PLAINTEXT://kafka:9092`（容器网内）与 `EXTERNAL://localhost:19092`（宿主机）。

@@ -1,22 +1,41 @@
 name: oceanverse
 
 # OceanVerse 第 1 阶段 最小可用链路基础设施
-# 组件: Kafka(KRaft 单节点) + ClickHouse + MinIO + Grafana
+# 组件: Kafka(KRaft 单节点) + ClickHouse + MinIO + EMQX + Prometheus + Grafana (六组件)
 # 用法: cd deploy && docker compose up -d
 # 注意: 使用 Rancher Desktop(moby) 运行, 非 Docker Desktop
+#
+# 2026-09-18 审计整改:
+#   ① 宿主端口一律绑 127.0.0.1 —— 这些服务是**本地开发**环境且含弱口令/无认证组件,
+#      绑 0.0.0.0 会在接入公司网/公共网时把 ClickHouse/MinIO/Grafana/EMQX/Kafka 暴露给同网段。
+#      容器间通信不受影响(走 ov-net, 用服务名: kafka:9092)。
+#   ② 全部加 restart: unless-stopped —— 此前零 restart 策略, VM/引擎重启后六容器保持 Exited,
+#      链路静默下线且无告警(2026-09-18 实测: dockerd 掉线后必须人工 up -d)。
+#   ③ 加资源上限 + 日志轮转 —— Rancher VM 6GB/2CPU 且空载已占 84%, 无上限会整机崩溃。
+#   ④ Kafka 显式 KAFKA_LOG_DIRS —— 镜像默认 log.dirs=/tmp/kafka-logs(容器可写层),
+#      此前挂载的 kafka_data 卷是死配置, down+up 即丢全部 topic 与消费位移。
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
 
 services:
   # ---------- 消息总线 ----------
   kafka:
     image: apache/kafka:3.9.1
     container_name: ov-kafka
+    restart: unless-stopped
     ports:
-      - "19092:19092"   # 宿主机访问(开发调试用)
-      - "9092:9092"     # 容器网络内访问
+      - "127.0.0.1:19092:19092"   # 宿主机访问(开发调试用)
+      - "127.0.0.1:9092:9092"     # 容器网络内访问
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_CLUSTER_ID: oceanverse-kraft-cluster-01
+      # 注意: 本镜像只认 CLUSTER_ID(不带 KAFKA_ 前缀); 写 KAFKA_CLUSTER_ID 会被忽略并回落
+      # 到镜像默认值(实测日志: CLUSTER_ID not set. Setting it to default value ...)。
+      CLUSTER_ID: oceanverse-kraft-cluster-01
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:19092
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:19092
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
@@ -27,6 +46,11 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      # 数据目录必须显式指定为**被挂载的卷**: 镜像默认 /tmp/kafka-logs 在容器可写层,
+      # 卷会是空的, 容器重建即丢 topic 与位移(2026-09-18 审计实测确认)
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      # 堆上限防 VM 被 Kafka 吃穿(VM 总 6GB, 空载已占 84%)
+      KAFKA_HEAP_OPTS: "-Xmx512m -Xms256m"
     volumes:
       - kafka_data:/var/lib/kafka/data
     healthcheck:
@@ -34,15 +58,19 @@ services:
       interval: 10s
       timeout: 10s
       retries: 10
+      start_period: 30s
+    mem_limit: 1g
+    logging: *default-logging
     networks: [ov-net]
 
   # ---------- OLAP 查询加速层 (serving) ----------
   clickhouse:
     image: clickhouse/clickhouse-server:25.8
     container_name: ov-clickhouse
+    restart: unless-stopped
     ports:
-      - "8123:8123"     # HTTP 接口
-      - "9000:9000"     # native 协议
+      - "127.0.0.1:8123:8123"     # HTTP 接口
+      - "127.0.0.1:9000:9000"     # native 协议
     environment:
       CLICKHOUSE_DB: oceanverse
       CLICKHOUSE_USER: ov_admin
@@ -55,15 +83,19 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+      start_period: 20s
+    mem_limit: 2g
+    logging: *default-logging
     networks: [ov-net]
 
   # ---------- 对象存储 (第 2 阶段湖仓底座, 第 1 阶段先就位) ----------
   minio:
     image: minio/minio:RELEASE.2025-09-07T16-13-09Z
     container_name: ov-minio
+    restart: unless-stopped
     ports:
-      - "9001:9000"     # S3 API (宿主端口 9001, 避免与 ClickHouse native 冲突)
-      - "9002:9001"     # 控制台
+      - "127.0.0.1:9001:9000"     # S3 API (宿主端口 9001, 避免与 ClickHouse native 冲突)
+      - "127.0.0.1:9002:9001"     # 控制台
     environment:
       MINIO_ROOT_USER: ov_minio
       MINIO_ROOT_PASSWORD: ov_minio_2026
@@ -75,17 +107,21 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+      start_period: 15s
+    mem_limit: 512m
+    logging: *default-logging
     networks: [ov-net]
 
   # ---------- MQTT Broker (车端长连接接入, 规则引擎转发到网关) ----------
   emqx:
     image: emqx/emqx:5.8.8
     container_name: ov-emqx
+    restart: unless-stopped
     ports:
-      - "${EMQX_MQTT_PORT:-1883}:1883"     # MQTT TCP(宿主端口可覆盖: 本机 1883 被 RabbitMQ MQTT 插件等占用时 EMQX_MQTT_PORT=11883)
-      - "8883:8883"     # MQTT TLS (生产启用)
-      - "8083:8083"     # MQTT WebSocket
-      - "18083:18083"   # Dashboard (admin/public, 登录后立即改密)
+      - "127.0.0.1:${EMQX_MQTT_PORT:-1883}:1883"     # MQTT TCP(宿主端口可覆盖: 本机 1883 被 RabbitMQ MQTT 插件等占用时 EMQX_MQTT_PORT=11883)
+      - "127.0.0.1:8883:8883"     # MQTT TLS (生产启用)
+      - "127.0.0.1:8083:8083"     # MQTT WebSocket
+      - "127.0.0.1:18083:18083"   # Dashboard (admin/public, 登录后立即改密)
     volumes:
       - emqx_data:/opt/emqx/data
       - ./emqx/emqx.conf:/opt/emqx/etc/emqx.conf:ro
@@ -93,11 +129,19 @@ services:
       - ./emqx/certs:/opt/emqx/etc/certs:ro
     environment:
       EMQX_DASHBOARD__DEFAULT_PASSWORD: ${EMQX_DASHBOARD_PASSWORD:-public}
+      # 节点名必须**显式固定**: 镜像 entrypoint 在未设置 NodeName 时会按容器 IP 拼
+      # $EMQX_NAME@$LOCAL_IP, 且 EMQX_NODE_NAME 优先级**高于** emqx.conf 的 node.name。
+      # 后果: 容器换 IP 就换 mnesia 目录 → seed-users.sh 灌的"一车一密"静默失效
+      # (2026-09-18 审计实测: security-check ①④ 失败, 卷内堆积三代孤儿目录)。
+      EMQX_NODE__NAME: emqx@127.0.0.1
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:18083/status"]
       interval: 15s
       timeout: 5s
       retries: 12
+      start_period: 30s
+    mem_limit: 1g
+    logging: *default-logging
     networks: [ov-net]
 
   # ---------- 指标采集 (网关 /metrics → Prometheus → Grafana, 设计文档 §9) ----------
@@ -105,8 +149,9 @@ services:
     # 同 grafana: 不钉小版本号(国内镜像站常缺 tag), 见 README Q4
     image: prom/prometheus:latest
     container_name: ov-prometheus
+    restart: unless-stopped
     ports:
-      - "9090:9090"     # Web UI / API
+      - "127.0.0.1:9090:9090"     # Web UI / API
     volumes:
       - prometheus_data:/prometheus
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -115,6 +160,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 12
+      start_period: 15s
+    mem_limit: 512m
+    logging: *default-logging
     networks: [ov-net]
 
   # ---------- 可视化看板 ----------
@@ -122,8 +170,9 @@ services:
     # 注意: 不要钉具体小版本号(如 12.2.0), 国内镜像站经常缺特定 tag; latest 实测可拉取
     image: grafana/grafana-oss:latest
     container_name: ov-grafana
+    restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
@@ -141,6 +190,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 12
+      start_period: 30s
+    mem_limit: 512m
+    logging: *default-logging
     networks: [ov-net]
 
 volumes:

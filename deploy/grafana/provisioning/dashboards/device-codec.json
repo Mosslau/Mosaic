@@ -47,7 +47,7 @@
       "id": 2,
       "type": "timeseries",
       "title": "DLQ 速率（按 stage）",
-      "description": "codec 是链路上唯一会丢弃消息的环节。任何非零且持续增长都要查: parse/unit=对端字节问题, validate=契约不同步, envelope=版本/信封问题(§6.1)。",
+      "description": "codec 是链路上唯一会丢弃消息的环节。任何非零且持续增长都要查: parse/decode=对端字节问题, validate=契约不同步, envelope=版本/信封问题, encode=平台侧序列化异常(§6.1)。",
       "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
       "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
       "fieldConfig": {
@@ -101,7 +101,7 @@
     {
       "id": 4,
       "type": "timeseries",
-      "title": "微批写出耗时（p50/p95/p99）",
+      "title": "微批写出耗时（p50/p99）与平均批大小",
       "description": "codec_flush_duration_seconds: 每批\"写出+提交位移\"耗时。变慢=Kafka 或网络抖动; 同时看批大小是否塌陷(攒批失效)。",
       "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
       "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
