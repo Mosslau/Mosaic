@@ -174,13 +174,25 @@ func main() {
 		MaxBytes:    10 << 20,
 		StartOffset: kafka.FirstOffset,
 	})
+	// 微批写到 Kafka。**必须显式设置 BatchTimeout**: kafka-go 的默认值是 1s,
+	// 同步写的每一条都会等满这个窗口 —— 实测(同 broker 对照实验):
+	//   仅 Hash+RequireOne(默认 BatchTimeout=1s) → 平均 1004 ms/批
+	//   + BatchSize=200/BatchTimeout=50ms        → 平均   53 ms/批
+	// 本服务已在上层做攒批(200 条/100ms), 这里的 BatchSize 只作为并发下的合并窗口;
+	// 单条时靠 BatchTimeout 收口, 否则 flush 会把 100ms 的微批拖成秒级。
 	parsedWriter := &kafka.Writer{
 		Addr: kafka.TCP(cfg.brokers...), Topic: cfg.dstTopic,
-		Balancer: &kafka.Hash{}, RequiredAcks: kafka.RequireOne,
+		Balancer:     &kafka.Hash{},
+		RequiredAcks: kafka.RequireOne,
+		BatchSize:    200,
+		BatchTimeout: 50 * time.Millisecond,
 	}
 	dlqWriter := &kafka.Writer{
 		Addr: kafka.TCP(cfg.brokers...), Topic: cfg.dlqTopic,
-		Balancer: &kafka.Hash{}, RequiredAcks: kafka.RequireOne,
+		Balancer:     &kafka.Hash{},
+		RequiredAcks: kafka.RequireOne,
+		BatchSize:    200,
+		BatchTimeout: 50 * time.Millisecond,
 	}
 	defer func() {
 		reader.Close()
@@ -255,7 +267,7 @@ func main() {
 		metrics.FlushBatchSize.Observe(float64(n))
 		metrics.PendingMessages.Set(float64(len(st.pendingMsgs)))
 		if d > 200*time.Millisecond {
-			slog.Warn("flush 耗时过长", "total", d, "msgs", n)
+			slog.Warn("flush 耗时过长", "total", d.String(), "msgs", n)
 		}
 	}
 
