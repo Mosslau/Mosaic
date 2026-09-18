@@ -161,11 +161,17 @@ jobs:
         # GitHub ubuntu runner 不预装 lsof, 而判据 3(端口/孤儿检测)依赖它。
         # 这一步是必须的: 缺失时旧版脚本会把"工具缺失"伪装成"服务没起来"(实测踩过)。
         run: sudo apt-get update -qq && sudo apt-get install -y -qq lsof
+      - name: resolve kafka container name
+        id: kafka
+        # 关键: GitHub Actions 的 service container **名字不是服务键** ——
+        # 它形如 <repo>-<hash>-kafka-1, 而 `services` 上下文只暴露**容器 ID**。
+        # 第一次跑就是把 KAFKA_CONTAINER 写成 "kafka" 而失败(实测: No such container: kafka)。
+        run: |
+          echo "id=${{ job.services.kafka.id }}" >> "$GITHUB_OUTPUT"
+          docker ps -a --format '{{.ID}}  {{.Names}}  {{.Image}}' | head -5
       - name: health check (Q11 判据 — 成员数/分区归属/端口监听者/计数活性/受理对账)
         env:
-          # CI 的 Kafka 是 service container(名为 kafka), 本机是 ov-kafka → 必须覆盖,
-          # 否则脚本里 docker exec 找不到容器而误报
-          KAFKA_CONTAINER: kafka
+          KAFKA_CONTAINER: ${{ steps.kafka.outputs.id }}
           # 不灌探针帧(CI 里没有 EMQX, 注入必然失败): PROBE=0 只做不依赖流量的判据
           PROBE: "0"
         run: bash scripts/check-pipeline-health.sh -w 15
