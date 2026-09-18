@@ -141,6 +141,64 @@
           "legendFormat": "在途请求"
         }
       ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "上行延迟 SLI：EMQX 接收 → 受理完成（按通道）",
+      "description": "gateway_ingest_latency_seconds：EMQX 的**毫秒**接收时间戳 → 网关受理完成（含 Kafka 落盘确认）。这一段精确到毫秒，不受设备侧秒级 ts 限制（《接入层设计》§9 说的两段之间的桥）。持续上涨 = Kafka 变慢，或 EMQX 因网关 5xx 在重投（重投会如实计入，属预期信号）。",
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ov-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ov-prometheus"
+          },
+          "expr": "histogram_quantile(0.99, sum by (le, channel) (rate(gateway_ingest_latency_seconds_bucket[5m])))",
+          "legendFormat": "p99 {{channel}}"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ov-prometheus"
+          },
+          "expr": "histogram_quantile(0.5, sum by (le, channel) (rate(gateway_ingest_latency_seconds_bucket[5m])))",
+          "legendFormat": "p50 {{channel}}"
+        }
+      ]
     }
   ]
 }

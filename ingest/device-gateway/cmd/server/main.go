@@ -30,7 +30,7 @@ func main() {
 		os.Exit(1)
 	}
 	if cfg.DevMode {
-		slog.Warn("⚠️  GATEWAY_DEV_MODE 已开启, 所有 dev- 前缀 token 均可通过鉴权; 生产环境必须关闭!")
+		slog.Warn("⚠️  GATEWAY_DEV_MODE 已开启, dev-{VIN} 形态 token 可绕过白名单(但仍校验 VIN 一致性); 生产环境必须关闭!")
 	}
 	if cfg.WebhookToken == "dev-webhook-secret" {
 		slog.Warn("⚠️  GATEWAY_WEBHOOK_TOKEN 使用默认值; 生产环境必须更换!")
@@ -40,7 +40,7 @@ func main() {
 	binProducer := kafka.New(cfg.KafkaBrokers, cfg.KafkaBinTopic)
 
 	// 处理链: metrics(最外) → auth → ratelimit → handler(最内)
-	authMw := auth.New(cfg.DeviceTokens, cfg.DevMode)
+	authMw := auth.New(cfg.DeviceBinding, cfg.DevMode)
 	limiter := ratelimit.New(cfg.RatePerDevice, cfg.RateGlobal)
 	reportHandler := handler.NewReportHandler(producer)
 

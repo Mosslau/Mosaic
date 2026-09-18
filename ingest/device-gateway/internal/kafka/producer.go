@@ -63,7 +63,7 @@ func newProducer(brokers []string, topic string, transport kafka.RoundTripper) *
 }
 
 // WriteReport 同步写入一条消息。key 决定分区, payload 为已序列化 JSON。
-// 返回 nil 表示**已收到 broker 确认**(RequireOne), 调用方可以安全回 202/204;
+// 返回 nil 表示**已收到 broker 确认**(RequiredAcks=RequireAll), 调用方可以安全回 202/204;
 // 返回 error 表示未落盘, 调用方必须回 5xx 让上游重试(此时消息不保证不在途,
 // 重试可能造成重复 —— 下游按 (vin, ts) 幂等去重, 契约设计已预留)。
 func (p *Producer) WriteReport(ctx context.Context, key, payload []byte) error {

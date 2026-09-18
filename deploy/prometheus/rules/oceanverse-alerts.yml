@@ -93,7 +93,9 @@ groups:
           summary: "codec DLQ 增长(stage={{ $labels.stage }})"
           description: >-
             DLQ 非空即需人工看原因: parse/decode=对端帧字节问题, validate=契约不同步,
-            envelope=版本/信封问题, encode=平台侧序列化异常。原始帧在 raw_b64 里可还原。
+            envelope=版本/信封问题, encode=平台侧序列化异常,
+            vin_mismatch=帧内 VIN 与信封不一致(安全事件, 另有专门的 ⑨ 号告警)。
+            原始帧在 raw_b64 里可还原。
 
       # ---------- 7. 限流被持续击穿(可能是单设备发疯或容量不足) ----------
       - alert: GatewayRateLimited
@@ -108,6 +110,10 @@ groups:
             按《接入层设计》§7.2 的扩展顺序处理(先扩 Kafka 分区 → 再扩网关副本)。
 
       # ---------- 8. VIN 越权(安全信号, 任何一次都值得看) ----------
+      # 两条通道各有一条规则, 因为校验发生在两个进程里:
+      #   ⑧ 网关侧 —— JSON/MQTT(webhook)通道可解载荷, 网关当场拒绝(400)
+      #   ⑨ codec 侧 —— 二进制通道网关**不解帧**, 只能在 codec 解码前拦(2026-09-18 补)
+      # 二者是同一类缺陷(伪造他人车辆数据), 只补网关侧会漏掉二进制通道。
       - alert: GatewayVINMismatch
         expr: increase(gateway_requests_total{result="vin_mismatch"}[10m]) > 0
         for: 1m
@@ -118,3 +124,30 @@ groups:
           description: >-
             设备声称的 VIN 与其发布 topic 不符, 已被 400 拒绝。若非联调误用,
             按安全事件处理(该设备凭证可能被滥用)。
+
+      - alert: CodecVINMismatch
+        expr: increase(codec_dlq_total{stage="vin_mismatch"}[10m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "检测到二进制帧内 VIN 与信封 VIN 不一致(可能是伪造尝试)"
+          description: >-
+            设备用自己凭证发自己的 ov/{vin}/bin, 却在帧内填了他人 VIN —— 已被 codec 拦下进 DLQ,
+            未产出任何 L2 数据。原始帧在 DLQ 的 raw_b64 里, 两个 VIN 都在 reason 里。
+            若非联调误用, 按安全事件处理(该设备凭证可能被滥用)。
+
+      # ---------- 10. 上行延迟劣化(平台段, 毫秒精度) ----------
+      # 语义: EMQX 接收 → 网关受理完成(含 Kafka 落盘确认)。这一段是毫秒精度的, 因此 1s 是**明确劣化**,
+      # 不是"秒级噪声"。注意 EMQX webhook 5xx 重投会让该值如实上涨 —— 这是想要的信号。
+      - alert: IngestLatencyHigh
+        expr: histogram_quantile(0.99, sum by (le) (rate(gateway_ingest_latency_seconds_bucket[5m]))) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "上行延迟 p99 超 1s(EMQX 接收 → 网关受理完成)"
+          description: >-
+            平台段(webhook 转发 + 治理 + Kafka 落盘)的 p99 超过 1 秒。先看
+            gateway_kafka_write_total{result="error"} 与 Kafka 容器健康; 若为 EMQX 重投所致,
+            恢复后应自行回落。面板: device-gateway 的"上行延迟 SLI"。

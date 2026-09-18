@@ -136,6 +136,122 @@
           "legendFormat": "平均批大小(条)"
         }
       ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "上行延迟 SLI：EMQX 接收 → 解码完成（毫秒精度）",
+      "description": "codec_ingest_to_decode_seconds：网关透传的 ingest_ts_ms → 解码完成，覆盖 webhook 转发 + Kafka 投递 + 消费 + 解码。缺 ingest_ts_ms 的存量旧信封不观测（不灌噪声样本）。",
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ov-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ov-prometheus"
+          },
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(codec_ingest_to_decode_seconds_bucket[5m])))",
+          "legendFormat": "p99 EMQX→解码"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ov-prometheus"
+          },
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(codec_ingest_to_decode_seconds_bucket[5m])))",
+          "legendFormat": "p50 EMQX→解码"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "数据陈旧度：设备 ts → 解码完成（1 秒分辨率）",
+      "description": "codec_device_to_decode_seconds：设备侧 ts（契约上是 Unix 秒，GB32960 数据单元时间也是秒级）→ 解码完成。分辨率只有 1 秒，**不能**用来测链路性能；它回答的是「进入平台的数据已陈旧到什么量级」——设备时钟错、帧在 EMQX 重试/DLQ 里滞留、离线补发都会抬高它。",
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ov-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ov-prometheus"
+          },
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(codec_device_to_decode_seconds_bucket[5m])))",
+          "legendFormat": "p50 设备ts→解码"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ov-prometheus"
+          },
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(codec_device_to_decode_seconds_bucket[5m])))",
+          "legendFormat": "p99 设备ts→解码"
+        }
+      ]
     }
   ]
 }

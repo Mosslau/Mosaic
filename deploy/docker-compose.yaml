@@ -1,7 +1,8 @@
 name: oceanverse
 
 # OceanVerse 第 1 阶段 最小可用链路基础设施
-# 组件: Kafka(KRaft 单节点) + ClickHouse + MinIO + EMQX + Prometheus + Grafana (六组件)
+# 组件: Kafka(KRaft 单节点) + ClickHouse + MinIO + EMQX + Prometheus + Grafana
+#       + MySQL + Redis (八组件)
 # 用法: cd deploy && docker compose up -d
 # 注意: 使用 Rancher Desktop(moby) 运行, 非 Docker Desktop
 #
@@ -9,11 +10,14 @@ name: oceanverse
 #   ① 宿主端口一律绑 127.0.0.1 —— 这些服务是**本地开发**环境且含弱口令/无认证组件,
 #      绑 0.0.0.0 会在接入公司网/公共网时把 ClickHouse/MinIO/Grafana/EMQX/Kafka 暴露给同网段。
 #      容器间通信不受影响(走 ov-net, 用服务名: kafka:9092)。
-#   ② 全部加 restart: unless-stopped —— 此前零 restart 策略, VM/引擎重启后六容器保持 Exited,
+#   ② 全部加 restart: unless-stopped —— 此前零 restart 策略, VM/引擎重启后容器保持 Exited,
 #      链路静默下线且无告警(2026-09-18 实测: dockerd 掉线后必须人工 up -d)。
 #   ③ 加资源上限 + 日志轮转 —— Rancher VM 6GB/2CPU 且空载已占 84%, 无上限会整机崩溃。
 #   ④ Kafka 显式 KAFKA_LOG_DIRS —— 镜像默认 log.dirs=/tmp/kafka-logs(容器可写层),
 #      此前挂载的 kafka_data 卷是死配置, down+up 即丢全部 topic 与消费位移。
+#   ⑤ MySQL + Redis 就位(第九轮) —— 第 1 阶段第 4 步 Java 微服务 ×5 的底座(档案/电池/故障码/
+#      告警规则/指标 都要 MySQL + Redis 缓存)。第 1 阶段只拉起实例并建库, **不建业务表**:
+#      各服务的 DDL 是第 4 步的产物, 现在造表是空转。
 
 x-logging: &default-logging
   driver: json-file
@@ -120,6 +124,61 @@ services:
     logging: *default-logging
     networks: [ov-net]
 
+  # ---------- 关系库 (第 1 阶段第 4 步 Java 微服务 ×5 的底座, 2026-09-18 第九轮补齐) ----------
+  # 为什么现在就要: 第 4 步的车辆档案/电池资产/故障码/告警规则/指标查询五个服务全部依赖
+  # MySQL + Redis 缓存; 等到那一步再补, 会把"环境不通"和"服务有 bug"两件事混在一起排查。
+  # 只建库不建表: 业务 DDL 归各服务(MyBatis Plus), 在这里造表是空转。
+  mysql:
+    image: mysql:8.4
+    container_name: ov-mysql
+    restart: unless-stopped
+    ports:
+      # 宿主 3306 常被本机/公司已有 MySQL 占用, 故用 13306(同 EMQX 1883→11883 的避让口径)
+      - "127.0.0.1:${MYSQL_HOST_PORT:-13306}:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-ov_root_2026}
+      MYSQL_DATABASE: oceanverse
+      MYSQL_USER: ov_app
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-ov_app_2026}
+      TZ: Asia/Shanghai
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      # $$ 是 compose 的转义: 让 $$MYSQL_ROOT_PASSWORD 在**容器内**展开而非由 compose 展开
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    mem_limit: 1g
+    logging: *default-logging
+    networks: [ov-net]
+
+  # ---------- 缓存 (第 1 阶段 Java 服务缓存; 第 2 阶段"限流器 Redis 化"的落点) ----------
+  redis:
+    image: redis:7-alpine
+    container_name: ov-redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${REDIS_HOST_PORT:-16379}:6379"
+    # maxmemory 必须显式设: Redis 默认无上限, 缓存写满会把整机吃穿 ——
+    # 本机 Rancher VM 只有 6GB 且空载已占 84%(见文件头 ③), 项目已因内存整机崩过一次。
+    # allkeys-lru: 缓存语义, 淘汰旧键而非拒绝写入。appendonly 关: 限流/缓存数据本就易失。
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --appendonly no
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    mem_limit: 384m # 略高于 maxmemory, 给进程自身与协议缓冲留余量
+    logging: *default-logging
+    networks: [ov-net]
+
   # ---------- MQTT Broker (车端长连接接入, 规则引擎转发到网关) ----------
   emqx:
     image: emqx/emqx:5.8.8
@@ -211,6 +270,8 @@ volumes:
   grafana_data:
   emqx_data:
   prometheus_data:
+  mysql_data:
+  # redis 无卷: appendonly 关闭(纯缓存语义), 重启即空是预期行为
 
 networks:
   ov-net:

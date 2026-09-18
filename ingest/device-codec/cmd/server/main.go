@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -37,12 +38,16 @@ type rawEnvelope struct {
 	ProtoVer string `json:"proto_ver"`
 	Cmd      byte   `json:"cmd"`
 	Payload  string `json:"payload"` // 原始帧 base64
+
+	// IngestTsMS EMQX 接收该消息的毫秒时间戳(网关透传, 2026-09-18 补)。
+	// 用于精确观测"EMQX 接收 → 解码完成"; 缺失/为 0 时跳过观测(兼容存量的旧信封)。
+	IngestTsMS int64 `json:"ingest_ts_ms"`
 }
 
 // dlqMessage DLQ 记录(带原始字节 + 失败原因)
 type dlqMessage struct {
 	VIN      string `json:"vin,omitempty"`
-	Stage    string `json:"stage"` // envelope / parse / decode / validate / encode
+	Stage    string `json:"stage"` // envelope / parse / vin_mismatch / decode / validate / encode
 	Reason   string `json:"reason"`
 	RawB64   string `json:"raw_b64,omitempty"`
 	UnitType int    `json:"unit_type,omitempty"`
@@ -385,7 +390,8 @@ func shouldFlush(st *batchState) bool {
 	return len(st.pendingMsgs) >= 200
 }
 
-// process 信封 → 帧解析 → v1 解码 → 契约校验。纯函数, 便于测试。
+// process 信封 → 帧解析 → VIN 身份校验 → v1 解码 → 契约校验。
+// 无 I/O 副作用(仅累加上行延迟指标), 便于测试。
 func process(raw []byte) (reports []vehicle.VehicleReport, dlqs []dlqMessage) {
 	now := time.Now().Unix()
 
@@ -408,11 +414,35 @@ func process(raw []byte) (reports []vehicle.VehicleReport, dlqs []dlqMessage) {
 		return nil, []dlqMessage{{VIN: env.VIN, Stage: "parse",
 			Reason: err.Error(), RawB64: env.Payload, At: now}}
 	}
+
+	// VIN 身份锚点(与网关 JSON 通道的 ④.5 是同一道防线, 2026-09-18 补齐):
+	// 信封 VIN 来自 MQTT topic(受 EMQX ACL 约束, 网关从 topic 取值后套信封),
+	// 而帧内 VIN 由设备在载荷里自由填写 —— 网关按纪律**不解帧**, 无法校验, 只能在此拦。
+	// 不校验则任何持合法凭证的设备都能在帧里填他人 VIN, 以他人身份写入平台数据
+	// (污染车辆画像/触发误告警), 即 EMQX ACL 被绕过。
+	// 放在 DecodeV1 **之前**: 恶意帧不必解码。
+	// DLQ 的 VIN 取**信封 VIN**(= 已认证的发送者, 安全溯源看它), 两个 VIN 都写进 Reason。
+	if f.VIN != env.VIN {
+		return nil, []dlqMessage{{VIN: env.VIN, Stage: "vin_mismatch",
+			Reason: fmt.Sprintf("帧内 VIN 与信封不一致(envelope=%s, frame=%s)", env.VIN, f.VIN),
+			RawB64: env.Payload, At: now}}
+	}
+
 	reps, unitDLQs, err := gbt32960.DecodeV1(f)
 	if err != nil {
 		return nil, []dlqMessage{{VIN: f.VIN, Stage: "decode",
 			Reason: err.Error(), RawB64: env.Payload, At: now}}
 	}
+
+	// 上行延迟 SLI(§9 的"两段之间的桥"): 观测点必须在"解码完成"这一刻, 故放在此。
+	// 用网关透传的 EMQX 毫秒时间戳 —— 这是链路上唯一不受设备侧秒级 ts 限制的时间锚点。
+	// 缺失(<=0, 旧信封)或负值(时钟不同步)时跳过: 噪声样本会污染分位数。
+	if env.IngestTsMS > 0 {
+		if d := time.Since(time.UnixMilli(env.IngestTsMS)); d >= 0 {
+			metrics.IngestToDecode.Observe(d.Seconds())
+		}
+	}
+
 	for _, d := range unitDLQs {
 		dlqs = append(dlqs, dlqMessage{VIN: f.VIN, Stage: "decode",
 			Reason: d.Reason, RawB64: env.Payload, UnitType: d.UnitType, At: now})
@@ -422,6 +452,11 @@ func process(raw []byte) (reports []vehicle.VehicleReport, dlqs []dlqMessage) {
 			dlqs = append(dlqs, dlqMessage{VIN: r.VIN, Stage: "validate",
 				Reason: err.Error(), RawB64: env.Payload, At: now})
 			continue
+		}
+		// 端到端(粗): 设备数据时间 → 解码完成。只有 1 秒分辨率(契约 ts 是 Unix 秒),
+		// 测的是"数据陈旧度"而非链路性能 —— 详见 metrics.DeviceToDecode 的注释。
+		if d := time.Since(time.Unix(r.Ts, 0)); d >= 0 {
+			metrics.DeviceToDecode.Observe(d.Seconds())
 		}
 		reports = append(reports, r)
 	}

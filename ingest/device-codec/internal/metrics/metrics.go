@@ -36,11 +36,12 @@ var (
 
 	// DLQTotal 进 DLQ 的消息数, 按阶段分类。
 	// stage 取值与 cmd/server/main.go 的产出严格一致:
-	// envelope=信封/base64/版本  parse=帧同步与BCC  decode=信息体解析  validate=契约校验  encode=产出序列化
+	// envelope=信封/base64/版本  parse=帧同步与BCC  vin_mismatch=帧内 VIN 与信封不一致(安全信号)
+	// decode=信息体解析  validate=契约校验  encode=产出序列化
 	DLQTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "codec",
 		Name:      "dlq_total",
-		Help:      "进入 DLQ 的消息总数, stage ∈ {envelope, parse, decode, validate, encode}",
+		Help:      "进入 DLQ 的消息总数, stage ∈ {envelope, parse, vin_mismatch, decode, validate, encode}",
 	}, []string{"stage"})
 
 	// FlushFailuresTotal 微批写出/位移提交失败次数。
@@ -80,6 +81,28 @@ var (
 		Name:      "flush_batch_size",
 		Help:      "每批处理的消息数",
 		Buckets:   []float64{1, 5, 20, 50, 100, 200},
+	})
+
+	// IngestToDecode 上行"平台段"延迟: 信封 ingest_ts_ms(EMQX 接收, 毫秒) → 解码完成。
+	// 这是《接入层设计》§9 说的"分段延迟之间没有桥"里, **可以精确测量**的那一段
+	// (毫秒时间戳在信封里, 零契约改动)。
+	IngestToDecode = promauto.NewHistogram(prometheus.HistogramOpts{
+		Namespace: "codec",
+		Name:      "ingest_to_decode_seconds",
+		Help:      "EMQX 接收到原始帧 → codec 解码完成的耗时(毫秒精度)",
+		Buckets:   []float64{0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10},
+	})
+
+	// DeviceToDecode 端到端(粗)延迟: 设备侧数据时间 ts → 解码完成。
+	// ⚠️ 分辨率只有 **1 秒** —— 契约 `VehicleReport.Ts` 与 GB32960 数据单元时间都是秒级,
+	// 而链路真实延迟是百毫秒级, 因此本指标**不能**用来测链路性能; 它回答的是另一个问题:
+	// "进入平台的数据已经陈旧到什么量级"(设备时钟错、帧在 EMQX 重试/DLQ 里滞留、离线补发)。
+	// 平台内部那一段请看 codec_ingest_to_decode_seconds 与 gateway_ingest_latency_seconds。
+	DeviceToDecode = promauto.NewHistogram(prometheus.HistogramOpts{
+		Namespace: "codec",
+		Name:      "device_to_decode_seconds",
+		Help:      "设备侧数据时间(report.ts, **秒级**) → 解码完成的耗时; 用于发现数据陈旧, 非链路性能",
+		Buckets:   []float64{0.5, 1, 2, 5, 10, 30, 60, 300, 900, 3600},
 	})
 )
 

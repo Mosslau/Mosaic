@@ -67,11 +67,13 @@ Grafana provisioning 面板 `device-codec 编解码服务`（4 图：消费 vs �
 |---|---|---|
 | `codec_consumed_total` | 消费的原始帧数 | —— |
 | `codec_decoded_total{type}` | 解码产出（按 5 类 type 分） | 与 consumed 的比值 ≈ 每帧拆出几条 |
-| `codec_dlq_total{stage}` | 进 DLQ 数（envelope/parse/decode/validate/encode） | **>0 持续增长即告警**（唯一会丢数据的环节） |
+| `codec_dlq_total{stage}` | 进 DLQ 数（envelope/parse/**vin_mismatch**/decode/validate/encode） | **>0 持续增长即告警**（唯一会丢数据的环节）；其中 `vin_mismatch` 是**安全事件**（帧内 VIN ≠ 信封 VIN，见下） |
 | `codec_flush_failures_total` | 微批写出/位移提交失败次数 | **>0 即告警**：说明下游写不进去、正在退避重试（数据仍保留在缓冲） |
 | `codec_pending_messages` | 缓冲区待写出的原始消息数 | 持续增长=下游长时间不可写；这是"丢数据之前"的最后一道可见信号 |
 | `codec_consumer_lag` | 消费滞后条数 | 持续 >0 → 扩容或查下游写慢 |
 | `codec_flush_duration_seconds` / `codec_flush_batch_size` | 微批写出耗时与批大小 | 写出变慢/批变小说明攒批失效 |
+| `codec_ingest_to_decode_seconds` | EMQX 接收（信封 `ingest_ts_ms`，毫秒）→ 解码完成 | **上行延迟 SLI（毫秒精度）**：持续上涨=链路变慢（webhook/Kafka/消费）。缺该字段的存量旧信封不观测 |
+| `codec_device_to_decode_seconds` | 设备 `ts`（**秒级**）→ 解码完成 | **数据陈旧度**，不是链路性能：设备时钟错、帧在重试/DLQ 滞留、离线补发都会抬高它 |
 
 `/health` **不探测 Kafka**：codec 无状态，依赖抖动由 lag 指标与重启策略覆盖，探针探测外部依赖会引发无意义重启。
 
@@ -91,7 +93,9 @@ flowchart TB
   ENV -- "否" --> DLQ1["DLQ：未知 proto_ver（不猜）"]
   ENV -- "是" --> PARSE["base64 解码 → 帧解析<br/>## 同步 / 长度 / BCC / VIN 去填充"]
   PARSE -- "失败" --> DLQ2["DLQ：帧级<br/>带原始帧 base64 + 原因 + stage"]
-  PARSE -- "通过" --> TIME["时间 6B GMT+8 → Unix 秒"]
+  PARSE -- "通过" --> VINCHK{"帧内 VIN == 信封 VIN ?"}
+  VINCHK -- "否" --> DLQ3["DLQ：vin_mismatch<br/>伪造他人车辆数据（安全事件）"]
+  VINCHK -- "是" --> TIME["时间 6B GMT+8 → Unix 秒"]
   TIME --> SW{"逐信息体 switch"}
 
   SW -- "0x01 + 0x05 + 0x06" --> R1["vehicle_status<br/>车速/SOC/里程 + 经纬度 + 温度极值"]
@@ -166,6 +170,7 @@ flowchart LR
 | 级别 | 触发 | 后果 |
 |---|---|---|
 | 帧级 | 同步/长度/BCC/时间/未知 proto_ver | **整帧**进 DLQ（带原始帧 base64 + 原因 + stage） |
+| **身份** | **帧内 VIN ≠ 信封 VIN**（信封 VIN 来自 MQTT topic，受 EMQX ACL 约束） | **整帧**进 DLQ（`stage=vin_mismatch`，安全事件，另有专门告警）—— 网关按纪律不解帧，故这道校验只能在 codec 里做 |
 | 单元级 | 自定义单元未知版本、信息体长度不足 | **仅该单元**进 DLQ，帧其余部分照常解析 |
 | 字段级 | 非法枚举码/无效值 | 只丢该字段，**不进 DLQ** |
 

@@ -47,11 +47,18 @@ func post(t *testing.T, h http.Handler, body string) *httptest.ResponseRecorder 
 	return w
 }
 
+// reportChain 生产链路的等价构造: auth(解析身份) → Report。
+// 本文件所有"应成功/应 400"的用例都必须走这条链 —— handler 的身份校验是
+// **fail-closed** 的(取不到身份直接 401), 绕过中间件直接调 handler 不再是有效用法。
+func reportChain(fs *fakeSender) http.Handler {
+	return identityChain(fs, map[string]string{"token-a": "OV20260001"}, false)
+}
+
 func TestReport_OK(t *testing.T) {
 	fs := &fakeSender{}
-	h := NewReportHandler(fs)
+	h := reportChain(fs)
 
-	w := post(t, http.HandlerFunc(h.Report), validBody())
+	w := postWithToken(h, "token-a", validBody())
 	if w.Code != http.StatusAccepted {
 		t.Fatalf("期望 202, 实际 %d, body=%s", w.Code, w.Body)
 	}
@@ -66,6 +73,24 @@ func TestReport_OK(t *testing.T) {
 	var r vehicle.VehicleReport
 	if err := json.Unmarshal([]byte(fs.messages[0].payload), &r); err != nil {
 		t.Errorf("投递 payload 应为合法契约 JSON: %v", err)
+	}
+}
+
+// TestReport_NoIdentityFailsClosed 未挂 auth 中间件时必须拒绝, 而不是"跳过 VIN 校验"。
+// 否则将来有人重排中间件, 这道防线会静默消失(与本轮 A1 缺陷同类)。
+func TestReport_NoIdentityFailsClosed(t *testing.T) {
+	fs := &fakeSender{}
+	h := http.HandlerFunc(NewReportHandler(fs).Report) // 刻意不包 auth
+
+	w := post(t, h, validBody())
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("无身份应 401(fail-closed), 实际 %d, body=%s", w.Code, w.Body)
+	}
+	if !strings.Contains(w.Body.String(), string(model.CodeUnauthorized)) {
+		t.Errorf("错误码应为 UNAUTHORIZED, body=%s", w.Body)
+	}
+	if len(fs.messages) != 0 {
+		t.Error("无身份的请求不得投递 Kafka")
 	}
 }
 
@@ -97,10 +122,10 @@ func TestReport_InvalidJSON(t *testing.T) {
 
 func TestReport_InvalidData(t *testing.T) {
 	fs := &fakeSender{}
-	h := NewReportHandler(fs)
-	// soc=300 越界
+	h := reportChain(fs)
+	// soc=300 越界(vin 与绑定身份一致, 以便走到契约校验这一环)
 	body := fmt.Sprintf(`{"vin":"OV20260001","ts":%d,"type":"vehicle_status","data":{"soc":300}}`, time.Now().Unix())
-	w := post(t, http.HandlerFunc(h.Report), body)
+	w := postWithToken(h, "token-a", body)
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("越界数据应 400, 实际 %d", w.Code)
 	}
@@ -114,8 +139,8 @@ func TestReport_InvalidData(t *testing.T) {
 
 func TestReport_KafkaError(t *testing.T) {
 	fs := &fakeSender{err: errors.New("broker down")}
-	h := NewReportHandler(fs)
-	w := post(t, http.HandlerFunc(h.Report), validBody())
+	h := reportChain(fs)
+	w := postWithToken(h, "token-a", validBody())
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("Kafka 故障应 500, 实际 %d", w.Code)
 	}

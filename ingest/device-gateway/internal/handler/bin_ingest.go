@@ -43,6 +43,12 @@ type rawEnvelope struct {
 	ProtoVer string `json:"proto_ver"` // 线协议版本(固有单元默认 v1)
 	Cmd      byte   `json:"cmd"`       // 帧命令字(仅窥 1 字节便于下游路由/统计, 不算解帧)
 	Payload  string `json:"payload"`   // 原始帧 base64
+
+	// IngestTsMS EMQX 接收该消息的**毫秒**时间戳(2026-09-18 补)。
+	// 与 Ts 的区别: Ts 是秒级(保持原语义, 兼容 raw topic 里的存量消息);
+	// IngestTsMS 供 codec 精确计算"EMQX 接收 → 解码完成"的上行延迟 SLI ——
+	// 秒级时间戳对百毫秒级的链路延迟没有鉴别力(《接入层设计》§9)。
+	IngestTsMS int64 `json:"ingest_ts_ms"`
 }
 
 // IngestBin POST /api/v1/bin/ingest
@@ -84,7 +90,7 @@ func (h *BinIngestHandler) IngestBin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// ④ 套信封投递(Kafka key=VIN, 与 JSON 通道同一保序语义)
-	env := rawEnvelope{VIN: topicV, Ts: msg.Ts / 1000, ProtoVer: "v1", Payload: msg.PayloadB64}
+	env := rawEnvelope{VIN: topicV, Ts: msg.Ts / 1000, ProtoVer: "v1", Payload: msg.PayloadB64, IngestTsMS: msg.Ts}
 	if len(frame) >= 3 {
 		env.Cmd = frame[2] // 仅窥命令字; 帧同步/BCC/字段解析全在 codec
 	}
@@ -102,5 +108,6 @@ func (h *BinIngestHandler) IngestBin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	metrics.RequestsTotal.WithLabelValues(path, "ok").Inc()
+	observeIngestLatency("bin", msg.Ts) // 上行延迟 SLI: EMQX 接收 → 本例受理完成
 	w.WriteHeader(http.StatusNoContent) // 204: webhook 惯例
 }

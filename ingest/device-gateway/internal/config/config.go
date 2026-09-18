@@ -11,18 +11,19 @@ import (
 
 // Config 网关全部配置
 type Config struct {
-	Port          int      // HTTP 监听端口
-	KafkaBrokers  []string // Kafka broker 列表
-	KafkaTopic    string   // 车端数据 topic(JSON 通道)
-	KafkaBinTopic string   // 二进制原始帧 topic(§7: ov.raw.binary.v1)
-	DeviceTokens  []string // 合法设备 token 白名单
-	WebhookToken  string   // EMQX webhook 来源鉴权密钥
-	DevMode       bool     // 开发模式: 接受所有 "dev-" 前缀 token (仅本地压测用!)
-	RatePerDevice float64  // 单设备限流(条/秒)
-	RateGlobal    float64  // 全局限流(条/秒)
-	MetricsPort   int      // /metrics 端口(需被容器内 Prometheus 抓取, 监听全网卡)
-	PprofBind     string   // /debug/pprof 绑定地址(仅回环)
-	PprofPort     int      // /debug/pprof 端口
+	Port          int               // HTTP 监听端口
+	KafkaBrokers  []string          // Kafka broker 列表
+	KafkaTopic    string            // 车端数据 topic(JSON 通道)
+	KafkaBinTopic string            // 二进制原始帧 topic(§7: ov.raw.binary.v1)
+	DeviceTokens  []string          // 设备 token 白名单原始形态(每条为 "token=VIN")
+	DeviceBinding map[string]string // token → 绑定 VIN(解析自 DeviceTokens; 载荷 VIN 必须与之一致)
+	WebhookToken  string            // EMQX webhook 来源鉴权密钥
+	DevMode       bool              // 开发模式: 额外接受 "dev-{VIN}" 形态 token (仅本地压测用!)
+	RatePerDevice float64           // 单设备限流(条/秒)
+	RateGlobal    float64           // 全局限流(条/秒)
+	MetricsPort   int               // /metrics 端口(需被容器内 Prometheus 抓取, 监听全网卡)
+	PprofBind     string            // /debug/pprof 绑定地址(仅回环)
+	PprofPort     int               // /debug/pprof 端口
 	ReadTimeout   time.Duration
 	WriteTimeout  time.Duration
 	ShutdownGrace time.Duration
@@ -35,7 +36,7 @@ func Load() (*Config, error) {
 		KafkaBrokers:  envList("KAFKA_BROKERS", []string{"localhost:19092"}),
 		KafkaTopic:    envStr("KAFKA_TOPIC", "vehicle-report-raw"),
 		KafkaBinTopic: envStr("KAFKA_BIN_TOPIC", "ov.raw.binary.v1"),
-		DeviceTokens:  envList("DEVICE_TOKENS", []string{"demo-token-001"}),
+		DeviceTokens:  envList("DEVICE_TOKENS", []string{"demo-token-001=OV00000001"}),
 		WebhookToken:  envStr("GATEWAY_WEBHOOK_TOKEN", "dev-webhook-secret"),
 		DevMode:       envBool("GATEWAY_DEV_MODE", false),
 		RatePerDevice: envFloat("RATE_PER_DEVICE", 10),
@@ -60,6 +61,23 @@ func Load() (*Config, error) {
 	if !cfg.DevMode && len(cfg.DeviceTokens) == 0 {
 		return nil, fmt.Errorf("生产模式下 DEVICE_TOKENS 不能为空 (或显式开启 GATEWAY_DEV_MODE)")
 	}
+	// DEVICE_TOKENS 每条必须形如 token=VIN(2026-09-18 审计补齐)。
+	// 为什么强制绑定: 只有"认证"没有"身份"时, 持合法 token 的设备可上报**任意 VIN**,
+	// 即以他人车辆身份写数据。MQTT 通道靠 topic 绑定 VIN, HTTP 通道没有 topic, 只能靠 token。
+	// 与 RATE_PER_DEVICE<1 同口径: 危险配置 fail-fast, 不靠运维记得。
+	bindings := make(map[string]string, len(cfg.DeviceTokens))
+	for _, entry := range cfg.DeviceTokens {
+		token, vin, ok := strings.Cut(entry, "=")
+		if !ok || token == "" || vin == "" {
+			return nil, fmt.Errorf("DEVICE_TOKENS 项 %q 非法: 必须形如 token=VIN "+
+				"(未绑定 VIN 的 token 可上报任意车辆数据); dev 压测用 dev-{VIN} 前缀的 token", entry)
+		}
+		if _, dup := bindings[token]; dup {
+			return nil, fmt.Errorf("DEVICE_TOKENS 中 token %q 重复", token)
+		}
+		bindings[token] = vin
+	}
+	cfg.DeviceBinding = bindings
 	// 限流速率必须 >= 1 条/秒: 令牌桶容量取 int(速率), <1 会被截断为 0,
 	// 而 x/time/rate 在 burst=0 时**恒拒绝** → 全量 429(2026-09-18 审计实测复现)。
 	if cfg.RatePerDevice < 1 {

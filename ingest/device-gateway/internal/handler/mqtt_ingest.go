@@ -121,5 +121,6 @@ func (h *MQTTIngestHandler) Ingest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	metrics.RequestsTotal.WithLabelValues(path, "ok").Inc()
-	w.WriteHeader(http.StatusNoContent) // 204: 受理成功, 无响应体(webhook 惯例)
+	observeIngestLatency("mqtt", msg.Ts) // 上行延迟 SLI: EMQX 接收 → 本例受理完成
+	w.WriteHeader(http.StatusNoContent)  // 204: 受理成功, 无响应体(webhook 惯例)
 }

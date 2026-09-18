@@ -4,8 +4,8 @@
 
 > 适用阶段：第 1 阶段第 1 步——最小可用链路的底座
 > 容器运行时：**Rancher Desktop**（moby 引擎，非 Docker Desktop，符合本机策略）
-> 一键启动后你将得到：Kafka + ClickHouse + MinIO + EMQX + Grafana + Prometheus 六个组件
-> （原计划四组件，实际多 EMQX/Prometheus；`roadmap/项目进度.md` 记录为"另含 EMQX/Prometheus"）
+> 一键启动后你将得到：Kafka + ClickHouse + MinIO + EMQX + Grafana + Prometheus + MySQL + Redis 八个组件
+> （原计划四组件 → 实际多 EMQX/Prometheus → 第九轮再补 MySQL/Redis，为第 4 步 Java 微服务 ×5 备底座）
 
 ---
 
@@ -59,10 +59,19 @@ until docker info >/dev/null 2>&1; do sleep 5; done && echo "engine ready"
 | EMQX 5.8 | MQTT Broker（车端长连接接入；dev 明文 + 公网 TLS） | MQTT `localhost:1883`（**本机实测 1883 被 RabbitMQ MQTT 插件占用 → `.env` 已设 `EMQX_MQTT_PORT=11883`，即当前生效端口是 11883**；克隆后无 `.env` 则为 1883，模板见 `.env.example`）/ **TLS `localhost:8883`（一车一密 + ACL，见 Q12）** / Dashboard `http://localhost:18083` | `admin` / `public`（**登录后立即改密**，或启动前设 `EMQX_DASHBOARD_PASSWORD` 环境变量） |
 | Grafana OSS | 看板 | `http://localhost:3000` | `admin` / `admin` |
 | Prometheus | 指标采集（网关 `/metrics`，5s 抓取） | `http://localhost:9090` | 无认证（第 1 阶段本地） |
+| MySQL 8.4 | 关系库（第 1 阶段第 4 步 Java 微服务 ×5 的底座） | `localhost:13306`（避让本机/公司 3306） | `root` / `ov_root_2026`；应用账号 `ov_app` / `ov_app_2026`，库 `oceanverse` |
+| Redis 7 | 缓存（第 2 阶段"限流器 Redis 化"的落点） | `localhost:16379`（避让 6379） | 无认证（第 1 阶段本地）；`maxmemory 256mb` + `allkeys-lru` |
 
-默认数据库：ClickHouse 自动建 `oceanverse` 库。
+默认数据库：ClickHouse 自动建 `oceanverse` 库，MySQL 自动建 `oceanverse` 库（**只建库不建表**——业务 DDL 归第 4 步各 Java 服务，这里造表是空转）。
 Grafana 启动后**自动配好名为 `ClickHouse` 的数据源**（provisioning，见 `deploy/grafana/provisioning/datasources/clickhouse.yaml`）。
 EMQX 启动后**自动加载声明式规则**（`deploy/emqx/emqx.conf`）：① `ov_vehicle_ingress` —— `ov/+/status|battery|fault` → Webhook → 网关 `/api/v1/mqtt/ingest`；② `ov_binary_ingress` —— `ov/+/bin`（GB/T 32960 二进制帧，base64）→ 网关 `/api/v1/bin/ingest` → `ov.raw.binary.v1` → device-codec（Dashboard → 集成 → 规则 可见两条）。
+
+> **内存预算（加 MySQL/Redis 后必须知道的一条算术）**：八个容器的 `mem_limit` 合计 **6.88 GiB**
+> （Kafka 1g + ClickHouse 2g + MinIO 512m + MySQL 1g + Redis 384m + EMQX 1g + Prometheus 512m + Grafana 512m），
+> 而 Rancher VM 标称 **6 GiB** —— 即**上限之和已超过整机内存**。`mem_limit` 只约束单个容器，
+> 不能阻止整机 OOM（本项目已因内存崩过一次，见文件头 ③ 与 Q14）。
+> 对策（二选一）：① 把 VM 内存提到 8 GiB（推荐，最省事）；② 压低上限，例如 ClickHouse 2g→1g、
+> MySQL 1g→768m，使合计落在 5 GiB 以内。合并 MySQL/Redis 后请重新核对，别只看单容器是否 OOM。
 
 > 端口避让说明：MinIO 的 S3 API 映射到宿主 `9001`、控制台映射到 `9002`，因为 ClickHouse native 协议已占用 `9000`。
 
@@ -89,6 +98,8 @@ docker compose ps
 docker compose logs -f kafka
 docker compose logs -f clickhouse
 docker compose logs -f minio
+docker compose logs -f mysql
+docker compose logs -f redis
 docker compose logs -f grafana
 
 # 停止（数据保留在 volume 里；Kafka 亦已显式 KAFKA_LOG_DIRS=/var/lib/kafka/data，
@@ -101,7 +112,7 @@ docker compose down -v
 
 ---
 
-## 5. 启动后验证（六个组件逐一确认）
+## 5. 启动后验证（八个组件逐一确认）
 
 ```bash
 # ① Kafka：建一个测试 topic 并自检
@@ -139,9 +150,20 @@ docker exec ov-emqx emqx ctl listeners | grep -E "tcp:default|ssl:default"
 curl -s 'http://localhost:9090/api/v1/targets?state=active' | grep -o '"health":"[a-z]*"'
 # 期望: "health":"up"; 网关未启动时显示 down 属正常
 curl -s -g 'http://localhost:9090/api/v1/query?query=up{job="device-gateway"}'
-# 告警规则已加载且无 firing(8 条, 含义见 Q16)
-curl -s http://localhost:9090/api/v1/rules | grep -c '"name"'    # 期望: 8
+# 告警规则已加载且无 firing(10 条, 含义见 Q16)
+curl -s http://localhost:9090/api/v1/rules | grep -c '"name"'    # 期望: 10
 curl -s http://localhost:9090/api/v1/alerts | grep -c '"state":"firing"' || true   # 期望: 0
+
+# ⑦ MySQL：ping + 库存在(只建库不建表, 故查 information_schema 应为空)
+docker exec ov-mysql mysqladmin ping -h 127.0.0.1 -u root -pov_root_2026   # 期望: mysqld is alive
+docker exec ov-mysql mysql -u root -pov_root_2026 -e \
+  "SHOW DATABASES LIKE 'oceanverse'; SELECT COUNT(*) AS tables_now FROM information_schema.tables WHERE table_schema='oceanverse';"
+# 期望: 库存在; tables_now = 0(业务表属第 4 步各 Java 服务的 DDL)
+
+# ⑧ Redis：ping + 内存上限确实生效(这条是防"整机被缓存吃穿"的关键)
+docker exec ov-redis redis-cli ping                                        # 期望: PONG
+docker exec ov-redis redis-cli config get maxmemory                        # 期望: 268435456 (256mb)
+docker exec ov-redis redis-cli config get maxmemory-policy                 # 期望: allkeys-lru
 ```
 
 > **端口避让（本机实测）**：公司 Java 服务占用 8080~8083，网关开发期用 `GATEWAY_PORT=18080` 启动；
@@ -241,7 +263,7 @@ cd ../ingest/device-simulator && go run ./cmd/security-check -vin OV20260001
 
 **Q15：容器为什么不自己恢复？**
 
-2026-09-18 前 compose 里**没有任何 `restart:` 策略**，引擎/宿主重启后六容器保持 `Exited(137)`，链路静默下线且无告警。
+2026-09-18 前 compose 里**没有任何 `restart:` 策略**，引擎/宿主重启后六容器（当时）保持 `Exited(137)`，链路静默下线且无告警。
 现已统一 `restart: unless-stopped` + `mem_limit` + 日志轮转（`10m×3`）。验证方式：
 
 ```bash
@@ -254,18 +276,20 @@ docker compose ps      # 无需任何 up 命令, 期望 6/6 healthy(实测通过
 **Q16：链路静默停摆怎么第一时间知道？（告警与 runbook）**
 
 2026-09-18 前 Prometheus **零条告警规则** —— 那次 Rancher VM 掉线让整条链路停摆，监控上唯一的表现是 Grafana 没数据，**没有人会收到通知**（是评审时人工发现的）。
-现已补 8 条规则（`deploy/prometheus/rules/oceanverse-alerts.yml`）：
+现已补 10 条规则（`deploy/prometheus/rules/oceanverse-alerts.yml`）：
 
 | 告警 | 触发条件 | 含义 |
 |---|---|---|
-| `TargetDown` | `up == 0` 持续 1m | 网关/codec/六容器任一掉线（VM 掉线时全部一起 down） |
+| `TargetDown` | `up == 0` 持续 1m | 网关/codec/八容器任一掉线（VM 掉线时全部一起 down） |
 | `GatewayKafkaWriteErrors` | 网关写 Kafka 失败 >0 | 消息未落盘，已返 5xx 让上游重试 |
 | `CodecFlushFailures` | codec 写出/提交失败 >0 | **丢数据之前的第一道信号**（此时数据仍在缓冲） |
 | `CodecBufferBacklog` | `pending_messages > 1000` 持续 5m | 下游长时间不可写 |
 | `CodecConsumerLag` | `consumer_lag > 5000` 持续 5m | 实时性退化 |
 | `CodecDLQGrowing` | DLQ 10 分钟内增长 | 对端字节问题或契约不同步 |
 | `GatewayRateLimited` | 5 分钟限流 >100 次 | 容量不足或单设备发疯 |
-| `GatewayVINMismatch` | 载荷 VIN ≠ topic VIN | **安全信号**，可能是伪造尝试 |
+| `GatewayVINMismatch` | 载荷 VIN ≠ topic VIN | **安全信号**，可能是伪造尝试（HTTP/MQTT 通道） |
+| `CodecVINMismatch` | `codec_dlq_total{stage="vin_mismatch"}` 增长 | **安全信号**：二进制帧内 VIN ≠ 信封 VIN（网关不解帧，只能在此拦） |
+| `IngestLatencyHigh` | 上行延迟 p99 > 1s 持续 5m | 平台段（webhook→落盘）劣化；EMQX 重投也会如实抬高 |
 
 **判据（一条命令，本机可执行）**：
 

@@ -562,10 +562,10 @@ AI 应用           ← Python RAG + Tool Calling
 
 | 层 | 技术 |
 |---|---|
-| 接入 | **Go**（net/http、MQTT 客户端、gRPC、Prometheus client、pprof） |
+| 接入 | **Go**（net/http、MQTT 客户端、Prometheus client、pprof）；**gRPC 内部通道 → 第 2 阶段**（详见《接入层设计》§11：第 1 阶段的网关只有三个 HTTP 入口，没有任何 gRPC 消费者，提前引入是空转） |
 | 消息 | **Kafka** |
 | 实时计算 | **Flink**（Flink SQL 为主） |
-| 存储/查询 | **ClickHouse**、PostgreSQL/MySQL、Redis |
+| 存储/查询 | **ClickHouse**（第 3 步 Flink 落表后入链路）、**MySQL**、**Redis**（第 4 步 Java 服务底座；容器已在 `deploy/` 就位） |
 | 服务 | **Java**（Spring Boot、MyBatis Plus）、**Python**（FastAPI、Pandas） |
 | 可视化/运维 | Grafana、Docker Compose、Git |
 

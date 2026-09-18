@@ -47,9 +47,9 @@ flowchart TB
 | `KAFKA_BROKERS` | `localhost:19092` | Kafka 地址(逗号分隔) |
 | `KAFKA_TOPIC` | `vehicle-report-raw` | 车端数据 topic(JSON 通道) |
 | `KAFKA_BIN_TOPIC` | `ov.raw.binary.v1` | 二进制原始帧 topic(通道三) |
-| `DEVICE_TOKENS` | `demo-token-001` | 设备令牌白名单(逗号分隔) |
+| `DEVICE_TOKENS` | `demo-token-001=OV00000001` | 设备令牌白名单(逗号分隔)，**每条必须形如 `token=VIN`**：token 绑定到一辆车，载荷 `vin` 必须与之一致。未绑定 VIN 的 token 可上报任意车辆，故启动即 fail-fast |
 | `GATEWAY_WEBHOOK_TOKEN` | `dev-webhook-secret` | EMQX webhook 来源密钥, 须与 emqx.conf 一致 |
-| `GATEWAY_DEV_MODE` | `false` | ⚠️ 开发模式: 放行所有 `dev-` 前缀 token, 生产必须关 |
+| `GATEWAY_DEV_MODE` | `false` | ⚠️ 开发模式: 额外接受 `dev-{VIN}` 形态 token(仍**校验 VIN 一致性**)，生产必须关 |
 | `RATE_PER_DEVICE` | `10` | 单设备限流(条/秒)；**必须 ≥1**，<1 会让令牌桶容量为 0 导致全量 429（启动即 fail-fast） |
 | `RATE_GLOBAL` | `5000` | 全局限流(条/秒)；同样必须 ≥1 |
 | `GATEWAY_METRICS_PORT` | `18081` | `/metrics` 专用端口(全网卡, 供容器内 Prometheus 抓取) |
@@ -120,8 +120,10 @@ curl -i -X POST http://localhost:18080/api/v1/vehicle/report -d '{}'
 
 ```bash
 # soc=300 超出范围 → 400 INVALID_DATA
+# 注意 token 与载荷 vin 必须**同一辆车**(dev 模式按 dev-{VIN} 推断身份):
+# 写成 dev-x 配 OV20260001 会先被身份校验拦下(400 vin_mismatch), 到不了 soc 校验。
 curl -X POST http://localhost:18080/api/v1/vehicle/report \
-  -H "X-Device-Token: dev-x" \
+  -H "X-Device-Token: dev-OV20260001" \
   -d '{"vin":"OV20260001","ts":'"$(date +%s)"',"type":"vehicle_status","data":{"soc":300}}'
 ```
 
@@ -166,7 +168,8 @@ flowchart LR
 
 | 策略 | 做法 | 理由 |
 |---|---|---|
-| 静态白名单（现） | `DEVICE_TOKENS` + `GATEWAY_DEV_MODE` 放行 `dev-` 前缀 | 第 1 阶段最小可用；动态鉴权等 Java 档案服务 |
+| 静态白名单（现） | `DEVICE_TOKENS`（`token=VIN` 绑定）+ `GATEWAY_DEV_MODE` 接受 `dev-{VIN}` | 第 1 阶段最小可用；**认证之外还解析出"是哪辆车"**，载荷 VIN 必须与之一致（下条）；动态鉴权等 Java 档案服务时只换 `identity()` 实现，调用方不动 |
+| 设备身份锚点 | 载荷 `vin` == token 绑定的 VIN，否则 400 `vin_mismatch`；**取不到身份直接 401（fail-closed）** | 只有认证没有身份时，持合法 token 的设备可冒充他人车辆写数据；与 MQTT 通道的 topic-VIN 校验、codec 的帧内-VIN 校验是同一道防线（三条通道各有一侧）。**fail-closed 的理由**：若写成"没身份就跳过校验"，这道防线会在将来有人重排中间件时**静默消失** |
 | webhook 密钥 | `X-Webhook-Token` 共享密钥（与 `emqx.conf` 一致） | 只信任自家 EMQX；《接入层设计》§5.3 四条对齐线之一 |
 | 危险配置告警 | 启动时对 dev 模式/默认密钥打 WARN | 安全内建在启动流程，不靠人记 |
 
@@ -212,6 +215,9 @@ flowchart LR
 ### 6.7 可观测策略
 
 - 指标：`requests_total{path,result}` / `request_duration_seconds` / `kafka_write_total{topic,result}` / inflight
+- **上行延迟 SLI**：`ingest_latency_seconds{channel}` = EMQX 接收（信封毫秒时间戳）→ 受理完成（含落盘确认）。
+  这一段是**毫秒精度**的（不像设备侧 `ts` 只有秒级），用于回答"平台处理得有多快"；
+  注意 EMQX webhook 重投会让它如实上涨（预期信号，不是缺陷）。面板：`device-gateway` 第 5 图
 - pprof 按需剖析；Grafana 面板 provisioning（面板即代码）
 - **三处对账公式**：EMQX 命中 ≈ 网关 ok ≈ Kafka write ok（差异必须可解释）
 

@@ -27,7 +27,7 @@ var (
 		Buckets:   []float64{0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1},
 	}, []string{"path"})
 
-	// KafkaWriteTotal Kafka 写入结果计数(async 回调中统计)
+	// KafkaWriteTotal Kafka 写入结果计数(同步投递: 写入返回后统计)
 	KafkaWriteTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "gateway",
 		Name:      "kafka_write_total",
@@ -40,6 +40,16 @@ var (
 		Name:      "inflight_requests",
 		Help:      "当前正在处理的请求数",
 	})
+
+	// IngestLatency 上行链路延迟: EMQX 接收消息 → 网关受理完成(含 broker 落盘确认)。
+	// 用 EMQX 信封里的**毫秒**时间戳计算, 因此这一段是精确的 —— 不受设备侧
+	// 秒级 ts 的量化误差影响(§9 的"分段延迟之间没有桥", 2026-09-18 补)。
+	IngestLatency = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: "gateway",
+		Name:      "ingest_latency_seconds",
+		Help:      "EMQX 接收到消息 → 网关受理完成(broker 确认)的耗时, channel ∈ {mqtt, bin}",
+		Buckets:   []float64{0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5},
+	}, []string{"channel"})
 )
 
 // Instrument 包裹一个 handler: 统计在途数与耗时。result 由 handler 内部通过 RequestsTotal 自行上报。
