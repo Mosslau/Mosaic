@@ -31,6 +31,11 @@ CODEC_SRC_TOPIC=ov.raw.binary.v1
 CODEC_DST_TOPIC=vehicle-report-raw
 CODEC_DLQ_TOPIC=ov.dlq.codec.v1
 CODEC_GROUP=device-codec-v1     # 消费者组(横扩 = 同组多副本)
+
+# 可观测端点(2026-09-18 审计整改: 与业务解耦, pprof 默认仅回环)
+CODEC_METRICS_PORT=18090        # /metrics + /health(全网卡, 供容器内 Prometheus 抓取)
+CODEC_PPROF_BIND=127.0.0.1      # /debug/pprof 绑定地址(能读出进程内存, 勿开公网)
+CODEC_PPROF_PORT=18091          # /debug/pprof 端口
 ```
 
 ## 3. Docker 构建与运行
@@ -51,10 +56,10 @@ docker run --rm --network oceanverse_ov-net \
 ```bash
 curl -s localhost:18090/health          # {"lag":0,"status":"up"}  ← K8s liveness/readiness 用
 curl -s localhost:18090/metrics | grep ^codec_
-go tool pprof http://localhost:18090/debug/pprof/profile?seconds=30   # 解码热点按需剖析
+go tool pprof http://localhost:18091/debug/pprof/profile?seconds=30   # 解码热点按需剖析(独立端口, 仅绑回环)
 ```
 
-**采集与可视化**（与网关同形态，2026-09-18 打通）：Prometheus `deploy/prometheus/prometheus.yml` 内 `job_name: device-codec` 5s 抓 `host.docker.internal:18090`；
+**采集与可视化**（与网关同形态，2026-09-18 打通）：Prometheus `deploy/prometheus/prometheus.yml` 内 `job_name: device-codec` 5s 抓 `host.docker.internal:18090`（`/metrics`+`/health` 走专用端口；`/debug/pprof` 另起 `CODEC_PPROF_PORT`，默认 `127.0.0.1:18091` 仅回环）；
 Grafana provisioning 面板 `device-codec 编解码服务`（4 图：消费 vs 解码 / DLQ 速率按 stage / 消费 lag / 微批耗时与批大小）。
 端口冲突时日志会打 `bind: address already in use`（主流程仍继续，但指标不可见）——重启前确保旧实例退净（deploy/README Q11）。
 
@@ -62,7 +67,9 @@ Grafana provisioning 面板 `device-codec 编解码服务`（4 图：消费 vs �
 |---|---|---|
 | `codec_consumed_total` | 消费的原始帧数 | —— |
 | `codec_decoded_total{type}` | 解码产出（按 5 类 type 分） | 与 consumed 的比值 ≈ 每帧拆出几条 |
-| `codec_dlq_total{stage}` | 进 DLQ 数（envelope/parse/unit/validate） | **>0 持续增长即告警**（唯一会丢数据的环节） |
+| `codec_dlq_total{stage}` | 进 DLQ 数（envelope/parse/decode/validate/encode） | **>0 持续增长即告警**（唯一会丢数据的环节） |
+| `codec_flush_failures_total` | 微批写出/位移提交失败次数 | **>0 即告警**：说明下游写不进去、正在退避重试（数据仍保留在缓冲） |
+| `codec_pending_messages` | 缓冲区待写出的原始消息数 | 持续增长=下游长时间不可写；这是"丢数据之前"的最后一道可见信号 |
 | `codec_consumer_lag` | 消费滞后条数 | 持续 >0 → 扩容或查下游写慢 |
 | `codec_flush_duration_seconds` / `codec_flush_batch_size` | 微批写出耗时与批大小 | 写出变慢/批变小说明攒批失效 |
 
@@ -104,7 +111,7 @@ flowchart TB
   VAL -- "通过" --> WRITE["微批写出（200 条 / 100ms）"]
   WRITE --> COMMIT{"写出全部成功?"}
   COMMIT -- "是" --> OUT["vehicle-report-raw"]
-  COMMIT -- "否" --> NOC["不提交位移 → 重读<br/>(at-least-once，下游 (vin,ts) 幂等)"]
+  COMMIT -- "否" --> NOC["缓冲**保留** + 有界退避重试<br/>位移不提交 → 崩溃后 Kafka 重读<br/>(at-least-once，下游 (vin,ts) 幂等)"]
 
   classDef dlq fill:#fee,stroke:#c33
   class DLQ1,DLQ2,DLQ3,DLQ4 dlq
@@ -166,7 +173,7 @@ flowchart LR
 
 | 策略 | 做法 | 理由 |
 |---|---|---|
-| at-least-once | **写出全部成功才提交位移** | 崩溃 → 重读；重复由下游 `(vin, ts)` 幂等 |
+| at-least-once | **写出成功 == 位移提交成功，缓冲才清空**；任一失败则保留缓冲 + 有界退避（500ms 起，上限 10s） | 崩溃 → 重读；重复由下游 `(vin, ts)` 幂等。**2026-09-18 前**失败后缓冲被无条件清空 → 下次成功 flush 提交更高位移，该批**永久静默丢失**（已修，见 §7） |
 | 微批 | 攒批 200 条 / 100ms 定时冲刷 | 逐条同步写会被 RTT 拖到 ~1 条/s（实测教训） |
 | 监控 | flush 耗时 >200ms 打 WARN，每 5s 打处理统计 | 让性能退化可见 |
 | 实测 | 100 台/20fps 突发下 lag 归零 | 与网关同级的实时性 |
@@ -186,7 +193,8 @@ flowchart LR
 
 ## 7. 可靠性语义
 
-- **写出全部成功才提交位移**：崩溃/失败 → 重读，at-least-once（下游按 `(vin,ts)` 幂等）
+- **写出全部成功才提交位移**：写失败或提交失败 → 缓冲**保留** + 有界退避重试，位移不提交 → 崩溃/重启后重读，at-least-once（下游按 `(vin,ts)` 幂等）。
+  失败会同时体现在 `codec_flush_failures_total` 与 `codec_pending_messages` 上（不再是"只有一行日志"）。
 - **DLQ 两级**：帧级（同步/长度/BCC/时间/未知 proto_ver）整帧进；单元级（自定义单元未知版本、信息体长度不足）只丢该单元，帧其余部分照常解析
 - **单字段非法只丢字段**（无效值 0xFF/0xFFFF、非法枚举码），不进 DLQ（《GB32960 映射》§5.2 粒度纪律）
 

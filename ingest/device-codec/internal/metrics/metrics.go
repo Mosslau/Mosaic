@@ -34,12 +34,30 @@ var (
 		Help:      "解码产出的 VehicleReport 总数, type ∈ {vehicle_status, battery_status, fault, charging, work}",
 	}, []string{"type"})
 
-	// DLQTotal 进 DLQ 的消息数, 按阶段分类(frame=帧级, unit=单元级, validate=契约校验, envelope=信封/版本)
+	// DLQTotal 进 DLQ 的消息数, 按阶段分类。
+	// stage 取值与 cmd/server/main.go 的产出严格一致:
+	// envelope=信封/base64/版本  parse=帧同步与BCC  decode=信息体解析  validate=契约校验  encode=产出序列化
 	DLQTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "codec",
 		Name:      "dlq_total",
-		Help:      "进入 DLQ 的消息总数, stage ∈ {envelope, parse, unit, validate}",
+		Help:      "进入 DLQ 的消息总数, stage ∈ {envelope, parse, decode, validate, encode}",
 	}, []string{"stage"})
+
+	// FlushFailuresTotal 微批写出/位移提交失败次数。
+	// 每次失败都会保留缓冲并退避重试(位移不提交 → 数据不丢); 该指标 >0 必须告警。
+	FlushFailuresTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: "codec",
+		Name:      "flush_failures_total",
+		Help:      "微批写出或位移提交失败次数(失败批次保留待重试, 数据不丢)",
+	})
+
+	// PendingMessages 当前缓冲区中待写出的原始消息数。
+	// 持续增长说明下游写不进去(该退避重试中), 是"丢数据之前"的最后一道可见信号。
+	PendingMessages = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: "codec",
+		Name:      "pending_messages",
+		Help:      "缓冲区中待写出的原始消息数(持续增长=下游写不进去, 正在退避重试)",
+	})
 
 	// Lag 消费滞后(条) —— 实时性核心指标; 持续 >0 说明 codec 跟不上或下游写慢
 	Lag = promauto.NewGauge(prometheus.GaugeOpts{
@@ -71,12 +89,6 @@ var (
 func Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
-	// pprof 与网关同形态(按需剖析; codec 是 CPU 型服务, 解码热点排查用它)
-	mux.HandleFunc("/debug/pprof/", pprof.Index)
-	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
-	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		_ = json.NewEncoder(w).Encode(map[string]any{
@@ -84,6 +96,18 @@ func Handler() http.Handler {
 			"lag":    currentLag(),
 		})
 	})
+	return mux
+}
+
+// PprofHandler 返回 /debug/pprof/* 的 mux —— **只绑回环地址**。
+// pprof 能读出进程内存(含凭据), 且 profile 可被反复调用消耗 CPU(2026-09-18 审计整改)。
+func PprofHandler() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 	return mux
 }
 

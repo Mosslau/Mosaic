@@ -19,14 +19,15 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
 	"github.com/segmentio/kafka-go"
 
-	"github.com/Mosslau/OceanVerse/ingest/device-contracts/vehicle"
 	"github.com/Mosslau/OceanVerse/ingest/device-codec/internal/gbt32960"
 	"github.com/Mosslau/OceanVerse/ingest/device-codec/internal/metrics"
+	"github.com/Mosslau/OceanVerse/ingest/device-contracts/vehicle"
 )
 
 // rawEnvelope 网关透传信封(映射文档 §7)
@@ -41,11 +42,124 @@ type rawEnvelope struct {
 // dlqMessage DLQ 记录(带原始字节 + 失败原因)
 type dlqMessage struct {
 	VIN      string `json:"vin,omitempty"`
-	Stage    string `json:"stage"` // envelope / parse / decode / validate
+	Stage    string `json:"stage"` // envelope / parse / decode / validate / encode
 	Reason   string `json:"reason"`
 	RawB64   string `json:"raw_b64,omitempty"`
 	UnitType int    `json:"unit_type,omitempty"`
 	At       int64  `json:"at"`
+}
+
+// pendingReport 待写出的解析产物: 消息本体 + 指标标签。
+// 标签随消息一起排队, 使得指标只在**写出成功**后累加(失败重试不虚增)。
+type pendingReport struct {
+	msg      kafka.Message
+	typeName string
+}
+
+// pendingDLQ 待写出的 DLQ 记录(同上, 带 stage 标签)
+type pendingDLQItem struct {
+	msg   kafka.Message
+	stage string
+}
+
+// 写出成功的累计计数(flushBatch 内累加; 主循环在 mu 下读取用于日志统计)
+var (
+	decodedTotal atomic.Int64
+	dlqedTotal   atomic.Int64
+)
+
+// batchWriter 微批写出口(生产实现是 *kafka.Writer; 接口化是为了让 flush 的
+// 失败路径可单测 —— 这段代码此前 0% 覆盖, 正是"写失败仍清空缓冲"能潜伏至今的原因)。
+type batchWriter interface {
+	WriteMessages(ctx context.Context, msgs ...kafka.Message) error
+}
+
+// offsetCommitter 位移提交口(生产实现是 *kafka.Reader)
+type offsetCommitter interface {
+	CommitMessages(ctx context.Context, msgs ...kafka.Message) error
+}
+
+// batchState 微批缓冲状态。抽出成结构体后 flush 成为纯状态迁移函数, 可脱离 Kafka 测试。
+type batchState struct {
+	pendingReports []pendingReport
+	pendingDLQ     []pendingDLQItem
+	pendingMsgs    []kafka.Message
+	retryNotBefore time.Time
+	failures       int64
+}
+
+// flushBatch 把缓冲写进 Kafka 并提交位移。
+//
+// 不变量(**数据不丢的根据**): 只有"产出写出成功 == 位移提交成功"时缓冲才被清空。
+// 任一环节失败 → 缓冲原样保留 + 有界退避, 位移不提交 → 崩溃/重启后 Kafka 重读(at-least-once)。
+// 返回是否全部成功, 便于测试与指标。
+func flushBatch(ctx context.Context, st *batchState, pw, dw batchWriter, c offsetCommitter,
+	now time.Time) bool {
+	if len(st.pendingMsgs) == 0 {
+		return true
+	}
+	if now.Before(st.retryNotBefore) {
+		return false // 退避中: 不重试也不清空
+	}
+	ok := true
+	if len(st.pendingReports) > 0 {
+		msgs := make([]kafka.Message, len(st.pendingReports))
+		for i := range st.pendingReports {
+			msgs[i] = st.pendingReports[i].msg
+		}
+		if err := pw.WriteMessages(ctx, msgs...); err != nil {
+			ok = false
+			slog.Error("批量投递解析产物失败", "msgs", len(msgs), "err", err)
+		} else {
+			// 指标在**写出成功后**才累加, 否则 flush 失败会让对账公式虚高
+			for i := range st.pendingReports {
+				metrics.DecodedTotal.WithLabelValues(st.pendingReports[i].typeName).Add(1)
+			}
+			decodedTotal.Add(int64(len(msgs)))
+		}
+	}
+	if len(st.pendingDLQ) > 0 {
+		msgs := make([]kafka.Message, len(st.pendingDLQ))
+		for i := range st.pendingDLQ {
+			msgs[i] = st.pendingDLQ[i].msg
+		}
+		if err := dw.WriteMessages(ctx, msgs...); err != nil {
+			ok = false
+			slog.Error("批量投递 DLQ 失败", "msgs", len(msgs), "err", err)
+		} else {
+			for i := range st.pendingDLQ {
+				metrics.DLQTotal.WithLabelValues(st.pendingDLQ[i].stage).Add(1)
+			}
+			dlqedTotal.Add(int64(len(msgs)))
+		}
+	}
+	if ok {
+		if err := c.CommitMessages(ctx, st.pendingMsgs...); err != nil {
+			// 位移提交失败: 产出已写出, 重试会造成重复(下游按 (vin,ts) 幂等吸收),
+			// 但**不能**当作成功推进 —— 下一轮重新提交同一批。
+			ok = false
+			slog.Error("提交位移失败", "err", err)
+		}
+	}
+	if ok {
+		st.pendingReports = st.pendingReports[:0]
+		st.pendingDLQ = st.pendingDLQ[:0]
+		st.pendingMsgs = st.pendingMsgs[:0]
+		st.failures = 0
+		st.retryNotBefore = time.Time{}
+		return true
+	}
+	// 有界退避: 持续失败时不刷屏, 但缓冲保留 → 数据不丢
+	st.failures++
+	backoff := time.Duration(st.failures) * 500 * time.Millisecond
+	if backoff > 10*time.Second {
+		backoff = 10 * time.Second
+	}
+	st.retryNotBefore = now.Add(backoff)
+	metrics.FlushFailuresTotal.Inc()
+	slog.Error("flush 失败, 批次保留待重试(位移未提交, 数据不丢)",
+		"backoff", backoff, "msgs", len(st.pendingMsgs), "consecutiveFailures", st.failures)
+	return false
 }
 
 func main() {
@@ -74,18 +188,37 @@ func main() {
 		dlqWriter.Close()
 	}()
 
-	// 可观测: /metrics(Prometheus) + /health(K8s 探针用; 无端口服务因此单开一个端口)
-	srv := &http.Server{Addr: ":" + strconv.Itoa(cfg.metricsPort), Handler: metrics.Handler()}
+	// 可观测端点拆分(与网关同形态, 2026-09-18 审计整改):
+	//   ① /metrics + /health → 专用端口(默认 18090), 需被容器内 Prometheus 抓取
+	//   ② /debug/pprof → **只绑回环**(默认 127.0.0.1:18091); 能读进程内存(含凭据), 不得出本机
+	srv := &http.Server{
+		Addr:              ":" + strconv.Itoa(cfg.metricsPort),
+		Handler:           metrics.Handler(),
+		ReadHeaderTimeout: 5 * time.Second,
+	}
 	go func() {
-		slog.Info("codec 可观测端点启动", "addr", srv.Addr)
+		slog.Info("codec 指标端点启动", "addr", srv.Addr)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			slog.Error("可观测端点异常退出", "err", err)
+			// 端口被占等情况下 fail-fast: 否则"进程活着但指标不可见", 排障成本极高(README Q11)
+			slog.Error("指标端点异常退出", "err", err)
+			os.Exit(1)
+		}
+	}()
+	pprofSrv := &http.Server{
+		Addr:              cfg.pprofBind + ":" + strconv.Itoa(cfg.pprofPort),
+		Handler:           metrics.PprofHandler(),
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+	go func() {
+		slog.Info("codec pprof 端点启动(仅回环)", "addr", pprofSrv.Addr)
+		if err := pprofSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			slog.Error("pprof 端点异常退出", "err", err)
 		}
 	}()
 
 	slog.Info("device-codec 启动",
 		"src", cfg.srcTopic, "dst", cfg.dstTopic, "dlq", cfg.dlqTopic, "group", cfg.groupID,
-		"metricsPort", cfg.metricsPort)
+		"metricsAddr", srv.Addr)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	quit := make(chan os.Signal, 1)
@@ -94,52 +227,36 @@ func main() {
 
 	var consumed, decoded, dlqed int64
 	var mu sync.Mutex
-	var pendingReports, pendingDLQ []kafka.Message
-	var pendingMsgs []kafka.Message // 待提交的原始消息(与产出同批提交)
+	// 微批缓冲状态(含待提交的原始消息)。抽出成 batchState 后, flush 逻辑可脱离 Kafka 单测。
+	st := &batchState{}
 
-	// flush 批量写出 + 提交位移: 全部成功才提交, 崩溃/失败 → 重读(at-least-once, 下游幂等)
+	// flushCtx 是写 Kafka/提交位移用的 context: 正常运行时随主 ctx 取消,
+	// 停机排空时临时替换为独立的 5s context(见主循环 context.Canceled 分支)。
+	flushCtx := ctx
+	pendingCount := func() int {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(st.pendingMsgs)
+	}
+
+	// flush 批量写出 + 提交位移(核心逻辑在 flushBatch, 见其不变量注释)。
 	flush := func() {
 		mu.Lock()
 		defer mu.Unlock()
-		if len(pendingMsgs) == 0 {
+		if len(st.pendingMsgs) == 0 {
 			return
 		}
+		n := len(st.pendingMsgs)
 		t0 := time.Now()
-		var dWrite, dCommit time.Duration
-		ok := true
-		if len(pendingReports) > 0 {
-			if err := parsedWriter.WriteMessages(ctx, pendingReports...); err != nil {
-				ok = false
-				slog.Error("批量投递解析产物失败", "msgs", len(pendingReports), "err", err)
-			} else {
-				decoded += int64(len(pendingReports))
-			}
-		}
-		if len(pendingDLQ) > 0 {
-			if err := dlqWriter.WriteMessages(ctx, pendingDLQ...); err != nil {
-				ok = false
-				slog.Error("批量投递 DLQ 失败", "msgs", len(pendingDLQ), "err", err)
-			} else {
-				dlqed += int64(len(pendingDLQ))
-			}
-		}
-		dWrite = time.Since(t0)
-		if ok {
-			t1 := time.Now()
-			if err := reader.CommitMessages(ctx, pendingMsgs...); err != nil {
-				slog.Error("提交位移失败", "err", err)
-			}
-			dCommit = time.Since(t1)
-		}
+		flushBatch(flushCtx, st, parsedWriter, dlqWriter, reader, t0)
 		d := time.Since(t0)
+		decoded, dlqed = decodedTotal.Load(), dlqedTotal.Load()
 		metrics.FlushDuration.Observe(d.Seconds())
-		metrics.FlushBatchSize.Observe(float64(len(pendingMsgs)))
+		metrics.FlushBatchSize.Observe(float64(n))
+		metrics.PendingMessages.Set(float64(len(st.pendingMsgs)))
 		if d > 200*time.Millisecond {
-			slog.Warn("flush 耗时过长", "total", d, "write", dWrite, "commit", dCommit, "msgs", len(pendingMsgs))
+			slog.Warn("flush 耗时过长", "total", d, "msgs", n)
 		}
-		pendingReports = pendingReports[:0]
-		pendingDLQ = pendingDLQ[:0]
-		pendingMsgs = pendingMsgs[:0]
 	}
 
 	// lag 采集: 每 5s 从 kafka-go ReaderStats 取消费者滞后(实时性的核心指标)
@@ -156,7 +273,7 @@ func main() {
 		}
 	}()
 
-	// 定时冲刷: 消息稀疏时微批不积压(攒批 200 条 / 100ms)
+	// 定时冲刷: 消息稀疏时微批不积压(攒批 200 条 / 100ms); 同时承担失败重试
 	go func() {
 		t := time.NewTicker(100 * time.Millisecond)
 		stats := time.NewTicker(5 * time.Second)
@@ -169,7 +286,10 @@ func main() {
 			case <-t.C:
 				flush()
 			case <-stats.C:
-				slog.Info("处理统计", "consumed", consumed, "decoded", decoded, "dlq", dlqed)
+				mu.Lock()
+				d, l, c := decoded, dlqed, consumed
+				mu.Unlock()
+				slog.Info("处理统计", "consumed", c, "decoded", d, "dlq", l, "pending", pendingCount())
 			}
 		}
 	}()
@@ -178,38 +298,23 @@ func main() {
 		msg, err := reader.FetchMessage(ctx)
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
+				// 停机排空: 用独立的 context, 不复用已取消的 ctx ——
+				// 否则 WriteMessages 会因 ctx.Done() 直接失败, 尾批语义不确定(可能写了却当作失败)。
+				drainCtx, cancelDrain := context.WithTimeout(context.Background(), 5*time.Second)
+				flushCtx = drainCtx
 				flush()
+				cancelDrain()
 				break
 			}
 			slog.Error("拉取消息失败", "err", err)
 			time.Sleep(time.Second)
 			continue
 		}
-		consumed++
-		metrics.ConsumedTotal.Inc()
-
-		reports, dlqs := process(msg.Value)
 		mu.Lock()
-		for i := range reports {
-			payload, err := reports[i].Encode()
-			if err != nil {
-				slog.Error("解析产物序列化失败", "vin", reports[i].VIN, "err", err)
-				continue
-			}
-			metrics.DecodedTotal.WithLabelValues(string(reports[i].Type)).Inc()
-			pendingReports = append(pendingReports, kafka.Message{Key: reports[i].Key(), Value: payload, Time: time.Now()})
-		}
-		for _, d := range dlqs {
-			b, err := json.Marshal(d)
-			if err != nil {
-				continue
-			}
-			metrics.DLQTotal.WithLabelValues(d.Stage).Inc()
-			pendingDLQ = append(pendingDLQ, kafka.Message{Key: []byte(d.VIN), Value: b, Time: time.Now()})
-			slog.Warn("消息进 DLQ", "stage", d.Stage, "reason", d.Reason, "vin", d.VIN)
-		}
-		pendingMsgs = append(pendingMsgs, msg)
-		needFlush := len(pendingMsgs) >= 200
+		consumed++
+		handleMessage(st, msg)
+		decoded, dlqed = decodedTotal.Load(), dlqedTotal.Load()
+		needFlush := shouldFlush(st)
 		mu.Unlock()
 		if needFlush {
 			flush()
@@ -219,6 +324,53 @@ func main() {
 		}
 	}
 	slog.Info("device-codec 已退出", "consumed", consumed, "decoded", decoded, "dlq", dlqed)
+}
+
+// handleMessage 处理一条原始消息: 解析产出 + 指标 + 入缓冲(不触发 flush, 由调用方决定)。
+// 必须持有 mu 调用。
+func handleMessage(st *batchState, msg kafka.Message) {
+	metrics.ConsumedTotal.Inc()
+
+	reports, dlqs := process(msg.Value)
+	for i := range reports {
+		encoded, err := reports[i].Encode()
+		if err != nil {
+			// 序列化失败不能静默丢: 该消息位移仍会推进, 必须留痕在 DLQ 里
+			slog.Error("解析产物序列化失败, 转 DLQ", "vin", reports[i].VIN, "err", err)
+			if b, mErr := json.Marshal(dlqMessage{
+				VIN: reports[i].VIN, Stage: "encode",
+				Reason: "解析产物序列化失败: " + err.Error(), At: time.Now().Unix(),
+			}); mErr == nil {
+				st.pendingDLQ = append(st.pendingDLQ, pendingDLQItem{
+					msg:   kafka.Message{Key: []byte(reports[i].VIN), Value: b, Time: time.Now()},
+					stage: "encode",
+				})
+			}
+			continue
+		}
+		st.pendingReports = append(st.pendingReports, pendingReport{
+			msg:      kafka.Message{Key: reports[i].Key(), Value: encoded, Time: time.Now()},
+			typeName: string(reports[i].Type),
+		})
+	}
+	for _, d := range dlqs {
+		b, err := json.Marshal(d)
+		if err != nil {
+			continue
+		}
+		st.pendingDLQ = append(st.pendingDLQ, pendingDLQItem{
+			msg:   kafka.Message{Key: []byte(d.VIN), Value: b, Time: time.Now()},
+			stage: d.Stage,
+		})
+		slog.Warn("消息进 DLQ", "stage", d.Stage, "reason", d.Reason, "vin", d.VIN)
+	}
+	st.pendingMsgs = append(st.pendingMsgs, msg)
+}
+
+// shouldFlush 缓冲达到攒批阈值(200 条)即冲刷。
+// 必须持有 mu 调用; 只做判断, 实际 flush 由调用方在**释放锁之后**执行(flush 自身要取锁)。
+func shouldFlush(st *batchState) bool {
+	return len(st.pendingMsgs) >= 200
 }
 
 // process 信封 → 帧解析 → v1 解码 → 契约校验。纯函数, 便于测试。
@@ -267,20 +419,25 @@ func process(raw []byte) (reports []vehicle.VehicleReport, dlqs []dlqMessage) {
 type codecConfig struct {
 	brokers     []string
 	metricsPort int
-	srcTopic string
-	dstTopic string
-	dlqTopic string
-	groupID  string
+	pprofBind   string
+	pprofPort   int
+	srcTopic    string
+	dstTopic    string
+	dlqTopic    string
+	groupID     string
 }
 
 func loadConfig() codecConfig {
 	return codecConfig{
 		brokers:     envList("KAFKA_BROKERS", []string{"localhost:19092"}),
 		metricsPort: envInt("CODEC_METRICS_PORT", 18090),
-		srcTopic: envStr("CODEC_SRC_TOPIC", "ov.raw.binary.v1"),
-		dstTopic: envStr("CODEC_DST_TOPIC", "vehicle-report-raw"),
-		dlqTopic: envStr("CODEC_DLQ_TOPIC", "ov.dlq.codec.v1"),
-		groupID:  envStr("CODEC_GROUP", "device-codec-v1"),
+		// pprof 只绑回环: 能读出进程内存(含凭据)
+		pprofBind: envStr("CODEC_PPROF_BIND", "127.0.0.1"),
+		pprofPort: envInt("CODEC_PPROF_PORT", 18091),
+		srcTopic:  envStr("CODEC_SRC_TOPIC", "ov.raw.binary.v1"),
+		dstTopic:  envStr("CODEC_DST_TOPIC", "vehicle-report-raw"),
+		dlqTopic:  envStr("CODEC_DLQ_TOPIC", "ov.dlq.codec.v1"),
+		groupID:   envStr("CODEC_GROUP", "device-codec-v1"),
 	}
 }
 
