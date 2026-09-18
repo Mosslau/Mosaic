@@ -16,10 +16,10 @@
 |---|---|
 | 看**现在走到哪**、下一步做什么 | `roadmap/项目进度.md` |
 | 把环境跑起来 | 《deploy/README.md》§4（首次先 `bash emqx/gen-certs.sh`） |
-| 亲手验证一条数据流 | `ingest/docs/接入层示例集-v1.md`（命令 → 期望输出 → 判定） |
+| 亲手验证一条数据流 | `ingest/docs/03-验收示例集-v1.md`（命令 → 期望输出 → 判定） |
 | 看**指标面板** | http://localhost:3000（`admin`/`admin`）→ Dashboards：`device-gateway` / `device-codec` |
-| 读**设计** | 《ingest/docs/接入层与车端接入网关设计-v1.md》（权威）/《ingest/docs/GB32960-二进制协议与字段映射-v1.md》（协议） |
-| 排障 | 《deploy/README.md》Q1~Q13 +《ingest/docs/接入层示例集-v1.md》§7 判定清单 |
+| 读**设计** | 《ingest/docs/01-接入层设计-v1.md》（权威）/《ingest/docs/02-GB32960协议规格-v1.md》（协议） |
+| 排障 | 《deploy/README.md》Q1~Q13 +《ingest/docs/03-验收示例集-v1.md》§7 判定清单 |
 | 看**全局蓝图** | `roadmap/OceanVerse架构总览.md`（八大能力域 + 24 月五阶段） |
 
 ## CI 管什么

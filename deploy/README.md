@@ -1,6 +1,6 @@
 # OceanVerse 第 1 阶段 基础设施部署文档
 
-> 📚 **简称约定**：《接入层设计》= 《../ingest/docs/接入层与车端接入网关设计-v1.md》｜《GB32960 映射》= 《../ingest/docs/GB32960-二进制协议与字段映射-v1.md》。
+> 📚 **简称约定**：《接入层设计》= 《../ingest/docs/01-接入层设计-v1.md》｜《GB32960 映射》= 《../ingest/docs/02-GB32960协议规格-v1.md》。
 
 > 适用阶段：第 1 阶段第 1 步——最小可用链路的底座
 > 容器运行时：**Rancher Desktop**（moby 引擎，非 Docker Desktop，符合本机策略）

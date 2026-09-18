@@ -1,13 +1,13 @@
 # device-gateway 车端接入网关
 
-> 📚 **简称约定**：《接入层设计》= 《../docs/接入层与车端接入网关设计-v1.md》｜《GB32960 映射》= 《../docs/GB32960-二进制协议与字段映射-v1.md》。下文以这两个简称标注跨文档引用。
+> 📚 **简称约定**：《接入层设计》= 《../docs/01-接入层设计-v1.md》｜《GB32960 映射》= 《../docs/02-GB32960协议规格-v1.md》｜《示例集》= 《../docs/03-验收示例集-v1.md》。下文以这三个简称标注跨文档引用。
 
 > OceanVerse 第 1 阶段第 2 步 —— 平台的数据"国门"
 > 职责: 设备鉴权 → 限流 → 协议解析/校验 → 写 Kafka → 全程可观测
 > 原则: 网关无业务逻辑、无状态、不直连数据库; 越"笨"越稳。
 > 📐 **设计见**《接入层设计》（含 §12 成熟度评估）；二进制链路见《GB32960 映射》
 
-## 处理链与端口
+## 1. 处理链与端口
 
 ```mermaid
 flowchart TB
@@ -39,7 +39,7 @@ flowchart TB
 
 > 接入层整体设计(EMQX 链路/四支柱/生产加固清单)见 `ingest/README.md`
 
-## 配置（全部走环境变量）
+## 2. 配置（全部走环境变量）
 
 | 变量 | 默认值 | 说明 |
 |---|---|---|
@@ -55,13 +55,13 @@ flowchart TB
 | `GATEWAY_READ_TIMEOUT` / `GATEWAY_WRITE_TIMEOUT` | `5s` | HTTP 超时 |
 | `GATEWAY_SHUTDOWN_GRACE` | `10s` | 优雅退出宽限 |
 
-## 前置：Go 模块代理（国内必配）
+## 3. 前置：Go 模块代理（国内必配）
 
 ```bash
 go env -w GOPROXY=https://goproxy.cn,direct
 ```
 
-## 本地运行
+## 4. 本地运行
 
 ```bash
 # 0. 基础设施已就绪(deploy/README.md), Kafka 在 localhost:19092
@@ -83,7 +83,7 @@ GATEWAY_PORT=18080 GATEWAY_DEV_MODE=true go run ./cmd/server
 
 启动日志应看到：`车端接入网关启动 port=8080 topic=vehicle-report-raw ...`
 
-## 验证（另开终端）
+## 5. 验证（另开终端）
 
 ### ① 正常上报 → Kafka 消费到
 
@@ -121,7 +121,7 @@ curl -X POST http://localhost:18080/api/v1/vehicle/report \
 ```
 
 > 完整的**五环逐环示例**（401 / 429 / 400-解析 / 400-契约 / 500-Kafka，含实测响应体与指标标签）
-> 与**三条通道端到端示例**见《../docs/接入层示例集-v1.md》§1~§2。
+> 与**三条通道端到端示例**见《示例集》§1~§2。
 
 ### ④ 指标
 
@@ -130,7 +130,89 @@ curl -s http://localhost:18080/metrics | grep gateway_requests_total
 curl -s http://localhost:18080/metrics | grep gateway_kafka_write_total
 ```
 
-## 压测
+## 6. 治理策略与取舍（五环逐环）
+
+### 6.1 处理链与通道差异
+
+```mermaid
+flowchart LR
+  REQ["请求"] --> MW["metrics 中间件<br/>最外层：被拒的请求也计数"]
+  MW --> AUTH{"鉴权"}
+  AUTH -- "失败 → 401" --> E401["UNAUTHORIZED"]
+  AUTH -- 通过 --> RL{"限流<br/>单设备 + 全局令牌桶"}
+  RL -- "超限 → 429<br/>Retry-After: 1" --> E429["RATE_LIMITED<br/>不排队，快速失败"]
+  RL -- 通过 --> H["handler"]
+  H --> V{"契约校验<br/>通道③ 只验 topic 形态 + base64"}
+  V -- "失败 → 400<br/>INVALID_BODY / INVALID_DATA" --> E400["带具体原因回给设备端"]
+  V -- 通过 --> K["Kafka producer<br/>异步攒批 200 条 / 50ms<br/>Hash(VIN) 保序"]
+  K --> OK["202（HTTP 通道）/ 204（webhook）"]
+  K -. "投递失败 → 5xx<br/>让 EMQX/设备重试" .-> RETRY["上游重试（不自行丢弃）"]
+```
+
+| 环节 | 通道① HTTP | 通道② JSON webhook | 通道③ 二进制 webhook |
+|---|---|---|---|
+| 鉴权 | 设备 token 白名单（支持 dev 模式） | webhook 共享密钥 | webhook 共享密钥 |
+| 限流 | 单设备 + 全局令牌桶 | 仅全局（单设备在 EMQX 协议层） | 仅全局 |
+| 校验 | `VehicleReport.Validate()` | 同左 + topic 回填 VIN/type | **不校验 payload**（不解帧）→ 只验 topic 形态 + base64 |
+| 投递 | `vehicle-report-raw` | 同左 | `ov.raw.binary.v1`（信封含 vin/ts/proto_ver/cmd/payload） |
+| 响应 | 202（受理） | 204（webhook 惯例） | 204 |
+
+### 6.2 鉴权策略
+
+| 策略 | 做法 | 理由 |
+|---|---|---|
+| 静态白名单（现） | `DEVICE_TOKENS` + `GATEWAY_DEV_MODE` 放行 `dev-` 前缀 | 第 1 阶段最小可用；动态鉴权等 Java 档案服务 |
+| webhook 密钥 | `X-Webhook-Token` 共享密钥（与 `emqx.conf` 一致） | 只信任自家 EMQX；《接入层设计》§5.3 四条对齐线之一 |
+| 危险配置告警 | 启动时对 dev 模式/默认密钥打 WARN | 安全内建在启动流程，不靠人记 |
+
+### 6.3 限流策略
+
+| 策略 | 参数 | 理由 |
+|---|---|---|
+| 单设备令牌桶 | 10 条/s | 掐住"单设备发疯"（50/s 冲击实测被削到 10.1/s） |
+| 全局令牌桶 | 5000 条/s（本机压测调到 30000） | 防"万车惊群"；配合 Kafka 天然削峰 |
+| 拒绝语义 | 429 + `Retry-After: 1`，**不排队** | 快速失败让设备端自己退避，网关内存不堆消息 |
+| 限流器状态 | 内存态（第 2 阶段 Redis 化） | 单副本够用；多副本前必须外置（军规②） |
+
+### 6.4 校验策略（契约校验是唯一漏斗）
+
+- 解析失败 → 400 `INVALID_BODY`（含 64KB 上限，二进制 96KB）
+- 校验失败 → 400 `INVALID_DATA`（**消息体带具体原因**，便于设备端自排查）
+- 缺省回填：`schema_version` 空 → `v1`（保证进 Kafka 的消息显式带版本）
+- 未知版本 → 拒绝（fail-fast，防按错误格式解析未来报文）
+- 通道② 契约回填：`type`/`vin` 缺失时按 topic `ov/{vin}/{type}` 推断
+
+### 6.5 投递策略
+
+| 策略 | 参数 | 理由 |
+|---|---|---|
+| 异步 + 攒批 | 200 条 / 50ms | HTTP 链路不被 Kafka 拖慢；延迟代价 ≈50ms |
+| 分区 | `Hash(key=VIN)` | 同一辆车进同一分区 → 局部有序 |
+| 持久性档 | `RequireOne`（第 1 阶段） | 性能优先；事件类改 RequireAll 随 topic 家族拆分 |
+| 失败语义 | 返回 5xx 让上游重试（EMQX 缓冲重试 / 设备重试） | 兜底不丢；重复由下游幂等 |
+| 优雅退出 | SIGTERM → 停收 → producer Close 冲刷（10s 宽限） | 压测实测受理≈落盘，零丢失 |
+
+### 6.6 可靠性策略（故障矩阵）
+
+| 故障 | 兜底 | 实测 |
+|---|---|---|
+| 网关宕机 | EMQX webhook 缓冲重试（`request_ttl=300s` + `health_check=5s`） | 补投率 100%（修复 TTL 赛跑后） |
+| Kafka 不可用 | 客户端内部缓冲 + 5xx 重试 | pause 45s 被缓冲完全吸收，零失败 |
+| EMQX 宕机 | 设备 AutoReconnect，生产 LB 摘除 | 300 设备全部重连 |
+| 单设备发疯 | 单设备令牌桶 | 50/s 削到 10.1/s |
+| QoS1 重复 | 下游 `(vin, ts)` 幂等 | 实测均带完整幂等键 |
+
+**核心设计**：网关内存里**不**堆消息（无状态才扩得动），缓冲职责推给两侧专业组件（EMQX / Kafka）。
+
+### 6.7 可观测策略
+
+- 指标：`requests_total{path,result}` / `request_duration_seconds` / `kafka_write_total{topic,result}` / inflight
+- pprof 按需剖析；Grafana 面板 provisioning（面板即代码）
+- **三处对账公式**：EMQX 命中 ≈ 网关 ok ≈ Kafka write ok（差异必须可解释）
+
+---
+
+## 7. 压测
 
 ```bash
 # 模拟器在独立模块 ingest/device-simulator(压测工具不进生产模块)
@@ -152,7 +234,7 @@ curl -s http://localhost:18080/metrics | grep -E 'requests_total|inflight'
 go tool pprof http://localhost:18080/debug/pprof/profile?seconds=30
 ```
 
-## MQTT 通道验证（企业级链路：设备 → EMQX → 规则引擎 → 网关 → Kafka）
+## 8. MQTT 通道验证（企业级链路：设备 → EMQX → 规则引擎 → 网关 → Kafka）
 
 ```bash
 # 0. 确认 EMQX 已启动(deploy/README.md), Dashboard: http://localhost:18083 (admin/public)
@@ -177,7 +259,7 @@ curl -s http://localhost:18080/metrics | grep 'gateway_requests_total'
 #    Dashboard → 集成 → 规则 → ov_vehicle_ingress(命中率/成功率)
 ```
 
-## 二进制通道验证（设备 → EMQX → 网关透传 → codec → Kafka）
+## 9. 二进制通道验证（设备 → EMQX → 网关透传 → codec → Kafka）
 
 ```bash
 # 1. 启动网关 + codec(codec 是独立模块, 另开终端)
@@ -200,7 +282,7 @@ docker exec ov-kafka /opt/kafka/bin/kafka-console-consumer.sh \
 # 5. EMQX 规则 ov_binary_ingress 命中率 vs 网关 path="/api/v1/bin/ingest" 计数对账
 ```
 
-## Docker 构建与运行（第 2 阶段上编排的前置验证）
+## 10. Docker 构建与运行（第 2 阶段上编排的前置验证）
 
 **⚠️ 构建上下文必须是仓库根**（契约模块在 `ingest/device-contracts`，`go.mod` 的 `replace` 指过去；
 在模块目录内 `docker build .` 会报 `replacement directory ../device-contracts does not exist`）：
@@ -224,9 +306,17 @@ docker run --rm --network oceanverse_ov-net -p 18080:18080 \
 #             打一条上报后看 topic offset 是否 +1(202 只代表受理, 不代表落盘)
 ```
 
-## 已知边界（刻意不做）
+## 11. 已知边界（刻意不做）
 
 - 鉴权是静态白名单；第 2 阶段接车辆档案服务改为动态校验
 - Kafka RequiredAcks=RequireOne 性能优先；要更强持久性改 `kafka.RequireAll`
-- 已实现**三通道**：HTTP / MQTT-JSON(webhook) / 二进制透传（`bin_ingest.go`，不解帧）；gRPC 内部通道第 2 阶段加；TCP 私有协议按《../docs/GB32960-二进制协议与字段映射-v1.md》§7 作为**分级 fallback**（网关新增 TCP 监听）
+- 已实现**三通道**：HTTP / MQTT-JSON(webhook) / 二进制透传（`bin_ingest.go`，不解帧）；gRPC 内部通道第 2 阶段加；TCP 私有协议按《GB32960 映射》§7 作为**分级 fallback**（网关新增 TCP 监听）
 - 消息清洗/字段加工不做（那是 Flink 计算层的职责）
+
+## 12. 延伸阅读（为什么这么设计）
+
+- 《接入层设计》§3（网关内部设计：为什么"越笨越稳"、为什么不解帧）
+- 《接入层设计》§5.3（四条对齐线：EMQX 规则 ↔ 网关配置，静默失败的头号来源）
+- 《示例集》§1~§2（三条通道端到端实测输出 + 五环逐环 401/429/400/500）
+
+> 本手册只讲"怎么跑/怎么验"；上面的层文档讲"为什么"。设计与规格的权威在那两篇，本手册不复制其内容。
