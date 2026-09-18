@@ -46,6 +46,34 @@ docker run --rm --network oceanverse_ov-net \
 
 无端口：输入输出都是 Kafka topic；容器内验证看消费组 lag 与 `vehicle-report-raw` 是否新增。
 
+## 可观测（2026-09-18 补齐）
+
+```bash
+curl -s localhost:18090/health    # {"lag":0,"status":"up"}  ← K8s liveness/readiness 用
+curl -s localhost:18090/metrics | grep ^codec_
+```
+
+| 指标 | 含义 | 告警建议 |
+|---|---|---|
+| `codec_consumed_total` | 消费的原始帧数 | —— |
+| `codec_decoded_total{type}` | 解码产出（按 5 类 type 分） | 与 consumed 的比值 ≈ 每帧拆出几条 |
+| `codec_dlq_total{stage}` | 进 DLQ 数（envelope/parse/unit/validate） | **>0 持续增长即告警**（唯一会丢数据的环节） |
+| `codec_consumer_lag` | 消费滞后条数 | 持续 >0 → 扩容或查下游写慢 |
+| `codec_flush_duration_seconds` / `codec_flush_batch_size` | 微批写出耗时与批大小 | 写出变慢/批变小说明攒批失效 |
+
+`/health` **不探测 Kafka**：codec 无状态，依赖抖动由 lag 指标与重启策略覆盖，探针探测外部依赖会引发无意义重启。
+
+## 设计要点与不变量
+
+| 要点 | 说明 |
+|---|---|
+| 只做翻译 | 消费 `ov.raw.binary.v1` → 输出 `VehicleReport`；鉴权/限流在网关，业务判断在下游 |
+| 无状态 | 消费组 `device-codec-v1` 加副本即横扩；无本地状态、无端口依赖 |
+| 版本纪律 | 未知 `proto_ver` 不猜 → DLQ；新版本 = 新增解码器，不改存量 |
+| 失败分级 | 帧级 / 单元级 DLQ，字段级丢弃（见《GB32960 映射》§5.2） |
+| 交付语义 | 写出成功才提交位移（at-least-once），重复由下游 `(vin, ts)` 幂等吸收 |
+| 设计出处 | 上行职责：《GB32960 映射》§7；链路与 L1/L2 分层：《接入层设计》§4/§7 |
+
 ## 可靠性语义
 
 - **写出全部成功才提交位移**：崩溃/失败 → 重读，at-least-once（下游按 `(vin,ts)` 幂等）

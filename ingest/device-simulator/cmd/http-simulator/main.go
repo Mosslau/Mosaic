@@ -28,7 +28,7 @@ import (
 )
 
 var (
-	target   = flag.String("target", "http://localhost:8080", "网关地址")
+	target   = flag.String("target", "http://localhost:18080", "网关地址(本机开发固定 18080; 默认 GATEWAY_PORT 为 8080)")
 	devices  = flag.Int("devices", 100, "模拟设备数")
 	interval = flag.Duration("interval", 5*time.Second, "单设备上报间隔")
 	duration = flag.Duration("duration", 60*time.Second, "压测总时长 (0=不限, Ctrl+C 停止)")

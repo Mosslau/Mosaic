@@ -120,6 +120,9 @@ curl -X POST http://localhost:18080/api/v1/vehicle/report \
   -d '{"vin":"OV20260001","ts":'"$(date +%s)"',"type":"vehicle_status","data":{"soc":300}}'
 ```
 
+> 完整的**五环逐环示例**（401 / 429 / 400-解析 / 400-契约 / 500-Kafka，含实测响应体与指标标签）
+> 与**三条通道端到端示例**见《../docs/接入层示例集-v1.md》§1~§2。
+
 ### ④ 指标
 
 ```bash

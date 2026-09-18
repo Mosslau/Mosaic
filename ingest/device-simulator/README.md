@@ -42,6 +42,49 @@ go run ./cmd/bin-simulator -tls -cacert ../../deploy/emqx/certs/ca.crt \
 go run ./cmd/security-check -vin OV20260001 -other-vin OV00000099
 ```
 
+## 全参数表
+
+**`cmd/http-simulator`（HTTP 通道）**
+
+| 参数 | 默认 | 说明 |
+|---|---|---|
+| `-target` | `http://localhost:18080` | 网关地址（本机开发固定 18080） |
+| `-devices` | 100 | 虚拟车辆数 |
+| `-interval` | 5s | 单设备上报间隔 |
+| `-duration` | 60s | 总时长（0=不限，Ctrl+C 停） |
+
+**`cmd/mqtt-simulator`（MQTT JSON） / `cmd/bin-simulator`（二进制帧）**
+
+| 参数 | 默认 | 说明 |
+|---|---|---|
+| `-broker` | `tcp://localhost:1883` | 本机 1883 被占时用 `tcp://localhost:11883` |
+| `-devices` / `-interval` / `-duration` | 100 / 5s（bin 为 10s）/ 60s | bin 默认 10s = 国标频率基线 |
+| `-fault-pct` | 0.01 | JSON: 附带故障消息概率；bin: 附带 0x07 报警信息体概率 |
+| `-tls` | false | 公网形态：TLS + 一车一密（clientid=username=VIN） |
+| `-cacert` | `../../deploy/emqx/certs/ca.crt` | TLS 校验用自签 CA |
+| `-password-prefix` | `pw-` | 一车一密密码前缀（与 `seed-users.sh` 一致） |
+
+**`cmd/security-check`（公网基线自检）**
+
+| 参数 | 默认 |
+|---|---|
+| `-tls-broker` / `-plain-broker` | `localhost:8883` / `localhost:11883` |
+| `-cacert` | `../../deploy/emqx/certs/ca.crt` |
+| `-vin` / `-other-vin` | `OV20260001` / `OV00000099` |
+| `-password-prefix` / `-timeout` | `pw-` / 8s |
+
+**期望输出与端到端示例**：见《../docs/接入层示例集-v1.md》§5~§6（含实测输出）。
+
+## 设计要点与不变量
+
+| 要点 | 说明 |
+|---|---|
+| 工具不进生产 | 独立模块，不参与部署；与生产代码只共享契约 |
+| 两身份形态 | dev（`dev-{VIN}` 匿名明文）↔ 生产（`clientid=username=VIN` + TLS），由 `internal/simconn` 统一 |
+| 造坏数据 | 刻意注入欠压/高温/故障/能量回收，让告警与清洗链路有真实样本 |
+| 对拍机制 | `simframe` 造帧器与 codec 解码器**独立实现同一规格**，黄金样本双端各存一份 |
+| 设计出处 | 《接入层设计》§10.1（模拟与验证方案）；帧规格《GB32960 映射》§5/§5.1/§5.2 |
+
 ## 目录
 
 ```

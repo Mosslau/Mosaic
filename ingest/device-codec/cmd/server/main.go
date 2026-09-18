@@ -13,8 +13,10 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -24,6 +26,7 @@ import (
 
 	"github.com/Mosslau/OceanVerse/ingest/device-contracts/vehicle"
 	"github.com/Mosslau/OceanVerse/ingest/device-codec/internal/gbt32960"
+	"github.com/Mosslau/OceanVerse/ingest/device-codec/internal/metrics"
 )
 
 // rawEnvelope 网关透传信封(映射文档 §7)
@@ -71,8 +74,18 @@ func main() {
 		dlqWriter.Close()
 	}()
 
+	// 可观测: /metrics(Prometheus) + /health(K8s 探针用; 无端口服务因此单开一个端口)
+	srv := &http.Server{Addr: ":" + strconv.Itoa(cfg.metricsPort), Handler: metrics.Handler()}
+	go func() {
+		slog.Info("codec 可观测端点启动", "addr", srv.Addr)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			slog.Error("可观测端点异常退出", "err", err)
+		}
+	}()
+
 	slog.Info("device-codec 启动",
-		"src", cfg.srcTopic, "dst", cfg.dstTopic, "dlq", cfg.dlqTopic, "group", cfg.groupID)
+		"src", cfg.srcTopic, "dst", cfg.dstTopic, "dlq", cfg.dlqTopic, "group", cfg.groupID,
+		"metricsPort", cfg.metricsPort)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	quit := make(chan os.Signal, 1)
@@ -118,13 +131,30 @@ func main() {
 			}
 			dCommit = time.Since(t1)
 		}
-		if d := time.Since(t0); d > 200*time.Millisecond {
+		d := time.Since(t0)
+		metrics.FlushDuration.Observe(d.Seconds())
+		metrics.FlushBatchSize.Observe(float64(len(pendingMsgs)))
+		if d > 200*time.Millisecond {
 			slog.Warn("flush 耗时过长", "total", d, "write", dWrite, "commit", dCommit, "msgs", len(pendingMsgs))
 		}
 		pendingReports = pendingReports[:0]
 		pendingDLQ = pendingDLQ[:0]
 		pendingMsgs = pendingMsgs[:0]
 	}
+
+	// lag 采集: 每 5s 从 kafka-go ReaderStats 取消费者滞后(实时性的核心指标)
+	go func() {
+		t := time.NewTicker(5 * time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				metrics.Lag.Set(float64(reader.Stats().Lag))
+			}
+		}
+	}()
 
 	// 定时冲刷: 消息稀疏时微批不积压(攒批 200 条 / 100ms)
 	go func() {
@@ -156,6 +186,7 @@ func main() {
 			continue
 		}
 		consumed++
+		metrics.ConsumedTotal.Inc()
 
 		reports, dlqs := process(msg.Value)
 		mu.Lock()
@@ -165,6 +196,7 @@ func main() {
 				slog.Error("解析产物序列化失败", "vin", reports[i].VIN, "err", err)
 				continue
 			}
+			metrics.DecodedTotal.WithLabelValues(string(reports[i].Type)).Inc()
 			pendingReports = append(pendingReports, kafka.Message{Key: reports[i].Key(), Value: payload, Time: time.Now()})
 		}
 		for _, d := range dlqs {
@@ -172,6 +204,7 @@ func main() {
 			if err != nil {
 				continue
 			}
+			metrics.DLQTotal.WithLabelValues(d.Stage).Inc()
 			pendingDLQ = append(pendingDLQ, kafka.Message{Key: []byte(d.VIN), Value: b, Time: time.Now()})
 			slog.Warn("消息进 DLQ", "stage", d.Stage, "reason", d.Reason, "vin", d.VIN)
 		}
@@ -232,7 +265,8 @@ func process(raw []byte) (reports []vehicle.VehicleReport, dlqs []dlqMessage) {
 }
 
 type codecConfig struct {
-	brokers  []string
+	brokers     []string
+	metricsPort int
 	srcTopic string
 	dstTopic string
 	dlqTopic string
@@ -241,12 +275,20 @@ type codecConfig struct {
 
 func loadConfig() codecConfig {
 	return codecConfig{
-		brokers:  envList("KAFKA_BROKERS", []string{"localhost:19092"}),
+		brokers:     envList("KAFKA_BROKERS", []string{"localhost:19092"}),
+		metricsPort: envInt("CODEC_METRICS_PORT", 18090),
 		srcTopic: envStr("CODEC_SRC_TOPIC", "ov.raw.binary.v1"),
 		dstTopic: envStr("CODEC_DST_TOPIC", "vehicle-report-raw"),
 		dlqTopic: envStr("CODEC_DLQ_TOPIC", "ov.dlq.codec.v1"),
 		groupID:  envStr("CODEC_GROUP", "device-codec-v1"),
 	}
+}
+
+func envInt(key string, def int) int {
+	if v, err := strconv.Atoi(os.Getenv(key)); err == nil && v > 0 {
+		return v
+	}
+	return def
 }
 
 func envStr(key, def string) string {

@@ -33,6 +33,16 @@ replace github.com/Mosslau/OceanVerse/ingest/device-contracts => ../device-contr
 import "github.com/Mosslau/OceanVerse/ingest/device-contracts/vehicle"
 ```
 
+## 设计要点与不变量
+
+| 要点 | 说明 |
+|---|---|
+| 信封一份 | 无论 L1 是 JSON 还是二进制帧，经网关/codec 后都是同一个 `VehicleReport` |
+| 字段全可选 | 新增字段向后兼容；删/改语义 = 新版本（信封 v2 的 `schema_version`） |
+| fail-fast | 未知版本拒绝而非猜测（网关与 codec 都执行） |
+| 单一真相 | 本模块是契约的 Go 绑定；语言无关形态在根 `contracts/`；L1↔L2 映射在《GB32960 映射》 |
+| 设计出处 | 《接入层设计》§4（L2 契约与版本化）、§4.4（信封 v2 死线） |
+
 ## 纪律
 
 - 契约字段全可选（omitempty），新增字段向后兼容；删除/改语义 = 新版本
