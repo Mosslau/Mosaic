@@ -157,6 +157,10 @@ jobs:
             sleep 2
           done
           docker logs gw-health | tail -3; docker logs codec-health | tail -3
+      - name: install lsof
+        # GitHub ubuntu runner 不预装 lsof, 而判据 3(端口/孤儿检测)依赖它。
+        # 这一步是必须的: 缺失时旧版脚本会把"工具缺失"伪装成"服务没起来"(实测踩过)。
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lsof
       - name: health check (Q11 判据 — 成员数/分区归属/端口监听者/计数活性/受理对账)
         env:
           # CI 的 Kafka 是 service container(名为 kafka), 本机是 ov-kafka → 必须覆盖,

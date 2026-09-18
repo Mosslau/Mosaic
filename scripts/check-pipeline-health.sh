@@ -52,6 +52,15 @@ bad()  { echo "  [FAIL] $1"; fail=$((fail+1)); }
 info() { echo "         $1"; }
 
 kafka() { docker exec "$KAFKA_CONTAINER" /opt/kafka/bin/"$@" 2>/dev/null; }
+
+# 前置: Kafka CLI 是否可用。区分"没有成员"与"命令/容器不存在"——
+# 二者在旧版实现里都会表现为空输出, 容易误判。
+if ! kafka kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1; then
+  echo "  [FAIL] 无法通过 docker exec ${KAFKA_CONTAINER} 调用 Kafka CLI（容器名/镜像/路径不对?）"
+  echo "         提示: 本机容器名是 ov-kafka, CI(GitHub service container) 是 kafka —— 用 KAFKA_CONTAINER 覆盖"
+  echo; echo "==== 自检结果: 前置检查未通过, 后续判据不可信 ===="
+  exit 1
+fi
 metric() { curl -s -m 3 "$1/metrics" 2>/dev/null | awk -v k="$2" '$1==k {print $2}'; }
 metric_sum() { curl -s -m 3 "$1/metrics" 2>/dev/null | awk -v re="$2" '$0 ~ re {s+=$2} END {print s+0}'; }
 
@@ -103,7 +112,21 @@ echo "3) 宿主进程（每个服务只应有一个进程占住它的监听端�
 # 判据: 每个服务只应有一个进程占住它的**监听端口**。
 # 不用 "谁连着 Kafka" —— lsof 的 COMMAND 列被截断到 9 字符(gateway 显示为 device-ga),
 # 且网关是按需建连、平时没有 19092 长连接, 原判据会误报"没在运行"。
+# 判据用"实际能否执行"而不是 command -v: PATH 里存在同名但不可执行的占位脚本时,
+# command -v 会返回成功而实际调用失败(测试 lsof 缺失场景时踩到)。
+# lsof 退出码 1 = 没有匹配项, 说明 lsof 本身可用。
+LSOF_OK=0
+lsof -nP -iTCP:1 -sTCP:LISTEN >/dev/null 2>&1
+case $? in 0|1) LSOF_OK=1;; esac
+if [[ "$LSOF_OK" -eq 0 ]]; then
+  # 关键: lsof 不可用时**必须显式报错** —— 早期版本用 2>/dev/null 吞掉了
+  # "command not found", 结果对每个服务都报"端口无监听", 在 CI(GitHub ubuntu runner
+  # 不预装 lsof)上把"工具缺失"伪装成"服务没起来", 排查代价极高(实测踩过)。
+  bad "lsof 缺失或不可执行, 无法做端口/孤儿检测（Debian/Ubuntu: apt-get install -y lsof; macOS 预装）"
+  info "跳过判据 3 的端口检测（已明确标注, 不再伪装成服务异常）"
+fi
 for pair in "${GATEWAY_PROC}:18080" "${CODEC_PROC}:18090"; do
+  [[ "$LSOF_OK" -eq 1 ]] || break
   role="${pair%%:*}"; port="${pair##*:}"
   pids=$(lsof -nP -iTCP:"$port" -sTCP:LISTEN -t 2>/dev/null | sort -u | tr '\n' ' ')
   n=$(printf '%s' "$pids" | wc -w | tr -d ' ')
