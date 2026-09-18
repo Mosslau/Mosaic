@@ -69,9 +69,9 @@ type ReportData struct {
 	SlotNo          *int64   `json:"slot_no,omitempty"`           // 换电柜仓号 ∈ [1,254]
 
 	// work 工况扩展(0x81 载体, 映射文档 §5.2):
-	RideState   *string  `json:"ride_state,omitempty"`  // riding/parked/pushing/reverse
-	RideMode    *string  `json:"ride_mode,omitempty"`   // eco/standard/sport
-	MotorRPM    *int64   `json:"motor_rpm,omitempty"`   // 电机转速 ∈ [0,20000]
+	RideState   *string  `json:"ride_state,omitempty"`   // riding/parked/pushing/reverse
+	RideMode    *string  `json:"ride_mode,omitempty"`    // eco/standard/sport
+	MotorRPM    *int64   `json:"motor_rpm,omitempty"`    // 电机转速 ∈ [0,20000]
 	MotorTorque *float64 `json:"motor_torque,omitempty"` // N·m, 负=能量回收
 	MotorPower  *float64 `json:"motor_power,omitempty"`  // W, 负=能量回收
 	Throttle    *int64   `json:"throttle,omitempty"`     // 转把开度 % ∈ [0,100]

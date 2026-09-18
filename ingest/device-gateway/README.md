@@ -20,7 +20,7 @@ flowchart TB
   subgraph C3["通道三：二进制透传（不解帧）"]
     A3["车端设备"] -->|"MQTT 二进制帧 ov/{vin}/bin"| B3["EMQX webhook(base64)"] -->|"POST /api/v1/bin/ingest<br/>验密钥 → 套信封"| B3b["透传 handler"]
   end
-  K1["Kafka vehicle-report-raw<br/>异步批量写入，VIN 哈希保序"]
+  K1["Kafka vehicle-report-raw<br/>同步投递(broker 确认后回 202)，VIN 哈希保序"]
   K2["Kafka ov.raw.binary.v1"]
   DC["device-codec 解码"]
   B1 --> K1
@@ -35,7 +35,7 @@ flowchart TB
 | `POST /api/v1/bin/ingest` | 二进制帧透传(通道三: **不解帧**, 套信封进 `ov.raw.binary.v1`, 解码归 device-codec) |
 | `GET /health` | 健康探针 |
 | `GET /metrics` | Prometheus 指标 |
-| `GET /debug/pprof/*` | 性能剖析 |
+| `GET /debug/pprof/*` | 性能剖析（**独立端口 18082，仅绑回环**） |
 
 > 接入层整体设计(EMQX 链路/四支柱/生产加固清单)见 `ingest/README.md`
 
@@ -50,8 +50,10 @@ flowchart TB
 | `DEVICE_TOKENS` | `demo-token-001` | 设备令牌白名单(逗号分隔) |
 | `GATEWAY_WEBHOOK_TOKEN` | `dev-webhook-secret` | EMQX webhook 来源密钥, 须与 emqx.conf 一致 |
 | `GATEWAY_DEV_MODE` | `false` | ⚠️ 开发模式: 放行所有 `dev-` 前缀 token, 生产必须关 |
-| `RATE_PER_DEVICE` | `10` | 单设备限流(条/秒) |
-| `RATE_GLOBAL` | `5000` | 全局限流(条/秒) |
+| `RATE_PER_DEVICE` | `10` | 单设备限流(条/秒)；**必须 ≥1**，<1 会让令牌桶容量为 0 导致全量 429（启动即 fail-fast） |
+| `RATE_GLOBAL` | `5000` | 全局限流(条/秒)；同样必须 ≥1 |
+| `GATEWAY_METRICS_PORT` | `18081` | `/metrics` 专用端口(全网卡, 供容器内 Prometheus 抓取) |
+| `GATEWAY_PPROF_BIND` / `GATEWAY_PPROF_PORT` | `127.0.0.1` / `18082` | `/debug/pprof/*` 监听地址(**默认仅回环**: 能读出进程内存) |
 | `GATEWAY_READ_TIMEOUT` / `GATEWAY_WRITE_TIMEOUT` | `5s` | HTTP 超时 |
 | `GATEWAY_SHUTDOWN_GRACE` | `10s` | 优雅退出宽限 |
 
@@ -72,13 +74,16 @@ go mod tidy
 go build ./...
 go vet ./...
 
-# 1.5 单元测试(5 个测试包 40+ 用例: 鉴权/限流/三通道 handler/配置/Kafka 投递; 契约与造帧器已迁独立模块)
+# 1.5 单元测试(5 个测试包: 鉴权/限流/三通道 handler/配置/Kafka 投递; 契约与造帧器已迁独立模块)
 go test ./... -count=1          # 全部通过
-go test ./... -cover            # 实测(2026-09-18): auth 100% / kafka 90% / ratelimit 85.3% / config 82.4% / handler 75.2%
+go test -race ./... -count=1    # 竞态检测(修复后新增)
+go test ./... -cover            # 实测(2026-09-18): auth 100% / ratelimit 87.2% / config 86.8% / kafka 78.6% / handler 77.7%
 
 # 2. 开发模式启动(允许 dev- 前缀 token, 方便联调压测)
 #    注意: 本机 8080~8083 被其他服务占用, 开发期固定 18080(与 emqx.conf webhook / prometheus 抓取一致)
 GATEWAY_PORT=18080 GATEWAY_DEV_MODE=true go run ./cmd/server
+#   可观测端点默认独立: GATEWAY_METRICS_PORT=18081(全网卡, 供 Prometheus 抓取)
+#                       GATEWAY_PPROF_PORT=18082(仅 127.0.0.1)
 ```
 
 启动日志应看到：`车端接入网关启动 port=8080 topic=vehicle-report-raw ...`
@@ -126,8 +131,8 @@ curl -X POST http://localhost:18080/api/v1/vehicle/report \
 ### ④ 指标
 
 ```bash
-curl -s http://localhost:18080/metrics | grep gateway_requests_total
-curl -s http://localhost:18080/metrics | grep gateway_kafka_write_total
+curl -s http://localhost:18081/metrics | grep gateway_requests_total
+curl -s http://localhost:18081/metrics | grep gateway_kafka_write_total
 ```
 
 ## 6. 治理策略与取舍（五环逐环）
@@ -144,7 +149,7 @@ flowchart LR
   RL -- 通过 --> H["handler"]
   H --> V{"契约校验<br/>通道③ 只验 topic 形态 + base64"}
   V -- "失败 → 400<br/>INVALID_BODY / INVALID_DATA" --> E400["带具体原因回给设备端"]
-  V -- 通过 --> K["Kafka producer<br/>异步攒批 200 条 / 50ms<br/>Hash(VIN) 保序"]
+  V -- 通过 --> K["Kafka producer<br/>同步 + 攒批 200 条 / 50ms<br/>Hash(VIN) 保序"]
   K --> OK["202（HTTP 通道）/ 204（webhook）"]
   K -. "投递失败 → 5xx<br/>让 EMQX/设备重试" .-> RETRY["上游重试（不自行丢弃）"]
 ```
@@ -152,7 +157,7 @@ flowchart LR
 | 环节 | 通道① HTTP | 通道② JSON webhook | 通道③ 二进制 webhook |
 |---|---|---|---|
 | 鉴权 | 设备 token 白名单（支持 dev 模式） | webhook 共享密钥 | webhook 共享密钥 |
-| 限流 | 单设备 + 全局令牌桶 | 仅全局（单设备在 EMQX 协议层） | 仅全局 |
+| 限流 | 单设备 + 全局令牌桶（双层） | **全局令牌桶**（单设备限流在 EMQX 协议层；2026-09-18 前该通道完全无限流，已补） | 同左 |
 | 校验 | `VehicleReport.Validate()` | 同左 + topic 回填 VIN/type | **不校验 payload**（不解帧）→ 只验 topic 形态 + base64 |
 | 投递 | `vehicle-report-raw` | 同左 | `ov.raw.binary.v1`（信封含 vin/ts/proto_ver/cmd/payload） |
 | 响应 | 202（受理） | 204（webhook 惯例） | 204 |
@@ -186,7 +191,7 @@ flowchart LR
 
 | 策略 | 参数 | 理由 |
 |---|---|---|
-| 异步 + 攒批 | 200 条 / 50ms | HTTP 链路不被 Kafka 拖慢；延迟代价 ≈50ms |
+| **同步投递** + 攒批 | 200 条 / 50ms，MaxAttempts=2、WriteTimeout=2s | 只有收到 broker 确认才回 202/204；失败沿调用链返回 5xx 让上游重试（§6 语义）。单次上报最坏阻塞约 4s < HTTP WriteTimeout 5s。**2026-09-18 前为 Async**：`WriteMessages` 立即返回 nil，失败只计数 → 已回 202 但未落盘且客户端不重试，同时 kafka-go 内部队列无上限（断连期 OOM） |
 | 分区 | `Hash(key=VIN)` | 同一辆车进同一分区 → 局部有序 |
 | 持久性档 | `RequireOne`（第 1 阶段） | 性能优先；事件类改 RequireAll 随 topic 家族拆分 |
 | 失败语义 | 返回 5xx 让上游重试（EMQX 缓冲重试 / 设备重试） | 兜底不丢；重复由下游幂等 |
@@ -229,9 +234,9 @@ go run ./cmd/http-simulator -target http://localhost:18080 -devices 100000 -inte
 
 ```bash
 # 网关处理速率/结果分布
-curl -s http://localhost:18080/metrics | grep -E 'requests_total|inflight'
+curl -s http://localhost:18081/metrics | grep -E 'requests_total|inflight'
 # pprof 性能剖析(压测进行中抓取 30s CPU profile)
-go tool pprof http://localhost:18080/debug/pprof/profile?seconds=30
+go tool pprof http://localhost:18082/debug/pprof/profile?seconds=30
 ```
 
 ## 8. MQTT 通道验证（企业级链路：设备 → EMQX → 规则引擎 → 网关 → Kafka）
@@ -252,7 +257,7 @@ docker exec ov-kafka /opt/kafka/bin/kafka-console-consumer.sh \
   --from-beginning --timeout-ms 10000
 
 # 4. 观察按通道区分的指标
-curl -s http://localhost:18080/metrics | grep 'gateway_requests_total'
+curl -s http://localhost:18081/metrics | grep 'gateway_requests_total'
 # 应同时看到 path="/api/v1/vehicle/report" 和 path="/api/v1/mqtt/ingest" 两个标签
 
 # 5. EMQX 侧观测: Dashboard → 客户端(应看到 100 个 dev-OV* 连接)

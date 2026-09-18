@@ -31,9 +31,9 @@ func BuildVehicleStatus(vin string, rng *rand.Rand, soc *float64) *vehicle.Vehic
 		Data: vehicle.ReportData{
 			Speed:    f64(speed),
 			SOC:      f64(*soc),
-			Voltage:  f64(55 + rng.Float64()*12),   // 48V/60V 平台
-			Current:  f64(-(2 + rng.Float64()*10)), // 放电 2~12A
-			TempMax:  f64(20 + rng.Float64()*25),   // 20~45℃
+			Voltage:  f64(55 + rng.Float64()*12),     // 48V/60V 平台
+			Current:  f64(-(2 + rng.Float64()*10)),   // 放电 2~12A
+			TempMax:  f64(20 + rng.Float64()*25),     // 20~45℃
 			Lng:      f64(113.9 + rng.Float64()*0.2), // 深圳南山附近
 			Lat:      f64(22.5 + rng.Float64()*0.2),
 			Odometer: f64(rng.Float64() * 20000),

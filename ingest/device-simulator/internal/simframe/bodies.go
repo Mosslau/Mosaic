@@ -61,13 +61,13 @@ func BodyPosition(lng, lat float64) []byte {
 // BodyExtremes 只承载 tempMax/tempMin(§5: 附带子系统号/探针号, L2 暂不暴露)。
 func BodyExtremes(tempMax, tempMin float64) []byte {
 	out := []byte{TypeExtremes}
-	out = append(out, invalidU8, invalidU8)                       // 最高电压子系统号/单体号
-	out = binary.BigEndian.AppendUint16(out, invalidU16)          // 最高单体电压
-	out = append(out, invalidU8, invalidU8)                       // 最低电压子系统号/单体号
-	out = binary.BigEndian.AppendUint16(out, invalidU16)          // 最低单体电压
-	out = append(out, invalidU8, invalidU8, tempByte(tempMax))    // 最高温度子系统号/探针号/值
-	out = append(out, invalidU8, invalidU8, tempByte(tempMin))    // 最低温度子系统号/探针号/值
-	return out // 1 + 14 = 15B
+	out = append(out, invalidU8, invalidU8)                    // 最高电压子系统号/单体号
+	out = binary.BigEndian.AppendUint16(out, invalidU16)       // 最高单体电压
+	out = append(out, invalidU8, invalidU8)                    // 最低电压子系统号/单体号
+	out = binary.BigEndian.AppendUint16(out, invalidU16)       // 最低单体电压
+	out = append(out, invalidU8, invalidU8, tempByte(tempMax)) // 最高温度子系统号/探针号/值
+	out = append(out, invalidU8, invalidU8, tempByte(tempMin)) // 最低温度子系统号/探针号/值
+	return out                                                 // 1 + 14 = 15B
 }
 
 // tempByte 温度编码: 偏移 -40℃, raw = ℃ + 40(§5)
@@ -134,12 +134,12 @@ func customBody(unitType byte, payload []byte) []byte {
 // ---- 0x80 charging 充电业务(§5.2, payload 定长 15B) ----
 
 type ChargingBody struct {
-	RemainMin  uint16  // 剩余充电时间 min
-	PowerKW    float64 // 充电功率 0.01 kW
-	EnergyKWh  float64 // 本次充电电量 0.01 kWh
-	PileID     uint32  // 充电桩号, 0=无
-	StationID  uint32  // 换电站 ID, 0=无
-	SlotNo     byte    // 换电柜仓号 1~254, 0xFF=无
+	RemainMin uint16  // 剩余充电时间 min
+	PowerKW   float64 // 充电功率 0.01 kW
+	EnergyKWh float64 // 本次充电电量 0.01 kWh
+	PileID    uint32  // 充电桩号, 0=无
+	StationID uint32  // 换电站 ID, 0=无
+	SlotNo    byte    // 换电柜仓号 1~254, 0xFF=无
 }
 
 func BodyCharging(b ChargingBody) []byte {

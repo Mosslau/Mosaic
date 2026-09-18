@@ -24,6 +24,6 @@ RUN cd ingest/device-gateway && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w
 FROM alpine:3.21
 RUN apk add --no-cache ca-certificates tzdata
 COPY --from=build /out/device-gateway /usr/local/bin/device-gateway
-EXPOSE 8080
+EXPOSE 8080 18081
 # 全部配置走环境变量, 见 README 配置表(本机开发常用 GATEWAY_PORT=18080)
 ENTRYPOINT ["device-gateway"]

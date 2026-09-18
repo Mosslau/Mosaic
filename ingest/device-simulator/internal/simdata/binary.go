@@ -52,12 +52,12 @@ type ChargingDetail struct {
 // BuildCharging 模拟一次换电柜/快充桩充电过程(仅在充电状态帧附带)。
 func BuildCharging(rng *rand.Rand) ChargingDetail {
 	return ChargingDetail{
-		RemainMin: uint16(20 + rng.IntN(160)),          // 20~180 分钟
-		PowerKW:   0.5 + rng.Float64()*2.5,             // 0.5~3 kW 两轮车快充
-		EnergyKWh: rng.Float64() * 1.5,                 // 本次已充 0~1.5 kWh
-		PileID:    uint32(1000 + rng.IntN(9000)),       // 桩号 1000~9999
-		StationID: uint32(100 + rng.IntN(900)),         // 站号 100~999
-		SlotNo:    uint8(1 + rng.IntN(12)),             // 仓号 1~12
+		RemainMin: uint16(20 + rng.IntN(160)),    // 20~180 分钟
+		PowerKW:   0.5 + rng.Float64()*2.5,       // 0.5~3 kW 两轮车快充
+		EnergyKWh: rng.Float64() * 1.5,           // 本次已充 0~1.5 kWh
+		PileID:    uint32(1000 + rng.IntN(9000)), // 桩号 1000~9999
+		StationID: uint32(100 + rng.IntN(900)),   // 站号 100~999
+		SlotNo:    uint8(1 + rng.IntN(12)),       // 仓号 1~12
 	}
 }
 
@@ -80,9 +80,9 @@ func BuildWork(rng *rand.Rand, speedKmh float64) WorkDetail {
 	w := WorkDetail{
 		RideState:   0x01, // 行驶
 		RideMode:    byte(1 + rng.IntN(3)),
-		MotorRPM:    uint16(speedKmh * 55),                    // ≈55 rpm/(km/h) 轮径拟合
-		MotorTorque: 8 + rng.Float64()*25,                     // 8~33 N·m
-		Throttle:    uint8(20 + rng.IntN(80)),                 // 20~100%
+		MotorRPM:    uint16(speedKmh * 55),    // ≈55 rpm/(km/h) 轮径拟合
+		MotorTorque: 8 + rng.Float64()*25,     // 8~33 N·m
+		Throttle:    uint8(20 + rng.IntN(80)), // 20~100%
 	}
 	w.MotorPower = float64(w.MotorTorque) * float64(w.MotorRPM) / 9.5488 // P=T·ω
 	if rng.Float64() < 0.03 {                                            // 3% 滑行回收

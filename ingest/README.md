@@ -105,7 +105,7 @@ flowchart LR
 - 故障矩阵 6✅1❌→P1 已修（补投率 100%）：《接入层设计》§6
 
 ### 可配置
-- 网关 12 项配置全部环境变量（见 `device-gateway/README.md`）；EMQX 全部行为声明在 `deploy/emqx/emqx.conf`
+- 网关 15 项配置全部环境变量（见 `device-gateway/README.md`）；EMQX 全部行为声明在 `deploy/emqx/emqx.conf`
 
 ## 生产加固清单(本地模拟 → 生产差距)
 
