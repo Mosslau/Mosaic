@@ -9,12 +9,12 @@ import (
 type ErrorCode string
 
 const (
-	CodeUnauthorized  ErrorCode = "UNAUTHORIZED"   // 设备鉴权失败
-	CodeRateLimited   ErrorCode = "RATE_LIMITED"   // 触发限流
-	CodeInvalidBody   ErrorCode = "INVALID_BODY"   // 请求体非法(JSON 解析失败等)
-	CodeInvalidData   ErrorCode = "INVALID_DATA"   // 数据校验失败
+	CodeUnauthorized   ErrorCode = "UNAUTHORIZED" // 设备鉴权失败
+	CodeRateLimited    ErrorCode = "RATE_LIMITED" // 触发限流
+	CodeInvalidBody    ErrorCode = "INVALID_BODY" // 请求体非法(JSON 解析失败等)
+	CodeInvalidData    ErrorCode = "INVALID_DATA" // 数据校验失败
 	CodeMethodNotAllow ErrorCode = "METHOD_NOT_ALLOWED"
-	CodeInternal      ErrorCode = "INTERNAL"       // 服务端内部错误
+	CodeInternal       ErrorCode = "INTERNAL" // 服务端内部错误
 )
 
 // AppError 网关统一错误结构

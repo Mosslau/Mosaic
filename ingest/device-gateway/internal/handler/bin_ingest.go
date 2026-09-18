@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
-	"strings"
 
 	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/metrics"
 	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/model"
@@ -55,10 +54,8 @@ func (h *BinIngestHandler) IngestBin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ① 来源鉴权: 只信任持有共享密钥的 EMQX
-	if r.Header.Get("X-Webhook-Token") != h.webhookToken {
-		metrics.RequestsTotal.WithLabelValues(path, "unauthorized").Inc()
-		model.WriteError(w, model.CodeUnauthorized, "webhook 令牌非法")
+	// ① 来源鉴权: 只信任持有共享密钥的 EMQX(常量时间比较)
+	if !checkWebhookToken(w, r, h.webhookToken, path) {
 		return
 	}
 
@@ -72,8 +69,8 @@ func (h *BinIngestHandler) IngestBin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// ③ 从 topic 取 VIN(topic = ov/{vin}/bin, ACL 语义同 JSON 通道)
-	parts := strings.Split(msg.Topic, "/")
-	if len(parts) != 3 || parts[0] != "ov" || parts[2] != "bin" || len(parts[1]) < 5 {
+	topicV, ok := topicVIN(msg.Topic, "bin", 5)
+	if !ok {
 		metrics.RequestsTotal.WithLabelValues(path, "invalid_data").Inc()
 		model.WriteError(w, model.CodeInvalidData, "topic 形态非法(期望 ov/{vin}/bin): "+msg.Topic)
 		return
@@ -87,7 +84,7 @@ func (h *BinIngestHandler) IngestBin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// ④ 套信封投递(Kafka key=VIN, 与 JSON 通道同一保序语义)
-	env := rawEnvelope{VIN: parts[1], Ts: msg.Ts / 1000, ProtoVer: "v1", Payload: msg.PayloadB64}
+	env := rawEnvelope{VIN: topicV, Ts: msg.Ts / 1000, ProtoVer: "v1", Payload: msg.PayloadB64}
 	if len(frame) >= 3 {
 		env.Cmd = frame[2] // 仅窥命令字; 帧同步/BCC/字段解析全在 codec
 	}

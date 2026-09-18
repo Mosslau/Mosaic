@@ -54,10 +54,8 @@ func (h *MQTTIngestHandler) Ingest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ① 来源鉴权: 只信任持有共享密钥的 EMQX
-	if r.Header.Get("X-Webhook-Token") != h.webhookToken {
-		metrics.RequestsTotal.WithLabelValues(path, "unauthorized").Inc()
-		model.WriteError(w, model.CodeUnauthorized, "webhook 令牌非法")
+	// ① 来源鉴权: 只信任持有共享密钥的 EMQX(常量时间比较)
+	if !checkWebhookToken(w, r, h.webhookToken, path) {
 		return
 	}
 
@@ -79,13 +77,26 @@ func (h *MQTTIngestHandler) Ingest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// ④ 契约回填: VIN/type 缺失时按 MQTT 上下文推断(topic = ov/{vin}/{type})
+	var topicV string
 	if parts := strings.Split(msg.Topic, "/"); len(parts) == 3 && parts[0] == "ov" {
+		topicV = parts[1]
 		if report.VIN == "" {
 			report.VIN = parts[1]
 		}
 		if report.Type == "" {
 			report.Type = topicTypeMap[parts[2]]
 		}
+	}
+
+	// ④.5 VIN 一致性(ACL 之后的第二道身份锚点):
+	// EMQX ACL 只约束"能发哪个 topic", 不约束 payload 内容。若允许载荷 VIN 覆盖 topic VIN,
+	// 任何持有合法凭证的设备都能以他人 VIN 写入数据(污染他人车辆画像/告警)。
+	// 载荷显式携带 VIN 时必须与 topic 一致; 不一致直接拒绝。
+	if topicV != "" && report.VIN != topicV {
+		metrics.RequestsTotal.WithLabelValues(path, "vin_mismatch").Inc()
+		model.WriteError(w, model.CodeInvalidData,
+			"载荷 vin 与 topic 不一致(topic="+topicV+", payload="+report.VIN+")")
+		return
 	}
 
 	// ⑤ 与 HTTP 通道完全相同的校验(同一份契约, 同一套规则)

@@ -16,7 +16,7 @@ var (
 	RequestsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "gateway",
 		Name:      "requests_total",
-		Help:      "HTTP 请求总数, result ∈ {ok, unauthorized, rate_limited, invalid_body, invalid_data, kafka_error}",
+		Help:      "HTTP 请求总数, result ∈ {ok, unauthorized, rate_limited, invalid_body, invalid_data, kafka_error, internal, vin_mismatch}",
 	}, []string{"path", "result"})
 
 	// RequestDuration HTTP 处理耗时分布
@@ -31,7 +31,7 @@ var (
 	KafkaWriteTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "gateway",
 		Name:      "kafka_write_total",
-		Help:      "Kafka 写入总数, result ∈ {ok, error}",
+		Help:      "Kafka 写入总数, result ∈ {ok, error, canceled}(canceled=调用方主动取消, 非 broker 故障)",
 	}, []string{"topic", "result"})
 
 	// InflightRequests 当前在途请求数
@@ -55,9 +55,16 @@ func Instrument(path string, next http.Handler) http.Handler {
 	})
 }
 
-// RegisterHandlers 把 /metrics 与 /debug/pprof 挂到给定 mux 上
-func RegisterHandlers(mux *http.ServeMux) {
+// RegisterMetrics 把 /metrics 挂到给定 mux。
+// 指标端点需要被 Prometheus(容器内)抓取, 因此监听在专用端口(默认 18081)而非业务端口。
+func RegisterMetrics(mux *http.ServeMux) {
 	mux.Handle("/metrics", promhttp.Handler())
+}
+
+// RegisterPprof 把 /debug/pprof 挂到给定 mux。
+// pprof 能读出进程内存(含 webhook 密钥/设备 token), 且 profile 可被反复调用消耗 CPU,
+// 因此**只绑回环地址**(2026-09-18 审计整改: 此前与业务端口共用并监听全网卡)。
+func RegisterPprof(mux *http.ServeMux) {
 	mux.HandleFunc("/debug/pprof/", pprof.Index)
 	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
 	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)

@@ -32,12 +32,12 @@ func counterValue(c prometheus.Counter) float64 {
 // 可注入传输级错误(网络不可达)或 broker 级错误(响应 Error)。
 // 用它就能在没有真实 Kafka 的情况下验证投递内容/保序/失败计数(数据不丢链路的最后一环)。
 type fakeBroker struct {
-	mu        sync.Mutex
-	records   []captured
-	transport error // 传输级错误: RoundTrip 直接返回 err
-	brokerErr error // broker 级错误: produce 响应分区错误码非 0
-	partitions int  // 元数据里声明的分区数(≥2 才能验证 Hash 分布)
-	done      chan struct{}
+	mu         sync.Mutex
+	records    []captured
+	transport  error // 传输级错误: RoundTrip 直接返回 err
+	brokerErr  error // broker 级错误: produce 响应分区错误码非 0
+	partitions int   // 元数据里声明的分区数(≥2 才能验证 Hash 分布)
+	done       chan struct{}
 }
 
 type captured struct {
@@ -85,7 +85,7 @@ func (f *fakeBroker) RoundTrip(_ context.Context, _ net.Addr, req kafka.Request)
 				if err != nil {
 					return nil, err
 				}
-				key, _ := io.ReadAll(rec.Key)   // protocol.Bytes 是 io.ReadCloser
+				key, _ := io.ReadAll(rec.Key) // protocol.Bytes 是 io.ReadCloser
 				val, _ := io.ReadAll(rec.Value)
 				batch = append(batch, captured{
 					topic: t.Topic, partition: int(pt.Partition),
@@ -200,20 +200,22 @@ func TestProducer_WriteReport_DeliversKeyValueAndTopic(t *testing.T) {
 	}
 }
 
-// TestProducer_TransportError_CountsError 传输层故障(如 broker 不可达) → 计入 error 且 ok 不涨。
-func TestProducer_TransportError_CountsError(t *testing.T) {
+// TestProducer_TransportError_ReturnsErrorAndCounts 传输层故障(如 broker 不可达) →
+// **必须把错误返回给调用方**(handler 据此回 500 让设备重试), 并计入 error 且 ok 不涨。
+// 这是 2026-09-18 审计整改的核心回归: Async 模式下此处曾返回 nil, 造成"已回 202 但未落盘"。
+func TestProducer_TransportError_ReturnsErrorAndCounts(t *testing.T) {
 	const topic = "test-transport-error-topic"
 	fb := newFakeBroker()
 	fb.transport = errors.New("connection refused")
 	p := newProducer([]string{"localhost:19092"}, topic, fb)
+	p.writer.MaxAttempts = 1 // 测试内降重试, 免退避拖慢用例(生产为 2)
 	defer p.Close()
 
 	beforeOK := counterValue(metrics.KafkaWriteTotal.WithLabelValues(topic, "ok"))
 	beforeErr := counterValue(metrics.KafkaWriteTotal.WithLabelValues(topic, "error"))
 
-	// Async 语义: 调用本身返回 nil(不阻塞 HTTP), 失败只体现在回调计数
-	if err := p.WriteReport(context.Background(), []byte("OV20260001"), []byte(`{"n":1}`)); err != nil {
-		t.Fatalf("Async 模式下应返回 nil, 实际 %v", err)
+	if err := p.WriteReport(context.Background(), []byte("OV20260001"), []byte(`{"n":1}`)); err == nil {
+		t.Fatal("同步模式必须把投递失败返回给调用方, 实际返回 nil(会导致 202 假受理)")
 	}
 	waitMetric(t, topic, "error", beforeErr+1, 3*time.Second)
 	if got := counterValue(metrics.KafkaWriteTotal.WithLabelValues(topic, "ok")); got != beforeOK {
@@ -221,26 +223,24 @@ func TestProducer_TransportError_CountsError(t *testing.T) {
 	}
 }
 
-// TestProducer_BrokerError_CountsError broker 应答里带错误(如 topic 不存在/配额) → 同样计 error。
-func TestProducer_BrokerError_CountsError(t *testing.T) {
+// TestProducer_BrokerError_ReturnsErrorAndCounts broker 应答里带错误(如 topic 不存在/配额)
+// → 同样必须返回 error 并计入 error。
+func TestProducer_BrokerError_ReturnsErrorAndCounts(t *testing.T) {
 	const topic = "test-broker-error-topic"
 	fb := newFakeBroker()
 	fb.brokerErr = errors.New("UNKNOWN_TOPIC_OR_PARTITION")
 	p := newProducer([]string{"localhost:19092"}, topic, fb)
-	p.writer.MaxAttempts = 1 // 测试内降重试, 免默认 10 次退避拖慢用例(生产保持默认)
+	p.writer.MaxAttempts = 1 // 测试内降重试, 免退避拖慢用例(生产为 2)
+	defer p.Close()
 
 	beforeErr := counterValue(metrics.KafkaWriteTotal.WithLabelValues(topic, "error"))
-	if err := p.WriteReport(context.Background(), []byte("OV20260001"), []byte(`{"n":1}`)); err != nil {
-		t.Fatalf("Async 模式应返回 nil, 实际 %v", err)
-	}
-	// broker 级错误会被客户端重试(默认 MaxAttempts=10 + 退避), 故先 Close 冲刷再断言
-	if err := p.Close(); err != nil {
-		t.Logf("Close 返回: %v (预期, 批次最终失败)", err)
+	if err := p.WriteReport(context.Background(), []byte("OV20260001"), []byte(`{"n":1}`)); err == nil {
+		t.Fatal("broker 级错误必须返回给调用方, 实际返回 nil")
 	}
 	waitMetric(t, topic, "error", beforeErr+1, 5*time.Second)
 }
 
-// TestProducer_WriterConfig 固化 §3.5 的投递参数(配置漂移会被这条测试挡住)。
+// TestProducer_WriterConfig 固化 §3.5 的投递参数与"同步 + 有界重试"不变量(配置漂移会被这条测试挡住)。
 func TestProducer_WriterConfig(t *testing.T) {
 	p := newProducer([]string{"localhost:19092"}, "vehicle-report-raw", nil)
 	defer p.Close()
@@ -255,11 +255,14 @@ func TestProducer_WriterConfig(t *testing.T) {
 	if w.RequiredAcks != kafka.RequireOne {
 		t.Errorf("RequiredAcks 应为 RequireOne, 实际 %v", w.RequiredAcks)
 	}
-	if !w.Async {
-		t.Error("应为 Async(不阻塞 HTTP 链路)")
+	if w.Async {
+		t.Error("必须为同步模式(async=false): Async 会让投递失败被吞掉, 破坏 §6 的 5xx 重试语义")
 	}
-	if w.Completion == nil {
-		t.Error("必须设置 Completion 回调(失败计数/告警)")
+	if w.MaxAttempts != 2 {
+		t.Errorf("重试必须有界(MaxAttempts=2, 单次最坏约 4s < HTTP WriteTimeout 5s), 实际 %d", w.MaxAttempts)
+	}
+	if w.WriteTimeout != 2*time.Second {
+		t.Errorf("WriteTimeout 应为 2s, 实际 %v", w.WriteTimeout)
 	}
 	if p.topic != "vehicle-report-raw" {
 		t.Errorf("topic 应记录为 vehicle-report-raw, 实际 %q", p.topic)

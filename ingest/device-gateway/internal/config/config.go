@@ -20,6 +20,9 @@ type Config struct {
 	DevMode       bool     // 开发模式: 接受所有 "dev-" 前缀 token (仅本地压测用!)
 	RatePerDevice float64  // 单设备限流(条/秒)
 	RateGlobal    float64  // 全局限流(条/秒)
+	MetricsPort   int      // /metrics 端口(需被容器内 Prometheus 抓取, 监听全网卡)
+	PprofBind     string   // /debug/pprof 绑定地址(仅回环)
+	PprofPort     int      // /debug/pprof 端口
 	ReadTimeout   time.Duration
 	WriteTimeout  time.Duration
 	ShutdownGrace time.Duration
@@ -37,6 +40,10 @@ func Load() (*Config, error) {
 		DevMode:       envBool("GATEWAY_DEV_MODE", false),
 		RatePerDevice: envFloat("RATE_PER_DEVICE", 10),
 		RateGlobal:    envFloat("RATE_GLOBAL", 5000),
+		MetricsPort:   envInt("GATEWAY_METRICS_PORT", 18081),
+		// pprof 只绑回环: 能读出进程内存(含 webhook 密钥与设备 token)
+		PprofBind:     envStr("GATEWAY_PPROF_BIND", "127.0.0.1"),
+		PprofPort:     envInt("GATEWAY_PPROF_PORT", 18082),
 		ReadTimeout:   envDur("GATEWAY_READ_TIMEOUT", 5*time.Second),
 		WriteTimeout:  envDur("GATEWAY_WRITE_TIMEOUT", 5*time.Second),
 		ShutdownGrace: envDur("GATEWAY_SHUTDOWN_GRACE", 10*time.Second),
@@ -52,6 +59,14 @@ func Load() (*Config, error) {
 	}
 	if !cfg.DevMode && len(cfg.DeviceTokens) == 0 {
 		return nil, fmt.Errorf("生产模式下 DEVICE_TOKENS 不能为空 (或显式开启 GATEWAY_DEV_MODE)")
+	}
+	// 限流速率必须 >= 1 条/秒: 令牌桶容量取 int(速率), <1 会被截断为 0,
+	// 而 x/time/rate 在 burst=0 时**恒拒绝** → 全量 429(2026-09-18 审计实测复现)。
+	if cfg.RatePerDevice < 1 {
+		return nil, fmt.Errorf("RATE_PER_DEVICE 必须 >= 1 (条/秒), 实际 %v: 小于 1 会导致令牌桶容量为 0、所有请求被拒", cfg.RatePerDevice)
+	}
+	if cfg.RateGlobal < 1 {
+		return nil, fmt.Errorf("RATE_GLOBAL 必须 >= 1 (条/秒), 实际 %v: 小于 1 会导致令牌桶容量为 0、所有请求被拒", cfg.RateGlobal)
 	}
 	return cfg, nil
 }
