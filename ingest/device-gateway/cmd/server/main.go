@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
+	"time"
 
 	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/auth"
 	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/config"
@@ -50,18 +51,49 @@ func main() {
 	mux.Handle("POST /api/v1/vehicle/report",
 		metrics.Instrument("/api/v1/vehicle/report",
 			authMw.Wrap(limiter.Wrap(http.HandlerFunc(reportHandler.Report)))))
-	// 通道二: EMQX webhook(只全局限流——单设备限流在 EMQX 协议层, webhook 密钥鉴权在 handler 内)
+	// 通道二: EMQX webhook(全局令牌桶兜底 —— 单设备限流在 EMQX 协议层, webhook 密钥鉴权在 handler 内)。
+	// 此前这两条路由完全没挂限流, 任意速率可直达 Kafka(2026-09-18 审计整改)。
 	mqttHandler := handler.NewMQTTIngestHandler(producer, cfg.WebhookToken)
 	mux.Handle("POST /api/v1/mqtt/ingest",
 		metrics.Instrument("/api/v1/mqtt/ingest",
-			http.HandlerFunc(mqttHandler.Ingest)))
+			limiter.GlobalWrap(http.HandlerFunc(mqttHandler.Ingest))))
 	// 通道三: 二进制透传(EMQX webhook, 不解帧 → ov.raw.binary.v1, 映射文档 §7)
 	binHandler := handler.NewBinIngestHandler(binProducer, cfg.WebhookToken)
 	mux.Handle("POST /api/v1/bin/ingest",
 		metrics.Instrument("/api/v1/bin/ingest",
-			http.HandlerFunc(binHandler.IngestBin)))
+			limiter.GlobalWrap(http.HandlerFunc(binHandler.IngestBin))))
 	mux.HandleFunc("/health", handler.Health)
-	metrics.RegisterHandlers(mux) // /metrics + /debug/pprof/
+
+	// 可观测端点拆分(2026-09-18 审计整改):
+	//   ① /metrics → 专用端口(默认 18081), 需被容器内 Prometheus 抓取, 故监听全网卡
+	//   ② /debug/pprof → **只绑回环**(默认 127.0.0.1:18082); 能读进程内存(含密钥), 不得出本机
+	// 业务端口(18080)不再暴露这两个端点。
+	metricsMux := http.NewServeMux()
+	metrics.RegisterMetrics(metricsMux)
+	metricsSrv := &http.Server{
+		Addr:              ":" + strconv.Itoa(cfg.MetricsPort),
+		Handler:           metricsMux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+	pprofMux := http.NewServeMux()
+	metrics.RegisterPprof(pprofMux)
+	pprofSrv := &http.Server{
+		Addr:              cfg.PprofBind + ":" + strconv.Itoa(cfg.PprofPort),
+		Handler:           pprofMux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+	go func() {
+		slog.Info("指标端点启动", "addr", metricsSrv.Addr, "path", "/metrics")
+		if err := metricsSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			slog.Error("指标端点异常退出", "err", err)
+		}
+	}()
+	go func() {
+		slog.Info("pprof 端点启动(仅回环)", "addr", pprofSrv.Addr)
+		if err := pprofSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			slog.Error("pprof 端点异常退出", "err", err)
+		}
+	}()
 
 	srv := &http.Server{
 		Addr:         ":" + strconv.Itoa(cfg.Port),
@@ -73,7 +105,8 @@ func main() {
 	go func() {
 		slog.Info("车端接入网关启动",
 			"port", cfg.Port, "topic", cfg.KafkaTopic, "brokers", cfg.KafkaBrokers,
-			"ratePerDevice", cfg.RatePerDevice, "rateGlobal", cfg.RateGlobal)
+			"ratePerDevice", cfg.RatePerDevice, "rateGlobal", cfg.RateGlobal,
+			"metricsPort", cfg.MetricsPort, "pprof", cfg.PprofBind+":"+strconv.Itoa(cfg.PprofPort))
 		if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 			slog.Error("HTTP 服务异常退出", "err", err)
 			os.Exit(1)
@@ -93,6 +126,12 @@ func main() {
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
 		slog.Error("HTTP 关闭异常", "err", err)
+	}
+	if err := metricsSrv.Shutdown(ctx); err != nil {
+		slog.Error("指标端点关闭异常", "err", err)
+	}
+	if err := pprofSrv.Shutdown(ctx); err != nil {
+		slog.Error("pprof 端点关闭异常", "err", err)
 	}
 	limiter.Close()
 	if err := producer.Close(); err != nil {
