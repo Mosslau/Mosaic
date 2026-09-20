@@ -215,6 +215,7 @@ else:
 DASH = {
     'device-gateway': pathlib.Path('deploy/grafana/provisioning/dashboards/device-gateway.json'),
     'device-codec': pathlib.Path('deploy/grafana/provisioning/dashboards/device-codec.json'),
+    'realtime-metrics': pathlib.Path('deploy/grafana/provisioning/dashboards/realtime-metrics.json'),
 }
 dash_n = {}
 for name, f in DASH.items():
@@ -263,6 +264,46 @@ else:
         ok(f"DLQ stage 枚举一致（{len(code_stages)} 个: {', '.join(sorted(code_stages))}）")
     elif not doc_claims:
         bad("文档/指标 HELP 里没有找到任何 DLQ stage 枚举声明")
+
+
+# ---------- ⑨ 实时层"口径三处一致"（2026-09-20 补） ----------
+# 背景: 实时作业的口径散落在三处 —— realtime/README.md（口径表·唯一源）、sql/00-common.sql（sink 与字段）、
+#   clickhouse/init.sql（Kafka 引擎表/MV/目标表）。三者必须同步, 而"同步"靠人记就会漂（本仓已多次踩到）。
+#   这里只机械化可判定的部分: 三个结果表名与三个结果 topic 是否在三处都出现。
+#   （"阈值/窗口语义"是否一致属文字表述, 仍需人工评审; 门禁只钉能钉的。）
+print("⑨ 实时层口径三处一致（README / sql / clickhouse）")
+RT = {
+    'realtime/README.md': pathlib.Path('realtime/README.md'),
+    'realtime/sql/00-common.sql': pathlib.Path('realtime/sql/00-common.sql'),
+    'realtime/clickhouse/init.sql': pathlib.Path('realtime/clickhouse/init.sql'),
+}
+missing_files = [k for k, p in RT.items() if not p.exists()]
+if missing_files:
+    bad("实时层文件缺失: " + ', '.join(missing_files))
+else:
+    texts = {k: p.read_text(encoding='utf-8') for k, p in RT.items()}
+    TABLES = ['ads_vehicle_online_1m', 'ads_fault_count_1m', 'ads_high_temp_battery_1m']
+    TOPICS = ['ov.ads.vehicle_online_1m.v1', 'ov.ads.fault_count_1m.v1', 'ov.ads.high_temp_battery_1m.v1']
+    rt_problems = []
+    for t in TABLES:
+        for k, txt in texts.items():
+            if t not in txt:
+                rt_problems.append(f"结果表 {t} 未出现在 {k}")
+    for tp in TOPICS:
+        for k, txt in texts.items():
+            if tp not in txt:
+                rt_problems.append(f"结果 topic {tp} 未出现在 {k}")
+    # sink 的 topic 必须与 ClickHouse Kafka 引擎表的 kafka_topic_list 一一对应（防"改了一边"）
+    for tp in TOPICS:
+        if f"'topic'                        = '{tp}'" not in texts['realtime/sql/00-common.sql']:
+            rt_problems.append(f"sink 未声明 topic {tp}（00-common.sql）")
+        if f"kafka_topic_list = '{tp}'" not in texts['realtime/clickhouse/init.sql']:
+            rt_problems.append(f"ClickHouse 引擎表未订阅 {tp}（init.sql）")
+    if rt_problems:
+        for m in rt_problems:
+            bad(m)
+    else:
+        ok(f"三处一致（{len(TABLES)} 张结果表 / {len(TOPICS)} 个结果 topic）")
 
 
 print()

@@ -19,6 +19,10 @@ datasources:
     access: proxy
     url: http://clickhouse:8123
     jsonData:
+      # host 是**必须项**: ClickHouse 插件(实测 v4.21.3)不看 Grafana 的 `url`, 只认 jsonData.host,
+      # 缺了它查询直接报 `[config] invalid server host`。此前的 provisioning 只写了 url+port+protocol,
+      # 而首批面板全是 Prometheus 的, 于是这个洞一直没暴露(2026-09-20 做第一个 CH 面板时才炸出来)。
+      host: clickhouse
       defaultDatabase: oceanverse
       port: 8123
       protocol: http
