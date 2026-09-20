@@ -22,15 +22,15 @@
 --      同名让 README/本文件/init.sql 三处可以对账（scripts/check-docs.sh 检查⑨ 会核对）。
 --      sink 走 **Kafka 结果 topic**（不是 Flink 直连 ClickHouse）: Flink 侧没有可用的 ClickHouse
 --      SQL 连接器（JDBC 工厂列表里没有 ClickHouse; 官方连接器只有 DataStream sink, 无 SQL 工厂 ——
---      详见 warehouse/streaming/clickhouse/init.sql 头注与 README）。落库由 ClickHouse 的 Kafka 引擎 + 物化视图完成。
+--      详见 lakehouse/warehouse/streaming/clickhouse/init.sql 头注与 README）。落库由 ClickHouse 的 Kafka 引擎 + 物化视图完成。
 --   ⑦ 时间戳一律以 **epoch 秒 (BIGINT)** 过 Kafka: 时间戳类型的 JSON 表示形式随格式/版本变化,
 --      显式转整数可把"时区/格式"这类歧义挡在链路之外（ClickHouse 侧 toDateTime(秒) 直接还原）。
 --      用秒而非毫秒: 窗口按分钟对齐, 秒精度**无损**; 且 Flink 不允许 CAST(TIMESTAMP AS BIGINT),
 --      官方推荐写法是 UNIX_TIMESTAMP(CAST(ts AS STRING))（实测报错信息里给的就是这条）。
 --   ⑧ **容器内**连 Kafka 用 `kafka:9092`(内部监听器), 不是宿主机那套 `localhost:19092`(deploy/README Q13)。
 --
--- 指标口径的唯一源在 `warehouse/streaming/README.md` 的"指标口径"表; ClickHouse 三张表的 DDL 在
--- `warehouse/streaming/clickhouse/init.sql` —— 改字段/口径必须三处同步(README 表 / 本文件 sink / init.sql)。
+-- 指标口径的唯一源在 `lakehouse/warehouse/streaming/README.md` 的"指标口径"表; ClickHouse 三张表的 DDL 在
+-- `lakehouse/warehouse/streaming/clickhouse/init.sql` —— 改字段/口径必须三处同步(README 表 / 本文件 sink / init.sql)。
 
 -- ---------- 源表: Kafka raw topic ----------
 CREATE TABLE IF NOT EXISTS vehicle_report_raw

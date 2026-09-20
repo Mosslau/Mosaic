@@ -222,7 +222,7 @@ curl -s http://127.0.0.1:18088/overview
 docker compose --profile realtime ps      # 期望 ov-flink-jm / ov-flink-tm 均 healthy
 ```
 
-全部通过后，基础栈就绪；第 3 步的实时作业（在线数 / 故障数 / 高温电池）见《实时计算层设计》与 `warehouse/streaming/`。
+全部通过后，基础栈就绪；第 3 步的实时作业（在线数 / 故障数 / 高温电池）见《实时计算层设计》与 `lakehouse/warehouse/streaming/`。
 
 ---
 

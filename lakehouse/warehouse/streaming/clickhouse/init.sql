@@ -3,7 +3,7 @@
 -- 定位: ClickHouse 是 **serving 层**, 不是真相源(真相源是第 2 阶段的 Iceberg 湖仓)。
 --       这三张表是 **ADS 层**产物 —— 由 Flink 作业算出、经 Kafka 结果 topic 灌入, 只服务查询/看板。
 --
--- 为什么经 Kafka 而不是 Flink 直连 ClickHouse（2026-09-20 实测后的决策, 详见 warehouse/streaming/README.md）:
+-- 为什么经 Kafka 而不是 Flink 直连 ClickHouse（2026-09-20 实测后的决策, 详见 lakehouse/warehouse/streaming/README.md）:
 --   Flink 侧**没有可用的 ClickHouse SQL 连接器** ——
 --     · flink-connector-jdbc 3.4.0 的工厂列表里没有 ClickHouse(实测报错把 9 个工厂全列了出来);
 --     · ClickHouse 官方 flink-connector-clickhouse 只有 DataStream 的 sink 类, **没有 Table/SQL 工厂**
@@ -16,7 +16,7 @@
 --   目标表用 **ReplacingMergeTree** + 与业务键一致的 ORDER BY 抗重复;
 --   查询若要求"精确去重"请用 `FINAL` 或先 GROUP BY（第 1 阶段看板查询量小, 直接查即可）。
 --
--- 指标口径（**唯一源**在 warehouse/streaming/README.md 的"指标口径"表; 改一处必须改另两处: 本文件 / 00-common.sql）:
+-- 指标口径（**唯一源**在 lakehouse/warehouse/streaming/README.md 的"指标口径"表; 改一处必须改另两处: 本文件 / 00-common.sql）:
 --   ads_vehicle_online_1m     1 分钟滚动窗口内"上报过的去重车辆数"（在线数的近似口径, 不是长连接在线）
 --   ads_fault_count_1m        1 分钟窗口内按 fault_code 分组的故障次数, 已按 (vin, ts, code) 去重
 --   ads_high_temp_battery_1m  1 分钟窗口内每车最高电池温度 ≥45℃; level: warn(≥45) / alarm(≥55)
@@ -25,7 +25,7 @@
 --
 -- 应用方式(实测: ClickHouse 的 HTTP 口**不支持一次多条语句** —— "Multi-statements are not allowed",
 --   故走容器内 client 的 --multiquery; 另外 curl 对 SQL 错误仍返回 0, 不能只看退出码):
---   docker exec -i ov-clickhouse clickhouse-client --user ov_admin --password ov_pass_2026 --multiquery < warehouse/streaming/clickhouse/init.sql
+--   docker exec -i ov-clickhouse clickhouse-client --user ov_admin --password ov_pass_2026 --multiquery < lakehouse/warehouse/streaming/clickhouse/init.sql
 
 -- ============================================================
 -- ① 在线数
