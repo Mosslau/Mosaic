@@ -18,13 +18,15 @@ name: oceanverse
 #   ⑤ MySQL + Redis 就位(第九轮) —— 第 1 阶段第 4 步 Java 微服务 ×5 的底座(档案/电池/故障码/
 #      告警规则/指标 都要 MySQL + Redis 缓存)。第 1 阶段只拉起实例并建库, **不建业务表**:
 #      各服务的 DDL 是第 4 步的产物, 现在造表是空转。
-#   ⑥ 内存预算重算(2026-09-20) —— 第九轮补齐 MySQL/Redis 后, 八容器 mem_limit 合计 6.88 GiB,
-#      而 Rancher VM 实测只有 **6.2 GiB**(docker info MemTotal), 即上限之和 > 物理内存;
-#      实测 ClickHouse 已吃到 1.9 GiB / 2 GiB(94.5%), 再拉起 MySQL 就是整机 OOM。
-#      现按"合计 ≤ 4.5 GiB"重算(见下方各服务注释), 并给 ClickHouse/Redis 加**进程内**内存上限
-#      (CLICKHOUSE_MAX_SERVER_MEMORY_USAGE / maxmemory) —— mem_limit 只会在 cgroup 层硬杀,
-#      重负载下表现为容器反复重启; 进程内上限让它自己拒绝/淘汰而不是被杀。
-#      门禁: scripts/check-compose-budget.sh 会核对"合计 vs VM 容量", 改 limits 后必须复跑。
+#   ⑥ 内存预算（2026-09-20 两轮）—— 第一轮: 第九轮补齐 MySQL/Redis 后八容器合计 6.88 GiB >
+#      VM 实测 6.2 GiB(上限之和超过物理内存), 按"合计 ≤ 4.5 GiB"压回, 并给 ClickHouse/Redis 加进程内上限。
+#      第二轮(同日): ① **VM 提到 8 GB**(`rdctl set --virtual-machine.memory-in-gb 8`, 实测 MemTotal 7933 MiB)
+#      —— 给 ClickHouse 留出真实工作空间, 并为第 3 步 Flink(JM+TM ≈1536 MiB)预留;
+#      ② 按**实测用量**把闲置容器的额度腾给 ClickHouse(1280m→2560m): 旧配置的进程内上限(953 MiB)
+#      只比 ClickHouse 的进程地板(重启后 ≈830~870 MiB)高约 100 MiB, 跑久后 RSS 爬到 1.16 GiB 就越限,
+#      OvercommitTracker 随即拒绝一切要内存的查询(连 count() 都拒, 而 SELECT 1 正常 —— "活着但干不了活", 见 Q17)。
+#      mem_limit 只会在 cgroup 层硬杀(表现为反复重启); 进程内上限让它自己拒绝/淘汰而不是被杀。
+#      门禁: scripts/check-compose-budget.sh 核对"合计 vs 预算/VM 容量 + 成对约束 + 缓存边界 + 文档数字", 改 limits 后必须复跑。
 
 x-logging: &default-logging
   driver: json-file
@@ -78,8 +80,9 @@ services:
       timeout: 10s
       retries: 10
       start_period: 30s
-    # 768m: 堆上限 512m(见 KAFKA_HEAP_OPTS) + 页缓存/元数据余量
-    mem_limit: 768m
+    # 640m: 堆上限 512m(见 KAFKA_HEAP_OPTS) + 页缓存/元数据余量。
+    # 实测用量 ~537 MiB(2026-09-20), 故从 768m 收到 640m, 腾出的额度给 ClickHouse(见文件头 ⑥)
+    mem_limit: 640m
     logging: *default-logging
     networks: [ov-net]
 
@@ -109,10 +112,13 @@ services:
       timeout: 5s
       retries: 10
       start_period: 20s
-    # 1280m: 进程内上限 1 GB + 余量。实测(MemoryResident)约 1.04 GiB 是**稳态**,
-    # 1152m 时余量仅 6%(太贴), 故抬到 1280m —— 改这里必须同步改上一行的进程内上限,
-    # 并复跑 scripts/check-compose-budget.sh(它会核对成对约束)
-    mem_limit: 1280m
+    # 2560m: 进程内上限 1536 MiB + 余量 40%(1024 MiB)。为什么必须留这么大(2026-09-20 实测):
+    #   进程地板(重启后空闲) ≈830~870 MiB, 跑久后因 jemalloc 滞留页爬到 1.16 GiB;
+    #   旧配置上限只有 953 MiB(仅比地板高 ~100 MiB), 一被越过就拒绝一切要内存的查询
+    #   —— 表现为"服务活着但干不了活"(连 count() 都拒, SELECT 1 却正常), 见 Q17。
+    # 改这里必须同步改 config.d/limits.xml 的 max_server_memory_usage(成对约束), 并复跑
+    # scripts/check-compose-budget.sh —— 它核对不等式、缓存边界是否显式声明、以及文档数字
+    mem_limit: 2560m
     logging: *default-logging
     networks: [ov-net]
 
@@ -140,7 +146,8 @@ services:
       timeout: 5s
       retries: 10
       start_period: 15s
-    mem_limit: 320m
+    # 192m: 实测用量 ~90 MiB(2026-09-20) 且第 1 阶段尚未入链路, 从 320m 收到 192m
+    mem_limit: 192m
     logging: *default-logging
     networks: [ov-net]
 
@@ -176,9 +183,9 @@ services:
       timeout: 5s
       retries: 12
       start_period: 30s
-    # 640m: 第 1 阶段只建库不建表、零业务负载; 第 4 步 Java 服务起量后按实测上调
-    # (MySQL 8 默认 innodb_buffer_pool_size=128m, 在 640m 里占比健康)
-    mem_limit: 640m
+    # 512m: 第 1 阶段只建库不建表、零业务负载(实测 ~240 MiB, 2026-09-20); 第 4 步 Java 服务起量后按实测上调
+    # (innodb 缓冲池已在 command 里显式压到 64M, performance_schema 关闭)
+    mem_limit: 512m
     logging: *default-logging
     networks: [ov-net]
 
@@ -206,7 +213,9 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
-    mem_limit: 320m # 明显高于默认 maxmemory(192mb), 给进程自身与协议缓冲留余量
+    # 256m: 必须同时满足"明显高于 maxmemory(192mb)"与门禁的成对约束(192 = 256×75%, 正好贴线);
+    # 实测用量仅 ~10 MiB(2026-09-20), 故从 320m 收到 256m
+    mem_limit: 256m
     logging: *default-logging
     networks: [ov-net]
 
@@ -238,7 +247,8 @@ services:
       timeout: 5s
       retries: 12
       start_period: 30s
-    mem_limit: 512m
+    # 384m: 实测用量 ~227 MiB(2026-09-20), 从 512m 收到 384m(仍留 ~70% 余量应对连接/会话峰值)
+    mem_limit: 384m
     logging: *default-logging
     networks: [ov-net]
 
@@ -269,8 +279,8 @@ services:
       timeout: 5s
       retries: 12
       start_period: 15s
-    # 384m: 2 个 target × 5s 抓取 + 10 条规则, 实测用量约 65 MiB
-    mem_limit: 384m
+    # 256m: 2 个 target × 5s 抓取 + 10 条规则, 实测用量约 65 MiB(2026-09-20), 从 384m 收到 256m
+    mem_limit: 256m
     logging: *default-logging
     networks: [ov-net]
 
@@ -300,8 +310,9 @@ services:
       timeout: 5s
       retries: 12
       start_period: 30s
-    # 384m: 2 个 provisioning 面板, 实测用量约 170 MiB
-    mem_limit: 384m
+    # 320m: 2 个 provisioning 面板 + 2 个数据源, 实测用量约 238 MiB(2026-09-20) 且渲染时有尖峰,
+    # 故只从 384m 小幅收到 320m(比其余组件留更多余量)
+    mem_limit: 320m
     logging: *default-logging
     networks: [ov-net]
 

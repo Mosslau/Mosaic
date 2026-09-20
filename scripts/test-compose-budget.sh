@@ -90,9 +90,9 @@ else
   fail=$((fail + 1))
 fi
 
-# ---- 判据 ④：成对约束与三个隐蔽失效方式 ----
-perturb "$LIMITS_REL" '<max_server_memory_usage>1000000000<' '<max_server_memory_usage>1500000000<'
-check_case "A 进程内上限（1430 MiB）越线 mem_limit（1280 MiB）" "≥ mem_limit"
+# ---- 判据 ④：成对约束与四个隐蔽失效方式 ----
+perturb "$LIMITS_REL" '<max_server_memory_usage>1610612736<' '<max_server_memory_usage>4000000000<'
+check_case "A 进程内上限（3814 MiB）越线 mem_limit（2560 MiB）" "≥ mem_limit"
 
 drop_line "deploy/docker-compose.yaml" "limits.xml:/etc/clickhouse-server"
 check_case "B limits.xml 没被 compose 挂进容器（死配置）" "没有把它挂进容器"
@@ -104,28 +104,32 @@ check_case "C ratio=0（实测语义是关闭上限）" "关闭内存上限"
 rm -f "$SBOX/$LIMITS_REL"
 check_case "D limits.xml 整个缺失" "缺少 $LIMITS_REL"
 
+# 缓存边界未显式声明（镜像默认 mark 5 GiB / uncompressed 8 GiB 会与查询抢额度）
+perturb "$LIMITS_REL" '<mark_cache_size>134217728</mark_cache_size>' ''
+check_case "K 缓存上限未显式声明（退回镜像默认）" "未显式声明"
+
 perturb "deploy/docker-compose.yaml" '      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1' '      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
       CLICKHOUSE_MAX_SERVER_MEMORY_USAGE: 900000000'
 check_case "E 无效环境变量被当成生效配置写" "不生效"
 
 # ---- 判据 ⑤：文档数字 vs compose ----
-perturb "deploy/README.md" '= **4608 MiB**' '= **4480 MiB**'
+perturb "deploy/README.md" '= **5120 MiB**' '= **4480 MiB**'
 check_case "F README 合计漂移" "声称合计"
 
-perturb "deploy/README.md" 'ClickHouse 1280m' 'ClickHouse 1152m'
+perturb "deploy/README.md" 'ClickHouse 2560m' 'ClickHouse 1280m'
 check_case "G README 单服务值漂移（2026-09-20 实际发生过的那处）" "compose 是"
 
-perturb "deploy/README.md" ' + Redis 320m
+perturb "deploy/README.md" ' + Redis 256m
 ' '
 '
 check_case "H README 漏写一个服务（新增容器场景）" "未覆盖这些服务"
 
-perturb "deploy/README.md" '的 **78%**' '的 **60%**'
+perturb "deploy/README.md" '的 **65%**' '的 **30%**'
 check_case "I 百分比与「合计 / VM 容量」不自洽" "占 VM 容量"
 
 # ---- 判据 ②：合计超预算（compose 与 README 同步改动 → ⑤ 仍绿, 只有 ②③ 该响） ----
-perturb "deploy/docker-compose.yaml" '    mem_limit: 1280m' '    mem_limit: 2560m'
-perturb "deploy/README.md" ' + ClickHouse 1280m' ' + ClickHouse 2560m'
+perturb "deploy/docker-compose.yaml" '    mem_limit: 2560m' '    mem_limit: 5120m'
+perturb "deploy/README.md" ' + ClickHouse 2560m' ' + ClickHouse 5120m'
 out=$(gate); rc=$?
 if [[ $rc -ne 0 ]] && grep -qF "> 预算" <<< "$out"; then
   echo "  ✅ J 合计超预算（文档已同步, 故只有预算判据该响）"

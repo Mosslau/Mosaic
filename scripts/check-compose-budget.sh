@@ -11,17 +11,21 @@
 #
 # 判据:
 #   ① 每个服务都必须有 mem_limit（漏一个就等于没有上限）
-#   ② 合计 mem_limit ≤ 预算上限（默认 4.75 GiB; 可用 OV_BUDGET_MIB 覆盖）
+#   ② 合计 mem_limit ≤ 预算上限（默认 6.5 GiB; 可用 OV_BUDGET_MIB 覆盖）
 #   ③ 若 VM 容量可探测（本机 docker info）: 合计 ≤ VM 容量 × 0.85
 #      —— 留 15% 给 dockerd/VM 自身, 否则"合法配置"仍会把整机压死
 #   ④ 成对约束: ClickHouse 的进程内上限必须 < 其 mem_limit, 且该上限必须**真的生效**;
 #      Redis 的 maxmemory 必须显著小于其 mem_limit（否则 cgroup 先杀, 表现为反复重启）
 #      —— 2026-09-20 补: 原实现去 compose 里找 CLICKHOUSE_MAX_SERVER_MEMORY_USAGE, 而该变量
 #         早已按实测结论挪进 limits.xml → 这条判据一直打印"跳过", **名义上有门禁、实际没跑**。
-#         现直接读 deploy/clickhouse/config.d/limits.xml, 并顺带守住三个更隐蔽的失效方式:
+#         现直接读 deploy/clickhouse/config.d/limits.xml, 并顺带守住四个更隐蔽的失效方式:
 #         ① 文件存在但没被 compose 挂进容器（死配置, 与 Kafka log.dirs 同类坑）
 #         ② <max_server_memory_usage_to_ram_ratio>0（实测语义是"关闭上限", 与直觉相反）
 #         ③ compose 里又出现那个无效环境变量（给人"已设上限"的错觉）
+#         ④ 缓存上限没显式声明 —— 镜像默认 mark/index_mark 各 5 GiB、uncompressed 8 GiB、mmap ≈1 GiB,
+#            在小上限下会与查询抢额度, 直接把进程推到 OvercommitTracker（"活着但干不了活", Q17）
+#         注: "上限必须显著高于进程地板(重启后 ≈850 MiB)"这条**不进门禁** —— 地板是测量值(同覆盖率),
+#             只能写进 limits.xml 头注 + Q17 的判据里; 门禁只钉可从配置推导的事实
 #   ⑤ 文档数字 vs compose: deploy/README.md 的"内存预算"段必须与 compose 算术自洽
 #      —— 2026-09-20 补: compose 把 ClickHouse 抬到 1280m 后, 该段仍写 1152m / 合计 4480 MiB,
 #         而判据②③④都只核对 compose 内部, 抓不到"文档漂移", 只能靠人工核对发现
@@ -29,12 +33,14 @@
 # 退出码: 0=通过; 1=超预算/漏上限/成对约束不成立/文档漂移; 2=用法/环境问题
 #
 # 用法: bash scripts/check-compose-budget.sh
-#       OV_BUDGET_MIB=5120 bash scripts/check-compose-budget.sh   # 临时放宽(需说明理由)
+#       OV_BUDGET_MIB=7168 bash scripts/check-compose-budget.sh   # 临时放宽(需说明理由)
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 COMPOSE="$ROOT/deploy/docker-compose.yaml"
-BUDGET_MIB="${OV_BUDGET_MIB:-4864}"   # 4.75 GiB（八容器实测合计 4608 MiB + 余量；VM 实测 5921 MiB 的 82%）
+BUDGET_MIB="${OV_BUDGET_MIB:-6656}"   # 6.5 GiB（2026-09-20 第二轮: VM 8 GB → 实测 MemTotal 7934 MiB, 85% = 6744 MiB;
+                                      #   6656 = 当前八容器 5120 + 第 3 步 Flink 预留 1536, 即 Flink 的额度已批过,
+                                      #   再加容器/调大额度就要显式说明理由并同步这里与 deploy/README.md §3）
 
 [[ -f "$COMPOSE" ]] || { echo "找不到 $COMPOSE" >&2; exit 2; }
 
@@ -191,6 +197,19 @@ else
   fi
   if [[ "$ch_ratio" == "0" || "$ch_ratio" == "0.0" ]]; then
     bad "limits.xml 写了 max_server_memory_usage_to_ram_ratio=0 → 实测语义是**关闭内存上限**（与直觉相反）"
+  fi
+  # 缓存边界必须显式声明（2026-09-20 第二轮补）: 镜像默认 mark/index_mark 各 5 GiB、uncompressed 8 GiB、
+  # mmap ≈1 GiB —— 在 1.5 GiB 的进程内上限下它们是**隐性炸弹**: 缓存与查询抢同一份额度,
+  # 会直接触发 OvercommitTracker(表现为"服务活着但连 count() 都拒", 见 deploy/README Q17)。
+  # 声明了才可预测（与本仓"不依赖镜像默认值"的纪律一致, 同 Kafka 的 min.insync.replicas）。
+  missing_cache=""
+  for tag in mark_cache_size index_mark_cache_size uncompressed_cache_size mmap_cache_size; do
+    grep -qE "<${tag}>[0-9]+</${tag}>" "$CH_XML" || missing_cache="$missing_cache $tag"
+  done
+  if [[ -z "$missing_cache" ]]; then
+    ok "ClickHouse 缓存上限已显式声明（mark / index_mark / uncompressed / mmap）"
+  else
+    bad "以下缓存上限未显式声明:$missing_cache —— 镜像默认(mark 5 GiB / index_mark 5 GiB / uncompressed 8 GiB / mmap ≈1 GiB)会与查询抢额度"
   fi
 fi
 

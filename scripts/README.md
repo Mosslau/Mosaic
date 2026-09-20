@@ -62,9 +62,9 @@ scripts/check-docs.sh        # 失败即非零退出（CI 门禁）
 | 判据 | 挡住什么 |
 |---|---|
 | ① 每服务都有 `mem_limit` | 漏一个就等于那个容器没有上限 |
-| ② 合计 ≤ 预算（默认 4.75 GiB，`OV_BUDGET_MIB` 可覆盖） | 账面超配 |
+| ② 合计 ≤ 预算（默认 6.5 GiB，`OV_BUDGET_MIB` 可覆盖；其中 1536 MiB 是给第 3 步 Flink 的预留额度） | 账面超配 |
 | ③ 合计 ≤ VM 容量 × 0.85（本机可探测时） | 留不出 dockerd / VM 自身的余量 |
-| ④ 成对约束 | ClickHouse 进程内上限 ≥ `mem_limit`、Redis `maxmemory` 相对 `mem_limit` 过高；**另含三个更隐蔽的失效方式**：`limits.xml` 没被 compose 挂进容器（死配置）/ `ratio=0`（实测语义是关上限）/ compose 里又把那个不生效的环境变量当配置写 |
+| ④ 成对约束 | ClickHouse 进程内上限 ≥ `mem_limit`、Redis `maxmemory` 相对 `mem_limit` 过高；**另含四个更隐蔽的失效方式**：`limits.xml` 没被 compose 挂进容器（死配置）/ `ratio=0`（实测语义是关上限）/ compose 里又把那个不生效的环境变量当配置写 / **缓存上限没显式声明**（镜像默认 mark 5 GiB、uncompressed 8 GiB 会与查询抢额度）。<br>注："上限必须显著高于进程地板（重启后 ≈850 MiB）"**不进门禁**——地板是测量值，只能写进 `limits.xml` 头注 + `deploy/README.md` Q17 |
 | ⑤ 文档数字 vs compose | `deploy/README.md` 内存预算段的每个 `<服务> Nm`、合计、百分比与实际配置漂移（2026-09-20 就漂过一版：compose 抬到 1280m 而文档仍写 1152m） |
 
 ```bash
@@ -78,13 +78,13 @@ scripts/check-compose-budget.sh        # 失败即非零退出（CI 的 compose 
 ### 负向对照：`test-compose-budget.sh`
 
 门禁自己也会退化成"僵尸判据"，所以把对照固化下来：在**隔离假树**（`.tmp-budget-selftest/`，跑完即删，
-不备份也不还原真实文件——中断都不会留下半改状态）里施加 10 种扰动，每一种都必须让门禁**变红并命中预期原因**。
+不备份也不还原真实文件——中断都不会留下半改状态）里施加 11 种扰动，每一种都必须让门禁**变红并命中预期原因**。
 
 ```bash
-scripts/test-compose-budget.sh     # 基线绿 + 10 则对照全红 = 门禁有鉴别力（CI 的 compose 作业调用）
+scripts/test-compose-budget.sh     # 基线绿 + 11 则对照全红 = 门禁有鉴别力（CI 的 compose 作业调用）
 ```
 
-覆盖：进程内上限越线 / `limits.xml` 未挂载 / `ratio=0` / 文件缺失 / 无效环境变量当配置 /
+覆盖：进程内上限越线 / `limits.xml` 未挂载 / `ratio=0` / 文件缺失 / **缓存上限未显式声明** / 无效环境变量当配置 /
 README 合计漂移 / README 单值漂移 / README 漏服务 / 百分比不自洽 / 合计超预算。
 
 ## 文档结构约定（2026-09-18 重构后，方案 B）

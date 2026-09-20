@@ -60,31 +60,35 @@ until docker info >/dev/null 2>&1; do sleep 5; done && echo "engine ready"
 | Grafana OSS | 看板 | `http://localhost:3000` | `admin` / `admin` |
 | Prometheus | 指标采集（网关 `/metrics`，5s 抓取） | `http://localhost:9090` | 无认证（第 1 阶段本地） |
 | MySQL 8.4 | 关系库（第 1 阶段第 4 步 Java 微服务 ×5 的底座） | `localhost:13306`（避让本机/公司 3306） | `root` / `ov_root_2026`；应用账号 `ov_app` / `ov_app_2026`，库 `oceanverse` |
-| Redis 7 | 缓存（第 2 阶段"限流器 Redis 化"的落点） | `localhost:16379`（避让 6379） | 无认证（第 1 阶段本地）；`maxmemory 192mb` + `allkeys-lru`（`mem_limit 320m`） |
+| Redis 7 | 缓存（第 2 阶段"限流器 Redis 化"的落点） | `localhost:16379`（避让 6379） | 无认证（第 1 阶段本地）；`maxmemory 192mb` + `allkeys-lru`（`mem_limit 256m`） |
 
 默认数据库：ClickHouse 自动建 `oceanverse` 库，MySQL 自动建 `oceanverse` 库（**只建库不建表**——业务 DDL 归第 4 步各 Java 服务，这里造表是空转）。
 Grafana 启动后**自动配好名为 `ClickHouse` 的数据源**（provisioning，见 `deploy/grafana/provisioning/datasources/clickhouse.yaml`）。
 EMQX 启动后**自动加载声明式规则**（`deploy/emqx/emqx.conf`）：① `ov_vehicle_ingress` —— `ov/+/status|battery|fault` → Webhook → 网关 `/api/v1/mqtt/ingest`；② `ov_binary_ingress` —— `ov/+/bin`（GB/T 32960 二进制帧，base64）→ 网关 `/api/v1/bin/ingest` → `ov.raw.binary.v1` → device-codec（Dashboard → 集成 → 规则 可见两条）。
 
-> **内存预算（2026-09-20 重算，已被 `scripts/check-compose-budget.sh` 门禁覆盖）**：
-> 第九轮补齐 MySQL/Redis 后，八容器 `mem_limit` 合计曾达 **6.88 GiB**，而 Rancher VM 实测只有 **6.2 GiB**
-> （`docker info --format '{{.MemTotal}}'` → 5921 MiB）—— **上限之和超过物理内存**，且实测 ClickHouse
-> 已吃到 **1.9 GiB / 2 GiB（94.5%）**，再拉起 MySQL 就是整机 OOM。
+> **内存预算（2026-09-20 两轮重算，已被 `scripts/check-compose-budget.sh` 门禁覆盖）**：
+> **第一轮**：第九轮补齐 MySQL/Redis 后，八容器 `mem_limit` 合计曾达 **6.88 GiB**，而 Rancher VM 实测只有 6.2 GiB
+> —— 上限之和超过物理内存（实测 ClickHouse 已吃到 94.5%），再拉起 MySQL 就是整机 OOM，于是整体压回并给关键组件加进程内上限。
+> **第二轮（同日，为 ClickHouse 可用性 + 给第 3 步 Flink 腾地方）**：VM 提到 8 GB
+> （`rdctl set --virtual-machine.memory-in-gb 8`，实测 `MemTotal` **7934 MiB**），并按**实测用量**把闲置容器的额度腾给 ClickHouse。
 >
-> 现按"合计 ≤ 4.5 GiB"重算：Kafka 768m + ClickHouse 1280m + MinIO 320m + MySQL 640m + Redis 320m
-> + EMQX 512m + Prometheus 384m + Grafana 384m = **4608 MiB**（正好 4.5 GiB），占本机 VM 容量（5921 MiB）的 **78%**
-> （门禁要求合计 ≤ VM 的 85%；ClickHouse 抬过一次上限——实测稳态约 1.04 GiB，留 6% 余量太贴）。
+> 现配置：Kafka 640m + ClickHouse 2560m + MinIO 192m + MySQL 512m + Redis 256m
+> + EMQX 384m + Prometheus 256m + Grafana 320m = **5120 MiB**，占本机 VM 容量（7934 MiB）的 **65%**
+> （门禁要求合计 ≤ VM 的 85%；其中 **1536 MiB 是给第 3 步 Flink 的 JM+TM 预留额度**，加 Flink 时不必再改预算）。
 >
-> 两条配套纪律（都踩过坑）：
-> ① **进程内上限必须低于 cgroup 硬杀线**：ClickHouse 的 1 GB 上限写在 `clickhouse/config.d/limits.xml` 的
->    `<max_server_memory_usage>`，且**必须被 compose 挂进容器才生效**——环境变量设不了：实测 `CLICKHOUSE_MAX_SERVER_MEMORY_USAGE`
->    进了容器环境却完全没生效（官方镜像只映射它认识的那批变量）；镜像默认 `max_server_memory_usage_to_ram_ratio=0.9`
->    = 宿主机内存的 90%，在共享 VM 上等于没有上限。Redis `--maxmemory 192mb` < `mem_limit 320m`，
->    两者相等时算上进程开销就会被 OOM kill（表现为反复重启）。
+> 三个配套纪律（都踩过坑）：
+> ① **进程内上限必须低于 cgroup 硬杀线、又必须显著高于进程地板**：ClickHouse 的 1536 MiB 上限写在
+>    `clickhouse/config.d/limits.xml` 的 `<max_server_memory_usage>`，且**必须被 compose 挂进容器才生效**——
+>    环境变量设不了（实测 `CLICKHOUSE_MAX_SERVER_MEMORY_USAGE` 进了容器却没生效，官方镜像只映射它认识的那批变量）；
+>    旧配置只给 953 MiB、仅比地板（重启后 ≈830~870 MiB）高约 100 MiB，跑久后 RSS 爬到 1.16 GiB 就越限，
+>    OvercommitTracker 随即拒绝一切要内存的查询 —— 表现为"服务活着但干不了活"，判据与止血见 Q17。
+>    同一文件还必须**显式声明缓存上限**：镜像默认 mark / index_mark 各 5 GiB、uncompressed 8 GiB、mmap ≈1 GiB，
+>    在小上限下会与查询抢额度。Redis `--maxmemory 192mb` < `mem_limit 256m`（正好 75%）。
 > ② **改 limits 后必须复跑门禁**：`bash scripts/check-compose-budget.sh`（CI 也跑）。它核对五类事实：每服务都有上限 /
->    合计 ≤ 预算 / 合计 ≤ VM 容量的 85% / ClickHouse 与 Redis 的成对约束（**直接读 `limits.xml` 与挂载行**，不再去 compose 里找那个无效变量）/
->    **本段文字的数字与 compose 是否自洽**（2026-09-20 补：此前本段的 ClickHouse 上限、合计、百分比三处与 compose 差了一版，
->    而判据②③④都只看 compose 内部，抓不到文档漂移，是人工核出来的）。
+>    合计 ≤ 预算（默认 6.5 GiB，其中含 Flink 预留）/ 合计 ≤ VM 容量的 85% / ClickHouse 与 Redis 的成对约束 + 缓存边界
+>    （**直接读 `limits.xml` 与挂载行**，不再去 compose 里找那个无效变量）/ **本段文字的数字与 compose 是否自洽**。
+> ③ **本段数字不许手改漂移**：每个 `<服务> Nm`、合计、百分比都被门禁逐项核对（2026-09-20 曾漂移一版，判据②③④
+>    都只看 compose 内部抓不到，是人工核出来的）；`bash scripts/test-compose-budget.sh` 用 10 则负向对照证明判据真有鉴别力。
 
 > 端口避让说明：MinIO 的 S3 API 映射到宿主 `9001`、控制台映射到 `9002`，因为 ClickHouse native 协议已占用 `9000`。
 
@@ -250,7 +254,7 @@ docker run --rm --network oceanverse_ov-net -v $PWD/.tmp-msim:/msim:ro \
 rm .tmp-msim
 ```
 
-另注意：默认 6GB/2CPU 的 Rancher VM 跑 1 万 MQTT 长连接会**整机崩溃**（实测），本机 MQTT 档位上限按 5 千计；更大档位去专用压测节点。
+另注意：**旧配置**（6GB/2CPU 的 Rancher VM）跑 1 万 MQTT 长连接会**整机崩溃**（2026-09-16 实测），故当时把本机 MQTT 档位上限定为 5 千。2026-09-20 已把 VM 提到 8 GB，但**万车档还没在新配置下复测**（《roadmap/项目进度.md》待收口项 #3）；更大档位去专用压测节点。
 
 **Q10：模拟器显示"连接成功/发布成功"，但 EMQX 里一个客户端/一条消息都没有**
 宿主 1883 被别的 MQTT broker 抢了——模拟器连的是它，不是容器 EMQX（2026-09-17 实测：本机 RabbitMQ 装了 MQTT 插件，默认监听 1883；Rancher 端口映射后抢不过）。判据：`lsof -nP -iTCP:1883 -sTCP:LISTEN` 看到的不是容器转发进程；`docker exec ov-emqx emqx ctl clients list` 报 No clients。**处置（不动对方进程）**：compose 已参数化 `EMQX_MQTT_PORT`——写 `deploy/.env`（`EMQX_MQTT_PORT=11883`，已 gitignore）后 `docker compose up -d emqx` 永久生效，模拟器 `-broker tcp://localhost:11883`。同理，凡"连接正常但数据没到"先怀疑连错了 broker。
@@ -339,3 +343,33 @@ docker run --network oceanverse_ov-net -e KAFKA_BROKERS=kafka:9092 ...
 ```
 
 对照表：宿主机进程 → `localhost:19092`；容器内进程 → `kafka:9092`（且必须挂 `oceanverse_ov-net`）。
+
+**Q17：ClickHouse 查询报 `MEMORY_LIMIT_EXCEEDED`，但 `SELECT 1` 正常（服务活着，却干不了活）**
+
+2026-09-20 实测现场：`SELECT count() FROM system.tables WHERE database='oceanverse'` 被拒，
+报 `would use 433.69 MiB ..., current RSS: 1.00 GiB, maximum: 953.67 MiB ... OvercommitTracker`，
+而 `SELECT 1` 照常返回 —— 极易被误判成"ClickHouse 坏了"，其实是**进程内上限余量不够**：
+
+- 进程**地板**（重启后空闲）`MemoryResident` ≈ **830~870 MiB**；
+- 跑一段时间后 RSS 会**自己爬到 1.1~1.2 GiB**（`MemoryTracking` 只有 200 多 MiB、缓存几乎为 0 → 涨的是
+  jemalloc 滞留页/碎片，不是查询、也不是缓存）；
+- 一旦 RSS 越过 `limits.xml` 的 `max_server_memory_usage`，OvercommitTracker 就**拒绝一切还要内存的查询**。
+
+**判据**（两条一起看）：
+
+```bash
+docker stats --no-stream --format '{{.MemUsage}} ({{.MemPerc}})' ov-clickhouse
+curl -s -G "http://ov_admin:ov_pass_2026@localhost:8123/" --data-urlencode \
+  "query=SELECT formatReadableSize(value) FROM system.asynchronous_metrics WHERE metric='MemoryResident'"
+# RSS 逼近/超过 limits.xml 里的 max_server_memory_usage（现 1536 MiB）即命中
+```
+
+**处置**：
+
+1. **止血**：`docker compose restart clickhouse`（实测 RSS 1.16 GiB → 830 MiB，被拒查询立即恢复）。
+   当前 ClickHouse 尚无业务表，重启零代价；第 3 步落表后重启需考虑作业恢复。
+2. **治本**：确认 `limits.xml` 的 `max_server_memory_usage` **显著高于地板**（现 1536 MiB ≈ 地板 + 670 MiB），
+   且四个缓存上限已显式声明；`mem_limit` 必须 > 进程内上限（现 2560m / 上限 1536 MiB，余量 40%）。
+   这两条都由 `bash scripts/check-compose-budget.sh` 判据④ 核对。
+3. **若仍频繁触发**：查是不是有大查询/大表把 RSS 顶上去（`system.query_log` 的 `memory_usage`，
+   需该表已启用），或按第 3 步的真实规模重新分配（VM 已 8 GB，仍有 ~1.6 GiB 未分配）。
