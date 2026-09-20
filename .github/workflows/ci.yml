@@ -253,21 +253,29 @@ jobs:
           set -e
           # 只 build 不 up 曾让"官方镜像缺连接器、入口缺角色参数"这类问题跑到运行期(本机实测踩过)
           docker compose --profile realtime up -d flink-jobmanager flink-taskmanager
+          # 轮询到**判据成立**为止, 而不是"HTTP 200 就断言一次" ——
+          # CI 首跑(2026-09-20)就是这么红的: JM 起来十几秒内 /overview 已 200, 但 taskmanagers 仍是 0
+          # (TM 尚未注册), 于是断言当场失败。这是"就绪探测太弱"的经典错误,
+          # 与本仓 pipeline-health 的教训同源: 存活判据必须取**端到端成立的事实**, 不是"端口应答了"。
+          ok=""
           for i in $(seq 1 30); do
-            if curl -sf http://127.0.0.1:18088/overview >/dev/null 2>&1; then break; fi
-            sleep 3
-          done
-          json=$(curl -sf http://127.0.0.1:18088/overview)
-          echo "$json"
-          # 判据取"JM 能看到 TM 且 slot 数对得上": 比只看端口强(端口开着也可能是空壳集群)
-          echo "$json" | python3 -c "
+            json=$(curl -sf http://127.0.0.1:18088/overview || true)
+            if [ -n "$json" ] && echo "$json" | python3 -c "
           import json,sys
           d=json.load(sys.stdin)
           assert d['taskmanagers']==1, d
           assert d['slots-total']==3, d
           assert d['flink-version'].startswith('1.20'), d
-          print('  flink ok:', d['flink-version'], d['taskmanagers'], d['slots-total'])
-          "
+          " 2>/dev/null; then ok=1; break; fi
+            sleep 3
+          done
+          echo "$json"
+          if [ "${ok:-0}" != "1" ]; then
+            echo "Flink 未在 90s 内达到 taskmanagers=1 & slots=3"
+            docker compose --profile realtime logs --tail 40 flink-jobmanager flink-taskmanager
+            exit 1
+          fi
+          echo "  flink ok: $json"
           # 两容器都必须 healthy(健康判据见 compose: JM=能看到 TM, TM=JVM 进程在)
           for i in $(seq 1 20); do
             bad=$(docker compose --profile realtime ps --format '{{.Name}} {{.Health}}' | grep flink | grep -v healthy || true)
