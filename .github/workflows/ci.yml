@@ -336,6 +336,25 @@ jobs:
           done
           echo "=== ⑦ EMQX 全量近期日志(不过滤, 找握手/协议层告警) ==="
           docker logs --since 5m ov-emqx 2>&1 | grep -viE "CONNECTOR|resource|alarm_is" | tail -25
+          echo "=== ⑧ 决定性实验: **绕过 Docker 端口映射**, 从容器网内直连 EMQX 8883 ==="
+          # 为什么做这个: 本机 8883 是 ssh 隧道(TCP 转发)而 CI 是 Docker 端口映射 —— 这是
+          # 两者唯一的结构性差异。若网内直连成功、宿主映射失败 ⇒ 问题在端口映射/docker-proxy;
+          # 若网内也失败 ⇒ 问题在 EMQX TLS 监听器或客户端, 与端口映射无关。
+          docker run --rm --network oceanverse_ov-net \
+            -v "$PWD/deploy/emqx/certs:/certs:ro" alpine:3.21 sh -c '
+              apk add --no-cache mosquitto-clients >/dev/null 2>&1
+              echo "--- 网内直连 ov-emqx:8883 (带一车一密凭证) ---"
+              mosquitto_pub -h ov-emqx -p 8883 --cafile /certs/ca.crt \
+                -i OV20260001 -u OV20260001 -P pw-OV20260001 \
+                -t ov/OV20260001/bin -m "##inner" -d -q 1 2>&1 | tail -10
+              echo "--- 网内直连 1883 明文(对照) ---"
+              mosquitto_pub -h ov-emqx -p 1883 -i dev-OV20260001 \
+                -t ov/OV20260001/bin -m "##inner-plain" -d -q 1 2>&1 | tail -6'
+          echo "=== ⑨ 宿主命名解析: localhost 是 v4 还是 v6 ==="
+          getent hosts localhost; python3 -c "import socket;print('getaddrinfo:', socket.getaddrinfo('localhost', 8883, proto=socket.IPPROTO_TCP))" 2>/dev/null | head -3
+          echo "=== ⑩ 端口映射与占用 ==="
+          docker port ov-emqx 2>&1 | head -6
+          (command -v ss >/dev/null && ss -ltnp 2>/dev/null | grep -E ":8883|:1883") || netstat -ltn 2>/dev/null | grep -E ":8883|:1883" || true
           echo "=== ③ EMQX 侧日志(连接/认证/授权) ==="
           docker exec ov-emqx emqx ctl log set-level info >/dev/null 2>&1 || true
           docker logs --tail 25 ov-emqx 2>&1 | tail -20
