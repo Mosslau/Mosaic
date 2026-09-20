@@ -55,7 +55,7 @@ until docker info >/dev/null 2>&1; do sleep 5; done && echo "engine ready"
 |---|---|---|---|
 | Kafka 3.9.1 (KRaft) | 消息总线 | `localhost:19092`（宿主机）/ 容器网内 `kafka:9092` | 无认证（第 1 阶段本地） |
 | ClickHouse 25.8 | OLAP serving 层 | HTTP `http://localhost:8123` / native `localhost:9000` | `ov_admin` / `ov_pass_2026` |
-| MinIO | 对象存储（第 2 阶段湖仓底座） | S3 API `http://localhost:9001` / 控制台 `http://localhost:9002` | `ov_minio` / `ov_minio_2026` |
+| MinIO | 对象存储（第 2 阶段湖仓底座）；镜像取自 **quay.io**（见下方说明） | S3 API `http://localhost:9001` / 控制台 `http://localhost:9002` | `ov_minio` / `ov_minio_2026` |
 | EMQX 5.8 | MQTT Broker（车端长连接接入；dev 明文 + 公网 TLS） | MQTT `localhost:1883`（**本机实测 1883 被 RabbitMQ MQTT 插件占用 → `.env` 已设 `EMQX_MQTT_PORT=11883`，即当前生效端口是 11883**；克隆后无 `.env` 则为 1883，模板见 `.env.example`）/ **TLS `localhost:8883`（一车一密 + ACL，见 Q12）** / Dashboard `http://localhost:18083` | `admin` / `public`（**登录后立即改密**，或启动前设 `EMQX_DASHBOARD_PASSWORD` 环境变量） |
 | Grafana OSS | 看板 | `http://localhost:3000` | `admin` / `admin` |
 | Prometheus | 指标采集（网关 `/metrics`，5s 抓取） | `http://localhost:9090` | 无认证（第 1 阶段本地） |
@@ -81,6 +81,12 @@ EMQX 启动后**自动加载声明式规则**（`deploy/emqx/emqx.conf`）：①
 > ② **改 limits 后必须复跑门禁**：`bash scripts/check-compose-budget.sh`（CI 也跑），否则"账面超配"没人会发现。
 
 > 端口避让说明：MinIO 的 S3 API 映射到宿主 `9001`、控制台映射到 `9002`，因为 ClickHouse native 协议已占用 `9000`。
+
+> **MinIO 镜像为什么用 quay.io（2026-09-20，CI 实测发现）**：Docker Hub 的 `minio/minio` 已**拒绝匿名拉取**——
+> GitHub runner 上 `docker compose up` 直接失败（`pull access denied ... repository does not exist or may require 'docker login'`），
+> 而本机因为有镜像加速器与本地缓存，这个坑**一直没暴露**（教训：镜像可用性必须在干净环境里验证）。
+> `quay.io/minio/minio` 是**同一个镜像**（digest 一致 `sha256:14cea493…`），可匿名拉取，tag 也齐全。
+> 拉不动时可换其它可信镜像源并 `docker tag` 回 `quay.io/minio/minio:<tag>`（参见 Q3 的做法）。
 
 ---
 

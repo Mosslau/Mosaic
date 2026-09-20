@@ -118,7 +118,11 @@ services:
 
   # ---------- 对象存储 (第 2 阶段湖仓底座, 第 1 阶段先就位) ----------
   minio:
-    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    # 仓库换成 quay.io(2026-09-20, CI 实测): Docker Hub 的 minio/minio 已**拒绝匿名拉取**
+    # ("pull access denied ... repository does not exist or may require 'docker login'") ——
+    # 本机因为有镜像加速器/本地缓存所以没暴露, 但 GitHub runner 上 `docker compose up` 当场失败。
+    # quay.io/minio/minio 是同一镜像(digest 一致: sha256:14cea493...), 可匿名拉取。
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
     container_name: ov-minio
     restart: unless-stopped
     ports:
