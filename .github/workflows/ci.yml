@@ -316,12 +316,12 @@ jobs:
           bash ../scripts/init-minio-bucket.sh
           # 提交三个作业（脚本自带"集群里真出现"的强判据与重复提交守卫）
           bash ../lakehouse/warehouse/streaming/submit-jobs.sh
-          # 实时层**端到端**自检: 注入测试数据 → 等窗口关闭 → 断言三张 ADS 表真的有数
-          # （此前 CI 只到"作业 RUNNING", SQL 语义/字段类型/时区改坏了也照样全绿）
-          bash ../scripts/check-realtime-e2e.sh
-          # P1 的核心声明: **重启不丢窗口**（取消 → 停机期间灌数 → 重提 → 数据仍进结果表）。
-          # 必须排在 e2e 之后: 它会把水位线推到墙钟前约 2 分钟(未来 ts 心跳), 对并发生产者不友好。
-          bash ../scripts/check-realtime-restart.sh
+          # CI 到此为止: 只证明"作业能提交并 RUNNING"。
+          # ⚠ 这里**不再跑** scripts/check-realtime-e2e.sh 与 scripts/check-realtime-restart.sh
+          #   （2026-09-20 按用户要求去掉）: 两个自检本身要等 Flink 的 1 分钟窗口关闭/等检查点,
+          #   实测把本作业从 ~3 分钟拖到 10 分钟以上, 是整条流水线的绝对长尾。
+          #   **代价（如实记录）**: SQL 语义/字段类型/时区/去重口径改坏了, CI **不会再拦住** ——
+          #   这两条判据只能本地手动跑, 见 scripts/README.md 与 roadmap「P0 收口」的修订。
       - name: prometheus rules loaded == file (配置新鲜度)
         working-directory: deploy
         run: |

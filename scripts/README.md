@@ -94,7 +94,7 @@ E2E_TIMEOUT=300 scripts/check-realtime-e2e.sh # 放宽等待窗口（默认 240s
 外加"幂等落表"（去重后恰好一行）。
 
 ```bash
-bash scripts/check-realtime-restart.sh     # 9 项断言, 本机实测 ~2.5 分钟
+bash scripts/check-realtime-restart.sh     # 9 项断言, 本机实测 ~2.5 分钟（仅本地跑, 不进 CI）
 ```
 
 故障码每轮带 `HHMMSS` 后缀（`RSTA210141` / `RSTB210141`）——固定码会让第二遍跑的负向对照必然假红
@@ -103,7 +103,7 @@ bash scripts/check-realtime-restart.sh     # 9 项断言, 本机实测 ~2.5 分�
 **为什么必须端到端断言**：P1 落地时 compose 上写了检查点配置却**根本没进 JobGraph**
 （作业 3 分钟 0 次检查点），只看配置会得出相反结论 —— 与 `pipeline-health` 的教训同源。
 **副作用**：心跳用未来 ts（最多 +70s）以便窗口立刻关闭，会把水位线推到墙钟前约 2 分钟，
-该窗口内其它生产者的数据会被当"迟到"丢弃 —— 故只在受控自检环境跑（CI 的 compose 作业里排在 e2e 之后）。
+该窗口内其它生产者的数据会被当"迟到"丢弃 —— 故只在受控自检环境跑（**仅本地，CI 里已不跑**）。
 
 ## init-minio-bucket.sh — 幂等建检查点桶
 

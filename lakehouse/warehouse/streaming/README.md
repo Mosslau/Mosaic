@@ -105,7 +105,8 @@ docker exec ov-clickhouse clickhouse-client --user ov_admin --password ov_pass_2
 #   Grafana: http://localhost:3000 → Dashboards → "realtime 实时指标（在线数 / 故障 / 高温电池）"
 #   该看板 realtime-metrics（4 图）：最新在线数 / 在线数趋势 / 故障数按码 / 高温告警表
 
-# ⑤ 自检（两条, 都是端到端判据, CI 里也跑）
+# ⑤ 自检（两条, 都是端到端判据; **2026-09-20 起只在本地跑, CI 里不跑** —— 它们要等窗口关闭,
+#    会把 CI 的 compose 作业拖到 10 分钟以上, 取舍与代价见 scripts/README.md）
 bash scripts/check-realtime-e2e.sh        # 出数口径: 在线数/故障去重/高温分级/探针不污染（约 1~2 分钟）
 bash scripts/check-realtime-restart.sh    # 重启不丢窗口: 取消 → 停机期间灌数 → 重提 → 数据仍进表（约 3 分钟）
 
