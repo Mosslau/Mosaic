@@ -304,10 +304,28 @@ jobs:
           done
           curl -sf http://localhost:18080/health
           curl -sf http://localhost:18090/health
+      - name: TLS 分层诊断（区分 握手层 / MQTT层 —— EOF 到底是哪一层断的）
+        run: |
+          set +e
+          echo "=== ① 宿主→容器 8883 TLS 握手 ==="
+          openssl s_client -connect localhost:8883 -servername localhost \
+            -CAfile deploy/emqx/certs/ca.crt </dev/null 2>&1 \
+            | grep -E "CONNECTED|Verify return code|verify error|depth=|subject=|issuer=|alert|errno" | head -12
+          echo "=== ② 宿主→容器 8883 MQTT CONNECT(带一车一密凭证) ==="
+          sudo apt-get install -y -qq mosquitto-clients >/dev/null 2>&1
+          mosquitto_pub -h localhost -p 8883 --cafile deploy/emqx/certs/ca.crt \
+            -i OV20260001 -u OV20260001 -P pw-OV20260001 \
+            -t ov/OV20260001/bin -m '##diag' -d -q 1 2>&1 | tail -12
+          echo "=== ③ EMQX 侧日志(连接/认证/授权) ==="
+          docker exec ov-emqx emqx ctl log set-level info >/dev/null 2>&1 || true
+          docker logs --tail 25 ov-emqx 2>&1 | tail -20
+          exit 0
       - name: seed devices + security self-check (八项 + 凭证前置)
         run: |
           bash deploy/emqx/seed-users.sh 0 100
           bash deploy/emqx/seed-users.sh --vin OV20260001
+          # 打开 info 级日志: 让 EMQX 把"连接建立/认证/授权"说出来(warning 级下这些被滤掉)
+          docker exec ov-emqx emqx ctl log set-level info >/dev/null 2>&1 || true
           cd ingest/device-simulator
           # 退出码语义: 0=八项全过; 1=安全项不达标; 3=前置(凭证)不可用 → 不可判定
           go run ./cmd/security-check -vin OV20260001
@@ -316,7 +334,8 @@ jobs:
         run: |
           # 首跑时 ①④ 报 `network Error : EOF` 而 EMQX 日志被 --tail 截断, 白追了一轮 ——
           # 这里显式留窗口: AUTHN/AUTHZ 的记录是判定"认证/授权到底发生了什么"的唯一证据
-          docker logs --since 10m ov-emqx 2>&1 | grep -E "AUTHN|AUTHZ|not_authorized|authentication_failure" | tail -30 || true
+          docker logs --since 10m ov-emqx 2>&1 \
+            | grep -E "AUTHN|AUTHZ|not_authorized|authentication_failure|MQTT|CONNECT|closed|ssl" | tail -40 || true
       - name: HTTP 身份锚点（冒充他人 VIN 必须 400 且零投递）
         run: |
           set -e
