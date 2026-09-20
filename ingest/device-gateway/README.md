@@ -77,7 +77,10 @@ go vet ./...
 # 1.5 单元测试(5 个测试包: 鉴权/限流/三通道 handler/配置/Kafka 投递; 契约与造帧器已迁独立模块)
 go test ./... -count=1          # 全部通过
 go test -race ./... -count=1    # 竞态检测(修复后新增)
-go test ./... -cover            # 实测(2026-09-18): auth 100% / ratelimit 87.2% / config 86.8% / kafka 78.6% / handler 77.7%
+go test ./... -cover            # 覆盖率快照(2026-09-20 实测): auth 100% / ratelimit 88.0% / config 84.9% / handler 81.9% / kafka 78.6%
+#   —— 覆盖率随测试集变动, **以本命令输出为准**; 它刻意不进 check-docs 门禁:
+#      门禁钉的是"可从源码推导的事实"(配置项数/测试包数/告警条数/面板图数),
+#      覆盖率是"跑出来的测量值", 钉死它等于每加一个测例都要改文档
 
 # 2. 开发模式启动(允许 dev- 前缀 token, 方便联调压测)
 #    注意: 本机 8080~8083 被其他服务占用, 开发期固定 18080(与 emqx.conf webhook / prometheus 抓取一致)
