@@ -39,9 +39,12 @@ JOBS=(ov-online-count-1m ov-fault-count-1m ov-high-temp-battery-1m)
 FAULT_JOB=ov-fault-count-1m
 GROUP=flink-realtime-fault-1m          # 作业②的消费组(位移恢复就靠它)
 VIN_A=OVRST00001
-CODE_A=RSTA1                           # 阶段 A(停机前)的故障码
 VIN_B=OVRST00002
-CODE_B=RSTB1                           # 阶段 B(停机期间)的故障码 —— 本检查的主角
+# 故障码**每轮唯一**(带 HHMMSS 后缀): 否则第二次运行时"停机期间结果表里没有该码"这条负向对照
+# 必然失败 —— 上一轮已经写进去了(2026-09-20 实测: 复用固定码 RSTB1 时, 第二遍跑假红一次)。
+RUN_TAG=$(date +%H%M%S)
+CODE_A="RSTA${RUN_TAG}"                 # 阶段 A(停机前)的故障码
+CODE_B="RSTB${RUN_TAG}"                 # 阶段 B(停机期间)的故障码 —— 本检查的主角
 HB=OVRST00009                          # 推进水位线用的心跳 VIN
 
 pass=0; fail=0
@@ -113,6 +116,7 @@ if [ "${tables:-0}" != "3" ]; then
   exit 2
 fi
 info "前置通过: 3 个作业 RUNNING、3 张结果表存在"
+info "本轮标记: 故障码 ${CODE_A} / ${CODE_B}（每轮唯一, 避免与历史轮次混淆）"
 
 # ---------- ① 阶段 A: 停机前注入, 证明"数据能流 + 位移会提交" ----------
 T0_A=$(inject "${VIN_A}" "${CODE_A}")
@@ -172,11 +176,29 @@ n=$(running)
 wait_rows "${CODE_B}" 1 "停机期间的数据已进结果表（${CODE_B}）—— **窗口没因重启断档**" || true
 
 # ---------- ⑤ 位移前进(补读完成) ----------
+# 必须**轮询**: 位移只在检查点完成时提交(间隔 60s), 提交后立刻读会读到旧值 ——
+# 第一版只读一次, 于是同一脚本第二遍跑报"位移未前进"的假红(2026-09-20 实测)。
 read -r CUR_AFTER END_AFTER <<< "$(group_offsets "${GROUP}")"
+deadline=$(( $(date +%s) + TIMEOUT ))
+while [ "${CUR_AFTER:-0}" -le "${CUR_AT_CANCEL:-0}" ] 2>/dev/null && [ "$(date +%s)" -lt "${deadline}" ]; do
+  sleep 5
+  read -r CUR_AFTER END_AFTER <<< "$(group_offsets "${GROUP}")"
+done
 if [ "${CUR_AFTER:-0}" -gt "${CUR_AT_CANCEL:-0}" ] 2>/dev/null; then
   ok "位移已前进: ${CUR_AT_CANCEL} → ${CUR_AFTER}（末尾 ${END_AFTER}）"
 else
-  bad "位移未前进（仍 ${CUR_AFTER} ≤ ${CUR_AT_CANCEL}）"
+  bad "位移未前进（等待 ${TIMEOUT}s 后仍 ${CUR_AFTER} ≤ ${CUR_AT_CANCEL}）"
+fi
+
+# ---------- ⑥ 幂等落表: 停机期间那条窗口"去重后恰好一行" ----------
+# 目标表是 ReplacingMergeTree, 排序键 (window_start, code) 就是业务键 ⇒ FINAL 查询天然幂等。
+# 不加 FINAL 的原始行数一并打出来: 大于 1 说明真有重复被写进去过(靠去重兜住), 也是有用信息。
+rows_final=$(num "SELECT count() FROM oceanverse.ads_fault_count_1m FINAL WHERE code='${CODE_B}'")
+rows_raw=$(num "SELECT count() FROM oceanverse.ads_fault_count_1m WHERE code='${CODE_B}'")
+if [ "${rows_final:-0}" = "1" ]; then
+  ok "幂等落表: ${CODE_B} 去重后恰好 1 行（原始 ${rows_raw} 行; 排序键 (window_start, code)）"
+else
+  bad "幂等落表: ${CODE_B} 去重后应为 1 行, 实测 ${rows_final} 行（原始 ${rows_raw} 行）"
 fi
 
 echo

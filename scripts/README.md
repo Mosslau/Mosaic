@@ -87,11 +87,15 @@ E2E_TIMEOUT=300 scripts/check-realtime-e2e.sh # 放宽等待窗口（默认 240s
 
 `取消作业 → 停机期间灌数 → 重新提交 → 断言**停机期间的数据仍进结果表**`，外加两条负向对照
 （停机时结果表里没有该故障码；注入后**末尾位移 > 已提交位移**，证明恢复不可能来自 `latest-offset`）。
-验证的是 P1 的两条机理：检查点落 MinIO（状态侧）+ `group-offsets` 已提交位移（位点侧）。
+验证的是 P1 的两条机理：检查点落 MinIO（状态侧）+ `group-offsets` 已提交位移（位点侧），
+外加"幂等落表"（去重后恰好一行）。
 
 ```bash
-bash scripts/check-realtime-restart.sh     # 8 项断言, 本机实测 ~2m50s
+bash scripts/check-realtime-restart.sh     # 9 项断言, 本机实测 ~2.5 分钟
 ```
+
+故障码每轮带 `HHMMSS` 后缀（`RSTA210141` / `RSTB210141`）——固定码会让第二遍跑的负向对照必然假红
+（上一轮已写进表），这是本脚本第二遍真跑时暴露并修掉的自身缺陷。
 
 **为什么必须端到端断言**：P1 落地时 compose 上写了检查点配置却**根本没进 JobGraph**
 （作业 3 分钟 0 次检查点），只看配置会得出相反结论 —— 与 `pipeline-health` 的教训同源。
