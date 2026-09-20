@@ -102,6 +102,18 @@ bash scripts/check-realtime-restart.sh     # 9 项断言, 本机实测 ~2.5 分�
 **副作用**：心跳用未来 ts（最多 +70s）以便窗口立刻关闭，会把水位线推到墙钟前约 2 分钟，
 该窗口内其它生产者的数据会被当"迟到"丢弃 —— 故只在受控自检环境跑（CI 的 compose 作业里排在 e2e 之后）。
 
+## init-minio-bucket.sh — 幂等建检查点桶
+
+`docker exec ov-minio mc mb --ignore-existing local/oceanverse-flink`（别名不存在时先 `mc alias set`）。
+**为什么是脚本而不是 compose 服务**：容器内存预算合计 6656 MiB **正好等于**门禁预算上限，
+再加一个常驻容器就会让 `check-compose-budget.sh` 判据②失败；而且建桶是一次性动作，不需要常驻。
+**不建会怎样**：S3 不会自动建桶 → 检查点**静默失败**（作业照常 RUNNING、指标一片绿、恢复能力为零）。
+CI 的 compose 作业在提交作业前先跑它。
+
+```bash
+bash scripts/init-minio-bucket.sh        # 幂等: 已存在则跳过
+```
+
 ## check-compose-budget.sh — 容器内存预算门禁
 
 `mem_limit` 只约束**单个**容器，不阻止"上限之和 > 物理内存"（实测出现过：八容器上限合计 6.88 GiB，
