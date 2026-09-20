@@ -309,7 +309,7 @@ jobs:
           set +e
           sudo apt-get install -y -qq mosquitto-clients >/dev/null 2>&1
           echo "=== ① 宿主→容器 8883 TLS 握手 ==="
-          openssl s_client -connect localhost:8883 -servername localhost \
+          openssl s_client -connect 127.0.0.1:8883 -servername localhost \
             -CAfile deploy/emqx/certs/ca.crt </dev/null 2>&1 \
             | grep -E "CONNECTED|Verify return code|verify error|depth=|subject=|issuer=|alert|errno" | head -12
           echo "=== ② 容器网内 TLS 握手(排除宿主端口转发) ==="
@@ -318,14 +318,14 @@ jobs:
               openssl s_client -connect ov-emqx:8883 -servername emqx -CAfile /certs/ca.crt </dev/null 2>&1 \
               | grep -E "CONNECTED|Verify return code|alert" | head -5'
           echo "=== ③ mosquitto_pub -d 完整输出(看 TLS alert / CONNACK code) ==="
-          mosquitto_pub -h localhost -p 8883 --cafile deploy/emqx/certs/ca.crt \
+          mosquitto_pub -h 127.0.0.1 -p 8883 --cafile deploy/emqx/certs/ca.crt \
             -i OV20260001 -u OV20260001 -P pw-OV20260001 \
             -t ov/OV20260001/bin -m '##diag' -d -q 1 2>&1 | tail -20
           echo "=== ④ 明文 1883 同样发一帧(对照: 排除客户端本身有问题) ==="
-          mosquitto_pub -h localhost -p 11883 -i dev-OV20260001 \
+          mosquitto_pub -h 127.0.0.1 -p 11883 -i dev-OV20260001 \
             -t ov/OV20260001/bin -m '##diag-plain' -d -q 1 2>&1 | tail -8
           echo "=== ⑤ 强制 MQTT 3.1.1 再试(排除协议版本协商) ==="
-          mosquitto_pub -h localhost -p 8883 --cafile deploy/emqx/certs/ca.crt \
+          mosquitto_pub -h 127.0.0.1 -p 8883 --cafile deploy/emqx/certs/ca.crt \
             -V mqttv311 -i OV20260001 -u OV20260001 -P pw-OV20260001 \
             -t ov/OV20260001/bin -m '##diag311' -d -q 1 2>&1 | tail -8
           echo "=== ⑥ TLS 监听器与 MQTT 层指标(看 CONNECT 是否被处理) ==="
@@ -351,7 +351,7 @@ jobs:
               mosquitto_pub -h ov-emqx -p 1883 -i dev-OV20260001 \
                 -t ov/OV20260001/bin -m "##inner-plain" -d -q 1 2>&1 | tail -6'
           echo "=== ⑨ 宿主命名解析: localhost 是 v4 还是 v6 ==="
-          getent hosts localhost; python3 -c "import socket;print('getaddrinfo:', socket.getaddrinfo('localhost', 8883, proto=socket.IPPROTO_TCP))" 2>/dev/null | head -3
+          getent hosts localhost; python3 -c "import socket;print('getaddrinfo localhost:', socket.getaddrinfo('localhost', 8883, proto=socket.IPPROTO_TCP))" 2>/dev/null | head -3
           echo "=== ⑩ 端口映射与占用 ==="
           docker port ov-emqx 2>&1 | head -6
           (command -v ss >/dev/null && ss -ltnp 2>/dev/null | grep -E ":8883|:1883") || netstat -ltn 2>/dev/null | grep -E ":8883|:1883" || true
@@ -369,10 +369,10 @@ jobs:
           #  因此就绪判据必须是"MQTT 客户端真能发出去", 用 mosquitto_pub 探测。)
           sudo apt-get install -y -qq mosquitto-clients >/dev/null 2>&1
           for i in $(seq 1 30); do
-            if mosquitto_pub -h localhost -p 8883 --cafile deploy/emqx/certs/ca.crt \
+            if mosquitto_pub -h 127.0.0.1 -p 8883 --cafile deploy/emqx/certs/ca.crt \
                  -i OV00000100 -u OV00000100 -P pw-OV00000100 \
                  -t ov/OV00000100/bin -m '##ready' -q 1 2>/dev/null; then
-              echo "8883 MQTT 就绪(第 ${i} 次探测)"; break
+              echo "8883 MQTT 就绪(第 ${i} 次探测, 走 127.0.0.1)"; break
             fi
             echo "等待 8883 MQTT 就绪... (${i}/30)"; sleep 2
           done
@@ -387,7 +387,10 @@ jobs:
           docker exec ov-emqx emqx ctl log set-level info >/dev/null 2>&1 || true
           cd ingest/device-simulator
           # 退出码语义: 0=八项全过; 1=安全项不达标; 3=前置(凭证)不可用 → 不可判定
-          go run ./cmd/security-check -vin OV20260001
+          # ⚠️ 必须用 127.0.0.1 而不是 localhost: GitHub runner 的 /etc/hosts 把 localhost 解析成 **::1**,
+          # 而 Docker 的端口发布绑在 IPv4 —— 走 v6 时 TLS 握手能过、发 MQTT 数据包却被丢弃
+          # (实测 `unexpected eof while reading`, 且 EMQX 侧连日志都没有), 白白烧了五轮排查。
+          go run ./cmd/security-check -tls-broker 127.0.0.1:8883 -plain-broker 127.0.0.1:11883 -vin OV20260001
       - name: emqx auth log (排障窗口)
         if: always()
         run: |
