@@ -1,0 +1,12 @@
+# Flink SQL Client 的客户端配置（只给"提交容器"用, 不用于 JobManager/TaskManager）
+#
+# 为什么需要它: 作业提交**不在 JM 容器里做** —— 2026-09-20 实测:
+#   在 512m 的 JM 容器里跑 sql-client 会让两个 JVM 挤同一个 cgroup, 触发 OOM
+#   （`docker events --filter event=oom` 有 ov-flink-jm 的 oom 事件; 症状是提交到一半容器重启,
+#    而日志里看不到 OOM, 只有 exit=0 的重启循环, 很容易误判）。
+#   故用一个**独立的短命容器**提交作业, 靠这两个键连到 session cluster。
+rest.address: flink-jobmanager
+rest.port: 8081
+
+# 客户端 JVM 只是把 DDL/DML 发过去, 不需要大堆; 显式压小以免在共享 VM 上抢内存。
+env.java.opts.client: -Xmx256m

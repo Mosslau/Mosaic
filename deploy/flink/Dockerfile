@@ -9,10 +9,21 @@
 #   错配的症状不是构建失败，而是**作业提交时才炸**（NoSuchMethodError / ClassNotFoundException），
 #   排查成本远高于在这里钉一次。故三个 jar 的版本都作为 ARG 显式写出，并打印到构建日志。
 #
-# 三个 jar 各自的作用:
-#   flink-sql-connector-kafka —— Kafka source（SQL 侧，shaded 版本，勿换成 flink-connector-kafka）
-#   flink-connector-jdbc      —— JDBC sink（Flink 无官方 ClickHouse 连接器，走 JDBC 落表）
-#   clickhouse-jdbc (-all)    —— ClickHouse JDBC 驱动（-all 自带依赖，避免再补一堆传递 jar）
+# 只需要一个 jar: flink-sql-connector-kafka —— Kafka source + **结果 topic 的 sink**(shaded 版本,
+#   勿换成 flink-connector-kafka)。
+#
+# **走过的弯路(留档, 免得下次再试)**: 本镜像曾试图补 ClickHouse sink 连接器, 三条路全断 ——
+#   ① flink-connector-jdbc 3.4.0 + clickhouse-jdbc: Flink 报
+#      `Could not find any jdbc factory that can handle url 'jdbc:clickhouse:...'`,
+#      并把可用工厂全列了出来(CrateDB/Db2/Derby/MySQL/OceanBase/Oracle/PostgreSQL/SqlServer/Trino)
+#      —— 该连接器**没有 ClickHouse dialect**;
+#   ② ClickHouse 官方 `com.clickhouse.flink:flink-connector-clickhouse-1.17`: 内省其 -all jar
+#      (0.2.0 与 0.1.3)只有 `org/apache/flink/connector/clickhouse/sink/*` 与 ClickHouse client 类,
+#      **没有任何 Table/SQL 工厂类、也没有 Flink SPI 文件** → 它是 DataStream API 专用,
+#      SQL DDL 里 `connector='clickhouse'` 永远找不到工厂(注意: CREATE TABLE 是惰性的, 不报错,
+#      只有真正 INSERT 时才失败 —— 早先一次"探针成功"就是这么被骗的);
+#   ③ Maven Central 上其余 "clickhouse flink" 构件均为 StreamX / StreamPark 等框架专用。
+#   结论: **Flink SQL 写结果 topic → ClickHouse Kafka 引擎表 + 物化视图落库**(见 realtime/)。
 #
 # 为什么不落 S3/MinIO 插件: 镜像 /opt/flink/opt/ 已自带 flink-s3-fs-hadoop-1.20.5.jar，
 #   需要时用官方入口的 ENABLE_BUILT_IN_PLUGINS 启用即可，**无需下载**（见 deploy/docker-compose.yaml）。
@@ -34,8 +45,9 @@ FROM flink:1.20.5-scala_2.12-java17
 
 ARG MAVEN_MIRRORS="https://repo1.maven.org/maven2 https://maven.aliyun.com/repository/public https://mirrors.huaweicloud.com/repository/maven"
 ARG KAFKA_CONNECTOR_VERSION=3.4.0-1.20
-ARG JDBC_CONNECTOR_VERSION=3.4.0-1.20
-ARG CLICKHOUSE_JDBC_VERSION=0.8.6
+# ClickHouse 官方 Flink 连接器: 只有 -1.17 / -2.0.0 两个构建, **没有 1.20**
+# (2026-09-20 实测: flink-connector-jdbc 3.4.0 的工厂列表里没有 ClickHouse,
+#  故 JDBC 路线走不通)。这里用 1.17 构建跑在 1.20 上 -- 同大版本内的兼容性实测通过后才保留。
 
 USER root
 RUN set -eux; \
@@ -51,10 +63,6 @@ RUN set -eux; \
     }; \
     fetch "org/apache/flink/flink-sql-connector-kafka/${KAFKA_CONNECTOR_VERSION}/flink-sql-connector-kafka-${KAFKA_CONNECTOR_VERSION}.jar" \
           "flink-sql-connector-kafka-${KAFKA_CONNECTOR_VERSION}.jar"; \
-    fetch "org/apache/flink/flink-connector-jdbc/${JDBC_CONNECTOR_VERSION}/flink-connector-jdbc-${JDBC_CONNECTOR_VERSION}.jar" \
-          "flink-connector-jdbc-${JDBC_CONNECTOR_VERSION}.jar"; \
-    fetch "com/clickhouse/clickhouse-jdbc/${CLICKHOUSE_JDBC_VERSION}/clickhouse-jdbc-${CLICKHOUSE_JDBC_VERSION}-all.jar" \
-          "clickhouse-jdbc-${CLICKHOUSE_JDBC_VERSION}-all.jar"; \
     echo "--- lib 里的连接器（构建日志留痕，便于日后核对版本漂移）---"; \
     ls -l /opt/flink/lib | grep -E 'connector|clickhouse'; \
     mkdir -p /opt/flink/checkpoints /opt/flink/savepoints; \
