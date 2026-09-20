@@ -83,7 +83,9 @@ jobs:
           docker build -f deploy/flink/Dockerfile -t oceanverse/flink:ci deploy/flink
           docker run --rm --entrypoint sh oceanverse/flink:ci -c 'ls /opt/flink/lib | grep -q flink-sql-connector-kafka'
           # 只断言 kafka 连接器: ClickHouse sink 走 Kafka 结果 topic + CH Kafka 引擎(见 Dockerfile 头注)
-          docker run --rm --entrypoint sh oceanverse/flink:ci -c 'ls /opt/flink/lib | grep -q flink-connector-kafka'
+          # 注意 jar 名是 flink-**sql**-connector-kafka —— 第一版断言写成 flink-connector-kafka, 少了 sql-,
+          # 于是构建成功却断言失败(CI 抓到的; 这类"判据字符串写错"只有真跑才暴露)
+          docker run --rm --entrypoint sh oceanverse/flink:ci -c 'ls /opt/flink/lib | grep -q flink-sql-connector-kafka'
       - name: smoke run (gateway health)
         run: |
           docker run -d --name gw-smoke -p 18080:18080 -p 18081:18081 \
