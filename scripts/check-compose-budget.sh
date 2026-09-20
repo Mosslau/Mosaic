@@ -286,7 +286,7 @@ probs = []
 # ① 每个 <服务名> <N>m 都要对得上；非服务名的词（maxmemory / mem_limit 等）不参与
 by_lower = {k.lower(): k for k in real}
 matched = set()
-for m in re.finditer(r'([A-Za-z][A-Za-z0-9_]*)\s+(\d+)m\b', text):
+for m in re.finditer(r'([A-Za-z][A-Za-z0-9_-]*)\s+(\d+)m\b', text):   # 允许连字符: flink-jobmanager
     name, val = m.group(1), int(m.group(2))
     key = by_lower.get(name.lower())
     if key is None:

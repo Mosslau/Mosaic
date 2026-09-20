@@ -75,6 +75,15 @@ jobs:
         run: docker build -f ingest/device-gateway/Dockerfile -t oceanverse/device-gateway:ci .
       - name: build device-codec image
         run: docker build -f ingest/device-codec/Dockerfile -t oceanverse/device-codec:ci .
+      # Flink 镜像自建(官方镜像不含任何连接器, 见 deploy/flink/Dockerfile)。
+      # 这里只验"能构建 + 三个 jar 真在 lib 里" —— 构建期要拉 Maven, 版本写错不会报错,
+      # 只会在作业提交时炸(NoSuchMethodError), 所以把"jar 在位"也断言掉。
+      - name: build flink image
+        run: |
+          docker build -f deploy/flink/Dockerfile -t oceanverse/flink:ci deploy/flink
+          docker run --rm --entrypoint sh oceanverse/flink:ci -c 'ls /opt/flink/lib | grep -q flink-sql-connector-kafka'
+          docker run --rm --entrypoint sh oceanverse/flink:ci -c 'ls /opt/flink/lib | grep -q flink-connector-jdbc'
+          docker run --rm --entrypoint sh oceanverse/flink:ci -c 'ls /opt/flink/lib | grep -q clickhouse-jdbc'
       - name: smoke run (gateway health)
         run: |
           docker run -d --name gw-smoke -p 18080:18080 -p 18081:18081 \
@@ -238,6 +247,34 @@ jobs:
             "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='oceanverse';" | grep -qx 0
           docker exec ov-redis redis-cli ping | grep -qx PONG
           docker exec ov-redis redis-cli config get maxmemory | tail -1 | grep -qx 201326592
+      - name: flink profile up (真起 session cluster)
+        working-directory: deploy
+        run: |
+          set -e
+          # 只 build 不 up 曾让"官方镜像缺连接器、入口缺角色参数"这类问题跑到运行期(本机实测踩过)
+          docker compose --profile realtime up -d flink-jobmanager flink-taskmanager
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:18088/overview >/dev/null 2>&1; then break; fi
+            sleep 3
+          done
+          json=$(curl -sf http://127.0.0.1:18088/overview)
+          echo "$json"
+          # 判据取"JM 能看到 TM 且 slot 数对得上": 比只看端口强(端口开着也可能是空壳集群)
+          echo "$json" | python3 -c "
+          import json,sys
+          d=json.load(sys.stdin)
+          assert d['taskmanagers']==1, d
+          assert d['slots-total']==3, d
+          assert d['flink-version'].startswith('1.20'), d
+          print('  flink ok:', d['flink-version'], d['taskmanagers'], d['slots-total'])
+          "
+          # 两容器都必须 healthy(健康判据见 compose: JM=能看到 TM, TM=JVM 进程在)
+          for i in $(seq 1 20); do
+            bad=$(docker compose --profile realtime ps --format '{{.Name}} {{.Health}}' | grep flink | grep -v healthy || true)
+            [ -z "$bad" ] && break; sleep 3
+          done
+          docker compose --profile realtime ps
+          test -z "$bad"
       - name: prometheus rules loaded == file (配置新鲜度)
         working-directory: deploy
         run: |

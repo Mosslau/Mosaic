@@ -113,7 +113,7 @@ perturb "deploy/docker-compose.yaml" '      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT
 check_case "E 无效环境变量被当成生效配置写" "不生效"
 
 # ---- 判据 ⑤：文档数字 vs compose ----
-perturb "deploy/README.md" '= **5120 MiB**' '= **4480 MiB**'
+perturb "deploy/README.md" '= **6656 MiB**' '= **4480 MiB**'
 check_case "F README 合计漂移" "声称合计"
 
 perturb "deploy/README.md" 'ClickHouse 2560m' 'ClickHouse 1280m'
@@ -124,7 +124,7 @@ perturb "deploy/README.md" ' + Redis 256m
 '
 check_case "H README 漏写一个服务（新增容器场景）" "未覆盖这些服务"
 
-perturb "deploy/README.md" '的 **65%**' '的 **30%**'
+perturb "deploy/README.md" '的 **84%**' '的 **30%**'
 check_case "I 百分比与「合计 / VM 容量」不自洽" "占 VM 容量"
 
 # ---- 判据 ②：合计超预算（compose 与 README 同步改动 → ⑤ 仍绿, 只有 ②③ 该响） ----

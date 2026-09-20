@@ -316,6 +316,89 @@ services:
     logging: *default-logging
     networks: [ov-net]
 
+  # ---------- 实时计算 (第 1 阶段第 3 步: Flink SQL 三个作业) ----------
+  # 形态: **session cluster**(1 JM + 1 TM), 作业用 sql-client 提交 —— 3 个小作业反复重提交的调试场景,
+  #   application mode 会让每个作业独占一套 JM/TM(compose 里多出 5+ 个 Flink 容器), 超出本阶段需要。
+  # 挂 profile 而非默认启动: 基础栈仍是"八容器"(文档与 CI 的口径不变), 起 Flink 用
+  #   `docker compose --profile realtime up -d`。第 3 步作业全部落地后是否提升为默认栈, 那时再定。
+  flink-jobmanager:
+    profiles: ["realtime"]
+    # 镜像自建原因: 官方镜像 /opt/flink/lib **不含任何连接器**(实测), 三个 jar 由
+    # deploy/flink/Dockerfile 补入, 版本与 Flink minor 强绑定(3.4.0-1.20 ↔ 1.20.x)
+    build:
+      context: ./flink
+    image: oceanverse/flink:1.20.5
+    container_name: ov-flink-jm
+    # 角色参数**必须显式给**: 官方入口 docker-entrypoint.sh 不带默认角色, 缺了它只打印 usage
+    # 然后 exit 0 —— 症状是容器 restarting 循环、日志里反复出现 Usage 行(2026-09-20 实测踩到)
+    command: jobmanager
+    restart: unless-stopped
+    ports:
+      # 宿主端口用 18088 而不是 8081: 本机(公司环境)已有 Java 服务占着 IPv6 `*:8081`,
+      # 而 macOS 上 `localhost` 优先解析成 `::1` → 打 localhost:8081 会命中那个 Java 服务
+      # 而不是 Flink(2026-09-20 实测; 与 CI 上"localhost 解析成 ::1"是同一类坑)。
+      # 访问一律用 http://127.0.0.1:18088 —— 本仓 180xx 段的避让口径与网关 18080 一致
+      - "127.0.0.1:18088:8081"   # Flink UI / REST(回环绑定)
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        # 进程 448m = 堆 ~192m + metaspace 128m + JVM overhead 128m（显式压小 metaspace,
+        # 否则默认 256m 会把 448m 的进程吃掉一半, 见 Dockerfile/README 的内存说明）
+        jobmanager.memory.process.size: 448m
+        jobmanager.memory.jvm-metaspace.size: 128m
+        jobmanager.memory.jvm-overhead.min: 128m
+        state.checkpoints.dir: file:///opt/flink/checkpoints
+        state.savepoints.dir: file:///opt/flink/savepoints
+        # 需要 checkpoint 落 MinIO 时(本步选做/第 2 阶段): ① 加环境变量
+        #   ENABLE_BUILT_IN_PLUGINS=flink-s3-fs-hadoop-1.20.5.jar（镜像 opt/ 自带, 无需下载）
+        #   ② state.checkpoints.dir 换 s3://<bucket>/checkpoints; ③ 加 s3.endpoint/s3.path.style.access
+    volumes:
+      - flink_checkpoints:/opt/flink/checkpoints
+    healthcheck:
+      # 判据刻意取"JM 能看到 TM": 这条同时证明了两件事(自身已就绪 + TM 已注册), 比只看端口强
+      test: ["CMD-SHELL", "curl -sf http://localhost:8081/overview | grep -qE '\"taskmanagers\":[1-9]'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    # 512m: 进程上限 448m + 余量；与 TM 合计 1536 MiB = 第 3 步预留额度
+    mem_limit: 512m
+    logging: *default-logging
+    networks: [ov-net]
+
+  flink-taskmanager:
+    profiles: ["realtime"]
+    image: oceanverse/flink:1.20.5   # 复用 JM 构建的同名镜像(同一 context, 不重复构建)
+    container_name: ov-flink-tm
+    command: taskmanager
+    restart: unless-stopped
+    depends_on:
+      - flink-jobmanager
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        # 3 个 slot ↔ Kafka vehicle-report-raw 的 3 个分区(实测 3), 并行度不浪费
+        taskmanager.numberOfTaskSlots: 3
+        taskmanager.memory.process.size: 896m
+        taskmanager.memory.jvm-metaspace.size: 128m
+        taskmanager.memory.jvm-overhead.min: 128m
+        taskmanager.memory.managed.size: 128m
+        taskmanager.memory.network.min: 64m
+        state.checkpoints.dir: file:///opt/flink/checkpoints
+    volumes:
+      - flink_checkpoints:/opt/flink/checkpoints
+    healthcheck:
+      # TM 没有 HTTP 端点, 故直接判"JVM 进程在不在"(不依赖 ps/netstat 是否装)
+      test: ["CMD-SHELL", "grep -qa TaskManagerRunner /proc/[0-9]*/cmdline"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    # 1024m: 进程上限 896m + 余量
+    mem_limit: 1024m
+    logging: *default-logging
+    networks: [ov-net]
+
 volumes:
   kafka_data:
   clickhouse_data:
@@ -324,6 +407,7 @@ volumes:
   emqx_data:
   prometheus_data:
   mysql_data:
+  flink_checkpoints:
   # redis 无卷: appendonly 关闭(纯缓存语义), 重启即空是预期行为
 
 networks:

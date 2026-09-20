@@ -5,6 +5,8 @@
 > 适用阶段：第 1 阶段第 1 步——最小可用链路的底座
 > 容器运行时：**Rancher Desktop**（moby 引擎，非 Docker Desktop，符合本机策略）
 > 一键启动后你将得到：Kafka + ClickHouse + MinIO + EMQX + Grafana + Prometheus + MySQL + Redis 八个组件
+> （第 1 阶段第 3 步起另加 **Flink 两容器**：JobManager + TaskManager，挂在 compose **profile `realtime`** 上，
+> 用 `docker compose --profile realtime up -d` 启动——基础栈仍是八容器）
 > （原计划四组件 → 实际多 EMQX/Prometheus → 第九轮再补 MySQL/Redis，为第 4 步 Java 微服务 ×5 备底座）
 
 ---
@@ -72,9 +74,14 @@ EMQX 启动后**自动加载声明式规则**（`deploy/emqx/emqx.conf`）：①
 > **第二轮（同日，为 ClickHouse 可用性 + 给第 3 步 Flink 腾地方）**：VM 提到 8 GB
 > （`rdctl set --virtual-machine.memory-in-gb 8`，实测 `MemTotal` **7934 MiB**），并按**实测用量**把闲置容器的额度腾给 ClickHouse。
 >
+> **第三轮（同日，第 3 步 Flink 入栈）**：此前预留的 1536 MiB 正式分配 —— Flink session cluster 两容器
+> （JobManager + TaskManager），**挂 profile `realtime`**：`docker compose up -d` 不会启动它们（基础栈仍是八容器，
+> 文档与 CI 口径不变）；注意 `docker compose ps` **不受 profile 过滤**，Flink 起着时会一并列出（实测 10 行）。
+>
 > 现配置：Kafka 640m + ClickHouse 2560m + MinIO 192m + MySQL 512m + Redis 256m
-> + EMQX 384m + Prometheus 256m + Grafana 320m = **5120 MiB**，占本机 VM 容量（7934 MiB）的 **65%**
-> （门禁要求合计 ≤ VM 的 85%；其中 **1536 MiB 是给第 3 步 Flink 的 JM+TM 预留额度**，加 Flink 时不必再改预算）。
+> + EMQX 384m + Prometheus 256m + Grafana 320m + flink-jobmanager 512m + flink-taskmanager 1024m
+> = **6656 MiB**，占本机 VM 容量（7934 MiB）的 **84%**
+> （门禁要求合计 ≤ VM 的 85% = 6743 MiB：**预留已用满**，再加容器或调大额度必须重算并写明理由）。
 >
 > 三个配套纪律（都踩过坑）：
 > ① **进程内上限必须低于 cgroup 硬杀线、又必须显著高于进程地板**：ClickHouse 的 1536 MiB 上限写在
@@ -84,6 +91,8 @@ EMQX 启动后**自动加载声明式规则**（`deploy/emqx/emqx.conf`）：①
 >    OvercommitTracker 随即拒绝一切要内存的查询 —— 表现为"服务活着但干不了活"，判据与止血见 Q17。
 >    同一文件还必须**显式声明缓存上限**：镜像默认 mark / index_mark 各 5 GiB、uncompressed 8 GiB、mmap ≈1 GiB，
 >    在小上限下会与查询抢额度。Redis `--maxmemory 192mb` < `mem_limit 256m`（正好 75%）。
+>    同理 Flink 两容器的 `*.memory.process.size`（448m / 896m）必须小于各自 `mem_limit`（512m / 1024m）——
+>    JVM 的 metaspace/overhead 是进程内固定开销，process.size 顶到 mem_limit 就会被 cgroup 杀。
 > ② **改 limits 后必须复跑门禁**：`bash scripts/check-compose-budget.sh`（CI 也跑）。它核对五类事实：每服务都有上限 /
 >    合计 ≤ 预算（默认 6.5 GiB，其中含 Flink 预留）/ 合计 ≤ VM 容量的 85% / ClickHouse 与 Redis 的成对约束 + 缓存边界
 >    （**直接读 `limits.xml` 与挂载行**，不再去 compose 里找那个无效变量）/ **本段文字的数字与 compose 是否自洽**。
@@ -113,6 +122,12 @@ bash emqx/gen-certs.sh
 
 # 启动（首次会拉取镜像，约 1.5GB，视网络 5~20 分钟）
 docker compose up -d
+
+# 第 1 阶段第 3 步：另起 Flink（JobManager + TaskManager，session cluster）
+#   首次会构建 oceanverse/flink:1.20.5（官方镜像不含连接器，构建时补 3 个 jar，见 flink/Dockerfile）
+docker compose --profile realtime up -d
+#   UI: http://127.0.0.1:18088 —— 期望 Overview: Task Managers = 1, Available Task Slots = 3
+#   注意用 127.0.0.1 而不是 localhost: 本机 localhost 优先解析成 ::1, 而 8081 被公司 Java 服务占着(Q18)
 
 # 查看状态（healthy 即就绪）
 docker compose ps
@@ -201,7 +216,13 @@ docker exec ov-redis redis-cli config get maxmemory-policy                 # 期
 > `deploy/prometheus/prometheus.yml` 抓取目标与 `deploy/emqx/emqx.conf` webhook url 已对齐 18080（《接入层设计》§5.3 对齐线）。
 > 若在 8080 空闲的机器上开发，两处改回 8080 即可。
 
-全部通过后，第 1 阶段底座就绪，下一步是 Go 网关骨架（往 Kafka 写第一条车端数据）。
+# ⑨ Flink（第 3 步；需已用 --profile realtime 启动）
+curl -s http://127.0.0.1:18088/overview
+# 期望含 "taskmanagers":1 与 "slots-available":3
+docker compose --profile realtime ps      # 期望 ov-flink-jm / ov-flink-tm 均 healthy
+```
+
+全部通过后，基础栈就绪；第 3 步的实时作业（在线数 / 故障数 / 高温电池）见《实时计算层设计》与 `realtime/`。
 
 ---
 
@@ -373,3 +394,28 @@ curl -s -G "http://ov_admin:ov_pass_2026@localhost:8123/" --data-urlencode \
    这两条都由 `bash scripts/check-compose-budget.sh` 判据④ 核对。
 3. **若仍频繁触发**：查是不是有大查询/大表把 RSS 顶上去（`system.query_log` 的 `memory_usage`，
    需该表已启用），或按第 3 步的真实规模重新分配（VM 已 8 GB，仍有 ~1.6 GiB 未分配）。
+
+**Q18：`localhost:8081` 打不开 Flink（HTTP 500），但 `127.0.0.1:8081` 正常**
+
+2026-09-20 实测：本机（公司环境）已有 Java 服务监听 IPv6 `*:8081`，而 macOS 的 `localhost` **优先解析成 `::1`**
+→ `curl localhost:8081/overview` 打到的是那个 Java 服务（实测 **HTTP 500 / 74 字节**），
+而 `127.0.0.1:8081` 才是 Flink（**HTTP 200 / 174 字节**）。这与 CI 上踩过的
+"runner 把 localhost 解析成 `::1`"是同一类坑。
+
+处置：① Flink 的宿主端口改用 **18088**（本仓 180xx 避让口径，与网关 18080 一致），故访问
+`http://127.0.0.1:18088`；② 访问本机服务**一律用 `127.0.0.1`，不要用 `localhost`**。
+
+```bash
+curl -s http://127.0.0.1:18088/overview | python3 -c "import json,sys;d=json.load(sys.stdin);print(d['taskmanagers'],d['slots-total'])"
+# 期望: 1 3
+```
+
+**Q19：Flink 两容器一直 `restarting`，日志反复打印 `Usage: docker-entrypoint.sh (jobmanager|standalone-job|taskmanager|history-server)`**
+
+官方镜像的默认 `CMD` 是 **`help`**（`docker inspect flink:1.20.5-scala_2.12-java17` 可见），
+**角色参数必须显式给**。compose 漏了 `command:` 就会：入口打印 usage → 以 **exit 0** 退出 →
+`restart: unless-stopped` 无限重启。
+
+迷惑点：`exit=0` 且 `OOMKilled=false`，很容易被误判成"内存给少了"（本次先怀疑的就是内存配置）。
+判据：`docker inspect ov-flink-jm -f '{{.State.ExitCode}} {{.RestartCount}} {{.State.OOMKilled}}'`。
+处置：compose 里补 `command: jobmanager` / `command: taskmanager`。
