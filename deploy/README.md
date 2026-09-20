@@ -197,8 +197,10 @@ curl -s 'http://localhost:9090/api/v1/targets?state=active' | grep -o '"health":
 # 期望: "health":"up"; 网关未启动时显示 down 属正常
 curl -s -g 'http://localhost:9090/api/v1/query?query=up{job="device-gateway"}'
 # 告警规则已加载且无 firing(10 条, 含义见 Q16)
-curl -s http://localhost:9090/api/v1/rules | grep -c '"name"'    # 期望: 13
+curl -s http://localhost:9090/api/v1/rules | grep -c '"name"'    # 期望: 15
 curl -s http://localhost:9090/api/v1/alerts | grep -c '"state":"firing"' || true   # 期望: 0
+# 规则**语义**单测(该响/不该响; 曾在运行态出过假阳性, 见 Q25)
+docker exec ov-prometheus promtool test rules /etc/prometheus/rules/tests/flink-checkpoints.test.yml
 
 # ⑦ MySQL：ping + 库存在(只建库不建表, 故查 information_schema 应为空)
 docker exec ov-mysql mysqladmin ping -h 127.0.0.1 -u root -pov_root_2026   # 期望: mysqld is alive
@@ -220,6 +222,10 @@ docker exec ov-redis redis-cli config get maxmemory-policy                 # 期
 curl -s http://127.0.0.1:18088/overview
 # 期望含 "taskmanagers":1 与 "slots-available":3
 docker compose --profile realtime ps      # 期望 ov-flink-jm / ov-flink-tm 均 healthy
+
+# ⑨.1 检查点配置**真的生效**了吗（P1；只看配置文件会被骗, 见 Q20）
+docker exec ov-flink-jm sh -c 'grep -A4 "checkpointing:" /opt/flink/conf/config.yaml'
+docker exec ov-flink-tm sh -c 'grep -A5 "^s3:" /opt/flink/conf/config.yaml'   # TM 才是上传状态的一方(Q22)
 ```
 
 全部通过后，基础栈就绪；第 3 步的实时作业（在线数 / 故障数 / 高温电池）见《实时计算层设计》与 `lakehouse/warehouse/streaming/`。
@@ -328,7 +334,7 @@ docker compose ps      # 无需任何 up 命令, 期望 6/6 healthy(实测通过
 **Q16：链路静默停摆怎么第一时间知道？（告警与 runbook）**
 
 2026-09-18 前 Prometheus **零条告警规则** —— 那次 Rancher VM 掉线让整条链路停摆，监控上唯一的表现是 Grafana 没数据，**没有人会收到通知**（是评审时人工发现的）。
-现已补 **13 条**规则（`deploy/prometheus/rules/oceanverse-alerts.yml`）：
+现已补 **15 条**规则（`deploy/prometheus/rules/oceanverse-alerts.yml`）：
 
 | 告警 | 触发条件 | 含义 |
 |---|---|---|
@@ -344,7 +350,9 @@ docker compose ps      # 无需任何 up 命令, 期望 6/6 healthy(实测通过
 | `IngestLatencyHigh` | 上行延迟 p99 > 1s 持续 5m | 平台段（webhook→落盘）劣化；EMQX 重投也会如实抬高 |
 | `FlinkJobsMissing` | `flink_jobmanager_numRunningJobs < 3` 持续 2m | **实时作业少了**：某个指标停止更新（此前是监控盲区，2026-09-20 补） |
 | `FlinkTaskManagerMissing` | 已注册 TM < 1 持续 1m | TM 掉线 → 作业卡在等资源，而 JM 自身仍"健康" |
-| `FlinkJobRestarts` | 15 分钟内 `job_numRestarts` 增长 | 作业重启过 —— **无 checkpoint 时重启 = 指标窗口永久空洞** |
+| `FlinkJobRestarts` | 15 分钟内 `job_numRestarts` 增长 | 作业重启过（**已开 checkpoint**: 重启会从检查点续跑，但仍要留意） |
+| `FlinkCheckpointFailures` | 15 分钟内失败检查点 >0 | 恢复能力在退化——作业仍 RUNNING 但重启会退回更早状态 |
+| `FlinkCheckpointStalled` | 15 分钟内完成检查点 =0 | 检查点卡住/被跳过（MinIO 不可达、反压） |
 
 > Flink 指标来自自建镜像里的 `flink-metrics-prometheus`（JM/TM 各在自己的容器里暴露 **:9249**，
 > **不发布到宿主**；Prometheus 走容器网直连，故新增两个 job：`flink-jobmanager` / `flink-taskmanager`）。
@@ -427,3 +435,106 @@ curl -s http://127.0.0.1:18088/overview | python3 -c "import json,sys;d=json.loa
 迷惑点：`exit=0` 且 `OOMKilled=false`，很容易被误判成"内存给少了"（本次先怀疑的就是内存配置）。
 判据：`docker inspect ov-flink-jm -f '{{.State.ExitCode}} {{.RestartCount}} {{.State.OOMKilled}}'`。
 处置：compose 里补 `command: jobmanager` / `command: taskmanager`。
+
+**Q20：检查点配置写在 compose 的 JM/TM 上，作业却一次检查点都不做（P1 落地时真正踩到）**
+
+2026-09-20 现场：`deploy/docker-compose.yaml` 里给 JM/TM 都配了
+`execution.checkpointing.interval: 60s`（容器内 `conf/config.yaml` 里**确实有**），但作业提交后
+`/jobs/:jid/checkpoints` 跑满 **3 分钟**仍是 `total=0 failed=0 in_progress=0`，
+Prometheus `flink_jobmanager_job_numberOfCompletedCheckpoints` 一直是 0。
+
+原因：**作业级配置（检查点 / 重启策略）的唯一生效来源是提交端**。JobGraph 由 SQL Client 组装，
+它**不会**把远端集群的作业级配置注入进来；集群侧那份只是"集群默认值"（供 `flink run` 等用）。
+
+判据（端到端，不看配置）：
+
+```bash
+JID=$(curl -s http://127.0.0.1:18088/jobs/overview | python3 -c "import json,sys;print([j['jid'] for j in json.load(sys.stdin)['jobs'] if j['name']=='ov-online-count-1m'][0])")
+curl -s "http://127.0.0.1:18088/jobs/${JID}/checkpoints" | python3 -c "import json,sys;print(json.load(sys.stdin)['counts'])"
+# 期望 completed 随时间递增；恒为 0 = 配置没进 JobGraph
+```
+
+处置：提交端补齐 —— `lakehouse/warehouse/streaming/submit-jobs.sh` 里的
+`CLIENT_FLINK_PROPERTIES`（检查点周期/超时/min-pause、`restart-strategy`、`s3.*`）。
+两处同名键由 `bash scripts/check-docs.sh` ⑩ **逐键比对**（值漂移即 CI 红），避免"改了集群侧忘了提交侧"。
+
+**Q21：作业提交后立刻 FAILED，日志 `Unexpected error in InitProducerIdResponse; The transaction timeout is larger than the maximum value allowed by the broker`**
+
+Flink 的 Kafka sink 在 `exactly-once` 下把 `transaction.timeout.ms` **默认设成 1 小时**
+（`KafkaSinkBuilder` 里 `DEFAULT_KAFKA_TRANSACTION_TIMEOUT = Duration.ofHours(1)`，已用 `javap` 反汇编确认），
+而 Kafka broker 的 `transaction.max.timeout.ms` 默认 **15 分钟** → `InitProducerId` 被拒，作业起不来。
+迷惑点：`sink.delivery-guarantee='exactly-once'` 本身语法没错，DDL 也"成功"，错在**提交之后**。
+
+处置（二选一，本仓取前者——不动 broker）：
+
+1. sink 显式声明 `'properties.transaction.timeout.ms' = '600000'`（10 分钟 > 检查点超时 5 分钟，< broker 上限）。
+   注意**没有** `sink.transaction-timeout` 这个键（表连接器只有 `sink.delivery-guarantee` /
+   `sink.transactional-id-prefix`，键名清单由 jar 内 `KafkaConnectorOptions` 反查确认）；
+   `properties.*` 会在默认值**之后** `putAll`，所以用户值生效（同一份反汇编里确认）。
+2. 或把 broker 的 `transaction.max.timeout.ms` 调大（Flink 官方文档给的另一条路，代价是事务可挂更久）。
+
+**Q22：检查点配好了却永远传不上去 —— TM 缺 `s3.*`（2026-09-20 查配置时发现的缺口）**
+
+JM 的 `FLINK_PROPERTIES` 里有 `s3.endpoint/access-key/secret-key`，TM **一条都没有**：
+而**真正把状态写到 `s3://` 的是 TaskManager**，缺了它就会拿默认 endpoint 去连 AWS 真 S3
+（表现为上传失败/超时，且日志里不容易一眼看出是 endpoint 问题）。现已两侧都给全，
+并由门禁 ⑩ 单独钉住 TM 侧的四个键（负向对照：删掉即红）。
+
+**Q23：`FLINK_PROPERTIES` 里写注释，结果注释变成了配置项**
+
+官方入口（`docker-entrypoint.sh` → `prepare_configuration`）会把这串多行环境变量**当 YAML 解析**
+后写回容器内 `conf/config.yaml`，**注释行同样参与解析**：实测 12 条注释在 `config.yaml` 里变成了
+`'#有checkpoint才谈得上failover': ...`、`'#进程448m': ...` 这类怪键（顺带把行内空格吞掉）。
+
+处置：`FLINK_PROPERTIES` 块内**只写 `key: value`**，说明写在块外；`scripts/check-docs.sh` ⑩ 会拒绝
+块内注释行（负向对照已验：塞一行注释即 ❌）。判据：
+`docker exec ov-flink-jm sh -c "grep -c \"^'#\" /opt/flink/conf/config.yaml"` 期望 **0**。
+
+**Q24：`sql-client` 报 `Failed to initialize from sql script: .../00-common.sql`，但 SQL 本身没问题**
+
+两个独立原因，都踩过：
+
+1. **conf 被只读挂载**：早期实现把 `flink-conf.yaml` 以 `:ro` 挂进提交容器，而入口的
+   `prepare_configuration` 需要**写回**这个文件 → 报 `Read-only file system`，表现为"SQL 初始化失败"
+   （不是挂载报错，极易查错方向）。现在配置一律走 `-e FLINK_PROPERTIES=...`，不挂 conf 文件。
+2. **DDL 语法细节**：`WITH (...)` 选项列表**不接受尾逗号**（source 表能过、sink 表全挂），
+   选项之间**必须**有逗号。症状是 `ParseException: Encountered ")" at line N`。
+
+定位手法：手动跑一次客户端并把输出留下来（不要只看 submit-jobs.sh 的汇总行）：
+
+```bash
+docker run --rm --network oceanverse_ov-net --memory=640m \
+  -e "FLINK_PROPERTIES=$(sed -n '/^CLIENT_FLINK_PROPERTIES="/,/\"$/p' lakehouse/warehouse/streaming/submit-jobs.sh | sed '1s/^CLIENT_FLINK_PROPERTIES="//; $s/\"$//')" \
+  -v "$PWD/.tmp-realtime-submit:/opt/flink/sql:ro" oceanverse/flink:1.20.5 \
+  /opt/flink/bin/sql-client.sh -f /opt/flink/sql/00-common.sql
+```
+
+（该命令同时是 `submit-jobs.sh` 的内部机制说明：客户端容器只挂 SQL 目录，不挂 conf。）
+
+**Q25：告警为"已经不存在的作业"持续 firing（Prometheus 残留 series 假阳性）**
+
+2026-09-20 现场：重启自检（`scripts/check-realtime-restart.sh`）取消并重提作业后，
+`FlinkCheckpointStalled` **三条一直 firing** —— 但当时三个作业每分钟都在正常完成检查点
+（`/jobs/:jid/checkpoints` 的 trigger 时间戳每分钟一次、耗时 89~290ms）。也就是说：**告警是假的**。
+
+根因：`increase(<counter>[15m]) == 0` 这个写法对两类情况**同样成立** ——
+① 作业在跑但真的一次检查点都没完成（要报）；② **作业已被取消**，它的 series 还留着 15m 窗口内的样本，
+增量当然是 0（不该报）。Flink 的 JM 指标在作业取消后仍会被暴露一段时间，于是②会一直挂着。
+
+修法：加"仍被暴露"守卫，只让**当前仍在抓取到的** series 参与判断：
+
+```promql
+increase(flink_jobmanager_job_numberOfCompletedCheckpoints[15m]) == 0
+  and on(job_id) flink_jobmanager_job_numberOfCompletedCheckpoints
+```
+
+**正负两种场景都固化成了 promtool 单测**（`deploy/prometheus/rules/tests/flink-checkpoints.test.yml`，
+CI 里跑 `docker exec ov-prometheus promtool test rules ...`）：5 个场景 = 零完成→响 / 断流(取消)→不响 /
+健康→不响 / 开始失败→响 / 取消后的历史失败→不响。
+**顺带一条经验**：promtool 对 `exp_annotations` 是**逐字比对**，所以这两条规则的注解收敛成了单行、
+详细排查步骤写在规则文件的注释里（告警文案本来就该短）。
+
+```bash
+docker exec ov-prometheus promtool test rules /etc/prometheus/rules/tests/flink-checkpoints.test.yml
+# 期望: SUCCESS
+```

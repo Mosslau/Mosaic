@@ -16,8 +16,9 @@
 --      watermark 容忍 10s 乱序/迟到(车端弱网重传)。
 --   ④ `json.ignore-parse-errors` 打开: 单条脏数据不能把整个作业打挂 —— 与接入层 DLQ 同一哲学
 --      (失败隔离, 而不是让整条流停摆)。
---   ⑤ 启动位点 `latest-offset`: 只消费新数据, 不重放历史(重启会丢半开的窗口 —— 第 1 阶段接受;
---      第 2 阶段的收口是 checkpoint + 幂等落表)。
+--   ⑤ 启动位点 `group-offsets`(2026-09-20 起, 随检查点一起开): 有检查点 → **从检查点位移续跑**
+--      (重启不再丢窗口); 首次启动无检查点 → 回落 `properties.auto.offset.reset=latest`。
+--      同时因为开始提交位移, **Kafka 侧终于能看到 lag**（此前是监控盲点）。
 --      **曾试 `earliest-offset` 做「重放式恢复」并实测否决**: 重启后从最早位点重放, 但追不上实时 ——
 --      实测 5 分钟只推进 2 分钟事件时间, 指标迟迟不更新(机制见下 ⑤b)。
 --   ⑤b `scan.watermark.idle-timeout = 30s`(2026-09-20 补): 某个分区 30s 没有数据就按「无水」处理,
@@ -64,7 +65,9 @@ CREATE TABLE IF NOT EXISTS vehicle_report_raw
     'topic'                         = 'vehicle-report-raw',
     'properties.bootstrap.servers'  = 'kafka:9092',
     'properties.group.id'           = '__JOB_GROUP_ID__',   -- 占位符: submit-jobs.sh 按作业替换(见下)
-    'scan.startup.mode'             = 'latest-offset',
+    -- 位点: 有检查点时**从检查点的位移续跑**(不丢窗口); 首次启动无检查点则回落 auto.offset.reset=latest
+    'scan.startup.mode'             = 'group-offsets',
+    'properties.auto.offset.reset'  = 'latest',
     'scan.watermark.idle-timeout'   = '30s',   -- 分区空闲 30s 即按「无水」推进水位线（见下 ⑤b）
     'scan.topic-partition-discovery.interval' = '30s',
     'format'                        = 'json',
@@ -82,7 +85,15 @@ CREATE TABLE IF NOT EXISTS ads_vehicle_online_1m
     'connector'                    = 'kafka',
     'topic'                        = 'ov.ads.vehicle_online_1m.v1',
     'properties.bootstrap.servers' = 'kafka:9092',
-    'format'                       = 'json'
+    'format'                       = 'json',
+    'sink.delivery-guarantee'      = 'exactly-once',   -- 事务写: 结果 topic 里不出现"重试产生的重复"
+    'sink.transactional-id-prefix' = '__JOB_TXN_PREFIX__',  -- 占位符: 每作业必须唯一(见 submit-jobs.sh)
+    -- Flink Kafka sink 的 transaction.timeout.ms **默认 1 小时**(KafkaSinkBuilder 里
+    -- DEFAULT_KAFKA_TRANSACTION_TIMEOUT=Duration.ofHours(1), 已用 javap 反汇编确认),
+    -- 而 broker 的 transaction.max.timeout.ms 默认 15 分钟 → InitProducerId 直接失败:
+    -- "The transaction timeout is larger than the maximum value allowed by the broker"(实测踩到)。
+    -- 10 分钟 > 本作业 checkpoint timeout(5 分钟) + 余量, 且 < broker 上限, 故两侧都不用改。
+    'properties.transaction.timeout.ms' = '600000'
 );
 
 -- ---------- Sink ②: 故障数（按 fault_code, 已按 (vin, ts, code) 去重）----------
@@ -97,7 +108,15 @@ CREATE TABLE IF NOT EXISTS ads_fault_count_1m
     'connector'                    = 'kafka',
     'topic'                        = 'ov.ads.fault_count_1m.v1',
     'properties.bootstrap.servers' = 'kafka:9092',
-    'format'                       = 'json'
+    'format'                       = 'json',
+    'sink.delivery-guarantee'      = 'exactly-once',   -- 事务写: 结果 topic 里不出现"重试产生的重复"
+    'sink.transactional-id-prefix' = '__JOB_TXN_PREFIX__',  -- 占位符: 每作业必须唯一(见 submit-jobs.sh)
+    -- Flink Kafka sink 的 transaction.timeout.ms **默认 1 小时**(KafkaSinkBuilder 里
+    -- DEFAULT_KAFKA_TRANSACTION_TIMEOUT=Duration.ofHours(1), 已用 javap 反汇编确认),
+    -- 而 broker 的 transaction.max.timeout.ms 默认 15 分钟 → InitProducerId 直接失败:
+    -- "The transaction timeout is larger than the maximum value allowed by the broker"(实测踩到)。
+    -- 10 分钟 > 本作业 checkpoint timeout(5 分钟) + 余量, 且 < broker 上限, 故两侧都不用改。
+    'properties.transaction.timeout.ms' = '600000'
 );
 
 -- ---------- Sink ③: 高温电池（每车窗口内最高温 ≥45℃）----------
@@ -112,5 +131,13 @@ CREATE TABLE IF NOT EXISTS ads_high_temp_battery_1m
     'connector'                    = 'kafka',
     'topic'                        = 'ov.ads.high_temp_battery_1m.v1',
     'properties.bootstrap.servers' = 'kafka:9092',
-    'format'                       = 'json'
+    'format'                       = 'json',
+    'sink.delivery-guarantee'      = 'exactly-once',   -- 事务写: 结果 topic 里不出现"重试产生的重复"
+    'sink.transactional-id-prefix' = '__JOB_TXN_PREFIX__',  -- 占位符: 每作业必须唯一(见 submit-jobs.sh)
+    -- Flink Kafka sink 的 transaction.timeout.ms **默认 1 小时**(KafkaSinkBuilder 里
+    -- DEFAULT_KAFKA_TRANSACTION_TIMEOUT=Duration.ofHours(1), 已用 javap 反汇编确认),
+    -- 而 broker 的 transaction.max.timeout.ms 默认 15 分钟 → InitProducerId 直接失败:
+    -- "The transaction timeout is larger than the maximum value allowed by the broker"(实测踩到)。
+    -- 10 分钟 > 本作业 checkpoint timeout(5 分钟) + 余量, 且 < broker 上限, 故两侧都不用改。
+    'properties.transaction.timeout.ms' = '600000'
 );

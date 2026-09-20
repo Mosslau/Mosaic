@@ -298,20 +298,30 @@ jobs:
         run: |
           set -e
           # 结果 topic 预创建（topic 一律预创建, 不依赖 broker auto-create —— 设计文档 §11.2 的纪律）
-          for t in ov.ads.vehicle_online_1m.v1 ov.ads.fault_count_1m.v1 ov.ads.high_temp_battery_1m.v1 vehicle-report-raw; do
+          for t in ov.ads.vehicle_online_1m.v1 ov.ads.fault_count_1m.v1 ov.ads.high_temp_battery_1m.v1; do
             docker exec ov-kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 \
               --create --if-not-exists --topic "$t" --partitions 1 --replication-factor 1 >/dev/null
           done
+          # raw topic 用 **3 分区**, 与本地/设计一致（Key=VIN 哈希）。
+          # 曾是 1 分区 → CI 就覆盖不到"多分区下水位线被安静分区拖住"这条路径(idle-timeout 那个坑),
+          # 也覆盖不到"共用消费组会把分区瓜分掉"的隔离判据。2026-09-20 对齐。
+          docker exec ov-kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 \
+            --create --if-not-exists --topic vehicle-report-raw --partitions 3 --replication-factor 1 >/dev/null
           # ClickHouse 对象（3 目标表 + 3 Kafka 引擎表 + 3 物化视图）
           docker exec -i ov-clickhouse clickhouse-client --user ov_admin --password ov_pass_2026 --multiquery < ../lakehouse/warehouse/streaming/clickhouse/init.sql
           n=$(docker exec ov-clickhouse clickhouse-client --user ov_admin --password ov_pass_2026 \
               --query "SELECT count() FROM system.tables WHERE database='oceanverse'")
           echo "oceanverse 对象数 = $n"; test "$n" = "9"
+          # 检查点 bucket（S3 不会自动建桶；桶不存在时检查点会静默失败）
+          bash ../scripts/init-minio-bucket.sh
           # 提交三个作业（脚本自带"集群里真出现"的强判据与重复提交守卫）
           bash ../lakehouse/warehouse/streaming/submit-jobs.sh
           # 实时层**端到端**自检: 注入测试数据 → 等窗口关闭 → 断言三张 ADS 表真的有数
           # （此前 CI 只到"作业 RUNNING", SQL 语义/字段类型/时区改坏了也照样全绿）
           bash ../scripts/check-realtime-e2e.sh
+          # P1 的核心声明: **重启不丢窗口**（取消 → 停机期间灌数 → 重提 → 数据仍进结果表）。
+          # 必须排在 e2e 之后: 它会把水位线推到墙钟前约 2 分钟(未来 ts 心跳), 对并发生产者不友好。
+          bash ../scripts/check-realtime-restart.sh
       - name: prometheus rules loaded == file (配置新鲜度)
         working-directory: deploy
         run: |
@@ -322,6 +332,10 @@ jobs:
           declared=$(grep -c '^\s*- alert:' prometheus/rules/oceanverse-alerts.yml)
           echo "loaded=$loaded declared=$declared"
           test "$loaded" = "$declared"
+          # 规则**语义**单测（该响的响、不该响的不响）。起因: 检查点两条规则在运行态出现假阳性 ——
+          # 作业取消后残留 series 让 `increase(...)==0` 继续成立, 告警为"已经不存在的作业"持续 firing;
+          # 修法是加"仍被暴露"守卫, 这些场景把它钉住（promtool 在 prometheus 镜像里自带）
+          docker exec ov-prometheus promtool test rules /etc/prometheus/rules/tests/flink-checkpoints.test.yml
       - name: dump logs on failure
         if: failure()
         working-directory: deploy

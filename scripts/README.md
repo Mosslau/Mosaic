@@ -49,6 +49,9 @@ PROBE=0 scripts/check-pipeline-health.sh    # 空闲时不灌探针帧(不改动
 | ⑤ Mermaid 围栏嵌套 | ` ```text ` 里面又套 ` ```mermaid `（曾出现 4 处） |
 | ⑥ 引用目标存在性 | 指向不存在的 `.md` |
 | ⑦ 引用密度 | 服务手册指向层文档篇数超限（服务手册 ≤3、层文档 ≤4）——防"总分结构"重新退化成网状引用 |
+| ⑧ 告警规则数 / 面板图数 / DLQ stage 枚举 | 文件里加了规则或图、文档还写旧数字；DLQ stage 新增靠人肉同步（已漏过两次） |
+| ⑨ 实时层口径三处一致 | 结果表名 / 结果 topic 在 README、`sql/00-common.sql`、`clickhouse/init.sql` 三处不同步 |
+| ⑩ Flink 提交端/集群端配置一致 + `FLINK_PROPERTIES` 格式 | **作业级配置只在提交端生效**（compose 里配了也不会进 JobGraph，P1 落地时真的踩到）；提交端与集群端同名键漂移；TM 缺 `s3.*`（检查点由 TM 上传）；`FLINK_PROPERTIES` 块内出现注释行（会被入口解析成配置键）。5 个负向对照均已验：注释行 / 值漂移 / 提交端缺键 / TM 缺 s3 / JM 缺 s3 → 逐个变红 |
 
 ```bash
 scripts/check-docs.sh        # 失败即非零退出（CI 门禁）
@@ -79,6 +82,21 @@ E2E_TIMEOUT=300 scripts/check-realtime-e2e.sh # 放宽等待窗口（默认 240s
 
 > **测试数据命名空间**：VIN 用 `OVE2E*`、故障码用 `E2E01`（自检保留段，会真实落进 ADS 表）。
 > 注意与 `OVPROBE*` 的区别：探针会被 Flink 过滤掉（验链路活性），而自检数据必须**流到底**才能断言。
+
+## check-realtime-restart.sh — 「重启不丢窗口」自检（P1）
+
+`取消作业 → 停机期间灌数 → 重新提交 → 断言**停机期间的数据仍进结果表**`，外加两条负向对照
+（停机时结果表里没有该故障码；注入后**末尾位移 > 已提交位移**，证明恢复不可能来自 `latest-offset`）。
+验证的是 P1 的两条机理：检查点落 MinIO（状态侧）+ `group-offsets` 已提交位移（位点侧）。
+
+```bash
+bash scripts/check-realtime-restart.sh     # 8 项断言, 本机实测 ~2m50s
+```
+
+**为什么必须端到端断言**：P1 落地时 compose 上写了检查点配置却**根本没进 JobGraph**
+（作业 3 分钟 0 次检查点），只看配置会得出相反结论 —— 与 `pipeline-health` 的教训同源。
+**副作用**：心跳用未来 ts（最多 +70s）以便窗口立刻关闭，会把水位线推到墙钟前约 2 分钟，
+该窗口内其它生产者的数据会被当"迟到"丢弃 —— 故只在受控自检环境跑（CI 的 compose 作业里排在 e2e 之后）。
 
 ## check-compose-budget.sh — 容器内存预算门禁
 

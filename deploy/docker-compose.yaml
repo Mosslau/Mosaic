@@ -340,22 +340,46 @@ services:
       # 访问一律用 http://127.0.0.1:18088 —— 本仓 180xx 段的避让口径与网关 18080 一致
       - "127.0.0.1:18088:8081"   # Flink UI / REST(回环绑定)
     environment:
+      # 启用镜像**自带**的 s3 插件(opt/ → lib/, 无需下载): 检查点落 MinIO 靠它
+      ENABLE_BUILT_IN_PLUGINS: flink-s3-fs-hadoop-1.20.5.jar
+      # ⚠ 这个多行变量里**只能写 `key: value`**, 说明一律写在外面 —— 官方入口
+      #   (docker-entrypoint.sh → prepare_configuration)把它当 YAML 解析后合并进容器内的
+      #   conf/config.yaml, **注释行同样会被当成配置键**: 实测 12 条注释全变成了怪键
+      #   (如 '#有checkpoint才谈得上failover'), 且行内空格被吞掉(scripts/check-docs.sh ⑩ 已加门禁)。
+      #
+      # 另: 下面是**集群侧默认值**。作业级配置(检查点/重启策略/S3 客户端)的**唯一生效来源是
+      #   提交端** —— SQL Client 不会把远端集群的作业级配置注入 JobGraph(实测: 集群侧
+      #   interval=60s 而作业跑满 3 分钟检查点为 0 次)。提交端在
+      #   lakehouse/warehouse/streaming/submit-jobs.sh 的 CLIENT_FLINK_PROPERTIES, 两边同名键
+      #   由 scripts/check-docs.sh ⑩ 强制一致。
+      # 进程 448m = 堆 ~192m + metaspace 128m + JVM overhead 128m（显式压小 metaspace,
+      # 否则默认 256m 会把 448m 的进程吃掉一半, 见 Dockerfile/README 的内存说明）
+      # ---- 检查点(2026-09-20 起): 状态落 MinIO ----
+      # 键名用 `execution.checkpointing.*` —— 旧的 `state.checkpoints.dir` 在 1.20 会打弃用告警(实测)
+      # 有 checkpoint 才谈得上 failover: 默认 restart-strategy=none 时任何瞬时故障(如 broker 抖动)
+      # 都会让作业**永久 FAILED**, 检查点则永远用不上。有限次重启 + 从最近检查点恢复才闭环
+      # S3 客户端(镜像自带 flink-s3-fs-hadoop, 由 ENABLE_BUILT_IN_PLUGINS 启用; 无需下载)
+      # Prometheus 指标暴露(容器网内 :9249, 不发布到宿主 —— 与"回环绑定"纪律一致):
+      # 没有它, 作业静默死掉在监控上没有任何信号(2026-09-20 评估发现的缺口)
       FLINK_PROPERTIES: |
         jobmanager.rpc.address: flink-jobmanager
-        # 进程 448m = 堆 ~192m + metaspace 128m + JVM overhead 128m（显式压小 metaspace,
-        # 否则默认 256m 会把 448m 的进程吃掉一半, 见 Dockerfile/README 的内存说明）
         jobmanager.memory.process.size: 448m
         jobmanager.memory.jvm-metaspace.size: 128m
         jobmanager.memory.jvm-overhead.min: 128m
-        state.checkpoints.dir: file:///opt/flink/checkpoints
-        state.savepoints.dir: file:///opt/flink/savepoints
-        # Prometheus 指标暴露(容器网内 :9249, 不发布到宿主 —— 与"回环绑定"纪律一致):
-        # 没有它, 作业静默死掉在监控上没有任何信号(2026-09-20 评估发现的缺口)
+        execution.checkpointing.dir: s3://oceanverse-flink/checkpoints
+        execution.checkpointing.savepoint-dir: s3://oceanverse-flink/savepoints
+        execution.checkpointing.interval: 60s
+        execution.checkpointing.min-pause: 30s
+        execution.checkpointing.timeout: 5min
+        restart-strategy: fixed-delay
+        restart-strategy.fixed-delay.attempts: 3
+        restart-strategy.fixed-delay.delay: 10s
+        s3.endpoint: http://minio:9000
+        s3.path.style.access: true
+        s3.access-key: ov_minio
+        s3.secret-key: ov_minio_2026
         metrics.reporter.prom.factory.class: org.apache.flink.metrics.prometheus.PrometheusReporterFactory
         metrics.reporter.prom.port: 9249
-        # 需要 checkpoint 落 MinIO 时(本步选做/第 2 阶段): ① 加环境变量
-        #   ENABLE_BUILT_IN_PLUGINS=flink-s3-fs-hadoop-1.20.5.jar（镜像 opt/ 自带, 无需下载）
-        #   ② state.checkpoints.dir 换 s3://<bucket>/checkpoints; ③ 加 s3.endpoint/s3.path.style.access
     volumes:
       - flink_checkpoints:/opt/flink/checkpoints
     healthcheck:
@@ -379,16 +403,24 @@ services:
     depends_on:
       - flink-jobmanager
     environment:
+      ENABLE_BUILT_IN_PLUGINS: flink-s3-fs-hadoop-1.20.5.jar
+      # 3 个 slot ↔ Kafka vehicle-report-raw 的 3 个分区(实测 3), 并行度不浪费
+      # 检查点: **TM 是真正把状态写到 s3:// 的一方**, 所以 s3.* 客户端配置必须在这里也给全 ——
+      #   只给 JM 的话 TM 会拿默认 endpoint 去连 AWS 真 S3(2026-09-20 查配置时发现的缺口)。
+      # 作业级的 restart-strategy/检查点周期不在这里: 它们只对提交端生效(见 JM 处说明)
       FLINK_PROPERTIES: |
         jobmanager.rpc.address: flink-jobmanager
-        # 3 个 slot ↔ Kafka vehicle-report-raw 的 3 个分区(实测 3), 并行度不浪费
         taskmanager.numberOfTaskSlots: 3
         taskmanager.memory.process.size: 896m
         taskmanager.memory.jvm-metaspace.size: 128m
         taskmanager.memory.jvm-overhead.min: 128m
         taskmanager.memory.managed.size: 128m
         taskmanager.memory.network.min: 64m
-        state.checkpoints.dir: file:///opt/flink/checkpoints
+        execution.checkpointing.dir: s3://oceanverse-flink/checkpoints
+        s3.endpoint: http://minio:9000
+        s3.path.style.access: true
+        s3.access-key: ov_minio
+        s3.secret-key: ov_minio_2026
         metrics.reporter.prom.factory.class: org.apache.flink.metrics.prometheus.PrometheusReporterFactory
         metrics.reporter.prom.port: 9249
     volumes:

@@ -25,6 +25,30 @@ REST="${FLINK_REST:-http://127.0.0.1:18088}"
 # 作业专属 SQL 的暂存目录（占位符替换后挂进提交容器; .tmp-* 已在 .gitignore）
 STAGE="${ROOT}/.tmp-realtime-submit"
 JOBS=("$@")
+
+# ---- 提交端配置: 作业级配置的**唯一生效来源** ----------------------------------------
+# 实测(2026-09-20): 只把 `execution.checkpointing.interval: 60s` 写在 deploy/docker-compose.yaml
+# 的 JM/TM 上, 作业跑满 3 分钟 /jobs/:jid/checkpoints 仍是 total=0(failed=0/in_progress=0) ——
+# **SQL Client 不会把远端集群的作业级配置注入 JobGraph**, 作业的 ExecutionConfig 全部来自提交端。
+# 所以检查点/重启策略/S3 客户端必须在这里给全, compose 里那份只是集群默认值。
+# 与 compose 同名的键由 scripts/check-docs.sh ⑩ 逐条比对(值不一致 → CI 红, 防两处漂移)。
+# ⚠ 块内只能有 `key: value`: 官方入口把 FLINK_PROPERTIES 当 YAML 解析后**写回**容器内
+#   conf/config.yaml, 注释行也会变成配置键(见 compose 里同一条说明)。
+CLIENT_FLINK_PROPERTIES="rest.address: flink-jobmanager
+rest.port: 8081
+env.java.opts.client: -Xmx256m
+execution.checkpointing.dir: s3://oceanverse-flink/checkpoints
+execution.checkpointing.savepoint-dir: s3://oceanverse-flink/savepoints
+execution.checkpointing.interval: 60s
+execution.checkpointing.min-pause: 30s
+execution.checkpointing.timeout: 5min
+restart-strategy: fixed-delay
+restart-strategy.fixed-delay.attempts: 3
+restart-strategy.fixed-delay.delay: 10s
+s3.endpoint: http://minio:9000
+s3.path.style.access: true
+s3.access-key: ov_minio
+s3.secret-key: ov_minio_2026"
 [ ${#JOBS[@]} -eq 0 ] && JOBS=(10-online-count 20-fault-count 30-high-temp)
 
 # 作业名 ↔ 文件名（作业名在 SQL 文件的 SET 'pipeline.name' 里, 这里只用于回查）
@@ -33,6 +57,17 @@ JOBS=("$@")
 # 注意: 用 case 而不是关联数组 —— macOS 自带 bash 3.2 **不支持 declare -A**
 #       （踩过: 报 `online: unbound variable`, 因为它把 [10-online-count] 当算术表达式求值）
 # 作业 → 独立消费组。**必须一作业一组**: 共用时 Kafka 会把分区瓜分给不同作业, 指标静默变成 1/3。
+# 作业 → sink 事务前缀（`sink.delivery-guarantee=exactly-once` 要求**每个作业唯一**,
+# 否则两个作业的事务会互相覆盖）。与消费组同源命名。
+job_txn_prefix() {
+  case "$1" in
+    10-online-count) echo oceanverse-online-1m ;;
+    20-fault-count)  echo oceanverse-fault-1m ;;
+    30-high-temp)    echo oceanverse-hightemp-1m ;;
+    *)               echo "" ;;
+  esac
+}
+
 job_group() {
   case "$1" in
     10-online-count) echo flink-realtime-online-1m ;;
@@ -74,13 +109,20 @@ print(sum(1 for j in d if j.get('name')==name and j.get('state') in live))
   # 生成作业专属 SQL: 把 __JOB_GROUP_ID__ 换成该作业的消费组（Flink SQL Client 不支持 ${VAR}, 故在脚本侧替换）
   gid="$(job_group "${job}")"
   rm -rf "${STAGE}"; mkdir -p "${STAGE}"
-  sed "s/__JOB_GROUP_ID__/${gid}/" "${ROOT}/lakehouse/warehouse/streaming/sql/00-common.sql" > "${STAGE}/00-common.sql"
-  if grep -q '__JOB_GROUP_ID__' "${STAGE}/00-common.sql"; then
-    echo "❌ 占位符替换失败（00-common.sql 里是否还有 __JOB_GROUP_ID__?）"; fail=1; continue
+  txn="$(job_txn_prefix "${job}")"
+  sed -e "s/__JOB_GROUP_ID__/${gid}/" -e "s/__JOB_TXN_PREFIX__/${txn}/" \
+      "${ROOT}/lakehouse/warehouse/streaming/sql/00-common.sql" > "${STAGE}/00-common.sql"
+  # 占位符必须**全部**替换掉: 漏一个就会以字面量提交(Flink 会当成合法名字, 静默出错)
+  if grep -q '__JOB_' "${STAGE}/00-common.sql"; then
+    echo "❌ 占位符替换失败: $(grep -o '__JOB_[A-Z_]*__' "${STAGE}/00-common.sql" | sort -u | tr '\n' ' ')"; fail=1; continue
   fi
   cp "${ROOT}/lakehouse/warehouse/streaming/sql/${job}.sql" "${STAGE}/${job}.sql"
+  # 客户端如何找到远端集群: 用 FLINK_PROPERTIES 环境变量 —— 官方入口把它合并进容器内的
+  # conf/config.yaml(1.20 的配置文件名, 不是 flink-conf.yaml)。**不要**把 conf 文件以 :ro 挂进去:
+  # 入口的 prepare_configuration 需要**写回**该文件, 只读挂载会让它报
+  # `config.yaml: Read-only file system`, 症状是"DDL 初始化失败"而不是挂载报错(实测踩到)。
   out=$(docker run --rm --network "${NET}" --memory=640m \
-      -v "${ROOT}/lakehouse/warehouse/streaming/conf/sql-client-flink-conf.yaml:/opt/flink/conf/flink-conf.yaml:ro" \
+      -e "FLINK_PROPERTIES=${CLIENT_FLINK_PROPERTIES}" \
       -v "${STAGE}:/opt/flink/sql:ro" \
       "${IMAGE}" /opt/flink/bin/sql-client.sh \
       -i /opt/flink/sql/00-common.sql -f "/opt/flink/sql/${job}.sql" 2>&1 \

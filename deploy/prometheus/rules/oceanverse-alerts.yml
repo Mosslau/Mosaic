@@ -180,9 +180,10 @@ groups:
           description: >-
             ov-flink-tm 掉线或未注册。作业会卡在"等待资源"。查: docker compose --profile realtime ps 与 TM 日志。
 
-      # ---------- 13. 作业重启过(无 checkpoint ⇒ 重启即丢窗口) ----------
-      # 语义: 本步未开 checkpoint, 作业一旦重启, 重启期间进 Kafka 的消息不会再被消费(启动位点 latest-offset),
-      # 那段窗口**永久缺失** —— 所以"重启过"必须是一个会响的信号, 而不是只在日志里。
+      # ---------- 13. 作业重启过 ----------
+      # 语义(2026-09-20 P1 后更新): 已开 checkpoint + 位点 group-offsets, 重启会**从最近检查点/已提交位移恢复**,
+      # 不再像以前那样永久丢一段窗口。但仍要响: 重启本身说明有过故障(容器 OOM、TM 掉线、broker 抖动),
+      # 且恢复期间指标会停更 —— 属于"要人看一眼"的信号。
       # 用 increase(...[15m]) 而不是 > 0: 后者在重启后会一直挂着, 变成噪声。
       - alert: FlinkJobRestarts
         expr: increase(flink_jobmanager_job_numRestarts[15m]) > 0
@@ -192,5 +193,41 @@ groups:
         annotations:
           summary: "Flink 作业 {{ $labels.job_name }} 在 15 分钟内重启过"
           description: >-
-            无 checkpoint 时重启会造成指标窗口空洞(见 warehouse/streaming/README.md §7 第 1 条)。
-            查 JM/TM 日志与容器内存上限(是否被 cgroup OOM); 若为宿主/VM 重启, 请重新提交作业。
+            重启会从最近检查点恢复(不丢窗口), 但恢复期间指标停更, 且通常意味着有过故障。
+            查 JM/TM 日志与容器内存上限(是否被 cgroup OOM); 若为宿主/VM 重启, 作业会自动重启并恢复,
+            并留意 FlinkCheckpointFailures / FlinkCheckpointStalled 是否同时响
+            (见 lakehouse/warehouse/streaming/README.md §7 边界 1c~1e)。
+      # ---------- 14. 检查点失败(2026-09-20 起 checkpoint 已开) ----------
+      # 语义: 检查点失败**不会**让作业变红 —— 它照样 RUNNING, 只是"恢复能力在退化"
+      #   (重启会退回到更早的状态)。这正是需要告警而不是靠盯面板的那类问题。
+      # ⚠ 两条 checkpoint 规则都带 `and on(job_id) <同一指标>` 守卫 —— 防**残留 series 假阳性**：
+      #   作业被取消后, 它的 series 在 15m 窗口里仍有样本, `increase` 算出 0 ⇒ "零完成"条件成立,
+      #   告警会为**已经不存在的作业**一直挂着(2026-09-20 实测踩到: 取消作业后 3 条
+      #   FlinkCheckpointStalled 持续 firing, 而当时的作业每分钟都在正常完成检查点)。
+      #   右侧是瞬时向量, 只保留**当前仍被暴露**的 series; 正/负两种场景都有 promtool 单测钉住
+      #   (rules/tests/flink-checkpoints.test.yml)。
+      # 排查: MinIO 桶不存在/凭据错(s3.* 配置)、状态超过 execution.checkpointing.timeout、TM 内存不足。
+      #   `curl -s 127.0.0.1:18088/jobs/<jid>/checkpoints` + `docker exec ov-minio mc ls ov/oceanverse-flink/checkpoints`
+      - alert: FlinkCheckpointFailures
+        expr: increase(flink_jobmanager_job_numberOfFailedCheckpoints[15m]) > 0
+              and on(job_id) flink_jobmanager_job_numberOfFailedCheckpoints
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Flink 作业 {{ $labels.job_name }} 15 分钟内有检查点失败"
+          description: "检查点失败不报错但会退化恢复能力: 查 MinIO 可达性/桶/凭据与 TM 内存(详见本文件注释)"
+
+      # ---------- 15. 长时间没有成功的检查点 ----------
+      # 与 14 互补: 那条看"失败次数", 这条看"根本没有成功"(卡住/被跳过/配置错)。
+      # 排查: 间隔是 60s, 15 分钟零完成说明卡住/被持续跳过(MinIO 不可达、反压、作业刚重启)。
+      #   若同时有 FlinkCheckpointFailures, 优先看那条。
+      - alert: FlinkCheckpointStalled
+        expr: increase(flink_jobmanager_job_numberOfCompletedCheckpoints[15m]) == 0
+              and on(job_id) flink_jobmanager_job_numberOfCompletedCheckpoints
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Flink 作业 {{ $labels.job_name }} 15 分钟内没有完成任何检查点"
+          description: "检查点间隔 60s: 15 分钟零完成 = 卡住或被持续跳过(MinIO/反压/刚重启), 详见本文件注释"

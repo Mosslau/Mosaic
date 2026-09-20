@@ -307,6 +307,131 @@ else:
         ok(f"三处一致（{len(TABLES)} 张结果表 / {len(TOPICS)} 个结果 topic）")
 
 
+# ---------- ⑩ Flink 配置两处一致 + FLINK_PROPERTIES 只许键值对（2026-09-20 P1 补） ----------
+# 背景: P1(检查点/位点)落地时踩到三个"配置写了但不生效"的坑, 都是静默的:
+#   ① **作业级配置的唯一生效来源是提交端**: 只把 execution.checkpointing.interval 写在
+#      docker-compose.yaml 的 JM/TM 上, 作业跑满 3 分钟检查点仍是 0 次(SQL Client 不把远端集群的
+#      作业级配置注入 JobGraph)。→ 客户端 submit-jobs.sh 里的 CLIENT_FLINK_PROPERTIES 必须给全,
+#      且与 compose 同名键**逐条相等**, 否则两处漂移又是一次静默失效。
+#   ② **TM 才是把状态写到 s3:// 的一方**, 但 TM 曾完全没有 s3.* 配置(会去连 AWS 真 S3)。
+#   ③ FLINK_PROPERTIES 被官方入口当 YAML 解析后写回 conf/config.yaml, **注释行也会变成配置键**
+#      (实测 12 条注释全变成怪键, 如 '#有checkpoint才谈得上failover')。故块内只许 `key: value`。
+print("⑩ Flink 提交端/集群端配置一致 + FLINK_PROPERTIES 格式")
+
+COMPOSE = pathlib.Path('deploy/docker-compose.yaml')
+SUBMIT = pathlib.Path('lakehouse/warehouse/streaming/submit-jobs.sh')
+
+def parse_block(lines, start, indent_key):
+    """从 `KEY: |` 行后收集缩进更深的行(去缩进, 去空行)"""
+    body, i = [], start
+    while i < len(lines):
+        line = lines[i]
+        if line.strip() and (len(line) - len(line.lstrip())) <= indent_key:
+            break
+        if line.strip():
+            body.append(line.strip())
+        i += 1
+    return body, i
+
+# --- compose: 按服务收集 FLINK_PROPERTIES ---
+compose_env, service = {}, None
+clines = COMPOSE.read_text(encoding='utf-8').split('\n')
+i = 0
+while i < len(clines):
+    line = clines[i]
+    m = re.match(r'^  ([a-z0-9-]+):\s*$', line)
+    if m:
+        service = m.group(1)
+    m = re.match(r'^(\s*)FLINK_PROPERTIES:\s*\|\s*$', line)
+    if m:
+        body, i = parse_block(clines, i + 1, len(m.group(1)))
+        compose_env[service] = body
+        continue
+    i += 1
+
+# --- submit-jobs.sh: CLIENT_FLINK_PROPERTIES="..." ---
+sbody, sname = [], 'CLIENT_FLINK_PROPERTIES'
+slines = SUBMIT.read_text(encoding='utf-8').split('\n')
+for i, line in enumerate(slines):
+    if line.startswith(sname + '="'):
+        rest = line[len(sname) + 2:]
+        if rest.endswith('"'):
+            sbody = [rest[:-1]]
+            break
+        sbody.append(rest)
+        for j in range(i + 1, len(slines)):
+            if slines[j].rstrip().endswith('"'):
+                sbody.append(slines[j].rstrip()[:-1])
+                break
+            sbody.append(slines[j])
+        break
+
+def kv(block):
+    d = {}
+    for line in block:
+        if line.startswith('#'):
+            continue
+        if ':' not in line:
+            continue
+        k, v = line.split(':', 1)
+        d[k.strip()] = v.strip()
+    return d
+
+# --- ⑩.1 块内只许键值对(注释行禁令) ---
+fmt_problems = []
+for src, blocks in (('deploy/docker-compose.yaml', {k: v for k, v in compose_env.items() if v}),
+                    ('lakehouse/warehouse/streaming/submit-jobs.sh', {sname: sbody})):
+    for svc, body in blocks.items():
+        for line in body:
+            if line.startswith('#'):
+                fmt_problems.append(f"{src} [{svc}] FLINK_PROPERTIES 里出现注释行（会被入口当成配置键）: {line[:40]}")
+            elif not re.match(r'^[A-Za-z0-9._-]+:\s*\S', line):
+                fmt_problems.append(f"{src} [{svc}] FLINK_PROPERTIES 行不是 `key: value` 形式: {line[:40]}")
+
+jm = kv(compose_env.get('flink-jobmanager', []))
+tm = kv(compose_env.get('flink-taskmanager', []))
+cli = kv(sbody)
+
+# --- ⑩.2 客户端必须给全作业级键(唯一生效来源) ---
+JOB_LEVEL = ['execution.checkpointing.dir', 'execution.checkpointing.interval',
+             'execution.checkpointing.min-pause', 'execution.checkpointing.timeout',
+             'restart-strategy', 's3.endpoint', 's3.path.style.access',
+             's3.access-key', 's3.secret-key']
+for k in JOB_LEVEL:
+    if k not in cli:
+        fmt_problems.append(f"submit-jobs.sh 的 CLIENT_FLINK_PROPERTIES 缺 {k}（作业级配置只在提交端生效）")
+
+# --- ⑩.3 集群侧(JM)也必须声明这组键 ---
+# 为什么两条都要: 只做"同名键相等"的话, **删掉一侧的键**就会让比较集合缩水甚至变空, 门禁静默通过
+# (负向对照实测: 删掉 JM 的 4 个 s3 键后, 提示从"一致(12 条)"变成"一致(8 条)", 依然 ✅ —— 假通过)。
+# 集群侧那份是"集群默认值"(供 flink CLI/其它提交方式使用), 语义上不能少。
+CLUSTER_MUST = ['execution.checkpointing.dir', 'execution.checkpointing.interval',
+                'execution.checkpointing.min-pause', 'execution.checkpointing.timeout',
+                'restart-strategy', 's3.endpoint', 's3.path.style.access',
+                's3.access-key', 's3.secret-key']
+for k in CLUSTER_MUST:
+    if k not in jm:
+        fmt_problems.append(f"deploy/docker-compose.yaml 的 flink-jobmanager 缺 {k}（集群默认值；缺了会让⑩.4 退化）")
+
+# --- ⑩.4 TM 必须能写 s3(真正上传状态的一方) ---
+for k in ['s3.endpoint', 's3.path.style.access', 's3.access-key', 's3.secret-key']:
+    if k not in tm:
+        fmt_problems.append(f"deploy/docker-compose.yaml 的 flink-taskmanager 缺 {k}（检查点由 TM 上传）")
+
+# --- ⑩.4 两处同名键必须逐条相等 ---
+drift = [f"{k}: compose={jm[k]!r} vs submit-jobs.sh={cli[k]!r}"
+         for k in sorted(set(jm) & set(cli))
+         if k not in ('jobmanager.rpc.address',) and jm[k] != cli[k]]
+fmt_problems += [f"同名键取值漂移 → {d}" for d in drift]
+
+if fmt_problems:
+    for m in fmt_problems:
+        bad(m)
+else:
+    ok(f"块内格式合规（{len(compose_env.get('flink-jobmanager', []))} JM 键 / "
+       f"{len(compose_env.get('flink-taskmanager', []))} TM 键 / {len(cli)} 提交端键）")
+    ok(f"两处同名键一致（{len(set(jm) & set(cli))} 条）+ TM 可写 s3 + 作业级键齐全")
+
 print()
 if fail:
     print(f"==== 文档校验: {fail} 项未通过 ====")

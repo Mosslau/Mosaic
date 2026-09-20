@@ -104,6 +104,19 @@ docker exec ov-clickhouse clickhouse-client --user ov_admin --password ov_pass_2
   --query "SELECT * FROM oceanverse.ads_vehicle_online_1m ORDER BY window_start DESC LIMIT 5 FORMAT PrettyCompact"
 #   Grafana: http://localhost:3000 → Dashboards → "realtime 实时指标（在线数 / 故障 / 高温电池）"
 #   该看板 realtime-metrics（4 图）：最新在线数 / 在线数趋势 / 故障数按码 / 高温告警表
+
+# ⑤ 自检（两条, 都是端到端判据, CI 里也跑）
+bash scripts/check-realtime-e2e.sh        # 出数口径: 在线数/故障去重/高温分级/探针不污染（约 5 分钟）
+bash scripts/check-realtime-restart.sh    # 重启不丢窗口: 取消 → 停机期间灌数 → 重提 → 数据仍进表（约 3 分钟）
+
+# 检查点落盘（P1 的物理证据, 不是"配置写了"）
+curl -s http://127.0.0.1:18088/jobs/overview | python3 -c "
+import json,sys,urllib.request as u
+for j in json.load(sys.stdin)['jobs']:
+    if j['state']=='RUNNING':
+        c=json.load(u.urlopen('http://127.0.0.1:18088/jobs/%s/checkpoints'%j['jid']))['counts']
+        print(j['name'], c)"
+docker exec ov-minio sh -c 'mc alias set local http://127.0.0.1:9000 ov_minio ov_minio_2026 >/dev/null; mc ls --recursive local/oceanverse-flink/checkpoints | head'
 ```
 
 产生测试流量（另开终端；三条通道任选）：
@@ -159,7 +172,38 @@ go run ./cmd/bin-simulator  -broker tcp://localhost:11883 -devices 20 -interval 
 **④ 对账**：网关 `requests_total` ≈ raw topic 消息数（含历史累计）→ 三个结果 topic 条数
 → ClickHouse 行数，逐段可解释（见 `scripts/check-pipeline-health.sh` 的受理==落盘判据）。
 
-**⑤ 看板可用性**：`realtime-metrics` 的 4 张图逐一用 Grafana 的 `/api/ds/query` 跑过 —— 全部返回数据
+**⑥ 检查点真的落了 MinIO（2026-09-20 P1，物理证据）**：三个作业 `completed=1 failed=0`（`/jobs/:jid/checkpoints`），
+Prometheus `flink_jobmanager_job_numberOfCompletedCheckpoints` = 1/1/1，MinIO 侧实体对象
+`oceanverse-flink/checkpoints/<jid>/chk-1/_metadata`（8.6KiB / 9.5KiB，`mc ls` 实测）。
+**为什么要看对象而不是看配置**：P1 落地时 compose 上的检查点配置**根本没进 JobGraph**——
+`execution.checkpointing.interval: 60s` 只写在 JM/TM 上，作业跑满 3 分钟检查点仍是 `total=0`；
+只看配置文件会得出完全相反的结论（详见 §7 边界 1c 与 deploy/README Q20）。
+
+**⑦ 位移可观测（P1）**：数据流过后，raw topic 上出现三个**一作业一组的已提交位移**：
+
+```
+flink-realtime-online-1m   vehicle-report-raw  0  10011/10011 (lag 0) ...  2  10362/10365 (lag 3)
+flink-realtime-fault-1m    vehicle-report-raw  0  10011/10011        ...  2  10363/10365 (lag 2)
+flink-realtime-hightemp-1m vehicle-report-raw  0  10011/10011        ...  2  10362/10365 (lag 3)
+```
+
+**三组的位移几乎相同**，这同时也是"消费组隔离生效"的又一证据：共用消费组时 Kafka 会把 3 个分区
+**分给三个作业各一个**，三组位点会明显错开且各少 2/3 数据（判据见 `scripts/check-pipeline-health.sh`）。
+
+**⑧ 重启不丢窗口（P1 的核心命题，`scripts/check-realtime-restart.sh` 8 项全过，2m50s）**：
+
+```
+阶段 A（作业在跑）: 注入 OVRST00001/RSTA1 → 落表 ✅；检查点 5 → 6 完成（位移随之提交）✅
+取消三个作业          ✅（停机开始）
+阶段 B（停机期间）: 注入 OVRST00002/RSTB1
+  负向对照① 结果表里没有 RSTB1（确未提前进表）                       ✅
+  负向对照② 末尾位移 20394 > 取消时已提交位移 20385（9 条未消费数据）  ✅ ← 恢复不可能来自 latest
+重新提交三个作业      ✅ RUNNING
+  停机期间的数据已进结果表（RSTB1）—— 窗口没因重启断档                ✅
+  已提交位移 20385 → 20394（补读完成）                              ✅
+```
+
+**⑨ 看板可用性**：`realtime-metrics` 的 4 张图逐一用 Grafana 的 `/api/ds/query` 跑过 —— 全部返回数据
 （1/6/23/9 行）。做这块时**炸出两个历史遗留问题**（都已修，留档免得重踩）：
 
 - **ClickHouse 数据源自 provision 起就是坏的**：插件（v4.21.3）只认 `jsonData.host`，而 provisioning 里
@@ -186,6 +230,14 @@ for j in json.load(sys.stdin)['jobs']:
 curl -s -X PATCH "http://127.0.0.1:18088/jobs/<jid>?mode=cancel"
 ```
 
+**取消 / 重提的语义（P1 之后）**：位点是 `group-offsets`，位移在**检查点完成时**提交（默认 60s 一次），
+所以「取消 → 重提」会从**已提交位移**续读，停机期间的数据不会丢（判据 = `scripts/check-realtime-restart.sh`）。
+两条注意：
+- 想"从头重放"必须先删消费组：`kafka-consumer-groups.sh --delete --group flink-realtime-online-1m`
+  （不删就永远从位移续读；`auto.offset.reset=latest` 只在**组内没有位移**时兜底）；
+- **savepoint ≠ 必需**：`mode=stop`（打 savepoint 再停）语义更强，但当前三个作业的状态只是窗口聚合，
+  重启后从已提交位移重放即可收敛；跨版本升级/改算子拓扑时仍应走 savepoint（见 §7 边界 1c 的收口）。
+
 `submit-jobs.sh` 内置两道**基于活动状态**的判据（都因为踩过同一个坑才加上）：
 ① **守卫**：同名作业处于活动状态时拒绝提交；
 ② **回查**：提交后轮询"集群里出现**活动状态**的该作业"才算成功。
@@ -201,13 +253,18 @@ curl -s -X PATCH "http://127.0.0.1:18088/jobs/<jid>?mode=cancel"
 
 | # | 边界 | 影响 | 收口方式 |
 |---|---|---|---|
-| 1 | **未开 checkpoint**：窗口状态在 JM/TM 重启后丢失；启动位点 `latest-offset` | 重启期间的半个窗口会丢；不提交位移故 Kafka 侧无 lag 可看。（曾试 `earliest-offset` 做「重放式恢复」并**实测否决**：重放追不上实时，5 分钟只推进 2 分钟事件时间） | 第 2 阶段：开 checkpoint（可落 MinIO）+ 位点改 `group-offsets` + 幂等落表 |
+| ~~1~~ | ~~**未开 checkpoint**：窗口状态在 JM/TM 重启后丢失；启动位点 `latest-offset`~~ | ✅ **已修（2026-09-20 P1）**：检查点落 MinIO（60s 间隔 / 5min 超时 / min-pause 30s）+ 位点 `group-offsets` + sink `exactly-once`；位移可观测（三组各自的已提交位移与 lag），重启不丢窗口（§5 ⑧）。~~曾试 `earliest-offset`「重放式恢复」并实测否决：重放追不上实时, 5 分钟只推进 2 分钟事件时间~~ | —— |
+| 1c | **作业级配置只在提交端生效**：写在 compose 的 JM/TM 上**不会**进 JobGraph | 静默失效——"配置看着对、作业根本不检查点"（P1 落地时真正踩到, 3 分钟 0 次） | 已固化为**两处 + 门禁**：提交端 `CLIENT_FLINK_PROPERTIES` 给全、compose 侧作默认值, `scripts/check-docs.sh` ⑩ 逐键比对（含 5 个负向对照） |
+| 1d | **Kafka 事务超时 vs broker 上限**：Flink sink 默认 `transaction.timeout.ms = 1h`, broker 默认上限 15 分钟 | 作业提交后**立刻 FAILED**（`InitProducerIdResponse ... larger than the maximum value allowed by the broker`） | 已修：sink 显式 `properties.transaction.timeout.ms=600000`（10 分钟 > 检查点超时 5 分钟, < broker 上限; 键名经 javap 反汇编确认, 见 deploy/README Q21） |
+| 1e | **`FLINK_PROPERTIES` 里写注释会被当成配置键**（入口把该变量当 YAML 解析后写回 `conf/config.yaml`） | 实测 12 条注释全变成 `config.yaml` 里的怪键（如 `'#有checkpoint才谈得上failover'`），行内空格被吞 | 已修：注释一律写在块外；`scripts/check-docs.sh` ⑩ 禁止块内出现注释行（负向对照已验） |
 | 1b | **水位线会被安静分区拖住**（3 分区里只要 1 个没数据，窗口就不触发） | ✅ 已修：`scan.watermark.idle-timeout = 30s`，空闲分区按「无水」处理 | —— |
 | 2 | 结果链路是 **at-least-once**：Flink → Kafka → CH 物化视图 | CH 重启后可能重放少量消息 → 目标表可能有重复 | 目标表已是 `ReplacingMergeTree` + 业务键排序；精确查询用 `FINAL`。更强方案（幂等键/去重表）随第 2 阶段 |
 | 3 | **迟到 >10s 的数据不进窗口** | 弱网重传的老数据只进 Kafka、不进指标 | 第 2 阶段：按业务容忍度调 watermark 或用 `allowedLateness` + 侧输出 |
 | 4 | 并行度 = 1/作业（3 个作业恰好占满 3 个 slot） | 吞吐上限低（当前量级远未触及） | 扩 TaskManager + 把 `SET 'parallelism.default'` 提到 3（raw topic 已是 3 分区, 可直接吃满） |
 | 5 | "在线数"是**活跃车辆数**近似 | 心跳稀疏的车会被算成离线 | 第 2 阶段口径字典加"最近 5 分钟有心跳即在线"，与现口径并存而非替换 |
 | 6 | 高温阈值 45/55℃ 未与电池团队确认 | 可能偏离业务定义 | 确认后改进 `30-high-temp.sql` 与 §2 口径表 |
+| 7 | **重启自检会推进水位线**：心跳用未来 ts（最多 +70s），把水位线推到墙钟前 ~2 分钟 | 该窗口内其它生产者的数据会被当"迟到"丢弃（本机无真实流量, CI 里排在 e2e 之后跑, 影响受控） | 若要常态化跑: 改用墙钟心跳（代价是每阶段多等 ~80s），或给自检数据单独打标后按标记断言 |
+| 8 | **检查点里没有 Kafka 事务的"最终一致"证明**: sink 侧 exactly-once 只覆盖"检查点之间不重复提交" | 若 CH 侧物化视图自身重放（at-least-once）, 目标表仍可能出现重复行 | 目标表是 `ReplacingMergeTree`（按窗口+业务键排序）, 查询用 `FINAL`；`scripts/check-realtime-e2e.sh` 的 QoS1 去重断言覆盖 SQL 侧去重 |
 
 ---
 
