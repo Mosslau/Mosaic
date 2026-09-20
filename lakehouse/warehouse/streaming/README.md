@@ -169,12 +169,24 @@ go run ./cmd/bin-simulator  -broker tcp://localhost:11883 -devices 20 -interval 
 （Flink 的 SQL Client **不支持** `${VAR}` 替换 —— 已实测）。
 验证：TM 日志里三个 `groupId=` 各不相同；且每个作业都能读到全量流。
 
-**④ 对账**：网关 `requests_total` ≈ raw topic 消息数（含历史累计）→ 三个结果 topic 条数
+**⑤ 对账**：网关 `requests_total` ≈ raw topic 消息数（含历史累计）→ 三个结果 topic 条数
 → ClickHouse 行数，逐段可解释（见 `scripts/check-pipeline-health.sh` 的受理==落盘判据）。
 
-**⑥ 检查点真的落了 MinIO（2026-09-20 P1，物理证据）**：三个作业 `completed=1 failed=0`（`/jobs/:jid/checkpoints`），
-Prometheus `flink_jobmanager_job_numberOfCompletedCheckpoints` = 1/1/1，MinIO 侧实体对象
-`oceanverse-flink/checkpoints/<jid>/chk-1/_metadata`（8.6KiB / 9.5KiB，`mc ls` 实测）。
+**⑥ 检查点真的落了 MinIO（2026-09-20 P1，物理证据）**：三个作业的 `completed` **随检查点递增**
+（首次观测 1，`failed` 恒 0），Prometheus `flink_jobmanager_job_numberOfCompletedCheckpoints` 同步增长，
+MinIO 侧出现实体对象 `oceanverse-flink/checkpoints/<jid>/chk-N/_metadata`（首次观测 8.6KiB / 9.5KiB）。
+**判据取"对象真的在桶里"+"计数真的在涨"，不取"配置文件里写了"** —— 原因见下方那段。
+
+```bash
+# 计数（三个作业各一行, completed 应递增、failed 应为 0）
+curl -s http://127.0.0.1:18088/jobs/overview | python3 -c "
+import json,sys,urllib.request as u
+for j in json.load(sys.stdin)['jobs']:
+    if j['state']=='RUNNING':
+        print(j['name'], json.load(u.urlopen('http://127.0.0.1:18088/jobs/%s/checkpoints'%j['jid']))['counts'])"
+# 对象（应看到 <jid>/chk-N/_metadata）
+docker exec ov-minio sh -c 'mc alias set local http://127.0.0.1:9000 ov_minio ov_minio_2026 >/dev/null; mc ls --recursive local/oceanverse-flink/checkpoints'
+```
 **sink 的 exactly-once 不是"配了就算"**：Kafka 事务协调者里能直接列出本层的事务 ID（形如
 `<每作业前缀>-<subtask>-<检查点号>`），状态是 `CompleteCommit`/`Empty`（没有挂死的事务）：
 
@@ -193,6 +205,15 @@ docker exec ov-kafka /opt/kafka/bin/kafka-transactions.sh --bootstrap-server kaf
 
 **⑦ 位移可观测（P1）**：数据流过后，raw topic 上出现三个**一作业一组的已提交位移**：
 
+```bash
+for g in flink-realtime-online-1m flink-realtime-fault-1m flink-realtime-hightemp-1m; do
+  docker exec ov-kafka /opt/kafka/bin/kafka-consumer-groups.sh \
+    --bootstrap-server kafka:9092 --describe --group "$g" | tail -3
+done
+```
+
+某次实测快照（列含义：已提交位移 / 末尾位移 / lag；位移数值本身随时间变化，**要看的是"三组都存在且几乎相同"**）：
+
 ```
 flink-realtime-online-1m   vehicle-report-raw  0  10011/10011 (lag 0) ...  2  10362/10365 (lag 3)
 flink-realtime-fault-1m    vehicle-report-raw  0  10011/10011        ...  2  10363/10365 (lag 2)
@@ -203,6 +224,7 @@ flink-realtime-hightemp-1m vehicle-report-raw  0  10011/10011        ...  2  103
 **分给三个作业各一个**，三组位点会明显错开且各少 2/3 数据（判据见 `scripts/check-pipeline-health.sh`）。
 
 **⑧ 重启不丢窗口（P1 的核心命题，`scripts/check-realtime-restart.sh` 9 项全过，约 2.5 分钟）**：
+（下面是一次本机实测的输出摘要；位移数值每轮不同，判据是"停机期间那条数据最终进了表且去重后一行"）
 
 ```
 阶段 A（作业在跑）: 注入 OVRST00001/RSTA1 → 落表 ✅；检查点 5 → 6 完成（位移随之提交）✅
