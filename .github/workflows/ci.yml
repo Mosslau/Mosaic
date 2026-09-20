@@ -324,6 +324,18 @@ jobs:
           echo "=== ④ 明文 1883 同样发一帧(对照: 排除客户端本身有问题) ==="
           mosquitto_pub -h localhost -p 11883 -i dev-OV20260001 \
             -t ov/OV20260001/bin -m '##diag-plain' -d -q 1 2>&1 | tail -8
+          echo "=== ⑤ 强制 MQTT 3.1.1 再试(排除协议版本协商) ==="
+          mosquitto_pub -h localhost -p 8883 --cafile deploy/emqx/certs/ca.crt \
+            -V mqttv311 -i OV20260001 -u OV20260001 -P pw-OV20260001 \
+            -t ov/OV20260001/bin -m '##diag311' -d -q 1 2>&1 | tail -8
+          echo "=== ⑥ TLS 监听器与 MQTT 层指标(看 CONNECT 是否被处理) ==="
+          docker exec ov-emqx emqx ctl listeners 2>&1 | grep -A 3 -E "ssl:default|tcp:default" | head -14
+          for m in client.connack client.connect messages.received; do
+            printf "  %-22s " "$m"
+            docker exec ov-emqx emqx ctl broker metrics 2>/dev/null | grep -E "^$m " | head -1 || echo "(n/a)"
+          done
+          echo "=== ⑦ EMQX 全量近期日志(不过滤, 找握手/协议层告警) ==="
+          docker logs --since 5m ov-emqx 2>&1 | grep -viE "CONNECTOR|resource|alarm_is" | tail -25
           echo "=== ③ EMQX 侧日志(连接/认证/授权) ==="
           docker exec ov-emqx emqx ctl log set-level info >/dev/null 2>&1 || true
           docker logs --tail 25 ov-emqx 2>&1 | tail -20
