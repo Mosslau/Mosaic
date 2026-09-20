@@ -39,6 +39,7 @@ BANNED = {
     'cmd/simulator': '模拟器已迁 ingest/device-simulator 并更名 http-simulator',
     'ingest/simulator': '模块已更名 ingest/device-simulator',
     'ingest/contracts': 'Go 绑定已更名为 ingest/device-contracts',
+    'realtime/': '该层已更名为 warehouse/（流处理模块为 warehouse/streaming/，2026-09-20）',
     # 文档重构（总分结构）后的旧文件名：改一处漏三处的高发区
     '接入层与车端接入网关设计-v1.md': '已更名为 docs/01-接入层设计-v1.md',
     'GB32960-二进制协议与字段映射-v1.md': '已更名为 docs/02-GB32960协议规格-v1.md',
@@ -267,15 +268,15 @@ else:
 
 
 # ---------- ⑨ 实时层"口径三处一致"（2026-09-20 补） ----------
-# 背景: 实时作业的口径散落在三处 —— realtime/README.md（口径表·唯一源）、sql/00-common.sql（sink 与字段）、
+# 背景: 实时作业的口径散落在三处 —— warehouse/streaming/README.md（口径表·唯一源）、sql/00-common.sql（sink 与字段）、
 #   clickhouse/init.sql（Kafka 引擎表/MV/目标表）。三者必须同步, 而"同步"靠人记就会漂（本仓已多次踩到）。
 #   这里只机械化可判定的部分: 三个结果表名与三个结果 topic 是否在三处都出现。
 #   （"阈值/窗口语义"是否一致属文字表述, 仍需人工评审; 门禁只钉能钉的。）
 print("⑨ 实时层口径三处一致（README / sql / clickhouse）")
 RT = {
-    'realtime/README.md': pathlib.Path('realtime/README.md'),
-    'realtime/sql/00-common.sql': pathlib.Path('realtime/sql/00-common.sql'),
-    'realtime/clickhouse/init.sql': pathlib.Path('realtime/clickhouse/init.sql'),
+    'warehouse/streaming/README.md': pathlib.Path('warehouse/streaming/README.md'),
+    'warehouse/streaming/sql/00-common.sql': pathlib.Path('warehouse/streaming/sql/00-common.sql'),
+    'warehouse/streaming/clickhouse/init.sql': pathlib.Path('warehouse/streaming/clickhouse/init.sql'),
 }
 missing_files = [k for k, p in RT.items() if not p.exists()]
 if missing_files:
@@ -295,9 +296,9 @@ else:
                 rt_problems.append(f"结果 topic {tp} 未出现在 {k}")
     # sink 的 topic 必须与 ClickHouse Kafka 引擎表的 kafka_topic_list 一一对应（防"改了一边"）
     for tp in TOPICS:
-        if f"'topic'                        = '{tp}'" not in texts['realtime/sql/00-common.sql']:
+        if f"'topic'                        = '{tp}'" not in texts['warehouse/streaming/sql/00-common.sql']:
             rt_problems.append(f"sink 未声明 topic {tp}（00-common.sql）")
-        if f"kafka_topic_list = '{tp}'" not in texts['realtime/clickhouse/init.sql']:
+        if f"kafka_topic_list = '{tp}'" not in texts['warehouse/streaming/clickhouse/init.sql']:
             rt_problems.append(f"ClickHouse 引擎表未订阅 {tp}（init.sql）")
     if rt_problems:
         for m in rt_problems:

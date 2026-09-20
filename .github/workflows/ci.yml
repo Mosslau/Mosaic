@@ -303,12 +303,12 @@ jobs:
               --create --if-not-exists --topic "$t" --partitions 1 --replication-factor 1 >/dev/null
           done
           # ClickHouse 对象（3 目标表 + 3 Kafka 引擎表 + 3 物化视图）
-          docker exec -i ov-clickhouse clickhouse-client --user ov_admin --password ov_pass_2026 --multiquery < ../realtime/clickhouse/init.sql
+          docker exec -i ov-clickhouse clickhouse-client --user ov_admin --password ov_pass_2026 --multiquery < ../warehouse/streaming/clickhouse/init.sql
           n=$(docker exec ov-clickhouse clickhouse-client --user ov_admin --password ov_pass_2026 \
               --query "SELECT count() FROM system.tables WHERE database='oceanverse'")
           echo "oceanverse 对象数 = $n"; test "$n" = "9"
           # 提交三个作业（脚本自带"集群里真出现"的强判据与重复提交守卫）
-          bash ../realtime/submit-jobs.sh
+          bash ../warehouse/streaming/submit-jobs.sh
       - name: prometheus rules loaded == file (配置新鲜度)
         working-directory: deploy
         run: |

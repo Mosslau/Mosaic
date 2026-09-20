@@ -1,10 +1,10 @@
-# realtime 实时计算层 —— Flink SQL 作业
+# streaming 流处理 —— Flink SQL 作业（warehouse 层的流处理模块）
 
-> 对应《OceanVerse 架构总览》§1.1 实时计算层 / 能力域③计算引擎（Flink 实时主力）。
-> **本层职责**：把 `vehicle-report-raw` 里的标准信封（接入层契约）算成**可直接查询的指标**，落到 ClickHouse serving 层。
+> 上位：`../README.md`（warehouse 层定位与分层规约）｜对应《OceanVerse 架构总览》§1.1 实时计算层 / 能力域③计算引擎。
+> **本模块职责**：把 `vehicle-report-raw` 里的标准信封（接入层契约）算成**可直接查询的 ADS 指标**，落到 ClickHouse serving 层。
 >
-> 📚 **简称约定**：《接入层设计》= 《../ingest/docs/01-接入层设计-v1.md》｜《GB32960 映射》= 《../ingest/docs/02-GB32960协议规格-v1.md》
-> 🧭 接入层与本层的关系：接入层只负责"把数据干净地送进 Kafka"，**不做业务判断**；"什么算高温"这类业务口径全部在本层。
+> 📚 **简称约定**：《接入层设计》= 《../../ingest/docs/01-接入层设计-v1.md》｜《GB32960 映射》= 《../../ingest/docs/02-GB32960协议规格-v1.md》
+> 🧭 上下游关系：接入层只负责"把数据干净地送进 Kafka"，**不做业务判断**；"什么算高温"这类业务口径全部在本模块。
 
 ---
 
@@ -60,17 +60,21 @@ flowchart LR
 ## 3. 目录
 
 ```
-realtime/
-├── sql/
-│   ├── 00-common.sql     # 源表(Kafka) + 三个 sink(Kafka) —— 连接参数与字段的**单一源**
-│   ├── 10-online-count.sql   # 作业①：在线数（只有 INSERT）
-│   ├── 20-fault-count.sql    # 作业②：故障数（含 (vin,ts,code) 去重）
-│   └── 30-high-temp.sql      # 作业③：高温电池（45/55 阈值）
-├── clickhouse/init.sql   # Kafka 引擎表 + 物化视图 + 目标表（幂等, 可重复执行）
-├── conf/sql-client-flink-conf.yaml  # 提交容器的客户端配置（连远端 session cluster）
-├── submit-jobs.sh        # 提交脚本（判据 = 集群里真出现该作业）
-└── README.md             # 本文件（口径唯一源 + 运行/验证手册）
+warehouse/                       ← 数仓层（层手册见 warehouse/README.md）
+├── README.md                    #   层定位 / 分层规约 / 模块索引（含"为什么叫 warehouse 不叫 lakehouse"）
+└── streaming/                   ← 本模块：流处理
+    ├── sql/
+    │   ├── 00-common.sql        #   源表(Kafka) + 三个 sink(Kafka) —— 连接参数与字段的**单一源**
+    │   ├── 10-online-count.sql  #   作业①：在线数（只有 INSERT）
+    │   ├── 20-fault-count.sql   #   作业②：故障数（含 (vin,ts,code) 去重）
+    │   └── 30-high-temp.sql     #   作业③：高温电池（45/55 阈值）
+    ├── clickhouse/init.sql      #   Kafka 引擎表 + 物化视图 + 目标表（幂等, 可重复执行）
+    ├── conf/sql-client-flink-conf.yaml   # 提交容器的客户端配置（连远端 session cluster）
+    ├── submit-jobs.sh           #   提交脚本（判据 = 集群里真出现该作业）
+    └── README.md                #   本文件（口径唯一源 + 运行/验证手册）
 ```
+
+> 第 2 阶段的批处理分层（ODS→DWD→DWS、Iceberg 双写）会作为**兄弟模块** `../batch/` 加入，本模块内容不需要迁移。
 
 作业与 Flink 集群的部署件在 `deploy/`：`deploy/flink/Dockerfile`（自建镜像补连接器）、
 `deploy/docker-compose.yaml` 的 `flink-jobmanager` / `flink-taskmanager`（**profile `realtime`**）。
@@ -88,10 +92,10 @@ curl -s http://127.0.0.1:18088/overview    # 期望 taskmanagers=1, slots-total=
 #   注意用 127.0.0.1 不要用 localhost（本机 8081 被公司 Java 服务占着, 见 deploy/README Q18）
 
 # ② 建 ClickHouse 对象（3 目标表 + 3 Kafka 引擎表 + 3 物化视图 = 9 个）
-docker exec -i ov-clickhouse clickhouse-client --user ov_admin --password ov_pass_2026 --multiquery < realtime/clickhouse/init.sql
+docker exec -i ov-clickhouse clickhouse-client --user ov_admin --password ov_pass_2026 --multiquery < warehouse/streaming/clickhouse/init.sql
 
 # ③ 提交三个作业（判据 = 集群里真出现该作业名）
-bash realtime/submit-jobs.sh
+bash warehouse/streaming/submit-jobs.sh
 
 # ④ 看结果
 docker exec ov-clickhouse clickhouse-client --user ov_admin --password ov_pass_2026 \
@@ -176,8 +180,14 @@ for j in json.load(sys.stdin)['jobs']:
 curl -s -X PATCH "http://127.0.0.1:18088/jobs/<jid>?mode=cancel"
 ```
 
-`submit-jobs.sh` 内置**守卫**：同名作业处于活动状态时拒绝提交（它只看活动状态 ——
-`/jobs/overview` 里还留着已取消的历史作业，不过滤会误判）。
+`submit-jobs.sh` 内置两道**基于活动状态**的判据（都因为踩过同一个坑才加上）：
+① **守卫**：同名作业处于活动状态时拒绝提交；
+② **回查**：提交后轮询"集群里出现**活动状态**的该作业"才算成功。
+
+> 为什么强调"活动状态"：`/jobs/overview` **会保留已取消/已完成的历史作业**。
+> 第一版守卫与回查都只按名字匹配，于是①把刚取消的作业当成"在跑"而拒绝重提，②更糟 ——
+> 在一次挂载路径写错、提交其实失败的情况下，被历史作业匹配成 ✅（**假成功**）。
+> 两次都是"判据取不到端到端成立的事实"，与本仓 `pipeline-health` 的教训同源。
 
 ---
 

@@ -14,7 +14,7 @@
       "id": 1,
       "type": "stat",
       "title": "最新窗口在线数",
-      "description": "ads_vehicle_online_1m 的最后一个窗口。口径=窗口内上报过的去重车辆数（活跃车辆近似值, 不是 MQTT 长连接数; 见 realtime/README §2）。若长时间不更新, 先看 Flink 作业是否还在跑。",
+      "description": "ads_vehicle_online_1m 的最后一个窗口。口径=窗口内上报过的去重车辆数（活跃车辆近似值, 不是 MQTT 长连接数; 见 warehouse/streaming/README §2）。若长时间不更新, 先看 Flink 作业是否还在跑。",
       "gridPos": { "x": 0, "y": 0, "w": 6, "h": 7 },
       "datasource": { "type": "grafana-clickhouse-datasource", "uid": "ov-clickhouse" },
       "fieldConfig": {
@@ -91,7 +91,7 @@
       "id": 4,
       "type": "table",
       "title": "高温电池告警（level=alarm, ≥55℃）",
-      "description": "窗口内每车最高电池温度 ≥55℃。warn(≥45) 也在表里可查, 这里只列 alarm 以免淹没。阈值口径见 realtime/README §2。",
+      "description": "窗口内每车最高电池温度 ≥55℃。warn(≥45) 也在表里可查, 这里只列 alarm 以免淹没。阈值口径见 warehouse/streaming/README §2。",
       "gridPos": { "x": 12, "y": 7, "w": 12, "h": 8 },
       "datasource": { "type": "grafana-clickhouse-datasource", "uid": "ov-clickhouse" },
       "fieldConfig": {

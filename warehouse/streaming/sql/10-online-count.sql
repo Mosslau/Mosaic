@@ -12,7 +12,7 @@ SET 'parallelism.default' = '1';
 -- 探针剔除: `OVPROBE*` 是 `scripts/check-pipeline-health.sh` 的探针保留段（第十轮约定）——
 --   探针帧真实走完链路, 若不过滤会被当成真实车辆, 污染在线数/故障数/画像。
 --
--- 提交方式见 realtime/README.md（sql-client -i 00-common.sql -f 本文件）。
+-- 提交方式见 warehouse/streaming/README.md（sql-client -i 00-common.sql -f 本文件）。
 INSERT INTO ads_vehicle_online_1m
 SELECT
     UNIX_TIMESTAMP(CAST(window_start AS STRING)) AS window_start_s,
