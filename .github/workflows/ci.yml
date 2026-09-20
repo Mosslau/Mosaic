@@ -307,15 +307,23 @@ jobs:
       - name: TLS 分层诊断（区分 握手层 / MQTT层 —— EOF 到底是哪一层断的）
         run: |
           set +e
+          sudo apt-get install -y -qq mosquitto-clients >/dev/null 2>&1
           echo "=== ① 宿主→容器 8883 TLS 握手 ==="
           openssl s_client -connect localhost:8883 -servername localhost \
             -CAfile deploy/emqx/certs/ca.crt </dev/null 2>&1 \
             | grep -E "CONNECTED|Verify return code|verify error|depth=|subject=|issuer=|alert|errno" | head -12
-          echo "=== ② 宿主→容器 8883 MQTT CONNECT(带一车一密凭证) ==="
-          sudo apt-get install -y -qq mosquitto-clients >/dev/null 2>&1
+          echo "=== ② 容器网内 TLS 握手(排除宿主端口转发) ==="
+          docker run --rm --network oceanverse_ov-net -v "$PWD/deploy/emqx/certs:/certs:ro" \
+            alpine:3.21 sh -c 'apk add --no-cache openssl >/dev/null 2>&1; \
+              openssl s_client -connect ov-emqx:8883 -servername emqx -CAfile /certs/ca.crt </dev/null 2>&1 \
+              | grep -E "CONNECTED|Verify return code|alert" | head -5'
+          echo "=== ③ mosquitto_pub -d 完整输出(看 TLS alert / CONNACK code) ==="
           mosquitto_pub -h localhost -p 8883 --cafile deploy/emqx/certs/ca.crt \
             -i OV20260001 -u OV20260001 -P pw-OV20260001 \
-            -t ov/OV20260001/bin -m '##diag' -d -q 1 2>&1 | tail -12
+            -t ov/OV20260001/bin -m '##diag' -d -q 1 2>&1 | tail -20
+          echo "=== ④ 明文 1883 同样发一帧(对照: 排除客户端本身有问题) ==="
+          mosquitto_pub -h localhost -p 11883 -i dev-OV20260001 \
+            -t ov/OV20260001/bin -m '##diag-plain' -d -q 1 2>&1 | tail -8
           echo "=== ③ EMQX 侧日志(连接/认证/授权) ==="
           docker exec ov-emqx emqx ctl log set-level info >/dev/null 2>&1 || true
           docker logs --tail 25 ov-emqx 2>&1 | tail -20
@@ -326,12 +334,16 @@ jobs:
           # 而 8883 监听器要更晚才 accept —— 于是客户端"连上了但立刻 EOF", 且 EMQX 侧
           # **一条日志都没有**(实测: openssl 手工握手成功、脚本连接失败, 就是这个时序差)。
           # 这里用**与判据同一条路径**(openssl 走 8883)等到真正可用为止。
+          # (实测: 仅探测 TLS 握手**不够** —— 握手一直是通的, 发 MQTT 包才断。
+          #  因此就绪判据必须是"MQTT 客户端真能发出去", 用 mosquitto_pub 探测。)
+          sudo apt-get install -y -qq mosquitto-clients >/dev/null 2>&1
           for i in $(seq 1 30); do
-            if openssl s_client -connect localhost:8883 -servername localhost \
-                 -CAfile deploy/emqx/certs/ca.crt </dev/null 2>/dev/null | grep -q "Verify return code: 0"; then
-              echo "8883 TLS 就绪(第 ${i} 次探测)"; break
+            if mosquitto_pub -h localhost -p 8883 --cafile deploy/emqx/certs/ca.crt \
+                 -i OV00000100 -u OV00000100 -P pw-OV00000100 \
+                 -t ov/OV00000100/bin -m '##ready' -q 1 2>/dev/null; then
+              echo "8883 MQTT 就绪(第 ${i} 次探测)"; break
             fi
-            echo "等待 8883 就绪... (${i}/30)"; sleep 2
+            echo "等待 8883 MQTT 就绪... (${i}/30)"; sleep 2
           done
           bash deploy/emqx/seed-users.sh 0 100
           bash deploy/emqx/seed-users.sh --vin OV20260001
