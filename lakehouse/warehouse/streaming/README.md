@@ -175,6 +175,18 @@ go run ./cmd/bin-simulator  -broker tcp://localhost:11883 -devices 20 -interval 
 **⑥ 检查点真的落了 MinIO（2026-09-20 P1，物理证据）**：三个作业 `completed=1 failed=0`（`/jobs/:jid/checkpoints`），
 Prometheus `flink_jobmanager_job_numberOfCompletedCheckpoints` = 1/1/1，MinIO 侧实体对象
 `oceanverse-flink/checkpoints/<jid>/chk-1/_metadata`（8.6KiB / 9.5KiB，`mc ls` 实测）。
+**sink 的 exactly-once 不是"配了就算"**：Kafka 事务协调者里能直接列出本层的事务 ID（形如
+`<每作业前缀>-<subtask>-<检查点号>`），状态是 `CompleteCommit`/`Empty`（没有挂死的事务）：
+
+```bash
+docker exec ov-kafka /opt/kafka/bin/kafka-transactions.sh --bootstrap-server kafka:9092 list
+# oceanverse-online-1m-0-1  …  oceanverse-fault-1m-1-4  …  oceanverse-hightemp-1m-0-10
+```
+
+这同时证明了三件事：① 事务写**真的开着**（没有静默降级成 at-least-once）；
+② **每作业前缀互不冲突**（共用前缀会让两个作业的事务互相覆盖）；
+③ 事务随检查点提交（`CompleteCommit`），没有长期挂着的半开事务。
+
 **为什么要看对象而不是看配置**：P1 落地时 compose 上的检查点配置**根本没进 JobGraph**——
 `execution.checkpointing.interval: 60s` 只写在 JM/TM 上，作业跑满 3 分钟检查点仍是 `total=0`；
 只看配置文件会得出完全相反的结论（详见 §7 边界 1c 与 deploy/README Q20）。
