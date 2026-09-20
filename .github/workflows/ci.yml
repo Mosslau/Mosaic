@@ -200,6 +200,10 @@ jobs:
           docker compose config -q
       - name: memory budget gate
         run: bash scripts/check-compose-budget.sh
+      # 门禁自己也会退化成"僵尸判据"(实测: 成对约束判据长期打印"跳过"而没人发现),
+      # 故把负向对照固化: 在隔离假树里施加 10 种扰动, 每种都必须让门禁变红
+      - name: budget gate self-test (negative controls)
+        run: bash scripts/test-compose-budget.sh
       - name: compose up (等待全部 healthy)
         working-directory: deploy
         run: |

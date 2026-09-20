@@ -1,6 +1,7 @@
 # scripts —— 仓库工具脚本
 
-> 两个脚本都被 CI 调用（`.github/workflows/ci.yml` 的 `docs` 作业）；本地改动文档后先跑一遍再提交。
+> 本目录 5 个脚本：`check-docs.sh` / `check-mermaid.sh` 进 CI 的 `docs` 作业，`check-pipeline-health.sh` 进 `pipeline-health` 作业，
+> `check-compose-budget.sh` + `test-compose-budget.sh` 进 `compose` 作业；本地改动后先跑一遍再提交。
 
 ## check-mermaid.sh — 文档 Mermaid 图渲染校验
 
@@ -52,6 +53,39 @@ PROBE=0 scripts/check-pipeline-health.sh    # 空闲时不灌探针帧(不改动
 ```bash
 scripts/check-docs.sh        # 失败即非零退出（CI 门禁）
 ```
+
+## check-compose-budget.sh — 容器内存预算门禁
+
+`mem_limit` 只约束**单个**容器，不阻止"上限之和 > 物理内存"（实测出现过：八容器上限合计 6.88 GiB，
+而 VM 只有 6.2 GiB）。本脚本把 `deploy/README.md` §3 那段人工算术变成可执行判据，五类：
+
+| 判据 | 挡住什么 |
+|---|---|
+| ① 每服务都有 `mem_limit` | 漏一个就等于那个容器没有上限 |
+| ② 合计 ≤ 预算（默认 4.75 GiB，`OV_BUDGET_MIB` 可覆盖） | 账面超配 |
+| ③ 合计 ≤ VM 容量 × 0.85（本机可探测时） | 留不出 dockerd / VM 自身的余量 |
+| ④ 成对约束 | ClickHouse 进程内上限 ≥ `mem_limit`、Redis `maxmemory` 相对 `mem_limit` 过高；**另含三个更隐蔽的失效方式**：`limits.xml` 没被 compose 挂进容器（死配置）/ `ratio=0`（实测语义是关上限）/ compose 里又把那个不生效的环境变量当配置写 |
+| ⑤ 文档数字 vs compose | `deploy/README.md` 内存预算段的每个 `<服务> Nm`、合计、百分比与实际配置漂移（2026-09-20 就漂过一版：compose 抬到 1280m 而文档仍写 1152m） |
+
+```bash
+scripts/check-compose-budget.sh        # 失败即非零退出（CI 的 compose 作业调用）
+```
+
+> **判据 ④ 曾长期处于"跳过"状态**：它去 compose 里找 `CLICKHOUSE_MAX_SERVER_MEMORY_USAGE`，而该变量
+> 早已按实测结论挪进 `limits.xml` —— 名义上有门禁、实际没跑（"一直是绿的"只说明它从来没跑）。
+> **新增或修改判据请照 `test-compose-budget.sh` 的做法配负向对照**，并让"跳过"打印出**为什么**跳过。
+
+### 负向对照：`test-compose-budget.sh`
+
+门禁自己也会退化成"僵尸判据"，所以把对照固化下来：在**隔离假树**（`.tmp-budget-selftest/`，跑完即删，
+不备份也不还原真实文件——中断都不会留下半改状态）里施加 10 种扰动，每一种都必须让门禁**变红并命中预期原因**。
+
+```bash
+scripts/test-compose-budget.sh     # 基线绿 + 10 则对照全红 = 门禁有鉴别力（CI 的 compose 作业调用）
+```
+
+覆盖：进程内上限越线 / `limits.xml` 未挂载 / `ratio=0` / 文件缺失 / 无效环境变量当配置 /
+README 合计漂移 / README 单值漂移 / README 漏服务 / 百分比不自洽 / 合计超预算。
 
 ## 文档结构约定（2026-09-18 重构后，方案 B）
 

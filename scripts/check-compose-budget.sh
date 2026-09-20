@@ -14,10 +14,19 @@
 #   ② 合计 mem_limit ≤ 预算上限（默认 4.75 GiB; 可用 OV_BUDGET_MIB 覆盖）
 #   ③ 若 VM 容量可探测（本机 docker info）: 合计 ≤ VM 容量 × 0.85
 #      —— 留 15% 给 dockerd/VM 自身, 否则"合法配置"仍会把整机压死
-#   ④ 已知成对约束: ClickHouse 的进程内上限必须 < 其 mem_limit;
+#   ④ 成对约束: ClickHouse 的进程内上限必须 < 其 mem_limit, 且该上限必须**真的生效**;
 #      Redis 的 maxmemory 必须显著小于其 mem_limit（否则 cgroup 先杀, 表现为反复重启）
+#      —— 2026-09-20 补: 原实现去 compose 里找 CLICKHOUSE_MAX_SERVER_MEMORY_USAGE, 而该变量
+#         早已按实测结论挪进 limits.xml → 这条判据一直打印"跳过", **名义上有门禁、实际没跑**。
+#         现直接读 deploy/clickhouse/config.d/limits.xml, 并顺带守住三个更隐蔽的失效方式:
+#         ① 文件存在但没被 compose 挂进容器（死配置, 与 Kafka log.dirs 同类坑）
+#         ② <max_server_memory_usage_to_ram_ratio>0（实测语义是"关闭上限", 与直觉相反）
+#         ③ compose 里又出现那个无效环境变量（给人"已设上限"的错觉）
+#   ⑤ 文档数字 vs compose: deploy/README.md 的"内存预算"段必须与 compose 算术自洽
+#      —— 2026-09-20 补: compose 把 ClickHouse 抬到 1280m 后, 该段仍写 1152m / 合计 4480 MiB,
+#         而判据②③④都只核对 compose 内部, 抓不到"文档漂移", 只能靠人工核对发现
 #
-# 退出码: 0=通过; 1=超预算/漏上限; 2=用法/环境问题
+# 退出码: 0=通过; 1=超预算/漏上限/成对约束不成立/文档漂移; 2=用法/环境问题
 #
 # 用法: bash scripts/check-compose-budget.sh
 #       OV_BUDGET_MIB=5120 bash scripts/check-compose-budget.sh   # 临时放宽(需说明理由)
@@ -154,17 +163,35 @@ fi
 
 echo
 echo "④ 成对约束（进程内上限必须小于 cgroup 硬杀线）"
-ch_inner=$(grep -oE 'CLICKHOUSE_MAX_SERVER_MEMORY_USAGE: *[0-9]+' "$COMPOSE" | grep -oE '[0-9]+$' || true)
-ch_limit=$(grep -A 30 '^  clickhouse:' "$COMPOSE" | grep -oE 'mem_limit: *[0-9]+m' | head -1 | grep -oE '[0-9]+' || true)
-if [[ -n "$ch_inner" && -n "$ch_limit" ]]; then
-  inner_mib=$(( ch_inner / 1024 / 1024 ))
-  if (( inner_mib < ch_limit )); then
-    ok "ClickHouse 进程内上限 ${inner_mib} MiB < mem_limit ${ch_limit} MiB"
-  else
-    bad "ClickHouse 进程内上限 ${inner_mib} MiB ≥ mem_limit ${ch_limit} MiB → cgroup 会先杀容器（表现为反复重启）"
-  fi
+# ClickHouse 上限的真实落点是**配置文件**而不是环境变量: 官方镜像只映射它认识的那批 CLICKHOUSE_*
+# 变量, 实测 CLICKHOUSE_MAX_SERVER_MEMORY_USAGE 确实进了容器环境, 但 system.server_settings 里
+# max_server_memory_usage 仍是按 cgroup 推出来的值 —— 即"配了等于没配"(见 limits.xml 头注)。
+# 所以这里直接读 limits.xml, 而不是去 compose 里找一个已经不存在的变量名。
+CH_XML="$ROOT/deploy/clickhouse/config.d/limits.xml"
+ch_limit=$(printf '%s\n' "$parsed" | awk '$1=="SVC" && $2=="clickhouse" {print $4}')
+if grep -qE '^[[:space:]]*CLICKHOUSE_MAX_SERVER_MEMORY_USAGE[[:space:]]*:' "$COMPOSE"; then
+  bad "compose 把 CLICKHOUSE_MAX_SERVER_MEMORY_USAGE 当**生效配置**写了 —— 实测该环境变量不生效（会给人“已设上限”的错觉）; 上限请写在 limits.xml"
+fi
+if [[ ! -f "$CH_XML" ]]; then
+  bad "缺少 deploy/clickhouse/config.d/limits.xml —— ClickHouse 进程内上限的**唯一**落点（缺了它只剩 cgroup 硬杀, 重负载下表现为容器反复重启）"
+elif ! grep -qE '^[[:space:]]*-[[:space:]]*\./clickhouse/config\.d/limits\.xml:' "$COMPOSE"; then
+  bad "limits.xml 存在但 compose **没有把它挂进容器** → 死配置（文件改了不生效; 与 Kafka log.dirs 同类坑）"
 else
-  info "未同时找到 ClickHouse 进程内上限与 mem_limit → 跳过（若删掉了进程内上限, 请确认是有意的）"
+  ch_inner_bytes=$(grep -oE '<max_server_memory_usage>[0-9]+</max_server_memory_usage>' "$CH_XML" | grep -oE '[0-9]+' | head -1)
+  ch_ratio=$(grep -oE '<max_server_memory_usage_to_ram_ratio>[0-9.]+</max_server_memory_usage_to_ram_ratio>' "$CH_XML" | grep -oE '[0-9.]+' | head -1)
+  if [[ -n "$ch_inner_bytes" && -n "$ch_limit" ]]; then
+    inner_mib=$(( ch_inner_bytes / 1024 / 1024 ))
+    if (( inner_mib < ch_limit )); then
+      ok "ClickHouse 进程内上限 ${inner_mib} MiB（limits.xml）< mem_limit ${ch_limit} MiB（余量 $(( (ch_limit - inner_mib) * 100 / ch_limit ))%）"
+    else
+      bad "ClickHouse 进程内上限 ${inner_mib} MiB ≥ mem_limit ${ch_limit} MiB → cgroup 会先杀容器（表现为反复重启）"
+    fi
+  else
+    bad "未能解出 ClickHouse 进程内上限（limits.xml 的 <max_server_memory_usage> 或 compose 的 mem_limit 缺失）"
+  fi
+  if [[ "$ch_ratio" == "0" || "$ch_ratio" == "0.0" ]]; then
+    bad "limits.xml 写了 max_server_memory_usage_to_ram_ratio=0 → 实测语义是**关闭内存上限**（与直觉相反）"
+  fi
 fi
 
 redis_mm=$(grep -oE 'REDIS_MAXMEMORY:-[0-9]+mb' "$COMPOSE" | grep -oE '[0-9]+' || true)
@@ -178,6 +205,112 @@ if [[ -n "$redis_mm" && -n "$rd_limit" ]]; then
 else
   info "未同时找到 Redis maxmemory 与 mem_limit → 跳过"
 fi
+
+echo
+echo "⑤ 文档数字 vs compose（deploy/README.md 的内存预算段）"
+# 起因: 判据②③④都只核对 compose **内部**, 于是 compose 把 ClickHouse 从 1152m 抬到 1280m 后,
+# README 那段"…ClickHouse 1152m … = 4480 MiB, 占 76%"原地漂移了一版, 只能靠人工算术发现。
+# 本判据把那段文字变成可执行事实: 每个 <服务> <N>m、合计、"占 VM 容量 N%" 都必须与 compose 自洽。
+doc_out=$(python3 - "$ROOT/deploy/README.md" "$COMPOSE" <<'PY'
+import re, sys, pathlib
+
+readme_lines = pathlib.Path(sys.argv[1]).read_text(encoding='utf-8').split('\n')
+compose = pathlib.Path(sys.argv[2]).read_text(encoding='utf-8')
+
+# compose 的 mem_limit（与上面 bash 同一套最小解析，避免两处口径漂移）
+svc, limits, in_services = None, {}, False
+for raw in compose.split('\n'):
+    line = raw.rstrip()
+    if line.startswith('services:'):
+        in_services = True
+        continue
+    if in_services and line and not line.startswith(' ') and line.endswith(':'):
+        in_services = False
+    if not in_services:
+        continue
+    m = re.match(r'^  ([a-z0-9_-]+):\s*$', line)
+    if m:
+        svc = m.group(1)
+        continue
+    m = re.match(r'^\s+mem_limit:\s*(\S+)', line)
+    if m and svc:
+        limits[svc] = m.group(1)
+
+def to_mib(v):
+    v = v.strip().strip('"').strip("'")
+    m = re.match(r'^(\d+(?:\.\d+)?)\s*([kmgKMG]?)[bB]?$', v)
+    if not m:
+        return None
+    n, unit = float(m.group(1)), m.group(2).lower()
+    return n * {'': 1 / 1048576, 'k': 1 / 1024, 'm': 1, 'g': 1024}[unit]
+
+real = {k: to_mib(v) for k, v in limits.items()}
+if not real or any(v is None for v in real.values()):
+    print("FAIL 无法从 compose 解析出全部 mem_limit（解析规则失效?）")
+    sys.exit(0)
+
+# 待校验区域 = 含"内存预算"的那一行起、连续的 '>' 引用块
+start = next((i for i, l in enumerate(readme_lines) if '内存预算' in l), None)
+if start is None:
+    print("FAIL deploy/README.md 找不到“内存预算”段（compose 改了上限就没人对账了）")
+    sys.exit(0)
+region = []
+for l in readme_lines[start:]:
+    if l.startswith('>'):
+        region.append(l)
+    else:
+        break
+text = '\n'.join(region)
+
+probs = []
+
+# ① 每个 <服务名> <N>m 都要对得上；非服务名的词（maxmemory / mem_limit 等）不参与
+by_lower = {k.lower(): k for k in real}
+matched = set()
+for m in re.finditer(r'([A-Za-z][A-Za-z0-9_]*)\s+(\d+)m\b', text):
+    name, val = m.group(1), int(m.group(2))
+    key = by_lower.get(name.lower())
+    if key is None:
+        continue
+    matched.add(key)
+    if int(real[key]) != val:
+        probs.append(f"README 写 {name} {val}m，compose 是 {limits[key]}（{int(real[key])} MiB）")
+gap = sorted(set(real) - matched)
+if gap:
+    probs.append("README 内存预算段未覆盖这些服务: " + ', '.join(gap) + "（新增容器必须同步这段文字）")
+
+# ② 合计声明必须等于 compose 合计
+totals = sorted({int(m.group(1)) for m in re.finditer(r'=\s*\*\*(\d+)\s*MiB\*\*', text)})
+actual = round(sum(real.values()))
+if len(totals) != 1:
+    probs.append(f"内存预算段应有且仅有一个“= **N MiB**”合计声明，实际 {totals}")
+elif totals[0] != actual:
+    probs.append(f"README 声称合计 {totals[0]} MiB，compose 实际 {actual} MiB")
+
+# ③ 百分比自洽（仅当同时声明了 VM 容量）—— 只做算术校验, 不拿本机 VM 比
+#    （README 里的 VM 容量是本机观测值, CI runner 的 VM 大小不同, 比环境会误报）
+mv = re.search(r'VM 容量（(\d+)\s*MiB）的\s*\*{0,2}(\d+)%', text)
+if not mv:
+    print("INFO 内存预算段未声明“VM 容量（N MiB）的 N%” → 跳过百分比自洽校验")
+else:
+    vm_mib, pct = int(mv.group(1)), int(mv.group(2))
+    exp = round(actual / vm_mib * 100)
+    if abs(exp - pct) > 1:
+        probs.append(f"README 声称占 VM 容量 {pct}%，但 {actual}/{vm_mib} = {exp}%")
+
+for p in probs:
+    print("FAIL " + p)
+if not probs:
+    print(f"OK README 内存预算段与 compose 一致（{len(real)} 个服务, 合计 {actual} MiB）")
+PY
+) || { bad "文档数字解析失败（python3 执行出错）"; doc_out=""; }
+while IFS= read -r line; do
+  case "$line" in
+    "OK "*)   ok   "${line#OK }" ;;
+    "FAIL "*) bad  "${line#FAIL }" ;;
+    "INFO "*) info "${line#INFO }" ;;
+  esac
+done <<< "$doc_out"
 
 echo
 echo "==== 预算检查: 通过 ${pass} 项, 异常 ${fail} 项 ===="

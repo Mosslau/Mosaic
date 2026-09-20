@@ -67,18 +67,24 @@ Grafana 启动后**自动配好名为 `ClickHouse` 的数据源**（provisioning
 EMQX 启动后**自动加载声明式规则**（`deploy/emqx/emqx.conf`）：① `ov_vehicle_ingress` —— `ov/+/status|battery|fault` → Webhook → 网关 `/api/v1/mqtt/ingest`；② `ov_binary_ingress` —— `ov/+/bin`（GB/T 32960 二进制帧，base64）→ 网关 `/api/v1/bin/ingest` → `ov.raw.binary.v1` → device-codec（Dashboard → 集成 → 规则 可见两条）。
 
 > **内存预算（2026-09-20 重算，已被 `scripts/check-compose-budget.sh` 门禁覆盖）**：
-> 第九轮补齐 MySQL/Redis 后，八容器 `mem_limit` 合计 **6.88 GiB**，而 Rancher VM 实测只有 **6.2 GiB**
+> 第九轮补齐 MySQL/Redis 后，八容器 `mem_limit` 合计曾达 **6.88 GiB**，而 Rancher VM 实测只有 **6.2 GiB**
 > （`docker info --format '{{.MemTotal}}'` → 5921 MiB）—— **上限之和超过物理内存**，且实测 ClickHouse
 > 已吃到 **1.9 GiB / 2 GiB（94.5%）**，再拉起 MySQL 就是整机 OOM。
 >
-> 现按"合计 ≤ 4.5 GiB"重算：Kafka 768m + ClickHouse 1152m + MinIO 320m + MySQL 640m + Redis 320m
-> + EMQX 512m + Prometheus 384m + Grafana 384m = **4480 MiB**，占 VM 容量的 76%（门禁要求 ≤85%）。
+> 现按"合计 ≤ 4.5 GiB"重算：Kafka 768m + ClickHouse 1280m + MinIO 320m + MySQL 640m + Redis 320m
+> + EMQX 512m + Prometheus 384m + Grafana 384m = **4608 MiB**（正好 4.5 GiB），占本机 VM 容量（5921 MiB）的 **78%**
+> （门禁要求合计 ≤ VM 的 85%；ClickHouse 抬过一次上限——实测稳态约 1.04 GiB，留 6% 余量太贴）。
 >
 > 两条配套纪律（都踩过坑）：
-> ① **进程内上限必须低于 cgroup 硬杀线**：ClickHouse 显式设 `CLICKHOUSE_MAX_SERVER_MEMORY_USAGE=900000000`
->    （镜像默认 `max_server_memory_usage_to_ram_ratio=0.9` = 宿主机内存的 90%，在共享 VM 上等于没有上限）；
->    Redis `--maxmemory 192mb` < `mem_limit 320m`。两者相等时算上进程开销就会被 OOM kill（表现为反复重启）。
-> ② **改 limits 后必须复跑门禁**：`bash scripts/check-compose-budget.sh`（CI 也跑），否则"账面超配"没人会发现。
+> ① **进程内上限必须低于 cgroup 硬杀线**：ClickHouse 的 1 GB 上限写在 `clickhouse/config.d/limits.xml` 的
+>    `<max_server_memory_usage>`，且**必须被 compose 挂进容器才生效**——环境变量设不了：实测 `CLICKHOUSE_MAX_SERVER_MEMORY_USAGE`
+>    进了容器环境却完全没生效（官方镜像只映射它认识的那批变量）；镜像默认 `max_server_memory_usage_to_ram_ratio=0.9`
+>    = 宿主机内存的 90%，在共享 VM 上等于没有上限。Redis `--maxmemory 192mb` < `mem_limit 320m`，
+>    两者相等时算上进程开销就会被 OOM kill（表现为反复重启）。
+> ② **改 limits 后必须复跑门禁**：`bash scripts/check-compose-budget.sh`（CI 也跑）。它核对五类事实：每服务都有上限 /
+>    合计 ≤ 预算 / 合计 ≤ VM 容量的 85% / ClickHouse 与 Redis 的成对约束（**直接读 `limits.xml` 与挂载行**，不再去 compose 里找那个无效变量）/
+>    **本段文字的数字与 compose 是否自洽**（2026-09-20 补：此前本段的 ClickHouse 上限、合计、百分比三处与 compose 差了一版，
+>    而判据②③④都只看 compose 内部，抓不到文档漂移，是人工核出来的）。
 
 > 端口避让说明：MinIO 的 S3 API 映射到宿主 `9001`、控制台映射到 `9002`，因为 ClickHouse native 协议已占用 `9000`。
 
