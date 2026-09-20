@@ -151,3 +151,46 @@ groups:
             平台段(webhook 转发 + 治理 + Kafka 落盘)的 p99 超过 1 秒。先看
             gateway_kafka_write_total{result="error"} 与 Kafka 容器健康; 若为 EMQX 重投所致,
             恢复后应自行回落。面板: device-gateway 的"上行延迟 SLI"。
+
+      # ---------- 11. 实时作业数量不足(2026-09-20 评估后补) ----------
+      # 语义: 三个 Flink 作业(在线数/故障数/高温电池)应恒在运行。少一个就意味着某个指标停止更新,
+      # 而**表里没数据与"没有车在上报"长得一模一样** —— 没有这条规则就得靠人发现(评估时的原话)。
+      # 判据取自 Flink 自身指标(自建镜像已装 flink-metrics-prometheus, JM 容器内 :9249)。
+      - alert: FlinkJobsMissing
+        expr: flink_jobmanager_numRunningJobs < 3
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Flink 运行中的作业少于 3 个(当前 {{ $value }})"
+          description: >-
+            实时层应有 3 个作业(ov-online-count-1m / ov-fault-count-1m / ov-high-temp-battery-1m)。
+            查看: curl -s 127.0.0.1:18088/jobs/overview。重提前先看 JobManager 日志;
+            注意**本步尚未开 checkpoint**: JM 重启即丢作业, 需要重新提交(lakehouse/warehouse/streaming/submit-jobs.sh)。
+
+      # ---------- 12. TaskManager 掉线 ----------
+      # 语义: 没有 TM 就没有 slot, 作业会一直等待/重启 —— 但 JM 自身仍"健康", 单看容器状态看不出来。
+      - alert: FlinkTaskManagerMissing
+        expr: flink_jobmanager_numRegisteredTaskManagers < 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Flink 没有已注册的 TaskManager"
+          description: >-
+            ov-flink-tm 掉线或未注册。作业会卡在"等待资源"。查: docker compose --profile realtime ps 与 TM 日志。
+
+      # ---------- 13. 作业重启过(无 checkpoint ⇒ 重启即丢窗口) ----------
+      # 语义: 本步未开 checkpoint, 作业一旦重启, 重启期间进 Kafka 的消息不会再被消费(启动位点 latest-offset),
+      # 那段窗口**永久缺失** —— 所以"重启过"必须是一个会响的信号, 而不是只在日志里。
+      # 用 increase(...[15m]) 而不是 > 0: 后者在重启后会一直挂着, 变成噪声。
+      - alert: FlinkJobRestarts
+        expr: increase(flink_jobmanager_job_numRestarts[15m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Flink 作业 {{ $labels.job_name }} 在 15 分钟内重启过"
+          description: >-
+            无 checkpoint 时重启会造成指标窗口空洞(见 warehouse/streaming/README.md §7 第 1 条)。
+            查 JM/TM 日志与容器内存上限(是否被 cgroup OOM); 若为宿主/VM 重启, 请重新提交作业。

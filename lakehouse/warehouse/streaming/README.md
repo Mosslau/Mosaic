@@ -146,11 +146,15 @@ go run ./cmd/bin-simulator  -broker tcp://localhost:11883 -devices 20 -interval 
 实测:                         fault_cnt=3, vehicle_cnt=2   ✅
 ```
 
-**③ 分区与并行度**：三个作业共用同一个源表 DDL（同一 `properties.group.id`），
-实测**每个作业都拿到全量流**（30 台车跑 75s → `online_cnt=33`，含对照实验的心跳车；
-若被按分区瓜分则只会看到约 1/3）。原因：未开 checkpoint 时 Flink 不提交位移，
-Kafka 侧看不到该消费组（`--list --state` 只有 ClickHouse 与 codec 的组）——
-**这既是当前"全量消费"的原因，也是 §7 的第一条边界**。
+**③ 水位线空闲超时（2026-09-20 修）**：`scan.watermark.idle-timeout = 30s` —— 3 个分区里只要有 1 个暂时没有数据，默认行为会让**整条水位线停住**，于是所有窗口都不触发、指标迟迟不更新（实测：一次重启后的重放 5 分钟只推进 2 分钟事件时间）。
+
+**④ 消费组隔离（2026-09-20 修）**：三个作业**曾经共用** `properties.group.id` —— 那是个隐患：
+共用时 Kafka 会把 3 个分区**分给三个消费者各一个**，每个指标只能看到 **1/3 的数据**且不会报错；
+实测还观察到反复 rebalance 导致源算子长时间不读（`numRecordsOut` 长时间为 0）。
+现改为 **一作业一消费组**（`flink-realtime-{online,fault,hightemp}-1m`）：
+`00-common.sql` 里写占位符 `__JOB_GROUP_ID__`，由 `submit-jobs.sh` 按作业替换后提交
+（Flink 的 SQL Client **不支持** `${VAR}` 替换 —— 已实测）。
+验证：TM 日志里三个 `groupId=` 各不相同；且每个作业都能读到全量流。
 
 **④ 对账**：网关 `requests_total` ≈ raw topic 消息数（含历史累计）→ 三个结果 topic 条数
 → ClickHouse 行数，逐段可解释（见 `scripts/check-pipeline-health.sh` 的受理==落盘判据）。
@@ -197,7 +201,8 @@ curl -s -X PATCH "http://127.0.0.1:18088/jobs/<jid>?mode=cancel"
 
 | # | 边界 | 影响 | 收口方式 |
 |---|---|---|---|
-| 1 | **未开 checkpoint**：窗口状态在 JM/TM 重启后丢失；Kafka 启动位点是 `latest-offset` | 重启期间的半个窗口会丢；不提交位移故 Kafka 侧无 lag 可看 | 第 2 阶段：开 checkpoint（可落 MinIO，镜像自带 S3 插件）+ 恢复位点改 `group-offsets` + 幂等落表 |
+| 1 | **未开 checkpoint**：窗口状态在 JM/TM 重启后丢失；启动位点 `latest-offset` | 重启期间的半个窗口会丢；不提交位移故 Kafka 侧无 lag 可看。（曾试 `earliest-offset` 做「重放式恢复」并**实测否决**：重放追不上实时，5 分钟只推进 2 分钟事件时间） | 第 2 阶段：开 checkpoint（可落 MinIO）+ 位点改 `group-offsets` + 幂等落表 |
+| 1b | **水位线会被安静分区拖住**（3 分区里只要 1 个没数据，窗口就不触发） | ✅ 已修：`scan.watermark.idle-timeout = 30s`，空闲分区按「无水」处理 | —— |
 | 2 | 结果链路是 **at-least-once**：Flink → Kafka → CH 物化视图 | CH 重启后可能重放少量消息 → 目标表可能有重复 | 目标表已是 `ReplacingMergeTree` + 业务键排序；精确查询用 `FINAL`。更强方案（幂等键/去重表）随第 2 阶段 |
 | 3 | **迟到 >10s 的数据不进窗口** | 弱网重传的老数据只进 Kafka、不进指标 | 第 2 阶段：按业务容忍度调 watermark 或用 `allowedLateness` + 侧输出 |
 | 4 | 并行度 = 1/作业（3 个作业恰好占满 3 个 slot） | 吞吐上限低（当前量级远未触及） | 扩 TaskManager + 把 `SET 'parallelism.default'` 提到 3（raw topic 已是 3 分区, 可直接吃满） |

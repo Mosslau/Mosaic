@@ -22,6 +22,8 @@ ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 IMAGE="${FLINK_IMAGE:-oceanverse/flink:1.20.5}"
 NET="${FLINK_NETWORK:-oceanverse_ov-net}"
 REST="${FLINK_REST:-http://127.0.0.1:18088}"
+# 作业专属 SQL 的暂存目录（占位符替换后挂进提交容器; .tmp-* 已在 .gitignore）
+STAGE="${ROOT}/.tmp-realtime-submit"
 JOBS=("$@")
 [ ${#JOBS[@]} -eq 0 ] && JOBS=(10-online-count 20-fault-count 30-high-temp)
 
@@ -30,6 +32,16 @@ JOBS=("$@")
 #         (两处都踩过: `online: unbound variable` / `name）: unbound variable`)。
 # 注意: 用 case 而不是关联数组 —— macOS 自带 bash 3.2 **不支持 declare -A**
 #       （踩过: 报 `online: unbound variable`, 因为它把 [10-online-count] 当算术表达式求值）
+# 作业 → 独立消费组。**必须一作业一组**: 共用时 Kafka 会把分区瓜分给不同作业, 指标静默变成 1/3。
+job_group() {
+  case "$1" in
+    10-online-count) echo flink-realtime-online-1m ;;
+    20-fault-count)  echo flink-realtime-fault-1m ;;
+    30-high-temp)    echo flink-realtime-hightemp-1m ;;
+    *)               echo "" ;;
+  esac
+}
+
 job_name() {
   case "$1" in
     10-online-count) echo ov-online-count-1m ;;
@@ -59,9 +71,17 @@ print(sum(1 for j in d if j.get('name')==name and j.get('state') in live))
   if [ "${active:-0}" != "0" ]; then
     echo "⏭  已在运行（${name}）—— 先停掉再提, 避免重复计算"; continue
   fi
+  # 生成作业专属 SQL: 把 __JOB_GROUP_ID__ 换成该作业的消费组（Flink SQL Client 不支持 ${VAR}, 故在脚本侧替换）
+  gid="$(job_group "${job}")"
+  rm -rf "${STAGE}"; mkdir -p "${STAGE}"
+  sed "s/__JOB_GROUP_ID__/${gid}/" "${ROOT}/lakehouse/warehouse/streaming/sql/00-common.sql" > "${STAGE}/00-common.sql"
+  if grep -q '__JOB_GROUP_ID__' "${STAGE}/00-common.sql"; then
+    echo "❌ 占位符替换失败（00-common.sql 里是否还有 __JOB_GROUP_ID__?）"; fail=1; continue
+  fi
+  cp "${ROOT}/lakehouse/warehouse/streaming/sql/${job}.sql" "${STAGE}/${job}.sql"
   out=$(docker run --rm --network "${NET}" --memory=640m \
       -v "${ROOT}/lakehouse/warehouse/streaming/conf/sql-client-flink-conf.yaml:/opt/flink/conf/flink-conf.yaml:ro" \
-      -v "${ROOT}/lakehouse/warehouse/streaming/sql:/opt/flink/sql:ro" \
+      -v "${STAGE}:/opt/flink/sql:ro" \
       "${IMAGE}" /opt/flink/bin/sql-client.sh \
       -i /opt/flink/sql/00-common.sql -f "/opt/flink/sql/${job}.sql" 2>&1 \
       | grep -viE "WARNING: Unknown module|Unable to create a system terminal|org.jline.utils.Log")
@@ -96,6 +116,8 @@ print(sum(1 for j in d if j.get('name')==name and j.get('state') in live))
     fail=1
   fi
 done
+
+rm -rf "${STAGE}"
 
 echo
 echo "  集群作业一览:"

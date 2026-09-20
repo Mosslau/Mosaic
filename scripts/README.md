@@ -1,6 +1,6 @@
 # scripts —— 仓库工具脚本
 
-> 本目录 5 个脚本：`check-docs.sh` / `check-mermaid.sh` 进 CI 的 `docs` 作业，`check-pipeline-health.sh` 进 `pipeline-health` 作业，
+> 本目录 6 个脚本：`check-docs.sh` / `check-mermaid.sh` 进 CI 的 `docs` 作业，`check-pipeline-health.sh` 进 `pipeline-health` 作业，
 > `check-compose-budget.sh` + `test-compose-budget.sh` 进 `compose` 作业；本地改动后先跑一遍再提交。
 
 ## check-mermaid.sh — 文档 Mermaid 图渲染校验
@@ -53,6 +53,32 @@ PROBE=0 scripts/check-pipeline-health.sh    # 空闲时不灌探针帧(不改动
 ```bash
 scripts/check-docs.sh        # 失败即非零退出（CI 门禁）
 ```
+
+## check-realtime-e2e.sh — 实时层端到端自检
+
+注入测试数据 → 等窗口关闭 → **断言三张 ADS 表真的有数**。起因（2026-09-20 评估）：
+CI 此前只到"建表 + 提作业 + 断言作业 RUNNING"，**不验证数据落表** —— SQL 语义 / 字段类型 / 时区改坏了照样全绿；
+而当时的端到端验证是人工跑的。本脚本把那次人工验证固化成一条命令。
+
+```bash
+scripts/check-realtime-e2e.sh                 # 全过 exit 0（典型 ~4 分钟, 最坏 ~6 分钟）
+E2E_TIMEOUT=300 scripts/check-realtime-e2e.sh # 放宽等待窗口（默认 240s, 从心跳结束开始计时）
+```
+
+> 耗时构成：等到整分钟（≤60s）→ 注入 → 心跳 120s（推进 watermark 让窗口关闭）→ 四条断言**共享一个截止时间**轮询。
+> **注意 `earliest-offset` 的重放代价**：作业刚重启时先从最早留存位点重放，此时自检要等它追平 ——
+> 本地留存量大时请放宽预算（如 `E2E_TIMEOUT=600`）；**CI 里 topic 是新建的空 topic，不受影响**。
+
+四条断言（每条都能失败）：
+① **在线数**：窗口内去重车辆数 ≥ 注入的车辆数；
+② **故障数 + QoS1 去重**：同一条 `(vin, ts, code)` **注入两次**，`fault_cnt` 必须恰为 **1**；
+③ **高温分级**：58℃ → `alarm`、47℃ → `warn`（阈值真的生效）；
+④ **探针不污染**：三张表里不得出现 `OVPROBE*`。
+
+退出码：`0` 全过 / `1` 有断言不成立 / `2` 前置不满足（集群或表没就绪，属环境问题）。
+
+> **测试数据命名空间**：VIN 用 `OVE2E*`、故障码用 `E2E01`（自检保留段，会真实落进 ADS 表）。
+> 注意与 `OVPROBE*` 的区别：探针会被 Flink 过滤掉（验链路活性），而自检数据必须**流到底**才能断言。
 
 ## check-compose-budget.sh — 容器内存预算门禁
 

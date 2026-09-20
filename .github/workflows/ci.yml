@@ -309,6 +309,9 @@ jobs:
           echo "oceanverse 对象数 = $n"; test "$n" = "9"
           # 提交三个作业（脚本自带"集群里真出现"的强判据与重复提交守卫）
           bash ../lakehouse/warehouse/streaming/submit-jobs.sh
+          # 实时层**端到端**自检: 注入测试数据 → 等窗口关闭 → 断言三张 ADS 表真的有数
+          # （此前 CI 只到"作业 RUNNING", SQL 语义/字段类型/时区改坏了也照样全绿）
+          bash ../scripts/check-realtime-e2e.sh
       - name: prometheus rules loaded == file (配置新鲜度)
         working-directory: deploy
         run: |

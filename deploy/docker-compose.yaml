@@ -349,6 +349,10 @@ services:
         jobmanager.memory.jvm-overhead.min: 128m
         state.checkpoints.dir: file:///opt/flink/checkpoints
         state.savepoints.dir: file:///opt/flink/savepoints
+        # Prometheus 指标暴露(容器网内 :9249, 不发布到宿主 —— 与"回环绑定"纪律一致):
+        # 没有它, 作业静默死掉在监控上没有任何信号(2026-09-20 评估发现的缺口)
+        metrics.reporter.prom.factory.class: org.apache.flink.metrics.prometheus.PrometheusReporterFactory
+        metrics.reporter.prom.port: 9249
         # 需要 checkpoint 落 MinIO 时(本步选做/第 2 阶段): ① 加环境变量
         #   ENABLE_BUILT_IN_PLUGINS=flink-s3-fs-hadoop-1.20.5.jar（镜像 opt/ 自带, 无需下载）
         #   ② state.checkpoints.dir 换 s3://<bucket>/checkpoints; ③ 加 s3.endpoint/s3.path.style.access
@@ -385,6 +389,8 @@ services:
         taskmanager.memory.managed.size: 128m
         taskmanager.memory.network.min: 64m
         state.checkpoints.dir: file:///opt/flink/checkpoints
+        metrics.reporter.prom.factory.class: org.apache.flink.metrics.prometheus.PrometheusReporterFactory
+        metrics.reporter.prom.port: 9249
     volumes:
       - flink_checkpoints:/opt/flink/checkpoints
     healthcheck:

@@ -9,7 +9,10 @@
 #   错配的症状不是构建失败，而是**作业提交时才炸**（NoSuchMethodError / ClassNotFoundException），
 #   排查成本远高于在这里钉一次。故三个 jar 的版本都作为 ARG 显式写出，并打印到构建日志。
 #
-# 只需要一个 jar: flink-sql-connector-kafka —— Kafka source + **结果 topic 的 sink**(shaded 版本,
+# 三个 jar:
+#   flink-sql-connector-kafka     —— Kafka source + 结果 topic sink
+#   flink-metrics-prometheus      —— 让 JM/TM 暴露 /metrics(Prometheus 抓取) —— **镜像不自带**(实测 opt/ 里没有),
+#                                    没有它 Flink 就是"黑盒": 作业静默死掉无人知(2026-09-20 评估结论) —— Kafka source + **结果 topic 的 sink**(shaded 版本,
 #   勿换成 flink-connector-kafka)。
 #
 # **走过的弯路(留档, 免得下次再试)**: 本镜像曾试图补 ClickHouse sink 连接器, 三条路全断 ——
@@ -45,6 +48,7 @@ FROM flink:1.20.5-scala_2.12-java17
 
 ARG MAVEN_MIRRORS="https://repo1.maven.org/maven2 https://maven.aliyun.com/repository/public https://mirrors.huaweicloud.com/repository/maven"
 ARG KAFKA_CONNECTOR_VERSION=3.4.0-1.20
+ARG FLINK_VERSION=1.20.5
 # ClickHouse 官方 Flink 连接器: 只有 -1.17 / -2.0.0 两个构建, **没有 1.20**
 # (2026-09-20 实测: flink-connector-jdbc 3.4.0 的工厂列表里没有 ClickHouse,
 #  故 JDBC 路线走不通)。这里用 1.17 构建跑在 1.20 上 -- 同大版本内的兼容性实测通过后才保留。
@@ -63,8 +67,10 @@ RUN set -eux; \
     }; \
     fetch "org/apache/flink/flink-sql-connector-kafka/${KAFKA_CONNECTOR_VERSION}/flink-sql-connector-kafka-${KAFKA_CONNECTOR_VERSION}.jar" \
           "flink-sql-connector-kafka-${KAFKA_CONNECTOR_VERSION}.jar"; \
-    echo "--- lib 里的连接器（构建日志留痕，便于日后核对版本漂移）---"; \
-    ls -l /opt/flink/lib | grep -E 'connector|clickhouse'; \
+    fetch "org/apache/flink/flink-metrics-prometheus/${FLINK_VERSION}/flink-metrics-prometheus-${FLINK_VERSION}.jar" \
+          "flink-metrics-prometheus-${FLINK_VERSION}.jar"; \
+    echo "--- lib 里的连接器与 reporter（构建日志留痕，便于日后核对版本漂移）---"; \
+    ls -l /opt/flink/lib | grep -E 'connector|clickhouse|metrics-prometheus'; \
     mkdir -p /opt/flink/checkpoints /opt/flink/savepoints; \
     chown -R flink:flink /opt/flink/checkpoints /opt/flink/savepoints; \
     ls -ld /opt/flink/checkpoints /opt/flink/savepoints

@@ -17,7 +17,17 @@
 --   ④ `json.ignore-parse-errors` 打开: 单条脏数据不能把整个作业打挂 —— 与接入层 DLQ 同一哲学
 --      (失败隔离, 而不是让整条流停摆)。
 --   ⑤ 启动位点 `latest-offset`: 只消费新数据, 不重放历史(重启会丢半开的窗口 —— 第 1 阶段接受;
---      第 2 阶段用 checkpoint + 幂等落表收口)。
+--      第 2 阶段的收口是 checkpoint + 幂等落表)。
+--      **曾试 `earliest-offset` 做「重放式恢复」并实测否决**: 重启后从最早位点重放, 但追不上实时 ——
+--      实测 5 分钟只推进 2 分钟事件时间, 指标迟迟不更新(机制见下 ⑤b)。
+--   ⑤b `scan.watermark.idle-timeout = 30s`(2026-09-20 补): 某个分区 30s 没有数据就按「无水」处理,
+--      水位线继续前进 —— 否则**一个安静的分区能把所有窗口都卡住**(3 个分区里只要 1 个没数据,
+--      默认行为下整条水位线停住、窗口不触发)。
+--   ⑤b **每个作业必须有独立的消费组**: 三个作业共用 `group.id` 时, Kafka 会把 3 个分区
+--      **分给三个消费者各一个** —— 每个指标只能看到 **1/3 的数据**, 而且不会报错;
+--      更早暴露的症状是反复 rebalance 导致源算子长时间一条不读(2026-09-20 实测)。
+--      故 group.id 写成占位符 `__JOB_GROUP_ID__`, 由 `submit-jobs.sh` 按作业替换成
+--      `flink-realtime-<作业>` 后再提交(Flink 的 SQL Client **不支持** ${VAR} 变量替换 —— 已实测)。
 --   ⑥ sink 表名与 ClickHouse 目标表**同名**（`ads_*`）: 它就是这个表的写入端,
 --      同名让 README/本文件/init.sql 三处可以对账（scripts/check-docs.sh 检查⑨ 会核对）。
 --      sink 走 **Kafka 结果 topic**（不是 Flink 直连 ClickHouse）: Flink 侧没有可用的 ClickHouse
@@ -53,8 +63,9 @@ CREATE TABLE IF NOT EXISTS vehicle_report_raw
     'connector'                     = 'kafka',
     'topic'                         = 'vehicle-report-raw',
     'properties.bootstrap.servers'  = 'kafka:9092',
-    'properties.group.id'           = 'flink-realtime-v1',
+    'properties.group.id'           = '__JOB_GROUP_ID__',   -- 占位符: submit-jobs.sh 按作业替换(见下)
     'scan.startup.mode'             = 'latest-offset',
+    'scan.watermark.idle-timeout'   = '30s',   -- 分区空闲 30s 即按「无水」推进水位线（见下 ⑤b）
     'scan.topic-partition-discovery.interval' = '30s',
     'format'                        = 'json',
     'json.ignore-parse-errors'      = 'true'

@@ -142,7 +142,7 @@ docker compose logs -f grafana
 
 # 改完 prometheus 的配置/规则后**让它真的生效**（2026-09-20 起）：
 #   实测踩过：规则文件是 bind mount，改完文件立刻是新的，但 Prometheus 只在启动时读它 ——
-#   出现过「文件里 10 条规则、进程里 8 条」，容器 healthy、面板照常出图，新告警整条不生效。
+#   出现过「文件里十条规则、进程里八条」，容器 healthy、面板照常出图，新告警整条不生效。
 curl -X POST localhost:9090/-/reload      # 热载（compose 已加 --web.enable-lifecycle）
 #   判据: curl -s localhost:9090/api/v1/rules | python3 -c "import json,sys;d=json.load(sys.stdin)['data']['groups'];print(sum(len(g['rules']) for g in d))"
 #   应与规则文件里的 alert 条数一致；也可直接跑 bash scripts/check-pipeline-health.sh（判据 6 就是这条）。
@@ -197,7 +197,7 @@ curl -s 'http://localhost:9090/api/v1/targets?state=active' | grep -o '"health":
 # 期望: "health":"up"; 网关未启动时显示 down 属正常
 curl -s -g 'http://localhost:9090/api/v1/query?query=up{job="device-gateway"}'
 # 告警规则已加载且无 firing(10 条, 含义见 Q16)
-curl -s http://localhost:9090/api/v1/rules | grep -c '"name"'    # 期望: 10
+curl -s http://localhost:9090/api/v1/rules | grep -c '"name"'    # 期望: 13
 curl -s http://localhost:9090/api/v1/alerts | grep -c '"state":"firing"' || true   # 期望: 0
 
 # ⑦ MySQL：ping + 库存在(只建库不建表, 故查 information_schema 应为空)
@@ -328,7 +328,7 @@ docker compose ps      # 无需任何 up 命令, 期望 6/6 healthy(实测通过
 **Q16：链路静默停摆怎么第一时间知道？（告警与 runbook）**
 
 2026-09-18 前 Prometheus **零条告警规则** —— 那次 Rancher VM 掉线让整条链路停摆，监控上唯一的表现是 Grafana 没数据，**没有人会收到通知**（是评审时人工发现的）。
-现已补 10 条规则（`deploy/prometheus/rules/oceanverse-alerts.yml`）：
+现已补 **13 条**规则（`deploy/prometheus/rules/oceanverse-alerts.yml`）：
 
 | 告警 | 触发条件 | 含义 |
 |---|---|---|
@@ -342,6 +342,14 @@ docker compose ps      # 无需任何 up 命令, 期望 6/6 healthy(实测通过
 | `GatewayVINMismatch` | 载荷 VIN ≠ topic VIN | **安全信号**，可能是伪造尝试（HTTP/MQTT 通道） |
 | `CodecVINMismatch` | `codec_dlq_total{stage="vin_mismatch"}` 增长 | **安全信号**：二进制帧内 VIN ≠ 信封 VIN（网关不解帧，只能在此拦） |
 | `IngestLatencyHigh` | 上行延迟 p99 > 1s 持续 5m | 平台段（webhook→落盘）劣化；EMQX 重投也会如实抬高 |
+| `FlinkJobsMissing` | `flink_jobmanager_numRunningJobs < 3` 持续 2m | **实时作业少了**：某个指标停止更新（此前是监控盲区，2026-09-20 补） |
+| `FlinkTaskManagerMissing` | 已注册 TM < 1 持续 1m | TM 掉线 → 作业卡在等资源，而 JM 自身仍"健康" |
+| `FlinkJobRestarts` | 15 分钟内 `job_numRestarts` 增长 | 作业重启过 —— **无 checkpoint 时重启 = 指标窗口永久空洞** |
+
+> Flink 指标来自自建镜像里的 `flink-metrics-prometheus`（JM/TM 各在自己的容器里暴露 **:9249**，
+> **不发布到宿主**；Prometheus 走容器网直连，故新增两个 job：`flink-jobmanager` / `flink-taskmanager`）。
+> 抓取失败由通用 `TargetDown` 覆盖；「没有数据」**不设告警** —— 开发机上没有车在上报同样没有数据，
+> 这类"无基线"的判据会天天误报（与 DLQ 告警同一条教训）。
 
 **判据（一条命令，本机可执行）**：
 

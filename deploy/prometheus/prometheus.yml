@@ -32,3 +32,19 @@ scrape_configs:
       - targets: ["host.docker.internal:18090"]
         labels:
           service: device-codec
+
+  # Flink 实时作业(2026-09-20 补): 此前实时层是**监控盲区** —— 作业静默死掉时,
+  # 表里没数据与"没有车在上报"长得一模一样。指标来自自建镜像里的 flink-metrics-prometheus
+  # (JM/TM 各在自己的容器里暴露 :9249; **不发布到宿主**, 与回环绑定纪律一致, Prometheus 走容器网直连)。
+  - job_name: flink-jobmanager
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["flink-jobmanager:9249"]
+        labels:
+          service: flink-jobmanager
+  - job_name: flink-taskmanager
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["flink-taskmanager:9249"]
+        labels:
+          service: flink-taskmanager
