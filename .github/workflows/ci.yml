@@ -218,6 +218,14 @@ jobs:
         run: |
           # 8883 TLS 需要证书; CI 不走公网路径, 但 emqx.conf 引用了证书文件 → 先生成自签
           bash emqx/gen-certs.sh
+          # 拉取加退避重试: 2026-09-20 实测 runner 拉 redis:7-alpine 时
+          # "read: connection reset by peer" → 8 个镜像全部 Interrupted、作业直接红。
+          # 这是 registry 侧瞬时故障(与本仓配置无关), 但**必须先拉完再 up**, 否则 up 失败在半路。
+          for i in 1 2 3 4 5; do
+            if docker compose pull --quiet; then break; fi
+            echo "pull 失败(第 $i 次), 退避 10s 重试"; sleep 10
+            [ "$i" = "5" ] && { echo "5 次拉取均失败"; exit 1; }
+          done
           docker compose up -d
           unhealthy=""
           # 八容器逐个等 healthy(最多 90s)
