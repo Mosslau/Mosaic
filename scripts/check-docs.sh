@@ -13,6 +13,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 python3 - <<'PY'
+import json as json_mod
 import os, pathlib, re, sys
 
 fail = 0
@@ -187,9 +188,85 @@ for p in MD:
     else:
         ok(f"{sp} 指针 {len(targets)}/{limit}")
 
+# ---------- ⑧ 告警规则数 / 面板数 / DLQ stage 枚举（2026-09-20 补） ----------
+# 背景: 第 1、2 步评审发现三类"检查①~⑦ 都抓不到"的漂移 ——
+#   ① 告警规则文件加了 2 条, 但文档仍写 8 条(且运行态只加载了 8 条也无人发现);
+#   ② Grafana 面板 JSON 加了图, 两处文档仍写旧数字(网关写 4 实际 5; codec 写 4 实际 6);
+#   ③ DLQ stage 枚举散落多处, 新增 stage 靠人肉同步(历史上已漏改过两次)。
+# 这三类都是"文档声明的数字 vs 机器事实", 与检查③同源, 故并入本门禁。
+print("⑧ 告警规则数 / 面板数 / DLQ stage 枚举")
+
+# --- ⑧.1 告警规则数 ---
+RULE_FILE = pathlib.Path('deploy/prometheus/rules/oceanverse-alerts.yml')
+rule_n = len(re.findall(r'^\s*- alert:', RULE_FILE.read_text(encoding='utf-8'), re.M))
+alert_claims = set()
+for p in MD:
+    for line in p.read_text(encoding='utf-8').split('\n'):
+        if allowed(line) or '增补' in line or '修订' in line:
+            continue
+        for m in re.finditer(r'(\d+)\s*条(?:告警|规则)', line):
+            alert_claims.add(int(m.group(1)))
+if alert_claims and alert_claims != {rule_n}:
+    bad(f"文档声称告警规则数 {sorted(alert_claims)}，规则文件实际 {rule_n}")
+else:
+    ok(f"告警规则数一致（{rule_n}）")
+
+# --- ⑧.2 Grafana 面板数(每个面板 JSON 的图数 vs 文档里的 "N 图" 声明) ---
+DASH = {
+    'device-gateway': pathlib.Path('deploy/grafana/provisioning/dashboards/device-gateway.json'),
+    'device-codec': pathlib.Path('deploy/grafana/provisioning/dashboards/device-codec.json'),
+}
+dash_n = {}
+for name, f in DASH.items():
+    if not f.exists():
+        bad(f"面板文件缺失: {f}")
+        continue
+    dash_n[name] = len(json_mod.loads(f.read_text(encoding='utf-8')).get('panels', []))
+for p in MD:
+    text = p.read_text(encoding='utf-8')
+    for i, line in enumerate(text.split('\n'), 1):
+        if allowed(line) or '增补' in line or '修订' in line:
+            continue
+        # 只校验"同一行里点了面板名 + 图数"的写法(如"网关面板(uid device-gateway，4 图：…)"）
+        for name, n in dash_n.items():
+            if name not in line:
+                continue
+            for m in re.finditer(r'(\d+)\s*图', line):
+                if int(m.group(1)) != n:
+                    bad(f"{p}:{i} 声称 {name} 面板 {m.group(1)} 图，实际 JSON {n} 图")
+if fail == 0 and dash_n:
+    ok("面板图数一致（" + ', '.join(f"{k}={v}" for k, v in sorted(dash_n.items())) + "）")
+
+# --- ⑧.3 DLQ stage 枚举: 代码真实产出的 stage vs 文档/指标 HELP 里列的集合 ---
+CODEC_MAIN = pathlib.Path('ingest/device-codec/cmd/server/main.go').read_text(encoding='utf-8')
+code_stages = set(re.findall(r'Stage:\s*"([a-z_]+)"', CODEC_MAIN))
+# 只计 process() 里真实的 DLQ 产出(排除结构体定义里的注释)
+code_stages = {s for s in code_stages if s}
+doc_claims = {}
+for p in MD:
+    for i, line in enumerate(p.read_text(encoding='utf-8').split('\n'), 1):
+        if allowed(line) or '增补' in line or '修订' in line:
+            continue
+        for m in re.finditer(r'stage\s*∈\s*\{([^}]+)\}', line):
+            got = {x.strip() for x in m.group(1).split(',') if x.strip()}
+            doc_claims[f"{p}:{i}"] = got
+metrics_help = pathlib.Path('ingest/device-codec/internal/metrics/metrics.go').read_text(encoding='utf-8')
+for m in re.finditer(r'stage\s*∈\s*\{([^}]+)\}', metrics_help):
+    doc_claims['metrics.go HELP'] = {x.strip() for x in m.group(1).split(',') if x.strip()}
+if not code_stages:
+    bad("未能从 codec 主程序解出任何 DLQ stage(解析规则失效?)")
+else:
+    for where, got in doc_claims.items():
+        if got != code_stages:
+            bad(f"{where} 的 stage 枚举 {sorted(got)} != 代码实际 {sorted(code_stages)}")
+    if doc_claims and all(g == code_stages for g in doc_claims.values()):
+        ok(f"DLQ stage 枚举一致（{len(code_stages)} 个: {', '.join(sorted(code_stages))}）")
+    elif not doc_claims:
+        bad("文档/指标 HELP 里没有找到任何 DLQ stage 枚举声明")
+
+
 print()
 if fail:
     print(f"==== 文档校验: {fail} 项未通过 ====")
     sys.exit(1)
 print("==== 文档校验: 全部通过 ====")
-PY

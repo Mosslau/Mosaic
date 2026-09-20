@@ -182,9 +182,14 @@ jobs:
         if: always()
         run: docker rm -f gw-health codec-health || true
 
-  # ---------- compose 可解析（语法/变量展开；此前 CI 完全不碰 compose） ----------
+  # ---------- 八容器编排：可解析 + 真的能起来 + 内存预算 ----------
+  # 2026-09-20 补(第 1、2 步评审): 原 compose 作业只做 `config -q`(语法校验), 于是
+  #   ① MySQL/Redis 写进 compose 但**从未真正 up 过**(本机实测只起了 6 个容器,
+  #      而看板写着"八容器 healthy" —— 结构校验冒充了运行验证);
+  #   ② mem_limit 之和超过 VM 物理内存(6.88 GiB > 6.2 GiB)且无人发现。
+  # 本作业把两件事都变成 CI 判据: 真起来 + 逐容器 healthcheck 通过 + 预算算术 + 规则新鲜度。
   compose:
-    name: docker compose config
+    name: docker compose (up + budget)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -193,6 +198,158 @@ jobs:
         run: |
           cp .env.example .env || true
           docker compose config -q
+      - name: memory budget gate
+        run: bash scripts/check-compose-budget.sh
+      - name: compose up (等待全部 healthy)
+        working-directory: deploy
+        run: |
+          # 8883 TLS 需要证书; CI 不走公网路径, 但 emqx.conf 引用了证书文件 → 先生成自签
+          bash emqx/gen-certs.sh
+          docker compose up -d
+          unhealthy=""
+          # 八容器逐个等 healthy(最多 90s)
+          for i in $(seq 1 30); do
+            unhealthy=$(docker compose ps --format '{{.Name}} {{.State}} {{.Health}}' | grep -v 'healthy' || true)
+            if [ -z "$unhealthy" ]; then break; fi
+            sleep 3
+          done
+          echo "--- 最终状态 ---"
+          docker compose ps
+          if [ -n "$unhealthy" ]; then
+            echo "以下容器未达 healthy: $unhealthy"
+            echo "$unhealthy" | awk '{print $1}' | while read -r c; do
+              echo "=== logs: $c ==="; docker logs --tail 30 "$c" 2>&1 || true
+            done
+            exit 1
+          fi
+      - name: smoke queries (Kafka / ClickHouse / MySQL / Redis)
+        working-directory: deploy
+        run: |
+          set -e
+          docker exec ov-kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
+          curl -sf http://localhost:8123/ping
+          docker exec ov-mysql mysqladmin ping -h 127.0.0.1 -u root -pov_root_2026
+          # 只建库不建表: 业务表数必须为 0(DDL 属第 4 步各 Java 服务)
+          docker exec ov-mysql mysql -u root -pov_root_2026 -N -e \
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='oceanverse';" | grep -qx 0
+          docker exec ov-redis redis-cli ping | grep -qx PONG
+          docker exec ov-redis redis-cli config get maxmemory | tail -1 | grep -qx 201326592
+      - name: prometheus rules loaded == file (配置新鲜度)
+        working-directory: deploy
+        run: |
+          set -e
+          for i in $(seq 1 20); do curl -sf http://localhost:9090/-/healthy >/dev/null && break; sleep 2; done
+          loaded=$(curl -sf http://localhost:9090/api/v1/rules \
+            | python3 -c "import json,sys;d=json.load(sys.stdin)['data']['groups'];print(sum(len(g['rules']) for g in d))")
+          declared=$(grep -c '^\s*- alert:' prometheus/rules/oceanverse-alerts.yml)
+          echo "loaded=$loaded declared=$declared"
+          test "$loaded" = "$declared"
+      - name: dump logs on failure
+        if: failure()
+        working-directory: deploy
+        run: docker compose logs --tail 40
+      - name: cleanup
+        if: always()
+        working-directory: deploy
+        run: docker compose down -v || true
+
+  # ---------- 公网路径安全三件套 + 三通道端到端（2026-09-20 补） ----------
+  # 为什么必须进 CI: `cmd/security-check`(TLS / 一车一密 / ACL 六项自检)与三通道端到端
+  # **只在本地跑过** —— 本机没有 EMQX 的那套判据在 CI 里从来不是自动的, 于是
+  # "8883 未达基线不得对外开放"这条红线只能靠人记得复跑。本作业把它固化成 CI。
+  # 同时覆盖两条最容易"改了不再生效"的路径: HTTP 身份锚点、二进制通道 TLS 全链路。
+  security-e2e:
+    name: security (TLS / 一车一密 / ACL) + e2e
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: ingest/device-simulator/go.mod
+          cache-dependency-path: ingest/device-simulator/go.mod
+      - name: start infrastructure
+        working-directory: deploy
+        run: |
+          cp .env.example .env || true
+          bash emqx/gen-certs.sh
+          # CI runner 上没有 host.docker.internal(Linux): 把 webhook 目标改成宿主回环。
+          # 网关与 codec 以 --network host 跑(见下一步), 因此容器内的 127.0.0.1 = runner 宿主。
+          sed -i 's#http://host.docker.internal:#http://127.0.0.1:#g' emqx/emqx.conf
+          docker compose up -d
+          for i in $(seq 1 30); do
+            unhealthy=$(docker compose ps --format '{{.Name}} {{.Health}}' | grep -v healthy || true)
+            [ -z "$unhealthy" ] && break
+            sleep 3
+          done
+          docker compose ps
+      - name: build and start gateway + codec (宿主网络)
+        run: |
+          docker build -f ingest/device-gateway/Dockerfile -t oceanverse/device-gateway:ci .
+          docker build -f ingest/device-codec/Dockerfile -t oceanverse/device-codec:ci .
+          docker run -d --name gw --network host \
+            -e GATEWAY_PORT=18080 -e GATEWAY_DEV_MODE=true -e KAFKA_BROKERS=127.0.0.1:19092 \
+            oceanverse/device-gateway:ci
+          docker run -d --name codec --network host \
+            -e KAFKA_BROKERS=127.0.0.1:19092 \
+            oceanverse/device-codec:ci
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:18080/health >/dev/null && curl -sf http://localhost:18090/health >/dev/null && break
+            sleep 2
+          done
+          curl -sf http://localhost:18080/health
+          curl -sf http://localhost:18090/health
+      - name: seed devices + security self-check (六项)
+        run: |
+          bash deploy/emqx/seed-users.sh 0 100
+          bash deploy/emqx/seed-users.sh --vin OV20260001
+          cd ingest/device-simulator
+          go run ./cmd/security-check -vin OV20260001
+      - name: HTTP 身份锚点（冒充他人 VIN 必须 400 且零投递）
+        run: |
+          set -e
+          before=$(docker exec ov-kafka /opt/kafka/bin/kafka-get-offsets.sh \
+            --bootstrap-server localhost:9092 --topic vehicle-report-raw | awk -F: '{s+=$3} END {print s+0}')
+          code=$(curl -s -o /tmp/impersonate.json -w '%{http_code}' -X POST \
+            http://localhost:18080/api/v1/vehicle/report \
+            -H 'X-Device-Token: dev-OV00000001' -H 'Content-Type: application/json' \
+            -d "{\"vin\":\"OV99999999\",\"ts\":$(date +%s),\"type\":\"vehicle_status\",\"data\":{\"soc\":50}}")
+          echo "HTTP $code: $(cat /tmp/impersonate.json)"
+          test "$code" = "400" || { echo "冒充他人 VIN 必须 400(第 1、2 步评审的 P1 安全项)"; exit 1; }
+          sleep 2
+          after=$(docker exec ov-kafka /opt/kafka/bin/kafka-get-offsets.sh \
+            --bootstrap-server localhost:9092 --topic vehicle-report-raw | awk -F: '{s+=$3} END {print s+0}')
+          test "$before" = "$after" || { echo "被拒的越权请求不得写进 Kafka: $before -> $after"; exit 1; }
+          # 负向对照: 同一 token 用**自己的** VIN 必须 202(证明上面的 400 是身份校验, 不是链路坏了)
+          code2=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+            http://localhost:18080/api/v1/vehicle/report \
+            -H 'X-Device-Token: dev-OV00000001' -H 'Content-Type: application/json' \
+            -d "{\"vin\":\"OV00000001\",\"ts\":$(date +%s),\"type\":\"vehicle_status\",\"data\":{\"soc\":51}}")
+          test "$code2" = "202" || { echo "合法上报应 202, 实际 $code2"; exit 1; }
+      - name: 二进制通道 TLS 全链路（8883 一车一密 → 网关 → codec 解码）
+        run: |
+          set -e
+          before=$(curl -s http://localhost:18090/metrics | awk '$1=="codec_decoded_total" {s+=$2} END {print s+0}')
+          cd ingest/device-simulator
+          go run ./cmd/bin-simulator -tls -broker localhost:8883 \
+            -cacert ../../deploy/emqx/certs/ca.crt -devices 3 -interval 1s -duration 4s
+          sleep 5
+          after=$(curl -s http://localhost:18090/metrics | awk '$1=="codec_decoded_total" {s+=$2} END {print s+0}')
+          echo "codec_decoded_total: $before -> $after"
+          test "$after" -gt "$before" || { echo "TLS 二进制帧未能解码落库(全链路断了)"; exit 1; }
+          # DLQ 不得因探针增长(合法帧不该进 DLQ)
+          dlq=$(curl -s http://localhost:18090/metrics | awk '$1 ~ /^codec_dlq_total/ {s+=$2} END {print s+0}')
+          echo "codec_dlq_total=$dlq"
+      - name: dump logs on failure
+        if: failure()
+        run: |
+          docker logs gw | tail -40 || true
+          docker logs codec | tail -40 || true
+          cd deploy && docker compose logs --tail 30 || true
+      - name: cleanup
+        if: always()
+        run: |
+          docker rm -f gw codec || true
+          cd deploy && docker compose down -v || true
 
   # ---------- 文档事实校验 + Mermaid 渲染 ----------
   docs:

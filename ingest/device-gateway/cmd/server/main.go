@@ -41,7 +41,7 @@ func main() {
 
 	// 处理链: metrics(最外) → auth → ratelimit → handler(最内)
 	authMw := auth.New(cfg.DeviceBinding, cfg.DevMode)
-	limiter := ratelimit.New(cfg.RatePerDevice, cfg.RateGlobal)
+	limiter := ratelimit.New(cfg.RatePerDevice, cfg.RateGlobal, cfg.RateGlobalBurst)
 	reportHandler := handler.NewReportHandler(producer)
 
 	mux := http.NewServeMux()
@@ -106,6 +106,7 @@ func main() {
 		slog.Info("车端接入网关启动",
 			"port", cfg.Port, "topic", cfg.KafkaTopic, "brokers", cfg.KafkaBrokers,
 			"ratePerDevice", cfg.RatePerDevice, "rateGlobal", cfg.RateGlobal,
+			"rateGlobalBurst", limiter.GlobalBurst(),
 			"metricsPort", cfg.MetricsPort, "pprof", cfg.PprofBind+":"+strconv.Itoa(cfg.PprofPort))
 		if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 			slog.Error("HTTP 服务异常退出", "err", err)

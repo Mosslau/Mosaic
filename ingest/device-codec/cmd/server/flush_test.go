@@ -10,10 +10,34 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/segmentio/kafka-go"
 
 	"github.com/Mosslau/OceanVerse/ingest/device-contracts/vehicle"
 )
+
+// counterValue 从 Prometheus 默认注册表读取一个 CounterVec 的当前值(按标签筛选)。
+// 用注册表而不是 /metrics 文本, 避免测试依赖 HTTP 层。
+func counterValue(t *testing.T, name, label, value string) float64 {
+	t.Helper()
+	mfs, err := prometheus.DefaultGatherer.Gather()
+	if err != nil {
+		t.Fatalf("gather 指标失败: %v", err)
+	}
+	for _, mf := range mfs {
+		if mf.GetName() != name {
+			continue
+		}
+		for _, m := range mf.GetMetric() {
+			for _, lp := range m.GetLabel() {
+				if lp.GetName() == label && lp.GetValue() == value {
+					return m.GetCounter().GetValue()
+				}
+			}
+		}
+	}
+	return 0
+}
 
 // ---- 测试替身: 可控失败的 writer / committer --------------------------------
 
@@ -84,6 +108,59 @@ func newTestState() *batchState {
 
 // ---- 核心回归: 失败必须保留缓冲(P0 静默丢数据的根因) ------------------------
 
+// TestFlushBatch_DLQFailureDoesNotBlockMainPath DLQ 写失败**不得**拖住主链路(2026-09-20 收窄)。
+//
+// 修复前的语义: dlq 写失败 → ok=false → 整批(含已成功写出的正常产出)滞留 + 位移不推进 →
+// "一条脏数据的 DLQ topic 故障"会把正常数据的实时性一起拖垮。
+// 修复后的语义: DLQ 写失败只保留 **DLQ 条目**(逐条重试), 产出照常提交位移并放行。
+//
+// 数据不丢的根据没有变: 产出仍"写出成功 == 提交成功"才离开缓冲; DLQ 条目仍在缓冲里等重试。
+func TestFlushBatch_DLQFailureDoesNotBlockMainPath(t *testing.T) {
+	st := newTestState()
+	pw := &fakeWriter{}
+	dw := &fakeWriter{err: errors.New("dlq topic missing")}
+	c := &fakeCommitter{}
+
+	if flushBatch(context.Background(), st, pw, dw, c, time.Now()) {
+		t.Error("DLQ 未全部写出时返回值应为 false(调用方据此知道还有未推进的部分)")
+	}
+	// 主链路必须已推进: 产出写出 + 位移提交
+	if pw.total() != 1 {
+		t.Errorf("产出应已写出 1 条, 实际 %d", pw.total())
+	}
+	if c.total() != 2 {
+		t.Errorf("产出成功后应提交 2 条位移, 实际 %d", c.total())
+	}
+	if len(st.pendingMsgs) != 0 {
+		t.Errorf("原始消息应已推进(缓冲清空), 实际残留 %d", len(st.pendingMsgs))
+	}
+	if len(st.pendingReports) != 0 {
+		t.Errorf("产出应已清空, 实际残留 %d", len(st.pendingReports))
+	}
+	// DLQ 条目必须保留(逐条重试), 且不丢
+	if len(st.pendingDLQ) != 1 {
+		t.Fatalf("DLQ 写失败后条目必须保留待重试, 实际 %d", len(st.pendingDLQ))
+	}
+	// 失败必须可观测(否则"DLQ 一直写不出去"只剩日志里一行)
+	if got := counterValue(t, "codec_dlq_flush_failures_total", "stage", "parse"); got == 0 {
+		t.Error("codec_dlq_flush_failures_total{stage=parse} 应 >0")
+	}
+
+	// DLQ 恢复后: 只重投 DLQ, 不重复投产出(产出已在上一步 ACK)
+	before := pw.total()
+	dw.err = nil
+	if !flushBatch(context.Background(), st, pw, dw, c, time.Now()) {
+		t.Fatal("参考 DLQ 恢复后 flush 应完全成功")
+	}
+	if len(st.pendingDLQ) != 0 {
+		t.Errorf("DLQ 恢复后条目应清空, 实际 %d", len(st.pendingDLQ))
+	}
+	if pw.total() != before {
+		t.Error("产出不得被重复投递(已 ACK 的批次不再回到缓冲)")
+	}
+	// 注意: 此时 pendingMsgs 已空, 真实主循环里由定时 flush 推进; 这里直接调用的语义是"DLQ 重试"
+}
+
 // TestFlushBatch_WriteFailureKeepsBuffer 是本次修复的核心回归测试。
 // 修复前: 写失败后 pending 三切片被无条件 [:0] 清空 → 位移未提交但这批消息已离开流水线,
 // 下一次成功 flush 提交更高 offset → 永久静默丢数据(at-least-once 承诺失效)。
@@ -98,10 +175,12 @@ func TestFlushBatch_WriteFailureKeepsBuffer(t *testing.T) {
 	if ok {
 		t.Fatal("写失败时 flushBatch 必须返回 false")
 	}
-	// 不变量 1: 缓冲原样保留(一条都不能少)
-	if len(st.pendingMsgs) != 2 || len(st.pendingReports) != 1 || len(st.pendingDLQ) != 1 {
-		t.Fatalf("写失败后缓冲必须保留, got msgs=%d reports=%d dlq=%d",
-			len(st.pendingMsgs), len(st.pendingReports), len(st.pendingDLQ))
+	// 不变量 1: 缓冲原样保留(一条都不能少)。
+	// DLQ 会**先于**产出被尝试写出(见 flushBatch 顺序), 故此时 DLQ 条目已被投出并从缓冲移除 ——
+	// 但它对应的原始消息仍在 pendingMsgs 里, 位移未提交 → 重读时会重新产出 DLQ(至多一次重复投递),
+	// 不存在"丢了"的路径。
+	if len(st.pendingMsgs) != 2 || len(st.pendingReports) != 1 {
+		t.Fatalf("写失败后缓冲必须保留, got msgs=%d reports=%d", len(st.pendingMsgs), len(st.pendingReports))
 	}
 	// 不变量 2: 位移绝不提交(否则消息永远不会被重读)
 	if c.total() != 0 {
@@ -127,9 +206,8 @@ func TestFlushBatch_CommitFailureKeepsBuffer(t *testing.T) {
 	if ok {
 		t.Fatal("位移提交失败时 flushBatch 必须返回 false")
 	}
-	if len(st.pendingMsgs) != 2 || len(st.pendingReports) != 1 || len(st.pendingDLQ) != 1 {
-		t.Fatalf("提交失败后缓冲必须保留, got msgs=%d reports=%d dlq=%d",
-			len(st.pendingMsgs), len(st.pendingReports), len(st.pendingDLQ))
+	if len(st.pendingMsgs) != 2 || len(st.pendingReports) != 1 {
+		t.Fatalf("提交失败后缓冲必须保留, got msgs=%d reports=%d", len(st.pendingMsgs), len(st.pendingReports))
 	}
 	if pw.total() != 1 {
 		t.Fatalf("产出应已写出 1 条, got %d", pw.total())
@@ -166,24 +244,6 @@ func TestFlushBatch_RetryAfterBackoffSucceeds(t *testing.T) {
 	}
 	if st.failures != 0 {
 		t.Fatalf("成功后连续失败计数必须归零, got %d", st.failures)
-	}
-}
-
-// TestFlushBatch_DLQFailureKeepsBuffer DLQ 写不出去同样不能丢(否则原始帧无法事后重放)。
-func TestFlushBatch_DLQFailureKeepsBuffer(t *testing.T) {
-	st := newTestState()
-	pw := &fakeWriter{}
-	dw := &fakeWriter{err: errors.New("dlq topic missing")}
-	c := &fakeCommitter{}
-
-	if flushBatch(context.Background(), st, pw, dw, c, time.Now()) {
-		t.Fatal("DLQ 写失败时 flushBatch 必须返回 false")
-	}
-	if len(st.pendingMsgs) != 2 || len(st.pendingDLQ) != 1 {
-		t.Fatal("DLQ 写失败后缓冲必须保留")
-	}
-	if c.total() != 0 {
-		t.Fatal("DLQ 写失败时不得提交位移")
 	}
 }
 

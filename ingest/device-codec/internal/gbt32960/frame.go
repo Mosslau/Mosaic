@@ -21,6 +21,7 @@ var (
 	ErrLength   = errors.New("数据单元长度与实际不符")
 	ErrBCC      = errors.New("BCC 校验失败")
 	ErrNoTime   = errors.New("数据单元不含完整时间字段(6B)")
+	ErrBadTime  = errors.New("时间字段越界")
 )
 
 // Frame 包头轻解析结果(§2 帧结构)
@@ -65,13 +66,25 @@ func ParseFrame(raw []byte) (*Frame, error) {
 	}, nil
 }
 
-// parseTime 数据单元时间(6B, GMT+8 明文, §8-③) → Unix 秒
+// parseTime 数据单元时间(6B, GMT+8 明文, §8-③) → Unix 秒。
+//
+// 范围校验(2026-09-20 补): 修复前直接把 6 个字节喂给 time.Date, 而 time.Date 会**归一化**
+// 越界字段 —— month=13 变成次年 1 月, day=0 变成上月最后一天, hour=99 变成几天后。
+// 于是"字节明显非法"的帧会解出一个看似合法的时间戳, 并且一路通过契约的 ts 容差校验
+// (只要落在近 7 天内), 让坏帧被当成好数据。这里用**回读比对**拒绝一切会归一化的输入:
+// 让 time.Date 走一遍, 再把年/月/日/时/分/秒读回来与原字节比, 不等即非法。
 func parseTime(du []byte) (int64, error) {
 	if len(du) < 6 {
 		return 0, ErrNoTime
 	}
-	t := time.Date(2000+int(du[0]), time.Month(du[1]), int(du[2]),
-		int(du[3]), int(du[4]), int(du[5]), 0,
+	yy, mm, dd, hh, mi, ss := int(du[0]), int(du[1]), int(du[2]), int(du[3]), int(du[4]), int(du[5])
+	t := time.Date(2000+yy, time.Month(mm), dd, hh, mi, ss, 0,
 		time.FixedZone("GMT+8", 8*3600))
+	// 月/日/时/分/秒都必须原样读回(秒级精度, 无夏令时问题: GMT+8 固定偏移)
+	if t.Year() != 2000+yy || int(t.Month()) != mm || t.Day() != dd ||
+		t.Hour() != hh || t.Minute() != mi || t.Second() != ss {
+		return 0, fmt.Errorf("%w: 时间字段非法 yy=%d MM=%d dd=%d HH=%d mm=%d ss=%d",
+			ErrBadTime, yy, mm, dd, hh, mi, ss)
+	}
 	return t.Unix(), nil
 }

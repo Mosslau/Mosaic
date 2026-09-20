@@ -11,22 +11,23 @@ import (
 
 // Config 网关全部配置
 type Config struct {
-	Port          int               // HTTP 监听端口
-	KafkaBrokers  []string          // Kafka broker 列表
-	KafkaTopic    string            // 车端数据 topic(JSON 通道)
-	KafkaBinTopic string            // 二进制原始帧 topic(§7: ov.raw.binary.v1)
-	DeviceTokens  []string          // 设备 token 白名单原始形态(每条为 "token=VIN")
-	DeviceBinding map[string]string // token → 绑定 VIN(解析自 DeviceTokens; 载荷 VIN 必须与之一致)
-	WebhookToken  string            // EMQX webhook 来源鉴权密钥
-	DevMode       bool              // 开发模式: 额外接受 "dev-{VIN}" 形态 token (仅本地压测用!)
-	RatePerDevice float64           // 单设备限流(条/秒)
-	RateGlobal    float64           // 全局限流(条/秒)
-	MetricsPort   int               // /metrics 端口(需被容器内 Prometheus 抓取, 监听全网卡)
-	PprofBind     string            // /debug/pprof 绑定地址(仅回环)
-	PprofPort     int               // /debug/pprof 端口
-	ReadTimeout   time.Duration
-	WriteTimeout  time.Duration
-	ShutdownGrace time.Duration
+	Port            int               // HTTP 监听端口
+	KafkaBrokers    []string          // Kafka broker 列表
+	KafkaTopic      string            // 车端数据 topic(JSON 通道)
+	KafkaBinTopic   string            // 二进制原始帧 topic(§7: ov.raw.binary.v1)
+	DeviceTokens    []string          // 设备 token 白名单原始形态(每条为 "token=VIN")
+	DeviceBinding   map[string]string // token → 绑定 VIN(解析自 DeviceTokens; 载荷 VIN 必须与之一致)
+	WebhookToken    string            // EMQX webhook 来源鉴权密钥
+	DevMode         bool              // 开发模式: 额外接受 "dev-{VIN}" 形态 token (仅本地压测用!)
+	RatePerDevice   float64           // 单设备限流(条/秒)
+	RateGlobal      float64           // 全局限流(条/秒, 三条通道合计)
+	RateGlobalBurst int               // 全局令牌桶突发容量(0=按 3×RateGlobal 计算)
+	MetricsPort     int               // /metrics 端口(需被容器内 Prometheus 抓取, 监听全网卡)
+	PprofBind       string            // /debug/pprof 绑定地址(仅回环)
+	PprofPort       int               // /debug/pprof 端口
+	ReadTimeout     time.Duration
+	WriteTimeout    time.Duration
+	ShutdownGrace   time.Duration
 }
 
 // Load 从环境变量加载配置, 带合理默认值。
@@ -41,7 +42,10 @@ func Load() (*Config, error) {
 		DevMode:       envBool("GATEWAY_DEV_MODE", false),
 		RatePerDevice: envFloat("RATE_PER_DEVICE", 10),
 		RateGlobal:    envFloat("RATE_GLOBAL", 5000),
-		MetricsPort:   envInt("GATEWAY_METRICS_PORT", 18081),
+		// 突发容量显式可配(2026-09-20): 三条通道共用全局桶, 默认 3×速率 ——
+		// 详见 ratelimit/limiter.go 文件头的容量关系注释
+		RateGlobalBurst: envIntAllowZero("RATE_GLOBAL_BURST", 0),
+		MetricsPort:     envInt("GATEWAY_METRICS_PORT", 18081),
 		// pprof 只绑回环: 能读出进程内存(含 webhook 密钥与设备 token)
 		PprofBind:     envStr("GATEWAY_PPROF_BIND", "127.0.0.1"),
 		PprofPort:     envInt("GATEWAY_PPROF_PORT", 18082),
@@ -86,6 +90,12 @@ func Load() (*Config, error) {
 	if cfg.RateGlobal < 1 {
 		return nil, fmt.Errorf("RATE_GLOBAL 必须 >= 1 (条/秒), 实际 %v: 小于 1 会导致令牌桶容量为 0、所有请求被拒", cfg.RateGlobal)
 	}
+	// 容量关系自检(2026-09-20): 全局限流桶被三条通道共用, 若显式配置的突发容量**小于速率本身**,
+	// 稳态流量会在每秒钟的第一批请求上就开始被拒 —— 这不是"限流", 是配置错误。
+	if cfg.RateGlobalBurst > 0 && float64(cfg.RateGlobalBurst) < cfg.RateGlobal {
+		return nil, fmt.Errorf("RATE_GLOBAL_BURST(%d) 不得小于 RATE_GLOBAL(%v): 突发容量小于速率会让稳态流量也被拒",
+			cfg.RateGlobalBurst, cfg.RateGlobal)
+	}
 	return cfg, nil
 }
 
@@ -120,6 +130,16 @@ func envInt(key string, def int) int {
 		return v
 	}
 	return def
+}
+
+// envIntAllowZero 与 envInt 的区别: 允许显式 0(表示"未配置, 走默认公式"),
+// 负数/非法值仍回退 def。用于"0 有语义"的容量类配置。
+func envIntAllowZero(key string, def int) int {
+	v, err := strconv.Atoi(os.Getenv(key))
+	if err != nil || v < 0 {
+		return def
+	}
+	return v
 }
 
 func envFloat(key string, def float64) float64 {

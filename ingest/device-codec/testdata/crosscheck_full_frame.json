@@ -1,0 +1,49 @@
+{
+  "_comment": [
+    "全信息体交叉对拍样本(2026-09-20)。它把『造帧器(simframe)』与『解码器(gbt32960)』锁在同一份字节契约上。",
+    "背景: 两个实现是刻意『两边独立实现同一份规格』(互为对拍), 但此前没有任何测试让 A 的产出过 B 的解码 ——",
+    "只有各自内嵌的黄金样本, 属于『两边同时错就一起错』的结构性盲区(第 1、2 步评审发现)。",
+    "为什么用托管样本而不是直接互相 import: Go 的 internal 规则禁止跨模块 import internal 包, 两侧本就是 internal。",
+    "怎么改: 用 cmd/bin-simulator 的造帧逻辑重新生成 bytes_hex 时必须同步更新 decode 期望值 ——",
+    "任一测试失败都说明两侧至少有一个偏离了《GB32960 协议规格-v1》§5/§5.1/§5.2。"
+  ],
+  "vin": "OV20260001",
+  "cmd": 2,
+  "ack": 254,
+  "time_gmt8": [2026, 9, 17, 12, 30, 0],
+  "inputs": {
+    "vehicle": { "vehicle_status": 1, "charge_status": 3, "speed_kmh": 32.5, "odometer_km": 12345.6, "soc": 78 },
+    "position": { "lng": 113.934567, "lat": 22.543210 },
+    "extremes": { "temp_max": 41, "temp_min": 17 },
+    "alarm": { "level": 1, "fault_codes": [703278644, 1] },
+    "battery_volt": { "voltage": 64.8, "current": -12.3, "cell_voltages": [3.412, 3.5, 3.2] },
+    "battery_temp": { "probe_temps": [35, 34, 36] },
+    "charging": { "remain_min": 42, "power_kw": 1.23, "energy_kwh": 4.56, "pile_id": 1001, "station_id": 2002, "slot_no": 7 },
+    "work": { "ride_state": 1, "ride_mode": 2, "motor_rpm": 1839, "motor_torque": 9.7, "motor_power": -1866, "throttle": 58 }
+  },
+  "bytes_hex": "232302fe4f5632303236303030310000000000000001007c1a09110c1e00010103ff01450001e2404effffffffffff050006ca80e70157fb6a06ffffffffffffffffffff51ffff390701000000000229eb2e34000000010000000801010288269500030001030d540dac0c8009010100034b4a4c8001000f002a007b01c8000003e9000007d207810100090102072f0061f8b63a9a" ,
+  "decode": {
+    "report_count": 5,
+    "expect": {
+      "vehicle_status": {
+        "speed": 32.5, "odometer": 12345.6, "soc": 78,
+        "lng": 113.934567, "lat": 22.54321,
+        "temp_max": 41, "temp_min": 17
+      },
+      "battery_status": {
+        "voltage": 64.8, "current": -12.3,
+        "cell_voltages": [3.412, 3.5, 3.2],
+        "probe_temps": [35, 34, 36]
+      },
+      "fault": { "fault_codes": ["29EDE734", "1"] },
+      "charging": {
+        "remain_charge_min": 42, "charge_power": 1.23, "charge_kwh": 4.56,
+        "pile_id": 1001, "station_id": 2002, "slot_no": 7
+      },
+      "work": {
+        "ride_state": "riding", "ride_mode": "standard",
+        "motor_rpm": 1839, "motor_torque": 9.7, "motor_power": -1866, "throttle": 58
+      }
+    }
+  }
+}

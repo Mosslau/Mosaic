@@ -42,6 +42,11 @@ var (
 	useTLS   = flag.Bool("tls", false, "公网形态: TLS(8883) + 一车一密; clientid/username=VIN, 密码=pwPrefix+VIN")
 	caCert   = flag.String("cacert", "../../deploy/emqx/certs/ca.crt", "TLS 校验用 CA 证书路径(自签 dev CA)")
 	pwPrefix = flag.String("password-prefix", "pw-", "一车一密密码前缀(与 seed-users.sh 规则一致)")
+	// VIN 前缀: 默认 "OV"(常规压测/联调)。**健康自检探针必须传 "-vin-prefix OVPROBE"** ——
+	// 探针帧会真实走完链路落进 vehicle-report-raw, 若与业务 VIN 段混在一起,
+	// 下游(Flink/ClickHouse 的车辆画像、在线数、故障数)就会把探针当成真实车辆数据。
+	// 保留段约定见 scripts/check-pipeline-health.sh 与《接入层设计》§9。
+	vinPrefix = flag.String("vin-prefix", "OV", "VIN 前缀(探针请用 OVPROBE 保留段, 便于下游过滤)")
 )
 
 var (
@@ -102,7 +107,7 @@ loop:
 // runDevice 一台虚拟车辆: MQTT 长连接 → 周期造帧发布 → ctx 取消时断连。
 // 连接策略与 mqtt-simulator 完全一致(初次连接允许重试, 模拟真实设备)。
 func runDevice(ctx context.Context, id int) {
-	vin := fmt.Sprintf("OV%08d", id)
+	vin := fmt.Sprintf("%s%08d", *vinPrefix, id)
 	rng := rand.New(rand.NewPCG(uint64(id), uint64(id>>32)))
 
 	client, err := simconn.New(simconn.Config{

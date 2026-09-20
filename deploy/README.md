@@ -60,18 +60,25 @@ until docker info >/dev/null 2>&1; do sleep 5; done && echo "engine ready"
 | Grafana OSS | 看板 | `http://localhost:3000` | `admin` / `admin` |
 | Prometheus | 指标采集（网关 `/metrics`，5s 抓取） | `http://localhost:9090` | 无认证（第 1 阶段本地） |
 | MySQL 8.4 | 关系库（第 1 阶段第 4 步 Java 微服务 ×5 的底座） | `localhost:13306`（避让本机/公司 3306） | `root` / `ov_root_2026`；应用账号 `ov_app` / `ov_app_2026`，库 `oceanverse` |
-| Redis 7 | 缓存（第 2 阶段"限流器 Redis 化"的落点） | `localhost:16379`（避让 6379） | 无认证（第 1 阶段本地）；`maxmemory 256mb` + `allkeys-lru` |
+| Redis 7 | 缓存（第 2 阶段"限流器 Redis 化"的落点） | `localhost:16379`（避让 6379） | 无认证（第 1 阶段本地）；`maxmemory 192mb` + `allkeys-lru`（`mem_limit 320m`） |
 
 默认数据库：ClickHouse 自动建 `oceanverse` 库，MySQL 自动建 `oceanverse` 库（**只建库不建表**——业务 DDL 归第 4 步各 Java 服务，这里造表是空转）。
 Grafana 启动后**自动配好名为 `ClickHouse` 的数据源**（provisioning，见 `deploy/grafana/provisioning/datasources/clickhouse.yaml`）。
 EMQX 启动后**自动加载声明式规则**（`deploy/emqx/emqx.conf`）：① `ov_vehicle_ingress` —— `ov/+/status|battery|fault` → Webhook → 网关 `/api/v1/mqtt/ingest`；② `ov_binary_ingress` —— `ov/+/bin`（GB/T 32960 二进制帧，base64）→ 网关 `/api/v1/bin/ingest` → `ov.raw.binary.v1` → device-codec（Dashboard → 集成 → 规则 可见两条）。
 
-> **内存预算（加 MySQL/Redis 后必须知道的一条算术）**：八个容器的 `mem_limit` 合计 **6.88 GiB**
-> （Kafka 1g + ClickHouse 2g + MinIO 512m + MySQL 1g + Redis 384m + EMQX 1g + Prometheus 512m + Grafana 512m），
-> 而 Rancher VM 标称 **6 GiB** —— 即**上限之和已超过整机内存**。`mem_limit` 只约束单个容器，
-> 不能阻止整机 OOM（本项目已因内存崩过一次，见文件头 ③ 与 Q14）。
-> 对策（二选一）：① 把 VM 内存提到 8 GiB（推荐，最省事）；② 压低上限，例如 ClickHouse 2g→1g、
-> MySQL 1g→768m，使合计落在 5 GiB 以内。合并 MySQL/Redis 后请重新核对，别只看单容器是否 OOM。
+> **内存预算（2026-09-20 重算，已被 `scripts/check-compose-budget.sh` 门禁覆盖）**：
+> 第九轮补齐 MySQL/Redis 后，八容器 `mem_limit` 合计 **6.88 GiB**，而 Rancher VM 实测只有 **6.2 GiB**
+> （`docker info --format '{{.MemTotal}}'` → 5921 MiB）—— **上限之和超过物理内存**，且实测 ClickHouse
+> 已吃到 **1.9 GiB / 2 GiB（94.5%）**，再拉起 MySQL 就是整机 OOM。
+>
+> 现按"合计 ≤ 4.5 GiB"重算：Kafka 768m + ClickHouse 1152m + MinIO 320m + MySQL 640m + Redis 320m
+> + EMQX 512m + Prometheus 384m + Grafana 384m = **4480 MiB**，占 VM 容量的 76%（门禁要求 ≤85%）。
+>
+> 两条配套纪律（都踩过坑）：
+> ① **进程内上限必须低于 cgroup 硬杀线**：ClickHouse 显式设 `CLICKHOUSE_MAX_SERVER_MEMORY_USAGE=900000000`
+>    （镜像默认 `max_server_memory_usage_to_ram_ratio=0.9` = 宿主机内存的 90%，在共享 VM 上等于没有上限）；
+>    Redis `--maxmemory 192mb` < `mem_limit 320m`。两者相等时算上进程开销就会被 OOM kill（表现为反复重启）。
+> ② **改 limits 后必须复跑门禁**：`bash scripts/check-compose-budget.sh`（CI 也跑），否则"账面超配"没人会发现。
 
 > 端口避让说明：MinIO 的 S3 API 映射到宿主 `9001`、控制台映射到 `9002`，因为 ClickHouse native 协议已占用 `9000`。
 
@@ -101,6 +108,14 @@ docker compose logs -f minio
 docker compose logs -f mysql
 docker compose logs -f redis
 docker compose logs -f grafana
+
+# 改完 prometheus 的配置/规则后**让它真的生效**（2026-09-20 起）：
+#   实测踩过：规则文件是 bind mount，改完文件立刻是新的，但 Prometheus 只在启动时读它 ——
+#   出现过「文件里 10 条规则、进程里 8 条」，容器 healthy、面板照常出图，新告警整条不生效。
+curl -X POST localhost:9090/-/reload      # 热载（compose 已加 --web.enable-lifecycle）
+#   判据: curl -s localhost:9090/api/v1/rules | python3 -c "import json,sys;d=json.load(sys.stdin)['data']['groups'];print(sum(len(g['rules']) for g in d))"
+#   应与规则文件里的 alert 条数一致；也可直接跑 bash scripts/check-pipeline-health.sh（判据 6 就是这条）。
+#   其它容器（EMQX/Grafana/ClickHouse/MySQL/Redis）的配置改动仍需重启对应容器：docker compose up -d <服务名>
 
 # 停止（数据保留在 volume 里；Kafka 亦已显式 KAFKA_LOG_DIRS=/var/lib/kafka/data，
 #  2026-09-18 前该卷是死配置、数据落在容器可写层，down+up 会丢全部 topic 与位移）
@@ -162,7 +177,7 @@ docker exec ov-mysql mysql -u root -pov_root_2026 -e \
 
 # ⑧ Redis：ping + 内存上限确实生效(这条是防"整机被缓存吃穿"的关键)
 docker exec ov-redis redis-cli ping                                        # 期望: PONG
-docker exec ov-redis redis-cli config get maxmemory                        # 期望: 268435456 (256mb)
+docker exec ov-redis redis-cli config get maxmemory                        # 期望: 201326592 (192mb)
 docker exec ov-redis redis-cli config get maxmemory-policy                 # 期望: allkeys-lru
 ```
 

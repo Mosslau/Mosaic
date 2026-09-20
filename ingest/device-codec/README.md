@@ -60,14 +60,15 @@ go tool pprof http://localhost:18091/debug/pprof/profile?seconds=30   # 解码�
 ```
 
 **采集与可视化**（与网关同形态，2026-09-18 打通）：Prometheus `deploy/prometheus/prometheus.yml` 内 `job_name: device-codec` 5s 抓 `host.docker.internal:18090`（`/metrics`+`/health` 走专用端口；`/debug/pprof` 另起 `CODEC_PPROF_PORT`，默认 `127.0.0.1:18091` 仅回环）；
-Grafana provisioning 面板 `device-codec 编解码服务`（4 图：消费 vs 解码 / DLQ 速率按 stage / 消费 lag / 微批耗时与批大小）。
+Grafana provisioning 面板 `device-codec 编解码服务`（**6 图**：消费 vs 解码 / DLQ 速率按 stage / 消费 lag / 微批耗时与批大小 / **上行延迟 SLI(EMQX 接收→解码完成)** / **数据陈旧度(设备 ts→解码完成)**）。
 端口冲突时日志会打 `bind: address already in use`（主流程仍继续，但指标不可见）——重启前确保旧实例退净（deploy/README Q11）。
 
 | 指标 | 含义 | 告警建议 |
 |---|---|---|
 | `codec_consumed_total` | 消费的原始帧数 | —— |
 | `codec_decoded_total{type}` | 解码产出（按 5 类 type 分） | 与 consumed 的比值 ≈ 每帧拆出几条 |
-| `codec_dlq_total{stage}` | 进 DLQ 数（envelope/parse/**vin_mismatch**/decode/validate/encode） | **>0 持续增长即告警**（唯一会丢数据的环节）；其中 `vin_mismatch` 是**安全事件**（帧内 VIN ≠ 信封 VIN，见下） |
+| `codec_dlq_total{stage}` | 进 DLQ 数（envelope/parse/**vin_invalid**/**vin_mismatch**/decode/validate/encode） | **>0 持续增长即告警**（唯一会丢数据的环节）；`vin_invalid`=VIN 不合契约（查 topic/ACL 配置），`vin_mismatch` 是**安全事件**（帧内 VIN ≠ 信封 VIN，见下） |
+| `codec_dlq_flush_failures_total{stage}` | **DLQ 条目写出失败**的累计条数 | >0 说明 DLQ topic 写不进去。**它不阻塞主链路**（2026-09-20 起 ACK 语义收窄：产出照常提交位移），条目留在 DLQ 缓冲里逐条重试 —— 因此这个指标是「DLQ 一直写不出去」的唯一可见信号 |
 | `codec_flush_failures_total` | 微批写出/位移提交失败次数 | **>0 即告警**：说明下游写不进去、正在退避重试（数据仍保留在缓冲） |
 | `codec_pending_messages` | 缓冲区待写出的原始消息数 | 持续增长=下游长时间不可写；这是"丢数据之前"的最后一道可见信号 |
 | `codec_consumer_lag` | 消费滞后条数 | 持续 >0 → 扩容或查下游写慢 |

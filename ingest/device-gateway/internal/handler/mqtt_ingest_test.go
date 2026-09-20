@@ -69,7 +69,7 @@ func TestMQTTIngest_TopicBackfill(t *testing.T) {
 
 	// 载荷不带 vin/type, 由 topic 回填
 	payload := fmt.Sprintf(`{"ts":%d,"data":{"soc":66}}`, time.Now().Unix())
-	env := emqxEnvelope("dev-OV777", "ov/OV77777/battery", payload)
+	env := emqxEnvelope("dev-OV77777", "ov/OV77777/battery", payload)
 
 	w := mqttPost(t, h, testWebhookToken, env)
 	if w.Code != http.StatusNoContent {

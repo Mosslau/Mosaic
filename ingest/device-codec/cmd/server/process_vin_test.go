@@ -106,14 +106,108 @@ func TestProcess_VINMismatchRejected(t *testing.T) {
 }
 
 // TestProcess_VINEmptyEnvelopeRejected 信封 VIN 为空(如有人绕过网关直接往 raw topic 灌消息):
-// 帧内 VIN 非空 → 视为不一致, 同样拒绝。不能因为"没有身份"就放行。
+// 必须整帧拒绝、零产出 —— 不能因为"没有身份"就放行。
+//
+// stage 归属(2026-09-20 明确): 空 VIN **先被契约校验拦下**(stage=vin_invalid), 而不是
+// vin_mismatch —— 前者说"这个 VIN 本身不合契约", 后者说"两个合法 VIN 对不上",
+// 排障时两者的处置完全不同(前者查 topic/ACL 配置, 后者按安全事件查凭证滥用)。
 func TestProcess_VINEmptyEnvelopeRejected(t *testing.T) {
 	reports, dlqs := process(envelope(t, "", mustGoldenFrame(t)))
 
 	if len(reports) != 0 {
 		t.Fatalf("信封 VIN 为空时不得产出 report, 实际 %d 条", len(reports))
 	}
-	if len(dlqs) != 1 || dlqs[0].Stage != "vin_mismatch" {
-		t.Fatalf("应 1 条 vin_mismatch DLQ, 实际 %+v", dlqs)
+	if len(dlqs) != 1 || dlqs[0].Stage != "vin_invalid" {
+		t.Fatalf("应 1 条 vin_invalid DLQ, 实际 %+v", dlqs)
 	}
+	if !strings.Contains(dlqs[0].Reason, "5~32") {
+		t.Errorf("reason 应说明契约边界, 实际 %q", dlqs[0].Reason)
+	}
+}
+
+// TestProcess_FrameVINTooShortRejected 帧内 VIN 不合契约长度 → vin_invalid, 零产出。
+// 背景(2026-09-20 修复的不对称): 网关侧三条通道都跑 vehicle.Validate()(VIN 5~32),
+// 但二进制通道的 VIN 来自**帧内字节**, 此前只判"与信封一致" —— 一个 3 字节的 VIN
+// 只要与信封一致就能一路产出成合法 L2 数据。现在两侧用同一组边界。
+//
+// 样本构造上的一个**真实约束**: 帧内 VIN 字段只有 17 字节, 所以"超长"这一类
+// (18~32)在物理上无法出现在帧内 —— 需要覆盖的那一侧是**信封** VIN 超长(见下一条用例)。
+func TestProcess_FrameVINTooShortRejected(t *testing.T) {
+	frame := mustGoldenFrame(t)
+	short := "OV1" // 3 字符 < VINMinLen(5)
+	rewritten := rewriteFrameVIN(t, frame, short)
+
+	// 信封用**合法** VIN, 如此才真的走到"帧内 VIN 不合契约"这条分支
+	// (若信封也不合法, 会在信封校验处先被拦下, 测不到帧内这条)
+	reports, dlqs := process(envelope(t, "OV00000001", rewritten))
+
+	if len(reports) != 0 {
+		t.Fatalf("VIN 不合契约时不得产出, 实际 %d 条: %+v", len(reports), reports)
+	}
+	if len(dlqs) != 1 || dlqs[0].Stage != "vin_invalid" {
+		t.Fatalf("应 1 条 vin_invalid DLQ, 实际 %+v", dlqs)
+	}
+	if !strings.Contains(dlqs[0].Reason, "帧内 VIN") {
+		t.Errorf("reason 应指明是帧内 VIN 不合契约, 实际 %q", dlqs[0].Reason)
+	}
+	if dlqs[0].RawB64 == "" {
+		t.Error("DLQ 应保留原始帧(取证需要)")
+	}
+}
+
+// TestProcess_EnvelopeVINTooLongRejected 信封 VIN 超长(>32) → vin_invalid。
+// 这一条覆盖"帧内装不下"的那一侧: 帧字段只有 17 字节, 所以超长只可能来自 topic/信封。
+func TestProcess_EnvelopeVINTooLongRejected(t *testing.T) {
+	frame := mustGoldenFrame(t)
+	long := strings.Repeat("A", 33) // 帧内 VIN 保持合法, 只有信封超长
+	envelopeVIN := long
+
+	reports, dlqs := process(envelope(t, envelopeVIN, frame))
+	if len(reports) != 0 || len(dlqs) != 1 || dlqs[0].Stage != "vin_invalid" {
+		t.Fatalf("超长信封 VIN 应进 vin_invalid DLQ 且零产出, got reports=%d dlqs=%+v", len(reports), dlqs)
+	}
+	if !strings.Contains(dlqs[0].Reason, "信封") {
+		t.Errorf("reason 应指明是信封 VIN 不合契约, 实际 %q", dlqs[0].Reason)
+	}
+}
+
+// TestProcess_VINBoundaryAccepted 契约边界值必须放行 —— 防止"修不对称"时矫枉过正
+// 把合法设备拦下。上界取**帧字段的物理上限 17**(帧内 VIN 最长只能 17 字节;
+// 契约上界 32 只可能出现在信封侧, 见上一条用例)。
+func TestProcess_VINBoundaryAccepted(t *testing.T) {
+	for _, vin := range []string{
+		"OV123",                 // 下界 = VINMinLen(5)
+		strings.Repeat("A", 17), // 帧字段物理上界
+	} {
+		frame := rewriteFrameVIN(t, mustGoldenFrame(t), vin)
+		reports, dlqs := process(envelope(t, vin, frame))
+		if len(dlqs) != 0 {
+			t.Errorf("边界 VIN %q(长度 %d) 不应进 DLQ: %+v", vin, len(vin), dlqs)
+		}
+		if len(reports) == 0 {
+			t.Errorf("边界 VIN %q 应正常产出", vin)
+		}
+	}
+}
+
+// rewriteFrameVIN 把帧内 VIN 字段(偏移 4..21)改写为给定 VIN 并重算 BCC。
+// 用于构造"帧内 VIN 不合契约"的样本 —— 样本必须是**结构合法**的帧,
+// 否则会先被 ParseFrame 拦下, 测不到 VIN 契约校验这条路径。
+func rewriteFrameVIN(t *testing.T, frame []byte, vin string) []byte {
+	t.Helper()
+	if len(vin) > 17 {
+		t.Fatalf("VIN 超过帧字段长度 17: %d", len(vin))
+	}
+	out := make([]byte, len(frame))
+	copy(out, frame)
+	for i := 4; i < 21; i++ {
+		out[i] = 0x00
+	}
+	copy(out[4:21], vin)
+	var bcc byte
+	for _, b := range out[2 : len(out)-1] {
+		bcc ^= b
+	}
+	out[len(out)-1] = bcc
+	return out
 }

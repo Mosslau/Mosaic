@@ -14,6 +14,12 @@
 #   3. 某服务的监听端口被 >1 个进程占住（疑似孤儿实例；lsof 的命令名会被截断, 故按端口判）
 #   4. /metrics 的 consumed 计数在观测窗口内冻结（空闲时自动灌少量合法帧做强判据;
 #      会真实经过链路, 故 consumed/decoded 计数会小幅增加 —— 属预期, 不是异常）
+#   5. 网关"受理 == 落盘"（同步投递下必须逐条相等）
+#   6. Prometheus **已加载**的规则数 == 规则文件声明数（"容器 healthy ≠ 配置已加载"）
+#   7. 自检前后无**新增** firing 告警
+#
+# ⚠️ 探针帧的 VIN 用**保留段 `OVPROBE`**（2026-09-20 起）: 探针会真实走完链路落进
+# vehicle-report-raw, 用业务 VIN 段会污染下游车辆画像/在线数/故障数。下游按该前缀过滤即可。
 #
 # 退出码: 0=全部正常; 1=发现异常（可直接进 CI/巡检）
 #
@@ -25,9 +31,18 @@
 #                     CODEC_METRICS / GATEWAY_METRICS / CODEC_PROC / GATEWAY_PROC / PROM_URL
 set -uo pipefail
 
+# 仓库根(用于核对"挂载的规则文件"与"Prometheus 进程内实际加载的规则"是否一致)
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
 WINDOW=12
 ALLOW_MULTI=0
 PROBE="${PROBE:-1}"   # 空闲时是否灌少量合法探针帧做强判据(会真实经过链路)
+case "$PROBE" in
+  # 只认 0/1 —— 修复前写成 `[[ "${PROBE:-1}" -eq 1 ]]`, 传 PROBE=true/yes 时
+  # 算术比较报错被 `2>/dev/null` 吞掉, 结果**静默跳过**强判据并报 OK(实测踩过)。
+  0|1) ;;
+  *) echo "PROBE 只能是 0 或 1, 实际 '${PROBE}'" >&2; exit 2;;
+esac
 KAFKA_CONTAINER="${KAFKA_CONTAINER:-ov-kafka}"
 GROUP="${CODEC_GROUP:-device-codec-v1}"
 SRC_TOPIC="${CODEC_SRC_TOPIC:-ov.raw.binary.v1}"
@@ -67,6 +82,19 @@ metric_sum() { curl -s -m 3 "$1/metrics" 2>/dev/null | awk -v re="$2" '$0 ~ re {
 alert_count() {
   curl -s -m 3 "${PROM_URL}/api/v1/alerts" 2>/dev/null \
     | python3 -c "import json,sys;print(len(json.load(sys.stdin)['data']['alerts']))" 2>/dev/null
+}
+
+# 已加载的告警规则条数(Prometheus 进程内的真实状态)
+loaded_rule_count() {
+  curl -s -m 3 "${PROM_URL}/api/v1/rules" 2>/dev/null \
+    | python3 -c "import json,sys;d=json.load(sys.stdin)['data']['groups'];print(sum(len(g['rules']) for g in d))" 2>/dev/null
+}
+
+# 规则文件里声明的告警条数(仓库/挂载的真实内容)
+file_rule_count() {
+  local f="$ROOT/deploy/prometheus/rules/oceanverse-alerts.yml"
+  [[ -f "$f" ]] || { echo ""; return; }
+  grep -c '^\s*- alert:' "$f"
 }
 
 echo "=== OceanVerse 链路健康自检 ==="
@@ -180,11 +208,17 @@ else
     # 为什么用 bin-simulator 而不是手写载荷: 手写 "##probe" 这类非法帧会让 codec
     # 进 DLQ, 从而触发 CodecDLQGrowing 告警 —— 探针自己制造告警(实测踩过)。
     # 合法帧走 decode→写出→提交的正常路径, 只动 consumed 计数。
-    info "无新消息, 灌少量合法探针帧以做强判据..."
+    #
+    # ⚠️ VIN 必须用**保留段 OVPROBE**(2026-09-20 修):
+    # 探针帧会真实走完整链路落进 vehicle-report-raw, 默认的 OV0000000x 是**业务 VIN 段**,
+    # 下游 Flink/ClickHouse 的车辆画像、在线数、故障数会把探针当成真实车辆数据。
+    # 现在探针一律带 OVPROBE 前缀, 下游按前缀过滤即可(约定见《接入层设计》§9)。
+    info "无新消息, 灌少量合法探针帧以做强判据(保留 VIN 段 OVPROBE)..."
     if docker exec ov-emqx emqx ctl status >/dev/null 2>&1 && \
        (cd "$(dirname "$0")/../ingest/device-simulator" 2>/dev/null && \
         GOCACHE="${GOCACHE:-/tmp/ov-health-gocache}" timeout 60 go run ./cmd/bin-simulator \
-          -broker "tcp://localhost:${EMQX_MQTT_PORT:-11883}" -devices 2 -interval 1s -duration 3s >/dev/null 2>&1); then
+          -broker "tcp://localhost:${EMQX_MQTT_PORT:-11883}" -vin-prefix OVPROBE \
+          -devices 2 -interval 1s -duration 3s >/dev/null 2>&1); then
       sleep 4
       c2=$(metric "$CODEC_METRICS" codec_consumed_total)
       if [[ "$c2" != "$c1" ]]; then
@@ -222,8 +256,26 @@ else
   bad "网关指标端点不可达（${GATEWAY_METRICS}/metrics）→ 服务未运行或端口不对"
 fi
 
-# ---------- 6. 告警状态 ----------
-echo "6) Prometheus 告警（自检前后应无**新增**告警）"
+# ---------- 6. 配置新鲜度: 挂载的规则文件 vs 进程内实际加载 ----------
+# 背景(2026-09-20 实测踩过): 规则文件是 bind mount, 改完**文件立刻是新的**, 但 Prometheus
+# 只在启动/显式 reload 时读它 —— 实测出现过"文件里 10 条、进程里 8 条"且 `docker compose ps`
+# 全绿、面板照常出图。这正是"容器 healthy ≠ 配置已加载"这类盲区, 必须有可执行判据。
+echo "6) 配置新鲜度（Prometheus 已加载规则数 vs 规则文件声明数）"
+r_loaded=$(loaded_rule_count)
+r_file=$(file_rule_count)
+if [[ -z "$r_loaded" ]]; then
+  info "Prometheus 不可达，跳过（不计失败）"
+elif [[ -z "$r_file" ]]; then
+  info "规则文件缺失，跳过（$ROOT/deploy/prometheus/rules/oceanverse-alerts.yml）"
+elif [[ "$r_loaded" -eq "$r_file" ]]; then
+  ok "已加载 ${r_loaded} 条规则 == 文件声明 ${r_file} 条"
+else
+  bad "已加载 ${r_loaded} 条 != 文件声明 ${r_file} 条 → 规则改了但进程没重载（改配置不等于生效）"
+  info "处置: cd deploy && docker compose restart prometheus（本机未开 --web.enable-lifecycle, 无法热载）"
+fi
+
+# ---------- 7. 告警状态 ----------
+echo "7) Prometheus 告警（自检前后应无**新增**告警）"
 ALERTS_AFTER=$(alert_count)
 if [[ -z "$ALERTS_AFTER" ]]; then
   info "Prometheus 不可达，跳过（不计失败）"

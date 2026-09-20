@@ -74,8 +74,10 @@ func (h *BinIngestHandler) IngestBin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ③ 从 topic 取 VIN(topic = ov/{vin}/bin, ACL 语义同 JSON 通道)
-	topicV, ok := topicVIN(msg.Topic, "bin", 5)
+	// ③ 从 topic 取 VIN(topic = ov/{vin}/bin, ACL 语义同 JSON 通道)。
+	// 与 JSON 通道共用 topicVIN/webhook_auth.go —— 修复前本处长度下限写 4、JSON 通道写 5,
+	// 同一份 topic 契约两套判据(2026-09-20 收敛为契约的 vehicle.VINMinLen)。
+	topicV, ok := topicVIN(msg.Topic, "bin", topicVINMinLen("bin"))
 	if !ok {
 		metrics.RequestsTotal.WithLabelValues(path, "invalid_data").Inc()
 		model.WriteError(w, model.CodeInvalidData, "topic 形态非法(期望 ov/{vin}/bin): "+msg.Topic)

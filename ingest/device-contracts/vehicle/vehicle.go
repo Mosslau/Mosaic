@@ -95,6 +95,23 @@ type VehicleReport struct {
 	Model         string `json:"model,omitempty"`
 }
 
+// VINMinLen/VINMaxLen VIN 长度契约(唯一源)。网关(HTTP/MQTT 通道)与 codec(二进制通道)
+// 必须用同一组边界 —— 2026-09-20 修复"两侧校验不对称": 二进制通道的 VIN 来自帧内字节,
+// 此前只判空, 于是一个 1 字节 VIN 也能产出成合法 L2 数据。
+const (
+	VINMinLen = 5
+	VINMaxLen = 32
+)
+
+// VINContractReason 判断 VIN 是否符合契约, 返回空串表示合法, 否则返回人话原因。
+// 调用方直接把它拼进错误/DLQ reason, 保证三条通道的判据与措辞同源。
+func VINContractReason(vin string) string {
+	if n := len(vin); n < VINMinLen || n > VINMaxLen {
+		return fmt.Sprintf("长度必须在 %d~%d 之间, 实际 %d", VINMinLen, VINMaxLen, n)
+	}
+	return ""
+}
+
 // Validate 校验一条上报是否合法。返回 nil 表示通过。
 // 网关第一道防线: 不让垃圾数据污染 Kafka 和数据湖。
 // 注意: 会做缺省回填(schema_version 空→v1), 调用方应在 Validate 通过后再 Encode,
@@ -106,8 +123,8 @@ func (r *VehicleReport) Validate() error {
 	if r.SchemaVersion != SchemaV1 {
 		return fmt.Errorf("未知 schema_version: %q (当前仅支持 %s)", r.SchemaVersion, SchemaV1)
 	}
-	if len(r.VIN) < 5 || len(r.VIN) > 32 {
-		return fmt.Errorf("vin 长度必须在 5~32 之间, 实际 %d", len(r.VIN))
+	if reason := VINContractReason(r.VIN); reason != "" {
+		return fmt.Errorf("vin %s", reason)
 	}
 	if !validTypes[r.Type] {
 		return fmt.Errorf("未知 type: %q", r.Type)

@@ -30,7 +30,7 @@ func TestBurstFor_NeverZero(t *testing.T) {
 
 // TestLimiter_FractionalRateNotFullyRejected 小数速率不再导致"全量 429"。
 func TestLimiter_FractionalRateNotFullyRejected(t *testing.T) {
-	l := New(0.5, 5000) // 修复前: perDevice=0.5 → burst=0 → 每个请求都 429
+	l := New(0.5, 5000, 0) // 修复前: perDevice=0.5 → burst=0 → 每个请求都 429
 	defer l.Close()
 
 	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
@@ -49,7 +49,7 @@ func TestLimiter_FractionalRateNotFullyRejected(t *testing.T) {
 
 // TestLimiter_GlobalWrap_OnlyGlobalBucket 全局桶可被限流, 且不建单设备桶。
 func TestLimiter_GlobalWrap_OnlyGlobalBucket(t *testing.T) {
-	l := New(10, 1) // 全局 1/s, burst=2
+	l := New(10, 1, 2) // 全局 1/s, burst=2(显式)
 	defer l.Close()
 
 	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
@@ -84,14 +84,14 @@ func TestLimiter_GlobalWrap_OnlyGlobalBucket(t *testing.T) {
 
 // TestLimiter_CloseIdempotent 重复 Close 不得 panic。
 func TestLimiter_CloseIdempotent(t *testing.T) {
-	l := New(10, 100)
+	l := New(10, 100, 0)
 	l.Close()
 	l.Close() // 修复前: panic: close of closed channel
 }
 
 // TestLimiter_DeviceMapBounded 设备桶 map 到达上限后不再增长(dev 模式防内存打爆)。
 func TestLimiter_DeviceMapBounded(t *testing.T) {
-	l := New(10, 100000)
+	l := New(10, 100000, 0)
 	defer l.Close()
 
 	l.mu.Lock()

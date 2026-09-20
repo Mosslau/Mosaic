@@ -36,12 +36,24 @@ var (
 
 	// DLQTotal 进 DLQ 的消息数, 按阶段分类。
 	// stage 取值与 cmd/server/main.go 的产出严格一致:
-	// envelope=信封/base64/版本  parse=帧同步与BCC  vin_mismatch=帧内 VIN 与信封不一致(安全信号)
+	// envelope=信封/base64/版本  parse=帧结构(同步/BCC/长度/时间字节)
+	// vin_invalid=VIN 不符合契约(5~32)  vin_mismatch=帧内 VIN 与信封不一致(安全信号)
 	// decode=信息体解析  validate=契约校验  encode=产出序列化
 	DLQTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "codec",
 		Name:      "dlq_total",
-		Help:      "进入 DLQ 的消息总数, stage ∈ {envelope, parse, vin_mismatch, decode, validate, encode}",
+		Help:      "进入 DLQ 的消息总数, stage ∈ {envelope, parse, vin_invalid, vin_mismatch, decode, validate, encode}",
+	}, []string{"stage"})
+
+	// DLQFlushFailuresTotal DLQ 落盘失败的条目数, 按 stage 分类(2026-09-20 补)。
+	// 与 FlushFailuresTotal 的分工: 后者是"产出/位移"失败(会挡住主链路并退避);
+	// 本指标是"DLQ topic 写不进去"(**不挡主链路**, 条目留在 DLQ 缓冲里重试)。
+	// 为什么必须单独可见: 修复前 DLQ 写失败会连主链路一起拖住, 修复后若不单独计数,
+	// "DLQ 一直写不出去"就只剩日志里的一行 Error —— 属于"坏了不会被发现"。
+	DLQFlushFailuresTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "codec",
+		Name:      "dlq_flush_failures_total",
+		Help:      "DLQ 条目写出失败的累计条数(按 stage); 不阻塞主链路, 条目保留待重试",
 	}, []string{"stage"})
 
 	// FlushFailuresTotal 微批写出/位移提交失败次数。

@@ -47,7 +47,7 @@ type rawEnvelope struct {
 // dlqMessage DLQ 记录(带原始字节 + 失败原因)
 type dlqMessage struct {
 	VIN      string `json:"vin,omitempty"`
-	Stage    string `json:"stage"` // envelope / parse / vin_mismatch / decode / validate / encode
+	Stage    string `json:"stage"` // envelope / parse / vin_invalid / vin_mismatch / decode / validate / encode
 	Reason   string `json:"reason"`
 	RawB64   string `json:"raw_b64,omitempty"`
 	UnitType int    `json:"unit_type,omitempty"`
@@ -95,25 +95,39 @@ type batchState struct {
 
 // flushBatch 把缓冲写进 Kafka 并提交位移。
 //
-// 不变量(**数据不丢的根据**): 只有"产出写出成功 == 位移提交成功"时缓冲才被清空。
-// 任一环节失败 → 缓冲原样保留 + 有界退避, 位移不提交 → 崩溃/重启后 Kafka 重读(at-least-once)。
-// 返回是否全部成功, 便于测试与指标。
+// 不变量(**数据不丢的根据**): 位移只在"本批全部产出与 DLQ 都已写出"之后才提交; 位移提交成功
+// 才清空 pendingMsgs。任一环节失败 → 相关缓冲保留 + 有界退避, 位移不提交 → 崩溃/重启后
+// Kafka 重读(at-least-once)。
+//
+// ⚠️ **ACK 语义收窄(2026-09-20)**: DLQ 落盘失败**不再拖住主链路**。
+// 修复前 dlq 写失败也会让整批(含已成功写出的正常产出)滞留在缓冲、位移不推进 ——
+// "一条脏数据的 DLQ topic 故障"会把正常数据的实时性一起拖垮(可用性退化; 数据不丢但链路停)。
+// 现在的规则:
+//   - 产出写失败 → 整批保留(与修复前一致);
+//   - DLQ 写失败 → **只有 DLQ 缓冲保留**, 产出照常提交位移并放行, 已写出的 DLQ 条目出缓冲;
+//   - 位移提交失败 → 整批保留(产出已写出, 重读会重复, 下游按 (vin,ts) 幂等吸收)。
+//
+// 返回值语义: true = 本批已推进(位移已提交); false = 本批有部分未推进。
+// 便于测试与指标, 主循环不依赖它做控制流。
 func flushBatch(ctx context.Context, st *batchState, pw, dw batchWriter, c offsetCommitter,
 	now time.Time) bool {
-	if len(st.pendingMsgs) == 0 {
+	// 空判据必须同时看两条队列: DLQ 写失败时 pendingMsgs 已清空, 只有 DLQ 条目留下等重试。
+	if len(st.pendingMsgs) == 0 && len(st.pendingDLQ) == 0 {
 		return true
 	}
 	if now.Before(st.retryNotBefore) {
 		return false // 退避中: 不重试也不清空
 	}
-	ok := true
+	blocked := false
+
+	// ① 产出: 失败即整批滞留(产出是主链路, 其故障本就该挡住位移推进)
 	if len(st.pendingReports) > 0 {
 		msgs := make([]kafka.Message, len(st.pendingReports))
 		for i := range st.pendingReports {
 			msgs[i] = st.pendingReports[i].msg
 		}
 		if err := pw.WriteMessages(ctx, msgs...); err != nil {
-			ok = false
+			blocked = true
 			slog.Error("批量投递解析产物失败", "msgs", len(msgs), "err", err)
 		} else {
 			// 指标在**写出成功后**才累加, 否则 flush 失败会让对账公式虚高
@@ -123,36 +137,47 @@ func flushBatch(ctx context.Context, st *batchState, pw, dw batchWriter, c offse
 			decodedTotal.Add(int64(len(msgs)))
 		}
 	}
+
+	// ② DLQ: 写失败只保留 DLQ 条目, **不**置 blocked —— 主链路继续推进
 	if len(st.pendingDLQ) > 0 {
 		msgs := make([]kafka.Message, len(st.pendingDLQ))
 		for i := range st.pendingDLQ {
 			msgs[i] = st.pendingDLQ[i].msg
 		}
 		if err := dw.WriteMessages(ctx, msgs...); err != nil {
-			ok = false
-			slog.Error("批量投递 DLQ 失败", "msgs", len(msgs), "err", err)
+			// 只保留写失败的这批(逐条重试), 已写出的不再重复投递
+			for i := range st.pendingDLQ {
+				metrics.DLQFlushFailuresTotal.WithLabelValues(st.pendingDLQ[i].stage).Inc()
+			}
+			slog.Error("批量投递 DLQ 失败(主链路不受影响, DLQ 缓冲保留待重试)",
+				"msgs", len(msgs), "err", err)
 		} else {
 			for i := range st.pendingDLQ {
 				metrics.DLQTotal.WithLabelValues(st.pendingDLQ[i].stage).Add(1)
 			}
 			dlqedTotal.Add(int64(len(msgs)))
+			st.pendingDLQ = st.pendingDLQ[:0]
 		}
 	}
-	if ok {
-		if err := c.CommitMessages(ctx, st.pendingMsgs...); err != nil {
-			// 位移提交失败: 产出已写出, 重试会造成重复(下游按 (vin,ts) 幂等吸收),
-			// 但**不能**当作成功推进 —— 下一轮重新提交同一批。
-			ok = false
-			slog.Error("提交位移失败", "err", err)
+
+	if !blocked {
+		// 没有待提交的原始消息时跳过提交调用(kafka-go 对空消息集会报错, 且无意义):
+		// 这是"只重试 DLQ"那一轮的情形 —— 原始消息早在上一轮就提交过位移了。
+		if len(st.pendingMsgs) > 0 {
+			if err := c.CommitMessages(ctx, st.pendingMsgs...); err != nil {
+				// 位移提交失败: 产出已写出, 重试会造成重复(下游按 (vin,ts) 幂等吸收),
+				// 但**不能**当作成功推进 —— 下一轮重新提交同一批。
+				blocked = true
+				slog.Error("提交位移失败", "err", err)
+			}
 		}
 	}
-	if ok {
+	if !blocked {
 		st.pendingReports = st.pendingReports[:0]
-		st.pendingDLQ = st.pendingDLQ[:0]
 		st.pendingMsgs = st.pendingMsgs[:0]
 		st.failures = 0
 		st.retryNotBefore = time.Time{}
-		return true
+		return len(st.pendingDLQ) == 0
 	}
 	// 有界退避: 持续失败时不刷屏, 但缓冲保留 → 数据不丢
 	st.failures++
@@ -163,7 +188,8 @@ func flushBatch(ctx context.Context, st *batchState, pw, dw batchWriter, c offse
 	st.retryNotBefore = now.Add(backoff)
 	metrics.FlushFailuresTotal.Inc()
 	slog.Error("flush 失败, 批次保留待重试(位移未提交, 数据不丢)",
-		"backoff", backoff, "msgs", len(st.pendingMsgs), "consecutiveFailures", st.failures)
+		"backoff", backoff, "msgs", len(st.pendingMsgs), "dlqPending", len(st.pendingDLQ),
+		"consecutiveFailures", st.failures)
 	return false
 }
 
@@ -257,10 +283,14 @@ func main() {
 	}
 
 	// flush 批量写出 + 提交位移(核心逻辑在 flushBatch, 见其不变量注释)。
+	//
+	// ⚠️ 空判据必须**同时**看 pendingMsgs 与 pendingDLQ(2026-09-20 ACK 收窄后):
+	// DLQ 写失败时原始消息已提交位移、pendingMsgs 已清空, 只有 DLQ 条目留在缓冲里等重试 ——
+	// 若这里只看 pendingMsgs, 那些 DLQ 条目就**再也没有机会被投出去**(单测当场抓到)。
 	flush := func() {
 		mu.Lock()
 		defer mu.Unlock()
-		if len(st.pendingMsgs) == 0 {
+		if len(st.pendingMsgs) == 0 && len(st.pendingDLQ) == 0 {
 			return
 		}
 		n := len(st.pendingMsgs)
@@ -345,6 +375,10 @@ func main() {
 
 // handleMessage 处理一条原始消息: 解析产出 + 指标 + 入缓冲(不触发 flush, 由调用方决定)。
 // 必须持有 mu 调用。
+//
+// 注意 pendingDLQ 的语义(2026-09-20 ACK 收窄后): 它是**独立于 pendingMsgs 的重试队列** ——
+// DLQ 写失败时条目会跨越若干轮 flush 存活(此时它对应的原始消息早已提交位移)。
+// 因此它可能非空而 pendingMsgs 为空, 主循环的定时 flush 仍会推进它。
 func handleMessage(st *batchState, msg kafka.Message) {
 	metrics.ConsumedTotal.Inc()
 
@@ -413,6 +447,20 @@ func process(raw []byte) (reports []vehicle.VehicleReport, dlqs []dlqMessage) {
 	if err != nil {
 		return nil, []dlqMessage{{VIN: env.VIN, Stage: "parse",
 			Reason: err.Error(), RawB64: env.Payload, At: now}}
+	}
+
+	// VIN 契约校验(2026-09-20 补齐对称性): 网关侧 JSON/MQTT 通道都会跑 vehicle.Validate(),
+	// 其中 VIN 必须 5~32 字符; 而二进制通道的 VIN 来自**帧内字节**, 此前只判"与信封一致",
+	// 于是一个 1 字节的 VIN(或空)能一路产出成合法 L2 数据 —— 两侧规则不对称。
+	// 判定放在身份校验之前: 信封 VIN 与帧内 VIN 只要有一个不合契约就拒绝
+	// (信封 VIN 受 EMQX ACL 约束, 这里同时兜住"ACL 配错导致 topic VIN 非法"的情形)。
+	if reason := vehicle.VINContractReason(env.VIN); reason != "" {
+		return nil, []dlqMessage{{VIN: env.VIN, Stage: "vin_invalid",
+			Reason: "信封(topic) VIN " + reason, RawB64: env.Payload, At: now}}
+	}
+	if reason := vehicle.VINContractReason(f.VIN); reason != "" {
+		return nil, []dlqMessage{{VIN: env.VIN, Stage: "vin_invalid",
+			Reason: "帧内 VIN " + reason, RawB64: env.Payload, At: now}}
 	}
 
 	// VIN 身份锚点(与网关 JSON 通道的 ④.5 是同一道防线, 2026-09-18 补齐):

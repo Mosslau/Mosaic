@@ -2,7 +2,9 @@ package gbt32960
 
 import (
 	"encoding/hex"
+	"errors"
 	"testing"
+	"time"
 )
 
 // golden 58B 示例帧(与 simframe 黄金样本/映射文档示例一致): 0x08 + 0x09
@@ -281,5 +283,55 @@ func TestDecode_InvalidValuesDropped(t *testing.T) {
 	if d.Speed != nil || d.Odometer != nil || d.SOC != nil || d.TempMax != nil || d.TempMin != nil {
 		t.Errorf("无效值字段应全部丢弃, 实际 speed=%v odo=%v soc=%v tmax=%v tmin=%v",
 			d.Speed, d.Odometer, d.SOC, d.TempMax, d.TempMin)
+	}
+}
+
+// TestParseTime_RejectsNormalizingValues 时间字段越界必须被拒绝, 而不是被 time.Date 归一化。
+//
+// 背景(2026-09-20 修复): 修复前直接把 6 个字节喂给 time.Date, 而 time.Date 会**归一化**
+// 越界字段 —— MM=13 变成次年 1 月、dd=0 变成上月最后一天、HH=99 变成几天后。
+// 后果: 字节明显非法的帧解出一个"看着合法"的时间戳, 并且能通过契约的 ts 容差校验
+// (只要落在近 7 天内), 坏帧被当成好数据写进 Kafka。
+func TestParseTime_RejectsNormalizingValues(t *testing.T) {
+	base := []byte{0x1a, 0x09, 0x11, 0x0c, 0x1e, 0x00} // 2026-09-17 12:30:00
+	if _, err := parseTime(base); err != nil {
+		t.Fatalf("基准时间应合法: %v", err)
+	}
+
+	bad := map[string][]byte{
+		"月份 0":  {0x1a, 0x00, 0x11, 0x0c, 0x1e, 0x00},
+		"月份 13": {0x1a, 0x0d, 0x11, 0x0c, 0x1e, 0x00},
+		"日为 0":  {0x1a, 0x09, 0x00, 0x0c, 0x1e, 0x00},
+		"日超当月":  {0x1a, 0x02, 0x1e, 0x0c, 0x1e, 0x00}, // 2 月 30 日
+		"小时 99": {0x1a, 0x09, 0x11, 0x63, 0x1e, 0x00},
+		"分钟 99": {0x1a, 0x09, 0x11, 0x0c, 0x63, 0x00},
+		"秒 99":  {0x1a, 0x09, 0x11, 0x0c, 0x1e, 0x63},
+	}
+	for name, du := range bad {
+		if ts, err := parseTime(du); err == nil {
+			t.Errorf("%s 应被拒绝, 却解出 ts=%d", name, ts)
+		} else if !errors.Is(err, ErrBadTime) {
+			t.Errorf("%s 应返回 ErrBadTime, 实际 %v", name, err)
+		}
+	}
+}
+
+// TestParseTime_TooShort 数据单元不足 6B 时报 ErrNoTime(与 ErrBadTime 区分: 一个是不完整, 一个是越界)。
+func TestParseTime_TooShort(t *testing.T) {
+	if _, err := parseTime([]byte{0x1a, 0x09}); !errors.Is(err, ErrNoTime) {
+		t.Fatalf("应返回 ErrNoTime, 实际 %v", err)
+	}
+}
+
+// TestParseTime_RoundTrip 合法时间必须解成正确的 Unix 秒(防止"校验改坏了正常路径")。
+func TestParseTime_RoundTrip(t *testing.T) {
+	// 2026-09-17 12:30:00 GMT+8 = 2026-09-17T04:30:00Z
+	ts, err := parseTime([]byte{0x1a, 0x09, 0x11, 0x0c, 0x1e, 0x00})
+	if err != nil {
+		t.Fatalf("合法时间不应报错: %v", err)
+	}
+	want := time.Date(2026, 9, 17, 12, 30, 0, 0, time.FixedZone("GMT+8", 8*3600)).Unix()
+	if ts != want {
+		t.Errorf("ts 应为 %d, 实际 %d", want, ts)
 	}
 }

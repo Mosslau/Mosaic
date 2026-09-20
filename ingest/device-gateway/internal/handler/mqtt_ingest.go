@@ -2,8 +2,8 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/Mosslau/OceanVerse/ingest/device-contracts/vehicle"
 	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/metrics"
@@ -76,23 +76,43 @@ func (h *MQTTIngestHandler) Ingest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ④ 契约回填: VIN/type 缺失时按 MQTT 上下文推断(topic = ov/{vin}/{type})
-	var topicV string
-	if parts := strings.Split(msg.Topic, "/"); len(parts) == 3 && parts[0] == "ov" {
-		topicV = parts[1]
-		if report.VIN == "" {
-			report.VIN = parts[1]
-		}
-		if report.Type == "" {
-			report.Type = topicTypeMap[parts[2]]
-		}
+	// ④ 契约回填 + 身份锚点: topic 契约 = ov/{vin}/{type}(《接入层设计》§4.2 唯一源)。
+	// 这里用与二进制通道**同一个** topicVIN（webhook_auth.go）——
+	// 修复前本处自写了一套 Split, 对 VIN 长度无约束, 与 bin_ingest 的 >=5 不一致;
+	// 更糟的是 topic 形态意外时 topicV 为空会**静默跳过**下面的 VIN 一致性校验。
+	// 现在: 形态/长度/后缀任一不合法 → 400, 绝不进入"没有身份锚点"的分支。
+	vinFromTopic, suffix, ok := splitTopic(msg.Topic)
+	if !ok {
+		metrics.RequestsTotal.WithLabelValues(path, "invalid_data").Inc()
+		model.WriteError(w, model.CodeInvalidData,
+			"topic 形态非法(期望 ov/{vin}/{status|battery|fault}): "+msg.Topic)
+		return
+	}
+	reportType, knownSuffix := topicTypeMap[suffix]
+	if !knownSuffix {
+		metrics.RequestsTotal.WithLabelValues(path, "invalid_data").Inc()
+		model.WriteError(w, model.CodeInvalidData, "未知 topic 后缀(期望 status|battery|fault): "+suffix)
+		return
+	}
+	topicV, ok := topicVIN(msg.Topic, suffix, topicVINMinLen(suffix))
+	if !ok {
+		metrics.RequestsTotal.WithLabelValues(path, "invalid_data").Inc()
+		model.WriteError(w, model.CodeInvalidData,
+			fmt.Sprintf("topic 中的 vin 非法(长度必须 >=%d): %s", topicVINMinLen(suffix), vinFromTopic))
+		return
+	}
+	if report.VIN == "" {
+		report.VIN = topicV
+	}
+	if report.Type == "" {
+		report.Type = reportType
 	}
 
 	// ④.5 VIN 一致性(ACL 之后的第二道身份锚点):
 	// EMQX ACL 只约束"能发哪个 topic", 不约束 payload 内容。若允许载荷 VIN 覆盖 topic VIN,
 	// 任何持有合法凭证的设备都能以他人 VIN 写入数据(污染他人车辆画像/告警)。
 	// 载荷显式携带 VIN 时必须与 topic 一致; 不一致直接拒绝。
-	if topicV != "" && report.VIN != topicV {
+	if report.VIN != topicV {
 		metrics.RequestsTotal.WithLabelValues(path, "vin_mismatch").Inc()
 		model.WriteError(w, model.CodeInvalidData,
 			"载荷 vin 与 topic 不一致(topic="+topicV+", payload="+report.VIN+")")
