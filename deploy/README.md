@@ -262,12 +262,12 @@ rm .tmp-msim
 bash deploy/emqx/gen-certs.sh
 # ② 重建 EMQX 加载 8883 TLS 监听器 + 监听器级认证 + ACL
 cd deploy && docker compose up -d emqx
-# ③ 批量灌设备凭证(密码规则 pw-{VIN}, 仅 dev) 并自检六项
+# ③ 批量灌设备凭证(密码规则 pw-{VIN}, 仅 dev) 并自检八项
 bash emqx/seed-users.sh 0 100
 cd ../ingest/device-simulator && go run ./cmd/security-check -vin OV20260001
 ```
 
-预期输出"六项全过"。生产形态连 8883：`go run ./cmd/bin-simulator -tls -broker localhost:8883 -cacert ../../deploy/emqx/certs/ca.crt`（clientid/username=VIN，无需改代码）。
+预期输出"八项全过"。**退出码**: 0=八项全过 / 1=安全项不达标 / 3=前置(凭证)不可用 —— 看到 3 说明该 VIN 的凭证没灌进去或 EMQX 未就绪, 不是安全配置问题(判据本身不采信这种输入)。生产形态连 8883：`go run ./cmd/bin-simulator -tls -broker localhost:8883 -cacert ../../deploy/emqx/certs/ca.crt`（clientid/username=VIN，无需改代码）。
 **注意**：8883 对外开放前必须完成自检；本地自签证书与 `pw-` 密码规则**不得**用于生产。
 
 **两个前提（2026-09-18 审计补充）**：

@@ -29,9 +29,12 @@ type Config struct {
 	AutoReconn bool
 
 	// 以下为异常/自检场景的显式覆盖(正常设备不用填):
-	Username       string // 覆盖 username
-	Password       string // 覆盖 password
-	ForceAnonymous bool   // 显式不带凭证(用于自检"匿名应被拒")
+	Username string // 覆盖 username
+	Password string // 覆盖 password
+	// ClientIDOverride 覆盖 clientid(仅自检用): 用于验证"自报他人 clientid 也无法越权"——
+	// ACL 的锚点必须是认证过的 username, 而不是客户端自报的 clientid。
+	ClientIDOverride string
+	ForceAnonymous   bool // 显式不带凭证(用于自检"匿名应被拒")
 }
 
 // Identity 返回该身份形态下的 (clientID, username, password)。
@@ -64,6 +67,8 @@ func BrokerURL(cfg Config) string {
 func New(cfg Config) (mqtt.Client, error) {
 	clientID, username, password := Identity(cfg)
 	switch {
+	case cfg.ClientIDOverride != "":
+		clientID = cfg.ClientIDOverride
 	case cfg.ForceAnonymous:
 		username, password = "", ""
 	case cfg.Username != "":

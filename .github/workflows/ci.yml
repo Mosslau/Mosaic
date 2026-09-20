@@ -275,6 +275,12 @@ jobs:
           # CI runner 上没有 host.docker.internal(Linux): 把 webhook 目标改成宿主回环。
           # 网关与 codec 以 --network host 跑(见下一步), 因此容器内的 127.0.0.1 = runner 宿主。
           sed -i 's#http://host.docker.internal:#http://127.0.0.1:#g' emqx/emqx.conf
+          # 镜像拉取带退避重试: 首跑实测 minio 拉取失败(镜像源侧问题), 一次失败就整作业红
+          # 的代价太大 —— 拉取是幂等的, 重试三次是合理韧性(而不是掩盖问题: 三次都失败照旧红)
+          for attempt in 1 2 3; do
+            if docker compose pull --quiet; then break; fi
+            echo "镜像拉取第 $attempt 次失败, 5s 后重试..."; sleep 5
+          done
           docker compose up -d
           for i in $(seq 1 30); do
             unhealthy=$(docker compose ps --format '{{.Name}} {{.Health}}' | grep -v healthy || true)
@@ -298,12 +304,19 @@ jobs:
           done
           curl -sf http://localhost:18080/health
           curl -sf http://localhost:18090/health
-      - name: seed devices + security self-check (六项)
+      - name: seed devices + security self-check (八项 + 凭证前置)
         run: |
           bash deploy/emqx/seed-users.sh 0 100
           bash deploy/emqx/seed-users.sh --vin OV20260001
           cd ingest/device-simulator
+          # 退出码语义: 0=八项全过; 1=安全项不达标; 3=前置(凭证)不可用 → 不可判定
           go run ./cmd/security-check -vin OV20260001
+      - name: emqx auth log (排障窗口)
+        if: always()
+        run: |
+          # 首跑时 ①④ 报 `network Error : EOF` 而 EMQX 日志被 --tail 截断, 白追了一轮 ——
+          # 这里显式留窗口: AUTHN/AUTHZ 的记录是判定"认证/授权到底发生了什么"的唯一证据
+          docker logs --since 10m ov-emqx 2>&1 | grep -E "AUTHN|AUTHZ|not_authorized|authentication_failure" | tail -30 || true
       - name: HTTP 身份锚点（冒充他人 VIN 必须 400 且零投递）
         run: |
           set -e

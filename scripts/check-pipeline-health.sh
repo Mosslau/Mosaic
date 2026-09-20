@@ -219,12 +219,18 @@ else
         GOCACHE="${GOCACHE:-/tmp/ov-health-gocache}" timeout 60 go run ./cmd/bin-simulator \
           -broker "tcp://localhost:${EMQX_MQTT_PORT:-11883}" -vin-prefix OVPROBE \
           -devices 2 -interval 1s -duration 3s >/dev/null 2>&1); then
-      sleep 4
-      c2=$(metric "$CODEC_METRICS" codec_consumed_total)
+      # 轮询等待(最多 20s)而不是固定 sleep: 探针要走完 EMQX→网关→Kafka→codec(100ms 定时 flush)
+      # 四段, 固定 sleep 在慢机器/CI 上会把"还没到"误报成"没消费"(实测踩过一次假阴性)。
+      c2="$c1"
+      for _ in $(seq 1 20); do
+        sleep 1
+        c2=$(metric "$CODEC_METRICS" codec_consumed_total)
+        [[ "$c2" != "$c1" ]] && break
+      done
       if [[ "$c2" != "$c1" ]]; then
         ok "探针帧被本实例消费（consumed ${c1} -> ${c2}）"
       else
-        bad "探针帧未被本实例消费（consumed 仍为 ${c2}）→ 疑似僵尸成员占位（Q11 判据）"
+        bad "探针帧未被本实例消费（consumed 仍为 ${c2}, 已等待 20s）→ 疑似僵尸成员占位（Q11 判据）"
       fi
     else
       info "探针注入失败（EMQX 不可达或模拟器不可用）, 跳过强判据（不计失败）"
