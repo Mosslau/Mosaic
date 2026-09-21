@@ -311,5 +311,5 @@ curl -s -X PATCH "http://127.0.0.1:18088/jobs/<jid>?mode=cancel"
 ## 8. 延伸阅读
 
 - 《接入层设计》—— 上游契约、QoS、探针保留段（`OVPROBE`）的由来
-- `deploy/README.md` Q18/Q19 —— 本层踩过的两个环境坑（localhost→`::1`、Flink 角色参数）
+- `deploy/README.md` Q18 与 §7 修订记录 —— 本层踩过的两个环境坑（localhost→`::1` 见 Q18；Flink 角色参数缺失见附录折叠的原 Q19）
 - `deploy/flink/Dockerfile` 头注 —— "为什么必须自建 Flink 镜像"与 ClickHouse 连接器的三条死路

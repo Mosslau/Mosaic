@@ -4,10 +4,13 @@
 
 > 适用阶段：第 1 阶段第 1 步——最小可用链路的底座
 > 容器运行时：**Rancher Desktop**（moby 引擎，非 Docker Desktop，符合本机策略）
-> 一键启动后你将得到：Kafka + ClickHouse + MinIO + EMQX + Grafana + Prometheus + MySQL + Redis 八个组件
-> （第 1 阶段第 3 步起另加 **Flink 两容器**：JobManager + TaskManager，挂在 compose **profile `realtime`** 上，
-> 用 `docker compose --profile realtime up -d` 启动——基础栈仍是八容器）
-> （原计划四组件 → 实际多 EMQX/Prometheus → 第九轮再补 MySQL/Redis，为第 4 步 Java 微服务 ×5 备底座）
+> 一键启动后你将得到：Kafka + ClickHouse + MinIO + EMQX + Grafana + Prometheus + MySQL + Redis 八个组件；
+> 实时层（第 3 步）另加 **Flink 两容器**（JobManager + TaskManager），挂在 compose **profile `realtime`** 上，
+> 用 `docker compose --profile realtime up -d` 启动——基础栈仍是八容器。
+>
+> **文档结构约定（2026-09-20 起）**：正文只写**当前事实**（怎么部署、当前边界、当前判据）；
+> "为什么变成现在这样"（历次改动）收在末尾 **§7 附录：修订记录**；常见问题（§6）只保留"还可能再发生、
+> 需要现场处置"的条目，已彻底收口且回归有判据把守的条目折叠进附录（Q 编号不回收，历史引用不受影响）。
 
 ---
 
@@ -68,44 +71,33 @@ until docker info >/dev/null 2>&1; do sleep 5; done && echo "engine ready"
 Grafana 启动后**自动配好名为 `ClickHouse` 的数据源**（provisioning，见 `deploy/grafana/provisioning/datasources/clickhouse.yaml`）。
 EMQX 启动后**自动加载声明式规则**（`deploy/emqx/emqx.conf`）：① `ov_vehicle_ingress` —— `ov/+/status|battery|fault` → Webhook → 网关 `/api/v1/mqtt/ingest`；② `ov_binary_ingress` —— `ov/+/bin`（GB/T 32960 二进制帧，base64）→ 网关 `/api/v1/bin/ingest` → `ov.raw.binary.v1` → device-codec（Dashboard → 集成 → 规则 可见两条）。
 
-> **内存预算（2026-09-20 两轮重算，已被 `scripts/check-compose-budget.sh` 门禁覆盖）**：
-> **第一轮**：第九轮补齐 MySQL/Redis 后，八容器 `mem_limit` 合计曾达 **6.88 GiB**，而 Rancher VM 实测只有 6.2 GiB
-> —— 上限之和超过物理内存（实测 ClickHouse 已吃到 94.5%），再拉起 MySQL 就是整机 OOM，于是整体压回并给关键组件加进程内上限。
-> **第二轮（同日，为 ClickHouse 可用性 + 给第 3 步 Flink 腾地方）**：VM 提到 8 GB
-> （`rdctl set --virtual-machine.memory-in-gb 8`，实测 `MemTotal` **7934 MiB**），并按**实测用量**把闲置容器的额度腾给 ClickHouse。
->
-> **第三轮（同日，第 3 步 Flink 入栈）**：此前预留的 1536 MiB 正式分配 —— Flink session cluster 两容器
-> （JobManager + TaskManager），**挂 profile `realtime`**：`docker compose up -d` 不会启动它们（基础栈仍是八容器，
-> 文档与 CI 口径不变）；注意 `docker compose ps` **不受 profile 过滤**，Flink 起着时会一并列出（实测 10 行）。
->
-> 现配置：Kafka 640m + ClickHouse 2560m + MinIO 192m + MySQL 512m + Redis 256m
+> **内存预算（被 `scripts/check-compose-budget.sh` 门禁覆盖，数字不许手改漂移）**：
+> Kafka 640m + ClickHouse 2560m + MinIO 192m + MySQL 512m + Redis 256m
 > + EMQX 384m + Prometheus 256m + Grafana 320m + flink-jobmanager 512m + flink-taskmanager 1024m
 > = **6656 MiB**，占本机 VM 容量（7934 MiB）的 **84%**
-> （门禁要求合计 ≤ VM 的 85% = 6743 MiB：**预留已用满**，再加容器或调大额度必须重算并写明理由）。
+> （门禁要求合计 ≤ VM 容量的 85% = 6743 MiB：**预留已用满**，再加容器或调大额度必须重算、写明理由、
+> 并同步 `scripts/check-compose-budget.sh` 的预算默认值）。
 >
-> 三个配套纪律（都踩过坑）：
+> 三条配套纪律（都踩过坑）：
 > ① **进程内上限必须低于 cgroup 硬杀线、又必须显著高于进程地板**：ClickHouse 的 1536 MiB 上限写在
 >    `clickhouse/config.d/limits.xml` 的 `<max_server_memory_usage>`，且**必须被 compose 挂进容器才生效**——
->    环境变量设不了（实测 `CLICKHOUSE_MAX_SERVER_MEMORY_USAGE` 进了容器却没生效，官方镜像只映射它认识的那批变量）；
->    旧配置只给 953 MiB、仅比地板（重启后 ≈830~870 MiB）高约 100 MiB，跑久后 RSS 爬到 1.16 GiB 就越限，
->    OvercommitTracker 随即拒绝一切要内存的查询 —— 表现为"服务活着但干不了活"，判据与止血见 Q17。
+>    环境变量设不了（官方镜像只映射它认识的那批变量，实测设了也没生效）。
+>    进程地板（重启后空闲）≈830~870 MiB，跑久后 RSS 会自己爬到 1.1~1.2 GiB（jemalloc 滞留页/碎片，
+>    不是查询也不是缓存）；上限若只比地板高约 100 MiB，越限后 OvercommitTracker 就拒绝一切要内存的查询
+>    ——表现为"服务活着但干不了活"，判据与止血见 Q17。
 >    同一文件还必须**显式声明缓存上限**：镜像默认 mark / index_mark 各 5 GiB、uncompressed 8 GiB、mmap ≈1 GiB，
 >    在小上限下会与查询抢额度。Redis `--maxmemory 192mb` < `mem_limit 256m`（正好 75%）。
 >    同理 Flink 两容器的 `*.memory.process.size`（448m / 896m）必须小于各自 `mem_limit`（512m / 1024m）——
 >    JVM 的 metaspace/overhead 是进程内固定开销，process.size 顶到 mem_limit 就会被 cgroup 杀。
 > ② **改 limits 后必须复跑门禁**：`bash scripts/check-compose-budget.sh`（CI 也跑）。它核对五类事实：每服务都有上限 /
->    合计 ≤ 预算（默认 6.5 GiB，其中含 Flink 预留）/ 合计 ≤ VM 容量的 85% / ClickHouse 与 Redis 的成对约束 + 缓存边界
->    （**直接读 `limits.xml` 与挂载行**，不再去 compose 里找那个无效变量）/ **本段文字的数字与 compose 是否自洽**。
-> ③ **本段数字不许手改漂移**：每个 `<服务> Nm`、合计、百分比都被门禁逐项核对（2026-09-20 曾漂移一版，判据②③④
->    都只看 compose 内部抓不到，是人工核出来的）；`bash scripts/test-compose-budget.sh` 用 10 则负向对照证明判据真有鉴别力。
+>    合计 ≤ 预算（默认 6656 MiB，含 Flink 的 1536 MiB）/ 合计 ≤ VM 容量的 85% / ClickHouse 与 Redis 的成对约束 +
+>    缓存边界（**直接读 `limits.xml` 与挂载行**）/ **本段文字的数字与 compose 是否自洽**。
+> ③ `bash scripts/test-compose-budget.sh` 用负向对照证明判据真有鉴别力（改数字必须变红）。
 
 > 端口避让说明：MinIO 的 S3 API 映射到宿主 `9001`、控制台映射到 `9002`，因为 ClickHouse native 协议已占用 `9000`。
 
-> **MinIO 镜像为什么用 quay.io（2026-09-20，CI 实测发现）**：Docker Hub 的 `minio/minio` 已**拒绝匿名拉取**——
-> GitHub runner 上 `docker compose up` 直接失败（`pull access denied ... repository does not exist or may require 'docker login'`），
-> 而本机因为有镜像加速器与本地缓存，这个坑**一直没暴露**（教训：镜像可用性必须在干净环境里验证）。
-> `quay.io/minio/minio` 是**同一个镜像**（digest 一致 `sha256:14cea493…`），可匿名拉取，tag 也齐全。
-> 拉不动时可换其它可信镜像源并 `docker tag` 回 `quay.io/minio/minio:<tag>`（参见 Q3 的做法）。
+> MinIO 镜像取自 **quay.io**：Docker Hub 的 `minio/minio` 已拒绝匿名拉取，`quay.io/minio/minio` 与其 digest 一致、
+> 可匿名拉取。拉不动时换可信镜像源单独拉再 `docker tag` 回去（做法见 Q3）。背景见 §7 修订记录 2026-09-20 行。
 
 ---
 
@@ -140,16 +132,14 @@ docker compose logs -f mysql
 docker compose logs -f redis
 docker compose logs -f grafana
 
-# 改完 prometheus 的配置/规则后**让它真的生效**（2026-09-20 起）：
-#   实测踩过：规则文件是 bind mount，改完文件立刻是新的，但 Prometheus 只在启动时读它 ——
-#   出现过「文件里十条规则、进程里八条」，容器 healthy、面板照常出图，新告警整条不生效。
+# 改完 prometheus 的配置/规则后**必须热载**：规则文件是 bind mount，改完文件立刻是新的，
+#   但 Prometheus 只在启动时读它 —— 不 reload 则新规则不生效（背景见 §7 修订记录）。
 curl -X POST localhost:9090/-/reload      # 热载（compose 已加 --web.enable-lifecycle）
 #   判据: curl -s localhost:9090/api/v1/rules | python3 -c "import json,sys;d=json.load(sys.stdin)['data']['groups'];print(sum(len(g['rules']) for g in d))"
 #   应与规则文件里的 alert 条数一致；也可直接跑 bash scripts/check-pipeline-health.sh（判据 6 就是这条）。
 #   其它容器（EMQX/Grafana/ClickHouse/MySQL/Redis）的配置改动仍需重启对应容器：docker compose up -d <服务名>
 
-# 停止（数据保留在 volume 里；Kafka 亦已显式 KAFKA_LOG_DIRS=/var/lib/kafka/data，
-#  2026-09-18 前该卷是死配置、数据落在容器可写层，down+up 会丢全部 topic 与位移）
+# 停止（数据保留在 volume 里，含 Kafka：已显式 KAFKA_LOG_DIRS=/var/lib/kafka/data）
 docker compose down
 
 # 完全重置（⚠️ 删除所有数据）
@@ -158,7 +148,7 @@ docker compose down -v
 
 ---
 
-## 5. 启动后验证（八个组件逐一确认）
+## 5. 启动后验证（逐组件确认）
 
 ```bash
 # ① Kafka：建一个测试 topic 并自检
@@ -196,7 +186,7 @@ docker exec ov-emqx emqx ctl listeners | grep -E "tcp:default|ssl:default"
 curl -s 'http://localhost:9090/api/v1/targets?state=active' | grep -o '"health":"[a-z]*"'
 # 期望: "health":"up"; 网关未启动时显示 down 属正常
 curl -s -g 'http://localhost:9090/api/v1/query?query=up{job="device-gateway"}'
-# 告警规则已加载且无 firing(10 条, 含义见 Q16)
+# 告警规则已加载且无 firing(15 条告警, 含义见 Q16)
 curl -s http://localhost:9090/api/v1/rules | grep -c '"name"'    # 期望: 15
 curl -s http://localhost:9090/api/v1/alerts | grep -c '"state":"firing"' || true   # 期望: 0
 # 规则**语义**单测(该响/不该响; 曾在运行态出过假阳性, 见 Q25)
@@ -232,7 +222,21 @@ docker exec ov-flink-tm sh -c 'grep -A5 "^s3:" /opt/flink/conf/config.yaml'   # 
 
 ---
 
-## 6. 常见问题（本次实测踩过的坑）
+## 6. 常见问题（runbook）
+
+> 收录规则：只放"**还可能再发生、需要现场处置**"的条目，每条按"现象 → 根因 → 判据 → 处置"写；
+> 已彻底收口且回归有判据把守的条目折叠进 **§7 附录**（Q 编号不回收，历史文档里的引用不受影响）。
+> 主题索引：
+
+| 主题 | 条目 |
+|---|---|
+| 环境/镜像拉取 | Q1–Q3、Q5 |
+| Grafana/EMQX 接入 | Q6–Q8、Q10、Q12 |
+| 压测与端口转发 | Q9、Q14、Q18 |
+| Kafka/消费组 | Q11、Q13 |
+| 自愈与告警 | Q15、Q16、Q25 |
+| ClickHouse 内存 | Q17 |
+| Flink | Q18、Q20–Q24 |
 
 **Q1：`docker info` 连不上 daemon**
 Rancher Desktop 没启动。`rdctl start`，等 1~4 分钟再试。
@@ -248,9 +252,6 @@ docker pull docker.1ms.run/grafana/grafana-oss:latest
 docker tag docker.1ms.run/grafana/grafana-oss:latest grafana/grafana-oss:latest
 docker compose up -d
 ```
-
-**Q4：`grafana/grafana-oss:12.2.0` 报 `not found`**
-国内镜像站经常缺具体版本 tag。compose 里已固定用 `latest`，不要改回小版本号。
 
 **Q5：拉取中途 `unexpected EOF`（网络抖动）**
 重试即可，已下载的分层会续传：
@@ -426,16 +427,6 @@ curl -s http://127.0.0.1:18088/overview | python3 -c "import json,sys;d=json.loa
 # 期望: 1 3
 ```
 
-**Q19：Flink 两容器一直 `restarting`，日志反复打印 `Usage: docker-entrypoint.sh (jobmanager|standalone-job|taskmanager|history-server)`**
-
-官方镜像的默认 `CMD` 是 **`help`**（`docker inspect flink:1.20.5-scala_2.12-java17` 可见），
-**角色参数必须显式给**。compose 漏了 `command:` 就会：入口打印 usage → 以 **exit 0** 退出 →
-`restart: unless-stopped` 无限重启。
-
-迷惑点：`exit=0` 且 `OOMKilled=false`，很容易被误判成"内存给少了"（本次先怀疑的就是内存配置）。
-判据：`docker inspect ov-flink-jm -f '{{.State.ExitCode}} {{.RestartCount}} {{.State.OOMKilled}}'`。
-处置：compose 里补 `command: jobmanager` / `command: taskmanager`。
-
 **Q20：检查点配置写在 compose 的 JM/TM 上，作业却一次检查点都不做（P1 落地时真正踩到）**
 
 2026-09-20 现场：`deploy/docker-compose.yaml` 里给 JM/TM 都配了
@@ -540,3 +531,27 @@ CI 里跑 `docker exec ov-prometheus promtool test rules ...`）：5 个场景 =
 docker exec ov-prometheus promtool test rules /etc/prometheus/rules/tests/flink-checkpoints.test.yml
 # 期望: SUCCESS
 ```
+
+---
+
+## 7. 附录：修订记录
+
+> 这里按时间记录"为什么变成现在这样"；正文（§1–§6）只写当前事实。被折叠的 Q&A 条目也在此留一行。
+
+| 日期 | 改了什么 | 为什么 |
+|---|---|---|
+| 2026-09-16 | 初版：Kafka / ClickHouse / MinIO / Grafana 四组件 + 镜像加速器 + 端口避让 | 最小可用链路底座 |
+| 2026-09-16 | MQTT 压测改到容器网内进行 | 宿主→VM→容器转发层并发 ≈185 连接/端口（Q9） |
+| 2026-09-17 | +EMQX / +Prometheus；EMQX 明文宿主端口 1883→11883 | 接入车端 MQTT；本机 RabbitMQ MQTT 插件抢占 1883（Q10） |
+| 2026-09-18 | Kafka 数据显式入卷（KAFKA_LOG_DIRS）；全服务 `restart: unless-stopped` + `mem_limit` + 日志轮转；宿主端口统一 `127.0.0.1` 回环绑定 | 此前 down+up 会丢全部 topic 与位移；引擎重启后链路静默下线；弱口令组件不能暴露给同网段（Q14/Q15） |
+| 2026-09-18 | +MySQL / +Redis（只建库不建表） | 第 4 步 Java 微服务的底座 |
+| 2026-09-18 | 八容器 `mem_limit` 合计 6.88 GiB 超 VM 实测量（6.2 GiB）→ 整体压回 + ClickHouse 进程内上限落 `limits.xml` 并挂进容器 | 上限之和超物理内存 = 整机 OOM 风险 |
+| 2026-09-18 | Prometheus 告警规则从无到有 | VM 掉线导致链路停摆而监控无人知晓（Q16） |
+| 2026-09-20 | MinIO 镜像改 `quay.io/minio/minio`（digest 与 Docker Hub 一致） | Docker Hub 已拒绝匿名拉取，CI 干净环境首跑才发现 |
+| 2026-09-20 | Rancher VM 6→8 GB；按实测用量重分配（ClickHouse 1280m→2560m，合计 6656 MiB） | CH 进程内上限余量不足 → "活着但干不了活"（Q17） |
+| 2026-09-20 | Flink 入栈：自建镜像 `oceanverse/flink:1.20.5`（补连接器 jar）、profile `realtime`、宿主端口 18088 | 第 3 步实时作业；官方镜像不含连接器；8081 被公司 Java 服务占（Q18） |
+| 2026-09-20 | Flink 告警 5 条补齐（规则总数 15）+ promtool 规则语义单测进 CI | 实时层此前零指标零告警；检查点类规则曾出现残留 series 假阳性（Q25） |
+| 2026-09-20 | Prometheus 规则热载纪律：`--web.enable-lifecycle` + 改后必须 `/-/reload` | 规则文件是 bind mount，改完不 reload 则新规则不生效 |
+| 2026-09-20 | P1 配置：检查点落 MinIO（镜像自带 s3 插件）、位点 `group-offsets`、sink exactly-once、作业级配置改到提交端（`CLIENT_FLINK_PROPERTIES`）、TM 补 `s3.*`、`FLINK_PROPERTIES` 只许 `key: value` | 检查点/位点/幂等落地过程中连踩四个静默配置坑（Q20–Q24） |
+| 2026-09-20 | 折叠原 Q4（grafana 镜像固定 `latest`、不钉小版本号）与原 Q19（Flink 必须显式 `command: jobmanager/taskmanager`） | 修复已入库且回归有判据：镜像 tag 不存在会让 CI 镜像拉取直接红；compose 作业断言 `taskmanagers=1 & slots=3`。**Q 编号不回收**，历史文档中的 Q4/Q19 引用指向本行 |
+| 2026-09-20 | 本文档结构整理：正文=当前事实，历史叙事收进本附录 | 补丁式留痕多轮后阅读成本过高 |

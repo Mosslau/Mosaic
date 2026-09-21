@@ -254,7 +254,7 @@ services:
 
   # ---------- 指标采集 (网关 /metrics → Prometheus → Grafana, 设计文档 §9) ----------
   prometheus:
-    # 同 grafana: 不钉小版本号(国内镜像站常缺 tag), 见 README Q4
+    # 同 grafana: 不钉小版本号(国内镜像站常缺 tag), 见 README §7 修订记录(原 Q4)
     image: prom/prometheus:latest
     container_name: ov-prometheus
     restart: unless-stopped
