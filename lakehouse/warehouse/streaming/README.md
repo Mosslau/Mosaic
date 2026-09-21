@@ -91,7 +91,7 @@ cd <repo 根>
 # ① 起 Flink（基础八容器若没起, 先 docker compose -f deploy/docker-compose.yaml up -d）
 docker compose -f deploy/docker-compose.yaml --profile realtime up -d
 curl -s http://127.0.0.1:18088/overview    # 期望 taskmanagers=1, slots-total=3
-#   注意用 127.0.0.1 不要用 localhost（本机 8081 被公司 Java 服务占着, 见 deploy/README Q18）
+#   注意用 127.0.0.1 不要用 localhost（本机 8081 被公司 Java 服务占着; localhost 会解析成 ::1）
 
 # ② 建 ClickHouse 对象（3 目标表 + 3 Kafka 引擎表 + 3 物化视图 = 9 个）
 docker exec -i ov-clickhouse clickhouse-client --user ov_admin --password ov_pass_2026 --multiquery < lakehouse/warehouse/streaming/clickhouse/init.sql
@@ -126,7 +126,7 @@ docker exec ov-minio sh -c 'mc alias set local http://127.0.0.1:9000 ov_minio ov
 cd ingest/device-simulator
 go run ./cmd/mqtt-simulator -broker tcp://localhost:11883 -devices 40 -interval 5s -duration 120s -fault-pct 8
 go run ./cmd/bin-simulator  -broker tcp://localhost:11883 -devices 20 -interval 10s -duration 120s
-#   本机 EMQX 明文端口是 11883（deploy/.env 覆盖, 见 deploy/README Q10）
+#   本机 EMQX 明文端口是 11883（deploy/.env 覆盖）
 ```
 
 > 高温数据：模拟器的 `temp_max` 是 20~45℃（`simdata`），**基本触发不了 45℃ 阈值**。
@@ -202,7 +202,7 @@ docker exec ov-kafka /opt/kafka/bin/kafka-transactions.sh --bootstrap-server kaf
 
 **为什么要看对象而不是看配置**：P1 落地时 compose 上的检查点配置**根本没进 JobGraph**——
 `execution.checkpointing.interval: 60s` 只写在 JM/TM 上，作业跑满 3 分钟检查点仍是 `total=0`；
-只看配置文件会得出完全相反的结论（详见 §7 边界 1c 与 deploy/README Q20）。
+只看配置文件会得出完全相反的结论（详见 §7 边界 1c；判据在 submit-jobs.sh 头注与 check-docs ⑩）。
 
 **⑦ 位移可观测（P1）**：数据流过后，raw topic 上出现三个**一作业一组的已提交位移**：
 
@@ -295,7 +295,7 @@ curl -s -X PATCH "http://127.0.0.1:18088/jobs/<jid>?mode=cancel"
 |---|---|---|---|
 | ~~1~~ | ~~**未开 checkpoint**：窗口状态在 JM/TM 重启后丢失；启动位点 `latest-offset`~~ | ✅ **已修（2026-09-20 P1）**：检查点落 MinIO（60s 间隔 / 5min 超时 / min-pause 30s）+ 位点 `group-offsets` + sink `exactly-once`；位移可观测（三组各自的已提交位移与 lag），重启不丢窗口（§5 ⑧）。~~曾试 `earliest-offset`「重放式恢复」并实测否决：重放追不上实时, 5 分钟只推进 2 分钟事件时间~~ | —— |
 | 1c | **作业级配置只在提交端生效**：写在 compose 的 JM/TM 上**不会**进 JobGraph | 静默失效——"配置看着对、作业根本不检查点"（P1 落地时真正踩到, 3 分钟 0 次） | 已固化为**两处 + 门禁**：提交端 `CLIENT_FLINK_PROPERTIES` 给全、compose 侧作默认值, `scripts/check-docs.sh` ⑩ 逐键比对（含 5 个负向对照） |
-| 1d | **Kafka 事务超时 vs broker 上限**：Flink sink 默认 `transaction.timeout.ms = 1h`, broker 默认上限 15 分钟 | 作业提交后**立刻 FAILED**（`InitProducerIdResponse ... larger than the maximum value allowed by the broker`） | 已修：sink 显式 `properties.transaction.timeout.ms=600000`（10 分钟 > 检查点超时 5 分钟, < broker 上限; 键名经 javap 反汇编确认, 见 deploy/README Q21） |
+| 1d | **Kafka 事务超时 vs broker 上限**：Flink sink 默认 `transaction.timeout.ms = 1h`, broker 默认上限 15 分钟 | 作业提交后**立刻 FAILED**（`InitProducerIdResponse ... larger than the maximum value allowed by the broker`） | 已修：sink 显式 `properties.transaction.timeout.ms=600000`（10 分钟 > 检查点超时 5 分钟, < broker 上限; 键名经 javap 反汇编确认, 见 check-docs ⑩（两处同名键逐键比对）） |
 | 1e | **`FLINK_PROPERTIES` 里写注释会被当成配置键**（入口把该变量当 YAML 解析后写回 `conf/config.yaml`） | 实测 12 条注释全变成 `config.yaml` 里的怪键（如 `'#有checkpoint才谈得上failover'`），行内空格被吞 | 已修：注释一律写在块外；`scripts/check-docs.sh` ⑩ 禁止块内出现注释行（负向对照已验） |
 | 1b | **水位线会被安静分区拖住**（3 分区里只要 1 个没数据，窗口就不触发） | ✅ 已修：`scan.watermark.idle-timeout = 30s`，空闲分区按「无水」处理 | —— |
 | 2 | 结果链路是 **at-least-once**：Flink → Kafka → CH 物化视图 | CH 重启后可能重放少量消息 → 目标表可能有重复 | 目标表已是 `ReplacingMergeTree` + 业务键排序；精确查询用 `FINAL`。更强方案（幂等键/去重表）随第 2 阶段 |
@@ -311,5 +311,5 @@ curl -s -X PATCH "http://127.0.0.1:18088/jobs/<jid>?mode=cancel"
 ## 8. 延伸阅读
 
 - 《接入层设计》—— 上游契约、QoS、探针保留段（`OVPROBE`）的由来
-- `deploy/README.md` Q18 与 §7 修订记录 —— 本层踩过的两个环境坑（localhost→`::1` 见 Q18；Flink 角色参数缺失见附录折叠的原 Q19）
+- `deploy/README.md` §6 修订记录 —— 本层踩过的环境坑（localhost→`::1`、Flink 角色参数缺失）与历次基础设施改动
 - `deploy/flink/Dockerfile` 头注 —— "为什么必须自建 Flink 镜像"与 ClickHouse 连接器的三条死路

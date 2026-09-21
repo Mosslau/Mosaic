@@ -1,6 +1,6 @@
 # OceanVerse 第 1 阶段 Prometheus 抓取配置
 # 注意: 网关跑在宿主机(go run / 二进制), 容器经 host.docker.internal 访问——
-# 与 emqx.conf webhook 同一主机名(排障见 deploy/README Q8)。
+# 与 emqx.conf webhook 同一主机名(不通时把 host.docker.internal 换成 host.lima.internal 或宿主局域网 IP)。
 global:
   scrape_interval: 5s   # 压测/故障演练要看清瞬时曲线, 第 1 阶段本机资源充裕
   evaluation_interval: 15s

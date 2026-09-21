@@ -6,8 +6,10 @@
 #   第九轮补齐 MySQL/Redis 后, 八容器 mem_limit 合计 **6.88 GiB**, 而 Rancher VM 实测只有
 #   **6.2 GiB**（docker info MemTotal）; 同时 ClickHouse 实测已吃到 1.9 GiB / 2 GiB(94.5%)。
 #   也就是说: 账面上就已经超配, 再拉起 MySQL 就是整机 OOM —— 而当时**没有任何检查会发现**,
-#   只能靠人肉算术（README §3 那段"内存预算"注释就是这么来的）。
-#   本脚本把那段算术变成可执行判据。
+#   只能靠人肉算术。本脚本把那笔算术变成可执行判据。
+#   （数字的**单一来源**是 compose 的 mem_limit + 本脚本的预算默认值 —— 2026-09-20 起
+#    deploy/README.md 不再复述这些数字, 原判据⑤"文档数字 vs compose"随之退役: 文档里不再有
+#    可漂移的数字, 也就无需对账。历史见 deploy/README.md §6 附录。）
 #
 # 判据:
 #   ① 每个服务都必须有 mem_limit（漏一个就等于没有上限）
@@ -23,14 +25,11 @@
 #         ② <max_server_memory_usage_to_ram_ratio>0（实测语义是"关闭上限", 与直觉相反）
 #         ③ compose 里又出现那个无效环境变量（给人"已设上限"的错觉）
 #         ④ 缓存上限没显式声明 —— 镜像默认 mark/index_mark 各 5 GiB、uncompressed 8 GiB、mmap ≈1 GiB,
-#            在小上限下会与查询抢额度, 直接把进程推到 OvercommitTracker（"活着但干不了活", Q17）
+#            在小上限下会与查询抢额度, 直接把进程推到 OvercommitTracker（"活着但干不了活"）
 #         注: "上限必须显著高于进程地板(重启后 ≈850 MiB)"这条**不进门禁** —— 地板是测量值(同覆盖率),
-#             只能写进 limits.xml 头注 + Q17 的判据里; 门禁只钉可从配置推导的事实
-#   ⑤ 文档数字 vs compose: deploy/README.md 的"内存预算"段必须与 compose 算术自洽
-#      —— 2026-09-20 补: compose 把 ClickHouse 抬到 1280m 后, 该段仍写 1152m / 合计 4480 MiB,
-#         而判据②③④都只核对 compose 内部, 抓不到"文档漂移", 只能靠人工核对发现
+#             只能写进 limits.xml 头注; 门禁只钉可从配置推导的事实
 #
-# 退出码: 0=通过; 1=超预算/漏上限/成对约束不成立/文档漂移; 2=用法/环境问题
+# 退出码: 0=通过; 1=超预算/漏上限/成对约束不成立; 2=用法/环境问题
 #
 # 用法: bash scripts/check-compose-budget.sh
 #       OV_BUDGET_MIB=7168 bash scripts/check-compose-budget.sh   # 临时放宽(需说明理由)
@@ -40,7 +39,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 COMPOSE="$ROOT/deploy/docker-compose.yaml"
 BUDGET_MIB="${OV_BUDGET_MIB:-6656}"   # 6.5 GiB（2026-09-20 第二轮: VM 8 GB → 实测 MemTotal 7934 MiB, 85% = 6744 MiB;
                                       #   6656 = 当前八容器 5120 + 第 3 步 Flink 预留 1536, 即 Flink 的额度已批过,
-                                      #   再加容器/调大额度就要显式说明理由并同步这里与 deploy/README.md §3）
+                                      #   再加容器/调大额度就要显式说明理由（单一来源: 这里 + compose 的 mem_limit））
 
 [[ -f "$COMPOSE" ]] || { echo "找不到 $COMPOSE" >&2; exit 2; }
 
@@ -200,7 +199,7 @@ else
   fi
   # 缓存边界必须显式声明（2026-09-20 第二轮补）: 镜像默认 mark/index_mark 各 5 GiB、uncompressed 8 GiB、
   # mmap ≈1 GiB —— 在 1.5 GiB 的进程内上限下它们是**隐性炸弹**: 缓存与查询抢同一份额度,
-  # 会直接触发 OvercommitTracker(表现为"服务活着但连 count() 都拒", 见 deploy/README Q17)。
+  # 会直接触发 OvercommitTracker(表现为"服务活着但连 count() 都拒", 历史见 deploy/README.md §6 附录)。
   # 声明了才可预测（与本仓"不依赖镜像默认值"的纪律一致, 同 Kafka 的 min.insync.replicas）。
   missing_cache=""
   for tag in mark_cache_size index_mark_cache_size uncompressed_cache_size mmap_cache_size; do
@@ -226,110 +225,6 @@ else
 fi
 
 echo
-echo "⑤ 文档数字 vs compose（deploy/README.md 的内存预算段）"
-# 起因: 判据②③④都只核对 compose **内部**, 于是 compose 把 ClickHouse 从 1152m 抬到 1280m 后,
-# README 那段"…ClickHouse 1152m … = 4480 MiB, 占 76%"原地漂移了一版, 只能靠人工算术发现。
-# 本判据把那段文字变成可执行事实: 每个 <服务> <N>m、合计、"占 VM 容量 N%" 都必须与 compose 自洽。
-doc_out=$(python3 - "$ROOT/deploy/README.md" "$COMPOSE" <<'PY'
-import re, sys, pathlib
-
-readme_lines = pathlib.Path(sys.argv[1]).read_text(encoding='utf-8').split('\n')
-compose = pathlib.Path(sys.argv[2]).read_text(encoding='utf-8')
-
-# compose 的 mem_limit（与上面 bash 同一套最小解析，避免两处口径漂移）
-svc, limits, in_services = None, {}, False
-for raw in compose.split('\n'):
-    line = raw.rstrip()
-    if line.startswith('services:'):
-        in_services = True
-        continue
-    if in_services and line and not line.startswith(' ') and line.endswith(':'):
-        in_services = False
-    if not in_services:
-        continue
-    m = re.match(r'^  ([a-z0-9_-]+):\s*$', line)
-    if m:
-        svc = m.group(1)
-        continue
-    m = re.match(r'^\s+mem_limit:\s*(\S+)', line)
-    if m and svc:
-        limits[svc] = m.group(1)
-
-def to_mib(v):
-    v = v.strip().strip('"').strip("'")
-    m = re.match(r'^(\d+(?:\.\d+)?)\s*([kmgKMG]?)[bB]?$', v)
-    if not m:
-        return None
-    n, unit = float(m.group(1)), m.group(2).lower()
-    return n * {'': 1 / 1048576, 'k': 1 / 1024, 'm': 1, 'g': 1024}[unit]
-
-real = {k: to_mib(v) for k, v in limits.items()}
-if not real or any(v is None for v in real.values()):
-    print("FAIL 无法从 compose 解析出全部 mem_limit（解析规则失效?）")
-    sys.exit(0)
-
-# 待校验区域 = 含"内存预算"的那一行起、连续的 '>' 引用块
-start = next((i for i, l in enumerate(readme_lines) if '内存预算' in l), None)
-if start is None:
-    print("FAIL deploy/README.md 找不到“内存预算”段（compose 改了上限就没人对账了）")
-    sys.exit(0)
-region = []
-for l in readme_lines[start:]:
-    if l.startswith('>'):
-        region.append(l)
-    else:
-        break
-text = '\n'.join(region)
-
-probs = []
-
-# ① 每个 <服务名> <N>m 都要对得上；非服务名的词（maxmemory / mem_limit 等）不参与
-by_lower = {k.lower(): k for k in real}
-matched = set()
-for m in re.finditer(r'([A-Za-z][A-Za-z0-9_-]*)\s+(\d+)m\b', text):   # 允许连字符: flink-jobmanager
-    name, val = m.group(1), int(m.group(2))
-    key = by_lower.get(name.lower())
-    if key is None:
-        continue
-    matched.add(key)
-    if int(real[key]) != val:
-        probs.append(f"README 写 {name} {val}m，compose 是 {limits[key]}（{int(real[key])} MiB）")
-gap = sorted(set(real) - matched)
-if gap:
-    probs.append("README 内存预算段未覆盖这些服务: " + ', '.join(gap) + "（新增容器必须同步这段文字）")
-
-# ② 合计声明必须等于 compose 合计
-totals = sorted({int(m.group(1)) for m in re.finditer(r'=\s*\*\*(\d+)\s*MiB\*\*', text)})
-actual = round(sum(real.values()))
-if len(totals) != 1:
-    probs.append(f"内存预算段应有且仅有一个“= **N MiB**”合计声明，实际 {totals}")
-elif totals[0] != actual:
-    probs.append(f"README 声称合计 {totals[0]} MiB，compose 实际 {actual} MiB")
-
-# ③ 百分比自洽（仅当同时声明了 VM 容量）—— 只做算术校验, 不拿本机 VM 比
-#    （README 里的 VM 容量是本机观测值, CI runner 的 VM 大小不同, 比环境会误报）
-mv = re.search(r'VM 容量（(\d+)\s*MiB）的\s*\*{0,2}(\d+)%', text)
-if not mv:
-    print("INFO 内存预算段未声明“VM 容量（N MiB）的 N%” → 跳过百分比自洽校验")
-else:
-    vm_mib, pct = int(mv.group(1)), int(mv.group(2))
-    exp = round(actual / vm_mib * 100)
-    if abs(exp - pct) > 1:
-        probs.append(f"README 声称占 VM 容量 {pct}%，但 {actual}/{vm_mib} = {exp}%")
-
-for p in probs:
-    print("FAIL " + p)
-if not probs:
-    print(f"OK README 内存预算段与 compose 一致（{len(real)} 个服务, 合计 {actual} MiB）")
-PY
-) || { bad "文档数字解析失败（python3 执行出错）"; doc_out=""; }
-while IFS= read -r line; do
-  case "$line" in
-    "OK "*)   ok   "${line#OK }" ;;
-    "FAIL "*) bad  "${line#FAIL }" ;;
-    "INFO "*) info "${line#INFO }" ;;
-  esac
-done <<< "$doc_out"
 
 echo
 echo "==== 预算检查: 通过 ${pass} 项, 异常 ${fail} 项 ===="

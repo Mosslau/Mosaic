@@ -120,7 +120,7 @@ elif [[ "$member_n" -eq 1 ]]; then
 elif [[ "$ALLOW_MULTI" -eq 1 ]]; then
   ok "成员数 = ${member_n}（已用 -m 允许横扩）"
 else
-  bad "成员数 = ${member_n}（期望 1）→ 疑似僵尸成员（Q11）"
+  bad "成员数 = ${member_n}（期望 1）→ 疑似僵尸成员"
   printf '%s\n' "$member_ids" | sed 's/^/         /'
   info "处置: 杀掉孤儿进程 → 等会话超时(约 1 分钟, --state 变 Empty) → 再启单个实例"
 fi
@@ -172,7 +172,7 @@ for pair in "gateway:18080" "codec:18090"; do
   elif [[ "$n" -eq 1 ]]; then
     ok "${role}: 端点可达且仅 1 个进程占住端口 ${port} (pid ${pids})"
   elif [[ "$n" -gt 1 ]]; then
-    bad "${role}: ${n} 个进程占住端口 ${port} → 疑似孤儿实例（Q11 根因）: ${pids}"
+    bad "${role}: ${n} 个进程占住端口 ${port} → 疑似孤儿实例（go run 的包装进程被杀、编译产物残留）: ${pids}"
     info "处置: go run 的包装进程被杀会留下编译产物孤儿（占消费组/端口）; 请用 go build 出的二进制起服务"
   else
     # 端点通 = 服务确实活着; lsof 看不到 → 环境限制, 不是故障
@@ -200,7 +200,7 @@ else
   if [[ "$c1" != "$c0" ]]; then
     ok "consumed 在增长（本实例确实在消费）"
   elif [[ "$end1" != "$end0" ]]; then
-    bad "topic 有新消息（+$((end1-end0))）但本实例 consumed 冻结 → 消息被别的进程消费了（Q11 判据）"
+    bad "topic 有新消息（+$((end1-end0))）但本实例 consumed 冻结 → 消息被别的进程消费了"
   elif [[ "${lag:-0}" -gt 0 ]]; then
     bad "consumed 冻结且 lag=${lag} > 0 → 本实例卡住（查 flush 是否阻塞 / Kafka 是否可写）"
   elif [[ "${PROBE:-1}" -eq 1 ]]; then
@@ -230,7 +230,7 @@ else
       if [[ "$c2" != "$c1" ]]; then
         ok "探针帧被本实例消费（consumed ${c1} -> ${c2}）"
       else
-        bad "探针帧未被本实例消费（consumed 仍为 ${c2}, 已等待 20s）→ 疑似僵尸成员占位（Q11 判据）"
+        bad "探针帧未被本实例消费（consumed 仍为 ${c2}, 已等待 20s）→ 疑似僵尸成员占位"
       fi
     else
       info "探针注入失败（EMQX 不可达或模拟器不可用）, 跳过强判据（不计失败）"
@@ -299,6 +299,6 @@ fi
 echo
 echo "==== 自检结果: 通过 ${pass} 项, 异常 ${fail} 项 ===="
 if [[ "$fail" -ne 0 ]]; then
-  echo "提示: 异常项处置见 deploy/README Q11(僵尸消费组)/Q13(Kafka 监听器)/Q15(自愈)/Q16(告警)"
+  echo "提示: 消费组不消费/端口被占 → 多半是 go run 孤儿实例: pkill -f exe/server 后等 ~60s 再起单实例；容器内连 Kafka 用 kafka:9092（不是 localhost:19092）"
 fi
 exit $(( fail > 0 ))

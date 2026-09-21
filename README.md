@@ -21,7 +21,7 @@
 | 跑**实时作业**（Flink SQL：在线数/故障数/高温电池） | `lakehouse/warehouse/streaming/README.md`（四步：起 Flink → 建表 → 提交 → 看结果） |
 | 查**指标准确定义**（口径唯一源） | `lakehouse/warehouse/streaming/README.md` §2 |
 | 读**设计** | 《ingest/docs/01-接入层设计-v1.md》（权威）/《ingest/docs/02-GB32960协议规格-v1.md》（协议） |
-| 排障 | 《deploy/README.md》Q1~Q13 +《ingest/docs/03-验收示例集-v1.md》§7 判定清单 |
+| 排障 | 先跑 `bash scripts/check-pipeline-health.sh`（失败提示自带处置）→《ingest/docs/03-验收示例集-v1.md》§7 判定清单 |
 | 看**全局蓝图** | `roadmap/OceanVerse架构总览.md`（八大能力域 + 24 月五阶段） |
 
 ## CI 管什么

@@ -13,9 +13,9 @@ scripts/check-mermaid.sh ingest/README.md     # 只校验指定文件
 ```
 
 依赖 Docker（用 `minlag/mermaid-cli` 镜像渲染），临时产物在 `.tmp-mmdc/`（已 gitignore）。
-**注意**：挂载目录必须在 `$HOME` 下——Rancher Desktop 只共享 `$HOME` 给 VM，`/tmp` 挂不进（与 `deploy/README` Q9 同源限制）。
+**注意**：挂载目录必须在 `$HOME` 下——Rancher Desktop 只共享 `$HOME` 给 VM，`/tmp` 挂不进（与"压测必须在容器网内"同源的限制）。
 
-## check-pipeline-health.sh — 链路健康自检（含 Q11 僵尸消费组判据）
+## check-pipeline-health.sh — 链路健康自检（含僵尸消费组判据）
 
 把"消息明明被消费了、但**这个实例**的指标却冻结"这类**常规检查看不出来**的故障固化成一条命令。
 起因（2026-09-18 实测）：评测时被「新 codec 实例 `/metrics` 计数恒 0 + 消费组 `LAG=0` + offset 在涨」
@@ -128,7 +128,7 @@ bash scripts/init-minio-bucket.sh        # 幂等: 已存在则跳过
 | ① 每服务都有 `mem_limit` | 漏一个就等于那个容器没有上限 |
 | ② 合计 ≤ 预算（默认 6.5 GiB，`OV_BUDGET_MIB` 可覆盖；其中 1536 MiB 是给第 3 步 Flink 的预留额度） | 账面超配 |
 | ③ 合计 ≤ VM 容量 × 0.85（本机可探测时） | 留不出 dockerd / VM 自身的余量 |
-| ④ 成对约束 | ClickHouse 进程内上限 ≥ `mem_limit`、Redis `maxmemory` 相对 `mem_limit` 过高；**另含四个更隐蔽的失效方式**：`limits.xml` 没被 compose 挂进容器（死配置）/ `ratio=0`（实测语义是关上限）/ compose 里又把那个不生效的环境变量当配置写 / **缓存上限没显式声明**（镜像默认 mark 5 GiB、uncompressed 8 GiB 会与查询抢额度）。<br>注："上限必须显著高于进程地板（重启后 ≈850 MiB）"**不进门禁**——地板是测量值，只能写进 `limits.xml` 头注 + `deploy/README.md` Q17 |
+| ④ 成对约束 | ClickHouse 进程内上限 ≥ `mem_limit`、Redis `maxmemory` 相对 `mem_limit` 过高；**另含四个更隐蔽的失效方式**：`limits.xml` 没被 compose 挂进容器（死配置）/ `ratio=0`（实测语义是关上限）/ compose 里又把那个不生效的环境变量当配置写 / **缓存上限没显式声明**（镜像默认 mark 5 GiB、uncompressed 8 GiB 会与查询抢额度）。<br>注："上限必须显著高于进程地板（重启后 ≈850 MiB）"**不进门禁**——地板是测量值，只能写进 `limits.xml` 头注 |
 | ⑤ 文档数字 vs compose | `deploy/README.md` 内存预算段的每个 `<服务> Nm`、合计、百分比与实际配置漂移（2026-09-20 就漂过一版：compose 抬到 1280m 而文档仍写 1152m） |
 
 ```bash

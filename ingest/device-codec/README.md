@@ -61,7 +61,7 @@ go tool pprof http://localhost:18091/debug/pprof/profile?seconds=30   # 解码�
 
 **采集与可视化**（与网关同形态，2026-09-18 打通）：Prometheus `deploy/prometheus/prometheus.yml` 内 `job_name: device-codec` 5s 抓 `host.docker.internal:18090`（`/metrics`+`/health` 走专用端口；`/debug/pprof` 另起 `CODEC_PPROF_PORT`，默认 `127.0.0.1:18091` 仅回环）；
 Grafana provisioning 面板 `device-codec 编解码服务`（**6 图**：消费 vs 解码 / DLQ 速率按 stage / 消费 lag / 微批耗时与批大小 / **上行延迟 SLI(EMQX 接收→解码完成)** / **数据陈旧度(设备 ts→解码完成)**）。
-端口冲突时日志会打 `bind: address already in use`（主流程仍继续，但指标不可见）——重启前确保旧实例退净（deploy/README Q11）。
+端口冲突时日志会打 `bind: address already in use`（主流程仍继续，但指标不可见）——重启前确保旧实例退净（`lsof -nP -iTCP:18090 -sTCP:LISTEN` 应为空）。
 
 | 指标 | 含义 | 告警建议 |
 |---|---|---|

@@ -24,7 +24,7 @@ go run ./cmd/mqtt-simulator -broker tcp://localhost:1883 -devices 1000 -interval
 go run ./cmd/bin-simulator   -broker tcp://localhost:1883 -devices 100 -interval 10s -duration 60s
 ```
 
-压测方法学与 Rancher 端口转发限制见 `deploy/README.md` Q9；1883 被占时用 `EMQX_MQTT_PORT`（Q10）。
+Rancher 宿主转发层上限 ≈185 连接/端口，大并发压测必须在容器网内跑；1883 被占时用 `EMQX_MQTT_PORT`（`deploy/.env`）。
 
 ## 3. 两个身份形态（`internal/simconn` 统一）
 
@@ -100,7 +100,7 @@ go run ./cmd/security-check -vin OV20260001 -other-vin OV00000099
 | QoS | 周期状态 QoS0；故障 QoS1 | 周期可丢、事件必达（at-least-once，下游幂等） |
 | 发布等待语义 | 只等本地排队（`WaitTimeout`），不等端到端 ACK | 压测测吞吐，不被逐条 RTT 拖死 |
 | 连接重试 | 初次连接失败继续重试并计数 | 千台开局是连接风暴，避免把瞬时拥塞误判为永久离线 |
-| 压测位置 | 大并发压测在容器网内跑（Rancher 宿主转发上限 ≈185 连接/端口） | 本机限制，见 `deploy/README` Q9 |
+| 压测位置 | 大并发压测在容器网内跑（Rancher 宿主转发上限 ≈185 连接/端口） | 本机限制 |
 
 ### 4.6 安全基线自检（`security-check`）
 

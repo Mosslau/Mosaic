@@ -5,8 +5,9 @@
 #   门禁自己也会退化成**僵尸判据** —— 2026-09-20 实测: `check-compose-budget.sh` 的判据 ④
 #   （ClickHouse 进程内上限 < mem_limit）长期打印"跳过", 因为它在 compose 里找一个早已挪进
 #   limits.xml 的变量名。而"跳过"和"通过"在输出里长得一样, 没人发现这条不等式**名义上有门禁、
-#   实际没跑**（同批复评还发现它只核对 compose 内部, README 的数字漂移了一版也没人抓）。
-#   只在正常态跑绿, 证明不了判据有鉴别力 —— 所以把负向对照固化下来。
+#   实际没跑**。只在正常态跑绿, 证明不了判据有鉴别力 —— 所以把负向对照固化下来。
+#   （2026-09-20: 原判据⑤"文档数字 vs compose"已随"README 不再复述数字"退役,
+#    对照 F/G/H/I 一并删除; 判据①~④的对照保留。）
 #
 # 做法: 每则对照在**隔离的假树**里施加扰动（复制 4 个文件到 .tmp-budget-selftest/,
 #   门禁靠 $(dirname $0)/.. 定位根, 所以假树照原样摆 scripts/ 与 deploy/）, 跑完即弃 ——
@@ -26,7 +27,7 @@ setup() {
   rm -rf "$SBOX"
   mkdir -p "$SBOX/scripts" "$SBOX/deploy/clickhouse/config.d"
   cp "$ROOT/scripts/check-compose-budget.sh" "$SBOX/scripts/"
-  cp "$ROOT/deploy/docker-compose.yaml" "$ROOT/deploy/README.md" "$SBOX/deploy/"
+  cp "$ROOT/deploy/docker-compose.yaml" "$SBOX/deploy/"
   cp "$ROOT/$LIMITS_REL" "$SBOX/$LIMITS_REL"
 }
 
@@ -112,27 +113,11 @@ perturb "deploy/docker-compose.yaml" '      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT
       CLICKHOUSE_MAX_SERVER_MEMORY_USAGE: 900000000'
 check_case "E 无效环境变量被当成生效配置写" "不生效"
 
-# ---- 判据 ⑤：文档数字 vs compose ----
-perturb "deploy/README.md" '= **6656 MiB**' '= **4480 MiB**'
-check_case "F README 合计漂移" "声称合计"
-
-perturb "deploy/README.md" 'ClickHouse 2560m' 'ClickHouse 1280m'
-check_case "G README 单服务值漂移（2026-09-20 实际发生过的那处）" "compose 是"
-
-perturb "deploy/README.md" ' + Redis 256m
-' '
-'
-check_case "H README 漏写一个服务（新增容器场景）" "未覆盖这些服务"
-
-perturb "deploy/README.md" '的 **84%**' '的 **30%**'
-check_case "I 百分比与「合计 / VM 容量」不自洽" "占 VM 容量"
-
-# ---- 判据 ②：合计超预算（compose 与 README 同步改动 → ⑤ 仍绿, 只有 ②③ 该响） ----
+# ---- 判据 ②：合计超预算 ----
 perturb "deploy/docker-compose.yaml" '    mem_limit: 2560m' '    mem_limit: 5120m'
-perturb "deploy/README.md" ' + ClickHouse 2560m' ' + ClickHouse 5120m'
 out=$(gate); rc=$?
 if [[ $rc -ne 0 ]] && grep -qF "> 预算" <<< "$out"; then
-  echo "  ✅ J 合计超预算（文档已同步, 故只有预算判据该响）"
+  echo "  ✅ J 合计超预算"
   pass=$((pass + 1))
 else
   echo "  ❌ J 合计超预算 —— 期望变红并命中「> 预算」，实际 exit ${rc}"

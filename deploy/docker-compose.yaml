@@ -24,7 +24,7 @@ name: oceanverse
 #      —— 给 ClickHouse 留出真实工作空间, 并为第 3 步 Flink(JM+TM ≈1536 MiB)预留;
 #      ② 按**实测用量**把闲置容器的额度腾给 ClickHouse(1280m→2560m): 旧配置的进程内上限(953 MiB)
 #      只比 ClickHouse 的进程地板(重启后 ≈830~870 MiB)高约 100 MiB, 跑久后 RSS 爬到 1.16 GiB 就越限,
-#      OvercommitTracker 随即拒绝一切要内存的查询(连 count() 都拒, 而 SELECT 1 正常 —— "活着但干不了活", 见 Q17)。
+#      OvercommitTracker 随即拒绝一切要内存的查询(连 count() 都拒, 而 SELECT 1 正常 —— "活着但干不了活")。
 #      mem_limit 只会在 cgroup 层硬杀(表现为反复重启); 进程内上限让它自己拒绝/淘汰而不是被杀。
 #      门禁: scripts/check-compose-budget.sh 核对"合计 vs 预算/VM 容量 + 成对约束 + 缓存边界 + 文档数字", 改 limits 后必须复跑。
 
@@ -64,7 +64,6 @@ services:
       # 而 min.insync.replicas 只能设 1 —— 设 2 会让 ISR 永远凑不齐、**写入全部失败**。
       # 所以本地这组配置**不提供断电级持久性**, 它提供的是"代码不再依赖单副本假设"的语义正确性;
       # 真正的断电级保证需要多 broker: default.replication.factor>=2 + min.insync.replicas>=2
-      # (见 deploy/README Q17 的取舍表)。
       KAFKA_MIN_INSYNC_REPLICAS: 1
       KAFKA_DEFAULT_REPLICATION_FACTOR: 1
       # 数据目录必须显式指定为**被挂载的卷**: 镜像默认 /tmp/kafka-logs 在容器可写层,
@@ -115,7 +114,7 @@ services:
     # 2560m: 进程内上限 1536 MiB + 余量 40%(1024 MiB)。为什么必须留这么大(2026-09-20 实测):
     #   进程地板(重启后空闲) ≈830~870 MiB, 跑久后因 jemalloc 滞留页爬到 1.16 GiB;
     #   旧配置上限只有 953 MiB(仅比地板高 ~100 MiB), 一被越过就拒绝一切要内存的查询
-    #   —— 表现为"服务活着但干不了活"(连 count() 都拒, SELECT 1 却正常), 见 Q17。
+    #   —— 表现为"服务活着但干不了活"(连 count() 都拒, SELECT 1 却正常)。
     # 改这里必须同步改 config.d/limits.xml 的 max_server_memory_usage(成对约束), 并复跑
     # scripts/check-compose-budget.sh —— 它核对不等式、缓存边界是否显式声明、以及文档数字
     mem_limit: 2560m
@@ -254,7 +253,7 @@ services:
 
   # ---------- 指标采集 (网关 /metrics → Prometheus → Grafana, 设计文档 §9) ----------
   prometheus:
-    # 同 grafana: 不钉小版本号(国内镜像站常缺 tag), 见 README §7 修订记录(原 Q4)
+    # 同 grafana: 不钉小版本号(国内镜像站常缺 tag), 见 README §6 修订记录
     image: prom/prometheus:latest
     container_name: ov-prometheus
     restart: unless-stopped

@@ -27,8 +27,8 @@ groups:
           description: >-
             Prometheus 连续 1 分钟抓不到 {{ $labels.job }} ({{ $labels.instance }})。
             排查顺序: ① 宿主进程是否还在(lsof -nP -iTCP:<port> -sTCP:LISTEN);
-            ② 六容器是否健康(docker compose ps); ③ 若两者都正常 → 怀疑 Rancher 端口转发层
-            (deploy/README Q8/Q14)。runbook 见 deploy/README Q15。
+            ② 容器是否健康(docker compose ps); ③ 若两者都正常 → 怀疑 Rancher 端口转发层
+            (容器网内访问宿主用 host.docker.internal)。恢复后复跑 scripts/check-pipeline-health.sh。
 
       # ---------- 2. 消息不落盘 ----------
       # 覆盖: Kafka 侧写失败(网关同步投递失败会返回 5xx, 同时这个计数器增长)
