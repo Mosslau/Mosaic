@@ -1,16 +1,10 @@
 # OceanVerse 第 1 阶段告警规则
 #
-# 为什么需要它(2026-09-18 实测教训): 此前 Prometheus 只抓 2 个应用 target、**零条告警规则**,
-# 于是"Rancher VM 掉线导致整条链路静默停摆"在监控上的唯一表现是 Grafana 面板没数据 ——
-# 没有任何人会收到通知(那次是评审时人工发现的)。本文件把"静默停摆"变成"会响"。
+# 加载: docker-compose.yaml 挂载到 /etc/prometheus/rules/ → prometheus.yml 的 rule_files 引用。
+# 查看: http://localhost:9090/alerts 或 curl -s localhost:9090/api/v1/rules | python3 -m json.tool
 #
-# 加载方式: docker-compose.yaml 挂载到 /etc/prometheus/rules/, prometheus.yml 的 rule_files 引用。
-# 查看: Prometheus UI → Alerts (http://localhost:9090/alerts), 或
-#       curl -s localhost:9090/api/v1/rules | python3 -m json.tool
-#
-# 注意(如实说明能力边界): 本机**没有 Alertmanager**, 因此告警只会出现在 Prometheus UI/API 里,
-# 不会变成手机/邮件通知。第 2 阶段接 Alertmanager 后这批规则可直接复用(见设计文档 §12 清零清单⑥)。
-# 在那之前, 判据是"打开 /alerts 应看到 0 个 firing"; 这是本机可执行的复验动作。
+# 能力边界: 本机**没有 Alertmanager** —— 告警只出现在 Prometheus UI/API, 不会变成手机/邮件通知;
+# 第 2 阶段接 Alertmanager 后这批规则可直接复用。在那之前, 判据是"打开 /alerts 应看到 0 个 firing"。
 
 groups:
   - name: oceanverse-critical

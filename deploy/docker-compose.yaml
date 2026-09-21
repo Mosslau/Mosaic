@@ -2,31 +2,16 @@ name: oceanverse
 
 # OceanVerse 第 1 阶段 最小可用链路基础设施
 # 组件: Kafka(KRaft 单节点) + ClickHouse + MinIO + EMQX + Prometheus + Grafana
-#       + MySQL + Redis (八组件)
+#       + MySQL + Redis (八组件) + Flink JM/TM(profile realtime, 默认不起)
 # 用法: cd deploy && docker compose up -d
 # 注意: 使用 Rancher Desktop(moby) 运行, 非 Docker Desktop
 #
-# 2026-09-18 审计整改:
-#   ① 宿主端口一律绑 127.0.0.1 —— 这些服务是**本地开发**环境且含弱口令/无认证组件,
-#      绑 0.0.0.0 会在接入公司网/公共网时把 ClickHouse/MinIO/Grafana/EMQX/Kafka 暴露给同网段。
-#      容器间通信不受影响(走 ov-net, 用服务名: kafka:9092)。
-#   ② 全部加 restart: unless-stopped —— 此前零 restart 策略, VM/引擎重启后容器保持 Exited,
-#      链路静默下线且无告警(2026-09-18 实测: dockerd 掉线后必须人工 up -d)。
-#   ③ 加资源上限 + 日志轮转 —— Rancher VM 6GB/2CPU 且空载已占 84%, 无上限会整机崩溃。
-#   ④ Kafka 显式 KAFKA_LOG_DIRS —— 镜像默认 log.dirs=/tmp/kafka-logs(容器可写层),
-#      此前挂载的 kafka_data 卷是死配置, down+up 即丢全部 topic 与消费位移。
-#   ⑤ MySQL + Redis 就位(第九轮) —— 第 1 阶段第 4 步 Java 微服务 ×5 的底座(档案/电池/故障码/
-#      告警规则/指标 都要 MySQL + Redis 缓存)。第 1 阶段只拉起实例并建库, **不建业务表**:
-#      各服务的 DDL 是第 4 步的产物, 现在造表是空转。
-#   ⑥ 内存预算（2026-09-20 两轮）—— 第一轮: 第九轮补齐 MySQL/Redis 后八容器合计 6.88 GiB >
-#      VM 实测 6.2 GiB(上限之和超过物理内存), 按"合计 ≤ 4.5 GiB"压回, 并给 ClickHouse/Redis 加进程内上限。
-#      第二轮(同日): ① **VM 提到 8 GB**(`rdctl set --virtual-machine.memory-in-gb 8`, 实测 MemTotal 7933 MiB)
-#      —— 给 ClickHouse 留出真实工作空间, 并为第 3 步 Flink(JM+TM ≈1536 MiB)预留;
-#      ② 按**实测用量**把闲置容器的额度腾给 ClickHouse(1280m→2560m): 旧配置的进程内上限(953 MiB)
-#      只比 ClickHouse 的进程地板(重启后 ≈830~870 MiB)高约 100 MiB, 跑久后 RSS 爬到 1.16 GiB 就越限,
-#      OvercommitTracker 随即拒绝一切要内存的查询(连 count() 都拒, 而 SELECT 1 正常 —— "活着但干不了活")。
-#      mem_limit 只会在 cgroup 层硬杀(表现为反复重启); 进程内上限让它自己拒绝/淘汰而不是被杀。
-#      门禁: scripts/check-compose-budget.sh 核对"合计 vs 预算/VM 容量 + 成对约束 + 缓存边界 + 文档数字", 改 limits 后必须复跑。
+# 四条固定纪律(改动历史见 deploy/README.md §6 附录):
+#   ① 宿主端口一律绑 127.0.0.1(弱口令/无认证组件不能暴露给同网段; 容器间通信走 ov-net 服务名)
+#   ② 全服务 restart: unless-stopped + mem_limit + 日志轮转(引擎/宿主重启后无需人工干预)
+#   ③ Kafka 显式 KAFKA_LOG_DIRS 指向被挂载的卷(否则 down+up 丢全部 topic 与位移)
+#   ④ 内存数字的单一来源 = 本文件的 mem_limit + scripts/check-compose-budget.sh 的预算默认值;
+#      改任何上限后必须复跑该门禁(核对合计 vs 预算/VM 容量、成对约束、缓存边界)
 
 x-logging: &default-logging
   driver: json-file
@@ -69,7 +54,7 @@ services:
       # 数据目录必须显式指定为**被挂载的卷**: 镜像默认 /tmp/kafka-logs 在容器可写层,
       # 卷会是空的, 容器重建即丢 topic 与位移(2026-09-18 审计实测确认)
       KAFKA_LOG_DIRS: /var/lib/kafka/data
-      # 堆上限防 VM 被 Kafka 吃穿(VM 总 6GB, 空载已占 84%)
+      # 堆上限防 VM 被 Kafka 吃穿
       KAFKA_HEAP_OPTS: "-Xmx512m -Xms256m"
     volumes:
       - kafka_data:/var/lib/kafka/data
@@ -79,8 +64,7 @@ services:
       timeout: 10s
       retries: 10
       start_period: 30s
-    # 640m: 堆上限 512m(见 KAFKA_HEAP_OPTS) + 页缓存/元数据余量。
-    # 实测用量 ~537 MiB(2026-09-20), 故从 768m 收到 640m, 腾出的额度给 ClickHouse(见文件头 ⑥)
+    # 640m: 堆上限 512m(见 KAFKA_HEAP_OPTS) + 页缓存/元数据余量(实测用量 ~537 MiB)
     mem_limit: 640m
     logging: *default-logging
     networks: [ov-net]
@@ -111,22 +95,19 @@ services:
       timeout: 5s
       retries: 10
       start_period: 20s
-    # 2560m: 进程内上限 1536 MiB + 余量 40%(1024 MiB)。为什么必须留这么大(2026-09-20 实测):
-    #   进程地板(重启后空闲) ≈830~870 MiB, 跑久后因 jemalloc 滞留页爬到 1.16 GiB;
-    #   旧配置上限只有 953 MiB(仅比地板高 ~100 MiB), 一被越过就拒绝一切要内存的查询
-    #   —— 表现为"服务活着但干不了活"(连 count() 都拒, SELECT 1 却正常)。
+    # 2560m: 进程内上限 1536 MiB + 余量 40%。余量必须大: 进程地板 ≈830~870 MiB,
+    #   跑久后 RSS 因 jemalloc 滞留页会自己爬到 1.1~1.2 GiB, 上限余量不足会被
+    #   OvercommitTracker 拒绝一切要内存的查询("活着但干不了活": count() 都拒, SELECT 1 却正常)。
     # 改这里必须同步改 config.d/limits.xml 的 max_server_memory_usage(成对约束), 并复跑
-    # scripts/check-compose-budget.sh —— 它核对不等式、缓存边界是否显式声明、以及文档数字
+    # scripts/check-compose-budget.sh
     mem_limit: 2560m
     logging: *default-logging
     networks: [ov-net]
 
   # ---------- 对象存储 (第 2 阶段湖仓底座, 第 1 阶段先就位) ----------
   minio:
-    # 仓库换成 quay.io(2026-09-20, CI 实测): Docker Hub 的 minio/minio 已**拒绝匿名拉取**
-    # ("pull access denied ... repository does not exist or may require 'docker login'") ——
-    # 本机因为有镜像加速器/本地缓存所以没暴露, 但 GitHub runner 上 `docker compose up` 当场失败。
-    # quay.io/minio/minio 是同一镜像(digest 一致: sha256:14cea493...), 可匿名拉取。
+    # 镜像用 quay.io: Docker Hub 的 minio/minio 已拒绝匿名拉取(同一镜像, digest 一致;
+    # 背景见 deploy/README.md §6 附录)
     image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
     container_name: ov-minio
     restart: unless-stopped
@@ -145,15 +126,14 @@ services:
       timeout: 5s
       retries: 10
       start_period: 15s
-    # 192m: 实测用量 ~90 MiB(2026-09-20) 且第 1 阶段尚未入链路, 从 320m 收到 192m
+    # 192m: 实测用量 ~90 MiB; P1 起承接 Flink 检查点, 若用量明显上涨按实测上调
     mem_limit: 192m
     logging: *default-logging
     networks: [ov-net]
 
-  # ---------- 关系库 (第 1 阶段第 4 步 Java 微服务 ×5 的底座, 2026-09-18 第九轮补齐) ----------
-  # 为什么现在就要: 第 4 步的车辆档案/电池资产/故障码/告警规则/指标查询五个服务全部依赖
-  # MySQL + Redis 缓存; 等到那一步再补, 会把"环境不通"和"服务有 bug"两件事混在一起排查。
+  # ---------- 关系库 (第 4 步 Java 微服务 ×5 的底座) ----------
   # 只建库不建表: 业务 DDL 归各服务(MyBatis Plus), 在这里造表是空转。
+  # 现在就位的理由: 等到第 4 步再补, 会把"环境不通"和"服务有 bug"混在一起排查。
   mysql:
     image: mysql:8.4
     container_name: ov-mysql
@@ -167,8 +147,7 @@ services:
       MYSQL_USER: ov_app
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-ov_app_2026}
       TZ: Asia/Shanghai
-      # 本机是 6 GB 共享 VM, 第 1 阶段 MySQL 只建库不建表、零业务负载:
-      # 把默认 128m 缓冲池与 performance_schema 开销压下来, 给整机留余量(第 4 步起量后再调大)
+      # 第 1 阶段零业务负载: 压小默认缓冲池与 performance_schema 给整机留余量(第 4 步起量后再调大)
       MYSQL_INITDB_SKIP_TZINFO: "1"
     command:
       - --innodb-buffer-pool-size=64M
@@ -182,7 +161,7 @@ services:
       timeout: 5s
       retries: 12
       start_period: 30s
-    # 512m: 第 1 阶段只建库不建表、零业务负载(实测 ~240 MiB, 2026-09-20); 第 4 步 Java 服务起量后按实测上调
+    # 512m: 零业务负载实测 ~240 MiB, 第 4 步起量后按实测上调
     # (innodb 缓冲池已在 command 里显式压到 64M, performance_schema 关闭)
     mem_limit: 512m
     logging: *default-logging
@@ -195,8 +174,7 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:${REDIS_HOST_PORT:-16379}:6379"
-    # maxmemory 必须显式设: Redis 默认无上限, 缓存写满会把整机吃穿 ——
-    # 本机 Rancher VM 只有 6GB 且空载已占 84%(见文件头 ③), 项目已因内存整机崩过一次。
+    # maxmemory 必须显式设: Redis 默认无上限, 缓存写满会把整机吃穿(项目已因此崩过一次)。
     # allkeys-lru: 缓存语义, 淘汰旧键而非拒绝写入。appendonly 关: 限流/缓存数据本就易失。
     # maxmemory 可用 REDIS_MAXMEMORY 覆盖, 但**必须显著小于 mem_limit**:
     # mem_limit 是 cgroup 硬杀线, maxmemory 是 Redis 自己的淘汰线 —— 两者相等时
@@ -212,8 +190,8 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
-    # 256m: 必须同时满足"明显高于 maxmemory(192mb)"与门禁的成对约束(192 = 256×75%, 正好贴线);
-    # 实测用量仅 ~10 MiB(2026-09-20), 故从 320m 收到 256m
+    # 256m: 必须同时满足"明显高于 maxmemory(192mb)"与门禁的成对约束(192 = 256×75%);
+    # 实测用量仅 ~10 MiB
     mem_limit: 256m
     logging: *default-logging
     networks: [ov-net]
@@ -246,7 +224,7 @@ services:
       timeout: 5s
       retries: 12
       start_period: 30s
-    # 384m: 实测用量 ~227 MiB(2026-09-20), 从 512m 收到 384m(仍留 ~70% 余量应对连接/会话峰值)
+    # 384m: 实测用量 ~227 MiB, 留 ~70% 余量应对连接/会话峰值
     mem_limit: 384m
     logging: *default-logging
     networks: [ov-net]
@@ -257,11 +235,9 @@ services:
     image: prom/prometheus:latest
     container_name: ov-prometheus
     restart: unless-stopped
-    # --web.enable-lifecycle(2026-09-20 补): 允许 POST /-/reload 热载配置与**规则文件**。
-    # 为什么必须开: 规则/抓取配置都是 bind mount, 改完**文件立刻是新的**, 但 Prometheus 只在
-    # 启动时读它 —— 实测出现过"文件里 10 条规则、进程里 8 条", 容器 healthy、面板照常出图,
-    # 新告警整条不生效(第 1、2 步评审发现)。开了之后: 改规则 → curl -X POST localhost:9090/-/reload。
-    # 注意: 该端点**无鉴权**, 因此本服务端口已绑 127.0.0.1(见下方 ports), 不要改回全网卡。
+    # --web.enable-lifecycle: 允许 POST /-/reload 热载配置与**规则文件** —— 规则是 bind mount,
+    # Prometheus 只在启动时读它, 不 reload 则新规则不生效。改规则后: curl -X POST localhost:9090/-/reload
+    # 注意: 该端点**无鉴权**, 因此本服务端口必须绑 127.0.0.1(见下方 ports), 不要改回全网卡。
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
@@ -278,7 +254,7 @@ services:
       timeout: 5s
       retries: 12
       start_period: 15s
-    # 256m: 2 个 target × 5s 抓取 + 10 条规则, 实测用量约 65 MiB(2026-09-20), 从 384m 收到 256m
+    # 256m: 实测用量约 65 MiB
     mem_limit: 256m
     logging: *default-logging
     networks: [ov-net]
@@ -309,8 +285,7 @@ services:
       timeout: 5s
       retries: 12
       start_period: 30s
-    # 320m: 2 个 provisioning 面板 + 2 个数据源, 实测用量约 238 MiB(2026-09-20) 且渲染时有尖峰,
-    # 故只从 384m 小幅收到 320m(比其余组件留更多余量)
+    # 320m: 实测约 238 MiB 且渲染有尖峰, 比其余组件留更多余量
     mem_limit: 320m
     logging: *default-logging
     networks: [ov-net]
@@ -333,10 +308,9 @@ services:
     command: jobmanager
     restart: unless-stopped
     ports:
-      # 宿主端口用 18088 而不是 8081: 本机(公司环境)已有 Java 服务占着 IPv6 `*:8081`,
-      # 而 macOS 上 `localhost` 优先解析成 `::1` → 打 localhost:8081 会命中那个 Java 服务
-      # 而不是 Flink(2026-09-20 实测; 与 CI 上"localhost 解析成 ::1"是同一类坑)。
-      # 访问一律用 http://127.0.0.1:18088 —— 本仓 180xx 段的避让口径与网关 18080 一致
+      # 宿主端口用 18088 而不是 8081: 本机 8081 被公司 Java 服务占着(IPv6 *:8081),
+      # 而 macOS 上 localhost 优先解析成 ::1 → 打 localhost:8081 会命中那个服务而不是 Flink。
+      # 访问一律用 http://127.0.0.1:18088(本仓 180xx 避让口径)
       - "127.0.0.1:18088:8081"   # Flink UI / REST(回环绑定)
     environment:
       # 启用镜像**自带**的 s3 插件(opt/ → lib/, 无需下载): 检查点落 MinIO 靠它
