@@ -60,8 +60,8 @@ until docker info >/dev/null 2>&1; do sleep 5; done && echo "engine ready"
 |---|---|---|---|
 | Kafka 3.9.1 (KRaft) | 消息总线 | `localhost:19092`（宿主机）/ 容器网内 `kafka:9092` | 无认证（第 1 阶段本地） |
 | ClickHouse 25.8 | OLAP serving 层 | HTTP `http://localhost:8123` / native `localhost:9000` | `ov_admin` / `ov_pass_2026` |
-| MinIO | 对象存储（第 2 阶段湖仓底座）；镜像取自 **quay.io**（见下方说明） | S3 API `http://localhost:9001` / 控制台 `http://localhost:9002` | `ov_minio` / `ov_minio_2026` |
-| EMQX 5.8 | MQTT Broker（车端长连接接入；dev 明文 + 公网 TLS） | MQTT `localhost:1883`（**本机实测 1883 被 RabbitMQ MQTT 插件占用 → `.env` 已设 `EMQX_MQTT_PORT=11883`，即当前生效端口是 11883**；克隆后无 `.env` 则为 1883，模板见 `.env.example`）/ **TLS `localhost:8883`（一车一密 + ACL，见 Q12）** / Dashboard `http://localhost:18083` | `admin` / `public`（**登录后立即改密**，或启动前设 `EMQX_DASHBOARD_PASSWORD` 环境变量） |
+| MinIO | 对象存储（第 2 阶段湖仓底座）；镜像取自 **quay.io**（背景见 §7） | S3 API `http://localhost:9001` / 控制台 `http://localhost:9002` | `ov_minio` / `ov_minio_2026` |
+| EMQX 5.8 | MQTT Broker（车端长连接接入；dev 明文 + 公网 TLS） | MQTT **`localhost:11883`**（1883 被本机 RabbitMQ 占用，`.env` 覆盖；克隆后无 `.env` 则为 1883 —— 故事见 Q10，模板见 `.env.example`）/ **TLS `localhost:8883`（一车一密 + ACL，见 Q12）** / Dashboard `http://localhost:18083` | `admin` / `public`（**登录后立即改密**，或启动前设 `EMQX_DASHBOARD_PASSWORD`） |
 | Grafana OSS | 看板 | `http://localhost:3000` | `admin` / `admin` |
 | Prometheus | 指标采集（网关 `/metrics`，5s 抓取） | `http://localhost:9090` | 无认证（第 1 阶段本地） |
 | MySQL 8.4 | 关系库（第 1 阶段第 4 步 Java 微服务 ×5 的底座） | `localhost:13306`（避让本机/公司 3306） | `root` / `ov_root_2026`；应用账号 `ov_app` / `ov_app_2026`，库 `oceanverse` |
@@ -74,30 +74,23 @@ EMQX 启动后**自动加载声明式规则**（`deploy/emqx/emqx.conf`）：①
 > **内存预算（被 `scripts/check-compose-budget.sh` 门禁覆盖，数字不许手改漂移）**：
 > Kafka 640m + ClickHouse 2560m + MinIO 192m + MySQL 512m + Redis 256m
 > + EMQX 384m + Prometheus 256m + Grafana 320m + flink-jobmanager 512m + flink-taskmanager 1024m
-> = **6656 MiB**，占本机 VM 容量（7934 MiB）的 **84%**
-> （门禁要求合计 ≤ VM 容量的 85% = 6743 MiB：**预留已用满**，再加容器或调大额度必须重算、写明理由、
-> 并同步 `scripts/check-compose-budget.sh` 的预算默认值）。
+> = **6656 MiB**，占本机 VM 容量（7934 MiB）的 **84%**（门禁要求合计 ≤ 85%：**预留已用满**；
+> 再加容器或调大额度必须重算、写明理由、并同步门禁的预算默认值）。
 >
-> 三条配套纪律（都踩过坑）：
-> ① **进程内上限必须低于 cgroup 硬杀线、又必须显著高于进程地板**：ClickHouse 的 1536 MiB 上限写在
->    `clickhouse/config.d/limits.xml` 的 `<max_server_memory_usage>`，且**必须被 compose 挂进容器才生效**——
->    环境变量设不了（官方镜像只映射它认识的那批变量，实测设了也没生效）。
->    进程地板（重启后空闲）≈830~870 MiB，跑久后 RSS 会自己爬到 1.1~1.2 GiB（jemalloc 滞留页/碎片，
->    不是查询也不是缓存）；上限若只比地板高约 100 MiB，越限后 OvercommitTracker 就拒绝一切要内存的查询
->    ——表现为"服务活着但干不了活"，判据与止血见 Q17。
->    同一文件还必须**显式声明缓存上限**：镜像默认 mark / index_mark 各 5 GiB、uncompressed 8 GiB、mmap ≈1 GiB，
->    在小上限下会与查询抢额度。Redis `--maxmemory 192mb` < `mem_limit 256m`（正好 75%）。
->    同理 Flink 两容器的 `*.memory.process.size`（448m / 896m）必须小于各自 `mem_limit`（512m / 1024m）——
->    JVM 的 metaspace/overhead 是进程内固定开销，process.size 顶到 mem_limit 就会被 cgroup 杀。
-> ② **改 limits 后必须复跑门禁**：`bash scripts/check-compose-budget.sh`（CI 也跑）。它核对五类事实：每服务都有上限 /
->    合计 ≤ 预算（默认 6656 MiB，含 Flink 的 1536 MiB）/ 合计 ≤ VM 容量的 85% / ClickHouse 与 Redis 的成对约束 +
->    缓存边界（**直接读 `limits.xml` 与挂载行**）/ **本段文字的数字与 compose 是否自洽**。
-> ③ `bash scripts/test-compose-budget.sh` 用负向对照证明判据真有鉴别力（改数字必须变红）。
+> 三条配套纪律：
+> ① **进程内上限 < cgroup 硬杀线，且显著高于进程地板**：ClickHouse 上限（1536 MiB）写在
+>    `clickhouse/config.d/limits.xml` 且**必须挂进容器**（环境变量无效，实测）；缓存上限必须显式声明
+>    （镜像默认 mark/index_mark 各 5 GiB、uncompressed 8 GiB，在小上限下会与查询抢额度）。
+>    Redis / Flink 同理：`--maxmemory 192mb` < `mem_limit 256m`；`process.size` 448m/896m <
+>    `mem_limit` 512m/1024m。为什么必须这样（地板 ≈850 MiB、RSS 滞留爬升、越限后 OvercommitTracker
+>    拒查询 = "活着但干不了活"）见 Q17。
+> ② **改 limits 后必须复跑门禁**：`bash scripts/check-compose-budget.sh`（CI 也跑）；
+>    判据明细见脚本头注与 `scripts/README.md`。
+> ③ `bash scripts/test-compose-budget.sh` 是门禁自身的负向对照（改数字必须变红）。
 
-> 端口避让说明：MinIO 的 S3 API 映射到宿主 `9001`、控制台映射到 `9002`，因为 ClickHouse native 协议已占用 `9000`。
-
-> MinIO 镜像取自 **quay.io**：Docker Hub 的 `minio/minio` 已拒绝匿名拉取，`quay.io/minio/minio` 与其 digest 一致、
-> 可匿名拉取。拉不动时换可信镜像源单独拉再 `docker tag` 回去（做法见 Q3）。背景见 §7 修订记录 2026-09-20 行。
+> 两个说明：① 端口避让 —— MinIO 的 S3 API 映射到宿主 `9001`、控制台 `9002`，因为 ClickHouse native
+> 已占 `9000`；② MinIO 镜像取自 **quay.io** —— Docker Hub 的 `minio/minio` 已拒绝匿名拉取，
+> 两者 digest 一致（背景见 §7；拉不动时的换源打法见 Q3）。
 
 ---
 
