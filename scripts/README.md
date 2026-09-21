@@ -52,6 +52,7 @@ PROBE=0 scripts/check-pipeline-health.sh    # 空闲时不灌探针帧(不改动
 | ⑧ 告警规则数 / 面板图数 / DLQ stage 枚举 | 文件里加了规则或图、文档还写旧数字；DLQ stage 新增靠人肉同步（已漏过两次） |
 | ⑨ 实时层口径三处一致 | 结果表名 / 结果 topic 在 README、`sql/00-common.sql`、`clickhouse/init.sql` 三处不同步 |
 | ⑩ Flink 提交端/集群端配置一致 + `FLINK_PROPERTIES` 格式 | **作业级配置只在提交端生效**（compose 里配了也不会进 JobGraph，P1 落地时真的踩到）；提交端与集群端同名键漂移；TM 缺 `s3.*`（检查点由 TM 上传）；`FLINK_PROPERTIES` 块内出现注释行（会被入口解析成配置键）。5 个负向对照均已验：注释行 / 值漂移 / 提交端缺键 / TM 缺 s3 / JM 缺 s3 → 逐个变红 |
+| ⑪ Markdown 围栏健康 | ` ``` ` 计数必须偶数（奇偶错位 → 渲染时后半篇代码/正文反转；2026-09-20 deploy/README §5 的 ⑨ 块就这么崩过——不报错、不挂 CI，只在渲染层崩）；开围栏必须带语言标签（目录树/输出一律 `text`，已补齐全仓 39 处）。负向对照：剥标签 / 删闭围栏 → 逐个变红 |
 
 ```bash
 scripts/check-docs.sh        # 失败即非零退出（CI 门禁）

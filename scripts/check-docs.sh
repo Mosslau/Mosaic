@@ -432,6 +432,29 @@ else:
        f"{len(compose_env.get('flink-taskmanager', []))} TM 键 / {len(cli)} 提交端键）")
     ok(f"两处同名键一致（{len(set(jm) & set(cli))} 条）+ TM 可写 s3 + 作业级键齐全")
 
+# ---------- ⑪ Markdown 围栏健康（2026-09-20 补） ----------
+# 起因: deploy/README.md §5 的 ⑨ Flink 块**丢了开围栏**, 结尾的 ``` 于是变成"开",
+#   围栏奇偶从此错位 —— 渲染时 `# ⑨ Flink` 被当成 H1 大标题、后半篇的代码块与正文全部反转
+#   (用户看 GitHub 渲染页发现的)。这类错位**不报错、不挂 CI**, 只在渲染层崩 —— 正是需要门禁的一类。
+# 判据两条(都可机械化): ① 每文件 ``` 计数必须为偶数(奇偶守恒); ② 每个开围栏必须带语言标签
+#   (目录树/输出示例一律用 ```text —— 2026-09-20 已把全仓 39 处无标签围栏补齐)。
+print("⑪ Markdown 围栏健康（奇偶 + 语言标签）")
+fence_problems = []
+for p in MD:
+    flines = p.read_text(encoding='utf-8').split('\n')
+    fences = [i + 1 for i, l in enumerate(flines) if re.match(r'^\s*```', l)]
+    if len(fences) % 2:
+        fence_problems.append(f"{p}: ``` 共 {len(fences)} 个(奇数) —— 有围栏没闭合, 渲染时后半篇会反转")
+        continue
+    missing = [fences[i] for i in range(0, len(fences), 2) if flines[fences[i] - 1].strip() == '```']
+    if missing:
+        fence_problems.append(f"{p}: 开围栏缺语言标签(行 {', '.join(map(str, missing))}) —— 目录树/输出请用 ```text")
+if fence_problems:
+    for m in fence_problems:
+        bad(m)
+else:
+    ok(f"{len(MD)} 个 .md 围栏全部偶数且带语言标签")
+
 print()
 if fail:
     print(f"==== 文档校验: {fail} 项未通过 ====")

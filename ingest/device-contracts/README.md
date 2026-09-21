@@ -9,7 +9,7 @@
 
 ## 1. 包结构
 
-```
+```text
 ingest/device-contracts/
 ├── go.mod                  # module github.com/Mosslau/OceanVerse/ingest/device-contracts（零外部依赖）
 └── vehicle/

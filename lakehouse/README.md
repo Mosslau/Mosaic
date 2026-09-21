@@ -28,7 +28,7 @@
 
 ## 2. 目录
 
-```
+```text
 lakehouse/                            ← 本层
 ├── README.md                         #   本文件：湖仓定位 / 与 deploy 的边界 / 索引
 └── warehouse/                        #   数仓：建模与加工（手册见 warehouse/README.md：分层规约与命名）

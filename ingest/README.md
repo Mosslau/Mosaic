@@ -123,7 +123,7 @@ flowchart LR
 
 ## 目录
 
-```
+```text
 ingest/
 ├── README.md                    ← 本文件(总: 层速览 + 三条阅读路径 + 索引)
 ├── docs/                        ← 层文档 3 篇(只放跨服务内容)

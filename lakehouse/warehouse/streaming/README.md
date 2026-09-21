@@ -60,7 +60,7 @@ flowchart LR
 
 ## 3. 目录
 
-```
+```text
 lakehouse/                             ← 湖仓层（手册：lakehouse/README.md）
 ├── README.md                          #   湖仓定位 / 与 deploy 的边界 / 目录索引
 └── warehouse/                         #   数仓：建模与加工（手册：warehouse/README.md，分层规约 ODS→DWD→DWS→ADS）
@@ -152,7 +152,7 @@ go run ./cmd/bin-simulator  -broker tcp://localhost:11883 -devices 20 -interval 
 
 **② QoS1 去重（可判定的对照实验）** —— 这是作业②唯一的正确性前提：
 
-```
+```text
 输入（raw topic 实测 4 条）:  A=(OV…99, T,   ZTEST) ×2  ← 模拟 QoS1 重复投递
                               B=(OV…99, T+1, ZTEST)
                               C=(OV…98, T,   ZTEST)
@@ -215,7 +215,7 @@ done
 
 某次实测快照（列含义：已提交位移 / 末尾位移 / lag；位移数值本身随时间变化，**要看的是"三组都存在且几乎相同"**）：
 
-```
+```text
 flink-realtime-online-1m   vehicle-report-raw  0  10011/10011 (lag 0) ...  2  10362/10365 (lag 3)
 flink-realtime-fault-1m    vehicle-report-raw  0  10011/10011        ...  2  10363/10365 (lag 2)
 flink-realtime-hightemp-1m vehicle-report-raw  0  10011/10011        ...  2  10362/10365 (lag 3)
@@ -227,7 +227,7 @@ flink-realtime-hightemp-1m vehicle-report-raw  0  10011/10011        ...  2  103
 **⑧ 重启不丢窗口（P1 的核心命题，`scripts/check-realtime-restart.sh` 9 项全过，约 2.5 分钟）**：
 （下面是一次本机实测的输出摘要；位移数值每轮不同，判据是"停机期间那条数据最终进了表且去重后一行"）
 
-```
+```text
 阶段 A（作业在跑）: 注入 OVRST00001/RSTA1 → 落表 ✅；检查点 5 → 6 完成（位移随之提交）✅
 取消三个作业          ✅（停机开始）
 阶段 B（停机期间）: 注入 OVRST00002/RSTB1

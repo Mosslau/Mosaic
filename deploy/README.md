@@ -209,6 +209,7 @@ docker exec ov-redis redis-cli config get maxmemory-policy                 # 期
 > `deploy/prometheus/prometheus.yml` 抓取目标与 `deploy/emqx/emqx.conf` webhook url 已对齐 18080（《接入层设计》§5.3 对齐线）。
 > 若在 8080 空闲的机器上开发，两处改回 8080 即可。
 
+```bash
 # ⑨ Flink（第 3 步；需已用 --profile realtime 启动）
 curl -s http://127.0.0.1:18088/overview
 # 期望含 "taskmanagers":1 与 "slots-available":3
@@ -556,3 +557,4 @@ docker exec ov-prometheus promtool test rules /etc/prometheus/rules/tests/flink-
 | 2026-09-20 | P1 配置：检查点落 MinIO（镜像自带 s3 插件）、位点 `group-offsets`、sink exactly-once、作业级配置改到提交端（`CLIENT_FLINK_PROPERTIES`）、TM 补 `s3.*`、`FLINK_PROPERTIES` 只许 `key: value` | 检查点/位点/幂等落地过程中连踩四个静默配置坑（Q20–Q24） |
 | 2026-09-20 | 折叠原 Q4（grafana 镜像固定 `latest`、不钉小版本号）与原 Q19（Flink 必须显式 `command: jobmanager/taskmanager`） | 修复已入库且回归有判据：镜像 tag 不存在会让 CI 镜像拉取直接红；compose 作业断言 `taskmanagers=1 & slots=3`。**Q 编号不回收**，历史文档中的 Q4/Q19 引用指向本行 |
 | 2026-09-20 | 本文档结构整理：正文=当前事实，历史叙事收进本附录 | 补丁式留痕多轮后阅读成本过高 |
+| 2026-09-20 | 修 §5 ⑨ Flink 块**丢失开围栏**的渲染错位（`# ⑨` 被渲染成 H1、后半篇代码/正文反转）；全仓 39 处无标签围栏补 ` ```text `；`check-docs.sh` 新增 ⑪ 围栏健康门禁 | 这类错位不报错、不挂 CI、只在渲染层崩——属"必须机械化"的一类（由渲染页人工发现） |

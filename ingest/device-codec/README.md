@@ -206,7 +206,7 @@ flowchart LR
 
 ## 8. 目录
 
-```
+```text
 ingest/device-codec/
 ├── cmd/server/             # 主程序: 消费→解码→投递+DLQ→提交位移
 ├── internal/gbt32960/      # v1 解码器(帧解析 + 全部信息体; 黄金样本对拍测试)

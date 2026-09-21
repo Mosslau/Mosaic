@@ -154,7 +154,7 @@ go run ./cmd/security-check -vin OV20260001 -other-vin OV00000099
 
 ## 7. 目录
 
-```
+```text
 ingest/device-simulator/
 ├── cmd/http-simulator/     # HTTP 通道
 ├── cmd/mqtt-simulator/     # MQTT JSON 通道
