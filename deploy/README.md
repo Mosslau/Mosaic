@@ -219,8 +219,9 @@ docker exec ov-flink-tm sh -c 'grep -A5 "^s3:" /opt/flink/conf/config.yaml'   # 
 
 ## 6. 常见问题（runbook）
 
-> 收录规则：只放"**还可能再发生、需要现场处置**"的条目，每条按"现象 → 根因 → 判据 → 处置"写；
-> 已彻底收口且回归有判据把守的条目折叠进 **§7 附录**（Q 编号不回收，历史文档里的引用不受影响）。
+> 收录规则：只放"**还可能再发生、需要现场处置**"的条目，每条按"现象 → 根因一句话 → 判据 → 处置"写，
+> **不复述解释**（"为什么变成现在这样"只在 §7 附录写一遍）；
+> 已彻底收口且回归有判据把守的条目折叠进 §7（Q 编号不回收，历史文档里的引用不受影响）。
 > 主题索引：
 
 | 主题 | 条目 |
@@ -237,10 +238,10 @@ docker exec ov-flink-tm sh -c 'grep -A5 "^s3:" /opt/flink/conf/config.yaml'   # 
 Rancher Desktop 没启动。`rdctl start`，等 1~4 分钟再试。
 
 **Q2：拉镜像超时 `dial tcp ...:443: i/o timeout`**
-镜像加速器未生效。检查第 2 节的 `override.yaml` 是否存在，然后 `rdctl shutdown && rdctl start` 重启，再 `rdctl shell cat /etc/docker/daemon.json` 确认 mirrors 在里面。
+镜像加速器未生效。确认 §2 的 `override.yaml` 存在后 `rdctl shutdown && rdctl start`，再 `rdctl shell cat /etc/docker/daemon.json` 确认 mirrors 在里面。
 
 **Q3：拉镜像报 `403 Forbidden`（某镜像站抽风）**
-直接重试 `docker compose pull`；仍不行则换镜像站单独拉再重打标签，例如：
+直接重试 `docker compose pull`；仍不行则换镜像站单独拉再重打标签：
 
 ```bash
 docker pull docker.1ms.run/grafana/grafana-oss:latest
@@ -256,16 +257,16 @@ for i in 1 2 3 4 5; do docker compose pull && break || sleep 5; done
 ```
 
 **Q6：Grafana 数据源没有自动出现**
-Grafana 首次启动需下载 ClickHouse 插件（`GF_INSTALL_PLUGINS`），网络慢时会等较久；看 `docker compose logs -f grafana`。插件装好后数据源才会生效，必要时 `docker compose restart grafana`。
+首次启动需下载 ClickHouse 插件（`GF_INSTALL_PLUGINS`），网络慢时会等较久：看 `docker compose logs -f grafana`，必要时 `docker compose restart grafana`。
 
 **Q7：EMQX Dashboard 里看不到 `ov_vehicle_ingress` 规则**
-规则由 `deploy/emqx/emqx.conf` 声明式定义。先确认挂载生效：`docker exec ov-emqx cat /opt/emqx/etc/emqx.conf | grep ov_vehicle_ingress`。若文件对但规则没生效，看 `docker compose logs emqx` 是否有配置解析错误（HOCON 字段名对版本敏感）；兜底方案：Dashboard → 集成 → 规则 → 手动新建（SQL 和 webhook 参数直接抄 `emqx.conf` 里对应段），5 分钟可完成。
+规则由 `deploy/emqx/emqx.conf` 声明式定义。判据：`docker exec ov-emqx cat /opt/emqx/etc/emqx.conf | grep ov_vehicle_ingress`（没挂上）；`docker compose logs emqx` 看配置解析错误（HOCON 字段名对版本敏感）。兜底：Dashboard → 集成 → 规则 → 手动新建（SQL 和 webhook 参数抄 `emqx.conf` 对应段）。
 
 **Q8：EMQX webhook 转发失败（规则监控里失败计数上涨）**
-最常见是 EMQX 容器访问不到宿主机网关。依次试：① 确认网关已在本机 18080 启动；② 进入容器测试 `docker exec ov-emqx wget -qO- http://host.docker.internal:18080/health`；不通则把 `emqx.conf` 里 webhook url 的 `host.docker.internal` 换成 `host.lima.internal` 或宿主机局域网 IP，然后 `docker compose restart emqx`。
+最常见是 EMQX 容器访问不到宿主机网关（前置：网关已在 18080 启动）。判据：`docker exec ov-emqx wget -qO- http://host.docker.internal:18080/health`。不通则把 `emqx.conf` 里 webhook url 的 `host.docker.internal` 换成 `host.lima.internal` 或宿主机局域网 IP，`docker compose restart emqx`。
 
 **Q9：宿主机跑 MQTT 模拟器，并发连接永远卡 ≈185、`connection reset by peer`**
-Rancher Desktop 端口转发层（宿主→VM→容器）并发上限 ≈185 连接/端口（2026-09-16 实测：裸 socket 复现，网内直连 300/300 正常），EMQX 与网关无辜。**MQTT 压测改在容器网内跑**：
+Rancher 端口转发层（宿主→VM→容器）并发上限 ≈185 连接/端口（裸 socket 实测复现，网内直连正常）。**MQTT 压测改在容器网内跑**：
 
 ```bash
 # 交叉编译 linux 二进制(静态, 任何镜像可承载)
@@ -277,15 +278,14 @@ docker run --rm --network oceanverse_ov-net -v $PWD/.tmp-msim:/msim:ro \
 rm .tmp-msim
 ```
 
-另注意：**旧配置**（6GB/2CPU 的 Rancher VM）跑 1 万 MQTT 长连接会**整机崩溃**（2026-09-16 实测），故当时把本机 MQTT 档位上限定为 5 千。2026-09-20 已把 VM 提到 8 GB，但**万车档还没在新配置下复测**（《roadmap/项目进度.md》待收口项 #3）；更大档位去专用压测节点。
+万车档：VM 已提到 8 GB 但该档未复测（《roadmap/项目进度.md》待收口项 #3）；更大档位去专用压测节点。
 
 **Q10：模拟器显示"连接成功/发布成功"，但 EMQX 里一个客户端/一条消息都没有**
-宿主 1883 被别的 MQTT broker 抢了——模拟器连的是它，不是容器 EMQX（2026-09-17 实测：本机 RabbitMQ 装了 MQTT 插件，默认监听 1883；Rancher 端口映射后抢不过）。判据：`lsof -nP -iTCP:1883 -sTCP:LISTEN` 看到的不是容器转发进程；`docker exec ov-emqx emqx ctl clients list` 报 No clients。**处置（不动对方进程）**：compose 已参数化 `EMQX_MQTT_PORT`——写 `deploy/.env`（`EMQX_MQTT_PORT=11883`，已 gitignore）后 `docker compose up -d emqx` 永久生效，模拟器 `-broker tcp://localhost:11883`。同理，凡"连接正常但数据没到"先怀疑连错了 broker。
+连错了 broker：宿主 1883 被 RabbitMQ MQTT 插件占用，模拟器连的是它而不是容器 EMQX。判据：`lsof -nP -iTCP:1883 -sTCP:LISTEN` 看到的不是容器转发进程；`docker exec ov-emqx emqx ctl clients list` 报 No clients。处置：`deploy/.env` 写 `EMQX_MQTT_PORT=11883` 后 `docker compose up -d emqx`；模拟器 `-broker tcp://localhost:11883`。
 
 **Q11：codec/网关重启后消费组不消费（lag 不涨不落、新实例 consumed 恒 0）**
-`pkill -f "go run ./cmd/server"` 只杀了 go run 包装进程，**编译产物子进程（exe/server）变孤儿还活着**，仍占着消费组成员位 → 新实例分不到分区。判据：`kafka-consumer-groups.sh --describe --group device-codec-v1 --members` 出现多个 member 且持分区者不是当前实例；`lsof -nP -iTCP:19092 -sTCP:ESTABLISHED` 数进程。**处置**：`pkill -f "exe/server"` 杀干净，等僵尸成员会话超时（~1 分钟，`--state` 变 Empty），再启动单个实例。
-**附带坑**：codec 的可观测端点 `:18090` 也会被旧实例占住 —— 新实例日志会出现 `bind: address already in use`（主流程照跑，但 Prometheus 抓不到、面板空）；
-重启前务必确认 `lsof -nP -iTCP:18090 -sTCP:LISTEN` 为空。生产 K8s 无此问题（容器即进程）；本地联调优先用 `go build` 出二进制再跑，杀起来干净。
+`pkill -f "go run ./cmd/server"` 只杀了 go run 包装进程，**编译产物子进程（exe/server）变孤儿仍占消费组成员位** → 新实例分不到分区。判据：`kafka-consumer-groups.sh --describe --group device-codec-v1 --members` 有多个 member 且持分区者不是当前实例。处置：`pkill -f "exe/server"` 杀干净，等僵尸成员会话超时（~1 分钟）再起单实例。
+附带坑：codec 的 `:18090` 也会被旧实例占住（日志 `bind: address already in use`，主流程照跑但 Prometheus 抓不到）——重启前确认 `lsof -nP -iTCP:18090 -sTCP:LISTEN` 为空。本地联调优先 `go build` 出二进制再跑（杀起来干净；生产 K8s 无此问题）。
 
 **Q12：公网路径安全三件套（TLS / 一车一密 / ACL）怎么在本地跑起来**
 三步（《接入层设计》§8.3）：
@@ -300,52 +300,38 @@ bash emqx/seed-users.sh 0 100
 cd ../ingest/device-simulator && go run ./cmd/security-check -vin OV20260001
 ```
 
-预期输出"八项全过"。**退出码**: 0=八项全过 / 1=安全项不达标 / 3=前置(凭证)不可用 —— 看到 3 说明该 VIN 的凭证没灌进去或 EMQX 未就绪, 不是安全配置问题(判据本身不采信这种输入)。生产形态连 8883：`go run ./cmd/bin-simulator -tls -broker localhost:8883 -cacert ../../deploy/emqx/certs/ca.crt`（clientid/username=VIN，无需改代码）。
-**注意**：8883 对外开放前必须完成自检；本地自签证书与 `pw-` 密码规则**不得**用于生产。
+退出码：0=八项全过 / 1=安全项不达标 / 3=前置（凭证）不可用。生产形态连 8883：`go run ./cmd/bin-simulator -tls -broker localhost:8883 -cacert ../../deploy/emqx/certs/ca.crt`（clientid/username=VIN）。
+两个前提：VIN 必须在已灌范围内（默认灌 `OV00000000..99`；大号 VIN 用 `bash emqx/seed-users.sh --vin OV20260001` 单独灌）；凭证存 mnesia、容器重建不必重灌（compose 已固定 `EMQX_NODE__NAME=emqx@127.0.0.1`，否则换容器 IP 即换空库）。
+注意：8883 对外开放前必须完成自检；本地自签证书与 `pw-` 密码规则**不得**用于生产。
 
-**两个前提（2026-09-18 审计补充）**：
-
-- **VIN 必须在已灌范围内**：`seed-users.sh` 默认灌 `OV00000000..OV00000099`；若自检用的 VIN 不在其中（如默认的 `OV20260001`），①④ 会以 `not Authorized` 失败。大号 VIN 用 `bash emqx/seed-users.sh --vin OV20260001` 单独灌。
-- **容器重建后不必重新灌**：凭证存放在 mnesia 的 `data/mnesia/<节点名>/` 下。compose 已固定 `EMQX_NODE__NAME=emqx@127.0.0.1`（否则镜像 entrypoint 会按容器 IP 拼节点名，换 IP 即换空库 → 凭证静默失效，2026-09-18 实测 2/6 失败的根因）。重建后 `docker exec ov-emqx emqx eval 'node().'` 应仍为 `emqx@127.0.0.1`。
-
-**Q13：容器里的服务(网关/codec)写 Kafka 失败，但宿主机跑就正常**
-Kafka 用了双监听器：`PLAINTEXT://kafka:9092`（容器网内）与 `EXTERNAL://localhost:19092`（宿主机）。
-`EXTERNAL` 对外广播的地址是 `localhost:19092`——**在容器里 `localhost` 指向容器自身**，于是连不上（症状：网关 202 受理、
-但 `gateway_kafka_write_total{result="error"}` 上涨、topic offset 不增）。处置：容器一律
+**Q13：容器里的服务（网关/codec）写 Kafka 失败，但宿主机跑就正常**
+Kafka 双监听器：`PLAINTEXT://kafka:9092`（容器网内）/ `EXTERNAL://localhost:19092`（宿主机）——容器里 `localhost` 指向容器自身。容器一律：
 
 ```bash
 docker run --network oceanverse_ov-net -e KAFKA_BROKERS=kafka:9092 ...
 ```
 
-对照表：宿主机进程 → `localhost:19092`；容器内进程 → `kafka:9092`（且必须挂 `oceanverse_ov-net`）。
+对照：宿主机进程 → `localhost:19092`；容器内进程 → `kafka:9092`（且必须挂 `oceanverse_ov-net`）。
 
 **Q14：为什么宿主端口从 `0.0.0.0` 改成了 `127.0.0.1`？**
-
-第 1 阶段底座含弱口令（EMQX Dashboard `admin/public`、Grafana `admin/admin`）与无认证组件（Kafka、Prometheus）。
-绑 `0.0.0.0` 时，笔记本接入公司网/公共网就等于把它们连同 ClickHouse 数据一起暴露给同网段，因此 compose 已统一改为
-`127.0.0.1:PORT:PORT`。**容器间通信不受影响**（走 `ov-net`，用服务名 `kafka:9092`），README 里所有 `localhost:xxxx`
-命令继续有效。若确需从局域网访问（如手机连 MQTT），临时加一条端口映射即可，别改回全网卡。
+底座含弱口令（EMQX/Grafana）与无认证组件（Kafka/Prometheus），绑 `0.0.0.0` 会把它们连同数据暴露给同网段。容器间通信不受影响（走 `ov-net` 服务名），README 里所有 `localhost:xxxx` 命令继续有效。确需局域网访问时临时加一条端口映射即可，别改回全网卡。
 
 **Q15：容器为什么不自己恢复？**
-
-2026-09-18 前 compose 里**没有任何 `restart:` 策略**，引擎/宿主重启后六容器（当时）保持 `Exited(137)`，链路静默下线且无告警。
-现已统一 `restart: unless-stopped` + `mem_limit` + 日志轮转（`10m×3`）。验证方式：
+已统一 `restart: unless-stopped` + `mem_limit` + 日志轮转（10m×3），引擎/宿主重启后无需人工干预。验证：
 
 ```bash
 rdctl shutdown && rdctl start --container-engine.name moby   # 模拟宿主重启
-docker compose ps      # 无需任何 up 命令, 期望 6/6 healthy(实测通过)
+docker compose ps      # 无需任何 up 命令, 期望全部 healthy
 ```
 
-> 注：`docker kill ov-kafka` 属于**显式停止**，`unless-stopped` 语义下不会自动拉起（这是预期行为）；验证自愈要用引擎重启。
+注：`docker kill ov-kafka` 属**显式停止**，`unless-stopped` 不会拉起（预期行为）；验证自愈要用引擎重启。
 
 **Q16：链路静默停摆怎么第一时间知道？（告警与 runbook）**
-
-2026-09-18 前 Prometheus **零条告警规则** —— 那次 Rancher VM 掉线让整条链路停摆，监控上唯一的表现是 Grafana 没数据，**没有人会收到通知**（是评审时人工发现的）。
-现已补 **15 条**规则（`deploy/prometheus/rules/oceanverse-alerts.yml`）：
+15 条规则（`deploy/prometheus/rules/oceanverse-alerts.yml`）：
 
 | 告警 | 触发条件 | 含义 |
 |---|---|---|
-| `TargetDown` | `up == 0` 持续 1m | 网关/codec/八容器任一掉线（VM 掉线时全部一起 down） |
+| `TargetDown` | `up == 0` 持续 1m | 网关/codec/十容器任一掉线（VM 掉线时全部一起 down） |
 | `GatewayKafkaWriteErrors` | 网关写 Kafka 失败 >0 | 消息未落盘，已返 5xx 让上游重试 |
 | `CodecFlushFailures` | codec 写出/提交失败 >0 | **丢数据之前的第一道信号**（此时数据仍在缓冲） |
 | `CodecBufferBacklog` | `pending_messages > 1000` 持续 5m | 下游长时间不可写 |
@@ -355,18 +341,15 @@ docker compose ps      # 无需任何 up 命令, 期望 6/6 healthy(实测通过
 | `GatewayVINMismatch` | 载荷 VIN ≠ topic VIN | **安全信号**，可能是伪造尝试（HTTP/MQTT 通道） |
 | `CodecVINMismatch` | `codec_dlq_total{stage="vin_mismatch"}` 增长 | **安全信号**：二进制帧内 VIN ≠ 信封 VIN（网关不解帧，只能在此拦） |
 | `IngestLatencyHigh` | 上行延迟 p99 > 1s 持续 5m | 平台段（webhook→落盘）劣化；EMQX 重投也会如实抬高 |
-| `FlinkJobsMissing` | `flink_jobmanager_numRunningJobs < 3` 持续 2m | **实时作业少了**：某个指标停止更新（此前是监控盲区，2026-09-20 补） |
+| `FlinkJobsMissing` | `flink_jobmanager_numRunningJobs < 3` 持续 2m | **实时作业少了**：某个指标停止更新 |
 | `FlinkTaskManagerMissing` | 已注册 TM < 1 持续 1m | TM 掉线 → 作业卡在等资源，而 JM 自身仍"健康" |
-| `FlinkJobRestarts` | 15 分钟内 `job_numRestarts` 增长 | 作业重启过（**已开 checkpoint**: 重启会从检查点续跑，但仍要留意） |
+| `FlinkJobRestarts` | 15 分钟内 `job_numRestarts` 增长 | 作业重启过（已开 checkpoint：重启会从检查点续跑，但仍要留意） |
 | `FlinkCheckpointFailures` | 15 分钟内失败检查点 >0 | 恢复能力在退化——作业仍 RUNNING 但重启会退回更早状态 |
 | `FlinkCheckpointStalled` | 15 分钟内完成检查点 =0 | 检查点卡住/被跳过（MinIO 不可达、反压） |
 
-> Flink 指标来自自建镜像里的 `flink-metrics-prometheus`（JM/TM 各在自己的容器里暴露 **:9249**，
-> **不发布到宿主**；Prometheus 走容器网直连，故新增两个 job：`flink-jobmanager` / `flink-taskmanager`）。
-> 抓取失败由通用 `TargetDown` 覆盖；「没有数据」**不设告警** —— 开发机上没有车在上报同样没有数据，
-> 这类"无基线"的判据会天天误报（与 DLQ 告警同一条教训）。
-
-**判据（一条命令，本机可执行）**：
+> Flink 指标来自自建镜像里的 `flink-metrics-prometheus`：JM/TM 各自暴露 `:9249`（不发布到宿主），
+> Prometheus 走容器网直连；抓取失败由通用 `TargetDown` 覆盖。「没有数据」**不设告警**——
+> 开发机上没有车在上报同样没有数据，这类"无基线"判据会天天误报。
 
 ```bash
 curl -s localhost:9090/api/v1/alerts | python3 -c "import json,sys;print('firing:',len(json.load(sys.stdin)['data']['alerts']))"
@@ -375,20 +358,11 @@ curl -s localhost:9090/api/v1/alerts | python3 -c "import json,sys;print('firing
 
 **runbook 一行**：`firing > 0` → 先看面板确认范围 → 查 `docker compose ps`（容器）与 `lsof -nP -iTCP:18080 -sTCP:LISTEN`（宿主进程）→ 两者都正常则怀疑 Rancher 端口转发层（Q8）→ 恢复后复跑 `bash scripts/check-pipeline-health.sh` 确认无僵尸消费组。
 
-> **能力边界（如实说明）**：本机**没有 Alertmanager**，告警只出现在 Prometheus UI/API（<http://localhost:9090/alerts>），**不会**变成手机/邮件通知 —— 需要主动看，或让面板/巡检脚本看。接 Alertmanager 是第 2 阶段（设计文档 §12 清零清单⑥），这批规则可直接复用。
+> **能力边界**：本机**没有 Alertmanager**，告警只出现在 Prometheus UI/API（<http://localhost:9090/alerts>），
+> **不会**变成手机/邮件通知——需要主动看，或让面板/巡检脚本看。接 Alertmanager 是第 2 阶段。
 
 **Q17：ClickHouse 查询报 `MEMORY_LIMIT_EXCEEDED`，但 `SELECT 1` 正常（服务活着，却干不了活）**
-
-2026-09-20 实测现场：`SELECT count() FROM system.tables WHERE database='oceanverse'` 被拒，
-报 `would use 433.69 MiB ..., current RSS: 1.00 GiB, maximum: 953.67 MiB ... OvercommitTracker`，
-而 `SELECT 1` 照常返回 —— 极易被误判成"ClickHouse 坏了"，其实是**进程内上限余量不够**：
-
-- 进程**地板**（重启后空闲）`MemoryResident` ≈ **830~870 MiB**；
-- 跑一段时间后 RSS 会**自己爬到 1.1~1.2 GiB**（`MemoryTracking` 只有 200 多 MiB、缓存几乎为 0 → 涨的是
-  jemalloc 滞留页/碎片，不是查询、也不是缓存）；
-- 一旦 RSS 越过 `limits.xml` 的 `max_server_memory_usage`，OvercommitTracker 就**拒绝一切还要内存的查询**。
-
-**判据**（两条一起看）：
+进程内上限余量不够：进程地板（重启后空闲）≈830~870 MiB；跑久后 RSS 自己爬到 1.1~1.2 GiB（jemalloc 滞留页/碎片）；RSS 越过 `limits.xml` 的 `max_server_memory_usage` 后 OvercommitTracker 拒绝一切要内存的查询。
 
 ```bash
 docker stats --no-stream --format '{{.MemUsage}} ({{.MemPerc}})' ov-clickhouse
@@ -397,41 +371,21 @@ curl -s -G "http://ov_admin:ov_pass_2026@localhost:8123/" --data-urlencode \
 # RSS 逼近/超过 limits.xml 里的 max_server_memory_usage（现 1536 MiB）即命中
 ```
 
-**处置**：
-
-1. **止血**：`docker compose restart clickhouse`（实测 RSS 1.16 GiB → 830 MiB，被拒查询立即恢复）。
-   当前 ClickHouse 尚无业务表，重启零代价；第 3 步落表后重启需考虑作业恢复。
-2. **治本**：确认 `limits.xml` 的 `max_server_memory_usage` **显著高于地板**（现 1536 MiB ≈ 地板 + 670 MiB），
-   且四个缓存上限已显式声明；`mem_limit` 必须 > 进程内上限（现 2560m / 上限 1536 MiB，余量 40%）。
-   这两条都由 `bash scripts/check-compose-budget.sh` 判据④ 核对。
-3. **若仍频繁触发**：查是不是有大查询/大表把 RSS 顶上去（`system.query_log` 的 `memory_usage`，
-   需该表已启用），或按第 3 步的真实规模重新分配（VM 已 8 GB，仍有 ~1.6 GiB 未分配）。
+处置：① 止血 `docker compose restart clickhouse`（实测 RSS 1.16 GiB → 830 MiB，被拒查询立即恢复；落表后重启需考虑作业恢复）；
+② 治本：`max_server_memory_usage` 显著高于地板（现 1536 MiB）+ 四个缓存上限显式声明 + `mem_limit`（2560m）> 进程内上限 —— 门禁④核对；
+③ 仍频繁触发：查 `system.query_log` 的 `memory_usage`（需该表已启用），或按真实规模重新分配。
 
 **Q18：`localhost:8081` 打不开 Flink（HTTP 500），但 `127.0.0.1:8081` 正常**
-
-2026-09-20 实测：本机（公司环境）已有 Java 服务监听 IPv6 `*:8081`，而 macOS 的 `localhost` **优先解析成 `::1`**
-→ `curl localhost:8081/overview` 打到的是那个 Java 服务（实测 **HTTP 500 / 74 字节**），
-而 `127.0.0.1:8081` 才是 Flink（**HTTP 200 / 174 字节**）。这与 CI 上踩过的
-"runner 把 localhost 解析成 `::1`"是同一类坑。
-
-处置：① Flink 的宿主端口改用 **18088**（本仓 180xx 避让口径，与网关 18080 一致），故访问
-`http://127.0.0.1:18088`；② 访问本机服务**一律用 `127.0.0.1`，不要用 `localhost`**。
+本机已有 Java 服务监听 IPv6 `*:8081`，macOS 的 `localhost` 优先解析成 `::1` → 打到的是那个 Java 服务（HTTP 500），`127.0.0.1` 才是 Flink（HTTP 200）。
+处置：① Flink 宿主端口固定 **18088**（180xx 避让口径）；② 访问本机服务**一律用 `127.0.0.1`，不要用 `localhost`**。
 
 ```bash
 curl -s http://127.0.0.1:18088/overview | python3 -c "import json,sys;d=json.load(sys.stdin);print(d['taskmanagers'],d['slots-total'])"
 # 期望: 1 3
 ```
 
-**Q20：检查点配置写在 compose 的 JM/TM 上，作业却一次检查点都不做（P1 落地时真正踩到）**
-
-2026-09-20 现场：`deploy/docker-compose.yaml` 里给 JM/TM 都配了
-`execution.checkpointing.interval: 60s`（容器内 `conf/config.yaml` 里**确实有**），但作业提交后
-`/jobs/:jid/checkpoints` 跑满 **3 分钟**仍是 `total=0 failed=0 in_progress=0`，
-Prometheus `flink_jobmanager_job_numberOfCompletedCheckpoints` 一直是 0。
-
-原因：**作业级配置（检查点 / 重启策略）的唯一生效来源是提交端**。JobGraph 由 SQL Client 组装，
-它**不会**把远端集群的作业级配置注入进来；集群侧那份只是"集群默认值"（供 `flink run` 等用）。
-
+**Q20：检查点配置写在 compose 的 JM/TM 上，作业却一次检查点都不做**
+**作业级配置（检查点/重启策略）的唯一生效来源是提交端**：JobGraph 由 SQL Client 组装，不会把远端集群的作业级配置注入；集群侧那份只是"集群默认值"（供 `flink run` 等用）。
 判据（端到端，不看配置）：
 
 ```bash
@@ -440,55 +394,29 @@ curl -s "http://127.0.0.1:18088/jobs/${JID}/checkpoints" | python3 -c "import js
 # 期望 completed 随时间递增；恒为 0 = 配置没进 JobGraph
 ```
 
-处置：提交端补齐 —— `lakehouse/warehouse/streaming/submit-jobs.sh` 里的
-`CLIENT_FLINK_PROPERTIES`（检查点周期/超时/min-pause、`restart-strategy`、`s3.*`）。
-两处同名键由 `bash scripts/check-docs.sh` ⑩ **逐键比对**（值漂移即 CI 红），避免"改了集群侧忘了提交侧"。
+处置：提交端补齐（`lakehouse/warehouse/streaming/submit-jobs.sh` 的 `CLIENT_FLINK_PROPERTIES`）；两处同名键由 `scripts/check-docs.sh` ⑩ 逐键比对（值漂移即 CI 红）。
 
 **Q21：作业提交后立刻 FAILED，日志 `Unexpected error in InitProducerIdResponse; The transaction timeout is larger than the maximum value allowed by the broker`**
+Flink 的 Kafka sink 在 `exactly-once` 下 `transaction.timeout.ms` **默认 1 小时**（`KafkaSinkBuilder.DEFAULT_KAFKA_TRANSACTION_TIMEOUT`，javap 反汇编确认），broker 的 `transaction.max.timeout.ms` 默认 **15 分钟** → `InitProducerId` 被拒。
+处置（本仓取前者——不动 broker）：
+1. sink 显式 `'properties.transaction.timeout.ms' = '600000'`（10 分钟 > 检查点超时 5 分钟且 < broker 上限）。没有 `sink.transaction-timeout` 这个键（键名清单由 jar 内 `KafkaConnectorOptions` 反查）；`properties.*` 在默认值之后 `putAll`，用户值生效。
+2. 或调大 broker 的 `transaction.max.timeout.ms`（代价是事务可挂更久）。
 
-Flink 的 Kafka sink 在 `exactly-once` 下把 `transaction.timeout.ms` **默认设成 1 小时**
-（`KafkaSinkBuilder` 里 `DEFAULT_KAFKA_TRANSACTION_TIMEOUT = Duration.ofHours(1)`，已用 `javap` 反汇编确认），
-而 Kafka broker 的 `transaction.max.timeout.ms` 默认 **15 分钟** → `InitProducerId` 被拒，作业起不来。
-迷惑点：`sink.delivery-guarantee='exactly-once'` 本身语法没错，DDL 也"成功"，错在**提交之后**。
-
-处置（二选一，本仓取前者——不动 broker）：
-
-1. sink 显式声明 `'properties.transaction.timeout.ms' = '600000'`（10 分钟 > 检查点超时 5 分钟，< broker 上限）。
-   注意**没有** `sink.transaction-timeout` 这个键（表连接器只有 `sink.delivery-guarantee` /
-   `sink.transactional-id-prefix`，键名清单由 jar 内 `KafkaConnectorOptions` 反查确认）；
-   `properties.*` 会在默认值**之后** `putAll`，所以用户值生效（同一份反汇编里确认）。
-2. 或把 broker 的 `transaction.max.timeout.ms` 调大（Flink 官方文档给的另一条路，代价是事务可挂更久）。
-
-**Q22：检查点配好了却永远传不上去 —— TM 缺 `s3.*`（2026-09-20 查配置时发现的缺口）**
-
-JM 的 `FLINK_PROPERTIES` 里有 `s3.endpoint/access-key/secret-key`，TM **一条都没有**：
-而**真正把状态写到 `s3://` 的是 TaskManager** —— 缺了它，`s3://` 会按 Flink 的默认端点（AWS 真实 S3、
-无凭据）去解析。**如实说明证据强度**：这一条是**由配置语义推出的必然结果**，本环境**没有实测到该故障表现**
-—— 因为当时检查点根本没跑起来（见 Q20），缺口才一直没暴露；把它写下来是因为修完之后如果只给 JM 补配置，
-症状会以"上传失败/超时"的形式在第一次真跑检查点时出现，且日志里不容易一眼看出是端点问题。现已两侧都给全，
-并由门禁 ⑩ 单独钉住 TM 侧的四个键（负向对照：删掉即红）。
+**Q22：检查点配好了却永远传不上去 —— TM 缺 `s3.*`**
+真正把状态写到 `s3://` 的是 **TaskManager**；TM 缺 `s3.*` 时会按 Flink 默认端点（AWS 真 S3、无凭据）解析。现已两侧给全，门禁 ⑩ 单独钉 TM 侧四个键（删掉即红）。
+（证据强度：这是配置语义推出的必然结果，本环境未实测到该故障表现——当时检查点根本没跑起来，见 Q20。）
 
 **Q23：`FLINK_PROPERTIES` 里写注释，结果注释变成了配置项**
+官方入口（`docker-entrypoint.sh` → `prepare_configuration`）把这串多行变量当 YAML 解析后写回 `conf/config.yaml`，**注释行同样参与解析**（实测 12 条注释全变怪键，行内空格被吞）。
+处置：块内**只写 `key: value`**，说明写块外；`check-docs.sh` ⑩ 拒绝块内注释行。判据：
 
-官方入口（`docker-entrypoint.sh` → `prepare_configuration`）会把这串多行环境变量**当 YAML 解析**
-后写回容器内 `conf/config.yaml`，**注释行同样参与解析**：实测 12 条注释在 `config.yaml` 里变成了
-`'#有checkpoint才谈得上failover': ...`、`'#进程448m': ...` 这类怪键（顺带把行内空格吞掉）。
-
-处置：`FLINK_PROPERTIES` 块内**只写 `key: value`**，说明写在块外；`scripts/check-docs.sh` ⑩ 会拒绝
-块内注释行（负向对照已验：塞一行注释即 ❌）。判据：
-`docker exec ov-flink-jm sh -c "grep -c \"^'#\" /opt/flink/conf/config.yaml"` 期望 **0**。
+```bash
+docker exec ov-flink-jm sh -c "grep -c \"^'#\" /opt/flink/conf/config.yaml"   # 期望: 0
+```
 
 **Q24：`sql-client` 报 `Failed to initialize from sql script: .../00-common.sql`，但 SQL 本身没问题**
-
-两个独立原因，都踩过：
-
-1. **conf 被只读挂载**：早期实现把 `flink-conf.yaml` 以 `:ro` 挂进提交容器，而入口的
-   `prepare_configuration` 需要**写回**这个文件 → 报 `Read-only file system`，表现为"SQL 初始化失败"
-   （不是挂载报错，极易查错方向）。现在配置一律走 `-e FLINK_PROPERTIES=...`，不挂 conf 文件。
-2. **DDL 语法细节**：`WITH (...)` 选项列表**不接受尾逗号**（source 表能过、sink 表全挂），
-   选项之间**必须**有逗号。症状是 `ParseException: Encountered ")" at line N`。
-
-定位手法：手动跑一次客户端并把输出留下来（不要只看 submit-jobs.sh 的汇总行）：
+两个独立原因：① conf 被只读挂载，而入口的 `prepare_configuration` 需要**写回**它（报 `Read-only file system`，表现为 SQL 初始化失败）——现在一律 `-e FLINK_PROPERTIES=...`，不挂 conf 文件；② `WITH (...)` 选项列表**不接受尾逗号**（`ParseException: Encountered ")" at line N`）。
+定位：手动跑一次客户端并把输出留下来（别只看 `submit-jobs.sh` 的汇总行）：
 
 ```bash
 docker run --rm --network oceanverse_ov-net --memory=640m \
@@ -497,30 +425,16 @@ docker run --rm --network oceanverse_ov-net --memory=640m \
   /opt/flink/bin/sql-client.sh -f /opt/flink/sql/00-common.sql
 ```
 
-（该命令同时是 `submit-jobs.sh` 的内部机制说明：客户端容器只挂 SQL 目录，不挂 conf。）
-
 **Q25：告警为"已经不存在的作业"持续 firing（Prometheus 残留 series 假阳性）**
-
-2026-09-20 现场：重启自检（`scripts/check-realtime-restart.sh`）取消并重提作业后，
-`FlinkCheckpointStalled` **三条一直 firing** —— 但当时三个作业每分钟都在正常完成检查点
-（`/jobs/:jid/checkpoints` 的 trigger 时间戳每分钟一次、耗时 89~290ms）。也就是说：**告警是假的**。
-
-根因：`increase(<counter>[15m]) == 0` 这个写法对两类情况**同样成立** ——
-① 作业在跑但真的一次检查点都没完成（要报）；② **作业已被取消**，它的 series 还留着 15m 窗口内的样本，
-增量当然是 0（不该报）。Flink 的 JM 指标在作业取消后仍会被暴露一段时间，于是②会一直挂着。
-
-修法：加"仍被暴露"守卫，只让**当前仍在抓取到的** series 参与判断：
+`increase(<counter>[15m]) == 0` 对两类情况**同样成立**：① 作业在跑但零完成（要报）；② 作业已取消、series 还留着 15m 窗口内的样本（不该报——Flink 的 JM 指标在作业取消后仍会被暴露一段时间）。
+修法：加"仍被暴露"守卫，只让当前仍被抓取的 series 参与判断：
 
 ```promql
 increase(flink_jobmanager_job_numberOfCompletedCheckpoints[15m]) == 0
   and on(job_id) flink_jobmanager_job_numberOfCompletedCheckpoints
 ```
 
-**正负两种场景都固化成了 promtool 单测**（`deploy/prometheus/rules/tests/flink-checkpoints.test.yml`，
-CI 里跑 `docker exec ov-prometheus promtool test rules ...`）：5 个场景 = 零完成→响 / 断流(取消)→不响 /
-健康→不响 / 开始失败→响 / 取消后的历史失败→不响。
-**顺带一条经验**：promtool 对 `exp_annotations` 是**逐字比对**，所以这两条规则的注解收敛成了单行、
-详细排查步骤写在规则文件的注释里（告警文案本来就该短）。
+正负场景已固化成 promtool 单测（5 个场景，CI 里跑）；promtool 对 `exp_annotations` 是逐字比对，所以这两条规则的注解收敛成了单行、排查步骤写在规则文件注释里。
 
 ```bash
 docker exec ov-prometheus promtool test rules /etc/prometheus/rules/tests/flink-checkpoints.test.yml
@@ -551,3 +465,4 @@ docker exec ov-prometheus promtool test rules /etc/prometheus/rules/tests/flink-
 | 2026-09-20 | 折叠原 Q4（grafana 镜像固定 `latest`、不钉小版本号）与原 Q19（Flink 必须显式 `command: jobmanager/taskmanager`） | 修复已入库且回归有判据：镜像 tag 不存在会让 CI 镜像拉取直接红；compose 作业断言 `taskmanagers=1 & slots=3`。**Q 编号不回收**，历史文档中的 Q4/Q19 引用指向本行 |
 | 2026-09-20 | 本文档结构整理：正文=当前事实，历史叙事收进本附录 | 补丁式留痕多轮后阅读成本过高 |
 | 2026-09-20 | 修 §5 ⑨ Flink 块**丢失开围栏**的渲染错位（`# ⑨` 被渲染成 H1、后半篇代码/正文反转）；全仓 39 处无标签围栏补 ` ```text `；`check-docs.sh` 新增 ⑪ 围栏健康门禁 | 这类错位不报错、不挂 CI、只在渲染层崩——属"必须机械化"的一类（由渲染页人工发现） |
+| 2026-09-20 | §3/§6 瘦身：解释与现场叙事全部删除（§3 字符 -18%、全文 559→467 行），Q&A 每条只留"现象→根因一句话→判据→处置" | 文档约定：**解释只写一遍**（在本附录或 Q&A 的根因行），不复述 |
