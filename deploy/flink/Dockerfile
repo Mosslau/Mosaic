@@ -1,6 +1,6 @@
 # OceanVerse Flink 运行镜像（第 1 阶段第 3 步：实时作业）
 #
-# 为什么必须自建（2026-09-20 实测，不是照抄文档）:
+# 为什么必须自建（实测, 不是照抄文档）:
 #   官方 `flink:1.20.5-scala_2.12-java17` 的 /opt/flink/lib **不含任何连接器** ——
 #   实测只有 flink-dist / table / json / csv / cep / log4j。Kafka 源与 ClickHouse 汇都得自己补。
 #
@@ -12,7 +12,7 @@
 # 三个 jar:
 #   flink-sql-connector-kafka     —— Kafka source + 结果 topic sink
 #   flink-metrics-prometheus      —— 让 JM/TM 暴露 /metrics(Prometheus 抓取) —— **镜像不自带**(实测 opt/ 里没有),
-#                                    没有它 Flink 就是"黑盒": 作业静默死掉无人知(2026-09-20 评估结论) —— Kafka source + **结果 topic 的 sink**(shaded 版本,
+#                                    没有它 Flink 就是"黑盒": 作业静默死掉无人知 —— Kafka source + **结果 topic 的 sink**(shaded 版本,
 #   勿换成 flink-connector-kafka)。
 #
 # **走过的弯路(留档, 免得下次再试)**: 本镜像曾试图补 ClickHouse sink 连接器, 三条路全断 ——
@@ -40,7 +40,7 @@
 #   docker build -f deploy/flink/Dockerfile -t oceanverse/flink:1.20.5 deploy/flink
 #   可用 --build-arg MAVEN_MIRRORS="<源1> <源2>" 覆盖（空格分隔，按序 failover）
 #
-# 为什么要多源 failover（2026-09-20 实测）:
+# 为什么要多源 failover（实测）:
 #   宿主机能连 repo1.maven.org，但**构建容器里第一次拉取报 curl exit 35（TLS 连接失败）**；
 #   随后在容器内逐个探测又都能连（repo1 1.4s / aliyun 0.17s / huawei 0.15s）。
 #   即：这是**瞬时抖动**而非网络不可达 —— 单一源会让构建随机失败，故按序重试多个源。
@@ -50,7 +50,7 @@ ARG MAVEN_MIRRORS="https://repo1.maven.org/maven2 https://maven.aliyun.com/repos
 ARG KAFKA_CONNECTOR_VERSION=3.4.0-1.20
 ARG FLINK_VERSION=1.20.5
 # ClickHouse 官方 Flink 连接器: 只有 -1.17 / -2.0.0 两个构建, **没有 1.20**
-# (2026-09-20 实测: flink-connector-jdbc 3.4.0 的工厂列表里没有 ClickHouse,
+# (实测: flink-connector-jdbc 3.4.0 的工厂列表里没有 ClickHouse,
 #  故 JDBC 路线走不通)。这里用 1.17 构建跑在 1.20 上 -- 同大版本内的兼容性实测通过后才保留。
 
 USER root

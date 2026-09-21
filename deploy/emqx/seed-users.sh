@@ -8,7 +8,7 @@
 # 密码规则(仅开发!): pw-{VIN}。生产换随机强密码 + 档案服务管理(设计文档 §8.2)。
 # 依赖: ov-emqx 容器运行中; 原理 = emqx eval 调 emqx_authn_chains:add_user/3
 #
-# ⚠️ 前提与坑(2026-09-18 审计实测):
+# ⚠️ 前提与坑(实测):
 #   ① 凭证存放在 mnesia 的 `data/mnesia/<节点名>/` 下。若 EMQX 节点名随容器 IP 变化
 #      (镜像 entrypoint 默认行为), 换 IP 就等于换了一个空库, 凭证"静默失效"且旧目录成为孤儿。
 #      现在 compose 已固定 `EMQX_NODE__NAME=emqx@127.0.0.1`, 凭证可跨重建存活。

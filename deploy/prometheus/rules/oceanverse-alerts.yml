@@ -106,7 +106,7 @@ groups:
       # ---------- 8. VIN 越权(安全信号, 任何一次都值得看) ----------
       # 两条通道各有一条规则, 因为校验发生在两个进程里:
       #   ⑧ 网关侧 —— JSON/MQTT(webhook)通道可解载荷, 网关当场拒绝(400)
-      #   ⑨ codec 侧 —— 二进制通道网关**不解帧**, 只能在 codec 解码前拦(2026-09-18 补)
+      #   ⑨ codec 侧 —— 二进制通道网关**不解帧**, 只能在 codec 解码前拦
       # 二者是同一类缺陷(伪造他人车辆数据), 只补网关侧会漏掉二进制通道。
       - alert: GatewayVINMismatch
         expr: increase(gateway_requests_total{result="vin_mismatch"}[10m]) > 0
@@ -146,7 +146,7 @@ groups:
             gateway_kafka_write_total{result="error"} 与 Kafka 容器健康; 若为 EMQX 重投所致,
             恢复后应自行回落。面板: device-gateway 的"上行延迟 SLI"。
 
-      # ---------- 11. 实时作业数量不足(2026-09-20 评估后补) ----------
+      # ---------- 11. 实时作业数量不足 ----------
       # 语义: 三个 Flink 作业(在线数/故障数/高温电池)应恒在运行。少一个就意味着某个指标停止更新,
       # 而**表里没数据与"没有车在上报"长得一模一样** —— 没有这条规则就得靠人发现(评估时的原话)。
       # 判据取自 Flink 自身指标(自建镜像已装 flink-metrics-prometheus, JM 容器内 :9249)。
@@ -175,7 +175,7 @@ groups:
             ov-flink-tm 掉线或未注册。作业会卡在"等待资源"。查: docker compose --profile realtime ps 与 TM 日志。
 
       # ---------- 13. 作业重启过 ----------
-      # 语义(2026-09-20 P1 后更新): 已开 checkpoint + 位点 group-offsets, 重启会**从最近检查点/已提交位移恢复**,
+      # 语义: 已开 checkpoint + 位点 group-offsets, 重启会**从最近检查点/已提交位移恢复**,
       # 不再像以前那样永久丢一段窗口。但仍要响: 重启本身说明有过故障(容器 OOM、TM 掉线、broker 抖动),
       # 且恢复期间指标会停更 —— 属于"要人看一眼"的信号。
       # 用 increase(...[15m]) 而不是 > 0: 后者在重启后会一直挂着, 变成噪声。
@@ -191,12 +191,12 @@ groups:
             查 JM/TM 日志与容器内存上限(是否被 cgroup OOM); 若为宿主/VM 重启, 作业会自动重启并恢复,
             并留意 FlinkCheckpointFailures / FlinkCheckpointStalled 是否同时响
             (见 lakehouse/warehouse/streaming/README.md §7 边界 1c~1e)。
-      # ---------- 14. 检查点失败(2026-09-20 起 checkpoint 已开) ----------
+      # ---------- 14. 检查点失败 ----------
       # 语义: 检查点失败**不会**让作业变红 —— 它照样 RUNNING, 只是"恢复能力在退化"
       #   (重启会退回到更早的状态)。这正是需要告警而不是靠盯面板的那类问题。
       # ⚠ 两条 checkpoint 规则都带 `and on(job_id) <同一指标>` 守卫 —— 防**残留 series 假阳性**：
       #   作业被取消后, 它的 series 在 15m 窗口里仍有样本, `increase` 算出 0 ⇒ "零完成"条件成立,
-      #   告警会为**已经不存在的作业**一直挂着(2026-09-20 实测踩到: 取消作业后 3 条
+      #   告警会为**已经不存在的作业**一直挂着(实测踩到: 取消作业后 3 条
       #   FlinkCheckpointStalled 持续 firing, 而当时的作业每分钟都在正常完成检查点)。
       #   右侧是瞬时向量, 只保留**当前仍被暴露**的 series; 正/负两种场景都有 promtool 单测钉住
       #   (rules/tests/flink-checkpoints.test.yml)。

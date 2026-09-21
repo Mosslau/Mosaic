@@ -44,7 +44,7 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      # 持久性档(2026-09-18 升级): 客户端已全部改 RequiredAcks=RequireAll。
+      # 持久性档: 客户端全部用 RequiredAcks=RequireAll。
       # 单 broker 下 ISR={leader} → acks=all 与 acks=1 **在断电场景等价**;
       # 而 min.insync.replicas 只能设 1 —— 设 2 会让 ISR 永远凑不齐、**写入全部失败**。
       # 所以本地这组配置**不提供断电级持久性**, 它提供的是"代码不再依赖单副本假设"的语义正确性;
@@ -52,7 +52,7 @@ services:
       KAFKA_MIN_INSYNC_REPLICAS: 1
       KAFKA_DEFAULT_REPLICATION_FACTOR: 1
       # 数据目录必须显式指定为**被挂载的卷**: 镜像默认 /tmp/kafka-logs 在容器可写层,
-      # 卷会是空的, 容器重建即丢 topic 与位移(2026-09-18 审计实测确认)
+      # 卷会是空的, 容器重建即丢 topic 与位移(实测确认)
       KAFKA_LOG_DIRS: /var/lib/kafka/data
       # 堆上限防 VM 被 Kafka 吃穿
       KAFKA_HEAP_OPTS: "-Xmx512m -Xms256m"
@@ -298,7 +298,7 @@ services:
     image: oceanverse/flink:1.20.5
     container_name: ov-flink-jm
     # 角色参数必须显式给: 官方入口 docker-entrypoint.sh 不带默认角色, 缺了它只打印 usage
-    # 然后 exit 0 —— 症状是容器 restarting 循环、日志里反复出现 Usage 行(2026-09-20 实测踩到)
+    # 然后 exit 0 —— 症状是容器 restarting 循环、日志里反复出现 Usage 行(实测踩到)
     command: jobmanager
     restart: unless-stopped
     ports:
@@ -356,7 +356,7 @@ services:
       ENABLE_BUILT_IN_PLUGINS: flink-s3-fs-hadoop-1.20.5.jar
       # 3 个 slot ↔ Kafka vehicle-report-raw 的 3 个分区(实测 3), 并行度不浪费
       # 检查点: **TM 是真正把状态写到 s3:// 的一方**, 所以 s3.* 客户端配置必须在这里也给全 ——
-      #   只给 JM 的话 TM 会拿默认 endpoint 去连 AWS 真 S3(2026-09-20 查配置时发现的缺口)。
+      #   只给 JM 的话 TM 会拿默认 endpoint 去连 AWS 真 S3。
       # 作业级的 restart-strategy/检查点周期不在这里: 它们只对提交端生效
       FLINK_PROPERTIES: |
         jobmanager.rpc.address: flink-jobmanager
