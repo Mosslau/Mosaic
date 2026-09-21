@@ -11,12 +11,12 @@
        在共享 VM 上等于没有上限。上限的作用是让 ClickHouse **自己拒绝**超限查询
        (报 MEMORY_LIMIT_EXCEEDED), 而不是被 cgroup 硬杀(表现为容器反复重启)。
 
-     ⚠️ 上限必须**显著高于进程地板**（这条是 2026-09-20 实测出来的, 别再把上限设到贴近地板）:
+     上限必须**显著高于进程地板**（这条是 2026-09-20 实测出来的, 别再把上限设到贴近地板）:
        地板（重启后空闲）MemoryResident ≈ **830~870 MiB**;
        旧配置只给上限 953.67 MiB(1 GB) → 余量仅约 100 MiB, 于是:
        跑一段时间后 RSS 自己爬到 **1.16 GiB**（`MemoryTracking` 仅 236 MiB、缓存几乎为 0 ——
        涨的是 jemalloc 滞留页/碎片, 不是查询也不是缓存）, 一旦越过上限,
-       OvercommitTracker 就会**拒绝一切还要内存的查询**（连 `SELECT count() FROM system.tables` 都拒）,
+       OvercommitTracker 就会**拒绝一切还要内存的查询**（连 `SELECT count() FROM system.tables` 都拒），
        而 `SELECT 1` 照常返回 —— 表现为"服务活着但干不了活", 极具迷惑性。
        现取 **1536 MiB**: 高于地板约 670 MiB, 也高于"跑久后的 1.16 GiB"。
        现场止血: `docker compose restart clickhouse`（实测 1.16 GiB → 830 MiB, 查询立即恢复; 见 deploy/README Q17）。
@@ -31,7 +31,7 @@
        mem_limit: 2560m(cgroup 硬杀线) > max_server_memory_usage: 1.5 GiB(进程内) —— 余量 40%（1024 MiB）
        scripts/check-compose-budget.sh 核对两件事: ① 这条不等式; ② 下面四个缓存上限**是否显式声明**。
 
-     ⚠️ 不要在这里写 <max_server_memory_usage_to_ram_ratio>0</...>:
+     不要在这里写 <max_server_memory_usage_to_ram_ratio>0</...>:
        实测该值 0 的语义是"**关闭内存上限**"(system.server_settings 会显示
        max_server_memory_usage=0 且 ratio=0, 即真的不限制), 与直觉相反。
        保持 ratio 为镜像默认(0.9)只作为兜底, 绝对值由上面的 max_server_memory_usage 决定。

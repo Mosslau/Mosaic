@@ -87,7 +87,7 @@ services:
       # 正确落点是挂载配置文件: ./clickhouse/config.d/limits.xml(见该文件注释)
     volumes:
       - clickhouse_data:/var/lib/clickhouse
-      # 内存上限(2026-09-20): 镜像默认"可用内存的 90%"在共享 VM 上等于没有上限
+      # 内存上限: 镜像默认"可用内存的 90%"在共享 VM 上等于没有上限
       - ./clickhouse/config.d/limits.xml:/etc/clickhouse-server/config.d/limits.xml:ro
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1"]
@@ -106,8 +106,7 @@ services:
 
   # ---------- 对象存储 (第 2 阶段湖仓底座, 第 1 阶段先就位) ----------
   minio:
-    # 镜像用 quay.io: Docker Hub 的 minio/minio 已拒绝匿名拉取(同一镜像, digest 一致;
-    # 背景见 deploy/README.md §6 附录)
+    # 镜像用 quay.io: Docker Hub 的 minio/minio 已拒绝匿名拉取(同一镜像, digest 一致)
     image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
     container_name: ov-minio
     restart: unless-stopped
@@ -126,14 +125,13 @@ services:
       timeout: 5s
       retries: 10
       start_period: 15s
-    # 192m: 实测用量 ~90 MiB; P1 起承接 Flink 检查点, 若用量明显上涨按实测上调
+    # 192m: 实测用量 ~90 MiB; 若用量明显上涨按实测上调
     mem_limit: 192m
     logging: *default-logging
     networks: [ov-net]
 
   # ---------- 关系库 (第 4 步 Java 微服务 ×5 的底座) ----------
   # 只建库不建表: 业务 DDL 归各服务(MyBatis Plus), 在这里造表是空转。
-  # 现在就位的理由: 等到第 4 步再补, 会把"环境不通"和"服务有 bug"混在一起排查。
   mysql:
     image: mysql:8.4
     container_name: ov-mysql
@@ -153,7 +151,6 @@ services:
       - --innodb-buffer-pool-size=64M
       - --performance-schema=OFF
       - --max-connections=64
-
     healthcheck:
       # $$ 是 compose 的转义: 让 $$MYSQL_ROOT_PASSWORD 在**容器内**展开而非由 compose 展开
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$$MYSQL_ROOT_PASSWORD --silent"]
@@ -161,8 +158,7 @@ services:
       timeout: 5s
       retries: 12
       start_period: 30s
-    # 512m: 零业务负载实测 ~240 MiB, 第 4 步起量后按实测上调
-    # (innodb 缓冲池已在 command 里显式压到 64M, performance_schema 关闭)
+    # 512m: 零业务负载实测 ~240 MiB, 第 4 步起量后按实测上调 (innodb 缓冲池已在 command 里显式压到 64M, performance_schema 关闭)
     mem_limit: 512m
     logging: *default-logging
     networks: [ov-net]
@@ -190,8 +186,7 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
-    # 256m: 必须同时满足"明显高于 maxmemory(192mb)"与门禁的成对约束(192 = 256×75%);
-    # 实测用量仅 ~10 MiB
+    # 256m: 必须同时满足"明显高于 maxmemory(192mb)"与门禁的成对约束(192 = 256×75%); 实测用量仅 ~10 MiB
     mem_limit: 256m
     logging: *default-logging
     networks: [ov-net]
@@ -216,7 +211,6 @@ services:
       # 节点名必须**显式固定**: 镜像 entrypoint 在未设置 NodeName 时会按容器 IP 拼
       # $EMQX_NAME@$LOCAL_IP, 且 EMQX_NODE_NAME 优先级**高于** emqx.conf 的 node.name。
       # 后果: 容器换 IP 就换 mnesia 目录 → seed-users.sh 灌的"一车一密"静默失效
-      # (2026-09-18 审计实测: security-check ①④ 失败, 卷内堆积三代孤儿目录)。
       EMQX_NODE__NAME: emqx@127.0.0.1
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:18083/status"]
@@ -231,13 +225,13 @@ services:
 
   # ---------- 指标采集 (网关 /metrics → Prometheus → Grafana, 设计文档 §9) ----------
   prometheus:
-    # 同 grafana: 不钉小版本号(国内镜像站常缺 tag), 见 README §6 修订记录
+    # 同 grafana: 不钉小版本号(国内镜像站常缺 tag)
     image: prom/prometheus:latest
     container_name: ov-prometheus
     restart: unless-stopped
-    # --web.enable-lifecycle: 允许 POST /-/reload 热载配置与**规则文件** —— 规则是 bind mount,
+    # --web.enable-lifecycle: 允许 POST /-/reload 热载配置与规则文件 —— 规则是 bind mount,
     # Prometheus 只在启动时读它, 不 reload 则新规则不生效。改规则后: curl -X POST localhost:9090/-/reload
-    # 注意: 该端点**无鉴权**, 因此本服务端口必须绑 127.0.0.1(见下方 ports), 不要改回全网卡。
+    # 注意: 该端点无鉴权, 因此本服务端口必须绑 127.0.0.1(见下方 ports), 不要改回全网卡。
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
@@ -261,7 +255,7 @@ services:
 
   # ---------- 可视化看板 ----------
   grafana:
-    # 注意: 不要钉具体小版本号(如 12.2.0), 国内镜像站经常缺特定 tag; latest 实测可拉取
+    # 注意: 不要钉具体小版本号 国内镜像站经常缺特定 tag; latest 实测可拉取
     image: grafana/grafana-oss:latest
     container_name: ov-grafana
     restart: unless-stopped
@@ -291,49 +285,32 @@ services:
     networks: [ov-net]
 
   # ---------- 实时计算 (第 1 阶段第 3 步: Flink SQL 三个作业) ----------
-  # 形态: **session cluster**(1 JM + 1 TM), 作业用 sql-client 提交 —— 3 个小作业反复重提交的调试场景,
+  # 形态: session cluster(1 JM + 1 TM), 作业用 sql-client 提交 —— 3 个小作业反复重提交的调试场景,
   #   application mode 会让每个作业独占一套 JM/TM(compose 里多出 5+ 个 Flink 容器), 超出本阶段需要。
   # 挂 profile 而非默认启动: 基础栈仍是"八容器"(文档与 CI 的口径不变), 起 Flink 用
   #   `docker compose --profile realtime up -d`。第 3 步作业全部落地后是否提升为默认栈, 那时再定。
   flink-jobmanager:
     profiles: ["realtime"]
-    # 镜像自建原因: 官方镜像 /opt/flink/lib **不含任何连接器**(实测), 三个 jar 由
-    # deploy/flink/Dockerfile 补入, 版本与 Flink minor 强绑定(3.4.0-1.20 ↔ 1.20.x)
+    # 镜像自建原因: 官方镜像 /opt/flink/lib 不含任何连接器(实测), 三个 jar 由 deploy/flink/Dockerfile 补入, 
+    # 版本与 Flink minor 强绑定(3.4.0-1.20 ↔ 1.20.x)
     build:
       context: ./flink
     image: oceanverse/flink:1.20.5
     container_name: ov-flink-jm
-    # 角色参数**必须显式给**: 官方入口 docker-entrypoint.sh 不带默认角色, 缺了它只打印 usage
+    # 角色参数必须显式给: 官方入口 docker-entrypoint.sh 不带默认角色, 缺了它只打印 usage
     # 然后 exit 0 —— 症状是容器 restarting 循环、日志里反复出现 Usage 行(2026-09-20 实测踩到)
     command: jobmanager
     restart: unless-stopped
     ports:
       # 宿主端口用 18088 而不是 8081: 本机 8081 被公司 Java 服务占着(IPv6 *:8081),
-      # 而 macOS 上 localhost 优先解析成 ::1 → 打 localhost:8081 会命中那个服务而不是 Flink。
       # 访问一律用 http://127.0.0.1:18088(本仓 180xx 避让口径)
       - "127.0.0.1:18088:8081"   # Flink UI / REST(回环绑定)
     environment:
-      # 启用镜像**自带**的 s3 插件(opt/ → lib/, 无需下载): 检查点落 MinIO 靠它
+      # 启用镜像自带的 s3 插件(opt/ → lib/, 无需下载): 检查点落 MinIO 靠它
       ENABLE_BUILT_IN_PLUGINS: flink-s3-fs-hadoop-1.20.5.jar
       # ⚠ 这个多行变量里**只能写 `key: value`**, 说明一律写在外面 —— 官方入口
       #   (docker-entrypoint.sh → prepare_configuration)把它当 YAML 解析后合并进容器内的
       #   conf/config.yaml, **注释行同样会被当成配置键**: 实测 12 条注释全变成了怪键
-      #   (如 '#有checkpoint才谈得上failover'), 且行内空格被吞掉(scripts/check-docs.sh ⑩ 已加门禁)。
-      #
-      # 另: 下面是**集群侧默认值**。作业级配置(检查点/重启策略/S3 客户端)的**唯一生效来源是
-      #   提交端** —— SQL Client 不会把远端集群的作业级配置注入 JobGraph(实测: 集群侧
-      #   interval=60s 而作业跑满 3 分钟检查点为 0 次)。提交端在
-      #   lakehouse/warehouse/streaming/submit-jobs.sh 的 CLIENT_FLINK_PROPERTIES, 两边同名键
-      #   由 scripts/check-docs.sh ⑩ 强制一致。
-      # 进程 448m = 堆 ~192m + metaspace 128m + JVM overhead 128m（显式压小 metaspace,
-      # 否则默认 256m 会把 448m 的进程吃掉一半, 见 Dockerfile/README 的内存说明）
-      # ---- 检查点(2026-09-20 起): 状态落 MinIO ----
-      # 键名用 `execution.checkpointing.*` —— 旧的 `state.checkpoints.dir` 在 1.20 会打弃用告警(实测)
-      # 有 checkpoint 才谈得上 failover: 默认 restart-strategy=none 时任何瞬时故障(如 broker 抖动)
-      # 都会让作业**永久 FAILED**, 检查点则永远用不上。有限次重启 + 从最近检查点恢复才闭环
-      # S3 客户端(镜像自带 flink-s3-fs-hadoop, 由 ENABLE_BUILT_IN_PLUGINS 启用; 无需下载)
-      # Prometheus 指标暴露(容器网内 :9249, 不发布到宿主 —— 与"回环绑定"纪律一致):
-      # 没有它, 作业静默死掉在监控上没有任何信号(2026-09-20 评估发现的缺口)
       FLINK_PROPERTIES: |
         jobmanager.rpc.address: flink-jobmanager
         jobmanager.memory.process.size: 448m
@@ -380,7 +357,7 @@ services:
       # 3 个 slot ↔ Kafka vehicle-report-raw 的 3 个分区(实测 3), 并行度不浪费
       # 检查点: **TM 是真正把状态写到 s3:// 的一方**, 所以 s3.* 客户端配置必须在这里也给全 ——
       #   只给 JM 的话 TM 会拿默认 endpoint 去连 AWS 真 S3(2026-09-20 查配置时发现的缺口)。
-      # 作业级的 restart-strategy/检查点周期不在这里: 它们只对提交端生效(见 JM 处说明)
+      # 作业级的 restart-strategy/检查点周期不在这里: 它们只对提交端生效
       FLINK_PROPERTIES: |
         jobmanager.rpc.address: flink-jobmanager
         taskmanager.numberOfTaskSlots: 3
