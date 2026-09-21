@@ -170,9 +170,10 @@ open http://localhost:9002   # 控制台, ov_minio / ov_minio_2026 登录
 curl -s http://localhost:3000/api/health   # 期望: {"database":"ok",...}
 open http://localhost:3000   # admin / admin 登录
 # 左侧 Connections → Data sources → 应看到两个数据源: "ClickHouse" 与 "Prometheus"(uid=ov-prometheus)
-# 左侧 Dashboards → 应看到两个面板:
+# 左侧 Dashboards → 应看到三个面板:
 #   "device-gateway 车端接入网关" (请求速率/延迟分位/受理vsKafka对账/在途)
 #   "device-codec 编解码服务"     (消费vs解码/DLQ速率按stage/消费lag/微批耗时与批大小)
+#   "realtime 实时指标"           (在线数/在线数趋势/故障按码/高温告警 —— 第 3 步产物)
 
 # ⑤ EMQX：状态 + Dashboard
 curl -s http://localhost:18083/status    # 期望: "Node emqx@127.0.0.1 is started" + "emqx is running"(非字面 "ok")
@@ -313,6 +314,17 @@ cd ../ingest/device-simulator && go run ./cmd/security-check -vin OV20260001
 - **VIN 必须在已灌范围内**：`seed-users.sh` 默认灌 `OV00000000..OV00000099`；若自检用的 VIN 不在其中（如默认的 `OV20260001`），①④ 会以 `not Authorized` 失败。大号 VIN 用 `bash emqx/seed-users.sh --vin OV20260001` 单独灌。
 - **容器重建后不必重新灌**：凭证存放在 mnesia 的 `data/mnesia/<节点名>/` 下。compose 已固定 `EMQX_NODE__NAME=emqx@127.0.0.1`（否则镜像 entrypoint 会按容器 IP 拼节点名，换 IP 即换空库 → 凭证静默失效，2026-09-18 实测 2/6 失败的根因）。重建后 `docker exec ov-emqx emqx eval 'node().'` 应仍为 `emqx@127.0.0.1`。
 
+**Q13：容器里的服务(网关/codec)写 Kafka 失败，但宿主机跑就正常**
+Kafka 用了双监听器：`PLAINTEXT://kafka:9092`（容器网内）与 `EXTERNAL://localhost:19092`（宿主机）。
+`EXTERNAL` 对外广播的地址是 `localhost:19092`——**在容器里 `localhost` 指向容器自身**，于是连不上（症状：网关 202 受理、
+但 `gateway_kafka_write_total{result="error"}` 上涨、topic offset 不增）。处置：容器一律
+
+```bash
+docker run --network oceanverse_ov-net -e KAFKA_BROKERS=kafka:9092 ...
+```
+
+对照表：宿主机进程 → `localhost:19092`；容器内进程 → `kafka:9092`（且必须挂 `oceanverse_ov-net`）。
+
 **Q14：为什么宿主端口从 `0.0.0.0` 改成了 `127.0.0.1`？**
 
 第 1 阶段底座含弱口令（EMQX Dashboard `admin/public`、Grafana `admin/admin`）与无认证组件（Kafka、Prometheus）。
@@ -370,17 +382,6 @@ curl -s localhost:9090/api/v1/alerts | python3 -c "import json,sys;print('firing
 **runbook 一行**：`firing > 0` → 先看面板确认范围 → 查 `docker compose ps`（容器）与 `lsof -nP -iTCP:18080 -sTCP:LISTEN`（宿主进程）→ 两者都正常则怀疑 Rancher 端口转发层（Q8）→ 恢复后复跑 `bash scripts/check-pipeline-health.sh` 确认无僵尸消费组。
 
 > **能力边界（如实说明）**：本机**没有 Alertmanager**，告警只出现在 Prometheus UI/API（<http://localhost:9090/alerts>），**不会**变成手机/邮件通知 —— 需要主动看，或让面板/巡检脚本看。接 Alertmanager 是第 2 阶段（设计文档 §12 清零清单⑥），这批规则可直接复用。
-
-**Q13：容器里的服务(网关/codec)写 Kafka 失败，但宿主机跑就正常**
-Kafka 用了双监听器：`PLAINTEXT://kafka:9092`（容器网内）与 `EXTERNAL://localhost:19092`（宿主机）。
-`EXTERNAL` 对外广播的地址是 `localhost:19092`——**在容器里 `localhost` 指向容器自身**，于是连不上（症状：网关 202 受理、
-但 `gateway_kafka_write_total{result="error"}` 上涨、topic offset 不增）。处置：容器一律
-
-```bash
-docker run --network oceanverse_ov-net -e KAFKA_BROKERS=kafka:9092 ...
-```
-
-对照表：宿主机进程 → `localhost:19092`；容器内进程 → `kafka:9092`（且必须挂 `oceanverse_ov-net`）。
 
 **Q17：ClickHouse 查询报 `MEMORY_LIMIT_EXCEEDED`，但 `SELECT 1` 正常（服务活着，却干不了活）**
 
