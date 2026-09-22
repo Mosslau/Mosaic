@@ -495,6 +495,26 @@ echo "exit=$?"
 
 Expected: `exit=0`，输出无 `✗` / `悬空`。若报悬空链接，检查 Step 3 是否漏改。
 
+- [ ] **Step 6b: 复算忽略规则审计（此刻应回到 0）**
+
+Task 2 结束时该审计为 **2**：两份教学 `.log` 样例当时仍在 `_import/TenetLang/languages/…`，
+而豁免行锚定的是**最终路径** `languages/studies/…`。本步把 `languages/` 落到顶层后必须回到 0：
+若仍为 2，说明搬迁没把 `languages/` 放到位。
+
+```bash
+cd /Users/ninebot/code/mosslau/Mosaic
+git -c core.quotepath=false ls-files > /tmp/mosaic-tracked.txt
+n=$(git check-ignore --no-index --stdin < /tmp/mosaic-tracked.txt 2>/dev/null | wc -l | tr -d ' ')
+echo "被忽略的已跟踪文件数: $n（期望 0）"
+if [ "$n" != "0" ]; then git check-ignore --no-index -v --stdin < /tmp/mosaic-tracked.txt | head; fi
+# 负向对照：确认这个审计是活的（站点 docs/ 是被 .gitignore 忽略的产物目录）
+printf 'languages/website/docs/index.md\n' | git check-ignore --no-index --stdin \
+  && echo "OK 负向对照有效（能识别出确应被忽略的路径）" \
+  || echo "⚠ 负向对照未生效：审计可能是恒 0，不可信"
+```
+
+Expected: `被忽略的已跟踪文件数: 0（期望 0）` + `OK 负向对照有效`。
+
 - [ ] **Step 7: 修站点同步脚本的 7 处**
 
 站点移入 `languages/website/` 后，`REPO_DIR = path.resolve(SITE_DIR, '..')` **自动等于语言域根 `languages/`**，因此第 17 行**不动**。改以下 7 处：
