@@ -20,9 +20,7 @@
 |---|---|
 | [`roadmap/`](roadmap/) | 路线图：算法演进路线 + 两条职业路线 + 语言学习路线 |
 | [`books/`](books/) | 计算机书单 |
-| [`docs/superpowers/`](docs/superpowers/) | 本仓的设计 spec 与实施计划 |
 | [`.dsh/skills/`](.dsh/skills/) | 写作与验证规范（15 个 skill + `_desgin` 设计笔记） |
-| [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | CI（数据平台域） |
 
 ## 校验
 
