@@ -1113,13 +1113,19 @@ Expected: `ai-platform 内相对链接 212 条；解析不到的 2 条`，且这
 条数必须等于基线 **2**、集合必须与上面两条完全一致。**若出现第 3 条**，说明 Step 3 的路径
 替换制造了新的断链，必须停下排查。
 
-- [ ] **Step 5: 修 `mindspring-lab/validate.py` 的工程域定位（3 处）**
+- [ ] **Step 5: 修 `mindspring-lab/validate.py` 的工程域定位（7 处 = 2 处定位 + 5 处文案）**
+
+**定位**（决定检查是否作用在正确的目录上）：
 
 | 行 | 原文 | 改为 |
 |---|---|---|
 | 32 | `ENG_INDEX = ROOT / "engineering" / "README.md"` | `ENG_INDEX = ROOT / "engineering" / "ai-platform" / "README.md"` |
 | 411 | `ROOT.glob("engineering/[0-9][0-9]-*")` | `ROOT.glob("engineering/ai-platform/[0-9][0-9]-*")` |
-| 414 | `f"{unit.relative_to(ROOT)}：目录存在但未在 engineering/README.md 项目总览登记"` | `f"{unit.relative_to(ROOT)}：目录存在但未在 engineering/ai-platform/README.md 项目总览登记"` |
+
+**文案**：同文件里 `engineering/README.md` 这个**字面串**共出现 **5 次**（140 行 docstring、151/156 行 warn、
+414/417 行 err），全部要跟着改成 `engineering/ai-platform/README.md`。⚠ 只改 414 会漏掉 417 —— 而 417 正是
+**负向对照**会触发的那条消息（实测报错为 `❌ engineering/README.md 项目总览登记了 01-text-corpus-pipeline，但磁盘目录不存在`），
+留着会让排查者按图索骥去找一个已不存在的文件。
 
 （`algorithms` 相关的 393–400 行不动；`ROOT = parents[4]` 仍然正确，因为 `.dsh/skills/mindspring-lab/` 的深度没变。）
 
@@ -1127,17 +1133,27 @@ Expected: `ai-platform 内相对链接 212 条；解析不到的 2 条`，且这
 cd /Users/ninebot/code/mosslau/Mosaic
 f=.dsh/skills/mindspring-lab/scripts/validate.py
 python3 - "$f" <<'PY'
-import sys,pathlib
-p=pathlib.Path(sys.argv[1]); t=p.read_text(encoding='utf-8')
-reps=[('ENG_INDEX = ROOT / "engineering" / "README.md"','ENG_INDEX = ROOT / "engineering" / "ai-platform" / "README.md"'),
-      ('ROOT.glob("engineering/[0-9][0-9]-*")','ROOT.glob("engineering/ai-platform/[0-9][0-9]-*")'),
-      ('未在 engineering/README.md 项目总览登记','未在 engineering/ai-platform/README.md 项目总览登记')]
-for a,b in reps:
-    assert t.count(a)==1, f"命中 {t.count(a)} 次: {a}"
-    t=t.replace(a,b)
-p.write_text(t,encoding='utf-8'); print("validate.py 3 处已改")
+import sys, pathlib
+p = pathlib.Path(sys.argv[1]); t = p.read_text(encoding='utf-8')
+
+# ① 两处定位
+for a, b in [('ENG_INDEX = ROOT / "engineering" / "README.md"',
+              'ENG_INDEX = ROOT / "engineering" / "ai-platform" / "README.md"'),
+             ('ROOT.glob("engineering/[0-9][0-9]-*")',
+              'ROOT.glob("engineering/ai-platform/[0-9][0-9]-*")')]:
+    assert t.count(a) == 1, f"定位项命中 {t.count(a)} 次: {a}"
+    t = t.replace(a, b)
+
+# ② 五处文案（字面串，含 docstring 与两条 err 消息）
+lit = 'engineering/README.md'
+n = t.count(lit)
+assert n == 5, f"字面串 {lit} 命中 {n} 次（期望 5）"
+t = t.replace(lit, 'engineering/ai-platform/README.md')
+
+p.write_text(t, encoding='utf-8'); print("validate.py 7 处已改（2 定位 + 5 文案）")
 PY
 python3 -c "import ast,pathlib;ast.parse(pathlib.Path('$f').read_text());print('语法 OK')"
+grep -c 'engineering/README\.md' "$f"    # 期望 0
 ```
 
 Expected: `validate.py 3 处已改` + `语法 OK`。
