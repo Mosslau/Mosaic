@@ -1589,15 +1589,22 @@ cd languages/website && npm run build
 
 ```bash
 cd /Users/ninebot/code/mosslau/Mosaic
-echo "--- 同类仓库外路径（必须为 0）---"
+echo "--- 同类仓库外路径（交付内容必须为 0）---"
+# ⚠ 排除三类**非交付物**，否则会误报（实测：不排除时命中 9 处）：
+#   ① `./docs/superpowers/`（本迁移的 spec/plan，属交付物但其中引用了旧仓路径示例）
+#   ② `./.superpowers/`（**SDD 进程目录**，gitignore 且不会发布；原稿只排除了 docs/superpowers，
+#      漏了这一项，于是 ledger 里的 8 处命中被当成残留）
+#   ③ `./_import/`（Step 3 会整体删除；其内的旧仓 README 本就含 `../TenetLang` 之类表述）
 grep -rn '\.\./TenetLang/\|\.\./MindSpring/\|\.\./OceanVerse/' \
   --include='*.md' --include='*.py' --include='*.mjs' --include='*.yml' --include='*.sh' . \
-  | grep -v '^\./docs/superpowers/' || echo "OK 无仓外路径"
+  | grep -v -e '^\./docs/superpowers/' -e '^\./\.superpowers/' -e '^\./_import/' \
+  || echo "OK 无仓外路径"
 echo "--- 旧语言域路径（必须为 0）---"
 grep -rnE "REPO_DIR,[[:space:]]*'languages'|root / \"languages\"$" --include='*.py' --include='*.mjs' . || echo "OK 无旧路径假设"
 ```
 
-Expected: 两行 `OK …`。
+Expected: 两行 `OK …`。Step 3 删除 `_import/` 之后，再用**只看已跟踪内容**的方式复核一次：
+`git grep -n '\.\./TenetLang/\|\.\./MindSpring/\|\.\./OceanVerse/' -- . ':(exclude)docs/superpowers'` 应无输出。
 
 - [ ] **Step 3: 删除暂存区并验证无丢失**
 
@@ -1617,7 +1624,10 @@ echo "删除前 $before → 删除后 $after"
 git -c core.quotepath=false ls-files | cut -d/ -f1 | sort | uniq -c | sort -rn
 ```
 
-Expected: 顶层只剩 `languages` `algorithms` `engineering` `roadmap` `books` `docs` `.dsh` `.github` 与根文件。**逐个核对没有意外消失的域**（`languages` 应约 3800+、`algorithms` 约 350、`engineering` 约 300）。
+Expected: 顶层只剩 `languages` `algorithms` `engineering` `roadmap` `books` `docs` `.dsh` `.github` 与根文件。
+**逐个核对没有意外消失的域**（实测：`languages` **3907**、`engineering` **637** = 529 ai-platform + 108 data-platform、
+`algorithms` **93**；已跟踪文件总数 **4787 → 4702**，差额 −86 + 1（新 README）恰为 `_import/` 的已跟踪内容。
+原稿写的「约 350 / 约 300」是早期粗估，与实测差一个量级，**以实测为准**）。
 
 - [ ] **Step 4: 全量门禁（spec §9 的 7 项）**
 
@@ -1629,8 +1639,13 @@ python3 .dsh/skills/tenetlang-notes/scripts/validate.py --links
 echo "== ② 算法 + AI 平台域 =="
 python3 .dsh/skills/mindspring-lab/scripts/validate.py
 python3 -m pytest -q 2>&1 | tail -3
-# ruff：既存红，只记录不判定（见 Global Constraints）；本任务只写 markdown + 删 _import/，
-# 故计数应恰好下降 _import/ 的那一份、其余不变
+# ruff：既存红，只记录不判定（见 Global Constraints）。
+# ⚠ 计数**不会**因删 _import/ 而下降：本步作用域是 algorithms/engineering/languages/.dsh，
+#   而被删的 .py 都在 `_import/*/.dsh/`（注意不是 `.dsh/`），不在作用域内 ⇒ 预期**持平 522**。
+#   差分 0 的证法：在父提交上测同一命令做对照
+#     git worktree add /tmp/pre-ruff <本任务之前的提交> && (cd /tmp/pre-ruff && python3 -m ruff check algorithms engineering languages .dsh | tail -1)
+#     git worktree remove /tmp/pre-ruff
+#   PRE == POST 即差分 0。源仓侧对照：MindSpring/algorithms 40、MindSpring/engineering 294，与迁移后一致。
 python3 -m ruff check algorithms engineering languages .dsh 2>&1 | tail -2
 echo "== ③ 数据平台域 =="
 (cd engineering/data-platform && bash scripts/check-docs.sh && bash scripts/check-compose-budget.sh && bash scripts/test-compose-budget.sh)
@@ -1669,7 +1684,7 @@ Expected: ①–④ 全绿；⑤ 三行 `OK … 是 HEAD 的祖先` + 提交数 
 - [ ] **Step 5: 合并回 `main`、建远端并推送**
 
 ⚠ **本迁移全程在临时分支 `mosaic-merge` 上实施**（Setup Ruling 1：SDD 要求未经明确同意不得在 `main` 上实施）。
-`main` 至今仍是引导期的三个文档提交，且是 `mosaic-merge` 的祖先（实测领先 343 个提交），故可**快进**合并。
+`main` 至今仍是引导期的三个文档提交，且是 `mosaic-merge` 的祖先（**实测领先 345 个提交**；该数字随计划修正提交增长，以实测为准），故可**快进**合并。
 **必须先合并回 `main` 再推送**——`gh repo create --push` 推的是**当前分支**，不先切回就会把 `mosaic-merge`
 推成默认分支。
 
