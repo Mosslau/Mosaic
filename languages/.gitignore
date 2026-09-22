@@ -84,13 +84,13 @@ tenet/compiler-arm64/test_tenet
 
 # Go 示例/练习的编译产物：go build 在各 module 目录内生成与目录同名的可执行文件
 # （产物纪律：构建命令请用 -o /tmp/<名字>；以下为历史遗留的显式清单）
-/languages/go/ph21-data-ingest-gateway/examples/ex01-mqtt-minimal/ex01-mqtt-minimal
-/languages/go/ph21-data-ingest-gateway/examples/ex02-source-reconnect-idempotent/ex02-source-reconnect-idempotent
-/languages/go/ph21-data-ingest-gateway/examples/ex03-websocket-config-push/ex03-websocket-config-push
-/languages/go/ph21-data-ingest-gateway/examples/ex04-agent-rollout/ex04-agent-rollout
-/languages/go/ph21-data-ingest-gateway/examples/ex05-collect-agent/ex05-collect-agent
-/languages/go/ph21-data-ingest-gateway/examples/ex06-ingest-platform/ex06-ingest-platform
-/languages/go/ph21-data-ingest-gateway/exercises/sol-01-mqtt-data-access/sol-01-mqtt-data-access
-/languages/go/ph21-data-ingest-gateway/exercises/sol-02-metrics-receiver/sol-02-metrics-receiver
-/languages/go/ph21-data-ingest-gateway/exercises/sol-03-agent-rollout/sol-03-agent-rollout
-/languages/go/ph21-data-ingest-gateway/exercises/sol-04-websocket-monitor/sol-04-websocket-monitor
+/studies/go/ph21-data-ingest-gateway/examples/ex01-mqtt-minimal/ex01-mqtt-minimal
+/studies/go/ph21-data-ingest-gateway/examples/ex02-source-reconnect-idempotent/ex02-source-reconnect-idempotent
+/studies/go/ph21-data-ingest-gateway/examples/ex03-websocket-config-push/ex03-websocket-config-push
+/studies/go/ph21-data-ingest-gateway/examples/ex04-agent-rollout/ex04-agent-rollout
+/studies/go/ph21-data-ingest-gateway/examples/ex05-collect-agent/ex05-collect-agent
+/studies/go/ph21-data-ingest-gateway/examples/ex06-ingest-platform/ex06-ingest-platform
+/studies/go/ph21-data-ingest-gateway/exercises/sol-01-mqtt-data-access/sol-01-mqtt-data-access
+/studies/go/ph21-data-ingest-gateway/exercises/sol-02-metrics-receiver/sol-02-metrics-receiver
+/studies/go/ph21-data-ingest-gateway/exercises/sol-03-agent-rollout/sol-03-agent-rollout
+/studies/go/ph21-data-ingest-gateway/exercises/sol-04-websocket-monitor/sol-04-websocket-monitor

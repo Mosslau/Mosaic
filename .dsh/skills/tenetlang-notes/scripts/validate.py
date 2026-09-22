@@ -442,7 +442,7 @@ def main() -> int:
     args = ap.parse_args()
 
     root = Path(args.root).resolve()
-    lang_root = root / "languages"
+    lang_root = root / "languages" / "studies"
     if not lang_root.is_dir():
         print(f"找不到 {lang_root}，请从仓库根执行", file=sys.stderr)
         return 2

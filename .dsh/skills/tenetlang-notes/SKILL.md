@@ -1,6 +1,6 @@
 ---
 name: tenetlang-notes
-description: TenetLang 仓库 languages/ 目录的学习笔记写作规范。当在 TenetLang 项目中新增语言 Roadmap、补写/重构阶段笔记（phXX）、为阶段补充代码模块（examples/exercises/project）、重构 Roadmap 或阶段划分、更新现有语言笔记、或检查笔记完成度时使用。确保任何语言（现有或新增）的笔记结构、章节模板、写作风格完全一致。本 skill 是 languages/ 写作任务的唯一权威规范，优先于对存量笔记的直接模仿。本 skill 仅管辖 languages/ 目录；analysis/、tenet/、仓库根 README 等非 languages/ 文档不受本 skill 约束，禁止套用其模板结构。
+description: TenetLang 仓库 languages/studies/ 目录的学习笔记写作规范。当在 TenetLang 项目中新增语言 Roadmap、补写/重构阶段笔记（phXX）、为阶段补充代码模块（examples/exercises/project）、重构 Roadmap 或阶段划分、更新现有语言笔记、或检查笔记完成度时使用。确保任何语言（现有或新增）的笔记结构、章节模板、写作风格完全一致。本 skill 是 languages/studies/ 写作任务的唯一权威规范，优先于对存量笔记的直接模仿。本 skill 仅管辖 languages/studies/ 目录；analysis/、tenet/、仓库根 README 等非 languages/studies/ 文档不受本 skill 约束，禁止套用其模板结构。
 agent_created: true
 ---
 
@@ -8,11 +8,11 @@ agent_created: true
 
 ## Overview
 
-TenetLang 仓库的 `languages/` 目录是多门主流语言的系统化学习笔记库，最终服务于「学习 → 分析 → 合成 Tenet 语言」的闭环。本 skill 定义每个阶段的四层交付物标准——**知识文档 + 示例代码（examples/）+ 代码练习（exercises/）+ 综合项目（project/）**——并规范 Roadmap 与阶段目录的重构流程，保证任何一门语言、任何一个阶段写出来都长一个样。本 skill 只含规范与模板，不维护任何语言的现状快照（哪门语言有几个阶段、完成到哪，以各 roadmap 文件与磁盘目录为准）。
+TenetLang 仓库的 `languages/studies/` 目录是多门主流语言的系统化学习笔记库，最终服务于「学习 → 分析 → 合成 Tenet 语言」的闭环。本 skill 定义每个阶段的四层交付物标准——**知识文档 + 示例代码（examples/）+ 代码练习（exercises/）+ 综合项目（project/）**——并规范 Roadmap 与阶段目录的重构流程，保证任何一门语言、任何一个阶段写出来都长一个样。本 skill 只含规范与模板，不维护任何语言的现状快照（哪门语言有几个阶段、完成到哪，以各 roadmap 文件与磁盘目录为准）。
 
-**适用范围**：本 skill 只管 `languages/` 目录（roadmap、阶段笔记、代码层 README）。`analysis/`（设计解剖）与 `tenet/`（语言合成与实现）的写作、仓库根 README 等非 languages/ 文档不受本规范约束——不要用本 skill 的章节模板去约束它们。
+**适用范围**：本 skill 只管 `languages/studies/` 目录（roadmap、阶段笔记、代码层 README）。`analysis/`（设计解剖）与 `tenet/`（语言合成与实现）的写作、仓库根 README 等非 languages/studies/ 文档不受本规范约束——不要用本 skill 的章节模板去约束它们。
 
-**管辖边界（不纳入本规范的文件）**：即使物理位置落在 `languages/` 下，以下内容也不受本规范约束，**写作与检查都跳过，不要按模板整改**：
+**管辖边界（不纳入本规范的文件）**：即使物理位置落在 `languages/studies/` 下，以下内容也不受本规范约束，**写作与检查都跳过，不要按模板整改**：
 
 - 自动生成或工具产物：`CHANGELOG.md`、`LICENSE`、lock 文件、`target/`、`build/`、`.pytest_cache/`、`.ruff_cache/`、`.mypy_cache/`、`node_modules/` 等
 - 第三方代码与示例数据：vendored 依赖、样例日志/二进制数据文件
@@ -22,7 +22,7 @@ TenetLang 仓库的 `languages/` 目录是多门主流语言的系统化学习�
 ## 目录结构
 
 ```
-languages/<语言缩写>/                  # c, cpp, go, java, py, rs
+languages/studies/<语言缩写>/                  # c, cpp, go, java, py, rs
 ├── <语言名>.md                        # Roadmap 总览（如 c.md, python.md）
 └── ph01-<主题>/ ~ phNN-<主题>/        # N 个阶段目录（N 按语言复杂度定）
     ├── 01-<主题>.md                   # 知识文档（主文档，必含，编号与目录一致）
@@ -144,7 +144,7 @@ languages/<语言缩写>/                  # c, cpp, go, java, py, rs
 5. 目录改名/迁移时，同步修正其他阶段笔记中的交叉引用。用以下命令找出全部引用点后逐个更新：
    ```bash
    # 找出引用了旧编号的全部笔记（以 ph04 为例，逐个旧编号执行）
-   grep -rn "ph04" languages/ --include="*.md"
+   grep -rn "ph04" languages/studies/ --include="*.md"
    # 复核：解析全部相对链接并检查目标存在（覆盖 ./ 与 ../ 两种写法）
    python3 .dsh/skills/tenetlang-notes/scripts/validate.py --links
    ```
@@ -169,7 +169,7 @@ languages/<语言缩写>/                  # c, cpp, go, java, py, rs
 
 ### 场景 C：新增一门语言
 
-1. 创建 Roadmap 总览 `languages/<缩写>/<语言名>.md`，模板见 `references/roadmap-template.md`
+1. 创建 Roadmap 总览 `languages/studies/<缩写>/<语言名>.md`，模板见 `references/roadmap-template.md`
 2. 规划阶段切分（按 `references/roadmap-template.md`「阶段切分节奏」：基础 → 核心机制 → 生态/工程化 → 进阶专题），阶段数按语言复杂度定
 3. 创建全部阶段目录骨架（至少含主文档占位）
 4. 逐个阶段按场景 B 的标准填充四层交付物
@@ -179,7 +179,7 @@ languages/<语言缩写>/                  # c, cpp, go, java, py, rs
 
 分两层执行：**第 1~3 步是存在性检查**（全量、快速，只判"在不在"），**第 4 步是内容质量检查**（深检，判"对不对、全不全、齐不齐"）。被场景 A/B/C 作为提交前验收调用时，可只对本批涉及的目录跑深检。
 
-1. 遍历 `languages/*/`，按四层标准逐项检查：
+1. 遍历 `languages/studies/*/`，按四层标准逐项检查：
    - Roadmap 是否存在、其列出的每个阶段是否都有对应 ph 目录与有效链接（双向核对：roadmap → 目录、目录 → roadmap 小节）
    - 每阶段：主文档是否存在且章节齐全 / examples 是否存在 / exercises 是否存在 / project 是否存在
 2. 输出完成度矩阵（语言 × 阶段 × 四层交付物），标注缺口。矩阵统一用以下格式：
@@ -278,7 +278,7 @@ ph<NN>-<主题>/
 
 ## Markdown 排版规范
 
-适用于 `languages/` 下**人手维护**的 `.md` 文件（roadmap、阶段笔记、代码层 README）；自动生成物与工具/缓存产物不适用（界限见开头「管辖边界」）。场景 D 深检的「格式一致性」按本节核对。
+适用于 `languages/studies/` 下**人手维护**的 `.md` 文件（roadmap、阶段笔记、代码层 README）；自动生成物与工具/缓存产物不适用（界限见开头「管辖边界」）。场景 D 深检的「格式一致性」按本节核对。
 
 本节是**项目覆盖层（L1），只收录两类规则：(a) 仓库特有规则（L2 不可能有的），(b) 与 L2 冲突、需要显式覆盖的规则**。通用 Markdown 语法与风格一律委托 `markdown-style` skill（L2）：语法合法性看 `references/syntax-canon.md`（must-fix），风格建议看 `references/style-overlay.md`（should-fix）——以下逐块标注了对应 L2 规则 ID，写作/检查时直接按号查。
 
@@ -332,7 +332,7 @@ ph<NN>-<主题>/
 
 ## 阶段切分节奏（新增/重构语言时参照）
 
-节奏表（打基础 ~25% → 核心机制 ~30% → 生态与工程化 ~30% → 进阶专题 ~15%）见 `references/roadmap-template.md`「阶段切分节奏」一节，**以模板为准，此处不重复维护**。总阶段数按语言复杂度伸缩。各语言当前实际切分以各自 roadmap 文件（`languages/<缩写>/<语言名>.md`）为准——skill 不维护任何语言的现状快照（现状会过期，规范不过期）。
+节奏表（打基础 ~25% → 核心机制 ~30% → 生态与工程化 ~30% → 进阶专题 ~15%）见 `references/roadmap-template.md`「阶段切分节奏」一节，**以模板为准，此处不重复维护**。总阶段数按语言复杂度伸缩。各语言当前实际切分以各自 roadmap 文件（`languages/studies/<缩写>/<语言名>.md`）为准——skill 不维护任何语言的现状快照（现状会过期，规范不过期）。
 
 ## Resources
 

@@ -20,7 +20,7 @@ const CONTENT_DIR = path.join(SITE_DIR, 'content')
 const DATA_FILE = path.join(SITE_DIR, '.vitepress', 'data', 'curriculum.json')
 
 /** 三个内容族，顺序即首页与导航的呈现顺序 */
-const FAMILIES = ['languages', 'analysis', 'tenet']
+const FAMILIES = ['studies', 'analysis', 'tenet']
 
 /** 六门语言：顺序、显示名与身份色 token */
 const LANGUAGES = [
@@ -344,7 +344,7 @@ function parseRoadmap(text, displayName, langId) {
       ch.dir = null
       continue
     }
-    const detailAbs = path.resolve(REPO_DIR, 'languages', langId, ch.detail)
+    const detailAbs = path.resolve(REPO_DIR, 'studies', langId, ch.detail)
     ch.dir = path.dirname(toPosix(ch.detail))
     ch.link = routeOf(docsPathOf(detailAbs))
     const detailText = fs.existsSync(detailAbs) ? fs.readFileSync(detailAbs, 'utf8') : ''
@@ -354,7 +354,7 @@ function parseRoadmap(text, displayName, langId) {
     // 代码层：examples / exercises / project 里是否有配套内容，入口在哪
     const code = []
     for (const layer of CODE_LAYERS) {
-      const layerDir = path.resolve(REPO_DIR, 'languages', langId, ch.dir, layer.dir)
+      const layerDir = path.resolve(REPO_DIR, 'studies', langId, ch.dir, layer.dir)
       if (!fs.existsSync(layerDir)) continue
       const mds = walk(layerDir, (f) => f.endsWith('.md'))
       if (!mds.length) continue
@@ -478,7 +478,7 @@ if (fs.existsSync(rootReadme)) copyMarkdown(rootReadme, path.join(DOCS_DIR, 'abo
 
 // 3) 解析课程结构
 const languages = LANGUAGES.map((meta) => {
-  const langDir = path.join(REPO_DIR, 'languages', meta.id)
+  const langDir = path.join(REPO_DIR, 'studies', meta.id)
   const roadmaps = fs
     .readdirSync(langDir, { withFileTypes: true })
     .filter((e) => e.isFile() && e.name.endsWith('.md'))
@@ -492,7 +492,7 @@ const languages = LANGUAGES.map((meta) => {
     tagline: firstLede(text),
     link: routeOf(docsPathOf(roadmapPath)),
     board: `/languages/${meta.id}/`,
-    docs: familyFiles.languages.filter((f) => f.startsWith(langDir + path.sep)).length,
+    docs: familyFiles.studies.filter((f) => f.startsWith(langDir + path.sep)).length,
     chapters: parseRoadmap(text, meta.name, meta.id),
   }
 })
@@ -502,7 +502,7 @@ const tenet = parseTenet()
 
 // 4) 生成每种语言的卡片总览页
 for (const lang of languages) {
-  const target = path.join(DOCS_DIR, 'languages', lang.id, 'index.md')
+  const target = path.join(DOCS_DIR, 'studies', lang.id, 'index.md')
   writeIfChanged(
     target,
     [
@@ -527,7 +527,7 @@ const data = {
   stats: {
     languages: languages.length,
     chapters: languages.reduce((sum, l) => sum + l.chapters.length, 0),
-    languageDocs: familyFiles.languages.length,
+    languageDocs: familyFiles.studies.length,
     analysisDocs: familyFiles.analysis.length,
     tenetDocs: familyFiles.tenet.length,
   },

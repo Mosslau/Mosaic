@@ -1,6 +1,6 @@
 # TenetLang 文档站
 
-把仓库里 `languages/`、`analysis/`、`tenet/` 三个目录族的 Markdown 构建成卡片式的
+把域根下 `studies/`、`analysis/`、`tenet/` 三个目录族的 Markdown 构建成卡片式的
 [VitePress](https://vitepress.dev) 站点：六门语言 → 设计分析 → Tenet 语言与编译器。
 
 ## 本文档的边界
@@ -12,15 +12,15 @@
 ## 快速开始
 
 ```bash
-cd website
+cd languages/website
 npm install
 npm run dev        # 启动开发服务器（内置文档监听）
 ```
 
 打开终端里输出的地址（默认 <http://localhost:5173>）。
 
-**你只需要改仓库里的 Markdown。** `npm run dev` 会监听 `languages/`、`analysis/`、`tenet/`、
-站点 `content/` 与仓库根 `README.md`；原文一保存就自动重跑同步，VitePress 的 HMR 随即刷新页面。
+**你只需要改仓库里的 Markdown。** `npm run dev` 会监听 `studies/`、`analysis/`、`tenet/`、
+站点 `content/` 与域根 `README.md`；原文一保存就自动重跑同步，VitePress 的 HMR 随即刷新页面。
 不需要手工执行 `npm run sync`，更不需要去动 `docs/` 里的任何文件。
 
 ```bash
@@ -37,31 +37,31 @@ npm run preview    # 预览生产构建
 数据是单向流动的，不存在「两份需要同步维护的文档」：
 
 ```
-languages/ analysis/ tenet/  +  根 README.md          ← 唯一真源（你只改这里）
+studies/ analysis/ tenet/  +  域根 README.md          ← 唯一真源（你只改这里）
         │
         │  scripts/sync-docs.mjs
         ▼
-website/docs/                                          ← 生成物：已被 .gitignore 忽略
+languages/website/docs/                                          ← 生成物：已被 .gitignore 忽略
         │                                                可随时删除，下次同步/构建重建
         ▼
 http://localhost:5173                                  ← 站点
 ```
 
-`docs/` 不进版本库（`git add website/` 只带源文件，不含任何产物），所以你永远不会面对
+`docs/` 不进版本库（`git add languages/website/` 只带源文件，不含任何产物），所以你永远不会面对
 「改了原文还要不要改副本」的问题：那份副本在构建意义上不存在。
 
 需要重新生成时，删掉整个目录也可以：`rm -rf docs && npm run sync`。
 
 ```
-website/
+languages/website/
 ├── content/              ← 手写页面（首页、各栏总览、logo/favicon），会被复制进 docs/
 ├── scripts/sync-docs.mjs ← 同步 + 结构解析
 ├── scripts/dev.mjs       ← 开发服务器：监听原文变化并自动重同步
 ├── docs/                 ← 生成物，已被 .gitignore 忽略，可随时删除重建
-│   ├── languages/…       ← 从 repo 的 languages/ 复制
-│   ├── analysis/…        ← 从 repo 的 analysis/ 复制
-│   ├── tenet/…           ← 从 repo 的 tenet/ 复制
-│   └── about.md          ← 从 repo 根 README.md 复制
+│   ├── studies/…         ← 从域根的 studies/ 复制
+│   ├── analysis/…        ← 从域根的 analysis/ 复制
+│   ├── tenet/…           ← 从域根的 tenet/ 复制
+│   └── about.md          ← 从语言域 README.md 复制
 └── .vitepress/
     ├── config.mts        ← 站点配置（导航、侧边栏、搜索、Markdown 管线）
     ├── data/curriculum.json  ← 生成物：课程结构，供导航与卡片组件消费
@@ -70,7 +70,7 @@ website/
 
 同步脚本做四件事：
 
-1. **复制**三个内容族与根 README 的全部 Markdown，并把 `README.md` 映射为 `index.md`，
+1. **复制**三个内容族与域根 README 的全部 Markdown，并把 `README.md` 映射为 `index.md`，
    使 `/analysis/py/` 这类目录链接能正确落到页面上；
 2. **改写链接**：`](…/README.md)` → `](…/index.md)`；指向未收录源码（`.py`/`.rs`/`.yml`/源码目录）
    的链接登记进 `ignoreDeadLinks` 白名单，同时报告真正失效的链接；
@@ -98,7 +98,7 @@ website/
 | 新增分析笔记 | 否² | 同上 |
 | 新增一门语言 | **是，见下** | 同上 |
 
-¹ 阶段要在 roadmap（`languages/<语言>/<语言>.md`）里补一个 `## N. <名>阶段` 段，并写上
+¹ 阶段要在 roadmap（`studies/<语言>/<语言>.md`）里补一个 `## N. <名>阶段` 段，并写上
 `> 📖 详细展开版见 [phNN-主题/NN-主题.md](./phNN-主题/NN-主题.md)`，解析器读的就是这两处约定。
 
 ² 分析笔记要在 `analysis/<语言>/README.md` 的表格里补一行；分析卡片与侧边栏都读那张表。
