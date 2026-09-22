@@ -26,6 +26,8 @@
 - **`git mv` 而非 `cp`**：所有搬迁必须用 `git mv`，否则 `git log --follow` 断链。
 - **沙箱环境变量**：Go 命令一律加 `GOCACHE=/tmp/gocache-mosaic GOPATH=/tmp/gopath-mosaic`；npm 一律加 `--cache /tmp/npm-cache-mosaic`（`~/.npm` 不可写）。
 - **中文文件名**：所有列文件清单的 git 命令加 `-c core.quotepath=false`，否则 `tenet/Tenet架构设计.md` 会被写成八进制转义。
+- **`sed` 分隔符冲突**：不要写 `sed -E 's|…(a|b)…|…|g'`——交替里的 `|` 会与 `s|…|` 的分隔符冲突，BSD sed 报
+  `RE error: parentheses not balanced` 且**静默不替换**。换 `#` 作分隔符，或直接用 Python（本计划凡带交替的替换一律走 Python）。
 - **中间态的已知报错**：`pyproject.toml` 的 `testpaths` 指向 `algorithms/` 与 `engineering/ai-platform/`，这两处要到 Task 4/5 才存在——在它们落地前执行 `pytest` 会报「目录不存在」，`readme = "README.md"` 同理由 Task 7 补齐。这是**预期中间态**，不是缺陷（Task 2 审查者指出原文只说明了 `readme`，未说明 `testpaths`）。
 - **不推送**：`Mosslau/Mosaic` 远端在 Task 7 之前不推送。
 - **回滚**：任何一步出错 → `rm -rf /Users/ninebot/code/mosslau/Mosaic && git clone <spec 提交>` 重建，源仓无副作用。
@@ -660,6 +662,69 @@ grep -rn "REPO_DIR, 'languages'\|仓库里的 `languages/`\|仓库根 README" sc
 ```
 
 Expected: `共改 15 处（期望 15）`；`0` + 两行 `OK …`；`监听中：studies、analysis、tenet、website/content、README.md`（站点现在位于域根之下，故 `content` 的相对路径带 `website/` 前缀）；最后 `0`。
+
+- [ ] **Step 7c: 修内容正文与代码块里的旧族名路径（20 文件 23 处）**
+
+Step 3 只修了**链接目标**。正文与代码块里的**路径提及**同属 spec D10 的「路径类引用」——照着敲会失败，
+最典型的是 4 个 Go 项目 README 里的 `cd languages/go/<阶段>/project`。规则唯一：
+`languages/<语言>/` → `languages/studies/<语言>/`（只有 6 个语言名，无其它形态）。
+
+⚠ **不要用 `sed -E` 且以 `|` 作分隔符写这条替换**：交替内的 `|` 会与 `s|…|…|` 的分隔符冲突，
+BSD sed 报 `RE error: parentheses not balanced`，**替换静默不生效**（实测；换 `#` 作分隔符即正常，说明
+与 BSD 是否支持 `-E` 交替无关）。用 Python 更稳，且用负向断言避免消费后一个字符。
+
+```bash
+cd /Users/ninebot/code/mosslau/Mosaic/languages
+python3 - <<'PY'
+import re, pathlib
+FILES = [
+  'studies/py/ph18-data-platform-automation/18-data-platform-automation.md',   # 3 处
+  'studies/py/ph17-advanced-python/17-advanced-python.md',                     # 2 处
+  'studies/go/ph14-advanced-go/project/README.md',
+  'studies/go/ph14-advanced-go/14-advanced-go.md',
+  'studies/go/ph17-architecture-layering/project/README.md',
+  'studies/go/ph15-version-toolchain/project/README.md',
+  'studies/go/ph15-version-toolchain/examples/README.md',
+  'studies/go/ph01-basic-syntax/project/README.md',
+  'studies/go/ph13-perf-optimization/project/README.md',
+  'studies/go/ph13-perf-optimization/13-perf-optimization.md',
+  'studies/java/ph23-lakehouse-orchestration/23-lakehouse-orchestration.md',
+  'studies/java/ph23-lakehouse-orchestration/project/README.md',
+  'studies/java/ph22-ai-platform/project/README.md',
+  'studies/java/ph22-ai-platform/22-ai-platform.md',
+  'studies/cpp/ph22-storage-engine-db-kernel/22-storage-engine-db-kernel.md',
+  'analysis/py/README.md', 'analysis/java/README.md', 'analysis/rs/README.md', 'analysis/cpp/README.md',
+  'analysis/cpp/notes/03-multiparadigm.md',
+]
+pat = re.compile(r'languages/(c|cpp|go|java|py|rs)(?![a-z0-9_-])')
+total = 0
+for f in FILES:
+    q = pathlib.Path(f); s = q.read_text(encoding='utf-8')
+    s2, n = pat.subn(r'languages/studies/\1', s)
+    assert n >= 1, f"{f}: 命中的 {n} 处（每文件应 ≥1）"
+    q.write_text(s2, encoding='utf-8'); total += n
+print(f"共替换 {total} 处（期望 23）")
+PY
+```
+
+另两处同族、同一步处理：
+- `languages/tenet/README.md:87` 的裸 `` `languages/` `` 指的是**「学」主线**（三条主线应为 `studies/`、`analysis/`、`tenet/`；
+  `languages/` 是**域根**，不是主线名）→ 改为 `` `studies/` ``；
+- `.dsh/skills/tenetlang-notes/scripts/validate.py:454` 的硬编码陈旧消息
+  `f"找不到语言目录 languages/{args.lang}"` → `f"找不到语言目录 {lang_root / args.lang}"`（与 `:447` 一致，不会再过期）。
+
+```bash
+cd /Users/ninebot/code/mosslau/Mosaic
+echo "--- 旧族名路径必须清零 ---"
+grep -rnE 'languages/(c|cpp|go|java|py|rs)([^a-z0-9_-]|$)' --include='*.md' languages/studies languages/analysis languages/tenet \
+  | grep -v 'languages/studies/' | wc -l            # 期望 0
+echo "--- 改动面必须恰好 22 个文件（20 内容 + tenet/README.md + validate.py）---"
+git diff --name-only | wc -l | tr -d ' '
+echo "--- 治理内容被改动，校验器必须复跑 ---"
+python3 .dsh/skills/tenetlang-notes/scripts/validate.py --links; echo "exit=$?"
+```
+
+Expected: 旧族名 0；改动 22 个文件；校验器 `0 个问题` + `exit=0`；站点构建仍 0 条失效链接。
 
 - [ ] **Step 8: 修 `languages/website/README.md` 的 12 处路径（站点内容根 = 语言域根）**
 
