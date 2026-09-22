@@ -1,0 +1,34 @@
+[project]
+name = "mosaic"
+version = "0.1.0"
+description = "Mosaic：通用数据平台 + AI 平台数据中心 —— 语言 / 算法 / 工程系统三部分实验与实践仓库"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=2.0",
+    "matplotlib>=3.9",
+    "scikit-learn>=1.5",
+]
+
+[project.optional-dependencies]
+deep-learning = [
+    "torch>=2.4",
+]
+engineering = [
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["algorithms", "engineering/ai-platform"]

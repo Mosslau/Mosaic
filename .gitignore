@@ -1,0 +1,85 @@
+# ============================================================
+# Mosaic 顶层通用忽略规则
+#
+# 这是三仓 .gitignore 的「通用部分」并集。域内特有的产物清单
+# 由各域自带，不在这里重复：
+#   languages/.gitignore                     （语言域构建产物）
+#   languages/website/.gitignore             （站点 node_modules/ 与 docs/）
+#   engineering/data-platform/.gitignore     （数据平台 bin/ 与 .tmp-*）
+# ============================================================
+
+# --- 系统 / 编辑器 ---
+.DS_Store
+.workbuddy/
+.idea/
+.vscode/
+
+# --- 构建产物（不锚定，覆盖全域）---
+target/
+target
+debug
+/build/
+/dist/
+/site
+*.o
+*.a
+*.so
+*.pdb
+*.class
+*.jar
+*.war
+**/*.rs.bk
+**/mutants.out*/
+hs_err_pid*
+replay_pid*
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.py[codz]
+*$py.class
+*.egg
+*.egg-info/
+wheels/
+MANIFEST
+pip-log.txt
+pip-delete-this-directory.txt
+*.manifest
+*.spec
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+.cache
+.ipynb_checkpoints/
+docs/_build/
+.streamlit/secrets.toml
+.env
+.envrc
+.pypirc
+**/outputs/
+**/data/cache/
+
+# --- 日志 ---
+# 语言域的教学样例里**故意跟踪** .log 数据文件（py/ph05 的 sample_logs.log、
+# rs/ph06 的 sample.log），下面两行豁免必须保留——删掉它们会让以后新增的同
+# 类样例被静默忽略（gitignore 不作用于已跟踪文件，症状只在新增文件时出现）。
+*.log
+!languages/studies/py/ph05-file-exception/project/sample_logs.log
+!languages/studies/rs/ph06-cargo-module/project/log-analyzer/sample.log
