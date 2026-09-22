@@ -1,6 +1,6 @@
 # Mosaic 合并设计（TenetLang + MindSpring + OceanVerse → 单仓）
 
-- 状态：待实施（设计已评审通过）
+- 状态：**已实施并发布**（2026-09-22 完成；成果见同目录的 `../migration-record.md`）
 - 日期：2026-09-22
 - 范围：仓库合并与结构重排；**不含**内容改写与去车联网
 
@@ -85,7 +85,7 @@ Mosaic/
 │
 ├── books/                           ← TenetLang/books/（计算机书单，横跨三部分，不在站点内容族内）
 ├── .github/workflows/ci.yml         ← OceanVerse（全仓唯一 CI）
-└── .dsh/skills/                     16 个 skill 的并集
+└── .dsh/skills/                     15 个 skill + _desgin 的并集（共移动 16 个目录）
 ```
 
 顶层构成可以一句话说清：**三个内容域**（`languages/` `algorithms/` `engineering/`）+ **四类跨域支撑**（`roadmap/` `books/` `.dsh/` `.github/`）+ 根级元文件。没有任何「只管一个域的东西」摆在跨域层级上。
@@ -95,7 +95,7 @@ Mosaic/
 - **OceanVerse 内部相对路径全部继续成立**（D8）。
 - **`智能大数据平台工程师.md` 上移零成本**：实测其在 OceanVerse 内出链 0、入链 0；OceanVerse 只引用 `项目进度.md` 与 `OceanVerse架构总览.md`，后两者留在 `engineering/data-platform/roadmap/`，域内引用不受影响。
 - **`studies/` 内部数百条阶段互链全部继续成立**：用链接解析器逐条解析 `languages/**/*.md` 的相对链接，**逃出 `languages/` 树的为 0 条**（域内互链 `../../<lang>/phNN-*` 占了绝大多数）。这正是「域整体搬迁」优于「文件级重排」的地方。
-- **`.dsh/skills/` 去重是真正的并集**：14 个共享 skill 在三仓间 `diff -rq` 差异块均为 0，并集 = TenetLang 15 个 + `mindspring-lab` = 16 个。
+- **`.dsh/skills/` 去重是真正的并集**：14 个共享 skill 在三仓间 `diff -rq` 差异块均为 0，并集 = TenetLang 15 个 + `mindspring-lab` = 共 16 个目录，即 **15 个 skill + `_desgin`**（`_desgin/` 无 `SKILL.md`，是设计笔记目录，不是 skill）。
 - **站点移入 `languages/` 反而减少改动**（D7）：`website/.gitignore` 自包含（`node_modules/`、`docs/`、`.vitepress/*` 均相对自身），搬迁零改动；且 `sync-docs.mjs` 的 `REPO_DIR = path.resolve(SITE_DIR, '..')` 会自然收缩为「语言域根」，`FAMILIES` 随之变成干净的 `['studies','analysis','tenet']`，`rootReadme`（476 行）、372/417/435 行全部**无需改动**。脚本改动从 11 处降到 6 处，站点路由也从 `/languages/studies/py/…` 缩短为 `/py/…`。
 - **站点无外部引用**：`grep -rn 'website/'` 在 `website/` 之外零命中，搬迁零入链成本。
 
@@ -112,7 +112,7 @@ Mosaic/
 | `.mcp.json` | 三份 md5 相同，保留一份。 |
 | `.gitignore` | **分层，不合并成一份**（与「域整体搬迁」同一哲学：忽略规则跟着域走，各域可独立演进）。<br>① 顶层一份**通用规则**并集：编辑器/OS、`target/`、`__pycache__/`、虚拟环境、各类缓存、`.workbuddy`，以及 MindSpring 的 `/build/` `/dist/` `/site`（Python 打包产物，锚在 `pyproject.toml` 所在处 = 仓库根，位置正确）。<br>② `languages/.gitignore` ← TenetLang 的域内产物清单（19 行路径规则）。**其中 9 行零改动**（`analysis/cpp/demos/*` 5 行、`tenet/compiler-*` 4 行——根从「仓库根」变成「语言域根」后自动继续成立）；**10 行需改**：`/languages/go/ph21-data-ingest-gateway/…` → `/studies/go/ph21-data-ingest-gateway/…`。<br>③ `engineering/data-platform/.gitignore` ← OceanVerse **原样**（11 行路径规则全部是 `/ingest/…`、`deploy/…`、`.tmp-*` 这类锚定或域内相对形式，根变成 `engineering/data-platform/` 后**全部自动成立，零改动**）。<br>④ `languages/website/.gitignore` ← 原样，零改动。<br>⚠ 注意 OceanVerse 的 `.tmp-*` 规则**不需要**改写成 `**/.tmp-*`：它随域自带，天然只作用于数据平台域。 |
 | `pyproject.toml` | 取自 MindSpring：`name`/`description` 更新为 Mosaic；`testpaths = ["algorithms", "engineering"]` → `["algorithms", "engineering/ai-platform"]`。保留在仓库根（`mindspring-lab/validate.py` 以 `cwd=ROOT` 跑 `pytest`）。 |
-| `.dsh/skills/` | 16 个 skill 并集，逐字节去重（D9：`tenetlang-notes` / `mindspring-lab` 不改名）。 |
+| `.dsh/skills/` | **15 个 skill + `_desgin`** 的并集（共移动 16 个目录；`_desgin/` 无 `SKILL.md`，是设计笔记目录），逐字节去重（D9：`tenetlang-notes` / `mindspring-lab` 不改名）。 |
 | `MindSpring/website/` | 仅含一行标题的 stub（`# MindSpring 文档站`），内容无独有信息，**删除**。 |
 | `MindSpring/roadmap/README.md` | 扩写为全仓路线索引（四份路线文档的入口）。 |
 | `.github/` | 仅 OceanVerse 有，直接落 `Mosaic/.github/`；workflow 内路径需加域前缀（见 §6）。 |
@@ -179,11 +179,11 @@ git rm -r _import                                                # 最后删空�
 ## 9. 验收门禁（不绿不推送）
 
 1. `.dsh/skills/tenetlang-notes/scripts/validate.py`（含 `--links` 悬空链接检查）在 Mosaic 根执行通过。
-2. `.dsh/skills/mindspring-lab/scripts/validate.py` 通过；根目录 `python -m pytest -q` 通过；`ruff check` / `ruff format --check` 通过。
-3. OceanVerse 的 `scripts/check-docs.sh`、`check-mermaid.sh`、`check-compose-budget.sh` 通过；`docker compose -f engineering/data-platform/deploy/docker-compose.yml config` 通过。
+2. `.dsh/skills/mindspring-lab/scripts/validate.py` 通过；根目录 `python -m pytest -q` 通过（实测 **48 passed**）。`ruff` **不是**绝对门禁：三个源仓从未让 ruff 绿过（MindSpring 在冻结点即 `Found 420 errors` + 45 个文件需重排），且 `mindspring-lab/validate.py` 根本不运行 ruff；本项只做**差分**记录（实测 `522`，与迁移前持平，无新增发现）。
+3. `engineering/data-platform/` 下 `scripts/check-docs.sh`、`check-compose-budget.sh`、`test-compose-budget.sh` 通过；`docker compose -f engineering/data-platform/deploy/docker-compose.yaml config -q` 通过（**纯客户端解析，不需要 daemon**）。⚠ `check-mermaid.sh` **依赖 Docker daemon + `minlag/mermaid-cli` 镜像，属环境依赖项**：发布机无 daemon，故记为**未验证**（已用源仓内容副本复现同样失败，证明非迁移回归），需在有 Docker 的机器上补跑。
 4. `languages/website/`：`npm run build`（内部已含 `sync`，会重新生成 gitignored 的 `docs/`）通过。
-5. `git log --follow` 抽样（语言域、算法域、工程域各 1 个文件）能追到源仓提交。
-6. 仓库内 `grep` 确认无残留的失效路径：`../TenetLang/`、`../MindSpring/`、`../OceanVerse/`、`_import/`（仓名自称的 85 行按 D10 允许保留，不在本条门禁内）。
+5. 历史连通用 **subtree 感知**证法（`git log --follow` **不能**穿过 `git subtree` 合并提交，属 git 限制，本次迁移实测确认）：每个 subtree 合并提交的 `^2` 等于对应源仓 tip，`git merge-base --is-ancestor <tip> HEAD` 对三个 tip 均成立，`git rev-list --count <tip>` = `154 41 123`，并以 `git show <tip>:<原路径>` 与 `git show HEAD:<新路径>` 比对内容一致。
+6. 仓库内 `grep` 确认无残留的失效路径：`../TenetLang/`、`../MindSpring/`、`../OceanVerse/`、`_import/`（仓名自称约 **233 行**——`.md` 222 行 + 其他文件类型 11 行——按决策 D10 **刻意保留**，留待后续「文案统一」轮，不在本条门禁内）。
 7. `git status` 干净，无构建产物入库（`target/`、`docs/`、Go 二进制、`__pycache__`）。
 
 ## 10. 风险与回滚

@@ -23,7 +23,7 @@
 - **不改仓名自称**（spec 决策 D10）：正文里 `TenetLang` 22 行 / `MindSpring` 16 行 / `OceanVerse` 47 行保留原样，留给后续「文案统一」轮。本次例外只有「分工/边界」段落与随域根对齐的治理/索引文案（Task 5：`engineering/ai-platform/README.md` 45/47、`07-ai-platform/README.md` 89、`engineering/README.md` 26/28 共 3 文件 5 行；fix round 2 再补 `index-format.md` 3/24/37、`engineering-readme-template.md` 3、`07-ai-platform/README.md:72` 显示文本、`engineering/ai-platform/README.md:10` 表头共 6 处）。
 - **路径修正总数 93 处** = 4（`analysis→studies`）+ 27（工程→算法实验）+ 2（工程索引→路线文档）+ 1（`tenetlang-notes/validate.py`）+ 2（`mindspring-lab/validate.py`）+ 7（`sync-docs.mjs`）+ 10（`languages/.gitignore`）+ 12（`languages/website/README.md`）+ 22（CI）+ 6（边界文案行）。
 - **按「路径模式」替换，不要只替换链接形态**：实测有 3 处 `../../algorithms/` 与 1 处 `../roadmap/…` 写在内联代码里（同一行内联代码 + 链接各一份）。只匹配 `](…)` 会静默漏改。
-- **`git mv` 而非 `cp`**：所有搬迁必须用 `git mv`，否则 `git log --follow` 断链。
+- **`git mv` 而非 `cp`**：所有搬迁必须用 `git mv`，以便重命名被**记录**为 R100（历史可经 `git log <源 tip> -- <原路径>` 追溯）。注意 `git log --follow` **不能**穿过 subtree 合并提交——这是 git 的限制，不是 `git mv` 的缺陷。
 - **沙箱环境变量**：Go 命令一律加 `GOCACHE=/tmp/gocache-mosaic GOPATH=/tmp/gopath-mosaic`；npm 一律加 `--cache /tmp/npm-cache-mosaic`（`~/.npm` 不可写）。
 - **中文文件名**：所有列文件清单的 git 命令加 `-c core.quotepath=false`，否则 `tenet/Tenet架构设计.md` 会被写成八进制转义。
 - **`sed` 分隔符冲突**：不要写 `sed -E 's|…(a|b)…|…|g'`——交替里的 `|` 会与 `s|…|` 的分隔符冲突，BSD sed 报
@@ -1634,7 +1634,7 @@ git -c core.quotepath=false ls-files | cut -d/ -f1 | sort | uniq -c | sort -rn
 ```
 
 Expected: 顶层只剩 `languages` `algorithms` `engineering` `roadmap` `books` `docs` `.dsh` `.github` 与根文件。
-**逐个核对没有意外消失的域**（实测：`languages` **3907**、`engineering` **637** = 529 ai-platform + 108 data-platform、
+**逐个核对没有意外消失的域**（实测：`languages` **3907**、`engineering` **637** = 529 ai-platform + 107 data-platform + 1（`engineering/README.md` 域总览，不属任一子域）、
 `algorithms` **93**；已跟踪文件总数 **4787 → 4702**，差额 −86 + 1（新 README）恰为 `_import/` 的已跟踪内容。
 原稿写的「约 350 / 约 300」是早期粗估，与实测差一个量级，**以实测为准**）。
 

@@ -71,7 +71,7 @@ const nav = [
     ],
   },
   { text: 'Tenet', link: '/tenet/' },
-  { text: '仓库总览', link: '/about' },
+  { text: '语言域总览', link: '/about' },
 ]
 
 /** 每种语言一个侧边栏：章节总览 → roadmap → 各阶段正文（代码层由正文与卡片进入） */
@@ -193,7 +193,7 @@ export default defineConfig({
     sidebar,
     // 仓库入口。默认会排在亮暗切换之后，样式里用 order 把它提到「仓库总览」正后方。
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/Mosslau/TenetLang', ariaLabel: 'GitHub 仓库' },
+      { icon: 'github', link: 'https://github.com/Mosslau/Mosaic', ariaLabel: 'GitHub 仓库' },
     ],
     outline: { level: [2, 3], label: '本页目录' },
     docFooter: { prev: '上一节', next: '下一节' },

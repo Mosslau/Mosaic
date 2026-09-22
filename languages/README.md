@@ -5,7 +5,7 @@ Mosaic 的第 ① 部分。三条**并列**主线，对应「学 → 析 → 合
 | 目录 | 主线 | 内容 |
 |---|---|---|
 | `studies/` | 学 | 6 门主流语言 × 126 个阶段的系统化学习路线 |
-| `analysis/` | 析 | 语言设计解剖：C / C++ / Java / Python / Rust 的机制对比 |
+| `analysis/` | 析 | 语言设计解剖：C++ / Java / Python / Rust 的机制对比 |
 | `tenet/` | 合 | Tenet 语言设计与 3 个编译器实现（cpp / rs / arm64） |
 
 ## studies —— 六门语言的学习路线

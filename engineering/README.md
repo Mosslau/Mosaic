@@ -31,5 +31,5 @@ Mosaic 的第 ③ 部分。两个**并列**域：把「AI 平台」与「数据�
 
 ```bash
 python3 .dsh/skills/mindspring-lab/scripts/validate.py
-cd ../engineering/data-platform && bash scripts/check-docs.sh
+(cd engineering/data-platform && bash scripts/check-docs.sh)
 ```

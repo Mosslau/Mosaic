@@ -6,7 +6,7 @@
 
 **A big data platform: Ingestion · Processing · Serving.**
 
-[![CI](https://github.com/Mosslau/OceanVerse/actions/workflows/ci.yml/badge.svg)](https://github.com/Mosslau/OceanVerse/actions/workflows/ci.yml)
+[![CI](https://github.com/Mosslau/Mosaic/actions/workflows/ci.yml/badge.svg)](https://github.com/Mosslau/Mosaic/actions/workflows/ci.yml)
 
 智能电动车数据智能平台——从车端数据采集接入、实时流处理，到分析服务化输出与可视化监控，构建完整的数据水利工程。
 
