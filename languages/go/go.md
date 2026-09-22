@@ -1,6 +1,6 @@
 # Go 语言学习 Roadmap
 
-> 面向后端服务、云原生、车联网和 IoT 数据平台，重点建立简洁工程化、并发和服务交付能力。
+> 面向后端服务、云原生、通用数据采集与数据平台，重点建立简洁工程化、并发和服务交付能力。
 
 ## 1. Go 基础语法阶段
 
@@ -847,7 +847,7 @@ handler → service → repository → database
 ### 推荐项目
 
 - 分层 Web API 模板
-- 车联网设备管理服务
+- 设备管理服务
 
 ## 18. API 设计与兼容性阶段
 
@@ -992,50 +992,50 @@ APP_ENV=prod ./server
 - 多环境配置模块
 - 服务发布 checklist
 
-## 21. IoT / 车联网 / 嵌入式相关 Go 阶段
+## 21. 通用数据采集与接入网关方向 Go 阶段
 
-> 📖 详细展开版见 [ph21-iot-vehicle-edge/21-iot-vehicle-edge.md](./ph21-iot-vehicle-edge/21-iot-vehicle-edge.md)
+> 📖 详细展开版见 [ph21-data-ingest-gateway/21-data-ingest-gateway.md](./ph21-data-ingest-gateway/21-data-ingest-gateway.md)
 
 ### 目标
 
-用 Go 构建车联网后端、边缘网关和数据平台。
+用 Go 构建通用数据采集接入、采集网关和数据平台。
 
 ### 学习内容
 
 - MQTT、WebSocket、TCP/UDP、HTTP API、gRPC
 - Kafka、NATS、RabbitMQ
 - Redis、时序数据库、Prometheus
-- OTA、设备影子、设备认证、数据上报、指令下发
+- 采集器版本管理、配置下发、数据源认证、数据上报、状态回报
 
 ### 必会概念
 
-- Go 适合设备接入、数据采集、边缘网关和云端服务
-- 设备协议要处理断线重连、幂等和鉴权
-- 遥测数据要考虑吞吐、存储和查询模式
+- Go 适合数据接入、数据采集、采集网关和云端服务
+- 接入协议要处理断线重连、幂等和鉴权
+- 采集数据要考虑吞吐、存储和查询模式
 
 ### 示例
 
 ```text
-设备 → MQTT 接入 → Go 清洗服务 → Kafka → 存储/告警/可视化
+数据源 → MQTT 接入 → Go 清洗服务 → Kafka → 存储/告警/可视化
 ```
 
 ### 练习
 
-- MQTT 设备接入服务
-- 车辆遥测数据接收服务
-- OTA 升级服务
+- MQTT 数据接入服务
+- 通用遥测数据接收服务
+- 采集器版本灰度服务
 - WebSocket 实时监控面板
 
 ### 阶段验收
 
-- 能接入设备数据并落库
+- 能接入数据源并落库
 - 能处理断线重连和认证
 - 能监控服务吞吐和错误率
 
 ### 推荐项目
 
-- 车联网数据平台
-- 边缘网关转发服务
+- 通用数据采集平台
+- 采集网关转发服务
 
 ## 附录：阶段性项目验收标准
 
@@ -1082,7 +1082,7 @@ APP_ENV=prod ./server
 ### 推荐项目
 
 - Go 服务模板
-- 车联网数据接入服务
+- 通用数据接入服务
 
 ## 推荐学习顺序
 
@@ -1102,7 +1102,7 @@ Go 基础语法
 → Docker / Kubernetes
 → pprof / 性能优化
 → Go 底层原理
-→ 车联网 / IoT / 云原生项目
+→ 数据采集 / 云原生项目
 ```
 
 ## Go 和 C / C++ / Rust 的区别
@@ -1141,13 +1141,13 @@ Go 基础语法
 - 日志采集系统
 - Prometheus 监控服务
 
-### 车联网 / IoT 项目
+### 数据采集 / 数据平台项目
 
-- MQTT 设备接入平台
-- 车辆数据上报服务
-- OTA 升级管理服务
-- CAN 数据解析后端
-- 边缘网关数据转发服务
+- MQTT 数据接入平台
+- 通用数据上报服务
+- 采集器版本管理服务
+- 日志/指标解析后端
+- 采集网关数据转发服务
 
 ## 对你最推荐的 Go 路线
 
@@ -1168,7 +1168,7 @@ Go 基础
 → Docker
 → Kubernetes
 → Prometheus / Grafana
-→ 车联网数据平台
+→ 通用数据采集平台
 ```
 
 重点掌握：struct、interface、error、defer、goroutine、channel、context、sync、net/http、encoding/json、database/sql、Redis、MQTT、gRPC、Docker、Kubernetes、pprof。

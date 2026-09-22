@@ -2,7 +2,7 @@
 // 一句话说明：领域包（依赖图最内层）。Device 的字段与状态是"业务词汇"，
 // 全项目只有这里定义；handler/service/store 都引用它，它不引用任何人。
 // 说明：本项目的"设备管理"只做 HTTP 管理面（注册/状态/固件/指令受理），
-// 实时遥测与设备协议接入（MQTT/WebSocket 上行）属 ph21 IoT / 车联网 / 嵌入式相关 Go 阶段。
+// 实时遥测与设备协议接入（MQTT/WebSocket 上行）属 ph21 通用数据采集与接入网关方向 Go 阶段。
 // 验证环境：go1.25.6（darwin/arm64），依赖：零第三方（标准库）
 // 构建：go build ./...    测试：go test ./...    静态检查：go vet ./...
 // 注：go 命令需带仓库统一重定位环境（GOCACHE=/tmp/gocache GOMODCACHE=/tmp/gomodcache

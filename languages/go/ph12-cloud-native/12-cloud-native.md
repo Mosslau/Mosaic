@@ -18,7 +18,7 @@ Go 云原生与部署阶段的目标是（引用 Roadmap）：**能把 Go 服务
 
 本阶段的核心信念来自四条必会概念：**Go 适合构建小型静态二进制**——CGO_ENABLED=0 的纯静态编译让 Go 服务能塞进 scratch/distroless 镜像（~10MB），这是容器化时代的"Go 优势"；**容器镜像应尽量小且可复现**——多阶段构建 + -trimpath 让镜像只含二进制、可重复构建，攻面小、拉取快；**健康检查和优雅退出很重要**——上线后"进程活着"不等于"能服务"，探针 + 信号是编排系统管理生命周期的接口；**配置不应写死在镜像里**——镜像与环境解耦（12-Factor），同一镜像在不同环境注入不同配置。
 
-这个阶段只涉及"把 Go 服务容器化并部署到集群、接上可观测性与流量治理"这条主线，**不涉及性能剖析与优化（pprof、benchmark、GC 调优属 ph13 性能优化阶段，roadmap 第 13 节）、消息队列与日志采集管道（Kafka/NATS/Loki 的队列深入属 [ph19 消息队列与事件驱动深入阶段](../ph19-mq-event-driven/19-mq-event-driven.md)）、配置中心与 feature flag 发布控制（etcd/Consul 配置中心与灰度开关属 [ph20 配置管理与发布策略阶段](../ph20-config-release/20-config-release.md)——本阶段的"灰度"只到 K8s 滚动更新的部署形态）、IoT/车联网设备接入（MQTT/WebSocket 设备协议属 [ph21 IoT/车联网相关 Go 阶段](../ph21-iot-vehicle-edge/21-iot-vehicle-edge.md)）** — 本阶段是"容器 + 编排 + 可观测 + 部署"的工程化闭环。
+这个阶段只涉及"把 Go 服务容器化并部署到集群、接上可观测性与流量治理"这条主线，**不涉及性能剖析与优化（pprof、benchmark、GC 调优属 ph13 性能优化阶段，roadmap 第 13 节）、消息队列与日志采集管道（Kafka/NATS/Loki 的队列深入属 [ph19 消息队列与事件驱动深入阶段](../ph19-mq-event-driven/19-mq-event-driven.md)）、配置中心与 feature flag 发布控制（etcd/Consul 配置中心与灰度开关属 [ph20 配置管理与发布策略阶段](../ph20-config-release/20-config-release.md)——本阶段的"灰度"只到 K8s 滚动更新的部署形态）、数据采集接入（MQTT/WebSocket 接入协议属 [ph21 数据采集与接入网关相关 Go 阶段](../ph21-data-ingest-gateway/21-data-ingest-gateway.md)）** — 本阶段是"容器 + 编排 + 可观测 + 部署"的工程化闭环。
 
 ## 2. 来源与演变
 

@@ -1,6 +1,6 @@
 # Python 语言学习 Roadmap
 
-> 面向自动化、数据分析、Web 服务、AI 原型和车联网数据平台，重点建立快速解决实际问题的能力。
+> 面向自动化、数据分析、Web 服务、AI 原型和数据平台，重点建立快速解决实际问题的能力。
 
 ## 1. Python 基础语法阶段
 
@@ -858,54 +858,54 @@ def count():
 - 流式日志处理器
 - 可复用装饰器库
 
-## 18. 车联网 / 数据平台 / 自动化方向阶段
+## 18. 数据平台分析 / 自动化方向阶段
 
-> 📖 详细展开版见 [ph18-iot-data-automation/18-iot-data-automation.md](./ph18-iot-data-automation/18-iot-data-automation.md)
+> 📖 详细展开版见 [ph18-data-platform-automation/18-data-platform-automation.md](./ph18-data-platform-automation/18-data-platform-automation.md)
 
 ### 目标
 
-用 Python 支撑车联网数据分析、自动化测试和 AI 原型。
+用 Python 支撑数据平台分析、自动化测试和 AI 原型。
 
 ### 学习内容
 
-- CAN 日志解析
-- 车辆遥测数据处理
-- 电池数据分析
+- 平台日志解析
+- 指标时序数据处理
+- 资源健康度分析
 - 故障诊断、报表生成
 - 自动化测试平台
 - FastAPI 数据服务
 - AI 异常检测
-- MQTT 遥测采集（车辆数据上行入口）
+- MQTT 指标采集（平台数据上行入口）
 
 ### 必会概念
 
 - Python 适合数据处理、工具和原型
-- 车辆数据要关注时间序列和异常值
+- 平台指标数据要关注时间序列和异常值
 - 自动化测试要可重复和可审计
 
 ### 示例
 
 ```text
-车辆日志 → Python 清洗 → Pandas 分析 → 报表 / API / 异常检测
+平台日志 → Python 清洗 → Pandas 分析 → 报表 / API / 异常检测
 ```
 
 ### 练习
 
-- CAN 日志解析器
-- 车辆数据清洗工具
-- OTA 测试报告生成
+- 平台日志解析器
+- 指标数据清洗工具
+- 测试报告生成
 - MQTT 数据采集服务
 
 ### 阶段验收
 
-- 能解析并清洗车辆数据
+- 能解析并清洗平台数据
 - 能生成报告或 API
 - 能完成自动化测试闭环
 
 ### 推荐项目
 
-- 车辆遥测 Dashboard
-- 传感器异常检测模型
+- 平台指标 Dashboard
+- 指标异常检测模型
 
 ## 推荐学习顺序
 
@@ -965,13 +965,13 @@ Python 基础语法
 - 自动化测试平台
 - RAG 问答系统
 
-### 车联网 / 智能电动车项目
+### 数据平台 / AI 平台项目
 
-- CAN 日志解析器
-- 车辆数据分析平台
-- 电池健康状态分析
+- 平台日志解析器
+- 平台指标分析平台
+- 资源健康度分析
 - MQTT 数据接入服务
-- 传感器异常检测模型
+- 指标异常检测模型
 
 ## 对你最推荐的 Python 路线
 
@@ -988,7 +988,7 @@ Python 基础
 → MQTT / Kafka
 → Docker
 → AI 异常检测
-→ 车辆数据平台
+→ 数据平台
 ```
 
 重点掌握：list、dict、function、class、file、exception、pathlib、json、csv、re、logging、argparse、pytest、dataclass、pydantic、pandas、numpy、matplotlib、FastAPI、SQLAlchemy、Redis、asyncio、Docker。

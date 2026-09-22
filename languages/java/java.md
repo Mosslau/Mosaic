@@ -1,6 +1,6 @@
 # Java 语言学习 Roadmap
 
-> 面向企业级后端、微服务、高并发系统和车联网数据平台，重点建立 OOP 建模、JVM、Spring 生态和工程交付能力。
+> 面向企业级后端、微服务、高并发系统和数据平台 / 数据中心后端，重点建立 OOP 建模、JVM、Spring 生态和工程交付能力。
 
 ## 1. Java 基础语法阶段
 
@@ -1013,53 +1013,53 @@ ThreadPoolExecutor executor = new ThreadPoolExecutor(core, max, 60, TimeUnit.SEC
 - 简易 IOC 容器
 - Netty 网关 demo
 
-## 21. 车联网 / 智能电动车方向 Java 阶段
+## 21. 数据平台 / 数据中心后端方向 Java 阶段
 
-> 📖 详细展开版见 [ph21-vehicle-iot/21-vehicle-iot.md](./ph21-vehicle-iot/21-vehicle-iot.md)
+> 📖 详细展开版见 [ph21-data-platform/21-data-platform.md](./ph21-data-platform/21-data-platform.md)
 
 ### 目标
 
-用 Java 构建车联网后端、设备管理、OTA 和数据服务。
+用 Java 构建数据平台后端：任务与资源管理、通用数据接入、告警和数据服务。
 
 ### 学习内容
 
-- 设备管理平台
-- 车辆数据接入服务
-- OTA 管理平台
+- 任务与资源管理平台
+- 通用数据接入服务
+- 任务发布与调度平台
 - 告警规则引擎
 - Kafka 数据消费
 - Redis 实时状态缓存
-- 轨迹查询、运维后台
+- 作业历史查询、运维后台
 
 ### 必会概念
 
 - Java 适合企业级后台和高并发数据服务
-- 车辆数据链路要关注吞吐、延迟和可靠性
-- 告警和 OTA 必须有审计和回滚设计
+- 数据平台链路要关注吞吐、延迟和可靠性
+- 告警和发布必须有审计和回滚设计
 
 ### 示例
 
 ```text
-车辆 → 接入服务 → Kafka → 清洗/告警/存储 → 后台平台
+数据源 → 接入服务 → Kafka → 清洗/告警/存储 → 运维后台
 ```
 
 ### 练习
 
-- 车辆数据上报 API
-- 设备管理系统
-- OTA 升级平台
-- Kafka 遥测消费服务
+- 数据上报 API
+- 任务与资源管理系统
+- 任务发布与调度平台
+- Kafka 数据消费服务
 
 ### 阶段验收
 
-- 能接入车辆数据并落库
+- 能接入平台数据并落库
 - 能处理实时状态缓存
 - 能设计告警规则和查询接口
 
 ### 推荐项目
 
-- 车联网后台平台
-- OTA 管理系统
+- 数据平台运维后台
+- 任务发布与调度系统
 
 ## 附录：阶段性项目验收标准
 
@@ -1102,7 +1102,7 @@ ThreadPoolExecutor executor = new ThreadPoolExecutor(core, max, 60, TimeUnit.SEC
 
 - 能完成控制台项目（初级）
 - 能完成 Spring Boot CRUD 服务（中级）
-- 能完成可部署微服务或车联网模块（高级）
+- 能完成可部署微服务或数据平台模块（高级）
 
 ### 推荐项目
 
@@ -1122,7 +1122,7 @@ Java 基础语法（含 var、Text Blocks）
 → Spring Boot
 → Spring Cloud / 消息队列 / 缓存
 → Docker / Kubernetes
-→ JVM 调优 / 高并发 / 车联网项目
+→ JVM 调优 / 高并发 / 数据平台项目
 ```
 
 ## Java 和 C / C++ / Rust / Go / Python 的区别
@@ -1160,13 +1160,13 @@ Java 基础语法（含 var、Text Blocks）
 - API Gateway
 - Kafka 日志采集系统
 
-### 车联网 / 智能电动车项目
+### 数据平台 / 数据中心项目
 
-- 设备管理后台
-- 车辆实时状态平台
-- OTA 升级平台
-- 车辆告警规则引擎
-- 车辆轨迹查询服务
+- 任务与资源管理后台
+- 实时状态监控平台
+- 任务发布与调度平台
+- 平台告警规则引擎
+- 作业历史查询服务
 
 ## 对你最推荐的 Java 路线
 
@@ -1188,7 +1188,7 @@ Java 基础（含 var、Text Blocks）
 → Kafka / RocketMQ
 → Spring Cloud
 → Docker / Kubernetes
-→ 车辆数据平台
+→ 数据平台 / 数据中心
 ```
 
 重点掌握：OOP、record、sealed class、Collection、HashMap、ArrayList、Generic、Exception、Stream、Switch Expressions、Pattern Matching、Optional、ThreadPool、Virtual Threads、ConcurrentHashMap、JVM、Maven、JUnit、Spring Boot、MyBatis、Redis、Kafka、Docker、Kubernetes。

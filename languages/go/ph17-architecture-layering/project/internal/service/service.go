@@ -137,7 +137,7 @@ func (s *Service) UpgradeFirmware(id, version string) (domain.Device, error) {
 }
 
 // SendCommand 下发指令（管理面受理）：指令非空；设备必须在线，否则拒绝。
-// 命令的真实投递链（协议转换/ACK/重试）属 ph21 IoT / 车联网 / 嵌入式相关 Go 阶段，
+// 命令的真实投递链（协议转换/ACK/重试）属 ph21 通用数据采集与接入网关方向 Go 阶段，
 // 本阶段只做业务层受理判定——离线设备的命令直接在源头拒掉。
 func (s *Service) SendCommand(id, command string) error {
 	command = strings.TrimSpace(command)

@@ -1,10 +1,10 @@
 # ph12 阶段项目：CAN 日志批处理工具
 
-> 对应 Roadmap（python.md）ph12「推荐项目」第二个「CAN 日志批处理工具」。解析 candump 风格 CAN 日志 → 按 ID 统计信号值 → 生成 CSV 报表 + 文本汇总；argparse 参数化、logging 审计、可安全重跑、输出可审计——四个必会概念在一个工具里全部落地，同时呼应全库车辆主题。
+> 对应 Roadmap（python.md）ph12「推荐项目」第二个「CAN 日志批处理工具」。解析 candump 风格 CAN 日志 → 按 ID 统计信号值 → 生成 CSV 报表 + 文本汇总；argparse 参数化、logging 审计、可安全重跑、输出可审计——四个必会概念在一个工具里全部落地，同时为 ph18 的平台日志解析打底。
 
 ## 需求
 
-车辆研发/运维场景里，CAN 总线日志（candump 导出）动辄几十 MB 纯文本，人工翻看效率极低。本工具把「读日志 → 按 ID 分组统计 → 出报表」固化成一条命令：解析 `(秒.微秒) 接口 ID#负载HEX` 格式的每一行，按 CAN ID 统计帧数与信号值（简化约定：**负载首字节即信号值**；完整 DBC 信号矩阵解析属 [ph18 车联网 / 数据平台 / 自动化方向阶段](../../ph18-iot-data-automation/18-iot-data-automation.md)，roadmap 第 18 节，目录已建），支持按 ID 过滤，输出确定性覆盖写的 CSV 报表与带时间戳的文本汇总。
+车辆研发/运维场景里，CAN 总线日志（candump 导出）动辄几十 MB 纯文本，人工翻看效率极低。本工具把「读日志 → 按 ID 分组统计 → 出报表」固化成一条命令：解析 `(秒.微秒) 接口 ID#负载HEX` 格式的每一行，按 CAN ID 统计帧数与信号值（简化约定：**负载首字节即信号值**；带格式规约的深度日志解析属 [ph18 数据平台分析 / 自动化方向阶段](../../ph18-data-platform-automation/18-data-platform-automation.md)，roadmap 第 18 节，目录已建），支持按 ID 过滤，输出确定性覆盖写的 CSV 报表与带时间戳的文本汇总。
 
 ## 功能清单
 
@@ -30,7 +30,7 @@
 ## 扩展方向（可选）
 
 - **多字节信号 + 字节序**：负载首字节是简化约定，真实信号常跨字节（如 `int.from_bytes(data[2:4], "big")`），可扩展为按 (ID, 起始字节, 长度, 缩放) 配置的信号矩阵
-- **接入 DBC 文件**：用 python-can / cantools 解析标准 DBC，信号定义从文件加载而非硬编码（衔接 [ph18 车联网 / 数据平台 / 自动化方向阶段](../../ph18-iot-data-automation/18-iot-data-automation.md)）
+- **接入 DBC 文件**：用 python-can / cantools 解析标准 DBC，信号定义从文件加载而非硬编码（本工具自身的延伸方向）
 - **批量目录**：`--input` 支持目录时用 pathlib `rglob` 遍历（复用 ex01 的文件批处理思路），一个命令处理整个采集目录
 - **定时 + 邮件**：配合 schedule（examples/ex06）定时跑，结果用 smtplib（examples/ex05）发日报——三个示例的合体
 - **性能**：百万行级日志逐行 `read_text().splitlines()` 已可用，更大可换 `for line in f` 流式读取（主文档 3.3）
