@@ -1405,14 +1405,28 @@ cd /Users/ninebot/code/mosslau/Mosaic/engineering/data-platform
 if docker info >/dev/null 2>&1; then echo "docker daemon 可用 → check-mermaid 必须通过"; bash scripts/check-mermaid.sh; echo "exit=$?"; else
   echo "docker daemon 不可用 → check-mermaid 无法运行，按环境缺失记录"
   docker run --rm hello-world 2>&1 | head -2      # 复现真实原因（脚本把它吞掉了）
-  echo "--- 负向核对：源仓未修改副本上同一脚本的表现 ---"
-  ( cd ../../_import/OceanVerse && bash scripts/check-mermaid.sh >/dev/null 2>&1; echo "源仓同项 exit=$?" )
+  echo "--- 负向核对：在**无污染探针**里跑源仓的同一脚本 ---"
+  # ⚠ 两处坑（实施时踩到）：
+  #   ① Step 1 之后 `_import/OceanVerse/scripts/` **已搬走**（该目录只剩 `.dsh/`、`.mcp.json`、`LICENSE`），
+  #      那里已无脚本可跑（`exit 127`）；
+  #   ② **绝不能对只读源仓 `../OceanVerse` 就地跑**：`check-mermaid.sh` 会写 `$ROOT/.tmp-mmdc/`
+  #      （脚本里有 `rm -rf` + `mkdir -p`），那是对只读源仓的写操作。
+  #   做法：把源仓的脚本与含 mermaid 的 .md **复制**进 `.superpowers/tmp/`（gitignore 区）再跑；脚本按自身
+  #   位置定位 ROOT，故目录结构照搬，跑完即弃。
+  probe=.superpowers/tmp/mmdc-probe
+  rm -rf "$probe" && mkdir -p "$probe/scripts"
+  cp ../OceanVerse/scripts/check-mermaid.sh "$probe/scripts/"
+  ( cd ../OceanVerse && grep -rl '```mermaid' --include='*.md' . | grep -v '^./.dsh/' | sed 's|^\./||' ) \
+    | while IFS= read -r rel; do mkdir -p "$probe/$(dirname "$rel")"; cp "../OceanVerse/$rel" "$probe/$rel"; done
+  ( cd "$probe" && bash scripts/check-mermaid.sh >/dev/null 2>&1; echo "源仓内容副本同项 exit=$?" )
+  shasum scripts/check-mermaid.sh ../OceanVerse/scripts/check-mermaid.sh | awk '{print $1}' | sort -u | wc -l   # 期望 1（两侧同一份脚本）
+  rm -rf "$probe"
 fi
 ```
 
 - **daemon 不可用**：把 `check-mermaid.sh` 记为**未验证（环境缺 docker daemon / minlag 镜像）**，并**必须**
-  用源仓副本作对照——若源仓上同样是全失败（预期如此），则证明这是**环境问题而非迁移回归**；两侧表现不一致
-  就说明是回归，**停下排查**。不要把这项写成「通过」。
+  用上面的探针作对照——两侧若同样全失败（预期如此），则证明是**环境问题而非迁移回归**；表现不一致就说明
+  是回归，**停下排查**。不要把这项写成「通过」。
 - **daemon 可用而图仍失败**：那是真问题（图语法确实坏了或 `deploy/` 相对位置变了），必须停在原地查。
 
 - [ ] **Step 4: 修 `.github/workflows/ci.yml` 的 22 处路径前缀**
@@ -1461,11 +1475,15 @@ echo "--- 不该再有无前缀的相对路径 ---"
 grep -nE '^\s+working-directory: (deploy|ingest)|^\s+- ingest/|run: bash scripts/|-f ingest/|-f deploy/' "$f" || echo "OK 无残留"
 echo "--- 该保留的（矩阵引用自动生效，无需改动） ---"
 grep -c 'matrix.module' "$f"                    # 期望 8
-grep -n '\.\./scripts/\|\.\./lakehouse/\|bash emqx/' "$f"   # 期望 3 行，均相对 deploy/ 域根，无需改
+grep -n '\.\./scripts/\|\.\./lakehouse/\|bash emqx/' "$f"   # 期望 **4 行**（旧稿把「模式种类」当成了「行数」）
 python3 -c "import yaml,sys;d=yaml.safe_load(open('$f'));print('YAML OK, jobs=',list(d['jobs']))"
 ```
 
-Expected: `OK 无残留`；`8`；3 行 `../scripts/`、`../lakehouse/`、`bash emqx/`；`YAML OK, jobs= ['go', 'docker', 'pipeline-health', 'compose', 'docs']`。
+Expected: `OK 无残留`；`8`；**4 行**匹配 `../scripts/`、`../lakehouse/`、`bash emqx/`（实测：222 `emqx/gen-certs.sh`、
+311 `../lakehouse/…init.sql`、316 `../scripts/init-minio-bucket.sh`、318 `../lakehouse/…submit-jobs.sh`；
+在**未修改的源仓**上同样是这 4 行同一位置，故是工作流固有、非迁移引入——旧稿写「3 行」是把**模式种类**当成了**行数**）；
+`YAML OK, jobs= ['go', 'docker', 'pipeline-health', 'compose', 'docs']`。
+这 4 行的 `working-directory` 均为 `engineering/data-platform/deploy`，`../` 仍指向域根，**无需改动**。
 
 - [ ] **Step 6: 验证 compose 能解析、预算门禁通过**
 
@@ -1648,7 +1666,12 @@ git status --porcelain | head
 
 Expected: ①–④ 全绿；⑤ 三行 `OK … 是 HEAD 的祖先` + 提交数 `154 41 123` + 三行 `OK … 内容与源 tip 一致`；⑦ `git status` 无输出（除本步产生的构建产物，均在 gitignore 内）。
 
-- [ ] **Step 5: 建远端并推送**
+- [ ] **Step 5: 合并回 `main`、建远端并推送**
+
+⚠ **本迁移全程在临时分支 `mosaic-merge` 上实施**（Setup Ruling 1：SDD 要求未经明确同意不得在 `main` 上实施）。
+`main` 至今仍是引导期的三个文档提交，且是 `mosaic-merge` 的祖先（实测领先 343 个提交），故可**快进**合并。
+**必须先合并回 `main` 再推送**——`gh repo create --push` 推的是**当前分支**，不先切回就会把 `mosaic-merge`
+推成默认分支。
 
 ```bash
 cd /Users/ninebot/code/mosslau/Mosaic
@@ -1657,13 +1680,25 @@ git commit -m "docs: 顶层 README + 清理 _import 暂存区
 
 Mosaic 三部分总入口：导航、跨域支撑、校验命令、边界说明。
 _import/ 暂存区已删除，三仓内容全部就位于目标结构。"
+
+# 合并回 main（快进：main 无新提交）
+git switch main
+git merge --ff-only mosaic-merge
+test "$(git rev-parse HEAD)" = "$(git rev-parse mosaic-merge)" && echo "OK main 已快进到 mosaic-merge"
+git rev-list --count main          # 记录最终提交数
+
 gh repo create Mosslau/Mosaic --private --source=. --remote=origin --push \
   --description "Mosaic: 通用数据平台 + AI 平台数据中心 —— 语言 / 算法 / 工程系统"
 git remote -v
 git log --oneline | head -3
+git status -sb | head -2
 ```
 
-Expected: 远端创建成功；`origin` 指向 `git@github.com:Mosslau/Mosaic.git`；`git status` 显示与 origin/main 一致。
+Expected: 远端创建成功；`origin` 指向 `git@github.com:Mosslau/Mosaic.git`；**当前分支为 `main`** 且 `git status -sb`
+显示 `## main...origin/main`（无 ahead/behind）；`main` 与 `mosaic-merge` 指向同一提交。
+
+若 `gh repo create` 报「仓库已存在」：改用 `git remote add origin git@github.com:Mosslau/Mosaic.git && git push -u origin main`，
+**不要**把已有仓库误当新建（也不要 `--force`）。推送成功后 `mosaic-merge` 分支可留可删（`git branch -d mosaic-merge`），不影响交付。
 
 ---
 
