@@ -17,7 +17,7 @@
 | 路径 | 用途 |
 |---|---|
 | [`roadmap/`](roadmap/) | 路线图：算法演进路线 + 两条职业路线 + 语言学习路线 |
-| [`books/`](books/) | 计算机书单 |
+| [`roadmap/books/`](roadmap/books/) | 计算机书单 |
 | [`.dsh/skills/`](.dsh/skills/) | 写作与验证规范（15 个 skill + `_desgin` 设计笔记） |
 
 ## 校验
