@@ -139,7 +139,7 @@ const sidebar = {
 
 export default defineConfig({
   lang: 'zh-CN',
-  title: 'TenetLang',
+  title: 'Mosaic · 语言域',
   description: '万语归宗——六门语言的学习笔记、设计分析与 Tenet 语言实现',
   srcDir: 'docs',
   cleanUrls: true,

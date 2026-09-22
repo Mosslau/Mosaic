@@ -1,4 +1,4 @@
-# TenetLang 文档站
+# Mosaic 语言域文档站
 
 把域根下 `studies/`、`analysis/`、`tenet/` 三个目录族的 Markdown 构建成卡片式的
 [VitePress](https://vitepress.dev) 站点：六门语言 → 设计分析 → Tenet 语言与编译器。
