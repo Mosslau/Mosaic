@@ -7,7 +7,7 @@
 
 ## 与 algorithms/ 的区别
 
-| | `algorithms/` | `engineering/` |
+| | `algorithms/` | `engineering/ai-platform/` |
 |---|---|---|
 | 目标 | 搞懂单个算法的原理 | 串起完整系统的链路 |
 | 粒度 | 一个目录一个算法 | 一个目录一个可运行系统 |

@@ -69,7 +69,7 @@
 - [K-Means](../../../algorithms/02-statistical-ml/kmeans/) / [PCA](../../../algorithms/02-statistical-ml/pca/) —— 01/03 的语料与向量质量抽检
 - [A* 启发式搜索](../../../algorithms/01-search/a-star/) —— 04 调度决策的"可解释评估"思想来源
 
-> 完整的「项目 → 前置实验」映射见 [`engineering/README.md`](../README.md) 的依赖表。
+> 完整的「项目 → 前置实验」映射见 [`engineering/ai-platform/README.md`](../README.md) 的依赖表。
 
 ## 验收标准
 

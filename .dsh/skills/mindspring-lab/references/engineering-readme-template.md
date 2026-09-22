@@ -1,6 +1,6 @@
 # 工程项目 README 模板
 
-> 用于 `engineering/<NN-项目>/README.md`。所有项目按此结构写，只替换占位内容。
+> 用于 `engineering/ai-platform/<NN-项目>/README.md`。所有项目按此结构写，只替换占位内容。
 > 本模板即权威结构，不指向仓库中任何具体文件（具体文件会重构，模板不过期）。
 
 ---

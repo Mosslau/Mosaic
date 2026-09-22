@@ -1,6 +1,6 @@
 # 索引表格式规范
 
-> 用于 `algorithms/README.md` 与 `engineering/README.md` 的索引表。
+> 用于 `algorithms/README.md` 与 `engineering/ai-platform/README.md` 的索引表。
 > `scripts/validate.py` 按本规范定义的**列序**解析——列序是契约，调整前必须先改本规范与脚本。
 > 表格之外的链接（推荐顺序列表、blockquote 导航）不属于索引表，脚本不解析。
 
@@ -21,7 +21,7 @@
 - 状态符与该实验 README 状态行一致（不一致记 ❌）
 - ✅ 必须填完成日期且与 README 状态行一致；⬜/🚧 日期留空
 
-## engineering/README.md
+## engineering/ai-platform/README.md
 
 一张项目总览表，五列固定顺序：
 
@@ -34,7 +34,7 @@
 规则：
 
 - 阶段用中文数字（一~七），与目录编号 NN 一致（validate.py 按目录编号 ↔ README 锚点核对）
-- 链接是相对 `engineering/` 的目录链接，形如 `01-text-corpus-pipeline/`
+- 链接是相对 `engineering/ai-platform/` 的目录链接，形如 `01-text-corpus-pipeline/`
 - 状态与日期规则同 algorithms 线
 
 ## 解析失败处理
