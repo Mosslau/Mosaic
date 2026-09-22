@@ -1,6 +1,6 @@
-# ph21 阶段项目：数据平台后台平台(source-iot, 收官项目)
+# ph21 阶段项目：数据平台后台(source-iot, 收官项目)
 
-> 对应 roadmap §21「推荐项目」第一个「数据平台后台平台」。本平台是 **Java 学习路线的收官项目**：把 ph01~ph20 的机制(并发/CHM/线程池、Netty 接入形态、SPI 规则、DDD 建模、Kafka 消费语义、版本发布 状态机、运维聚合)按真实数据平台数据链路组织成**一个纯 Java 可 javac 编译测试的模块集**。采用 ph18 秒杀 demo 的「纯 Java 可测先例」与 ph19 部署模板结构：模块边界即服务边界，全部内存实现、可离线跑、输出即验收。
+> 对应 roadmap §21「推荐项目」第一个「数据平台后台」。本平台是 **Java 学习路线的收官项目**：把 ph01~ph20 的机制(并发/CHM/线程池、Netty 接入形态、SPI 规则、DDD 建模、Kafka 消费语义、版本发布状态机、运维聚合)按真实数据平台数据链路组织成**一个纯 Java 可 javac 编译测试的模块集**。采用 ph18 秒杀 demo 的「纯 Java 可测先例」与 ph19 部署模板结构：模块边界即服务边界，全部内存实现、可离线跑、输出即验收。
 
 ## 需求
 
@@ -25,7 +25,7 @@ ReleasePlatform(版本库/批次/回滚/审计) ──────────�
 | `SourceStateCache` | Redis 实时状态缓存 | ConcurrentHashMap.compute 原子读改写(ph18/ph20 CHM) |
 | `JobHistoryStore` | 作业历史服务 | 每个数据源历史点 + 并发队列(ph04) |
 | `AlertEngine`/`AlertRules` | 告警规则引擎 | 规则可插拔(依赖倒置，ph20 SPI 思想) |
-| `ReleasePlatform` | 版本发布 管理平台 | 版本语义比较 + 批次状态机 + 审计 + 回滚(ph08/ph20) |
+| `ReleasePlatform` | 版本发布管理平台 | 版本语义比较 + 批次状态机 + 审计 + 回滚(ph08/ph20) |
 | `OpsConsole` | 运维后台 | 跨域聚合视图(ph08 Stream) |
 
 ## 目录结构
@@ -46,7 +46,7 @@ project/
     ├── AlertRules.java               # 内置两条规则(LowSoc / Overheat)
     ├── AlertEngine.java              # 规则求值 + 活跃告警表
     ├── ReleaseVersion.java               # 语义化版本号(可比较)
-    ├── ReleasePlatform.java              # 版本发布 平台：版本库 + 批次 + 状态机 + 审计
+    ├── ReleasePlatform.java              # 版本发布平台：版本库 + 批次 + 状态机 + 审计
     └── OpsConsole.java               # 运维后台聚合视图
 ```
 
@@ -75,8 +75,8 @@ rm -rf /tmp/tl21-proj
 - [x] 实时状态缓存：每个数据源最新帧收敛到 seq=400(乱序/旧帧不会覆盖)
 - [x] 作业历史落库：1200 个作业历史点全部入库
 - [x] 告警引擎：末帧注入 CPU 水位=8% 与磁盘 135℃ → LOW_CPU 水位 与 DISK_OVERHEAT 各 1 条活跃告警
-- [x] 版本发布 平台：版本递进发布(1.4.0→2.0.0→2.2.0)、批次推进、2 成功 1 失败、失败数据源回滚(ROLLED_BACK)、成功数据源版本生效
-- [x] 运维后台：跨域聚合读数(数据源/在线/告警/积压)与「每个数据源状态 + 版本发布 进度」明细
+- [x] 版本发布平台：版本递进发布(1.4.0→2.0.0→2.2.0)、批次推进、2 成功 1 失败、失败数据源回滚(ROLLED_BACK)、成功数据源版本生效
+- [x] 运维后台：跨域聚合读数(数据源/在线/告警/积压)与「每个数据源状态 + 版本发布进度」明细
 
 ## 验收标准
 
@@ -102,6 +102,6 @@ rm -rf /tmp/tl21-proj
 
 - **加规则**：`AlertRules` 加「急加速告警」(需跨帧比较延迟)——体会「无状态规则 vs 跨帧状态」的引擎边界；生产上规则可用 SPI 装载(examples/ex04)
 - **接入换 Netty**：把 `IngestService.submit` 接到 examples/ex09 网关的 handler 里，让行文本真的从 TCP 进来
-- **版本发布 与节点状态联动**：批次推进时同步把数据源状态置 UPDATING/回 ONLINE(本平台是「档案固件生效」，全状态机见 examples/ex01)
+- **版本发布与节点状态联动**：批次推进时同步把数据源状态置 UPDATING/回 ONLINE(本平台是「档案固件生效」，全状态机见 examples/ex01)
 - **多实例消费组**：MetricsConsumer 加并发 worker + 分区重平衡(练习 sol-04 已做消费组)，替换掉单消费者 drain
-- **真 Kafka/Redis 落地**：按主文档 3.3/3.5 的代码与 docker 命令(标注「未在本环境验证」)把总线与缓存换真件，再接 ph19 部署模板上云——这就是本收官项目通往真实数据平台平台的最后一段路
+- **真 Kafka/Redis 落地**：按主文档 3.3/3.5 的代码与 docker 命令(标注「未在本环境验证」)把总线与缓存换真件，再接 ph19 部署模板上云——这就是本收官项目通往真实数据平台的最后一段路

@@ -1,4 +1,4 @@
-// project/src/dataplat/DataPlatformDemo.java —— 数据平台后台平台(收官项目)端到端演示
+// project/src/dataplat/DataPlatformDemo.java —— 数据平台后台(收官项目)端到端演示
 package dataplat;
 // 验证环境：OpenJDK 17.0.18(Homebrew)，命令(在 project/ 目录)：
 //   javac -encoding UTF-8 -d /tmp/tl21-proj src/dataplat/*.java
@@ -12,7 +12,7 @@ package dataplat;
 //
 // 全部内存实现、无第三方依赖，验收断言即 PASS 行。每个模块对应一个真实服务边界：
 // registry=节点管理服务，ingest=接入网关后的接入服务，bus≈Kafka topic，
-// consumer=指标消费服务，alert=告警引擎，ota=版本发布 平台，console=运维后台。
+// consumer=指标消费服务，alert=告警引擎，ota=版本发布平台，console=运维后台。
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -22,7 +22,7 @@ public final class DataPlatformDemo {
 
     public static void main(String[] args) throws InterruptedException {
         NodeRegistry registry = new NodeRegistry();
-        // 注册 6 个数据源：3 台即将并发上报指标，3 台留给 版本发布 批次
+        // 注册 6 个数据源：3 台即将并发上报指标，3 台留给 版本发布批次
         for (int i = 1; i <= 6; i++) {
             registry.register("LSV" + String.format("%07d", i), MODEL(i), "v1.4.0");
         }
@@ -76,11 +76,11 @@ public final class DataPlatformDemo {
         check(pass, registry.countByStatus(NodeRegistry.Status.ONLINE) == 3, "节点：3 台上报g在线");
         // ④ 告警引擎：低电与过热各一条活跃告警
         check(pass, alerts.activeCount() == 2, "告警：CPU_HIGH_WATERMARK + DISK_OVERHEAT 各 1 条活跃");
-        // ⑤ 版本发布：批次结果 + 失败数据源回滚 + FW 版本升级
+        // ⑤ 版本发布：批次结果 + 失败数据源回滚 + 版本升级
         check(pass, batch.count(ReleasePlatform.TaskState.SUCCEEDED) == 2, "版本发布：2 台升级成功");
         check(pass, batch.count(ReleasePlatform.TaskState.ROLLED_BACK) == 1, "版本发布：失败数据源已回滚(ROLLED_BACK)");
         check(pass, registry.findByVin("LSV0000004").orElseThrow().fwVersion().equals("v2.2.0"),
-                "版本发布：4 号数据源FW 版本已升到 FW 2.2.0");
+                "版本发布：4 号数据源版本已升到 FW 2.2.0");
         check(pass, batch.audit().size() >= 8 && ota.audit().size() >= 2, "审计：批次与平台操作均可回溯");
         // ⑥ 运维台聚合读数
         OpsConsole.OpsView view = ops.snapshot();
@@ -130,7 +130,7 @@ public final class DataPlatformDemo {
         batch.advance("LSV0000004", ReleasePlatform.TaskState.INSTALLING, ReleasePlatform.TaskState.SUCCEEDED);
         batch.advance("LSV0000005", ReleasePlatform.TaskState.INSTALLING, ReleasePlatform.TaskState.FAILED);
         batch.advance("LSV0000006", ReleasePlatform.TaskState.INSTALLING, ReleasePlatform.TaskState.SUCCEEDED);
-        // 失败数据源回滚，成功数据源FW 版本生效(写节点档案)
+        // 失败数据源回滚，成功数据源版本生效(写节点档案)
         batch.rollback("LSV0000005");
         registry.upgradeFirmware("LSV0000004", "v2.2.0");
         registry.upgradeFirmware("LSV0000006", "v2.2.0");

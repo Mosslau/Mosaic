@@ -21,12 +21,12 @@ public final class NodeManagerDemo {
         // 2) 批量上下线：3 台上线、1 台进 版本发布、1 台离线
         nodes.changeStatus("LSV0000001", NodeManager.Status.ONLINE);
         nodes.changeStatus("LSV0000002", NodeManager.Status.ONLINE);
-        nodes.changeStatus("LSV0000003", NodeManager.Status.UPDATING);   // 版本发布 中
+        nodes.changeStatus("LSV0000003", NodeManager.Status.UPDATING);   // 版本发布中
         nodes.changeStatus("LSV0000004", NodeManager.Status.OFFLINE);
         nodes.changeStatus("LSV0000005", NodeManager.Status.ONLINE);
 
         check(pass, nodes.countByStatus(NodeManager.Status.ONLINE) == 3, "在线 3 台");
-        check(pass, nodes.countByStatus(NodeManager.Status.UPDATING) == 1, "版本发布 中 1 台");
+        check(pass, nodes.countByStatus(NodeManager.Status.UPDATING) == 1, "版本发布中 1 台");
         check(pass, nodes.countByStatus(NodeManager.Status.OFFLINE) == 1, "离线 1 台");
         check(pass, nodes.listByStatus(NodeManager.Status.ONLINE).stream()
                         .allMatch(v -> v.sourceId().startsWith("LSV")),

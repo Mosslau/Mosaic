@@ -306,12 +306,12 @@ func (s *ConfigState) Apply(update Update, currentVersion int64) error {
 
 ### 3.8 时序数据与 Redis 实时状态缓存：吞吐、存储与查询模式
 
-指标数据有三个"时序专属"特征，直接决定存储选型：**写多读少**（每个数据源每秒 1~10 条，但 90% 数据写完就没人读）、**按时间有序追加**、**查询几乎都带时间范围**（最近 5 分钟/按天聚合）。普通关系库不是不能存，而是索引膨胀与聚合代价高——所以数据平台平台普遍是"**时序库存原始流 + Redis 存实时状态 + 必要时落宽表**"的组合。
+指标数据有三个"时序专属"特征，直接决定存储选型：**写多读少**（每个数据源每秒 1~10 条，但 90% 数据写完就没人读）、**按时间有序追加**、**查询几乎都带时间范围**（最近 5 分钟/按天聚合）。普通关系库不是不能存，而是索引膨胀与聚合代价高——所以数据平台普遍是"**时序库存原始流 + Redis 存实时状态 + 必要时落宽表**"的组合。
 
 **时序数据模型**的心智只有一句话：**一条时序 = (series 标签集, 时间, 值)**，其中 series 是"哪个数据源的哪个指标"（`source="veh-001",metric="value"`），数据点是 (timestamp, value) 的有序追加。examples/ex06 用 ~200 行实现了一个"够教学"的内存时序模型（series 表 + 时间有序点集 + 最新值 + 区间聚合），把吞吐、存储、查询三个问题都跑给你看：
 
 ```go
-// examples/ex06-metrics-platfor0.1%% 计数tore.go —— 时序存储核心（截取）
+// examples/ex06-ingest-platform/store.go —— 时序存储核心（截取）
 // 验证环境：go1.25.6，零第三方依赖；验证状态：已验证
 type Point struct {
 	Ts    time.Time // 统一用到达时间（ts_ingest）对齐，见 3.7
@@ -553,7 +553,7 @@ WebSocket 的线格式是一组"帧"，但客户端与服务器方向**不对称
 | [`examples/ex01-mqtt-minimal`](./examples/ex01-mqtt-minimal) | 自研最小 MQTT 3.1.1（QoS0 子集）：报文编解码、通配订阅路由、连接鉴权、心跳保活，127.0.0.1 真 TCP | 3.1、4.1 |
 | [`examples/ex02-source-reconnect-idempotent`](./examples/ex02-source-reconnect-idempotent) | 采集端鉴权（HMAC token + 常量时间校验）、指数退避重连、seq 单调幂等上报（平台去重窗） | 3.2、3.3 |
 | [`examples/ex03-websocket-config-push`](./examples/ex03-websocket-config-push) | 自研最小 RFC 6455 WebSocket（帧/掩码/心跳）+ 采集端配置状态推送 + 面板广播，127.0.0.1 真 TCP | 3.4、3.6、4.2 |
-| [`examples/ex04-agent-rollout`](./examples/ex04-agent-rollout) | 版本灰度服务：采集器版本版本台账、分批灰度、进度追踪、回滚决策（确定性状态机回放） | 3.10 |
+| [`examples/ex04-agent-rollout`](./examples/ex04-agent-rollout) | 灰度发布服务：采集器版本台账、分批灰度、进度追踪、回滚决策（确定性状态机回放） | 3.10 |
 | [`examples/ex05-collect-agent`](./examples/ex05-collect-agent) | 采集代理：本地聚合、有界断网缓存（spool）、ack 水位断点续传、上行补传 e2e | 3.11、4.3 |
 | [`examples/ex06-ingest-platform`](./examples/ex06-ingest-platform) | 指标数据平台最小闭环：接入 → 清洗 → 时序存储/实时缓存 → 告警 → Prometheus 文本指标与查询 | 3.7、3.8、3.9 |
 
@@ -630,7 +630,7 @@ go c.KeepAliveLoop(ctx) // 定时 PINGREQ，broker 超时不回即判死 → 触
 
 - **边缘嵌入式与采集端侧**：把采集器再往下沉——CAN 采集、采集器版本升级双区切换、RTOS 实时任务属 C/Rust 嵌入式路线（本仓库 C/Rust 各语言路线），Go 只在其上方消费数据；
 - **时序库与数据引擎内核**：本阶段的时序模型是教学内存形态；深入列存压缩、LSM/日志结构文件、降采样保留策略，可研究 InfluxDB/VictoriaMetrics/TDengine 的 Go 内核（或在 C/Rust 里自研），这是"数据平台"方向的新纵深；
-- **大规模数据平台平台的工程纵深**：十万级连接压测与接入层水平扩展、broker 集群与 Kafka 吞吐调优、跨地域多机房接入、行业标准协议完整对接——本阶段把形态与纪律给了你，规模问题交给真实的线上系统；
+- **大规模数据平台的工程纵深**：十万级连接压测与接入层水平扩展、broker 集群与 Kafka 吞吐调优、跨地域多机房接入、行业标准协议完整对接——本阶段把形态与纪律给了你，规模问题交给真实的线上系统；
 - **协议与新标准**：MQTT 5.0 完整语义（用户属性/主题别名/原因码）、WebTransport/HTTP/3 实时通道、工业实时协议（如 OPC UA PubSub）——Go 生态在这些标准上持续生长，随时可以再捡起一门协议做自研实现（本阶段 ex01/ex03 证明了一件事：**Go 自研一个协议最小版并测绿，是很现实的能力**）。
 
 把最后一句话带出 Go 路线：**接入不是终点，闭环才是**——本阶段把 ph19 的"消费端"接到了真实采集侧、把 ph20 的"发布纪律"接到了 版本灰度 与边缘，至此 Go 路线教的每一门手艺都有了"物"的落点。21 个阶段全部完成：恭喜，去写下一个真实世界的系统吧。

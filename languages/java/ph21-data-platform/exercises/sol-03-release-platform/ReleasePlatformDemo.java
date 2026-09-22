@@ -1,4 +1,4 @@
-// exercises/sol-03-ota-platform/ReleasePlatformDemo.java —— 版本发布 升级平台验收演示
+// exercises/sol-03-ota-platform/ReleasePlatformDemo.java —— 版本发布升级平台验收演示
 // 验证环境：OpenJDK 17.0.18(Homebrew)，命令：javac -encoding UTF-8 -d /tmp/tl21-sol *.java
 //   然后 java -cp /tmp/tl21-sol ReleasePlatformDemo
 import java.util.List;
@@ -55,7 +55,7 @@ public final class ReleasePlatformDemo {
                 "LSV0000002 INSTALLING->FAILED batch=版本发布-A"),
                 "数据源级审计作业历史完整且含失败记录");
 
-        // 对失败数据源做回滚落点(生产上回滚到 1.4.0 是单独一轮 版本发布 任务)
+        // 对失败数据源做回滚落点(生产上回滚到 1.4.0 是单独一轮 版本发布任务)
         batchA.advance("LSV0000002", ReleasePlatform.TaskState.FAILED, ReleasePlatform.TaskState.ROLLED_BACK);
         check(pass, batchA.summary().byState().get(ReleasePlatform.TaskState.ROLLED_BACK) == 1L,
                 "失败数据源进入 ROLLED_BACK(等待回滚任务)");

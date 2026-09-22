@@ -1,8 +1,8 @@
-// exercises/sol-03-ota-platform/ReleasePlatform.java —— 版本发布 升级平台(参考实现)
+// exercises/sol-03-ota-platform/ReleasePlatform.java —— 版本发布升级平台(参考实现)
 // 验证环境：OpenJDK 17.0.18(Homebrew)，命令：javac -encoding UTF-8 -d /tmp/tl21-sol *.java
 //
-// 题目要求(roadmap §21 练习「版本发布 升级平台」)：
-//   - 版本库：发布新FW 版本版本，禁止版本倒退(只能发比当前最高更高的版本)；
+// 题目要求(roadmap §21 练习「版本发布升级平台」)：
+//   - 版本库：发布新版本，禁止版本倒退(只能发比当前最高更高的版本)；
 //   - 批次管理：为一个已发布版本创建升级批次(绑定若干 SOURCE_ID)，可查询批次进度；
 //   - 数据源级推进 + 审计：批次内每个g独立状态机，非法迁移被拒，所有迁移留审计；
 //   - 并发安全：不同批次可在不同线程同时推进，互不干扰。

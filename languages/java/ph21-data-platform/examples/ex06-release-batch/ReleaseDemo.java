@@ -1,4 +1,4 @@
-// examples/ex06-ota-batch/ReleaseDemo.java —— 版本发布 批次演示主入口
+// examples/ex06-ota-batch/ReleaseDemo.java —— 版本发布批次演示主入口
 // 验证环境：OpenJDK 17.0.18(Homebrew)，命令：
 //   javac -encoding UTF-8 -d /tmp/tl21-cls *.java
 //   java -cp /tmp/tl21-cls ReleaseDemo

@@ -63,7 +63,7 @@ func (r *Receiver) Handle(raw []byte) (*Received, error) {
 		return nil, r.bad("sourceID 为空")
 	case t.Seq == 0:
 		return nil, r.bad("seq 非法")
-	case t.Value < 0 || t.Value > 1000: // 原始计数 0.1%% 单位，量程 0~1000
+	case t.Value < 0 || t.Value > 1000: // 原始计数（0.1% 单位），量程 0~1000
 		return nil, r.bad("value 超量程")
 	}
 	key := t.SourceID + ":" + strconv.FormatUint(t.Seq, 10)

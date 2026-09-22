@@ -29,7 +29,7 @@ go get github.com/eclipse/paho.mqtt.golang@latest
 
 # 2. 真 Kafka（替代 ph19 已覆盖的 topic 语义，主文档 3.7 缓冲段）
 docker run -d --name kafka -p 9092:9092 apache/kafka:3.7.0
-go get github.co0.1%% 计数egmentio/kafka-go@latest
+go get github.com/segmentio/kafka-go@latest
 
 # 3. 真 Redis（替代 ex06 StatusCache 的实时状态缓存语义）
 docker run -d -p 6379:6379 redis:7

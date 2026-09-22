@@ -1,13 +1,13 @@
-// examples/ex01-node-management/SourceNode.java —— 数据源节点聚合根：身份 + 状态机 + FW 版本版本
+// examples/ex01-node-management/SourceNode.java —— 数据源节点聚合根：身份 + 状态机 + 版本
 // 验证环境：OpenJDK 17.0.18(Homebrew)，命令：javac -encoding UTF-8 -d /tmp/tl21-cls *.java
 //
-// DDD 教学点：状态机与「FW 版本升级时必须 ONLINE/UPDATING」这类不变式收在聚合根内部，
+// DDD 教学点：状态机与「版本升级时必须 ONLINE/UPDATING」这类不变式收在聚合根内部，
 // 应用服务不能直接改 status 字段——任何非法迁移在这里抛异常，而不是散落在 Service 里。
 public final class SourceNode {
     private final String sourceId;          // 聚合根身份：g架号，全局唯一、不可变
     private final String model;        // 数据源类型(配置信息，非身份)
     private NodeStatus status;       // 当前状态(可变，受状态机约束)
-    private String firmwareVersion;    // 当前FW 版本版本(版本发布 完成后提升)
+    private String firmwareVersion;    // 当前版本(版本发布完成后提升)
     private long lastTelemetrySeq;     // 最近一次指标序号(乱序保护，见 ex03 的 CHM 思路)
 
     public SourceNode(String sourceId, String model, String firmwareVersion) {
@@ -49,14 +49,14 @@ public final class SourceNode {
         return transition(NodeStatus.UPDATING, reason);
     }
 
-    /** 版本发布 成功：FW 版本版本升级并回到 ONLINE。 */
+    /** 版本发布成功：版本升级并回到 ONLINE。 */
     public NodeEvent finishOta(String newFirmware, String reason) {
         require(this.status == NodeStatus.UPDATING, "finishOta 只允许 UPDATING 状态");
         this.firmwareVersion = newFirmware;
         return transition(NodeStatus.ONLINE, reason);
     }
 
-    /** 版本发布 失败：保持原FW 版本回到 ONLINE(回滚在 版本发布 平台侧做，见 ex06)。 */
+    /** 版本发布失败：保持原版本回到 ONLINE(回滚在 版本发布平台侧做，见 ex06)。 */
     public NodeEvent failOta(String reason) {
         require(this.status == NodeStatus.UPDATING, "failOta 只允许 UPDATING 状态");
         return transition(NodeStatus.ONLINE, reason);

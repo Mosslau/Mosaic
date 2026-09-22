@@ -1,4 +1,4 @@
-// project/src/dataplat/ReleasePlatform.java —— 版本发布 平台：版本库 + 批次编排 + 单节点状态机 + 审计
+// project/src/dataplat/ReleasePlatform.java —— 版本发布平台：版本库 + 批次编排 + 单节点状态机 + 审计
 package dataplat;
 // 验证环境：OpenJDK 17.0.18(Homebrew)，命令：javac -encoding UTF-8 -d /tmp/tl21-proj src/dataplat/*.java
 //

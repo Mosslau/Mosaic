@@ -61,7 +61,7 @@ func (c *Cleaner) Clean(ev Event) (*CleanEvent, error) {
 	if ev.Seq == 0 {
 		return nil, c.markErr(ErrBadSeq)
 	}
-	if ev.Value < 0 || ev.Value > 1000 { // 原始计数 0.1%% 单位，量程 0~1000（=0~100%%），超量程即坏
+	if ev.Value < 0 || ev.Value > 1000 { // 原始计数（0.1% 单位），量程 0~1000（=0~100%），超量程即坏
 		return nil, c.markErr(ErrRange)
 	}
 	if ev.Ts.IsZero() {

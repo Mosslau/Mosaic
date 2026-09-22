@@ -3,7 +3,7 @@ package dataplat;
 // 验证环境：OpenJDK 17.0.18(Homebrew)，命令：javac -encoding UTF-8 -d /tmp/tl21-proj src/dataplat/*.java
 //
 // 运维后台是各域的「只读聚合器」，不拥有数据(数据在各域 store)。
-// 聚合项：节点在线率 / 实时状态快照 / 活跃告警 / 总线积压 / 版本发布 批次进度。
+// 聚合项：节点在线率 / 实时状态快照 / 活跃告警 / 总线积压 / 版本发布批次进度。
 public final class OpsConsole {
     private final NodeRegistry registry;
     private final SourceStateCache stateCache;
@@ -28,7 +28,7 @@ public final class OpsConsole {
                 alertEngine.activeCount(), consumer.lag(), stateCache.size());
     }
 
-    /** 打印运维首页文本：总览 + 每个数据源明细 + 版本发布 批次进度。 */
+    /** 打印运维首页文本：总览 + 每个数据源明细 + 版本发布批次进度。 */
     public void print() {
         OpsView v = snapshot();
         System.out.println("+----------------------- 运维总览 -----------------------+");
@@ -43,7 +43,7 @@ public final class OpsConsole {
                     veh.fwVersion(), state);
         }
         for (ReleasePlatform.ReleaseBatch b : ota.allBatches()) {
-            System.out.printf("    版本发布 batch %s -> %s | 成功=%d 失败=%d 回滚=%d 进行中=%d%n",
+            System.out.printf("    版本发布batch %s -> %s | 成功=%d 失败=%d 回滚=%d 进行中=%d%n",
                     b.id(), b.target(), b.count(ReleasePlatform.TaskState.SUCCEEDED),
                     b.count(ReleasePlatform.TaskState.FAILED), b.count(ReleasePlatform.TaskState.ROLLED_BACK),
                     b.vehicleCount() - (int) (b.count(ReleasePlatform.TaskState.SUCCEEDED)

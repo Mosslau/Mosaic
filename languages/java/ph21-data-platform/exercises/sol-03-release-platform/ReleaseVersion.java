@@ -1,4 +1,4 @@
-// exercises/sol-03-ota-platform/ReleaseVersion.java —— FW 版本版本(语义化比较)
+// exercises/sol-03-ota-platform/ReleaseVersion.java —— 版本(语义化比较)
 // 验证环境：OpenJDK 17.0.18(Homebrew)，命令：javac -encoding UTF-8 -d /tmp/tl21-sol *.java
 record ReleaseVersion(int major, int minor, int patch) implements Comparable<ReleaseVersion> {
     static ReleaseVersion of(String s) {

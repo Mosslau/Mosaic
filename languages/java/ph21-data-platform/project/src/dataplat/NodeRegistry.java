@@ -38,7 +38,7 @@ public final class NodeRegistry {
         return next;
     }
 
-    /** 指标上报侧简化：收到帧即视为在线；恢复FW 版本版本接口给 版本发布 用。 */
+    /** 指标上报侧简化：收到帧即视为在线；恢复版本接口给 版本发布用。 */
     public Source markOnline(String sourceId) {
         Source cur = require(sourceId);
         Source next = new Source(cur.sourceId(), cur.model(), cur.fwVersion(), Status.ONLINE);

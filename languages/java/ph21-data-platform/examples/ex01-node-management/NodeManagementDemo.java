@@ -14,7 +14,7 @@ public final class NodeManagementDemo {
         SourceNode v2 = repo.register("LSV0000002", "EV-Sedan", "v1.4.0");
         SourceNode v3 = repo.register("LSV0000003", "EV-Truck", "v2.1.0");
 
-        // 2) 生命周期：激活上线 → 收到指标刷新 → 版本发布 升级 → 完成
+        // 2) 生命周期：激活上线 → 收到指标刷新 → 版本发布升级 → 完成
         repo.record(v1.activate("factory-delivery"));
         repo.record(v1.onTelemetry(100, "heartbeat"));
 
@@ -24,7 +24,7 @@ public final class NodeManagementDemo {
 
         repo.record(v3.activate("factory-delivery"));
         repo.record(v3.startOta("campaign-2025-09"));             // 进入 UPDATING
-        repo.record(v3.finishOta("v2.2.0", "ota-success"));     // FW 版本升级 + 回 ONLINE
+        repo.record(v3.finishOta("v2.2.0", "ota-success"));     // 版本升级 + 回 ONLINE
 
         // 3) 校验三件事
         AtomicInteger pass = new AtomicInteger();
@@ -32,7 +32,7 @@ public final class NodeManagementDemo {
         check(pass, v2.status() == NodeStatus.ONLINE && v2.lastTelemetrySeq() == 101,
                 "v2 掉线重连后应 ONLINE 且序号推进到 101");
         check(pass, v3.status() == NodeStatus.ONLINE && "v2.2.0".equals(v3.firmwareVersion()),
-                "v3 版本发布 完成后FW 版本升到 FW 2.2.0 且回 ONLINE");
+                "v3 版本发布完成后版本升到 FW 2.2.0 且回 ONLINE");
 
         // 4) 非法迁移必须被聚合根拦下(而不是漏到 Service)
         boolean rejected = false;

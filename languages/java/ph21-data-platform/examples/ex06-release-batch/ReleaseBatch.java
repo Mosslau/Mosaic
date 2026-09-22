@@ -1,7 +1,7 @@
-// examples/ex06-ota-batch/ReleaseBatch.java —— 版本发布 批次：单节点状态机 + 批次汇总 + 审计 + 回滚
+// examples/ex06-ota-batch/ReleaseBatch.java —— 版本发布批次：单节点状态机 + 批次汇总 + 审计 + 回滚
 // 验证环境：OpenJDK 17.0.18(Homebrew)，命令：javac -encoding UTF-8 -d /tmp/tl21-cls *.java
 //
-// 教学点：版本发布 的「可靠性」来自三件事——
+// 教学点：版本发布的「可靠性」来自三件事——
 //   1. 单节点任务走状态机：PENDING→DOWNLOADING→INSTALLING→SUCCEEDED/FAILED，
 //      非法迁移抛异常(与 ex01 节点聚合同款思路)，绝不直接改字段；
 //   2. 每个状态变更都写审计行(谁在何时把g从哪个状态推到哪个状态)；
@@ -60,7 +60,7 @@ public final class ReleaseBatch {
         }
     }
 
-    /** 回滚：把所有 SUCCEEDED 的g打回 PENDING(代表需要刷回上一FW 版本版本)。 */
+    /** 回滚：把所有 SUCCEEDED 的g打回 PENDING(代表需要刷回上一版本)。 */
     public int rollbackSuccessfulCars() {
         batchLock.lock();
         try {

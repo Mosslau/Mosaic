@@ -1,5 +1,5 @@
 // 来源：ph21-data-ingest-gateway examples/ex04-agent-rollout/agentVersion.go
-// 一句话说明：Rollout 采集器版本版本台账——版本登记、按版本查询、sha256 校验。
+// 一句话说明：Rollout 采集器版本台账——版本登记、按版本查询、sha256 校验。
 // 采集器版本包的完整性校验是 Rollout 的生命线：采集端只能装"版本台账里 sha256 对得上"的包
 // （防中间人/包被篡改，主文档 3.10）。
 // 验证环境：go1.25.6（darwin/arm64），依赖：零第三方（标准库）
@@ -17,9 +17,9 @@ import (
 )
 
 // ErrAgentVersionNotFound 版本台账里没有该版本。
-var ErrAgentVersionNotFound = errors.New("rollout: 采集器版本版本不存在")
+var ErrAgentVersionNotFound = errors.New("rollout: 采集器版本不存在")
 
-// AgentVersion 一个采集器版本版本条目。
+// AgentVersion 一个采集器版本条目。
 type AgentVersion struct {
 	Version    string
 	SHA256     string // 整包校验值（生产常配合分片 hash，见主文档 3.10）
@@ -27,7 +27,7 @@ type AgentVersion struct {
 	ReleasedAt time.Time
 }
 
-// VersionStore 采集器版本版本台账。
+// VersionStore 采集器版本台账。
 type VersionStore struct {
 	byVersion map[string]AgentVersion
 }
