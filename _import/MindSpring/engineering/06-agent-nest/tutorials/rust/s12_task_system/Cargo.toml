@@ -1,0 +1,23 @@
+[package]
+name = "s12_task_system"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# HTTP 客户端。用 blocking 同步模式：s01 的循环天然是顺序执行的，
+# 不需要 tokio 异步运行时（s13 后台任务那章再考虑）。
+# rustls-tls 是纯 Rust 的 TLS 实现，避免依赖系统 OpenSSL。
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+# JSON 序列化/反序列化：messages、tools、API 请求响应全靠它
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# 读取根目录 .env 文件（ANTHROPIC_API_KEY / MODEL_ID 等）
+dotenvy = "0.15"
+# std::process 没有内置超时，这个 crate 给 Child 加 wait_timeout()
+wait-timeout = "0.2"
+# 文件模式匹配（s02 新增）
+glob = "0.3"
+# YAML frontmatter 解析（s07 新增）
+serde_yaml = "0.9"
+# s11 新增：指数退避的随机抖动 —— 并发重试不在同一时刻打回 API
+rand = "0.8"
