@@ -1112,6 +1112,56 @@ ThreadPoolExecutor executor = new ThreadPoolExecutor(core, max, 60, TimeUnit.SEC
 - AI 平台最小控制面
 - 模型注册与推理发布平台
 
+## 23. 湖仓与数据编排方向 Java 阶段
+
+> 📖 详细展开版见 [ph23-lakehouse-orchestration/23-lakehouse-orchestration.md](./ph23-lakehouse-orchestration/23-lakehouse-orchestration.md)
+
+### 目标
+
+用 Java 构建湖仓控制面与数据编排：分层建模与口径、表快照与时间旅行、分区布局与小文件治理、批流一体、DAG 编排与幂等回填、质量与血缘。
+
+### 学习内容
+
+- ODS/DWD/DWS/ADS 分层与口径唯一源
+- ACID 表快照、时间旅行、增量读、schema 演进
+- 分区裁剪、扫描量估算、小文件治理与 compaction
+- 批流一体：水位线、迟到数据、幂等窗口覆盖
+- DAG 编排：拓扑序、就绪、重试与失败传播
+- 幂等回填与下游重算传播
+- 质量门禁、列级血缘、成本度量
+
+### 必会概念
+
+- 表的当前状态由元数据决定，不由目录决定
+- 分区整体覆盖是重跑安全的前提
+- 回填必须传播到依赖闭包
+- 质量门禁 fail-closed：坏数据不进表
+
+### 示例
+
+```text
+源系统 → ODS → DWD → DWS → ADS（快照/分区/编排/门禁全程兜底）
+```
+
+### 练习
+
+- 分层建模与口径对账
+- 快照与增量读
+- DAG 编排与幂等回填
+- 质量门禁与列级血缘
+
+### 阶段验收
+
+- 能建出可复算的分层表并守住口径
+- 能用快照与分区布局支撑时间旅行与增量读
+- 能编排 DAG 并做幂等回填
+- 能兜住数据质量与血缘
+
+### 推荐项目
+
+- 最小湖仓与编排平台
+- 数据质量与血缘服务
+
 ## 附录：阶段性项目验收标准
 
 ### 目标
@@ -1227,6 +1277,14 @@ Java 基础语法（含 var、Text Blocks）
 - 推理服务灰度与回滚
 - 平台计量与成本核算
 
+### 湖仓与数据编排项目
+
+- 分层数据仓库建模
+- 表快照与时间旅行服务
+- 小文件治理与 compaction 调度
+- 批流一体口径平台
+- DAG 编排与幂等回填引擎
+
 ## 对你最推荐的 Java 路线
 
 ```text
@@ -1249,6 +1307,7 @@ Java 基础（含 var、Text Blocks）
 → Docker / Kubernetes
 → 数据平台 / 数据中心
 → AI 平台 / 训练与推理调度
+→ 湖仓与数据编排
 ```
 
 重点掌握：OOP、record、sealed class、Collection、HashMap、ArrayList、Generic、Exception、Stream、Switch Expressions、Pattern Matching、Optional、ThreadPool、Virtual Threads、ConcurrentHashMap、JVM、Maven、JUnit、Spring Boot、MyBatis、Redis、Kafka、Docker、Kubernetes。

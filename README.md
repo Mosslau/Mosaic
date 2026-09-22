@@ -26,7 +26,7 @@
 | Roadmap 总览 | `languages/<语言>/<语言>.md` | 分阶段学习路线：目标 / 学习内容 / 必会概念 / 示例 / 练习 / 阶段验收 / 推荐项目 |
 | 阶段详解 | `languages/<语言>/ph01..phNN-<主题>/`（NN 为末阶段编号，随 roadmap 规划） | 每个阶段的完整展开：来源与演变 / 语法与参数 / 底层原理 / 代码示例 / 总结验收 |
 
-> ✅ 6 条路线已全部建成：C 16 · Python 18 · Go 21 · Java 22 · C++ 23 · Rust 25，合计 **125 个编号阶段**，每阶段均含 examples / exercises / project 代码层。
+> ✅ 6 条路线已全部建成：C 16 · Python 18 · Go 21 · Java 23 · C++ 23 · Rust 25，合计 **126 个编号阶段**，每阶段均含 examples / exercises / project 代码层。
 
 ## 🔬 Part 2 · 语言设计分析
 
