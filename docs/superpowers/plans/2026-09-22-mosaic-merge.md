@@ -865,14 +865,28 @@ sed -i '' 's|\.\./\.\./algorithms/|../../../algorithms/|g' engineering/ai-platfo
 sed -i '' 's|\.\./roadmap/大模型数据中心平台工程师\.md|../../roadmap/大模型数据中心平台工程师.md|g' \
   engineering/ai-platform/README.md
 
+# ⚠ 残留检查必须用锚点，不能直接 grep '../..\/algorithms/'：
+#   '../../../algorithms/' **包含** '../../algorithms/' 作为子串，
+#   朴素 grep 会把新形态也算成残留，断言永远不可能通过。
+#   下面用 ERE 要求匹配前一个字符不是 '.' 或 '/'（macOS grep 无 -P，故不用前瞻）。
+OLD_A='(^|[^./])\.\./\.\./algorithms/'
+OLD_R='(^|[^./])\.\./roadmap/大模型数据中心平台工程师\.md'
 echo "--- 验证：旧深度必须清零，新深度必须到位 ---"
-echo -n "残留 ../../algorithms/ : "; grep -rho '\.\./\.\./algorithms/' engineering/ai-platform | wc -l | tr -d ' '   # 期望 0
-echo -n "新 ../..\/../algorithms/ : "; grep -rho '\.\./\.\./\.\./algorithms/' engineering/ai-platform | wc -l | tr -d ' '  # 期望 27
-echo -n "残留 ../roadmap/大模型… : "; grep -rho '\.\./roadmap/大模型数据中心平台工程师\.md' engineering/ai-platform | wc -l | tr -d ' '  # 期望 0
-echo -n "新 ../../roadmap/大模型… : "; grep -rho '\.\./\.\./roadmap/大模型数据中心平台工程师\.md' engineering/ai-platform | wc -l | tr -d ' '  # 期望 2
+printf "残留 ../../algorithms/ : %s 处（期望 0）\n"  "$(grep -rEo "$OLD_A" engineering/ai-platform | wc -l | tr -d ' ')"
+printf "新 ../../../algorithms/ : %s 处（期望 27）\n" "$(grep -rFo '../../../algorithms/' engineering/ai-platform | wc -l | tr -d ' ')"
+printf "残留 ../roadmap/大模型… : %s 处（期望 0）\n"  "$(grep -rEo "$OLD_R" engineering/ai-platform | wc -l | tr -d ' ')"
+printf "新 ../../roadmap/大模型… : %s 处（期望 2）\n"  "$(grep -rFo '../../roadmap/大模型数据中心平台工程师.md' engineering/ai-platform | wc -l | tr -d ' ')"
+
+echo "--- 负向对照：故意制造一处旧形态，锚点必须抓到 ---"
+cp engineering/ai-platform/04-gpu-scheduler-demo/README.md /tmp/nc-readme.bak
+sed -i '' 's|](../../../algorithms/01-search/a-star/)|](../../algorithms/01-search/a-star/)|' \
+  engineering/ai-platform/04-gpu-scheduler-demo/README.md
+nc=$(grep -rEo "$OLD_A" engineering/ai-platform | wc -l | tr -d ' ')
+cp /tmp/nc-readme.bak engineering/ai-platform/04-gpu-scheduler-demo/README.md
+echo "扰动后残留计数=$nc （必须 ≥1，否则说明锚点无效、前面的 0 不可信）"
 ```
 
-Expected: `0` / `27` / `0` / `2`。
+Expected: `0` / `27` / `0` / `2`，随后 `扰动后残留计数=1`。若锚点的负向对照得到 0，说明正则没抓到——**先修断言再继续**，不要接受一个恒真的门禁。
 
 - [ ] **Step 4: 用链接解析器证明 ai-platform 树内没有断链**
 
