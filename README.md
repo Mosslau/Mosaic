@@ -21,25 +21,29 @@
 | [`roadmap/`](roadmap/) | 路线图：算法演进路线 + 两条职业路线 + 语言学习路线 |
 | [`books/`](books/) | 计算机书单 |
 | [`docs/superpowers/`](docs/superpowers/) | 本仓的设计 spec 与实施计划 |
-| [`.dsh/skills/`](.dsh/skills/) | 写作与验证规范（16 个 skill） |
+| [`.dsh/skills/`](.dsh/skills/) | 写作与验证规范（15 个 skill + `_desgin` 设计笔记） |
 | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | CI（数据平台域） |
 
 ## 校验
 
 ```bash
-# 语言域：章节契约 + 悬空链接 + 构建产物纪律
+# ① 语言域：章节契约 + 悬空链接 + 构建产物纪律
 python3 .dsh/skills/tenetlang-notes/scripts/validate.py --links
 
-# 算法域 + AI 平台域：索引/状态/章节锚定/模板结构/违禁 import
+# ② 算法域 + AI 平台域：索引/状态/章节锚定/模板结构/违禁 import，以及单元测试
 python3 .dsh/skills/mindspring-lab/scripts/validate.py
 python3 -m pytest -q
 
-# 数据平台域
-cd engineering/data-platform
-bash scripts/check-docs.sh && bash scripts/check-mermaid.sh && bash scripts/check-compose-budget.sh
+# ③ 数据平台域（check-mermaid.sh 需要 Docker daemon + minlag/mermaid-cli 镜像；
+#    无 daemon 时该项无法运行，属环境缺失，不是仓库问题）
+(cd engineering/data-platform \
+  && bash scripts/check-docs.sh \
+  && bash scripts/check-compose-budget.sh \
+  && bash scripts/test-compose-budget.sh \
+  && bash scripts/check-mermaid.sh)
 
-# 语言域文档站
-cd languages/website && npm run build
+# ④ 语言域文档站
+(cd languages/website && npm run build)
 ```
 
 ## 边界
