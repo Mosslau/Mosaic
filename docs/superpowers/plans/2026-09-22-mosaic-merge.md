@@ -20,7 +20,7 @@
 - **冻结点**：`TenetLang 37b494a`、`MindSpring a0d1d7d`、`OceanVerse 2ef5087`，三仓 `git status --porcelain` 均为空。
 - **不改正文**：126 个阶段、23 个算法实验、7 个工程项目的正文一个字不动。本次只做搬迁 + **93 处**路径/指代修正。
 - **不做去车联网**：`GB/T 32960`、`VIN` 语义、相关 CI 断言一律保持原样。
-- **不改仓名自称**（spec 决策 D10）：正文里 `TenetLang` 22 行 / `MindSpring` 16 行 / `OceanVerse` 47 行保留原样，留给后续「文案统一」轮。本次例外只有 4 个文件 6 行的「分工/边界」段落（Task 5）。
+- **不改仓名自称**（spec 决策 D10）：正文里 `TenetLang` 22 行 / `MindSpring` 16 行 / `OceanVerse` 47 行保留原样，留给后续「文案统一」轮。本次例外只有「分工/边界」段落与随域根对齐的治理/索引文案（Task 5：`engineering/ai-platform/README.md` 45/47、`07-ai-platform/README.md` 89、`engineering/README.md` 26/28 共 3 文件 5 行；fix round 2 再补 `index-format.md` 3/24/37、`engineering-readme-template.md` 3、`07-ai-platform/README.md:72` 显示文本、`engineering/ai-platform/README.md:10` 表头共 6 处）。
 - **路径修正总数 93 处** = 4（`analysis→studies`）+ 27（工程→算法实验）+ 2（工程索引→路线文档）+ 1（`tenetlang-notes/validate.py`）+ 2（`mindspring-lab/validate.py`）+ 7（`sync-docs.mjs`）+ 10（`languages/.gitignore`）+ 12（`languages/website/README.md`）+ 22（CI）+ 6（边界文案行）。
 - **按「路径模式」替换，不要只替换链接形态**：实测有 3 处 `../../algorithms/` 与 1 处 `../roadmap/…` 写在内联代码里（同一行内联代码 + 链接各一份）。只匹配 `](…)` 会静默漏改。
 - **`git mv` 而非 `cp`**：所有搬迁必须用 `git mv`，否则 `git log --follow` 断链。
@@ -35,6 +35,10 @@
   `languages/`（79）、`.dsh/`（111）以及过渡态 `_import/`（168）。因此：**不要**试图把全仓 ruff 修绿，
   **不要**给 `pyproject.toml` 加 `exclude`/`per-file-ignores`，**不要**把 `ruff format --check` 当门禁
   （45 个文件是源仓自带的状态）。任何任务对 ruff 的要求只有一条：**不新增**——改动过的文件其计数不得高于源仓同类计数。
+- **对只读源仓跑 ruff 必须加 `--no-cache`**：ruff 默认会在被检查的目录里写 `.ruff_cache/`。本迁移的差分核验
+  曾对 `../MindSpring` 跑过 ruff，因而在**只读源仓**与 `_import/MindSpring/` 下各留了一个被 gitignore 的
+  `.ruff_cache/`（跟踪内容未变、冻结点未变，但违反了「源仓只读」的意图）。后续核验一律 `ruff check --no-cache <path>`，
+  且**不要**去删源仓里的那个目录（对源仓的任何写操作都不做）。
 - **不推送**：`Mosslau/Mosaic` 远端在 Task 7 之前不推送。
 - **回滚**：任何一步出错 → `rm -rf /Users/ninebot/code/mosslau/Mosaic && git clone <spec 提交>` 重建，源仓无副作用。
 
@@ -1188,7 +1192,13 @@ grep -n 'engineering/' "$f" | grep -v 'engineering/ai-platform/' | head
 
 Expected: `改动 5 行`（已逐字预跑确认：5 行被改，改后「含 `engineering/` 但不含 `engineering/ai-platform/`」的行数为 **0**）；最后一条 grep **无输出**。
 
-- [ ] **Step 7: 改写 4 个文件 6 行的「分工/边界」段落为新域词汇**
+- [ ] **Step 7: 改写「分工/边界」段落为新域词汇**
+
+⚠ 计数更正（实测）：参与改写的只有 **3 个文件 5 行**——`engineering/ai-platform/README.md` 第 45、47 行，
+`engineering/ai-platform/07-ai-platform/README.md` 第 89 行（**该行有 3 处 `TenetLang`，全部要改**），
+`engineering/README.md` 第 26、28 行。第 4 个文件 `_import/MindSpring/README.md` **不单独改**——它的正文
+（含分工段落与依赖关系表）已在 Step 8 并入新建的 `engineering/README.md`，旧文件随 Task 7 的 `_import/` 一起消失。
+计划原写「4 文件 6 行」是**汇总数算错**（5 行 + 2 行未触碰 = 7，不是 6），各文件的具体改动本身是对的。
 
 把「与 TenetLang 的分工/边界」改写成「语言域（`languages/`）与 AI 平台工程域（`engineering/ai-platform/`）的分工/边界」，其中 `../TenetLang/` 这条路径链接改为 `../../languages/`。原文如下，逐处替换：
 
@@ -1318,7 +1328,7 @@ git commit -m "refactor(engineering): AI 平台域归位 engineering/ai-platform
 - MindSpring/engineering → engineering/ai-platform（7 个项目 + 索引）
 - 29 处跨目录路径修正（27 处复用的算法实验 + 2 处路线文档，含 4 处内联代码形态）
 - mindspring-lab 校验器 7 处（2 处定位 + 5 处陈旧文案）+ SKILL 管辖路径
-- 4 文件 6 行『分工/边界』改写为新域词汇
+- 『分工/边界』段落改写为新域词汇（3 文件 5 行）+ 治理契约与索引文案随域根对齐（6 处）
 - 新增 engineering/README.md：两域分工 + 依赖关系与开工顺序
 - validate.py exit 0 / pytest 48 passed；ruff 为**既存红**（源仓 a0d1d7d 即 420 处 + 45 文件需重排，
   且本仓契约里 validate.py 并不运行 ruff），本任务只保证不新增：validate.py 的 E501 与源仓持平在 2 处"
@@ -1577,6 +1587,12 @@ Expected: 两行 `OK …`。
 cd /Users/ninebot/code/mosslau/Mosaic
 before=$(git ls-files | wc -l | tr -d ' ')
 git rm -rq _import
+# ⚠ `git rm` 只删**已跟踪**文件：`_import/` 下若留有未跟踪且被忽略的目录（如 ruff 的 `.ruff_cache/`），
+#   目录本身会留在磁盘上，而 `git status` 依然是干净的（被忽略），`git ls-files` 也看不见它。
+#   本仓库的验证曾对源仓跑过 ruff，故必须显式清掉：
+rm -rf _import
+test ! -e _import && echo "OK _import/ 已从磁盘彻底移除"
+git status --porcelain --ignored=matching | grep -c '_import' || true   # 期望 0
 git add -A
 after=$(git ls-files | wc -l | tr -d ' ')
 echo "删除前 $before → 删除后 $after"
@@ -1599,7 +1615,15 @@ python3 -m pytest -q 2>&1 | tail -3
 # 故计数应恰好下降 _import/ 的那一份、其余不变
 python3 -m ruff check algorithms engineering languages .dsh 2>&1 | tail -2
 echo "== ③ 数据平台域 =="
-(cd engineering/data-platform && bash scripts/check-docs.sh && bash scripts/check-mermaid.sh && bash scripts/check-compose-budget.sh)
+(cd engineering/data-platform && bash scripts/check-docs.sh && bash scripts/check-compose-budget.sh && bash scripts/test-compose-budget.sh)
+# check-mermaid 依赖 Docker daemon + minlag/mermaid-cli 镜像（见 Task 6 Step 3）。
+# ⚠ 本步在 Step 3 删除 _import/ 之后运行，**已无源仓副本可对照**——故这里只做环境判定；
+#    「两侧表现一致」的对照已由 Task 6 Step 3 完成（那时 _import/ 还在）。
+if docker info >/dev/null 2>&1; then
+  (cd engineering/data-platform && bash scripts/check-mermaid.sh) && echo "OK check-mermaid"
+else
+  echo "⚠ check-mermaid 未验证：本机无 docker daemon + minlag/mermaid-cli 镜像（环境缺失；Task 6 已用源仓副本证明非迁移回归）"
+fi
 echo "== ④ 站点 =="
 (cd languages/website && npm run build 2>&1 | tail -3)
 echo "== ⑤ 历史连通（subtree 感知：--follow 在此结构性失效，不要用它）=="
@@ -1617,6 +1641,7 @@ diff <(git show a0d1d7d:algorithms/README.md) <(git show HEAD:algorithms/README.
   && echo "OK 算法域样本内容与源 tip 一致"
 diff <(git show 2ef5087:README.md) <(git show HEAD:engineering/data-platform/README.md) \
   && echo "OK 数据平台域样本内容与源 tip 一致"
+# ⑥ 仓库内残留的失效路径扫描 —— 即本任务 Step 2，已单独执行（此处不重复）
 echo "== ⑦ 工作树干净 =="
 git status --porcelain | head
 ```
