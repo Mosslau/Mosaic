@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-# examples/ex02-telemetry-clean.py —— 车辆遥测数据清洗（主文档 3.2）
+# examples/ex02-metrics-clean.py —— 平台指标数据清洗（主文档 3.2）
 # 验证环境（目标）：Python 3.13 + pandas 2.x/3.x；本机实测 Python 3.13.12 + pandas 3.0.5
-# 运行：python3 ex02-telemetry-clean.py（打印教学输出 + 断言自检，失败退出码非 0）
-# 测试：python3 -m pytest ex02-telemetry-clean.py -q（收集 test_* 跑断言）
-# lint：ruff check ex02-telemetry-clean.py
+# 运行：python3 ex02-metrics-clean.py（打印教学输出 + 断言自检，失败退出码非 0）
+# 测试：python3 -m pytest ex02-metrics-clean.py -q（收集 test_* 跑断言）
+# lint：ruff check ex02-metrics-clean.py
 # 验证状态：已验证（Python 3.13.12 + pandas 3.0.5 本机实测：自检与 pytest 全绿）
-"""车辆遥测数据清洗流水线：去重 → 物理范围 → 孤立尖峰 → 时间对齐/补洞。
+"""平台指标数据清洗流水线：去重 → 物理范围 → 孤立尖峰 → 时间对齐/补洞。
 
 衔接 ph09 的 pandas 基础：本示例把 ph09 讲过的 resample/rolling/fillna 组合成一条
 **可复用的清洗管线**，并给每步计数 —— 清洗必须可审计，是 roadmap 必会概念「自动化
@@ -20,24 +20,24 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-# 车辆遥测列物理范围（超出即判定为传感器/记录异常，直接剔除）
-# 列车队级 schema 在本阶段各示例间保持一致（ex02~ex04/ex07/project 共用）
+# 平台指标列物理范围（超出即判定为传感器/记录异常，直接剔除）
+# 列平台级 schema 在本阶段各示例间保持一致（ex02~ex04/ex07/project 共用）
 PHYSICAL_RANGES: dict[str, tuple[float, float]] = {
-    "speed_kmh": (0.0, 220.0),
-    "soc_pct": (0.0, 100.0),
-    "pack_voltage_v": (250.0, 420.0),
-    "pack_temp_c": (-40.0, 65.0),
-    "pack_current_a": (-300.0, 400.0),  # 约定：放电为负、回充为正（本阶段样例数据用）
-    "power_kw": (-300.0, 300.0),
+    "latency_ms": (0.0, 2000.0),
+    "cpu_pct": (0.0, 100.0),
+    "mem_used_gb": (0.0, 256.0),
+    "disk_temp_c": (-10.0, 90.0),
+    "net_io_mb_s": (0.0, 2000.0),  # 约定：入出合计速率为正（本阶段样例数据用）
+    "power_w": (10.0, 800.0),
 }
 
 # 孤立尖峰判据：与「局部中位数 ±2s」的偏差超过该列的**秒级物理跳变量级**
-# 就判定为毛刺（如 1s 内车速变 20km/h+、温度变 10℃+ 不可能是真信号）。
+# 就判定为毛刺（如 1s 内延迟变 200ms+、温度变 10℃+ 不可能是真字段）。
 SPIKE_JUMPS: dict[str, float] = {
-    "speed_kmh": 20.0,
-    "pack_temp_c": 10.0,
-    "pack_current_a": 80.0,
-    "power_kw": 30.0,
+    "latency_ms": 200.0,
+    "disk_temp_c": 10.0,
+    "net_io_mb_s": 400.0,
+    "power_w": 150.0,
 }
 
 
@@ -69,48 +69,48 @@ class CleanReport:
 FFILL_LIMIT = 3  # 小缺口（≤3s）前向填充；更长缺口视为数据缺口不伪造
 
 
-def generate_telemetry(
-    vehicles: tuple[str, ...] = ("V001", "V002", "V003"),
+def generate_metrics(
+    services: tuple[str, ...] = ("V001", "V002", "V003"),
     seconds: int = 120,
     seed: int = 7,
 ) -> pd.DataFrame:
-    """自造遥测样本：1Hz、基础量 + 噪声，再**有意注入**脏数据供清洗演示。
+    """自造指标样本：1Hz、基础量 + 噪声，再**有意注入**脏数据供清洗演示。
 
     注入的脏数据（全部确定性，靠 seed）：
     - 1 组完全重复的行（去重步骤处理）
-    - 物理越界：speed=300 km/h、soc=-5%、voltage=500 V（物理范围步骤处理）
-    - 孤立尖峰：pack_temp_c 单点 +25℃、speed 单点归零、current 单点突变到 +250 A
-      （孤立尖峰步骤处理；250A 在物理范围内，只能靠尖峰检测抓住）
+    - 物理越界：latency=5000 ms、cpu=-5%、mem=500 GB（物理范围步骤处理）
+    - 孤立尖峰：disk_temp_c 单点 +25℃、latency 单点跳变到 1200 ms、net_io 单点跳变到 1800 MB/s
+      （孤立尖峰步骤处理；1200/1800 仍在物理量程内，只能靠尖峰检测抓住）
     - 连续 5s 整段缺失（超过 3s 填充上限 → 缺口保留为 NaN 并丢弃）
     """
     rng = np.random.default_rng(seed)
     t = np.arange(seconds, dtype=float)
     frames: list[pd.DataFrame] = []
-    for vehicle_id in vehicles:
-        speed = 45 + 35 * np.sin(t / 25.0) + rng.normal(0, 0.4, seconds)
-        soc = np.clip(80 - t * 0.05 + rng.normal(0, 0.05, seconds), 0, 100)
-        pack_temp = 28 + 0.05 * t + rng.normal(0, 0.3, seconds)
-        pack_current = -20 - (speed / 10.0) + rng.normal(0, 1.0, seconds)  # 放电为负
-        pack_voltage = 380 + 0.02 * t + rng.normal(0, 0.5, seconds)
+    for service_id in services:
+        latency = 55 + 25 * np.sin(t / 25.0) + rng.normal(0, 0.4, seconds)
+        cpu = np.clip(80 - t * 0.05 + rng.normal(0, 0.05, seconds), 0, 100)
+        disk_temp = 38 + 0.005 * t + rng.normal(0, 0.3, seconds)
+        net_io = 320 + latency * 1.5 + rng.normal(0, 1.0, seconds)
+        mem_used = 96 + rng.normal(0, 0.5, seconds)
         df = pd.DataFrame(
             {
                 "ts": t + 1_700_000_000,
-                "vehicle_id": vehicle_id,
-                "speed_kmh": speed,
-                "soc_pct": soc,
-                "pack_voltage_v": pack_voltage,
-                "pack_temp_c": pack_temp,
-                "pack_current_a": pack_current,
-                "power_kw": pack_voltage * pack_current / 1000.0,  # 一致性：V*I/1000
+                "service_id": service_id,
+                "latency_ms": latency,
+                "cpu_pct": cpu,
+                "mem_used_gb": mem_used,
+                "disk_temp_c": disk_temp,
+                "net_io_mb_s": net_io,
+                "power_w": 180 + cpu * 2.4 + net_io * 0.08,  # 一致性：功耗随 CPU 与网络负载增长
             }
         )
-        # --- 按车注入脏数据 ---
-        df.loc[10, "speed_kmh"] = 300.0  # 物理越界
-        df.loc[11, "soc_pct"] = -5.0  # 物理越界
-        df.loc[12, "pack_voltage_v"] = 500.0  # 物理越界
-        df.loc[40, "pack_temp_c"] += 25.0  # 孤立尖峰（单点）
-        df.loc[60, "speed_kmh"] = 0.0  # 与前后严重跳变的孤立尖峰
-        df.loc[61, "pack_current_a"] = 250.0  # 幅值在物理范围内、但方向突变
+        # --- 按服务实例注入脏数据 ---
+        df.loc[10, "latency_ms"] = 5000.0  # 物理越界
+        df.loc[11, "cpu_pct"] = -5.0  # 物理越界
+        df.loc[12, "mem_used_gb"] = 500.0  # 物理越界
+        df.loc[40, "disk_temp_c"] += 25.0  # 孤立尖峰（单点）
+        df.loc[60, "latency_ms"] = 1200.0  # 幅值在量程内、但相对邻值严重跳变
+        df.loc[61, "net_io_mb_s"] = 1800.0  # 同上（网络速率单点跳变）
         frames.append(df)
     df = pd.concat(frames, ignore_index=True)
     # 全局注入：连续 5s 整段缺失（ts 80~84 全删）
@@ -152,14 +152,14 @@ def _drop_isolated_spikes(df: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, int
 def _align_time(
     df: pd.DataFrame, freq: str = "1s", fill_limit: int = FFILL_LIMIT
 ) -> tuple[pd.DataFrame, int, int]:
-    """按车对齐到 1Hz 时间网格：≤fill_limit 秒的缺口前向填充，超长缺口丢弃。
+    """按服务实例对齐到 1Hz 时间网格：≤fill_limit 秒的缺口前向填充，超长缺口丢弃。
 
     返回（对齐后的数据、实际填充行数、因超长缺口丢弃的行数）。
     """
     parts: list[pd.DataFrame] = []
     filled_total = 0
     dropped_total = 0
-    for _vid, grp in df.groupby("vehicle_id", sort=False):
+    for _vid, grp in df.groupby("service_id", sort=False):
         grp = grp.sort_values("ts")
         grp = grp.set_index(pd.to_datetime(grp["ts"], unit="s"))
         grid = grp.resample(freq).asfreq()  # 全网格：缺失处成 NaN 行
@@ -173,16 +173,16 @@ def _align_time(
         dropped_total += int(still_nan.sum())
         parts.append(grid[~still_nan].copy())
     aligned = pd.concat(parts).reset_index(drop=True)  # 先丢 DatetimeIndex，避免列/索引歧义
-    aligned = aligned.sort_values(["vehicle_id", "ts"]).reset_index(drop=True)
+    aligned = aligned.sort_values(["service_id", "ts"]).reset_index(drop=True)
     return aligned, filled_total, dropped_total
 
 
-def clean_telemetry(df: pd.DataFrame) -> tuple[pd.DataFrame, CleanReport]:
+def clean_metrics(df: pd.DataFrame) -> tuple[pd.DataFrame, CleanReport]:
     """清洗流水线入口：去重 → 物理范围 → 孤立尖峰 → 时间对齐补洞。"""
     report = CleanReport(raw_rows=len(df))
     # 0. 时间排序：滚动窗口（去重/尖峰）依赖时间有序——真实采集乱序到达，先排好
-    df = df.sort_values(["vehicle_id", "ts"]).reset_index(drop=True)
-    # 1. 去重（按全列；真实场景通常按 (ts, vehicle_id) 指纹）
+    df = df.sort_values(["service_id", "ts"]).reset_index(drop=True)
+    # 1. 去重（按全列；真实场景通常按 (ts, service_id) 指纹）
     df = df.drop_duplicates().reset_index(drop=True)
     report.dup_removed = report.raw_rows - len(df)
     # 2. 物理范围
@@ -196,32 +196,35 @@ def clean_telemetry(df: pd.DataFrame) -> tuple[pd.DataFrame, CleanReport]:
 
 
 def main() -> None:
-    vehicles, seconds = ("V001", "V002", "V003"), 120
-    df_raw = generate_telemetry(vehicles, seconds)
+    services, seconds = ("V001", "V002", "V003"), 120
+    df_raw = generate_metrics(services, seconds)
     print(f"自造原始数据：{len(df_raw)} 行（含重复/越界/尖峰/缺段脏数据）")
-    cleaned, report = clean_telemetry(df_raw)
+    cleaned, report = clean_metrics(df_raw)
     print("== 清洗报告 ==")
     print(report.summary())
 
     # 干净数据上的不变量断言
-    assert cleaned["soc_pct"].between(0, 100).all()
-    assert cleaned["speed_kmh"].between(0, 220).all()
-    assert cleaned["pack_voltage_v"].between(250, 420).all()
+    assert cleaned["cpu_pct"].between(0, 100).all()
+    assert cleaned["latency_ms"].between(0, 2000).all()
+    assert cleaned["mem_used_gb"].between(0, 256).all()
     assert report.dup_removed == 1
-    assert report.phys_removed["speed_kmh"] == len(vehicles)  # 每车一个 300 km/h
-    assert report.spike_removed["speed_kmh"] == len(vehicles)  # 每车一个瞬间归零
-    assert report.spike_removed["pack_temp_c"] == len(vehicles)  # 每车一个 +25℃ 尖峰
-    # 超长缺口：5s 中 ≤3s 被 ffill 补上、>3s 的部分丢弃 → 清洗后比理想满网格少 2 行/车
-    perfect_grid = len(vehicles) * seconds
+    assert report.phys_removed["latency_ms"] == len(services)  # 每个服务实例一个 5000 ms 越界点
+    assert report.phys_removed["cpu_pct"] == len(services)  # 每个服务实例一个 -5%
+    assert report.phys_removed["mem_used_gb"] == len(services)  # 每个服务实例一个 500 GB
+    assert report.spike_removed["latency_ms"] == len(services)  # 每个服务实例一个单点跳变
+    assert report.spike_removed["disk_temp_c"] == len(services)  # 每个服务实例一个 +25℃ 尖峰
+    assert report.spike_removed["net_io_mb_s"] == len(services)  # 每个服务实例一个速率跳变
+    # 超长缺口：5s 中 ≤3s 被 ffill 补上、>3s 的部分丢弃 → 清洗后比理想满网格少 2 行/服务实例
+    perfect_grid = len(services) * seconds
     assert report.final_rows == perfect_grid - report.dropped_gap_rows
-    assert report.dropped_gap_rows == len(vehicles) * 2
+    assert report.dropped_gap_rows == len(services) * 2
     # 清洗后不存在秒级温度跳变 >10℃（尖峰已被替换为邻居值）
-    assert cleaned["pack_temp_c"].diff().abs().max() < 10.0
+    assert cleaned["disk_temp_c"].diff().abs().max() < 10.0
 
     # 产物纪律：CSV 写 /tmp，仓库不残留
     out_dir = Path("/tmp/ph18-ex02")
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_csv = out_dir / "cleaned_telemetry.csv"
+    out_csv = out_dir / "cleaned_metrics.csv"
     cleaned.to_csv(out_csv, index=False)
     print(f"\n清洗结果已写：{out_csv}（{report.final_rows} 行）")
     print("\n自检通过：清洗报告、物理/尖峰剔除、时间对齐断言全绿")
@@ -232,40 +235,40 @@ def _mini_frame() -> pd.DataFrame:
     return pd.DataFrame(
         {
             "ts": [1.0, 2.0, 3.0],
-            "vehicle_id": ["V001"] * 3,
-            "speed_kmh": [10.0, 11.0, 12.0],
-            "soc_pct": [80.0, 79.0, 78.0],
-            "pack_voltage_v": [380.0, 381.0, 382.0],
-            "pack_temp_c": [28.0, 28.1, 28.2],
-            "pack_current_a": [-20.0, -21.0, -22.0],
-            "power_kw": [-7.6, -8.0, -8.4],
+            "service_id": ["V001"] * 3,
+            "latency_ms": [10.0, 11.0, 12.0],
+            "cpu_pct": [80.0, 79.0, 78.0],
+            "mem_used_gb": [96.0, 96.1, 96.2],
+            "disk_temp_c": [38.0, 38.1, 38.2],
+            "net_io_mb_s": [320.0, 321.0, 322.0],
+            "power_w": [340.0, 341.0, 342.0],
         }
     )
 
 
 def test_duplicate_rows_removed() -> None:
     df = pd.concat([_mini_frame(), _mini_frame().iloc[1:2]])
-    cleaned, report = clean_telemetry(df)
+    cleaned, report = clean_metrics(df)
     assert report.dup_removed == 1
     assert len(cleaned) == 3
 
 
 def test_physical_out_of_range_dropped() -> None:
     df = _mini_frame()
-    df.loc[1, ["speed_kmh", "soc_pct"]] = [300.0, -5.0]  # 同一行越两个量
-    cleaned, report = clean_telemetry(df)
-    assert report.phys_removed["speed_kmh"] == 1
-    assert report.phys_removed["soc_pct"] == 1
-    assert 300.0 not in set(cleaned["speed_kmh"])
+    df.loc[1, ["latency_ms", "cpu_pct"]] = [5000.0, -5.0]  # 同一行越两个量
+    cleaned, report = clean_metrics(df)
+    assert report.phys_removed["latency_ms"] == 1
+    assert report.phys_removed["cpu_pct"] == 1
+    assert 5000.0 not in set(cleaned["latency_ms"])
 
 
 def test_isolated_spike_removed() -> None:
     df = _mini_frame()
-    df.loc[1, "pack_temp_c"] += 25.0  # 单点 +25℃
-    cleaned, report = clean_telemetry(df)
-    assert report.spike_removed["pack_temp_c"] == 1
+    df.loc[1, "disk_temp_c"] += 25.0  # 单点 +25℃
+    cleaned, report = clean_metrics(df)
+    assert report.spike_removed["disk_temp_c"] == 1
     # 尖峰被剔除后由邻居 ffill 替代，最终数据里不保留 53℃ 那行
-    assert (cleaned["pack_temp_c"] < 40).all()
+    assert (cleaned["disk_temp_c"] < 60).all()
 
 
 def test_small_gap_filled_long_gap_dropped() -> None:

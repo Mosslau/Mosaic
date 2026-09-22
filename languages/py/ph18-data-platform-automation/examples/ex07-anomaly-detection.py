@@ -5,10 +5,10 @@
 # 测试：python3 -m pytest ex07-anomaly-detection.py -q（收集 test_* 跑断言）
 # lint：ruff check ex07-anomaly-detection.py
 # 验证状态：已验证（Python 3.13.12 + scikit-learn 1.9.0 本机实测：自检与 pytest 全绿）
-"""AI 异常检测：把 ph15 的 sklearn 技能落到「规则抓不住」的遥测异常上。
+"""AI 异常检测：把 ph15 的 sklearn 技能落到「规则抓不住」的指标异常上。
 
-ex04 的规则引擎擅长已知模式（过热、SOC 骤降）；**未知/复合模式**要靠无监督异常检测。
-本示例用 Isolation Forest 在特征上找离群——特征不是原始信号而是「信号 + 窗口形态
+ex04 的规则引擎擅长已知模式（过热、CPU 骤降）；**未知/复合模式**要靠无监督异常检测。
+本示例用 Isolation Forest 在特征上找离群——特征不是原始字段而是「字段 + 窗口形态
 （滚动均值/标准差）」，让模型能识别"这段的形态不像平常"。
 """
 
@@ -22,22 +22,24 @@ from sklearn.ensemble import IsolationForest
 
 # 异常埋点说明（与 label 列同步；fit 不使用 label —— 真正无监督）
 ANOMALIES = {
-    "V001": [],  # 健康车：作为"不应误报太多"的对照
-    "V002": [("temp_excursion", 900, 940)],  # 40s 温度窜到 62℃（幅度不大、规则阈值 55 抓不到）
-    "V003": [("stuck_signal", 1200, 1260)],  # 60s 车速冻结为 0 但功率照旧（传感器故障复合形态）
+    "V001": [],  # 健康服务实例：作为"不应误报太多"的对照
+    "V002": [("temp_excursion", 900, 940)],  # 40s 温度窜到 82℃（幅度不大、规则阈值 75 抓不到）
+    "V003": [
+        ("stuck_signal", 1200, 1260)
+    ],  # 60s 延迟与网络速率同时冻结但功耗照旧（指标冻结复合形态）
 }
 
 
-def generate_telemetry(seconds: int = 2000, seed: int = 21) -> pd.DataFrame:
-    """自造 3 车遥测；按 ANOMALIES 埋入异常段，并给出 label 列用于事后评估。"""
+def generate_metrics(seconds: int = 2000, seed: int = 21) -> pd.DataFrame:
+    """自造 3 个服务实例指标；按 ANOMALIES 埋入异常段，并给出 label 列用于事后评估。"""
     rng = np.random.default_rng(seed)
     t = np.arange(seconds, dtype=float)
     rows: list[pd.DataFrame] = []
-    for vehicle_id, anomalies in ANOMALIES.items():
-        temp = 32 + 3 * np.sin(t / 800) + rng.normal(0, 0.4, seconds)
-        speed = 55 + 25 * np.sin(t / 120) + rng.normal(0, 0.5, seconds)
-        current = -30 - speed / 8 + rng.normal(0, 1.5, seconds)
-        voltage = 388 + 2 * np.sin(t / 1500) + rng.normal(0, 0.5, seconds)
+    for service_id, anomalies in ANOMALIES.items():
+        temp = 38 + 3 * np.sin(t / 800) + rng.normal(0, 0.4, seconds)
+        latency = 55 + 25 * np.sin(t / 120) + rng.normal(0, 0.5, seconds)
+        net_io = 320 + latency * 1.5 + rng.normal(0, 1.5, seconds)
+        mem = 96 + 1.5 * np.sin(t / 1500) + rng.normal(0, 0.5, seconds)
         label = np.zeros(seconds, dtype=bool)
         for kind, start, end in anomalies:
             # 短测试（seconds < 异常埋点位置）时裁剪到有效区间，避免空切片广播错
@@ -45,21 +47,23 @@ def generate_telemetry(seconds: int = 2000, seed: int = 21) -> pd.DataFrame:
             if e <= s:
                 continue
             if kind == "temp_excursion":
-                temp[s:e] = 62 + rng.normal(0, 0.3, e - s)
+                temp[s:e] = 82 + rng.normal(0, 0.3, e - s)
             elif kind == "stuck_signal":
-                speed[s:e] = 0.0
+                # 延迟冻结在异常低位（方差为 0）+ 网络速率同时冻结：多指标齐冻结更接近真实故障
+                latency[s:e] = 15.0
+                net_io[s:e] = 402.5
             label[s:e] = True
         rows.append(
             pd.DataFrame(
                 {
                     "ts": t + 1_700_000_000,
-                    "vehicle_id": vehicle_id,
-                    "speed_kmh": speed,
-                    "soc_pct": np.clip(80 - t / 100, 0, 100),
-                    "pack_voltage_v": voltage,
-                    "pack_temp_c": temp,
-                    "pack_current_a": current,
-                    "power_kw": voltage * current / 1000,
+                    "service_id": service_id,
+                    "latency_ms": latency,
+                    "cpu_pct": np.clip(80 - t / 100, 0, 100),
+                    "mem_used_gb": mem,
+                    "disk_temp_c": temp,
+                    "net_io_mb_s": net_io,
+                    "power_w": 180 + np.clip(80 - t / 100, 0, 100) * 2.4 + net_io * 0.08,
                     "label": label,
                 }
             )
@@ -67,14 +71,14 @@ def generate_telemetry(seconds: int = 2000, seed: int = 21) -> pd.DataFrame:
     return pd.concat(rows, ignore_index=True)
 
 
-FEATURE_COLS = ("speed_kmh", "pack_temp_c", "pack_current_a", "pack_voltage_v", "power_kw")
+FEATURE_COLS = ("latency_ms", "disk_temp_c", "net_io_mb_s", "mem_used_gb", "power_w")
 WINDOW = 20  # 形态特征窗口
 
 
 def build_features(df: pd.DataFrame) -> pd.DataFrame:
-    """特征矩阵：原始信号 + 20s 滚动均值/标准差（局部形态）。丢窗口前缀 NaN 行。"""
+    """特征矩阵：原始字段 + 20s 滚动均值/标准差（局部形态）。丢窗口前缀 NaN 行。"""
     frames: list[pd.DataFrame] = []
-    for _vid, grp in df.groupby("vehicle_id", sort=False):
+    for _vid, grp in df.groupby("service_id", sort=False):
         g = grp.sort_values("ts")
         feats = g[list(FEATURE_COLS)].copy()  # 列索引要 list（tuple 会被当单个标签）
         for col in FEATURE_COLS:
@@ -104,7 +108,7 @@ def evaluate(df: pd.DataFrame, scores: np.ndarray, threshold: float = 0.0) -> di
     """对照埋点 label 评估召回/误报（该 label 只用于评估，绝不进入训练）。"""
     # build_features 丢过窗口前缀行，需把 label 也裁剪到同一对齐
     all_labels: list[bool] = []
-    for _vid, grp in df.groupby("vehicle_id", sort=False):
+    for _vid, grp in df.groupby("service_id", sort=False):
         g = grp.sort_values("ts")
         all_labels.extend(g["label"].iloc[WINDOW - 1 :].tolist())
     labels = np.asarray(all_labels, dtype=bool)
@@ -123,23 +127,23 @@ def evaluate(df: pd.DataFrame, scores: np.ndarray, threshold: float = 0.0) -> di
 
 
 def main() -> None:
-    telemetry = generate_telemetry()
-    features = build_features(telemetry)
+    df = generate_metrics()
+    features = build_features(df)
     scores = run_isolation_forest(features)
-    metrics = evaluate(telemetry, scores)
+    metrics = evaluate(df, scores)
 
     print("== Isolation Forest 评估（对照埋点 label，仅评估用）==")
     for key, value in metrics.items():
         print(f"  {key}: {value:.4f}" if isinstance(value, float) else f"  {key}: {value}")
 
-    # 自检：召回足够高、健康车 V001 误报可控
+    # 自检：召回足够高、健康服务实例 V001 误报可控
     assert metrics["recall"] >= 0.6, f"召回过低：{metrics['recall']:.3f}"
     assert metrics["fp_rate"] <= 0.15, f"误报率过高：{metrics['fp_rate']:.3f}"
 
     # 产物纪律：把分数并回原始帧写 /tmp（可接 Dashboard/告警通道）
     # 注意与 build_features 用同一套「去窗口前缀行」的对齐，否则长度对不上
     aligned: list[pd.DataFrame] = []
-    for _vid, grp in telemetry.groupby("vehicle_id", sort=False):
+    for _vid, grp in df.groupby("service_id", sort=False):
         aligned.append(grp.sort_values("ts").iloc[WINDOW - 1 :])
     scored = pd.concat(aligned)
     assert len(scored) == len(scores)
@@ -153,18 +157,18 @@ def main() -> None:
     print("\n自检通过：召回 ≥ 0.6、误报率 ≤ 0.15、产物落盘")
 
 
-def test_healthy_vehicle_low_fp() -> None:
-    df = generate_telemetry(seconds=600, seed=3)
-    # 只留 V001 与其后车（此时 ANOMALIES 仍给 V002/V003 埋点，只看 V001）
-    v001 = df[df["vehicle_id"] == "V001"]
+def test_healthy_service_low_fp() -> None:
+    df = generate_metrics(seconds=600, seed=3)
+    # 只留 V001 与其后服务实例（此时 ANOMALIES 仍给 V002/V003 埋点，只看 V001）
+    v001 = df[df["service_id"] == "V001"]
     feats = build_features(v001)
     scores = run_isolation_forest(feats)
     fp_rate = float((scores < 0.0).mean())
-    assert fp_rate <= 0.08, f"健康车误报率过高：{fp_rate:.3f}"
+    assert fp_rate <= 0.08, f"健康服务实例误报率过高：{fp_rate:.3f}"
 
 
 def test_detector_finds_injected_temp_excursion() -> None:
-    df = generate_telemetry(seconds=2000, seed=21)
+    df = generate_metrics(seconds=2000, seed=21)
     features = build_features(df)
     scores = run_isolation_forest(features)
     metrics = evaluate(df, scores)
@@ -173,9 +177,9 @@ def test_detector_finds_injected_temp_excursion() -> None:
 
 
 def test_build_features_drops_window_prefix() -> None:
-    df = generate_telemetry(seconds=100, seed=1)
+    df = generate_metrics(seconds=100, seed=1)
     features = build_features(df)
-    # 3 车 × (100 - 19) = 243 行
+    # 3 个服务实例 × (100 - 19) = 243 行
     assert len(features) == 3 * (100 - (WINDOW - 1))
     assert not features.isna().any().any()
 

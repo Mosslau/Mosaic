@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-# exercises/sol-03-ota-report.py —— 参考实现：OTA 测试报告生成器（对应 roadmap §18 练习 3）
+# exercises/sol-03-release-report.py —— 参考实现：RELEASE 测试报告生成器（对应 roadmap §18 练习 3）
 # 验证环境（目标）：Python 3.13；本机实测 Python 3.13.12，纯标准库
-# 运行：python3 sol-03-ota-report.py（生成报告到 /tmp + 断言自检）
-# 测试：python3 -m pytest sol-03-ota-report.py -q
-# lint：ruff check sol-03-ota-report.py
+# 运行：python3 sol-03-release-report.py（生成报告到 /tmp + 断言自检）
+# 测试：python3 -m pytest sol-03-release-report.py -q
+# lint：ruff check sol-03-release-report.py
 # 验证状态：已验证（Python 3.13.12 本机实测：运行自检与 pytest 全绿）
-"""OTA 测试报告生成：把一次 OTA 推送的逐车结果汇总成可读、可归档的测试报告。
+"""RELEASE 测试报告生成：把一次 RELEASE 推送的逐实例结果汇总成可读、可归档的测试报告。
 
-「OTA 测试报告」在车联网里的含义：不是上报 bug 清单，而是对一次软件升级做**版本级
+「RELEASE 测试报告」在数据平台里的含义：不是上报 bug 清单，而是对一次软件升级做**版本级
 验收** —— 分版本成功率、失败原因分布、耗时统计。产出固定格式的 Markdown，便于进
 测试平台（CI 归档/自动比对）。练习要求见 README.md。
 """
@@ -24,9 +24,9 @@ FAILED = ("failed", "rollback", "timeout")  # 非成功终点
 
 @dataclass(frozen=True, slots=True)
 class Attempt:
-    """一辆车一次升级尝试（来自 OTA 平台的事件流，简化为一行）。"""
+    """一个服务实例一次升级尝试（来自 RELEASE 平台的事件流，简化为一行）。"""
 
-    vehicle_id: str
+    service_id: str
     ts: float
     from_version: str
     target_version: str
@@ -36,12 +36,12 @@ class Attempt:
 
 
 def build_campaign() -> list[Attempt]:
-    """一次教学 OTA 演练：3 个目标版本 × 若干车，结果确定（用于精确断言）。"""
+    """一次教学 RELEASE 演练：3 个目标版本 × 若干服务实例，结果确定（用于精确断言）。"""
     now = 1_700_000_000.0
     rows: list[Attempt] = []
-    vehicles = [f"V{i:03d}" for i in range(1, 19)]  # V001..V018
+    services = [f"V{i:03d}" for i in range(1, 19)]  # V001..V018
     spec = [
-        # (from_version, target_version, success_count, 每条失败(vehicle_offset, result, reason))
+        # (from_version, target_version, success_count, 每条失败(service_offset, result, reason))
         ("1.0.9", "1.1.0", 5, [(5, "failed", "flash_checksum")]),
         ("1.1.0", "1.2.0", 6, [(6, "timeout", "rollback_timeout"), (7, "rollback", "user_cancel")]),
         (
@@ -53,16 +53,16 @@ def build_campaign() -> list[Attempt]:
     ]
     offset = 0
     for from_v, target_v, ok_count, fails in spec:
-        for i, vid in enumerate(vehicles[offset : offset + ok_count + len(fails)]):
+        for i, vid in enumerate(services[offset : offset + ok_count + len(fails)]):
             is_fail = i >= ok_count
             attempt = Attempt(
-                vehicle_id=vid,
+                service_id=vid,
                 ts=now + offset * 100 + i,
                 from_version=from_v,
                 target_version=target_v,
                 result="success" if not is_fail else fails[i - ok_count][1],
                 reason="" if not is_fail else fails[i - ok_count][2],
-                duration_s=float(120 + i * 7),  # 升级耗时随车递增，便于做耗时统计
+                duration_s=float(120 + i * 7),  # 升级耗时随实例递增，便于做耗时统计
             )
             rows.append(attempt)
         offset += ok_count + len(fails)
@@ -93,9 +93,9 @@ def build_report(
 ) -> str:
     """生成 Markdown 测试报告：总览 → 分版本成功率 → 失败原因 → 耗时统计。"""
     lines: list[str] = [
-        "# OTA 升级测试报告",
+        "# RELEASE 升级测试报告",
         "",
-        f"- 涉及车辆：{len({a.vehicle_id for a in attempts})} 台",
+        f"- 涉及服务实例：{len({a.service_id for a in attempts})} 台",
         f"- 尝试总次数：{len(attempts)}",
     ]
     overall_ok = sum(1 for a in attempts if a.result == "success")
@@ -131,7 +131,7 @@ def main() -> None:
     report = build_report(attempts)
     out_dir = Path("/tmp/ph18-exer03")
     out_dir.mkdir(parents=True, exist_ok=True)
-    report_path = out_dir / "ota_test_report.md"
+    report_path = out_dir / "release_test_report.md"
     report_path.write_text(report + "\n", encoding="utf-8")
     print(report)
 

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-# exercises/sol-01-can-parser.py —— 参考实现：CAN 日志解析器（对应 roadmap §18 练习 1）
+# exercises/sol-01-can-parser.py —— 参考实现：平台服务日志解析器（对应 roadmap §18 练习 1）
 # 验证环境（目标）：Python 3.13；本机实测 Python 3.13.12，纯标准库
 # 运行：python3 sol-01-can-parser.py（打印输出 + 断言自检）
 # 测试：python3 -m pytest sol-01-can-parser.py -q
 # lint：ruff check sol-01-can-parser.py
 # 验证状态：已验证（Python 3.13.12 本机实测：运行自检与 pytest 全绿）
-"""CAN 日志解析器：逐行流式解析 → 按 ID 汇总帧数/首末时间/平均周期。
+"""平台服务日志解析器：逐行流式解析 → 按 ID 汇总帧数/首末时间/平均周期。
 
 练习要求见 README.md。实现要点：
 - 流式：generator 逐行产出，内存与文件大小无关（ph17 的纪律）；
@@ -20,27 +20,27 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
-# candump 风格：行首 (时间戳) 接口 ID#HEX
+# 文本行风格：行首 (时间戳) 接口 ID#HEX
 _LINE_RE = re.compile(r"^\((\d+\.\d+)\)\s+\S+\s+([0-9A-Fa-f]+)#([0-9A-Fa-f]{0,16})\s*$")
 
 
 @dataclass(frozen=True, slots=True)
-class CanFrame:
+class LogRecord:
     ts: float
-    can_id: int
+    source_id: int
     data: bytes
 
 
-def parse_line(line: str) -> CanFrame | None:
+def parse_line(line: str) -> LogRecord | None:
     m = _LINE_RE.match(line)
     if m is None:
         return None
-    return CanFrame(
-        ts=float(m.group(1)), can_id=int(m.group(2), 16), data=bytes.fromhex(m.group(3))
+    return LogRecord(
+        ts=float(m.group(1)), source_id=int(m.group(2), 16), data=bytes.fromhex(m.group(3))
     )
 
 
-def iter_frames(path: str | Path) -> Iterator[CanFrame]:
+def iter_frames(path: str | Path) -> Iterator[LogRecord]:
     """逐行解析日志，产出帧流（生成器，内存与文件大小无关）。"""
     with open(path, encoding="utf-8") as f:
         for line in f:
@@ -65,7 +65,7 @@ class IdStats:
 
 
 def collect_stats(log_path: str | Path) -> tuple[dict[int, IdStats], int]:
-    """单遍流式统计：返回 {can_id: IdStats} 与脏行数。"""
+    """单遍流式统计：返回 {source_id: IdStats} 与脏行数。"""
     stats: dict[int, IdStats] = {}
     skipped = 0
     with open(log_path, encoding="utf-8") as f:
@@ -75,7 +75,7 @@ def collect_stats(log_path: str | Path) -> tuple[dict[int, IdStats], int]:
                 if line.strip() and not line.lstrip().startswith("#"):
                     skipped += 1  # 非注释、非空白的脏行
                 continue
-            st = stats.setdefault(frame.can_id, IdStats())
+            st = stats.setdefault(frame.source_id, IdStats())
             st.count += 1
             st.first_ts = frame.ts if st.first_ts is None else min(st.first_ts, frame.ts)
             st.last_ts = frame.ts if st.last_ts is None else max(st.last_ts, frame.ts)
@@ -83,12 +83,12 @@ def collect_stats(log_path: str | Path) -> tuple[dict[int, IdStats], int]:
 
 
 def format_report(stats: dict[int, IdStats], skipped: int) -> str:
-    lines = ["# CAN 日志统计", ""]
-    for can_id in sorted(stats, key=lambda k: (-stats[k].count, k)):
-        st = stats[can_id]
+    lines = ["# 平台服务日志统计", ""]
+    for source_id in sorted(stats, key=lambda k: (-stats[k].count, k)):
+        st = stats[source_id]
         period = f"{st.avg_period:.3f}s" if st.avg_period is not None else "-"
         lines.append(
-            f"0x{can_id:X}: {st.count} 帧, 首帧 ts={st.first_ts:.3f}, "
+            f"0x{source_id:X}: {st.count} 帧, 首帧 ts={st.first_ts:.3f}, "
             f"末帧 ts={st.last_ts:.3f}, 平均周期 {period}"
         )
     lines.append(f"\n脏行（跳过）：{skipped}")
@@ -127,7 +127,7 @@ def main() -> None:
 
 def test_parse_line() -> None:
     f = parse_line("(1700000000.100) can0 123#0100000000000000")
-    assert f is not None and f.can_id == 0x123
+    assert f is not None and f.source_id == 0x123
     assert f.data == bytes.fromhex("0100000000000000")  # 全 8 字节帧
     assert parse_line("not a can line") is None
     assert parse_line("(1700000000.1) can0 123#ZZ") is None

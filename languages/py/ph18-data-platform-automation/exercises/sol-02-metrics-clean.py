@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-# exercises/sol-02-vehicle-clean.py —— 参考实现：车辆数据清洗工具（对应 roadmap §18 练习 2）
+# exercises/sol-02-service-clean.py —— 参考实现：服务实例数据清洗工具（对应 roadmap §18 练习 2）
 # 验证环境（目标）：Python 3.13；本机实测 Python 3.13.12，纯标准库（csv/argparse）
-# 运行：python3 sol-02-vehicle-clean.py（生成样例 → 清洗 → 打印报告 → 断言自检）
-# 指定文件：python3 sol-02-vehicle-clean.py --input path/to/raw.csv --output /tmp/clean.csv
-# 测试：python3 -m pytest sol-02-vehicle-clean.py -q
-# lint：ruff check sol-02-vehicle-clean.py
+# 运行：python3 sol-02-service-clean.py（生成样例 → 清洗 → 打印报告 → 断言自检）
+# 指定文件：python3 sol-02-service-clean.py --input path/to/raw.csv --output /tmp/clean.csv
+# 测试：python3 -m pytest sol-02-service-clean.py -q
+# lint：ruff check sol-02-service-clean.py
 # 验证状态：已验证（Python 3.13.12 本机实测：运行自检与 pytest 全绿）
-"""车辆数据清洗工具（CSV → CSV）：去重 → 解析/量程 → 剔除异常 → 摘要报告。
+"""服务实例数据清洗工具（CSV → CSV）：去重 → 解析/量程 → 剔除异常 → 摘要报告。
 
-练习要求见 README.md。选择纯标准库实现：车联网清洗工具的验收点是「输入脏 CSV 输出
+练习要求见 README.md。选择纯标准库实现：数据平台清洗工具的验收点是「输入脏 CSV 输出
 干净 CSV + 可审计报告」，不依赖 pandas 也成立 —— 数据量到 GB 级再上 pandas/polars
 （ph09 的技能）做向量化清洗，瓶颈在 IO 时流式读同样重要。
 """
@@ -24,14 +24,14 @@ from pathlib import Path
 
 # 每列的量程规格（与 ex02/项目共用同一份语义：量程=物理允许范围）
 RANGES: dict[str, tuple[float, float]] = {
-    "speed_kmh": (0.0, 220.0),
-    "soc_pct": (0.0, 100.0),
-    "pack_voltage_v": (250.0, 420.0),
-    "pack_temp_c": (-40.0, 65.0),
-    "pack_current_a": (-300.0, 400.0),
-    "power_kw": (-300.0, 300.0),
+    "latency_ms": (0.0, 220.0),
+    "cpu_pct": (0.0, 100.0),
+    "mem_used_gb": (250.0, 420.0),
+    "disk_temp_c": (-40.0, 65.0),
+    "net_io_mb_s": (-300.0, 400.0),
+    "power_w": (-300.0, 300.0),
 }
-KEY_COLS = ("ts", "vehicle_id")  # 去重主键
+KEY_COLS = ("ts", "service_id")  # 去重主键
 
 
 @dataclass
@@ -48,12 +48,12 @@ def parse_row(row: dict[str, str]) -> dict[str, float | str] | None:
     """把 CSV 文本行转成数值行；缺量程列/非法数值返回 None（调用方计 parse_error）。"""
     try:
         ts = float(row["ts"])
-        vid = row["vehicle_id"].strip()
+        vid = row["service_id"].strip()
         if not vid:
-            raise ValueError("空 vehicle_id")
+            raise ValueError("空 service_id")
         return {
             "ts": ts,
-            "vehicle_id": vid,
+            "service_id": vid,
             **{col: float(row[col]) for col in RANGES},
         }
     except (KeyError, ValueError):
@@ -71,7 +71,7 @@ def clean_csv(input_path: Path, output_path: Path) -> CleanSummary:
         open(output_path, "w", encoding="utf-8", newline="") as fout,
     ):
         reader = csv.DictReader(fin)
-        fieldnames = ["ts", "vehicle_id", *RANGES]
+        fieldnames = ["ts", "service_id", *RANGES]
         writer = csv.DictWriter(fout, fieldnames=fieldnames)
         writer.writeheader()
         for row in reader:
@@ -81,7 +81,7 @@ def clean_csv(input_path: Path, output_path: Path) -> CleanSummary:
                 summary.parse_errors += 1
                 summary.dropped["parse_error"] += 1
                 continue
-            key = (str(parsed["ts"]), str(parsed["vehicle_id"]))
+            key = (str(parsed["ts"]), str(parsed["service_id"]))
             if key in seen:
                 summary.dropped["duplicate"] += 1
                 continue
@@ -122,13 +122,13 @@ def generate_raw_sample(path: Path) -> None:
     rows = [
         [
             "ts",
-            "vehicle_id",
-            "speed_kmh",
-            "soc_pct",
-            "pack_voltage_v",
-            "pack_temp_c",
-            "pack_current_a",
-            "power_kw",
+            "service_id",
+            "latency_ms",
+            "cpu_pct",
+            "mem_used_gb",
+            "disk_temp_c",
+            "net_io_mb_s",
+            "power_w",
         ]
     ]
     base = 1_700_000_000
@@ -145,7 +145,7 @@ def generate_raw_sample(path: Path) -> None:
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description="车辆数据清洗工具（CSV → CSV）")
+    parser = argparse.ArgumentParser(description="服务实例数据清洗工具（CSV → CSV）")
     parser.add_argument("--input", type=Path, default=Path("/tmp/ph18-exer02/raw.csv"))
     parser.add_argument("--output", type=Path, default=Path("/tmp/ph18-exer02/clean.csv"))
     args = parser.parse_args(argv)
@@ -158,12 +158,12 @@ def main(argv: list[str] | None = None) -> None:
     assert summary.raw_rows == 14  # 10 正常 + dup + 2 越界 + 1 坏值
     assert summary.parse_errors == 1  # "bad" 行
     assert summary.dropped["duplicate"] == 1
-    assert summary.dropped["range:speed_kmh"] == 1
-    assert summary.dropped["range:soc_pct"] == 1
+    assert summary.dropped["range:latency_ms"] == 1
+    assert summary.dropped["range:cpu_pct"] == 1
     assert summary.kept_rows == 10  # 14 - (1 parse + 1 dup + 2 range)
     with open(args.output, encoding="utf-8") as f:
         kept = [r for r in csv.DictReader(f)]
-    assert len(kept) == 10 and all(0 <= float(r["speed_kmh"]) <= 220 for r in kept)
+    assert len(kept) == 10 and all(0 <= float(r["latency_ms"]) <= 220 for r in kept)
     print("\n自检通过：去重、量程剔除、坏值拒收、保留行数断言全绿")
 
 
@@ -190,7 +190,7 @@ def test_clean_csv_is_idempotent_second_pass() -> None:
 def test_missing_column_rejected_as_parse_error() -> None:
     raw = Path("/tmp/ph18-exer02-test/raw2.csv")
     out = Path("/tmp/ph18-exer02-test/clean2.csv")
-    raw.write_text("ts,vehicle_id,speed_kmh,soc_pct\n1,V001,10,80\n", encoding="utf-8")  # 缺量程列
+    raw.write_text("ts,service_id,latency_ms,cpu_pct\n1,V001,10,80\n", encoding="utf-8")  # 缺量程列
     summary = clean_csv(raw, out)
     assert summary.parse_errors == 1 and summary.kept_rows == 0
 

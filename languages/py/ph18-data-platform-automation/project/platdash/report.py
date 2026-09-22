@@ -1,5 +1,5 @@
-# project/vehdash/report.py —— Matplotlib 图表 + 自包含 HTML Dashboard + JSON
-# 验证环境：Python 3.13 + pandas + matplotlib；本机实测 Python 3.13.12 + matplotlib 3.11.1
+# project/platdash/report.py —— Matplotlib 图表 + 自包含 HTML Dashboard + JSON
+# 验证环境：Python 3.13 + pandas + matplotlib；本机实测 Python 3.13.9 + matplotlib（见 README）
 """展示层：把 analyze 的数字变成「可分发、可归档」的产物。
 
 - 图表：Matplotlib Agg 后端（无显示环境可跑）+ 中文字体回退链（与 ex04 同法）
@@ -19,10 +19,10 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import pandas as pd  # noqa: E402
 
-from vehdash.analyze import fleet_summary, fleet_table
+from platdash.analyze import platform_summary, platform_table
 
 # 中文图表字体回退（macOS PingFang/Hiragino → Linux Noto → Windows 微软雅黑）
-_CJK_CANDIDATES = (
+_CJK_FONTS = (
     "PingFang SC",
     "Hiragino Sans GB",
     "Noto Sans CJK SC",
@@ -35,41 +35,41 @@ def _setup_font() -> None:
     from matplotlib import font_manager, rcParams
 
     installed = {f.name for f in font_manager.fontManager.ttflist}
-    for name in _CJK_CANDIDATES:
+    for name in _CJK_FONTS:
         if name in installed:
             rcParams["font.sans-serif"] = [name, "DejaVu Sans"]
             rcParams["axes.unicode_minus"] = False
             return
 
 
-def _chart_fleet_bars(table: pd.DataFrame) -> Path:
-    """单车距离 + 平均温度双柱状图。"""
+def _chart_platform_bars(table: pd.DataFrame) -> Path:
+    """单实例数据传输量 + 平均磁盘温度双柱状图。"""
     _setup_font()
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 3.6))
-    vids = table["vehicle_id"].tolist()
-    ax1.bar(vids, table["distance_km"], color="#2980b9")
-    ax1.set_title("单车行驶里程（km）")
-    ax1.set_ylabel("里程 km")
-    ax2.bar(vids, table["mean_temp_c"], color="#e67e22")
-    ax2.set_title("单车平均电池温度（℃）")
+    vids = table["service_id"].tolist()
+    ax1.bar(vids, table["traffic_gb"], color="#2980b9")
+    ax1.set_title("单实例数据传输量（GB）")
+    ax1.set_ylabel("传输量 GB")
+    ax2.bar(vids, table["mean_disk_temp_c"], color="#e67e22")
+    ax2.set_title("单实例平均磁盘温度（℃）")
     ax2.set_ylabel("温度 ℃")
     fig.tight_layout()
-    return _save(fig, "fleet_bars.png")
+    return _save(fig, "platform_bars.png")
 
 
-def _chart_speed_trend(df: pd.DataFrame, window_s: int = 300) -> Path:
-    """每车前 window_s 秒车速曲线（用于人眼抽查数据质量）。"""
+def _chart_latency_trend(df: pd.DataFrame, window_s: int = 300) -> Path:
+    """每实例前 window_s 秒延迟曲线（用于人眼抽查数据质量）。"""
     _setup_font()
     fig, ax = plt.subplots(figsize=(10, 3.6))
-    for vid, grp in df.groupby("vehicle_id"):
+    for vid, grp in df.groupby("service_id"):
         head = grp.sort_values("ts").head(window_s)
-        ax.plot((head["ts"] - head["ts"].min()) / 60.0, head["speed_kmh"], label=vid)
-    ax.set_title(f"车速曲线（前 {window_s // 60} 分钟）")
+        ax.plot((head["ts"] - head["ts"].min()) / 60.0, head["latency_ms"], label=vid)
+    ax.set_title(f"延迟曲线（前 {window_s // 60} 分钟）")
     ax.set_xlabel("时间（分钟）")
-    ax.set_ylabel("km/h")
+    ax.set_ylabel("延迟 ms")
     ax.legend()
     fig.tight_layout()
-    return _save(fig, "speed_trend.png")
+    return _save(fig, "latency_trend.png")
 
 
 def _save(fig: plt.Figure, name: str) -> Path:
@@ -77,7 +77,7 @@ def _save(fig: plt.Figure, name: str) -> Path:
     import os
     import tempfile
 
-    fd, path = tempfile.mkstemp(prefix="vehdash_", suffix=".png", dir="/tmp")
+    fd, path = tempfile.mkstemp(prefix="platdash_", suffix=".png", dir="/tmp")
     os.close(fd)
     fig.savefig(path, dpi=110)
     plt.close(fig)
@@ -91,7 +91,7 @@ def _png_to_data_uri(path: Path) -> str:
 
 
 def _render_html(
-    title: str, fleet: dict[str, object], table: pd.DataFrame, charts: list[tuple[str, str]]
+    title: str, platform: dict[str, object], table: pd.DataFrame, charts: list[tuple[str, str]]
 ) -> str:
     rows = "\n".join(
         "<tr>" + "".join(f"<td>{v}</td>" for v in r) + "</tr>"
@@ -101,8 +101,8 @@ def _render_html(
         f'<h3>{name}</h3><img src="{uri}" style="max-width:100%"/>' for name, uri in charts
     )
     summary = (
-        f"车队 {fleet['vehicles']} · 总里程 <b>{fleet['total_distance_km']} km</b>"
-        f" · 总能耗 <b>{fleet['total_energy_kwh']} kWh</b>"
+        f"平台 {platform['services']} · 总数据传输量 <b>{platform['total_traffic_gb']} GB</b>"
+        f" · 总耗电量 <b>{platform['total_energy_kwh']} kWh</b>"
     )
     return f"""<!DOCTYPE html>
 <html lang="zh">
@@ -119,7 +119,7 @@ th {{ background: #ecf0f1; }}
 <h1>{title}</h1>
 <p>{summary}</p>
 {imgs}
-<h2>单车汇总</h2>
+<h2>单实例汇总</h2>
 <table>
 <tr><th>{"</th><th>".join(table.columns)}</th></tr>
 {rows}
@@ -132,19 +132,19 @@ def build_dashboard(df: pd.DataFrame, out_dir: str | Path) -> dict[str, str]:
     """主入口：清洗后的 df → 图表/HTML/JSON 写 out_dir，返回产物路径映射。"""
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    fleet = fleet_summary(df)
-    table = fleet_table(df)
-    fleet_bars = _chart_fleet_bars(table)
-    speed_trend = _chart_speed_trend(df)
+    platform = platform_summary(df)
+    table = platform_table(df)
+    platform_bars = _chart_platform_bars(table)
+    latency_trend = _chart_latency_trend(df)
     charts = [
-        ("行驶里程与平均温度", _png_to_data_uri(fleet_bars)),
-        ("车速曲线", _png_to_data_uri(speed_trend)),
+        ("数据传输量与平均磁盘温度", _png_to_data_uri(platform_bars)),
+        ("延迟曲线", _png_to_data_uri(latency_trend)),
     ]
-    html = _render_html("车辆遥测 Dashboard", fleet, table, charts)
+    html = _render_html("平台指标 Dashboard", platform, table, charts)
     html_path = out_dir / "dashboard.html"
     html_path.write_text(html, encoding="utf-8")
     json_path = out_dir / "dashboard.json"
-    json_path.write_text(json.dumps(fleet, ensure_ascii=False, indent=2), encoding="utf-8")
+    json_path.write_text(json.dumps(platform, ensure_ascii=False, indent=2), encoding="utf-8")
     return {
         "html": str(html_path),
         "json": str(json_path),

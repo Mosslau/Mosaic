@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-# examples/ex04-fault-report.py —— 故障诊断规则引擎 + 报表生成（主文档 3.4）
+# examples/ex04-fault-report.py —— 故障故障定位规则引擎 + 报表生成（主文档 3.4）
 # 验证环境：Python 3.13 + pandas + matplotlib；本机实测 3.13.12 + pandas 3.0.5 + matplotlib 3.11.1
 # 运行：python3 ex04-fault-report.py（打印教学输出 + 断言自检，失败退出码非 0）
 # 测试：python3 -m pytest ex04-fault-report.py -q（收集 test_* 跑断言）
 # lint：ruff check ex04-fault-report.py
 # 验证状态：已验证（Python 3.13.12 + pandas 3.0.5 + matplotlib 3.11.1 本机实测：自检与 pytest 全绿）
-"""故障诊断：把「规则」声明成数据（dataclass），在遥测上扫描并生成可读报表。
+"""故障故障定位：把「规则」声明成数据（dataclass），在指标上扫描并生成可读报表。
 
-车辆故障诊断的两条腿：一条是 DTC（诊断故障码，OBD 时代由 ECU 自报），一条是**数据侧
-规则引擎**——云端拿不到 ECU 内部码时，靠信号模式的持续异常推断。本示例演示后者，并
+平台故障定位的两条腿：一条是告警码（ALERT_CODE，由服务/节点自报），一条是**数据侧
+规则引擎**——云端拿不到 ECU 内部码时，靠字段模式的持续异常推断。本示例演示后者，并
 把命中结果导出为 Markdown 报表 + Matplotlib 统计图（ph09/ph12 的报表技能落地）。
 """
 
@@ -47,11 +47,11 @@ def _setup_cjk_font() -> None:
 
 @dataclass(frozen=True, slots=True)
 class FaultRule:
-    """一条诊断规则：名字、级别、触发谓词与描述模板（谓词输入为该车的全量帧）。"""
+    """一条故障定位规则：名字、级别、触发谓词与描述模板（谓词输入为该服务实例的全量记录）。"""
 
     name: str
     severity: str  # high / medium / low
-    dtc: str  # 诊断故障码（映射到行业惯例的 UDS/OBD 码，教学示意）
+    alert_code: str  # 故障定位告警码（映射到平台告警码习惯，教学示意）
     description: str
     check: Callable[[pd.DataFrame], pd.Series]  # 返回布尔 Series（True = 命中）
     window: int = 0  # 用于信息展示
@@ -64,38 +64,38 @@ class FaultRule:
 # ---- 规则库（可扩展：新增规则 = 新增一个 dataclass 实例，引擎不用改）----
 
 
-def _rule_temp_high(telemetry: pd.DataFrame) -> pd.Series:
-    rolling = telemetry["pack_temp_c"].rolling(10, center=True, min_periods=5).mean()
-    return rolling > 55.0
+def _rule_temp_high(metrics: pd.DataFrame) -> pd.Series:
+    rolling = metrics["disk_temp_c"].rolling(10, center=True, min_periods=5).mean()
+    return rolling > 75.0
 
 
-def _rule_soc_fast_drop(telemetry: pd.DataFrame) -> pd.Series:
-    delta = telemetry["soc_pct"].diff(60)  # 与 60s 前比
+def _rule_usage_fast_drop(metrics: pd.DataFrame) -> pd.Series:
+    delta = metrics["cpu_pct"].diff(60)  # 与 60s 前比
     return delta < -15.0
 
 
-def _rule_current_limit(telemetry: pd.DataFrame) -> pd.Series:
-    return telemetry["pack_current_a"].rolling(10, center=True, min_periods=5).mean() < -200.0
+def _rule_traffic_stall(metrics: pd.DataFrame) -> pd.Series:
+    return metrics["net_io_mb_s"].rolling(10, center=True, min_periods=5).mean() < 80.0
 
 
-def _rule_sensor_stuck(telemetry: pd.DataFrame) -> pd.Series:
-    """速度信号连续 30s 方差不大于 0.01，但功率仍有明显输出 → 传感器疑似卡死。"""
-    speed_std = telemetry["speed_kmh"].rolling(30, center=True, min_periods=30).std()
-    power_abs_mean = telemetry["power_kw"].abs().rolling(30, center=True, min_periods=30).mean()
-    return (speed_std < 0.01) & (power_abs_mean > 8.0)  # 两条 Series 逐元素与，不能写 and
+def _rule_sensor_stuck(metrics: pd.DataFrame) -> pd.Series:
+    """延迟字段连续 30s 方差不大于 0.01，但功耗仍有明显输出 → 指标疑似冻结。"""
+    speed_std = metrics["latency_ms"].rolling(30, center=True, min_periods=30).std()
+    power_abs_mean = metrics["power_w"].abs().rolling(30, center=True, min_periods=30).mean()
+    return (speed_std < 0.01) & (power_abs_mean > 100.0)  # 两条 Series 逐元素与，不能写 and
 
 
 FAULT_RULES: tuple[FaultRule, ...] = (
-    FaultRule("overheating", "high", "P0A80", "电池包持续高温（>55℃ 滚动均值）", _rule_temp_high),
-    FaultRule("soc_cliff", "high", "P0AC4", "SOC 60s 内骤降 >15%", _rule_soc_fast_drop),
+    FaultRule("overheat", "high", "P0A80", "节点磁盘持续高温（>75℃ 滚动均值）", _rule_temp_high),
+    FaultRule("usage_cliff", "high", "P0AC4", "CPU 60s 内骤降 >15%", _rule_usage_fast_drop),
     FaultRule(
-        "current_limit", "high", "P0C00", "持续过放电流（10s 均值 <-200A）", _rule_current_limit
+        "traffic_stall", "high", "P0C00", "网络吞吐塌陷（10s 均值 <80MB/s）", _rule_traffic_stall
     ),
     FaultRule(
         "sensor_stuck",
         "low",
         "U0100",
-        "车速传感器疑似卡死（功率大但速度恒为 0）",
+        "延迟指标疑似冻结（功耗正常但延迟方差为 0）",
         _rule_sensor_stuck,
     ),
 )
@@ -105,9 +105,9 @@ FAULT_RULES: tuple[FaultRule, ...] = (
 class FaultEvent:
     """一次命中的故障：规则 + 起始/结束时刻 + 命中统计值摘要。"""
 
-    vehicle_id: str
+    service_id: str
     rule: str
-    dtc: str
+    alert_code: str
     severity: str
     ts_start: float
     ts_end: float
@@ -115,11 +115,11 @@ class FaultEvent:
 
 
 def detect_faults(
-    telemetry: pd.DataFrame, rules: tuple[FaultRule, ...] = FAULT_RULES
+    metrics: pd.DataFrame, rules: tuple[FaultRule, ...] = FAULT_RULES
 ) -> list[FaultEvent]:
-    """按车应用全部规则；连续命中合并为一条事件（runs 语义）。"""
+    """按服务实例应用全部规则；连续命中合并为一条事件（runs 语义）。"""
     events: list[FaultEvent] = []
-    for _vid, grp in telemetry.groupby("vehicle_id", sort=False):
+    for _vid, grp in metrics.groupby("service_id", sort=False):
         grp = grp.sort_values("ts").reset_index(drop=True)
         for rule in rules:
             hit = rule.check(grp).fillna(False).astype(bool)
@@ -132,18 +132,18 @@ def detect_faults(
                     start = None
             if start is not None:
                 events.append(_mk_event(grp, rule, start, len(hit) - 1))
-    return sorted(events, key=lambda e: (e.vehicle_id, e.ts_start))
+    return sorted(events, key=lambda e: (e.service_id, e.ts_start))
 
 
 def _mk_event(grp: pd.DataFrame, rule: FaultRule, start: int, end: int) -> FaultEvent:
     ts0, ts1 = grp["ts"].iloc[start], grp["ts"].iloc[end]
-    # detail：展示该窗口内的关键量级（对数值型信号取中位数，给报表一个"多严重"的抓手）
+    # detail：展示该窗口内的关键量级（对数值型字段取中位数，给报表一个"多严重"的抓手）
     numeric = grp.select_dtypes(include=[np.number]).drop(columns=["ts"])
     peaks = {col: float(numeric[col].iloc[start : end + 1].median()) for col in numeric.columns}
     return FaultEvent(
-        vehicle_id=str(grp["vehicle_id"].iloc[0]),
+        service_id=str(grp["service_id"].iloc[0]),
         rule=rule.name,
-        dtc=rule.dtc,
+        alert_code=rule.alert_code,
         severity=rule.severity,
         ts_start=ts0,
         ts_end=ts1,
@@ -151,34 +151,36 @@ def _mk_event(grp: pd.DataFrame, rule: FaultRule, start: int, end: int) -> Fault
     )
 
 
-def generate_fleet_telemetry(seed: int = 5) -> pd.DataFrame:
-    """自造 3 车 × 1200s 遥测；V002 注入持续过热段、V003 注入 SOC 骤降 + 卡死车速。"""
+def generate_platform_metrics(seed: int = 5) -> pd.DataFrame:
+    """自造 3 个服务实例 × 1200s 指标：V002 注入过热 + 吞吐塌陷，V003 注入 CPU 骤降 + 冻结。"""
     rng = np.random.default_rng(seed)
     t = np.arange(1200, dtype=float)
     rows: list[pd.DataFrame] = []
-    for vehicle_id in ("V001", "V002", "V003"):
-        temp = 30 + rng.normal(0, 0.5, 1200)
-        if vehicle_id == "V002":  # t 600~760 过热到 58~62℃
-            temp[600:761] = np.linspace(35, 60, 161) + rng.normal(0, 0.4, 161)
-        speed = 40 + 30 * np.sin(t / 90.0) + rng.normal(0, 0.6, 1200)
-        if vehicle_id == "V003":  # t 800~1000 传感器卡死：速度冻结但功率仍在
-            speed[800:1001] = 0.0
-        soc = 85 - t / 90.0 + rng.normal(0, 0.08, 1200)
-        if vehicle_id == "V003":  # t 550 处 60s 内掉 25%
-            soc[550:611] = np.linspace(soc[549], soc[550] - 25.0, 61)
-        current = -25 - speed / 12.0 + rng.normal(0, 1.2, 1200)
-        voltage = 385 + rng.normal(0, 0.5, 1200)
-        power = voltage * current / 1000.0
+    for service_id in ("V001", "V002", "V003"):
+        temp = 38 + rng.normal(0, 0.5, 1200)
+        if service_id == "V002":  # t 600~760 过热到 78~84℃
+            temp[600:761] = np.linspace(55, 82, 161) + rng.normal(0, 0.4, 161)
+        latency = 55 + 30 * np.sin(t / 90.0) + rng.normal(0, 0.6, 1200)
+        if service_id == "V003":  # t 800~1000 延迟指标冻结：方差为 0 但功耗照常
+            latency[800:1001] = 55.0
+        cpu = 85 - t / 90.0 + rng.normal(0, 0.08, 1200)
+        if service_id == "V003":  # t 550 处 60s 内掉 25%
+            cpu[550:611] = np.linspace(cpu[549], cpu[550] - 25.0, 61)
+        net_io = 320 + latency * 1.5 + rng.normal(0, 1.2, 1200)
+        if service_id == "V002":  # t 900~1010 吞吐塌陷（10s 均值 <80MB/s）
+            net_io[900:1011] = 10.0 + rng.normal(0, 0.5, 111)
+        mem = 96 + rng.normal(0, 0.5, 1200)
+        power = 180 + cpu * 2.4 + net_io * 0.08
         df = pd.DataFrame(
             {
                 "ts": t + 1_700_000_000,
-                "vehicle_id": vehicle_id,
-                "speed_kmh": speed,
-                "soc_pct": soc,
-                "pack_voltage_v": voltage,
-                "pack_temp_c": temp,
-                "pack_current_a": current,
-                "power_kw": power,
+                "service_id": service_id,
+                "latency_ms": latency,
+                "cpu_pct": cpu,
+                "mem_used_gb": mem,
+                "disk_temp_c": temp,
+                "net_io_mb_s": net_io,
+                "power_w": power,
             }
         )
         rows.append(df)
@@ -186,7 +188,7 @@ def generate_fleet_telemetry(seed: int = 5) -> pd.DataFrame:
 
 
 def build_report(
-    events: list[FaultEvent], telemetry: pd.DataFrame, out_dir: Path
+    events: list[FaultEvent], metrics: pd.DataFrame, out_dir: Path
 ) -> tuple[Path, Path]:
     """生成 Markdown 报表 + 规则命中分布柱状图，返回 (md 路径, png 路径)。"""
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -196,10 +198,10 @@ def build_report(
 
     # ---- 文本报表 ----
     md: list[str] = [
-        "# 车队故障诊断报表",
+        "# 平台故障故障定位报表",
         "",
-        f"- 数据窗口：ts ∈ [{telemetry['ts'].min():.0f}, {telemetry['ts'].max():.0f}]",
-        f"- 车辆数：{telemetry['vehicle_id'].nunique()}",
+        f"- 数据窗口：ts ∈ [{metrics['ts'].min():.0f}, {metrics['ts'].max():.0f}]",
+        f"- 服务实例数：{metrics['service_id'].nunique()}",
         f"- 故障事件总数：{len(events)}",
         "",
         "## 按级别汇总",
@@ -212,13 +214,14 @@ def build_report(
         "",
         "## 事件明细",
         "",
-        "| 车辆 | 时间(起始) | 规则 | DTC | 级别 | 窗口 |",
+        "| 服务实例 | 时间(起始) | 规则 | ALERT_CODE | 级别 | 窗口 |",
         "|------|-----------|------|-----|------|------|",
     ]
     for ev in events[:50]:
         ts = pd.to_datetime(ev.ts_start, unit="s").isoformat(timespec="seconds")
         md.append(
-            f"| {ev.vehicle_id} | {ts} | {ev.rule} | {ev.dtc} | {ev.severity} | {ev.detail} |"
+            f"| {ev.service_id} | {ts} | {ev.rule} | {ev.alert_code} "
+            f"| {ev.severity} | {ev.detail} |"
         )
     md_path.write_text("\n".join(md) + "\n", encoding="utf-8")
 
@@ -238,44 +241,46 @@ def build_report(
 
 
 def main() -> None:
-    telemetry = generate_fleet_telemetry()
-    events = detect_faults(telemetry)
+    metrics = generate_platform_metrics()
+    events = detect_faults(metrics)
     print("== 检出故障事件 ==")
     for ev in events:
         print(
-            f"  {ev.vehicle_id} @ts={ev.ts_start:.0f} "
-            f"[{ev.severity}] {ev.dtc} {ev.rule}: {ev.detail}"
+            f"  {ev.service_id} @ts={ev.ts_start:.0f} "
+            f"[{ev.severity}] {ev.alert_code} {ev.rule}: {ev.detail}"
         )
-    md_path, png_path = build_report(events, telemetry, Path("/tmp/ph18-ex04"))
+    md_path, png_path = build_report(events, metrics, Path("/tmp/ph18-ex04"))
     print(f"\n报表：{md_path}\n图表：{png_path}")
 
-    # ---- 自检断言：注入的故障全部命中且车次正确 ----
-    v002_heat = [e for e in events if e.vehicle_id == "V002" and e.rule == "overheating"]
-    v003_cliff = [e for e in events if e.vehicle_id == "V003" and e.rule == "soc_cliff"]
-    v003_stuck = [e for e in events if e.vehicle_id == "V003" and e.rule == "sensor_stuck"]
+    # ---- 自检断言：注入的故障全部命中且服务实例正确 ----
+    v002_heat = [e for e in events if e.service_id == "V002" and e.rule == "overheat"]
+    v003_cliff = [e for e in events if e.service_id == "V003" and e.rule == "usage_cliff"]
+    v002_stall = [e for e in events if e.service_id == "V002" and e.rule == "traffic_stall"]
+    v003_stuck = [e for e in events if e.service_id == "V003" and e.rule == "sensor_stuck"]
     assert v002_heat, "V002 过热段必须被检出"
-    assert v003_cliff, "V003 SOC 骤降必须被检出"
+    assert v002_stall, "V002 吞吐塌陷必须被检出"
+    assert v003_cliff, "V003 CPU 骤降必须被检出"
     assert v003_stuck, "V003 传感器卡死必须被检出"
-    assert not [e for e in events if e.vehicle_id == "V001"], "健康车 V001 不应命中任何规则"
+    assert not [e for e in events if e.service_id == "V001"], "健康服务实例 V001 不应命中任何规则"
     assert all(e.severity in {"high", "medium", "low"} for e in events)
     assert md_path.exists() and png_path.exists() and md_path.stat().st_size > 0
-    print("\n自检通过：注入故障全命中、健康车零误报、报表产物已生成")
+    print("\n自检通过：注入故障全命中、健康服务实例零误报、报表产物已生成")
 
 
-def test_no_fault_on_healthy_vehicle() -> None:
-    # 单车上 100s 平稳数据：不应命中任何规则（滚动窗口过短的边界段除外，用长窗口规避）
+def test_no_fault_on_healthy_service() -> None:
+    # 单个服务实例上 100s 平稳数据：不应命中任何规则（滚动窗口过短的边界段除外，用长窗口规避）
     rng = np.random.default_rng(0)
     t = np.arange(1000, dtype=float)
     df = pd.DataFrame(
         {
             "ts": t + 1_700_000_000,
-            "vehicle_id": "V001",
-            "speed_kmh": 50 + rng.normal(0, 0.5, 1000),
-            "soc_pct": np.linspace(90, 70, 1000),
-            "pack_voltage_v": 385 + rng.normal(0, 0.4, 1000),
-            "pack_temp_c": 30 + rng.normal(0, 0.4, 1000),
-            "pack_current_a": -30 + rng.normal(0, 1.0, 1000),
-            "power_kw": 385 * (-30) / 1000 + rng.normal(0, 0.5, 1000),
+            "service_id": "V001",
+            "latency_ms": 50 + rng.normal(0, 0.5, 1000),
+            "cpu_pct": np.linspace(90, 70, 1000),
+            "mem_used_gb": 96 + rng.normal(0, 0.4, 1000),
+            "disk_temp_c": 38 + rng.normal(0, 0.4, 1000),
+            "net_io_mb_s": 320 + rng.normal(0, 1.0, 1000),
+            "power_w": 340 + rng.normal(0, 0.5, 1000),
         }
     )
     assert detect_faults(df) == []
@@ -284,22 +289,22 @@ def test_no_fault_on_healthy_vehicle() -> None:
 def test_single_overheat_window_yields_one_event() -> None:
     rng = np.random.default_rng(1)
     t = np.arange(200, dtype=float)
-    temp = 30 + rng.normal(0, 0.3, 200)
-    temp[100:140] = 62.0  # 持续 40s 高温
+    temp = 38 + rng.normal(0, 0.3, 200)
+    temp[100:140] = 82.0  # 持续 40s 高温
     df = pd.DataFrame(
         {
             "ts": t + 1_700_000_000,
-            "vehicle_id": "V002",
-            "speed_kmh": 40 + rng.normal(0, 0.5, 200),
-            "soc_pct": np.linspace(80, 75, 200),
-            "pack_voltage_v": 385 + rng.normal(0, 0.4, 200),
-            "pack_temp_c": temp,
-            "pack_current_a": -25 + rng.normal(0, 1.0, 200),
-            "power_kw": -9.6 + rng.normal(0, 0.4, 200),
+            "service_id": "V002",
+            "latency_ms": 40 + rng.normal(0, 0.5, 200),
+            "cpu_pct": np.linspace(80, 75, 200),
+            "mem_used_gb": 96 + rng.normal(0, 0.4, 200),
+            "disk_temp_c": temp,
+            "net_io_mb_s": 320 + rng.normal(0, 1.0, 200),
+            "power_w": 340 + rng.normal(0, 0.4, 200),
         }
     )
     events = detect_faults(df)
-    heat = [e for e in events if e.rule == "overheating"]
+    heat = [e for e in events if e.rule == "overheat"]
     assert len(heat) == 1
     assert heat[0].ts_end - heat[0].ts_start >= 30  # 事件窗口≈持续时长
 

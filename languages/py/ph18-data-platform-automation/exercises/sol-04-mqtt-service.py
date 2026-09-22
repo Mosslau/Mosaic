@@ -34,32 +34,32 @@ except ModuleNotFoundError:  # pragma: no cover
     mqtt = None  # type: ignore[assignment]
     HAVE_MQTT = False
 
-TOPIC_RE = re.compile(r"^veh/(?P<vin>V\d{3})/telemetry$")
-REQUIRED_FIELDS = ("ts", "soc_pct", "pack_temp_c", "pack_current_a", "power_kw")
+TOPIC_RE = re.compile(r"^svc/(?P<node_id>V\d{3})/metrics$")
+REQUIRED_FIELDS = ("ts", "cpu_pct", "disk_temp_c", "net_io_mb_s", "power_w")
 
 
 @dataclass(frozen=True, slots=True)
 class Reading:
-    vin: str
+    node_id: str
     ts: float
-    soc_pct: float
-    pack_temp_c: float
-    pack_current_a: float
-    power_kw: float
+    cpu_pct: float
+    disk_temp_c: float
+    net_io_mb_s: float
+    power_w: float
 
     def to_dict(self) -> dict[str, float | str]:
         return {
-            "vin": self.vin,
+            "node_id": self.node_id,
             "ts": self.ts,
-            "soc_pct": self.soc_pct,
-            "pack_temp_c": self.pack_temp_c,
-            "pack_current_a": self.pack_current_a,
-            "power_kw": self.power_kw,
+            "cpu_pct": self.cpu_pct,
+            "disk_temp_c": self.disk_temp_c,
+            "net_io_mb_s": self.net_io_mb_s,
+            "power_w": self.power_w,
         }
 
 
 def day_bucket(ts: float) -> str:
-    """按 Unix 秒取 UTC 日期桶名：data-YYYYMMDD.jsonl（多车共用一桶）。"""
+    """按 Unix 秒取 UTC 日期桶名：data-YYYYMMDD.jsonl（多服务实例共用一桶）。"""
     return datetime.fromtimestamp(ts, tz=UTC).strftime("%Y%m%d")
 
 
@@ -70,7 +70,7 @@ class CollectionService:
         self.data_dir = Path(data_dir)
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.stats: Counter[str] = Counter()
-        self._seen: set[tuple[str, float]] = set()  # (vin, ts) 去重窗口（演示内存版）
+        self._seen: set[tuple[str, float]] = set()  # (node_id, ts) 去重窗口（演示内存版）
 
     def _file_for(self, ts: float) -> Path:
         return self.data_dir / f"data-{day_bucket(ts)}.jsonl"
@@ -83,11 +83,11 @@ class CollectionService:
             return None
         try:
             raw = json.loads(payload.decode() if isinstance(payload, bytes) else payload)
-            reading = self._validate(match.group("vin"), raw)
+            reading = self._validate(match.group("node_id"), raw)
         except (json.JSONDecodeError, KeyError, TypeError, ValueError):
             self.stats["invalid"] += 1
             return None
-        key = (reading.vin, round(reading.ts, 3))
+        key = (reading.node_id, round(reading.ts, 3))
         if key in self._seen:
             self.stats["duplicate"] += 1
             return None
@@ -97,14 +97,14 @@ class CollectionService:
         return reading
 
     @staticmethod
-    def _validate(vin: str, raw: object) -> Reading:
+    def _validate(node_id: str, raw: object) -> Reading:
         if not isinstance(raw, dict) or not all(k in raw for k in REQUIRED_FIELDS):
             raise ValueError("缺字段")
         ts = float(raw["ts"])
-        soc = float(raw["soc_pct"])
-        temp = float(raw["pack_temp_c"])
-        current = float(raw["pack_current_a"])
-        power = float(raw["power_kw"])
+        soc = float(raw["cpu_pct"])
+        temp = float(raw["disk_temp_c"])
+        current = float(raw["net_io_mb_s"])
+        power = float(raw["power_w"])
         if not (
             0 <= soc <= 100
             and -40 <= temp <= 65
@@ -112,7 +112,7 @@ class CollectionService:
             and -300 <= power <= 300
         ):
             raise ValueError("量程越界")
-        return Reading(vin, ts, soc, temp, current, power)
+        return Reading(node_id, ts, soc, temp, current, power)
 
     def _append(self, reading: Reading) -> None:
         with self._file_for(reading.ts).open("a", encoding="utf-8") as f:
@@ -135,7 +135,7 @@ class MqttRunner:
         self.host, self.port = host, port
 
     def _on_connect(self, client: object, userdata: object, flags: object, reason: object) -> None:
-        client.subscribe("veh/+/telemetry", qos=1)  # QoS1：至少一次 → 重复靠业务层去重
+        client.subscribe("svc/+/metrics", qos=1)  # QoS1：至少一次 → 重复靠业务层去重
 
     def _on_message(self, client: object, userdata: object, message: object) -> None:
         self.service.handle(str(message.topic), bytes(message.payload))
@@ -160,13 +160,13 @@ class FakeBroker:
         self.service.handle(topic, payload.encode())
 
 
-def payload(vin: str, ts: float, **overrides: object) -> str:
+def payload(node_id: str, ts: float, **overrides: object) -> str:
     base = {
         "ts": ts,
-        "soc_pct": 80.0,
-        "pack_temp_c": 30.0,
-        "pack_current_a": -25.0,
-        "power_kw": -9.6,
+        "cpu_pct": 80.0,
+        "disk_temp_c": 30.0,
+        "net_io_mb_s": -25.0,
+        "power_w": -9.6,
     }
     base.update(overrides)
     return json.dumps(base)
@@ -176,19 +176,19 @@ def demo(service: CollectionService) -> None:
     broker = FakeBroker(service)
     ts1, ts2, ts3 = 1_700_000_000.0, 1_700_000_060.0, 1_700_000_120.0
     # 合法
-    broker.publish("veh/V001/telemetry", payload("V001", ts1))
-    broker.publish("veh/V002/telemetry", payload("V002", ts2))
-    broker.publish("veh/V003/telemetry", payload("V003", ts3))
+    broker.publish("svc/V001/metrics", payload("V001", ts1))
+    broker.publish("svc/V002/metrics", payload("V002", ts2))
+    broker.publish("svc/V003/metrics", payload("V003", ts3))
     # QoS1 重复投递同一帧（ts 相同）→ 去重
-    broker.publish("veh/V001/telemetry", payload("V001", ts1))
+    broker.publish("svc/V001/metrics", payload("V001", ts1))
     # 非法
-    broker.publish("veh/V001/telemetry", payload("V001", ts1 + 1, soc_pct=999))
-    broker.publish("veh/V001/telemetry", "bad json")
-    broker.publish("veh/V001/events", payload("V001", ts1))  # 错主题
+    broker.publish("svc/V001/metrics", payload("V001", ts1 + 1, cpu_pct=999))
+    broker.publish("svc/V001/metrics", "bad json")
+    broker.publish("svc/V001/events", payload("V001", ts1))  # 错主题
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description="MQTT 车联网数据采集服务")
+    parser = argparse.ArgumentParser(description="MQTT 数据平台数据采集服务")
     parser.add_argument("--broker", help="MQTT broker 地址；缺省走离线 demo")
     parser.add_argument("--port", type=int, default=1883)
     parser.add_argument("--data-dir", type=Path, default=Path("/tmp/ph18-exer04"))
@@ -217,16 +217,16 @@ def main(argv: list[str] | None = None) -> None:
 def test_dedup_repeated_delivery() -> None:
     service = CollectionService(Path("/tmp/ph18-exer04-tests/dedup"))
     broker = FakeBroker(service)
-    broker.publish("veh/V001/telemetry", payload("V001", 1_700_000_000.0))
-    broker.publish("veh/V001/telemetry", payload("V001", 1_700_000_000.0))  # QoS1 重投
+    broker.publish("svc/V001/metrics", payload("V001", 1_700_000_000.0))
+    broker.publish("svc/V001/metrics", payload("V001", 1_700_000_000.0))  # QoS1 重投
     assert service.stats["accepted"] == 1 and service.stats["duplicate"] == 1
 
 
 def test_day_rotation() -> None:
     service = CollectionService(Path("/tmp/ph18-exer04-tests/rotation"))
     broker = FakeBroker(service)
-    broker.publish("veh/V001/telemetry", payload("V001", 1_700_000_000.0))  # 当日
-    broker.publish("veh/V001/telemetry", payload("V001", 1_700_086_400.0))  # 次日（+1 天）
+    broker.publish("svc/V001/metrics", payload("V001", 1_700_000_000.0))  # 当日
+    broker.publish("svc/V001/metrics", payload("V001", 1_700_086_400.0))  # 次日（+1 天）
     files = {f.name for f in service.today_files()}
     assert len(files) == 2  # 两个日桶
 
@@ -234,8 +234,8 @@ def test_day_rotation() -> None:
 def test_invalid_rejected() -> None:
     service = CollectionService(Path("/tmp/ph18-exer04-tests/invalid"))
     broker = FakeBroker(service)
-    broker.publish("veh/V001/telemetry", payload("V001", 1.0, pack_temp_c=200))
-    broker.publish("veh/V001/telemetry", "{}")
+    broker.publish("svc/V001/metrics", payload("V001", 1.0, disk_temp_c=200))
+    broker.publish("svc/V001/metrics", "{}")
     assert service.stats["accepted"] == 0 and service.stats["invalid"] == 2
 
 

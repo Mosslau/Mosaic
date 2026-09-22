@@ -27,23 +27,23 @@ import pytest
 # 列完整性门禁：缺列的批数据直接判不通过
 REQUIRED_COLUMNS = (
     "ts",
-    "vehicle_id",
-    "speed_kmh",
-    "soc_pct",
-    "pack_voltage_v",
-    "pack_temp_c",
-    "pack_current_a",
-    "power_kw",
+    "service_id",
+    "latency_ms",
+    "cpu_pct",
+    "mem_used_gb",
+    "disk_temp_c",
+    "net_io_mb_s",
+    "power_w",
 )
 
 # 量程门禁：与 ex02 的 PHYSICAL_RANGES 一致（平台与清洗共用同一份规格）
 RANGE_SPEC: dict[str, tuple[float, float]] = {
-    "speed_kmh": (0.0, 220.0),
-    "soc_pct": (0.0, 100.0),
-    "pack_voltage_v": (250.0, 420.0),
-    "pack_temp_c": (-40.0, 65.0),
-    "pack_current_a": (-300.0, 400.0),
-    "power_kw": (-300.0, 300.0),
+    "latency_ms": (0.0, 220.0),
+    "cpu_pct": (0.0, 100.0),
+    "mem_used_gb": (250.0, 420.0),
+    "disk_temp_c": (-40.0, 65.0),
+    "net_io_mb_s": (-300.0, 400.0),
+    "power_w": (-300.0, 300.0),
 }
 
 
@@ -75,10 +75,10 @@ def check_columns(df: pd.DataFrame) -> GateResult:
 
 
 def check_sampling(df: pd.DataFrame, max_gap_s: float = 5.0) -> GateResult:
-    """按车检查时间连续性：>1.2s 的间隙视为掉点，最大允许 max_gap_s。"""
+    """按服务实例检查时间连续性：>1.2s 的间隙视为掉点，最大允许 max_gap_s。"""
     worst_gap = 0.0
     total_gaps = 0
-    for _vid, grp in df.groupby("vehicle_id"):
+    for _vid, grp in df.groupby("service_id"):
         ts = grp.sort_values("ts")["ts"].to_numpy()
         gaps = np.diff(ts)
         total_gaps += int((gaps > 1.2).sum())
@@ -123,7 +123,7 @@ def run_gates(df: pd.DataFrame) -> list[GateResult]:
 
 
 def build_scenario(
-    vehicle_id: str = "V001",
+    service_id: str = "V001",
     seconds: int = 300,
     seed: int = 0,
     *,
@@ -137,13 +137,13 @@ def build_scenario(
     df = pd.DataFrame(
         {
             "ts": t + 1_700_000_000,
-            "vehicle_id": vehicle_id,
-            "speed_kmh": 50 + 10 * np.sin(t / 40.0) + rng.normal(0, 0.3, seconds),
-            "soc_pct": np.clip(85 - t * 0.02 + rng.normal(0, 0.05, seconds), 0, 100),
-            "pack_voltage_v": 385 + rng.normal(0, 0.4, seconds),
-            "pack_temp_c": 32 + rng.normal(0, 0.3, seconds),
-            "pack_current_a": -28 + rng.normal(0, 1.0, seconds),
-            "power_kw": -10.8 + rng.normal(0, 0.5, seconds),
+            "service_id": service_id,
+            "latency_ms": 50 + 10 * np.sin(t / 40.0) + rng.normal(0, 0.3, seconds),
+            "cpu_pct": np.clip(85 - t * 0.02 + rng.normal(0, 0.05, seconds), 0, 100),
+            "mem_used_gb": 385 + rng.normal(0, 0.4, seconds),
+            "disk_temp_c": 32 + rng.normal(0, 0.3, seconds),
+            "net_io_mb_s": -28 + rng.normal(0, 1.0, seconds),
+            "power_w": -10.8 + rng.normal(0, 0.5, seconds),
         }
     )
     if hole is not None:
@@ -166,14 +166,14 @@ def main() -> None:
 
     print("\n== 对三批带病数据跑门禁 ==")
     cases = {
-        "缺 soc_pct 列": build_scenario(drop_cols=("soc_pct",)),
-        "电压越界 500V": build_scenario(tamper={"pack_voltage_v": 500.0}),
+        "缺 cpu_pct 列": build_scenario(drop_cols=("cpu_pct",)),
+        "电压越界 500V": build_scenario(tamper={"mem_used_gb": 500.0}),
         "10s 连续掉点": build_scenario(hole=(100, 110)),
     }
     for name, df in cases.items():
         verdict = "ALL PASS" if all(r.passed for r in run_gates(df)) else "HAS FAIL"
         print(f"  {name} → {verdict}")
-    assert any(not r.passed for r in run_gates(cases["缺 soc_pct 列"]))
+    assert any(not r.passed for r in run_gates(cases["缺 cpu_pct 列"]))
     assert any(not r.passed for r in run_gates(cases["电压越界 500V"]))
     assert any(not r.passed for r in run_gates(cases["10s 连续掉点"]))
 
@@ -199,25 +199,25 @@ def _scratch(name: str) -> Path:
 
 
 @pytest.fixture
-def fleet_csv() -> Path:
+def platform_csv() -> Path:
     """fixture：造一批"好数据"CSV 到 /tmp 子目录并返回路径（平台数据工件）。"""
     good = build_scenario("V001", seconds=120, seed=42)
-    path = _scratch("fixtures") / "fleet_good.csv"
+    path = _scratch("fixtures") / "platform_good.csv"
     good.to_csv(path, index=False)
     return path
 
 
-def test_gates_pass_on_fixture(fleet_csv: Path) -> None:
+def test_gates_pass_on_fixture(platform_csv: Path) -> None:
     """用 fixture 提供的 CSV 回归：读入即过全部门禁。"""
-    df = pd.read_csv(fleet_csv)
+    df = pd.read_csv(platform_csv)
     assert all(gate.passed for gate in run_gates(df))
 
 
 @pytest.mark.parametrize(
     ("kwargs", "expect_fail_gate"),
     [
-        ({"drop_cols": ("power_kw",)}, "columns"),
-        ({"tamper": {"soc_pct": -5.0}}, "ranges"),
+        ({"drop_cols": ("power_w",)}, "columns"),
+        ({"tamper": {"cpu_pct": -5.0}}, "ranges"),
         ({"hole": (200, 250)}, "sampling"),
     ],
 )
