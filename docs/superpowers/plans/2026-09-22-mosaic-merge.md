@@ -29,6 +29,12 @@
 - **`sed` 分隔符冲突**：不要写 `sed -E 's|…(a|b)…|…|g'`——交替里的 `|` 会与 `s|…|` 的分隔符冲突，BSD sed 报
   `RE error: parentheses not balanced` 且**静默不替换**。换 `#` 作分隔符，或直接用 Python（本计划凡带交替的替换一律走 Python）。
 - **中间态的已知报错**：`pyproject.toml` 的 `testpaths` 指向 `algorithms/` 与 `engineering/ai-platform/`，这两处要到 Task 4/5 才存在——在它们落地前执行 `pytest` 会报「目录不存在」，`readme = "README.md"` 同理由 Task 7 补齐。这是**预期中间态**，不是缺陷（Task 2 审查者指出原文只说明了 `readme`，未说明 `testpaths`）。
+- **`ruff` 是既存红，只做差分、不是绝对门禁**：三个源仓都没有让 ruff 绿过——MindSpring 在冻结点 `a0d1d7d`
+  即 **420 处错误 + 45 个文件需重排**，且 `mindspring-lab/validate.py` **根本不运行 ruff**（它唯一的 `ruff`
+  字样是基线忽略路径正则里的 `.ruff_cache`）。合并后 `ruff check .` 覆盖了从未按这份配置写过的
+  `languages/`（79）、`.dsh/`（111）以及过渡态 `_import/`（168）。因此：**不要**试图把全仓 ruff 修绿，
+  **不要**给 `pyproject.toml` 加 `exclude`/`per-file-ignores`，**不要**把 `ruff format --check` 当门禁
+  （45 个文件是源仓自带的状态）。任何任务对 ruff 的要求只有一条：**不新增**——改动过的文件其计数不得高于源仓同类计数。
 - **不推送**：`Mosslau/Mosaic` 远端在 Task 7 之前不推送。
 - **回滚**：任何一步出错 → `rm -rf /Users/ninebot/code/mosslau/Mosaic && git clone <spec 提交>` 重建，源仓无副作用。
 
@@ -1194,7 +1200,8 @@ Expected: `改动 5 行`（已逐字预跑确认：5 行被改，改后「含 `e
 languages/ 承载**语言与工程纪律的语义层**（AI 平台控制面的任务/配额/模型/发布语义、湖仓与编排的口径语义，已实跑验证），本项目做**真实系统与真实指标**（真调度、真推理、真压测、真成本）。同一个概念（例如"GPU 资源账本的不变量"或"幂等回填的下游闭包"）在两处的分工是：**languages/ 讲清"应该怎么做、为什么"，engineering/ai-platform/ 交付"跑起来的系统与实测数字"**——写项目定义时先查 languages/ 是否已覆盖语义，避免重复造文档。
 ```
 
-**`engineering/ai-platform/07-ai-platform/README.md` 第 89 行**：把 `**与 TenetLang 的边界（2026-09 明确）**：TenetLang 承载…` 中的两处 `TenetLang` 改为 `languages/`，其余原样。
+**`engineering/ai-platform/07-ai-platform/README.md` 第 89 行**：把 `**与 TenetLang 的边界（2026-09 明确）**：TenetLang 承载…` 中的**三处** `TenetLang` 全部改为 `languages/`。
+（实测该行恰好有 3 处，全部在 89 行；计划原写「两处」是漏数，且与本节自己的门禁「engineering/ai-platform 下 `TenetLang` 命中数应为 0」自相矛盾——以门禁为准。）
 
 **原 `MindSpring/README.md` 第 24、26 行**：该文件的正文内容（含分工段落与依赖关系表）将在 Step 8 合并进新建的 `engineering/README.md`，因此这里无需单独改；其 `[TenetLang](../TenetLang/)` 链接在 Step 8 的 `engineering/README.md` 中写为 `[languages/](../../languages/)`。
 
@@ -1288,12 +1295,18 @@ Expected: `ENG_INDEX 存在: True`、`工程目录匹配数: 7`、扰动后 `exi
 ```bash
 cd /Users/ninebot/code/mosslau/Mosaic
 python3 -m pytest -q 2>&1 | tail -8
-python3 -m ruff check . 2>&1 | tail -5
-python3 -m ruff format --check . 2>&1 | tail -5
+# ruff 是既存红、只做差分（见 Global Constraints）：不得新增，不要求变绿
+python3 -m ruff check .dsh/skills/mindspring-lab/scripts/validate.py 2>&1 | tail -2
+python3 -m ruff check algorithms engineering/ai-platform 2>&1 | tail -2
 ```
 
-Expected: pytest 全绿（`testpaths = ["algorithms", "engineering/ai-platform"]` 生效）；ruff check `All checks passed!`；ruff format `… files already formatted`。
-若 pytest 报了 `engineering/ai-platform` 之外的路径缺失，说明 Task 2 Step 6 的 `testpaths` 写错。
+Expected: pytest 全绿（`48 passed`；`testpaths = ["algorithms", "engineering/ai-platform"]` 生效）。
+- `validate.py` 的 ruff 计数须**与源仓持平 = 2 处 E501**：Step 5 把 `engineering/README.md` 换成更长的
+  `engineering/ai-platform/README.md` 会让 156/414 两行越过 100 列（2 → 4），故必须把这两行 f-string **折行**
+  （隐式拼接，内容不变），折行后回到 2。
+- `algorithms + engineering/ai-platform` 的总数须与源仓同类计数持平（实测 40 + 294 = **334**，源仓同样 334）。
+
+⚠ 若 pytest 报了 `engineering/ai-platform` 之外的路径缺失，说明 Task 2 Step 6 的 `testpaths` 写错。
 
 - [ ] **Step 11: 提交**
 
@@ -1307,7 +1320,8 @@ git commit -m "refactor(engineering): AI 平台域归位 engineering/ai-platform
 - mindspring-lab 校验器 7 处（2 处定位 + 5 处陈旧文案）+ SKILL 管辖路径
 - 4 文件 6 行『分工/边界』改写为新域词汇
 - 新增 engineering/README.md：两域分工 + 依赖关系与开工顺序
-- validate.py / pytest / ruff 全绿"
+- validate.py exit 0 / pytest 48 passed；ruff 为**既存红**（源仓 a0d1d7d 即 420 处 + 45 文件需重排，
+  且本仓契约里 validate.py 并不运行 ruff），本任务只保证不新增：validate.py 的 E501 与源仓持平在 2 处"
 ```
 
 ---
@@ -1524,7 +1538,7 @@ python3 .dsh/skills/tenetlang-notes/scripts/validate.py --links
 
 # 算法域 + AI 平台域：索引/状态/章节锚定/模板结构/违禁 import
 python3 .dsh/skills/mindspring-lab/scripts/validate.py
-python3 -m pytest -q && python3 -m ruff check .
+python3 -m pytest -q
 
 # 数据平台域
 cd engineering/data-platform
@@ -1581,8 +1595,9 @@ python3 .dsh/skills/tenetlang-notes/scripts/validate.py --links
 echo "== ② 算法 + AI 平台域 =="
 python3 .dsh/skills/mindspring-lab/scripts/validate.py
 python3 -m pytest -q 2>&1 | tail -3
-python3 -m ruff check . 2>&1 | tail -2
-python3 -m ruff format --check . 2>&1 | tail -2
+# ruff：既存红，只记录不判定（见 Global Constraints）；本任务只写 markdown + 删 _import/，
+# 故计数应恰好下降 _import/ 的那一份、其余不变
+python3 -m ruff check algorithms engineering languages .dsh 2>&1 | tail -2
 echo "== ③ 数据平台域 =="
 (cd engineering/data-platform && bash scripts/check-docs.sh && bash scripts/check-mermaid.sh && bash scripts/check-compose-budget.sh)
 echo "== ④ 站点 =="
