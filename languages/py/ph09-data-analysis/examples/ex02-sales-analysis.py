@@ -12,7 +12,11 @@ import pandas as pd
 
 # 中文字体回退链：macOS 用 PingFang/Hiragino，Linux/Windows 依次回退；取列表里第一个已安装的
 plt.rcParams["font.sans-serif"] = [
-    "PingFang HK", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", "SimHei",
+    "PingFang HK",
+    "Hiragino Sans GB",
+    "Noto Sans CJK SC",
+    "Microsoft YaHei",
+    "SimHei",
 ]
 plt.rcParams["axes.unicode_minus"] = False  # 负号用 ASCII，避免字体缺失
 
@@ -34,7 +38,12 @@ def main() -> None:
     # 2. 读取后第一件事：info()/describe() 摸清类型与空值再动手
     sales = pd.read_csv(csv_path)
     print("读取后 shape:", sales.shape)
-    print("amount 缺失:", int(sales["amount"].isna().sum()), " 重复行:", int(sales.duplicated().sum()))
+    print(
+        "amount 缺失:",
+        int(sales["amount"].isna().sum()),
+        " 重复行:",
+        int(sales.duplicated().sum()),
+    )
 
     # 3. 清洗：缺失值填中位数 + 去重
     sales["amount"] = sales["amount"].fillna(sales["amount"].median())
@@ -46,7 +55,9 @@ def main() -> None:
     print(avg.round(1))
 
     # 5. 透视表：门店 × 月份
-    pt = sales.pivot_table(values="amount", index="store", columns="month", aggfunc="mean")
+    pt = sales.pivot_table(
+        values="amount", index="store", columns="month", aggfunc="mean"
+    )
     print("\n透视表（门店 × 月份）:")
     print(pt.round(1))
 

@@ -1,8 +1,8 @@
 // 来源：ph17-architecture-layering project/internal/service
-// 一句话说明：业务层。全部管理规则（注册校验/唯一性、心跳上线、固件禁止回退、
+// 一句话说明：业务层。全部管理规则（注册校验/唯一性、心跳上线、版本禁止回退、
 // 离线拒收命令）都在这里，不出现 HTTP 词汇；错误统一返回 *errs.Error，
 // 存储哨兵（domain.ErrNotFound）在这里被翻译成业务码——handler 只做映射。
-// 可测性：now() 可注入（测试固定时钟）；DeviceStore 接口在消费方声明（主文档 3.3）。
+// 可测性：now() 可注入（测试固定时钟）；NodeStore 接口在消费方声明（主文档 3.3）。
 // 验证环境：go1.25.6（darwin/arm64），依赖：零第三方（标准库）
 // 构建：go build ./...    测试：go test ./...    静态检查：go vet ./...
 // 注：go 命令需带仓库统一重定位环境（GOCACHE=/tmp/gocache GOMODCACHE=/tmp/gomodcache
@@ -23,67 +23,67 @@ import (
 	"tenetlang/go/ph17-architecture-layering/project/internal/errs"
 )
 
-// DeviceStore 是 Service 对存储的全部需求——接口定义在使用方（本包）。
+// NodeStore 是 Service 对存储的全部需求——接口定义在使用方（本包）。
 // 实现方（internal/store 的 Mem/File）不 import 本包，方法签名一致即隐式满足；
 // 是否真满足由 cmd/deviceapi 的 var _ 断言在编译期钉死。
-type DeviceStore interface {
-	Get(id string) (domain.Device, error)
-	List() ([]domain.Device, error)
-	Save(d domain.Device) error
+type NodeStore interface {
+	Get(id string) (domain.Node, error)
+	List() ([]domain.Node, error)
+	Save(d domain.Node) error
 	Delete(id string) error
 }
 
 // Service 业务门面：只依赖接口与领域。
 type Service struct {
-	store DeviceStore
+	store NodeStore
 	now   func() time.Time // 时钟注入点：测试固定时间，生产默认 time.Now
 }
 
-func New(store DeviceStore) *Service {
+func New(store NodeStore) *Service {
 	return &Service{store: store, now: time.Now}
 }
 
-// Register 注册设备：id/name 去空白后非空；id 唯一；固件（可选）必须是语义化版本。
-// 新设备默认离线，等待首次心跳上线。
-func (s *Service) Register(id, name, firmware string) (domain.Device, error) {
+// Register 注册节点：id/name 去空白后非空；id 唯一；版本（可选）必须是语义化版本。
+// 新节点默认离线，等待首次心跳上线。
+func (s *Service) Register(id, name, ver string) (domain.Node, error) {
 	id = strings.TrimSpace(id)
 	name = strings.TrimSpace(name)
 	if id == "" || name == "" {
-		return domain.Device{}, errs.Newf(errs.CodeBadRequest, "id 与 name 不能为空")
+		return domain.Node{}, errs.Newf(errs.CodeBadRequest, "id 与 name 不能为空")
 	}
-	if firmware != "" {
-		if _, ok := parseVersion(firmware); !ok {
-			return domain.Device{}, errs.Newf(errs.CodeBadRequest, "固件版本 %q 不是 major.minor.patch 格式", firmware)
+	if ver != "" {
+		if _, ok := parseVersion(ver); !ok {
+			return domain.Node{}, errs.Newf(errs.CodeBadRequest, "版本 %q 不是 major.minor.patch 格式", ver)
 		}
 	}
 	if _, err := s.store.Get(id); err == nil {
-		return domain.Device{}, errs.Newf(errs.CodeExists, "设备 %s 已存在", id)
+		return domain.Node{}, errs.Newf(errs.CodeExists, "节点 %s 已存在", id)
 	} else if !errors.Is(err, domain.ErrNotFound) {
-		return domain.Device{}, errs.Wrap(errs.CodeInternal, "检查设备是否已存在失败", err)
+		return domain.Node{}, errs.Wrap(errs.CodeInternal, "检查节点是否已存在失败", err)
 	}
-	d := domain.Device{ID: id, Name: name, Status: domain.StatusOffline, Firmware: firmware}
+	d := domain.Node{ID: id, Name: name, Status: domain.StatusOffline, Version: ver}
 	if err := s.store.Save(d); err != nil {
-		return domain.Device{}, errs.Wrap(errs.CodeInternal, "保存设备失败", err)
+		return domain.Node{}, errs.Wrap(errs.CodeInternal, "保存节点失败", err)
 	}
 	return d, nil
 }
 
-func (s *Service) Get(id string) (domain.Device, error) {
+func (s *Service) Get(id string) (domain.Node, error) {
 	d, err := s.store.Get(id)
 	if err != nil {
-		return domain.Device{}, s.mapStoreErr(err)
+		return domain.Node{}, s.mapStoreErr(err)
 	}
 	return d, nil
 }
 
 // List 按 ID 排序返回（响应顺序稳定）。
-func (s *Service) List() ([]domain.Device, error) {
-	devices, err := s.store.List()
+func (s *Service) List() ([]domain.Node, error) {
+	nodes, err := s.store.List()
 	if err != nil {
-		return nil, errs.Wrap(errs.CodeInternal, "读取设备列表失败", err)
+		return nil, errs.Wrap(errs.CodeInternal, "读取节点列表失败", err)
 	}
-	sort.Slice(devices, func(i, j int) bool { return devices[i].ID < devices[j].ID })
-	return devices, nil
+	sort.Slice(nodes, func(i, j int) bool { return nodes[i].ID < nodes[j].ID })
+	return nodes, nil
 }
 
 func (s *Service) Delete(id string) error {
@@ -93,52 +93,52 @@ func (s *Service) Delete(id string) error {
 	return nil
 }
 
-// Heartbeat 心跳上报：设备必须存在；状态置为在线并刷新 LastSeen（时钟走 s.now）。
-// 真实车联网里心跳由协议网关批量上报，这里演示 HTTP 管理面的单台上报。
-func (s *Service) Heartbeat(id string) (domain.Device, error) {
+// Heartbeat 心跳上报：节点必须存在；状态置为在线并刷新 LastSeen（时钟走 s.now）。
+// 真实平台里心跳由采集器批量上报，这里演示 HTTP 管理面的单台上报。
+func (s *Service) Heartbeat(id string) (domain.Node, error) {
 	d, err := s.store.Get(id)
 	if err != nil {
-		return domain.Device{}, s.mapStoreErr(err)
+		return domain.Node{}, s.mapStoreErr(err)
 	}
 	d.Status = domain.StatusOnline
 	d.LastSeen = s.now().UTC()
 	if err := s.store.Save(d); err != nil {
-		return domain.Device{}, errs.Wrap(errs.CodeInternal, "保存心跳失败", err)
+		return domain.Node{}, errs.Wrap(errs.CodeInternal, "保存心跳失败", err)
 	}
 	return d, nil
 }
 
-// UpgradeFirmware 固件升级：必须存在；新版本格式合法；不允许回退（<= 当前版本拒绝）。
+// UpgradeVersion 版本升级：必须存在；新版本格式合法；不允许回退（<= 当前版本拒绝）。
 // 版本相等视为幂等成功（重复下发同一版本无副作用）。
-func (s *Service) UpgradeFirmware(id, version string) (domain.Device, error) {
-	v, ok := parseVersion(strings.TrimSpace(version))
+func (s *Service) UpgradeVersion(id, ver string) (domain.Node, error) {
+	v, ok := parseVersion(strings.TrimSpace(ver))
 	if !ok {
-		return domain.Device{}, errs.Newf(errs.CodeBadRequest, "固件版本 %q 不是 major.minor.patch 格式", version)
+		return domain.Node{}, errs.Newf(errs.CodeBadRequest, "版本 %q 不是 major.minor.patch 格式", ver)
 	}
 	d, err := s.store.Get(id)
 	if err != nil {
-		return domain.Device{}, s.mapStoreErr(err)
+		return domain.Node{}, s.mapStoreErr(err)
 	}
-	if cur := d.Firmware; cur != "" {
+	if cur := d.Version; cur != "" {
 		curV, ok := parseVersion(cur)
 		if !ok {
 			// 库里数据异常（正常流程不会发生）：按内部错误处理而不是静默放行
-			return domain.Device{}, errs.Wrap(errs.CodeInternal, "设备固件版本数据异常", errors.New("bad stored firmware "+cur))
+			return domain.Node{}, errs.Wrap(errs.CodeInternal, "节点版本数据异常", errors.New("bad stored version "+cur))
 		}
 		if versionLess(v, curV) {
-			return domain.Device{}, errs.Newf(errs.CodeConflict, "固件版本不允许回退: %s -> %s", cur, version)
+			return domain.Node{}, errs.Newf(errs.CodeConflict, "版本不允许回退: %s -> %s", cur, ver)
 		}
 	}
-	d.Firmware = version
+	d.Version = ver
 	if err := s.store.Save(d); err != nil {
-		return domain.Device{}, errs.Wrap(errs.CodeInternal, "保存固件版本失败", err)
+		return domain.Node{}, errs.Wrap(errs.CodeInternal, "保存版本失败", err)
 	}
 	return d, nil
 }
 
-// SendCommand 下发指令（管理面受理）：指令非空；设备必须在线，否则拒绝。
+// SendCommand 下发指令（管理面受理）：指令非空；节点必须在线，否则拒绝。
 // 命令的真实投递链（协议转换/ACK/重试）属 ph21 通用数据采集与接入网关方向 Go 阶段，
-// 本阶段只做业务层受理判定——离线设备的命令直接在源头拒掉。
+// 本阶段只做业务层受理判定——离线节点的命令直接在源头拒掉。
 func (s *Service) SendCommand(id, command string) error {
 	command = strings.TrimSpace(command)
 	if command == "" {
@@ -149,16 +149,16 @@ func (s *Service) SendCommand(id, command string) error {
 		return s.mapStoreErr(err)
 	}
 	if d.Status != domain.StatusOnline {
-		return errs.Newf(errs.CodeOffline, "设备 %s 当前状态 %s，命令无法下发", id, d.Status)
+		return errs.Newf(errs.CodeOffline, "节点 %s 当前状态 %s，命令无法下发", id, d.Status)
 	}
 	return nil
 }
 
-// mapStoreErr 把存储层错误翻译成业务码：not found → DEVICE_NOT_FOUND，
-// 其它一律 DEVICE_INTERNAL 并保留根因（包装而不是吞掉）。
+// mapStoreErr 把存储层错误翻译成业务码：not found → NODE_NOT_FOUND，
+// 其它一律 INTERNAL 并保留根因（包装而不是吞掉）。
 func (s *Service) mapStoreErr(err error) error {
 	if errors.Is(err, domain.ErrNotFound) {
-		return errs.New(errs.CodeNotFound, "设备不存在")
+		return errs.New(errs.CodeNotFound, "节点不存在")
 	}
 	return errs.Wrap(errs.CodeInternal, "存储操作失败", err)
 }

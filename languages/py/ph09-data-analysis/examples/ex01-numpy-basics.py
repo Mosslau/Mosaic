@@ -26,7 +26,9 @@ def main() -> None:
     # 4. 随机数构造器 + 向量化统计（默认随机源，可复现）
     rng = np.random.default_rng(42)
     x = rng.normal(70, 10, 1000)  # 均值 70、标准差 10 的 1000 个样本
-    print("normal(70,10,1000): mean =", round(x.mean(), 2), ", std =", round(x.std(), 2))
+    print(
+        "normal(70,10,1000): mean =", round(x.mean(), 2), ", std =", round(x.std(), 2)
+    )
 
 
 if __name__ == "__main__":

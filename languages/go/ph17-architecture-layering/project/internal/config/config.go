@@ -29,7 +29,7 @@ type Config struct {
 func Load() Config {
 	addr := flag.String("addr", envOr("ADDR", "127.0.0.1:18084"), "监听地址")
 	kind := flag.String("store", envOr("STORE", "mem"), "存储实现: mem | file")
-	path := flag.String("store-file", envOr("STORE_FILE", "/tmp/ph17-devices.json"), "Store=file 时的数据文件路径")
+	path := flag.String("store-file", envOr("STORE_FILE", "/tmp/ph17-nodes.json"), "Store=file 时的数据文件路径")
 	flag.Parse()
 	return Config{
 		Addr:      *addr,

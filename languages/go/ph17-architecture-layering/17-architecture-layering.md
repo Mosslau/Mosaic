@@ -268,7 +268,7 @@ func envOr(key, def string) string { // flag 未设时回退环境变量，再�
 slog 的 logger 与配置一样走**注入**：main 里 `slog.New(slog.NewJSONHandler(os.Stdout, nil))` 一次，作为构造函数参数发给各层（service/handler 收 *slog.Logger），层内不再自己造 logger——可测试性随之而来（测试注入 io.Discard 的 handler 即可静音，project 的 handler 单测就这么干）。
 
 ```go
-// project/cmd/deviceapi/main.go —— logger 组装与中间件（截取）
+// project/cmd/deviceapi/main.go —— logger 组装与中间件（截取；目录名为历史保留，服务已更名为节点管理）
 // 验证环境：go1.25.6，零第三方依赖（已验证：go1.25.6 本机实测，对应文件 vet/build/test 全绿）
 
 logger := slog.New(slog.NewJSONHandler(os.Stdout, nil)) // JSON 结构化，一次组装全局下发
@@ -288,7 +288,7 @@ func accessLog(logger *slog.Logger, next http.Handler) http.Handler {
 
 ### 3.6 错误码与错误包装
 
-Go 的错误哲学是"error 是值"（ph02 函数与错误处理阶段已讲基础）。本阶段的增量是：**把 Go error（面向开发者）与业务错误码（面向调用方）这两种词汇接起来**。Go 侧用哨兵（`errors.New` 定义的固定错误，适合"事实恒定"）、自定义错误类型（带字段，适合"需要结构化信息"）与包装链（`fmt.Errorf("...: %w", err)` 逐层加上下文，errors.Is/As 沿链查找）；调用方侧用稳定字符串码（`"DEVICE_NOT_FOUND"`），只增不删、含义不漂移。两者在 service 的出口合流——service 返回"带业务码的领域错误"，handler 的边界处做唯一映射：
+Go 的错误哲学是"error 是值"（ph02 函数与错误处理阶段已讲基础）。本阶段的增量是：**把 Go error（面向开发者）与业务错误码（面向调用方）这两种词汇接起来**。Go 侧用哨兵（`errors.New` 定义的固定错误，适合"事实恒定"）、自定义错误类型（带字段，适合"需要结构化信息"）与包装链（`fmt.Errorf("...: %w", err)` 逐层加上下文，errors.Is/As 沿链查找）；调用方侧用稳定字符串码（`"NODE_NOT_FOUND"`），只增不删、含义不漂移。两者在 service 的出口合流——service 返回"带业务码的领域错误"，handler 的边界处做唯一映射：
 
 ```text
 存储层错误（哨兵 errNoRows / sql.ErrNoRows）
@@ -320,11 +320,11 @@ func (e *Error) Unwrap() error { return e.Err } // 实现 Unwrap 才能被 error
 
 | 业务码 | HTTP 状态 | 触发场景（service 层规则） |
 |--------|-----------|---------------------------|
-| BAD_REQUEST | 400 | id/name 为空、固件不是 major.minor.patch、命令为空 |
-| DEVICE_NOT_FOUND | 404 | 查询/心跳/升级/删不存在的设备 |
-| DEVICE_EXISTS | 409 | 注册重复 id |
-| DEVICE_OFFLINE | 409 | 离线设备下发命令 |
-| CONFLICT | 409 | 固件版本回退 |
+| BAD_REQUEST | 400 | id/name 为空、版本号不是 major.minor.patch、命令为空 |
+| NODE_NOT_FOUND | 404 | 查询/心跳/升级/删不存在的节点 |
+| NODE_EXISTS | 409 | 注册重复 id |
+| NODE_OFFLINE | 409 | 离线节点下发命令 |
+| CONFLICT | 409 | 版本回退 |
 | INTERNAL（兜底） | 500 | 存储故障、未知错误类型（原因只进日志） |
 
 响应体统一为 `{"code","message"}` 结构（与 roadmap §18 示例同构，本阶段先立结构、ph18 再讲其兼容演化）。未知错误类型（没包成领域错误的东西）一律兜底 500、**真实原因只进日志不进响应体**——这是"不向调用方泄漏内部"的底线。判错用 errors.Is/As（语义判断）而不用字符串比较，是 golang-patterns 规范反复强调的红线；"给 service 层写单元测试"（练习 3）里专门用用例把这条钉死。
@@ -349,7 +349,7 @@ project/ 的包布局（本阶段综合项目）
     ├── config/           # 配置解析
     ├── domain/           # 领域模型 + ErrNotFound 哨兵（最内层）
     ├── errs/             # 业务错误码
-    ├── service/          # 业务层（定义 DeviceStore 接口）
+    ├── service/          # 业务层（定义 NodeStore 接口）
     ├── store/            # repository：mem.go / file.go（不 import service）
     └── handler/          # HTTP 接入层（唯一做错误码→状态码映射）
 ```
@@ -383,7 +383,7 @@ flowchart LR
     D --> E["独立演进：各自伸缩/部署/发布（ph12 形态）"]
 ```
 
-拆的信号（全部出现两条以上再认真考虑）：**团队开始按业务域分工**（车队域/用户域/计费域各一组人）；**变更频率分化**（一个模块每周发版、其它月更，部署互相踩）；**需要独立伸缩或性能隔离**（一个热点模块要 20 副本，其它 2 个）；**独立部署有硬需求**（事故半径、发布窗口）。拆什么：按**业务能力/有界上下文**切，而不是按技术分层切——把"设备管理"整体抽成一个服务（含它自己的 handler/service/store），而不是"把全部 handler 放一个服务、全部 repository 放另一个"（那是**分布式单体**反模式：RPC 化了一堆没有业务边界的碎调用，比不分还糟）。
+拆的信号（全部出现两条以上再认真考虑）：**团队开始按业务域分工**（节点域/用户域/计费域各一组人）；**变更频率分化**（一个模块每周发版、其它月更，部署互相踩）；**需要独立伸缩或性能隔离**（一个热点模块要 20 副本，其它 2 个）；**独立部署有硬需求**（事故半径、发布窗口）。拆什么：按**业务能力/有界上下文**切，而不是按技术分层切——把"设备管理"整体抽成一个服务（含它自己的 handler/service/store），而不是"把全部 handler 放一个服务、全部 repository 放另一个"（那是**分布式单体**反模式：RPC 化了一堆没有业务边界的碎调用，比不分还糟）。
 
 演进路径上，**模块化单体是承上启下的关键一步**：单体内部先把包边界画成"未来服务边界"的样子（internal 之间零横向依赖、共享只走 domain/errs 这类底层包），将来抽取时每个模块就是现成的服务雏形——它自己的 service 门面天然是未来 RPC 接口的候选契约（届时按 ph18 的契约设计纪律打磨）。先拆哪个：从**边界最稳 + 变更最频繁**的开始拆，一次只拆一个，拆完让系统回到绿色再拆下一个。
 
@@ -530,7 +530,7 @@ func TestNotifyRetriesUntilSuccess(t *testing.T) {
 
 ### 阶段项目
 
-本阶段综合项目见 [`project/`](./project/)：**车联网设备管理服务**（roadmap 推荐项目二选一落地）——分层单体的设备注册/状态查询/心跳/固件升级/指令受理 HTTP 管理面，handler/service/store（内存 + 文件两实现）+ domain/errs/config 分包，构造函数注入组装，service 与 handler 各带单元测试。roadmap 另一个推荐项目「分层 Web API 模板」的思路已由 examples/ex01 + exercises/sol-01 的结构示范覆盖。建议完成练习后再动手。
+本阶段综合项目见 [`project/`](./project/)：**节点管理服务**（roadmap 推荐项目二选一落地）——分层单体的节点注册/状态查询/心跳/版本升级/指令受理 HTTP 管理面，handler/service/store（内存 + 文件两实现）+ domain/errs/config 分包，构造函数注入组装，service 与 handler 各带单元测试。roadmap 另一个推荐项目「分层 Web API 模板」的思路已由 examples/ex01 + exercises/sol-01 的结构示范覆盖。建议完成练习后再动手。
 
 - [ ] 完成 exercises/ 全部 4 题并对照参考实现复盘
 - [ ] 独立完成 project/ 并通过其验收标准（`go build ./... && go test ./... && go vet ./...` 通过、两种存储可切换且行为符合预期、规则与映射单测全绿）

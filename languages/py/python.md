@@ -429,15 +429,15 @@ print(resp.status_code)
 import pandas as pd
 df = pd.read_csv("data.csv")
 print(df.describe())
-print(df.groupby("vehicle_id")["speed"].mean())
+print(df.groupby("service_id")["latency_ms"].mean())
 ```
 
 ### 练习
 
 - 销售数据分析
-- 车辆速度分析
-- 电池数据分析
-- CAN 日志统计
+- 延迟趋势分析
+- 资源用量分析
+- 平台日志统计
 
 ### 阶段验收
 
@@ -447,8 +447,8 @@ print(df.groupby("vehicle_id")["speed"].mean())
 
 ### 推荐项目
 
-- 车辆遥测分析脚本
-- 电池健康分析报表
+- 平台指标分析脚本
+- 节点资源用量报表
 
 ## 10. Web 后端开发阶段
 

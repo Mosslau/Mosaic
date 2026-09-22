@@ -26,12 +26,12 @@ import (
 type File struct {
 	path string
 	mu   sync.Mutex
-	m    map[string]domain.Device
+	m    map[string]domain.Node
 }
 
 // NewFile 打开（或首次创建）数据文件；文件损坏时启动期即报错（fail-fast）。
 func NewFile(path string) (*File, error) {
-	f := &File{path: path, m: make(map[string]domain.Device)}
+	f := &File{path: path, m: make(map[string]domain.Node)}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -39,39 +39,39 @@ func NewFile(path string) (*File, error) {
 		}
 		return nil, fmt.Errorf("read store file %s: %w", path, err)
 	}
-	var devices []domain.Device
+	var nodes []domain.Node
 	if len(data) > 0 {
-		if err := json.Unmarshal(data, &devices); err != nil {
+		if err := json.Unmarshal(data, &nodes); err != nil {
 			return nil, fmt.Errorf("parse store file %s: %w", path, err)
 		}
-		for _, d := range devices {
+		for _, d := range nodes {
 			f.m[d.ID] = d
 		}
 	}
 	return f, nil
 }
 
-func (s *File) Get(id string) (domain.Device, error) {
+func (s *File) Get(id string) (domain.Node, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	d, ok := s.m[id]
 	if !ok {
-		return domain.Device{}, domain.ErrNotFound
+		return domain.Node{}, domain.ErrNotFound
 	}
 	return d, nil
 }
 
-func (s *File) List() ([]domain.Device, error) {
+func (s *File) List() ([]domain.Node, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	out := make([]domain.Device, 0, len(s.m))
+	out := make([]domain.Node, 0, len(s.m))
 	for _, d := range s.m {
 		out = append(out, d)
 	}
 	return out, nil
 }
 
-func (s *File) Save(d domain.Device) error {
+func (s *File) Save(d domain.Node) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.m[d.ID] = d
@@ -90,12 +90,12 @@ func (s *File) Delete(id string) error {
 
 // persist 整表写盘（调用方须已持有 s.mu）。排序后写入让文件 diff 稳定。
 func (s *File) persist() error {
-	devices := make([]domain.Device, 0, len(s.m))
+	nodes := make([]domain.Node, 0, len(s.m))
 	for _, d := range s.m {
-		devices = append(devices, d)
+		nodes = append(nodes, d)
 	}
-	sort.Slice(devices, func(i, j int) bool { return devices[i].ID < devices[j].ID })
-	data, err := json.MarshalIndent(devices, "", "  ")
+	sort.Slice(nodes, func(i, j int) bool { return nodes[i].ID < nodes[j].ID })
+	data, err := json.MarshalIndent(nodes, "", "  ")
 	if err != nil {
 		return fmt.Errorf("encode store: %w", err)
 	}

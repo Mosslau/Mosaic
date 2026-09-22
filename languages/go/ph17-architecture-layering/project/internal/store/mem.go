@@ -1,6 +1,6 @@
 // 来源：ph17-architecture-layering project/internal/store/mem.go
 // 一句话说明：存储实现之一——内存版（进程重启即丢）。
-// 本包不 import internal/service：Mem 是否满足 service.DeviceStore
+// 本包不 import internal/service：Mem 是否满足 service.NodeStore
 // 由组装点 cmd/deviceapi 的 var _ 断言保证（依赖方向保持单向向内）。
 // 验证环境：go1.25.6（darwin/arm64），依赖：零第三方（标准库）
 // 构建：go build ./...    测试：go test ./...    静态检查：go vet ./...
@@ -20,27 +20,27 @@ import (
 // Mem 内存 repository：map + 互斥锁。
 type Mem struct {
 	mu sync.Mutex
-	m  map[string]domain.Device
+	m  map[string]domain.Node
 }
 
 func NewMem() *Mem {
-	return &Mem{m: make(map[string]domain.Device)}
+	return &Mem{m: make(map[string]domain.Node)}
 }
 
-func (s *Mem) Get(id string) (domain.Device, error) {
+func (s *Mem) Get(id string) (domain.Node, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	d, ok := s.m[id]
 	if !ok {
-		return domain.Device{}, domain.ErrNotFound
+		return domain.Node{}, domain.ErrNotFound
 	}
 	return d, nil
 }
 
-func (s *Mem) List() ([]domain.Device, error) {
+func (s *Mem) List() ([]domain.Node, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	out := make([]domain.Device, 0, len(s.m))
+	out := make([]domain.Node, 0, len(s.m))
 	for _, d := range s.m {
 		out = append(out, d)
 	}
@@ -48,7 +48,7 @@ func (s *Mem) List() ([]domain.Device, error) {
 }
 
 // Save 是 upsert：新增与更新统一走这里。
-func (s *Mem) Save(d domain.Device) error {
+func (s *Mem) Save(d domain.Node) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.m[d.ID] = d

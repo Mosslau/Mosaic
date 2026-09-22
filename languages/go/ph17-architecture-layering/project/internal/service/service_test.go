@@ -1,6 +1,6 @@
 // 来源：ph17-architecture-layering project/internal/service/service_test.go
 // 一句话说明：service 层单测（白盒：同包可注入时钟 s.now）。规则覆盖：
-// 注册校验/唯一性/默认离线、心跳上线并刷新时间、固件禁止回退、离线拒收命令、
+// 注册校验/唯一性/默认离线、心跳上线并刷新时间、版本禁止回退、离线拒收命令、
 // not-found 映射、存储故障透出。全部用 stub 替身，不起服务器、不碰真实文件。
 // 验证环境：go1.25.6（darwin/arm64），依赖：零第三方（标准库）
 // 构建：go build ./...    测试：go test ./...    静态检查：go vet ./...
@@ -22,31 +22,31 @@ import (
 
 // stubStore 测试替身：map 存数据，可按用例注入故障。
 type stubStore struct {
-	m       map[string]domain.Device
+	m       map[string]domain.Node
 	getErr  error
 	saveErr error
 }
 
-func (s *stubStore) Get(id string) (domain.Device, error) {
+func (s *stubStore) Get(id string) (domain.Node, error) {
 	if s.getErr != nil {
-		return domain.Device{}, s.getErr
+		return domain.Node{}, s.getErr
 	}
 	d, ok := s.m[id]
 	if !ok {
-		return domain.Device{}, domain.ErrNotFound
+		return domain.Node{}, domain.ErrNotFound
 	}
 	return d, nil
 }
 
-func (s *stubStore) List() ([]domain.Device, error) {
-	out := make([]domain.Device, 0, len(s.m))
+func (s *stubStore) List() ([]domain.Node, error) {
+	out := make([]domain.Node, 0, len(s.m))
 	for _, d := range s.m {
 		out = append(out, d)
 	}
 	return out, nil
 }
 
-func (s *stubStore) Save(d domain.Device) error {
+func (s *stubStore) Save(d domain.Node) error {
 	if s.saveErr != nil {
 		return s.saveErr
 	}
@@ -62,10 +62,10 @@ func (s *stubStore) Delete(id string) error {
 	return nil
 }
 
-var _ DeviceStore = (*stubStore)(nil)
+var _ NodeStore = (*stubStore)(nil)
 
-func newStub(seed ...domain.Device) *stubStore {
-	s := &stubStore{m: make(map[string]domain.Device)}
+func newStub(seed ...domain.Node) *stubStore {
+	s := &stubStore{m: make(map[string]domain.Node)}
 	for _, d := range seed {
 		s.m[d.ID] = d
 	}
@@ -73,7 +73,7 @@ func newStub(seed ...domain.Device) *stubStore {
 }
 
 // fixedClock 构造注入固定时钟的 Service。
-func fixedClock(st DeviceStore, at time.Time) *Service {
+func fixedClock(st NodeStore, at time.Time) *Service {
 	s := New(st)
 	s.now = func() time.Time { return at }
 	return s
@@ -91,7 +91,7 @@ func codeOf(t *testing.T, err error) errs.Code {
 func TestRegisterValidatesInput(t *testing.T) {
 	svc := New(newStub())
 	for name, args := range map[string][2]string{
-		"空 id":   {"", "车队 A"},
+		"空 id":   {"", "节点组 A"},
 		"空 name": {"dev-1", "  "},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -103,20 +103,20 @@ func TestRegisterValidatesInput(t *testing.T) {
 	}
 }
 
-func TestRegisterRejectsBadFirmwareFormat(t *testing.T) {
+func TestRegisterRejectsBadVersionFormat(t *testing.T) {
 	svc := New(newStub())
-	_, err := svc.Register("dev-1", "车队 A", "v2.0")
+	_, err := svc.Register("dev-1", "节点组 A", "v2.0")
 	if code := codeOf(t, err); code != errs.CodeBadRequest {
-		t.Fatalf("code = %q, want BAD_REQUEST（固件必须 major.minor.patch）", code)
+		t.Fatalf("code = %q, want BAD_REQUEST（版本必须 major.minor.patch）", code)
 	}
 }
 
 func TestRegisterDuplicateRejected(t *testing.T) {
-	st := newStub(domain.Device{ID: "dev-1", Name: "已有"})
+	st := newStub(domain.Node{ID: "dev-1", Name: "已有"})
 	svc := New(st)
-	_, err := svc.Register("dev-1", "新车", "1.0.0")
+	_, err := svc.Register("dev-1", "新节点", "1.0.0")
 	if code := codeOf(t, err); code != errs.CodeExists {
-		t.Fatalf("code = %q, want DEVICE_EXISTS", code)
+		t.Fatalf("code = %q, want NODE_EXISTS", code)
 	}
 	if st.m["dev-1"].Name != "已有" {
 		t.Fatal("重复注册不得覆盖原记录")
@@ -126,28 +126,28 @@ func TestRegisterDuplicateRejected(t *testing.T) {
 func TestRegisterDefaultsOffline(t *testing.T) {
 	st := newStub()
 	svc := New(st)
-	d, err := svc.Register("dev-1", "车队 A", "1.2.3")
+	d, err := svc.Register("dev-1", "节点组 A", "1.2.3")
 	if err != nil {
 		t.Fatalf("register: %v", err)
 	}
 	if d.Status != domain.StatusOffline {
-		t.Fatalf("新设备状态 = %q, want offline（等首次心跳上线）", d.Status)
+		t.Fatalf("新节点状态 = %q, want offline（等首次心跳上线）", d.Status)
 	}
 	if _, ok := st.m["dev-1"]; !ok {
 		t.Fatal("注册后应已落库")
 	}
 }
 
-func TestGetUnknownDeviceMapsNotFound(t *testing.T) {
+func TestGetUnknownNodeMapsNotFound(t *testing.T) {
 	svc := New(newStub())
 	_, err := svc.Get("ghost")
 	if code := codeOf(t, err); code != errs.CodeNotFound {
-		t.Fatalf("code = %q, want DEVICE_NOT_FOUND", code)
+		t.Fatalf("code = %q, want NODE_NOT_FOUND", code)
 	}
 }
 
 func TestHeartbeatSetsOnlineAndTime(t *testing.T) {
-	st := newStub(domain.Device{ID: "dev-1", Name: "车队 A", Status: domain.StatusOffline})
+	st := newStub(domain.Node{ID: "dev-1", Name: "节点组 A", Status: domain.StatusOffline})
 	at := time.Date(2026, 9, 10, 8, 30, 0, 0, time.UTC)
 	svc := fixedClock(st, at)
 
@@ -163,40 +163,40 @@ func TestHeartbeatSetsOnlineAndTime(t *testing.T) {
 	}
 }
 
-func TestUpgradeFirmwareRejectsDowngrade(t *testing.T) {
-	st := newStub(domain.Device{ID: "dev-1", Firmware: "2.0.0"})
+func TestUpgradeVersionRejectsDowngrade(t *testing.T) {
+	st := newStub(domain.Node{ID: "dev-1", Version: "2.0.0"})
 	svc := New(st)
-	_, err := svc.UpgradeFirmware("dev-1", "1.9.9")
+	_, err := svc.UpgradeVersion("dev-1", "1.9.9")
 	if code := codeOf(t, err); code != errs.CodeConflict {
 		t.Fatalf("code = %q, want CONFLICT（禁止回退）", code)
 	}
-	if st.m["dev-1"].Firmware != "2.0.0" {
-		t.Fatal("回退被拒后固件不得被改写")
+	if st.m["dev-1"].Version != "2.0.0" {
+		t.Fatal("回退被拒后版本不得被改写")
 	}
 }
 
-func TestUpgradeFirmwareIdempotentSameVersion(t *testing.T) {
-	st := newStub(domain.Device{ID: "dev-1", Firmware: "2.0.0"})
+func TestUpgradeVersionIdempotentSameVersion(t *testing.T) {
+	st := newStub(domain.Node{ID: "dev-1", Version: "2.0.0"})
 	svc := New(st)
-	if _, err := svc.UpgradeFirmware("dev-1", "2.0.0"); err != nil {
+	if _, err := svc.UpgradeVersion("dev-1", "2.0.0"); err != nil {
 		t.Fatalf("同版本重复下发应幂等成功: %v", err)
 	}
 }
 
 func TestSendCommandRejectsWhenOffline(t *testing.T) {
-	st := newStub(domain.Device{ID: "dev-1", Status: domain.StatusOffline})
+	st := newStub(domain.Node{ID: "dev-1", Status: domain.StatusOffline})
 	svc := New(st)
 	err := svc.SendCommand("dev-1", "restart")
 	if code := codeOf(t, err); code != errs.CodeOffline {
-		t.Fatalf("code = %q, want DEVICE_OFFLINE", code)
+		t.Fatalf("code = %q, want NODE_OFFLINE", code)
 	}
 }
 
 func TestSendCommandAcceptedWhenOnline(t *testing.T) {
-	st := newStub(domain.Device{ID: "dev-1", Status: domain.StatusOnline})
+	st := newStub(domain.Node{ID: "dev-1", Status: domain.StatusOnline})
 	svc := New(st)
 	if err := svc.SendCommand("dev-1", "restart"); err != nil {
-		t.Fatalf("在线设备应受理命令: %v", err)
+		t.Fatalf("在线节点应受理命令: %v", err)
 	}
 }
 
@@ -205,7 +205,7 @@ func TestStoreFailurePropagates(t *testing.T) {
 	st := newStub()
 	st.getErr = boom
 	svc := New(st)
-	_, err := svc.Register("dev-1", "车队 A", "")
+	_, err := svc.Register("dev-1", "节点组 A", "")
 	if !errors.Is(err, boom) {
 		t.Fatalf("err = %v, want wrapped %v（存储故障不得被吞）", err, boom)
 	}

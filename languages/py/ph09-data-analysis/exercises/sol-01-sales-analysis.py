@@ -14,7 +14,11 @@ import pandas as pd
 
 # 中文字体回退链：macOS 用 PingFang/Hiragino，Linux/Windows 依次回退
 plt.rcParams["font.sans-serif"] = [
-    "PingFang HK", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", "SimHei",
+    "PingFang HK",
+    "Hiragino Sans GB",
+    "Noto Sans CJK SC",
+    "Microsoft YaHei",
+    "SimHei",
 ]
 plt.rcParams["axes.unicode_minus"] = False
 
@@ -25,8 +29,21 @@ def main() -> None:
     # 1. 自造销售数据：含 1 个缺失值 + 1 个重复行（真实场景换成 read_csv）
     sales = pd.DataFrame(
         {
-            "store": ["华东店", "华东店", "华东店", "华东店", "华南店", "华南店",
-                      "华南店", "华南店", "华北店", "华北店", "华北店", "华北店", "华北店"],
+            "store": [
+                "华东店",
+                "华东店",
+                "华东店",
+                "华东店",
+                "华南店",
+                "华南店",
+                "华南店",
+                "华南店",
+                "华北店",
+                "华北店",
+                "华北店",
+                "华北店",
+                "华北店",
+            ],
             "month": ["2024-01", "2024-02", "2024-01", "2024-02"] * 3 + ["2024-02"],
             "amount": [150, 160, None, 145, 98, 105, 95, 110, 120, 130, 118, 125, 125],
         }
@@ -34,7 +51,12 @@ def main() -> None:
 
     # 2. 动手前先摸清数据：类型与空值
     print(sales.info())
-    print("缺失:", int(sales["amount"].isna().sum()), " 重复行:", int(sales.duplicated().sum()))
+    print(
+        "缺失:",
+        int(sales["amount"].isna().sum()),
+        " 重复行:",
+        int(sales.duplicated().sum()),
+    )
 
     # 3. 清洗：缺失值显式决策（填中位数）+ 去重
     sales["amount"] = sales["amount"].fillna(sales["amount"].median())
@@ -46,7 +68,9 @@ def main() -> None:
     print(avg.round(1))
 
     # 5. 透视表：门店 × 月份
-    pt = pd.pivot_table(sales, values="amount", index="store", columns="month", aggfunc="mean")
+    pt = pd.pivot_table(
+        sales, values="amount", index="store", columns="month", aggfunc="mean"
+    )
     print("\n透视表（门店 × 月份）:")
     print(pt.round(1))
 
@@ -57,7 +81,9 @@ def main() -> None:
     plt.tight_layout()
     out = outdir / "sales_summary.png"
     plt.savefig(out, dpi=150)
-    print("\n已保存:", out, " 存在:", out.exists(), " 大小:", out.stat().st_size, "字节")
+    print(
+        "\n已保存:", out, " 存在:", out.exists(), " 大小:", out.stat().st_size, "字节"
+    )
 
 
 if __name__ == "__main__":

@@ -1,10 +1,10 @@
 # Python 数据分析阶段
 
-> 面向自动化、数据分析、车联网数据平台方向，本阶段用 NumPy 与 Pandas 完成数据读取、清洗、统计，并用 Matplotlib/Plotly 可视化，让"拿到 CSV 就能出结论、出图表"成为基本功。
+> 面向自动化、数据分析与通用数据平台（含 AI 平台数据中心）方向，本阶段用 NumPy 与 Pandas 完成数据读取、清洗、统计，并用 Matplotlib/Plotly 可视化，让"拿到 CSV 就能出结论、出图表"成为基本功。
 
 ## 1. 概述
 
-Python 数据分析阶段的目标是：**能用 NumPy/Pandas 读取并清洗 CSV，做分组统计、排序筛选、join 与透视表，用 Matplotlib/Plotly 画趋势图和柱状图，形成"清洗 → 统计 → 可视化 → 结论"的完整分析链路**。这一阶段把 ph08 的 numpy/pandas/matplotlib 入门升级为系统能力，同时把四个必会概念内化为习惯——**数据清洗通常比建模更耗时、DataFrame 操作要关注索引、分组统计是核心能力、图表要服务结论**——这是 Web 后端（ph10 数据接口）、AI/ML（ph15 特征工程）与车联网数据平台方向共同的地基。
+Python 数据分析阶段的目标是：**能用 NumPy/Pandas 读取并清洗 CSV，做分组统计、排序筛选、join 与透视表，用 Matplotlib/Plotly 画趋势图和柱状图，形成"清洗 → 统计 → 可视化 → 结论"的完整分析链路**。这一阶段把 ph08 的 numpy/pandas/matplotlib 入门升级为系统能力，同时把四个必会概念内化为习惯——**数据清洗通常比建模更耗时、DataFrame 操作要关注索引、分组统计是核心能力、图表要服务结论**——这是 Web 后端（ph10 数据接口）、AI/ML（ph15 特征工程）与数据平台方向共同的地基。示例数据从本阶段起统一到**平台服务与节点指标**口径（`ts, service_id, latency_ms, cpu_pct, mem_used_gb, disk_temp_c, net_io_mb_s, power_w`），与收官阶段 ph18「全阶段指标口径」完全对齐。
 
 | 核心维度 | 覆盖内容 |
 |----------|---------|
@@ -16,6 +16,19 @@ Python 数据分析阶段的目标是：**能用 NumPy/Pandas 读取并清洗 CS
 | 可视化与导出 | Matplotlib 折线/柱状/散点/分布、Plotly 交互图、`to_csv`/`to_excel` 报告 |
 
 **范围边界**：本阶段承接 ph08 第三方库阶段，把 numpy/pandas/matplotlib 从"会用"推向"系统掌握"。不涉及 Web 后端深入（ph10：FastAPI 进阶、数据库 ORM、认证鉴权）、AI/ML（ph15：模型训练、特征工程、模型评估）、并发采集（ph14：大规模流式采集、异步流水线）；本阶段的"统计"以描述性统计（均值、方差、相关性）为主，推断统计与建模在 ph15 铺垫。
+
+本阶段示例统一使用**平台服务与节点指标**口径（与 ph18 全阶段口径一致；样例数据一律自造并写系统临时目录）：
+
+| 列 | 含义 | 量程（清洗用） | 典型值 |
+|---|---|---|---|
+| `latency_ms` | 请求延迟（毫秒） | 0 ~ 2000 | 40 ~ 90 |
+| `cpu_pct` | CPU 使用率（%） | 0 ~ 100 | 55 ~ 90 |
+| `mem_used_gb` | 内存占用（GB） | 0 ~ 256 | ~96 |
+| `disk_temp_c` | 磁盘温度（℃） | -10 ~ 90 | ~38（>75 为过热） |
+| `net_io_mb_s` | 网络入出速率（MB/s） | 0 ~ 2000 | 300 ~ 450 |
+| `power_w` | 整机功率（W） | 10 ~ 800 | 200 ~ 450 |
+
+服务实例用 `service_id`（`S001`/`S002`/`S003`）标识，日志统计用来源（`svc-001`）与级别（`INFO`/`WARN`/`ERROR`）——**量程与列名集中在常量表里声明，不散落在代码各处**（这一纪律在 ph18 的清洗管线里被固化为全阶段口径）。
 
 ## 2. 来源与演变
 
@@ -69,10 +82,10 @@ print(a + b)                            # 广播成 (3,3)
 ```python
 import pandas as pd
 
-df = pd.read_csv("sales.csv")                     # 最常用：读 CSV
-df2 = pd.read_csv("sales.csv",
-                  dtype={"vehicle_id": str},      # 指定列类型（防 001 变 1）
-                  parse_dates=["time"],           # 自动解析为 datetime
+df = pd.read_csv("metrics.csv")                   # 最常用：读平台指标 CSV
+df2 = pd.read_csv("metrics.csv",
+                  dtype={"service_id": str},      # 指定列类型（防 001 变 1）
+                  parse_dates=["ts"],             # 自动解析为 datetime
                   encoding="utf-8")               # 中文文件防乱码
 print(df2.dtypes)                                 # 每列类型
 
@@ -85,7 +98,7 @@ df3 = pd.read_excel("report.xlsx")                # 读 Excel，需 openpyxl
 要点：
 
 - **读取后第一件事 `df.info()`/`df.dtypes`/`df.head()`**：看清列类型与空值再动手——"数据清洗通常比建模更耗时"的第一步就是摸清数据。
-- `dtype` 显式指定类型：`"001"` 这类 ID 列默认会被读成 int 丢掉前导零；`parse_dates` 把时间字符串转成 `datetime64`，是时间序列分析的前提。
+- `dtype` 显式指定类型：`service_id` 这类 ID 列若形如 `"001"`，默认会被读成 int 丢掉前导零；`parse_dates` 把时间字符串转成 `datetime64`，是时间序列分析的前提。
 - **坑（编码）**：`read_csv` 默认 `utf-8`，中文 Excel 导出的 GBK/GB18030 文件要显式 `encoding="gbk"` 或 `"utf-8-sig"`，否则报 `UnicodeDecodeError`。
 
 ### 3.3 数据清洗（缺失值·重复·异常值·类型转换）
@@ -95,24 +108,24 @@ import pandas as pd
 import numpy as np
 
 df = pd.DataFrame({
-    "id": [1, 2, 3, 4, 5],
-    "speed": [80, np.nan, 95, 60, 72],          # np.nan 表示缺失
-    "soc": [78.5, 76.0, 90.1, 88.4, 85.0],
+    "service_id": ["S001", "S002", "S003", "S004", "S005"],
+    "latency_ms": [62.0, np.nan, 88.0, 45.0, 71.0],   # np.nan 表示缺失
+    "cpu_pct": [78.5, 76.0, 90.1, 88.4, 85.0],
 })
 print(df.isna().sum())                          # 每列缺失数量
 print(df.dropna())                              # 删掉有缺失的行（默认 any）
-print(df.fillna({"speed": df["speed"].median()}))   # 缺失填中位数
+print(df.fillna({"latency_ms": df["latency_ms"].median()}))   # 缺失填中位数
 print(df.duplicated().sum())                    # 重复行数量
 print(df.drop_duplicates())                     # 删重复行
-print(df["speed"].astype(float))                # 类型转换
+print(df["latency_ms"].astype(float))           # 类型转换
 ```
 
 要点：
 
 - 清洗四件事：**缺失值（NaN）、重复行、异常值、类型/格式**。缺失值处理三选：`dropna()` 删行（数据量大、缺失少）、`fillna(统计量)` 填充、保留 NaN 让统计函数自动跳过。
-- **坑（NaN 传染）**：NaN 在纯 ndarray 运算里会传染，但 pandas 的 `mean`/`sum` 默认 `skipna=True`——`df["speed"].sum()` 跳过 NaN；`np.mean(含 NaN 的 Series)` 也经 `__array_function__` 委托给 `Series.mean`，返回 87.5 这类正常值；只有转成纯 ndarray（`df["speed"].to_numpy()`）再丢给 `np.mean` 才得 NaN。统计聚合前先确认缺失处理策略。
-- 异常值：先用 `describe()`/直方图看分布，再 `clip(lower, upper)` 截断或布尔条件过滤（见示例 2）。
-- 类型转换：`astype()`；"80 km/h" 这类脏字符串要先 `str.replace` 清理再转数值。
+- **坑（NaN 传染）**：NaN 在纯 ndarray 运算里会传染，但 pandas 的 `mean`/`sum` 默认 `skipna=True`——`df["latency_ms"].sum()` 跳过 NaN；`np.mean(含 NaN 的 Series)` 也经 `__array_function__` 委托给 `Series.mean`，返回 66.5 这类正常值；只有转成纯 ndarray（`df["latency_ms"].to_numpy()`）再丢给 `np.mean` 才得 NaN。统计聚合前先确认缺失处理策略。
+- 异常值：先用 `describe()`/直方图看分布，再 `clip(lower, upper)` 截断或按物理量程布尔条件过滤（见示例 2 的 `0 <= latency_ms <= 2000`）。
+- 类型转换：`astype()`；`"62ms"` 这类带单位的脏字符串要先 `str.replace` 清理再转数值。
 
 ### 3.4 筛选排序与索引（loc/iloc·布尔掩码·sort_values）
 
@@ -120,23 +133,23 @@ print(df["speed"].astype(float))                # 类型转换
 import pandas as pd
 
 df = pd.DataFrame({
-    "vehicle_id": ["V001", "V002", "V003", "V004"],
-    "speed": [80, 95, 60, 72],
-    "soc": [78.5, 76.0, 90.1, 88.4],
+    "service_id": ["S001", "S002", "S003", "S004"],
+    "latency_ms": [62.0, 88.0, 45.0, 71.0],
+    "cpu_pct": [78.5, 76.0, 90.1, 88.4],
 })
 print(df.loc[1])                        # 按索引标签取行（此处行号即标签）
 print(df.iloc[0])                       # 按位置取第 1 行
-fast = df[df["speed"] > 70]             # 布尔掩码筛选
-print(fast)
-print(df.sort_values("speed", ascending=False))            # 单列降序
+slow = df[df["latency_ms"] > 70]        # 布尔掩码筛选：挑出延迟偏高的实例
+print(slow)
+print(df.sort_values("latency_ms", ascending=False))       # 单列降序
 print(df.reset_index(drop=True))        # 恢复 0..n-1 连续索引
 ```
 
 要点：
 
 - **DataFrame 操作要关注索引**（roadmap 必会概念）：`iloc` 按位置、`loc` 按标签——筛选后两者指向可能不同；`reset_index(drop=True)` 是筛选/排序/分组后的常规收尾。
-- 布尔掩码：`df["speed"] > 70` 生成布尔 Series，True 保留 False 丢弃；多条件用 `&`（与）、`|`（或）、`~`（非），**每个条件必须加括号**：`df[(df["speed"] > 70) & (df["soc"] < 80)]`。
-- **坑（链式赋值不可靠）**：`df[df["speed"] > 70]["soc"] = 0` 这类链式赋值的行为**不可依赖**——在本机 pandas 2.3.3 上会触发 `SettingWithCopyWarning` 且赋值**静默丢写**（落在临时副本上，原 `df` 不变）；在部分 dtype 布局下甚至不警告直接丢写（比报错更隐蔽）；pandas 3.0 起 CoW 默认开启后彻底失效——改数据一律 `df.loc[df["speed"] > 70, "soc"] = 0` 单步完成（原理见 4.3）。
+- 布尔掩码：`df["latency_ms"] > 70` 生成布尔 Series，True 保留 False 丢弃；多条件用 `&`（与）、`|`（或）、`~`（非），**每个条件必须加括号**：`df[(df["latency_ms"] > 70) & (df["cpu_pct"] < 80)]`。
+- **坑（链式赋值不可靠）**：`df[df["latency_ms"] > 70]["cpu_pct"] = 0` 这类链式赋值的行为**不可依赖**——在本机 pandas 2.3.3 上会触发 `SettingWithCopyWarning` 且赋值**静默丢写**（落在临时副本上，原 `df` 不变）；在部分 dtype 布局下甚至不警告直接丢写（比报错更隐蔽）；pandas 3.0 起 CoW 默认开启后彻底失效——改数据一律 `df.loc[df["latency_ms"] > 70, "cpu_pct"] = 0` 单步完成（原理见 4.3）。
 
 ### 3.5 分组统计（groupby·agg·transform）
 
@@ -144,15 +157,15 @@ print(df.reset_index(drop=True))        # 恢复 0..n-1 连续索引
 import pandas as pd
 
 df = pd.DataFrame({
-    "vehicle_id": ["V001", "V001", "V002", "V002"],
-    "day": [1, 2, 1, 2],
-    "speed": [80, 95, 60, 72],
-    "soc": [78.5, 76.0, 90.1, 88.4],
+    "service_id": ["S001", "S001", "S002", "S002"],
+    "hour": [1, 2, 1, 2],
+    "latency_ms": [62.0, 70.0, 45.0, 52.0],
+    "cpu_pct": [78.5, 76.0, 90.1, 88.4],
 })
-print(df.groupby("vehicle_id")["speed"].mean())        # 每车平均速度
-g = df.groupby("vehicle_id")[["speed", "soc"]].agg(["mean", "max"])
+print(df.groupby("service_id")["latency_ms"].mean())   # 每个服务实例平均延迟
+g = df.groupby("service_id")[["latency_ms", "cpu_pct"]].agg(["mean", "max"])
 print(g)                                               # 多列多聚合
-df["speed_z"] = df.groupby("vehicle_id")["speed"].transform(
+df["latency_z"] = df.groupby("service_id")["latency_ms"].transform(
     lambda x: (x - x.mean()) / x.std())                # transform 保持行数
 ```
 
@@ -167,21 +180,21 @@ df["speed_z"] = df.groupby("vehicle_id")["speed"].transform(
 ```python
 import pandas as pd
 
-left = pd.DataFrame({"vehicle_id": ["V001", "V002"],
-                     "model": ["A", "B"]})
-right = pd.DataFrame({"vehicle_id": ["V001", "V002", "V003"],
-                      "speed": [80, 95, 60]})
-print(pd.merge(left, right, on="vehicle_id", how="inner"))   # 交集
-print(pd.merge(left, right, on="vehicle_id", how="left"))    # 左表全保留
+left = pd.DataFrame({"service_id": ["S001", "S002"],
+                     "team": ["平台组", "数据组"]})
+right = pd.DataFrame({"service_id": ["S001", "S002", "S003"],
+                      "latency_ms": [62.0, 88.0, 45.0]})
+print(pd.merge(left, right, on="service_id", how="inner"))   # 交集
+print(pd.merge(left, right, on="service_id", how="left"))    # 左表全保留
 
-df1 = pd.DataFrame({"speed": [80, 95]})
-df2 = pd.DataFrame({"soc": [78.5, 76.0]})
+df1 = pd.DataFrame({"latency_ms": [62.0, 88.0]})
+df2 = pd.DataFrame({"cpu_pct": [78.5, 76.0]})
 print(pd.concat([df1, df2], axis=1))                   # 横向拼接：加列
-df3 = pd.DataFrame({"speed": [60]})
+df3 = pd.DataFrame({"latency_ms": [45.0]})
 print(pd.concat([df1, df3], axis=0, ignore_index=True))  # 纵向拼接：加行
 
-right2 = right.set_index("vehicle_id")
-print(left.join(right2, on="vehicle_id"))              # join：按索引连接
+right2 = right.set_index("service_id")
+print(left.join(right2, on="service_id"))              # join：按索引连接
 ```
 
 要点：
@@ -196,22 +209,22 @@ print(left.join(right2, on="vehicle_id"))              # join：按索引连接
 import pandas as pd
 
 df = pd.DataFrame({
-    "vehicle_id": ["V001", "V001", "V002", "V002"],
+    "service_id": ["S001", "S001", "S002", "S002"],
     "day": ["周一", "周二", "周一", "周二"],
-    "speed": [80, 95, 60, 72],
+    "latency_ms": [62.0, 70.0, 45.0, 52.0],
 })
-pt = pd.pivot_table(df, values="speed", index="day",
-                    columns="vehicle_id", aggfunc="mean")
-print(pt)                                            # 行=day，列=vehicle_id
+pt = pd.pivot_table(df, values="latency_ms", index="day",
+                    columns="service_id", aggfunc="mean")
+print(pt)                                            # 行=day，列=service_id
 
 ts = pd.DataFrame({
-    "time": pd.to_datetime(["2024-06-01 08:00:00", "2024-06-01 08:01:00",
-                            "2024-06-01 08:02:00", "2024-06-01 08:03:00"]),
-    "speed": [80, 95, 60, 72],
+    "ts": pd.to_datetime(["2024-06-01 08:00:00", "2024-06-01 08:01:00",
+                          "2024-06-01 08:02:00", "2024-06-01 08:03:00"]),
+    "latency_ms": [62.0, 70.0, 45.0, 52.0],
 })
-ts = ts.set_index("time")                            # 时间列变成索引
+ts = ts.set_index("ts")                              # 时间列变成索引
 print(ts.resample("2min").mean())                    # 重采样：2 分钟聚合
-print(ts["speed"].rolling(2).mean())                 # 滚动均值
+print(ts["latency_ms"].rolling(2).mean())            # 滚动均值
 ```
 
 要点：
@@ -233,7 +246,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 x = np.array([1, 2, 3, 4, 5])
-y = np.array([80, 95, 60, 72, 88])
+y = np.array([62.0, 70.0, 45.0, 52.0, 66.0])
 
 fig, axes = plt.subplots(2, 2, figsize=(10, 7))     # 2x2 子图
 axes[0, 0].plot(x, y, marker="o")                    # 折线：趋势
@@ -242,7 +255,7 @@ axes[0, 1].bar(x, y)                                 # 柱状：对比
 axes[0, 1].set_title("Compare")
 axes[1, 0].scatter(x, y)                             # 散点：关联
 axes[1, 0].set_title("Relation")
-axes[1, 1].hist(np.random.normal(70, 10, 500), bins=20)   # 分布
+axes[1, 1].hist(np.random.normal(65, 12, 500), bins=20)   # 分布
 axes[1, 1].set_title("Distribution")
 plt.tight_layout()
 out = Path(tempfile.mkdtemp(prefix="ph09-charts-")) / "charts.png"
@@ -253,14 +266,14 @@ plt.savefig(out, dpi=150)      # 产物写临时目录，防污染仓库（examp
 
 - 四种基础图各回答一个问题：**折线看趋势、柱状看对比、散点看关联、直方图看分布**——先想清楚"这张图服务什么结论"再选图型（roadmap 必会概念"图表要服务结论"）。
 - 脚本画图**必须 `savefig()`**：Agg 后端下 `plt.show()` 仅发 UserWarning（FigureCanvasAgg is non-interactive）并正常返回，不报错也不挂起；`figsize`/`dpi`/`tight_layout` 控制出图质量。
-- Plotly 交互图：`pip install plotly`，`fig = px.line(df, x="time", y="speed")` 后 `fig.write_html("trend.html")` 生成可缩放、可悬停的网页图表，适合汇报与 Dashboard。
+- Plotly 交互图：`pip install plotly`，`fig = px.line(df, x="ts", y="latency_ms")` 后 `fig.write_html("trend.html")` 生成可缩放、可悬停的网页图表，适合汇报与 Dashboard。
 
 ### 3.9 数据导出与报告
 
 ```python
 import pandas as pd
 
-df = pd.DataFrame({"vehicle_id": ["V001", "V002"], "speed": [80, 95]})
+df = pd.DataFrame({"service_id": ["S001", "S002"], "latency_ms": [62.0, 88.0]})
 df.to_csv("out.csv", index=False, encoding="utf-8-sig")   # Excel 中文不乱码
 df.to_excel("out.xlsx", index=False)                      # 需 openpyxl
 df.to_json("out.json", orient="records", force_ascii=False)
@@ -289,17 +302,17 @@ numpy 的切片返回**共享内存的视图**——修改视图会改动原数�
 
 ### 4.4 分块读取与内存上限（chunksize·dtype 压缩）
 
-`read_csv` 默认把整个文件读进内存，GB 级文件会直接 OOM。**`chunksize=N`** 让 `read_csv` 返回一个迭代器，每次只读 N 行——适合"逐块聚合、最后合并"的流水线（示例：`sum += chunk["speed"].sum()` 按块累加）。内存还能靠 **dtype 压缩**：pandas 默认 int64/float64 每元素 8 字节，用 `dtype` 指定 `int8`/`float32` 或 category 类型可降数倍内存；`usecols` 只读需要的列；`df.memory_usage(deep=True)` 可精确估算。pandas 的定位是**"单机内存装得下"的数据**——超过内存的数亿行数据交给 polars（惰性求值 + 多核）或数据库（ph10 SQLAlchemy 对接），不必强求 pandas 硬扛。
+`read_csv` 默认把整个文件读进内存，GB 级文件会直接 OOM。**`chunksize=N`** 让 `read_csv` 返回一个迭代器，每次只读 N 行——适合"逐块聚合、最后合并"的流水线（示例：`total += chunk["latency_ms"].sum()` 按块累加）。内存还能靠 **dtype 压缩**：pandas 默认 int64/float64 每元素 8 字节，用 `dtype` 指定 `int8`/`float32` 或 category 类型可降数倍内存；`usecols` 只读需要的列；`df.memory_usage(deep=True)` 可精确估算。pandas 的定位是**"单机内存装得下"的数据**——超过内存的数亿行数据交给 polars（惰性求值 + 多核）或数据库（ph10 SQLAlchemy 对接），不必强求 pandas 硬扛。
 
 ## 5. 使用场景
 
 | 场景 | 涉及知识点 |
 |------|-----------|
 | 销售日报/月报统计 | `read_csv` + 清洗 + `groupby` + `pivot_table` + 柱状图 |
-| 车辆行驶速度分析 | 时间序列 + 异常值过滤 + 折线趋势图 + 滚动均值 |
-| 电池健康监控 | SOC/电压关联 + 缺失值插值 + 散点图 + 相关系数 |
-| CAN 报文统计 | 日志字段解析 + 按 ID 分组 + 频次分布直方图 |
-| 多表数据合并 | `merge`/`concat`/`join` 关联车辆档案与遥测记录 |
+| 服务延迟趋势分析 | 时间序列 + 物理量程过滤异常值 + 折线趋势图 + 滚动均值 |
+| 节点资源用量分析 | CPU/内存分组统计与透视 + 缺失值插值 + 散点图 + 相关系数 |
+| 平台服务日志统计 | 日志字段解析 + 按来源/级别分组 + 频次分布直方图 |
+| 多表数据合并 | `merge`/`concat`/`join` 关联服务档案与指标记录 |
 | 生成分析报表 | 图表 + `to_excel`/`to_markdown` 汇总导出 |
 
 **不适合此阶段的事项**：
@@ -379,204 +392,150 @@ plt.savefig(outdir / "sales_summary.png", dpi=150)
 
 实测输出（节选）：缺失 1 处；月均销售额降序 `西区店 118.8 / 东区店 117.5 / 南区店 92.0`（万元）；透视表东区店 2024-01 = 112.5、2024-02 = 122.5；PNG 约 23 KB。
 
-### 示例 2：车辆速度分析（时间序列 + 过滤异常值 + 趋势图）
+### 示例 2：延迟趋势分析（时间序列 + 过滤异常值 + 趋势图）
 
-呼应"车辆速度分析"练习：30 秒一条遥测记录，注入 GPS 跳变异常值，过滤后看趋势。完整文件 `examples/ex03-vehicle-speed.py`。
+呼应练习 2：30 秒一条延迟记录，注入 1 个量程越界点，过滤后看趋势。完整文件 `examples/ex03-latency-trend.py`。
 
 ```python
-# examples/ex03-vehicle-speed.py —— 车辆速度分析
-# 验证环境：Python 3.13.9，pandas 2.3.3，numpy 2.3.5，matplotlib 3.10.6；运行：python3 ex03-vehicle-speed.py（离线可跑，已验证）
+# examples/ex03-latency-trend.py —— 延迟趋势分析
+# 验证环境：Python 3.13.9（pandas/numpy/matplotlib）；运行：python3 ex03-latency-trend.py（离线可跑，已验证）
 import tempfile
 from pathlib import Path
 
 import matplotlib
-matplotlib.use("Agg")
+matplotlib.use("Agg")  # 无显示环境也能 savefig
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+LATENCY_MIN_MS = 0.0        # 延迟物理下限（与 ph18 全阶段指标口径一致）
+LATENCY_MAX_MS = 2000.0     # 超过即采集/换算异常
+
 outdir = Path(tempfile.mkdtemp(prefix="ph09-ex03-"))   # 产物一律写临时目录
 
-# 1. 构造模拟遥测数据（含异常值：GPS 跳变）
+# 1. 构造延迟序列（30 秒一条，典型量程 40~90 ms），注入 1 个越界点
 rng = np.random.default_rng(42)
 n = 200
 df = pd.DataFrame({
     "time": pd.date_range("2024-06-01 08:00:00", periods=n, freq="30s"),
-    "speed": rng.normal(60, 15, n).clip(0, 120),
+    "latency_ms": rng.normal(65, 15, n).clip(0, 200),
 })
-df.loc[50, "speed"] = 320                # 注入异常值（物理上不可能的速度）
-# 2. 时间索引 + 过滤异常值（速度物理范围 0~200 km/h）
+df.loc[50, "latency_ms"] = 3200          # 注入异常值（物理上不可能）
+# 2. 时间索引 + 按量程过滤
 df = df.set_index("time")
-valid = df[(df["speed"] >= 0) & (df["speed"] <= 200)]
+valid = df[(df["latency_ms"] >= LATENCY_MIN_MS) & (df["latency_ms"] <= LATENCY_MAX_MS)]
 print("原始行数:", len(df), " 过滤后:", len(valid), " 剔除:", len(df) - len(valid))
 # 3. 重采样到 5 分钟均值 + 滚动均值，画趋势图
-trend = valid.resample("5min")["speed"].mean()
-smooth = valid["speed"].rolling(10).mean()
-fig, ax = plt.subplots(figsize=(10, 4))
-ax.plot(valid.index, valid["speed"], alpha=0.3, label="原始")
-ax.plot(trend.index, trend, marker="o", label="5min 均值")
-ax.plot(smooth.index, smooth, label="滚动均值")
-ax.set_title("车辆速度趋势")
-ax.set_ylabel("km/h")
-ax.legend()
-plt.tight_layout()
-plt.savefig(outdir / "speed_trend.png", dpi=150)
-print("平均速度:", round(valid["speed"].mean(), 1), "km/h")
+trend = valid.resample("5min")["latency_ms"].mean()
+smooth = valid["latency_ms"].rolling(10).mean()
+# ...（绘图与保存略，完整代码见文件）
 ```
 
-实测输出（节选）：`原始行数: 200 过滤后: 199 剔除: 1`（注入的 320 km/h 被剔除）；平均速度 59.5 km/h；PNG 约 156 KB。
+实测输出（节选）：`原始行数: 200 过滤后: 199 剔除: 1`（注入的 3200 ms 被剔除）；平均延迟 64.6 ms；PNG 约 154 KB。
 
-### 示例 3：电池数据分析（SOC/电压关联 + 缺失值处理 + 散点图）
+### 示例 3：资源用量分析（缺失值插值 + 分组/透视 + 关联散点图）
 
-呼应"电池数据分析"练习：SOC 每下降 1% 记录一次电压，缺失值用线性插值填充，画关联散点图。完整文件 `examples/ex04-battery-analysis.py`。
+呼应练习 3：3 个服务实例各 15 个采样点的 CPU/内存读数，缺失值线性插值后做分组统计与关联分析。完整文件 `examples/ex04-resource-usage.py`。
 
 ```python
-# examples/ex04-battery-analysis.py —— 电池数据分析
-# 验证环境：Python 3.13.9，pandas 2.3.3，numpy 2.3.5，matplotlib 3.10.6；运行：python3 ex04-battery-analysis.py（离线可跑，已验证）
-import tempfile
-from pathlib import Path
-
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-
-outdir = Path(tempfile.mkdtemp(prefix="ph09-ex04-"))   # 产物一律写临时目录
-
-# 1. 构造模拟电池数据（电压随 SOC 近似线性，注入缺失值）
-soc = np.arange(0, 101, 1)
-rng = np.random.default_rng(7)
-voltage = 3.0 + soc * 0.004 + rng.normal(0, 0.01, len(soc))
-voltage[[5, 20, 45]] = np.nan            # 挖掉 3 个点模拟采集缺失
-df = pd.DataFrame({"soc": soc, "voltage": voltage})
-# 2. 缺失值处理：线性插值（比填均值更符合物理规律）
-df["voltage"] = df["voltage"].interpolate()
-print("插值后缺失数:", int(df["voltage"].isna().sum()))
-# 3. 关联分析：SOC 与电压的相关系数
-corr = df["soc"].corr(df["voltage"])
-print("SOC 与电压相关系数:", round(corr, 4))
-# 4. 散点图 + 拟合线：服务"SOC 与电压强相关"的结论
-fit = np.polyfit(df["soc"], df["voltage"], 1)
-fig, ax = plt.subplots(figsize=(7, 5))
-ax.scatter(df["soc"], df["voltage"], s=12, alpha=0.6)
-ax.plot(df["soc"], np.polyval(fit, df["soc"]), "r-",
-        label=f"拟合线 y={fit[0]:.4f}x+{fit[1]:.3f}")
-ax.set_title("电池 SOC-电压 关联")
-ax.set_xlabel("SOC (%)")
-ax.set_ylabel("电压 (V)")
-ax.legend()
-plt.tight_layout()
-plt.savefig(outdir / "battery_soc_voltage.png", dpi=150)
+# examples/ex04-resource-usage.py —— 资源用量分析
+# 验证环境：Python 3.13.9（pandas/numpy/matplotlib）；运行：python3 ex04-resource-usage.py（离线可跑，已验证）
+# 1. 构造数据：3 个服务实例 × 15 个采样点的 CPU/内存读数，注入 3 处内存缺失
+# 2. 缺失值决策：按服务实例分组线性插值（连续量比填均值更符合变化规律）
+print("清洗前缺失数:", int(df["mem_used_gb"].isna().sum()))
+df["mem_used_gb"] = df.groupby("service_id")["mem_used_gb"].transform(
+    lambda s: s.interpolate()
+)
+print("插值后缺失数:", int(df["mem_used_gb"].isna().sum()))
+# 3. 分组统计：各实例 CPU/内存均值与峰值、内存峰值利用率（相对 256 GB 上限）
+summary = df.groupby("service_id").agg(
+    avg_cpu_pct=("cpu_pct", "mean"),
+    max_cpu_pct=("cpu_pct", "max"),
+    max_mem_used_gb=("mem_used_gb", "max"),
+)
+summary["mem_peak_pct"] = summary["max_mem_used_gb"] / 256.0 * 100
+# 4. 透视表：「CPU 档位 × 实例」的内存均值（长表变宽表）
+pt = pd.pivot_table(df, values="mem_used_gb", index="cpu_bucket",
+                    columns="service_id", aggfunc="mean")
+# 5. 散点图 + 拟合线：CPU 与内存同向变化的关联证据
+corr = df["cpu_pct"].corr(df["mem_used_gb"])
+print("CPU 与内存相关系数:", round(corr, 4))
 ```
 
-实测输出（节选）：`插值后缺失数: 0`（清洗前 3 处缺失全部补齐）；`SOC 与电压相关系数: 0.9974`；PNG 约 66 KB。
+实测输出（节选）：`清洗前缺失数: 3` → `插值后缺失数: 0`；各实例 CPU 均值 `S001 66.30 / S002 72.20 / S003 78.22`；`CPU 与内存相关系数: 0.9874`；PNG 约 55 KB。
 
-### 示例 4：CAN 日志统计（字段解析 + 按 ID 分组 + 频次分布）
+**为什么用 `transform` 而不是直接 `interpolate`**：`interpolate()` 在整表上调用会把不同实例的读数接在一起（跨实例插值没有物理意义）；`groupby(...).transform(...)` 保证**组内**插值且返回与原件同索引的 Series，可直接赋值回列。
 
-呼应"CAN 日志统计"练习：解析 CAN 报文日志文本，按报文 ID 分组统计频次并画分布图。完整文件 `examples/ex05-can-log-stats.py`。
+### 示例 4：平台服务日志统计（正则解析 + 按来源/级别分组 + 频次分布）
+
+呼应练习 4：解析平台服务日志文本，按来源与级别统计并画分布图。完整文件 `examples/ex05-log-stats.py`。
 
 ```python
-# examples/ex05-can-log-stats.py —— CAN 日志统计
-# 验证环境：Python 3.13.9，pandas 2.3.3，matplotlib 3.10.6；运行：python3 ex05-can-log-stats.py（离线可跑，已验证）
+# examples/ex05-log-stats.py —— 平台服务日志统计
+# 验证环境：Python 3.13.9（pandas/matplotlib）；运行：python3 ex05-log-stats.py（离线可跑，已验证）
 import re
-import tempfile
-from pathlib import Path
-
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import pandas as pd
-
-outdir = Path(tempfile.mkdtemp(prefix="ph09-ex05-"))   # 产物一律写临时目录
-
-# 1. 模拟 CAN 日志（真实场景换成 open("can.log").readlines()）
+# 1. 模拟平台服务日志：一行一条「时间 + 级别 + 来源 + 消息」
 log_text = """\
-2024-06-01 08:00:00.123 CAN 0x123 DLC 8 78 5A 00 10 00 00 00 00
-2024-06-01 08:00:00.125 CAN 0x456 DLC 8 00 00 50 00 00 00 00 00
-2024-06-01 08:00:00.140 CAN 0x789 DLC 8 01 02 03 04 05 06 07 08
-2024-06-01 08:00:00.155 CAN 0x123 DLC 8 80 5C 00 10 00 00 00 00
-2024-06-01 08:00:01.000 CAN 0x123 DLC 8 82 5C 00 10 00 00 00 00
-2024-06-01 08:00:01.020 CAN 0x456 DLC 8 00 00 50 00 00 00 00 00
-2024-06-01 08:00:01.040 CAN 0x789 DLC 8 02 02 03 04 05 06 07 08
-2024-06-01 08:00:02.000 CAN 0x123 DLC 8 84 5C 00 10 00 00 00 00
-"""
-pattern = re.compile(r"(\d{4}-\d{2}-\d{2} [\d:.]+) CAN (0x[0-9A-Fa-f]+) DLC \d (.*)")
+2024-06-01 08:00:00.123 INFO  svc-001 request ok latency=42ms
+2024-06-01 08:00:00.125 WARN  svc-002 latency high: 880ms
+2024-06-01 08:00:00.140 ERROR svc-003 upstream timeout
+..."""
+pattern = re.compile(r"(\d{4}-\d{2}-\d{2} [\d:.]+)\s+(\w+)\s+(svc-\d+)\s+(.*)")
 rows = []
 for line in log_text.strip().splitlines():
     m = pattern.match(line)
-    if m is None:                        # 解析失败的脏行直接跳过（真实日志中常见）
+    if m is None:                 # 解析失败的脏行直接跳过（真实日志中常见）
         continue
-    ts, can_id, data = m.group(1), m.group(2), m.group(3)
-    rows.append({"time": ts, "can_id": can_id,
-                 "byte0": int(data.split()[0], 16)})    # 提取首字节（十六进制）
+    ts, level, source, msg = m.groups()
+    rows.append({"time": ts, "level": level, "source": source, "message": msg})
 df = pd.DataFrame(rows)
-# 2. 按报文 ID 分组统计频次（size 统计组内行数）
-freq = df.groupby("can_id").size().sort_values(ascending=False)
-print("各 CAN ID 报文频次:")
-print(freq)
-print("总报文数:", len(df), " 不同 ID 数:", df["can_id"].nunique())
-# 3. 频次分布柱状图：服务"哪些报文最频繁"的结论
-freq.plot.bar(figsize=(6, 4), color="seagreen")
-plt.title("CAN 报文频次分布")
-plt.ylabel("条数")
-plt.tight_layout()
-plt.savefig(outdir / "can_freq.png", dpi=150)
+# 2. 按来源统计活跃度、按级别看分布（size 统计组内行数）
+print(df.groupby("source").size().sort_values(ascending=False))
+print(df.groupby("level").size())
+# 3. 来源频次柱状图：服务"哪个服务实例在刷日志"的结论
+df.groupby("source").size().plot.bar(figsize=(6, 4), color="seagreen")
 ```
 
-实测输出（节选）：频次 `0x123 = 4、0x456 = 2、0x789 = 2`；`总报文数: 8 不同 ID 数: 3`；PNG 约 26 KB。
+实测输出（节选）：解析 8 行、3 个不同来源；来源频次 `svc-001=4 / svc-002=2 / svc-003=2`；PNG 约 26 KB。
 
-### 示例 5：数据合并与透视（多表 join + pivot_table + 汇总报告导出）
+**脏行为什么要「跳过并计数」而不是抛异常**：日志是外部输入，一行格式坏掉不能让整批统计失败（与 ph18 的采集审计同一条纪律）；示例用 `continue` 跳过，生产里再补一个 `bad_lines` 计数器就能把数据质量暴露出来。
 
-呼应练习综合与"推荐项目：车辆遥测分析脚本"：合并车辆档案与遥测记录，透视汇总后导出 Excel + Markdown 报告。完整文件 `examples/ex06-report-export.py`。
+### 示例 5：数据合并与透视（多表 join + pivot_table + 报表导出）
+
+呼应练习综合与 roadmap「推荐项目：平台指标分析脚本」：合并服务档案与用量记录，透视汇总后导出 Excel + Markdown 报告。完整文件 `examples/ex06-report-export.py`。
 
 ```python
 # examples/ex06-report-export.py —— 数据合并与透视
-# 验证环境：Python 3.13.9，pandas 2.3.3，openpyxl 3.1.5，tabulate 0.9.0；运行：python3 ex06-report-export.py（离线可跑，已验证）
-import tempfile
-from pathlib import Path
-
-import pandas as pd
-
-outdir = Path(tempfile.mkdtemp(prefix="ph09-ex06-"))   # 产物一律写临时目录
-
-# 1. 两张表：车辆档案 + 遥测记录
-fleet = pd.DataFrame({
-    "vehicle_id": ["V001", "V002", "V003"],
-    "model": ["EV-A", "EV-B", "EV-A"],
-})
-telemetry = pd.DataFrame({
-    "vehicle_id": ["V001", "V001", "V002", "V003", "V003", "V003"],
+# 验证环境：Python 3.13.9（pandas/openpyxl/tabulate）；运行：python3 ex06-report-export.py（离线可跑，已验证）
+# 1. 两张表：服务档案 + 用量记录
+services = pd.DataFrame({"service_id": ["S001", "S002", "S003"], "tier": ["标准", "标准", "高配"]})
+usage = pd.DataFrame({
+    "service_id": ["S001", "S001", "S002", "S003", "S003", "S003"],
     "day": ["周一", "周二", "周一", "周一", "周二", "周三"],
-    "mileage": [120.5, 135.0, 98.0, 150.2, 145.8, 88.4],
-    "energy": [18.2, 20.1, 15.5, 22.0, 21.5, 13.8],
+    "requests": [12000, 13500, 9800, 15000, 14500, 8800],
+    "errors": [12, 9, 40, 15, 11, 7],
+    "latency_ms": [42.5, 45.1, 88.0, 60.2, 58.4, 55.0],
 })
-
-# 2. 多表 join：按 vehicle_id 关联（left 保留全部遥测记录）
-merged = telemetry.merge(fleet, on="vehicle_id", how="left")
-# 3. 分组统计：每车总里程、总能耗、百公里能耗
-report = merged.groupby("vehicle_id").agg(
-    total_mileage=("mileage", "sum"),
-    total_energy=("energy", "sum"),
-    trips=("day", "count"),
+# 2. 多表 join：按 service_id 关联（left 保留全部用量记录）
+merged = usage.merge(services, on="service_id", how="left")
+# 3. 分组统计：每实例总请求、总错误、平均延迟、错误率
+report = merged.groupby("service_id").agg(
+    total_requests=("requests", "sum"),
+    total_errors=("errors", "sum"),
+    avg_latency_ms=("latency_ms", "mean"),
 )
-report["energy_per_100km"] = report["total_energy"] / report["total_mileage"] * 100
-report = report.round(2)
-print(report)
-# 4. 透视表：车辆 × 日期的里程（长表变宽表，fill_value=0 防 NaN）
-pt = pd.pivot_table(merged, values="mileage", index="day",
-                    columns="vehicle_id", aggfunc="sum", fill_value=0)
-print(pt)
-# 5. 导出报告：Excel 多 Sheet + Markdown 摘要（index=False 防多余行号列）
-with pd.ExcelWriter(outdir / "fleet_report.xlsx") as writer:
+report["error_pct"] = report["total_errors"] / report["total_requests"] * 100
+# 4. 透视表：日期 × 实例的请求量（长表变宽表，fill_value=0 防 NaN）
+pt = pd.pivot_table(merged, values="requests", index="day",
+                    columns="service_id", aggfunc="sum", fill_value=0)
+# 5. 导出报告：Excel 多 Sheet + Markdown 摘要
+with pd.ExcelWriter(outdir / "svc_report.xlsx") as writer:
     report.to_excel(writer, sheet_name="汇总")
-    pt.to_excel(writer, sheet_name="里程透视")
-md = outdir / "fleet_report.md"
-md.write_text("# 车队能耗报告\n\n" + report.to_markdown(), encoding="utf-8")
-print("已导出:", outdir / "fleet_report.xlsx", "与", md)
+    pt.to_excel(writer, sheet_name="请求量透视")
+(outdir / "svc_report.md").write_text("# 平台服务日报\n\n" + report.to_markdown(), encoding="utf-8")
 ```
 
-实测输出（节选）：每车汇总 `V001 255.5 km / 38.3 kWh / 14.99 kWh/100km`、`V002 98.0 / 15.5 / 15.82`、`V003 384.4 / 57.3 / 14.91`；里程透视表（周一/周二/周三 × V001/V002/V003）；Excel 与 Markdown 均生成。
+实测输出（节选）：每实例汇总 `S001 25500 请求 / 21 错误 / 43.80 ms / 0.08%`、`S002 9800 / 40 / 88.00 / 0.41`、`S003 38300 / 33 / 57.87 / 0.09`；请求量透视表（周一/周二/周三 × S001/S002/S003）；Excel 与 Markdown 均生成。
 
 ## 7. 总结
 
@@ -614,13 +573,13 @@ print("已导出:", outdir / "fleet_report.xlsx", "与", md)
 本阶段练习见 [`exercises/`](./exercises/)（题目在 [exercises/README.md](./exercises/README.md)，参考实现 sol-* 先别看）。完成 4 题后继续：
 
 - 销售数据分析（★★）：自造或下载一份 CSV，做缺失值处理 + 门店/品类分组统计 + 柱状图（提示：先 `info()` 看类型；`groupby` 后 `reset_index()` 恢复普通列）
-- 车辆速度分析（★★）：时间序列 + 过滤异常值（>200 km/h 的 GPS 跳变）+ 折线趋势图（提示：`set_index` 后 `resample("5min")` 看趋势更清晰）
-- 电池数据分析（★★★）：SOC 与电压散点图 + 相关系数 + 缺失值处理（提示：`interpolate()` 比填均值更符合物理规律）
-- CAN 日志统计（★★★）：解析日志字段 → 按 CAN ID 分组 → 频次分布图（提示：先写正则验证样本；`size()` 统计组内行数）
+- 延迟趋势分析（★★）：时间序列 + 过滤量程越界（>2000 ms）+ 折线趋势图（提示：`set_index` 后 `resample("5min")` 看趋势更清晰）
+- 资源用量分析（★★★）：CPU 与内存散点图 + 相关系数 + 缺失值处理（提示：`groupby().transform(interpolate)` 做组内插值，避免跨实例拼接）
+- 平台日志统计（★★★）：解析日志字段 → 按来源/级别分组 → 频次分布图（提示：先写正则验证样本；`size()` 统计组内行数）
 
 ### 阶段项目
 
-本阶段综合项目见 [`project/`](./project/)：**车辆遥测分析脚本**——读取遥测 CSV → 清洗（缺失/异常值）→ 按车辆分组统计（均速、里程、能耗）→ 折线趋势 + 柱状对比图 → 导出 Excel 报表（对应 roadmap「推荐项目」第一个「车辆遥测分析脚本」）。建议完成练习后再动手；roadmap 的另一个「电池健康分析报表」可作扩展改造目标（把统计对象换成 SOC/电压/温度）。
+本阶段综合项目见 [`project/`](./project/)：**平台指标分析脚本（metrics_analyzer）**——读取指标 CSV → 清洗（量程/缺失/异常）→ 按服务实例分组统计（延迟、CPU、内存、错误率）→ 折线趋势 + 柱状对比图 → 导出 Excel 报表（对应 roadmap「推荐项目」第一个「平台指标分析脚本」）。建议完成练习后再动手；roadmap 的另一个「节点资源用量报表」可作扩展改造目标（把统计对象换成磁盘温度/网络吞吐/功耗）。
 
 - [ ] 完成 exercises/ 全部 4 题并对照参考实现复盘
 - [ ] 独立完成 project/ 并通过其验收标准

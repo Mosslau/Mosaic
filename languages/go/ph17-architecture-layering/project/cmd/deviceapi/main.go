@@ -7,7 +7,7 @@
 // 运行：
 //
 //	go run ./cmd/deviceapi -addr 127.0.0.1:18084 -store mem
-//	go run ./cmd/deviceapi -addr 127.0.0.1:18084 -store file -store-file /tmp/ph17-devices.json
+//	go run ./cmd/deviceapi -addr 127.0.0.1:18084 -store file -store-file /tmp/ph17-nodes.json
 //
 // 注：go 命令需带仓库统一重定位环境（GOCACHE=/tmp/gocache GOMODCACHE=/tmp/gomodcache
 //
@@ -29,11 +29,11 @@ import (
 	"tenetlang/go/ph17-architecture-layering/project/internal/store"
 )
 
-// 编译期断言：两个存储实现都满足消费方接口 service.DeviceStore。
+// 编译期断言：两个存储实现都满足消费方接口 service.NodeStore。
 // 断言放组装点，不在实现包里 import 消费方（依赖方向保持单向向内，主文档 3.7）。
 var (
-	_ service.DeviceStore = (*store.Mem)(nil)
-	_ service.DeviceStore = (*store.File)(nil)
+	_ service.NodeStore = (*store.Mem)(nil)
+	_ service.NodeStore = (*store.File)(nil)
 )
 
 func main() {
@@ -57,7 +57,7 @@ func main() {
 		Handler:           accessLog(logger, mux),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
-	logger.Info("device api listening", "addr", cfg.Addr, "store", cfg.Store)
+	logger.Info("node api listening", "addr", cfg.Addr, "store", cfg.Store)
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		logger.Error("server error", "err", err)
 		os.Exit(1)
@@ -65,7 +65,7 @@ func main() {
 }
 
 // newStore 是"存储选型"的唯一落点：新增实现（如数据库）只扩展这里。
-func newStore(cfg config.Config) (service.DeviceStore, error) {
+func newStore(cfg config.Config) (service.NodeStore, error) {
 	switch cfg.Store {
 	case "mem":
 		return store.NewMem(), nil

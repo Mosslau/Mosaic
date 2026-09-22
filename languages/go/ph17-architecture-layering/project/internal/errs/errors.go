@@ -13,14 +13,14 @@ package errs
 
 import "fmt"
 
-// Code 稳定对外错误码（本项目的设备管理域词汇）。
+// Code 稳定对外错误码（本项目的节点管理域词汇）。
 type Code string
 
 const (
 	CodeBadRequest Code = "BAD_REQUEST"
-	CodeNotFound   Code = "DEVICE_NOT_FOUND"
-	CodeExists     Code = "DEVICE_EXISTS"
-	CodeOffline    Code = "DEVICE_OFFLINE"
+	CodeNotFound   Code = "NODE_NOT_FOUND"
+	CodeExists     Code = "NODE_EXISTS"
+	CodeOffline    Code = "NODE_OFFLINE"
 	CodeConflict   Code = "CONFLICT"
 	CodeInternal   Code = "INTERNAL"
 )

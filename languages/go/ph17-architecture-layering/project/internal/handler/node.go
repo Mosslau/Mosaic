@@ -2,7 +2,7 @@
 // 一句话说明：HTTP 接入层。所有端点 = 解码请求 → 调 service → 写响应（JSON/状态码）。
 // 业务规则不在此出现；错误统一交给 fail()：errors.As 取回 *errs.Error 后按 Code
 // 映射 HTTP 状态——这是全项目唯一做"业务码 ↔ 传输状态码"翻译的地方。
-// 响应直接序列化 domain.Device（json tag 教学简化，见主文档 3.2）。
+// 响应直接序列化 domain.Node（json tag 教学简化，见主文档 3.2）。
 // 验证环境：go1.25.6（darwin/arm64），依赖：零第三方（标准库）
 // 构建：go build ./...    测试：go test ./...    静态检查：go vet ./...
 // 注：go 命令需带仓库统一重定位环境（GOCACHE=/tmp/gocache GOMODCACHE=/tmp/gomodcache
@@ -35,24 +35,24 @@ func New(svc *service.Service, logger *slog.Logger) *Handler {
 // Register 挂载全部路由（Go 1.22+ 方法路由，见 ph09 Web 后端开发阶段）。
 func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /healthz", h.health)
-	mux.HandleFunc("POST /api/devices", h.create)
-	mux.HandleFunc("GET /api/devices", h.list)
-	mux.HandleFunc("GET /api/devices/{id}", h.get)
-	mux.HandleFunc("DELETE /api/devices/{id}", h.delete)
-	mux.HandleFunc("POST /api/devices/{id}/heartbeat", h.heartbeat)
-	mux.HandleFunc("POST /api/devices/{id}/firmware", h.upgrade)
-	mux.HandleFunc("POST /api/devices/{id}/commands", h.command)
+	mux.HandleFunc("POST /api/nodes", h.create)
+	mux.HandleFunc("GET /api/nodes", h.list)
+	mux.HandleFunc("GET /api/nodes/{id}", h.get)
+	mux.HandleFunc("DELETE /api/nodes/{id}", h.delete)
+	mux.HandleFunc("POST /api/nodes/{id}/heartbeat", h.heartbeat)
+	mux.HandleFunc("POST /api/nodes/{id}/version", h.upgrade)
+	mux.HandleFunc("POST /api/nodes/{id}/commands", h.command)
 }
 
 // ---- 请求/响应结构（接入层词汇，见主文档 3.2）----
 
 type createRequest struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Firmware string `json:"firmware"`
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Version string `json:"version"`
 }
 
-type firmwareRequest struct {
+type versionRequest struct {
 	Version string `json:"version"`
 }
 
@@ -81,7 +81,7 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, errs.New(errs.CodeBadRequest, "请求体不是合法 JSON"))
 		return
 	}
-	d, err := h.svc.Register(req.ID, req.Name, req.Firmware)
+	d, err := h.svc.Register(req.ID, req.Name, req.Version)
 	if err != nil {
 		h.fail(w, r, err)
 		return
@@ -90,12 +90,12 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
-	devices, err := h.svc.List()
+	nodes, err := h.svc.List()
 	if err != nil {
 		h.fail(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, devices)
+	writeJSON(w, http.StatusOK, nodes)
 }
 
 func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
@@ -125,12 +125,12 @@ func (h *Handler) heartbeat(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) upgrade(w http.ResponseWriter, r *http.Request) {
-	var req firmwareRequest
+	var req versionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.fail(w, r, errs.New(errs.CodeBadRequest, "请求体不是合法 JSON"))
 		return
 	}
-	d, err := h.svc.UpgradeFirmware(r.PathValue("id"), req.Version)
+	d, err := h.svc.UpgradeVersion(r.PathValue("id"), req.Version)
 	if err != nil {
 		h.fail(w, r, err)
 		return

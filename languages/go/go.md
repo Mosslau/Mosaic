@@ -542,7 +542,7 @@ protobuf → 定义 service → 生成 Go 代码 → server → client → inter
 
 - 用户服务
 - 订单服务
-- 设备管理服务
+- 节点管理服务
 - gRPC 通信 demo
 
 ### 阶段验收
@@ -847,7 +847,7 @@ handler → service → repository → database
 ### 推荐项目
 
 - 分层 Web API 模板
-- 设备管理服务
+- 节点管理服务
 
 ## 18. API 设计与兼容性阶段
 

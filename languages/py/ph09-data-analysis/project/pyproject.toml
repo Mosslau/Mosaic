@@ -1,8 +1,8 @@
 # project/pyproject.toml —— 依赖声明 + ruff / pytest 配置
 [project]
-name = "telemetry-analyzer"
+name = "metrics-analyzer"
 version = "0.1.0"
-description = "ph09 阶段项目：车辆遥测分析脚本"
+description = "ph09 阶段项目：平台指标分析脚本"
 requires-python = ">=3.11"
 dependencies = [
     "numpy>=2.0",
@@ -19,7 +19,7 @@ dev = [
 ]
 
 [tool.ruff]
-line-length = 110
+line-length = 100
 target-version = "py311"
 
 [tool.ruff.lint]
