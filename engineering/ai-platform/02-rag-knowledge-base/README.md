@@ -55,10 +55,10 @@
 
 ## 复用的算法实验
 
-- [迷你 RAG 检索增强生成](../../algorithms/05-generative/mini-rag/) —— **本项目的算法内核**：切分、向量化、相似度检索与「把检索结果拼进提示」的完整链路；本项目的混合检索与引用溯源都是它的工程化放大
-- [注意力机制](../../algorithms/04-transformer/attention/) —— 交叉编码器 Rerank 的打分本质（query-document 交互），理解它才知道 rerank 为什么比向量点积准
-- [K-Means 聚类](../../algorithms/02-statistical-ml/kmeans/) —— 知识库主题覆盖度分析（语料偏科会让某类问题系统性答不出来）
-- [PCA 主成分分析](../../algorithms/02-statistical-ml/pca/) —— 向量空间可视化抽检（检索失败时，先看向量空间是否把语义相近的文档分开了）
+- [迷你 RAG 检索增强生成](../../../algorithms/05-generative/mini-rag/) —— **本项目的算法内核**：切分、向量化、相似度检索与「把检索结果拼进提示」的完整链路；本项目的混合检索与引用溯源都是它的工程化放大
+- [注意力机制](../../../algorithms/04-transformer/attention/) —— 交叉编码器 Rerank 的打分本质（query-document 交互），理解它才知道 rerank 为什么比向量点积准
+- [K-Means 聚类](../../../algorithms/02-statistical-ml/kmeans/) —— 知识库主题覆盖度分析（语料偏科会让某类问题系统性答不出来）
+- [PCA 主成分分析](../../../algorithms/02-statistical-ml/pca/) —— 向量空间可视化抽检（检索失败时，先看向量空间是否把语义相近的文档分开了）
 
 ## 验收标准
 

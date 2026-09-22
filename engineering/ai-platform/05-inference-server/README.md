@@ -63,9 +63,9 @@
 
 ## 复用的算法实验
 
-- [迷你 GPT 字符级语言模型](../../algorithms/04-transformer/mini-gpt/) —— **本项目的原理底座**：自回归生成的采样过程、KV 逐 token 增长的内存形态，是理解 KV Cache 与 prefill/decode 的前提
-- [迷你 Transformer Block](../../algorithms/04-transformer/mini-transformer/) —— 模型结构的最小完整形态；量化与批处理影响的是这些矩阵运算的显存与算力
-- [注意力机制](../../algorithms/04-transformer/attention/) —— prefill（全序列注意力）与 decode（单 token 注意力）的算力差异来源，解释 TTFT 与 TPOT 为何是两种延迟
+- [迷你 GPT 字符级语言模型](../../../algorithms/04-transformer/mini-gpt/) —— **本项目的原理底座**：自回归生成的采样过程、KV 逐 token 增长的内存形态，是理解 KV Cache 与 prefill/decode 的前提
+- [迷你 Transformer Block](../../../algorithms/04-transformer/mini-transformer/) —— 模型结构的最小完整形态；量化与批处理影响的是这些矩阵运算的显存与算力
+- [注意力机制](../../../algorithms/04-transformer/attention/) —— prefill（全序列注意力）与 decode（单 token 注意力）的算力差异来源，解释 TTFT 与 TPOT 为何是两种延迟
 - 说明：本项目**不重写推理内核**（continuous batching / PagedAttention / kernel 融合属引擎领域），只做服务化与工程度量
 
 ## 验收标准

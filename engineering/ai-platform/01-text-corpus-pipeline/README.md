@@ -52,9 +52,9 @@
 
 ## 复用的算法实验
 
-- [迷你 RAG 检索增强生成](../../algorithms/05-generative/mini-rag/) —— 向量化与「检索口径」的源头；本项目的 embedding 产物必须能被它的检索链路直接消费（口径一致）
-- [K-Means 聚类](../../algorithms/02-statistical-ml/kmeans/) —— 语料主题分布抽样与去重后的覆盖度抽检（避免去重把某一类语料去没）
-- [PCA 主成分分析](../../algorithms/02-statistical-ml/pca/) —— embedding 降维可视化抽检（人眼确认向量空间没有塌缩）
+- [迷你 RAG 检索增强生成](../../../algorithms/05-generative/mini-rag/) —— 向量化与「检索口径」的源头；本项目的 embedding 产物必须能被它的检索链路直接消费（口径一致）
+- [K-Means 聚类](../../../algorithms/02-statistical-ml/kmeans/) —— 语料主题分布抽样与去重后的覆盖度抽检（避免去重把某一类语料去没）
+- [PCA 主成分分析](../../../algorithms/02-statistical-ml/pca/) —— embedding 降维可视化抽检（人眼确认向量空间没有塌缩）
 - 去重算法（MinHash/LSH）本轮需**新增手写实验**：阶段一开工前应在 `algorithms/` 补一个 `05-generative/` 或新族下的 `minhash-dedup` 实验，或在实施笔记中记录「直接手写在项目内、后续回填为实验」——二者选一，不许留空
 
 ## 验收标准

@@ -1,6 +1,6 @@
 ---
 name: mindspring-lab
-description: MindSpring 仓库 algorithms/ 与 engineering/ 两条线的实验/项目写作与验证规范。当在 MindSpring 项目中新增算法实验、推进实验状态（⬜→🚧→✅）、补写/重构实验 README、做手写 vs 框架对照实验、新增或推进工程项目、检查完成度时使用。确保任何算法实验、任何工程项目的 README 结构、实验纪律、验证声明完全一致。本 skill 是 algorithms/ 与 engineering/ 写作任务的唯一权威规范，优先于对存量实验的直接模仿。本 skill 仅管辖 algorithms/ 与 engineering/；roadmap/、仓库根 README 等非实验文档不受本 skill 约束，禁止套用其模板结构。
+description: MindSpring 仓库 algorithms/ 与 engineering/ai-platform/ 两条线的实验/项目写作与验证规范。当在 MindSpring 项目中新增算法实验、推进实验状态（⬜→🚧→✅）、补写/重构实验 README、做手写 vs 框架对照实验、新增或推进工程项目、检查完成度时使用。确保任何算法实验、任何工程项目的 README 结构、实验纪律、验证声明完全一致。本 skill 是 algorithms/ 与 engineering/ai-platform/ 写作任务的唯一权威规范，优先于对存量实验的直接模仿。本 skill 仅管辖 algorithms/ 与 engineering/ai-platform/；roadmap/、仓库根 README 等非实验文档不受本 skill 约束，禁止套用其模板结构。
 agent_created: true
 ---
 
@@ -8,9 +8,9 @@ agent_created: true
 
 ## Overview
 
-MindSpring 是 AI 核心技术实验室，两条线：**algorithms/**（手写算法 vs 框架对照，理解原理）与 **engineering/**（可运行工程系统，理解工程）。本 skill 定义两类交付物的 README 结构、实验纪律与完成度检查流程，保证任何实验、任何项目写出来都长一个样。本 skill 只含规范与模板，不维护任何实验的现状快照（哪个实验完成到哪，以 `algorithms/README.md` 索引表与磁盘目录为准）。
+MindSpring 是 AI 核心技术实验室，两条线：**algorithms/**（手写算法 vs 框架对照，理解原理）与 **engineering/ai-platform/**（可运行工程系统，理解工程）。本 skill 定义两类交付物的 README 结构、实验纪律与完成度检查流程，保证任何实验、任何项目写出来都长一个样。本 skill 只含规范与模板，不维护任何实验的现状快照（哪个实验完成到哪，以 `algorithms/README.md` 索引表与磁盘目录为准）。
 
-**适用范围**：本 skill 只管 `algorithms/` 与 `engineering/` 两个目录。`roadmap/` 是理论输入文档（实验章节锚点的来源），其写作不受本规范约束；仓库根 README、pyproject.toml 等也不归本 skill 管。
+**适用范围**：本 skill 只管 `algorithms/` 与 `engineering/ai-platform/` 两个目录。`roadmap/` 是理论输入文档（实验章节锚点的来源），其写作不受本规范约束；仓库根 README、pyproject.toml 等也不归本 skill 管。
 
 **管辖边界（不纳入本规范的内容）**：即使物理位置落在管辖目录下，以下内容也不受本规范约束，**写作与检查都跳过**：
 
@@ -30,7 +30,7 @@ algorithms/<NN-族>/<算法名>/          # 01-search/a-star, 04-transformer/att
 ├── framework.py 或 baseline.py      # 对照版：框架 或 基线算法（按算法族二选一）
 └── demo.py                          # 同数据双跑对比的入口
 
-engineering/<NN-项目>/                # 01-text-corpus-pipeline ~ 07-ai-platform
+engineering/ai-platform/<NN-项目>/                # 01-text-corpus-pipeline ~ 07-ai-platform
 ├── README.md                        # 项目主文档（六段式，必含）
 └── <项目源码>                       # 可运行系统
 ```
@@ -72,7 +72,7 @@ engineering/<NN-项目>/                # 01-text-corpus-pipeline ~ 07-ai-platfo
 | 🚧 进行中 | 部分段落已填 | `> 状态：🚧 进行中` |
 | ✅ 已完成 | 六段齐全、双跑对照有实数 | `> 状态：✅ 已完成（YYYY-MM-DD）` |
 
-**✅ 的门槛**：双跑对照完成、实验结果有真实数字与复现命令、README 无占位段落（`validate.py` 对 ✅ 状态的占位/空段记硬伤）。pytest 全绿**不是** ✅ 的门槛，是 `validate.py --pytest` 的可选执行项。✅ 必须带完成日期；索引表（`algorithms/README.md` / `engineering/README.md`）的状态与日期必须与各 README 一致。
+**✅ 的门槛**：双跑对照完成、实验结果有真实数字与复现命令、README 无占位段落（`validate.py` 对 ✅ 状态的占位/空段记硬伤）。pytest 全绿**不是** ✅ 的门槛，是 `validate.py --pytest` 的可选执行项。✅ 必须带完成日期；索引表（`algorithms/README.md` / `engineering/ai-platform/README.md`）的状态与日期必须与各 README 一致。
 
 **状态迁移不设中间限制**：允许 ⬜ 直接推进到 ✅（跳过 🚧），只要 ✅ 门槛全部满足。
 

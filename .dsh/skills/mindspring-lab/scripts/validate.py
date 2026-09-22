@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parents[4]  # .dsh/skills/mindspring-lab/scripts
 assert (ROOT / "algorithms").is_dir(), f"仓库根定位失败：{ROOT}"
 
 ALGO_INDEX = ROOT / "algorithms" / "README.md"
-ENG_INDEX = ROOT / "engineering" / "README.md"
+ENG_INDEX = ROOT / "engineering" / "ai-platform" / "README.md"
 ALGO_ROADMAP = ROOT / "roadmap" / "人工智能代表算法演进路线.md"
 
 # 六段式权威结构（与 references/ 下两个模板一致；算法实验的"对照"段名按族二选一）
@@ -137,7 +137,7 @@ def parse_algo_index(rep: Report) -> dict[str, dict]:
 
 
 def parse_eng_index(rep: Report) -> dict[str, dict]:
-    """解析 engineering/README.md 项目总览表：{目录名: {stage, status, date}}。
+    """解析 engineering/ai-platform/README.md 项目总览表：{目录名: {stage, status, date}}。
 
     列序契约（见 references/index-format.md）：阶段 | 项目(链接) | 验收标准一句话 | 状态 | 完成日期
     """
@@ -148,12 +148,13 @@ def parse_eng_index(rep: Report) -> dict[str, dict]:
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
         m = LINK_RE.search(cells[1]) if len(cells) > 1 else None
         if m is None or len(cells) < 5:
-            rep.warn(f"engineering/README.md 第 {lineno} 行：疑似总览条目但解析失败"
+            rep.warn(f"engineering/ai-platform/README.md 第 {lineno} 行：疑似总览条目但解析失败"
                      f"（列序契约见 references/index-format.md）")
             continue
         link = m.group(2).rstrip("/")
         if not re.match(r"^\d{2}-[\w-]+$", link):
-            rep.warn(f"engineering/README.md 第 {lineno} 行：链接 {link} 不符合 <NN-项目> 形态")
+            rep.warn(f"engineering/ai-platform/README.md 第 {lineno} 行："
+                     f"链接 {link} 不符合 <NN-项目> 形态")
             continue
         entries[link] = {"stage": cells[0], "status": cells[3], "date": cells[4]}
     return entries
@@ -408,13 +409,14 @@ def main() -> int:
 
     # --- engineering 线 ---
     eng_idx = parse_eng_index(rep)
-    for unit in sorted(p for p in ROOT.glob("engineering/[0-9][0-9]-*") if p.is_dir()):
+    for unit in sorted(p for p in ROOT.glob("engineering/ai-platform/[0-9][0-9]-*") if p.is_dir()):
         idx = eng_idx.pop(unit.name, None)
         if idx is None:
-            rep.err(f"{unit.relative_to(ROOT)}：目录存在但未在 engineering/README.md 项目总览登记")
+            rep.err(f"{unit.relative_to(ROOT)}：目录存在但未在 "
+                    f"engineering/ai-platform/README.md 项目总览登记")
         check_eng_unit(unit, idx, rep, args.deep)
     for name in eng_idx:
-        rep.err(f"engineering/README.md 项目总览登记了 {name}，但磁盘目录不存在")
+        rep.err(f"engineering/ai-platform/README.md 项目总览登记了 {name}，但磁盘目录不存在")
 
     # --- 可选项 ---
     if args.git:
