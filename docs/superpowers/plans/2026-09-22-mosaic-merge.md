@@ -1304,7 +1304,7 @@ git commit -m "refactor(engineering): AI 平台域归位 engineering/ai-platform
 
 - MindSpring/engineering → engineering/ai-platform（7 个项目 + 索引）
 - 29 处跨目录路径修正（27 处复用的算法实验 + 2 处路线文档，含 4 处内联代码形态）
-- mindspring-lab 校验器 3 处 + SKILL 管辖路径
+- mindspring-lab 校验器 7 处（2 处定位 + 5 处陈旧文案）+ SKILL 管辖路径
 - 4 文件 6 行『分工/边界』改写为新域词汇
 - 新增 engineering/README.md：两域分工 + 依赖关系与开工顺序
 - validate.py / pytest / ruff 全绿"
