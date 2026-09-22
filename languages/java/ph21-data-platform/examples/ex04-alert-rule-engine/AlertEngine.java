@@ -40,9 +40,9 @@ public final class AlertEngine {
                             long start = System.nanoTime();
                             Object result = method.invoke(target, args);
                             long costMs = (System.nanoTime() - start) / 1_000_000;
-                            String vin = args[0] == null ? "-" : ((AlertRule.TelemetrySnapshot) args[0]).vin();
-                            System.out.printf("  [proxy] rule=%s vin=%s costMs=%d%n",
-                                    target.name(), vin, costMs);
+                            String sourceId = args[0] == null ? "-" : ((AlertRule.MetricSnapshot) args[0]).sourceId();
+                            System.out.printf("  [proxy] rule=%s sourceId=%s costMs=%d%n",
+                                    target.name(), sourceId, costMs);
                             return result;
                         }
                         return method.invoke(target, args);
@@ -50,8 +50,8 @@ public final class AlertEngine {
                 });
     }
 
-    /** 对一条遥测帧跑全部规则，收集命中告警。 */
-    public List<String> evaluateAll(AlertRule.TelemetrySnapshot frame) {
+    /** 对一条指标帧跑全部规则，收集命中告警。 */
+    public List<String> evaluateAll(AlertRule.MetricSnapshot frame) {
         List<String> hits = new ArrayList<>();
         for (AlertRule rule : rules) {
             rule.evaluate(frame).ifPresent(hit -> hits.add(rule.name() + ": " + hit.message()));

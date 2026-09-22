@@ -11,16 +11,16 @@ import java.util.Optional;
 public interface AlertRule {
     /** 规则名(用于审计与去重，如 "BMS_OVERTEMP")。 */
     String name();
-    /** 对单条遥测帧求值：命中返回告警，未命中返回 empty。 */
-    Optional<AlertHit> evaluate(TelemetrySnapshot frame);
+    /** 对单条指标帧求值：命中返回告警，未命中返回 empty。 */
+    Optional<AlertHit> evaluate(MetricSnapshot frame);
     /** 告警阈值说明，供运维后台展示。 */
     String description();
 
     /** 一条告警命中(规则 + 帧上下文)，由引擎补时间戳后发给下游。 */
-    record AlertHit(String vin, String message) { }
+    record AlertHit(String sourceId, String message) { }
 
     /** 引擎喂给规则的最小帧视图(规则只读，不改帧)。 */
-    record TelemetrySnapshot(String vin, long seq, double socPct, double kmh, double motorTempC) { }
+    record MetricSnapshot(String sourceId, long seq, double cpuPct, double latencyMs, double diskTempC) { }
 
     /** 汇总工具：SPI 加载到的全部规则都返回各自 name。 */
     static List<String> names(List<AlertRule> rules) {

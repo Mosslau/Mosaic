@@ -1,17 +1,17 @@
-// examples/ex09-netty-gateway/GatewayServer.java —— Netty 车载长连接网关(接入服务底层形态)
+// examples/ex09-netty-gateway/GatewayServer.java —— Netty 长连接长连接网关(接入服务底层形态)
 // 验证环境：OpenJDK 17.0.18 + netty-all 4.1.49.Final(本机 jar 位于
 //   ~/.m2/repository.bak/io/netty/netty-all/4.1.49.Final/netty-all-4.1.49.Final.jar，
 //   无 mvn 环境可用 `mvn dependency:copy` 或从 Maven Central 手动拉同名 jar)。
 //
-// 教学点(兑现 ph20 Netty 预告)：车端 TCP 长连接网关 = Netty 的典型舞台。本类演示两个核心：
+// 教学点(兑现 ph20 Netty 预告)：采集端 TCP 长连接网关 = Netty 的典型舞台。本类演示两个核心：
 //   1. 主从 Reactor：bossGroup 负责 accept，workerGroup 负责每条连接的读写；
 //      同一连接的全部事件绑定到同一 EventLoop → handler 无需加锁(ph20 ex08 已实测过 echo)；
-//   2. pipeline 挂 codec：LineBasedFrameDecoder 处理粘包/半包(车端一行一帧)，
+//   2. pipeline 挂 codec：LineBasedFrameDecoder 处理粘包/半包(采集端一行一帧)，
 //      StringDecoder/StringEncoder 完成 ByteBuf ↔ String，业务 handler 收到完整行。
 //
 // 协议(教学简化版，一行一命令，`\n` 结尾)：
-//   REG|<VIN>            —— 连接注册(车辆上线)
-//   HB|<VIN>|<seq>       —— 心跳 + 遥测序号推进
+//   REG|<SOURCE_ID>            —— 连接注册(数据源上线)
+//   HB|<SOURCE_ID>|<seq>       —— 心跳 + 指标序号推进
 //   网关回 ACK|<原文> 或 ERR|<原因>；实时在线表用 ConcurrentHashMap 维护。
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -31,7 +31,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class GatewayServer {
-    /** 在线表：VIN → 最近心跳 seq。仅在事件线程写，但可被管理线程读(弱一致可接受)。 */
+    /** 在线表：SOURCE_ID → 最近心跳 seq。仅在事件线程写，但可被管理线程读(弱一致可接受)。 */
     private final ConcurrentHashMap<String, Long> online = new ConcurrentHashMap<>();
     private NioEventLoopGroup boss;
     private NioEventLoopGroup worker;
@@ -96,8 +96,8 @@ public final class GatewayServer {
         }
 
         @Override public void channelInactive(ChannelHandlerContext ctx) {
-            // 断连需从在线表摘除；为演示简单这里不追踪 channel→vin 映射，
-            // 真实网关用 ChannelGroup + attribute(vin) 做精确下线，见主文档 4.1。
+            // 断连需从在线表摘除；为演示简单这里不追踪 channel→sourceId 映射，
+            // 真实网关用 ChannelGroup + attribute(sourceId) 做精确下线，见主文档 4.1。
         }
     }
 }

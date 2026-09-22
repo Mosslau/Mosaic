@@ -3,16 +3,16 @@
 import java.util.List;
 
 /**
- * 运维后台的数据来源不是一张表，而是跨域的**聚合视图**：设备域给在线数、告警域给活跃告警、
- * OTA 域给进行中批次、遥测域给消息吞吐。本 record 把各域快照归一成一张可渲染的运营报表。
+ * 运维后台的数据来源不是一张表，而是跨域的**聚合视图**：节点域给在线数、告警域给活跃告警、
+ * 版本发布 域给进行中批次、指标域给消息吞吐。本 record 把各域快照归一成一张可渲染的运营报表。
  */
 record OpsMetrics(
-        int totalVehicles,      // 设备域：注册车辆总数
-        int onlineVehicles,     // 设备域：当前在线
+        int totalVehicles,      // 节点域：注册数据源总数
+        int onlineVehicles,     // 节点域：当前在线
         int activeAlerts,       // 告警域：未关闭告警
-        int otaRunningBatches,  // OTA 域：进行中批次
-        long lastMinMsgs,       // 遥测域：最近一分钟消息数
-        long totalMsgs) {       // 遥测域：累计消息数
+        int otaRunningBatches,  // 版本发布 域：进行中批次
+        long lastMinMsgs,       // 指标域：最近一分钟消息数
+        long totalMsgs) {       // 指标域：累计消息数
 
     static OpsMetrics zero() {
         return new OpsMetrics(0, 0, 0, 0, 0, 0);
