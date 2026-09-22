@@ -1,6 +1,6 @@
 # ph05 阶段项目：日志分析工具
 
-> 对应 Roadmap（python.md）ph05「推荐项目」第一个「日志分析工具」。读取车联网诊断日志，统计级别分布、时间分布与错误 Top-N，输出文本报告，可选导出「部件 × 级别」交叉表 CSV。
+> 对应 Roadmap（python.md）ph05「推荐项目」第一个「日志分析工具」。读取服务诊断日志，统计级别分布、时间分布与错误 Top-N，输出文本报告，可选导出「部件 × 级别」交叉表 CSV。
 
 ## 需求
 
@@ -18,7 +18,7 @@
 
 ## 验收标准
 
-- [ ] `python3 log_analyzer.py sample_logs.log` 输出报告：24 条有效记录；级别分布 INFO=11 / WARN=6 / ERROR=7；时间分布 08 时 9 条 / 09 时 10 条 / 10 时 5 条；ERROR Top 为 BMS-001=3、MCU-003=3、VCU-002=1
+- [ ] `python3 log_analyzer.py sample_logs.log` 输出报告：24 条有效记录；级别分布 INFO=11 / WARN=6 / ERROR=7；时间分布 08 时 9 条 / 09 时 10 条 / 10 时 5 条；ERROR Top 为 SVC-001=3、NODE-003=3、NODE-002=1
 - [ ] `python3 log_analyzer.py sample_logs.log -o report.txt` 后 `report.txt` 内容与 stdout 一致
 - [ ] `python3 log_analyzer.py sample_logs.log --csv level_stats.csv` 生成 CSV，表头为 `component,INFO,WARN,ERROR,total`
 - [ ] `python3 log_analyzer.py nonexistent.log` 输出错误信息并返回退出码 1

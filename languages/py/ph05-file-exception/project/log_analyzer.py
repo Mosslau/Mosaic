@@ -6,7 +6,7 @@
 #   python3 log_analyzer.py sample_logs.log --top 5 -o report.txt --csv level_stats.csv
 # 验证状态：已验证
 
-"""车联网诊断日志分析工具。
+"""服务诊断日志分析工具。
 
 读取诊断日志文件，逐行用正则解析出时间戳、级别、部件、消息；
 统计日志级别分布、按小时的时间分布、按部件的 ERROR Top-N，
@@ -19,7 +19,7 @@ import re
 import sys
 from collections import Counter
 
-# 日志行格式：2024-06-01 08:00:01 INFO  BMS-001 电池温度正常 32C
+# 日志行格式：2024-06-01 08:00:01 INFO  SVC-001 CPU 温度正常 32C
 LINE_PATTERN = re.compile(
     r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})"  # 时间戳
     r"\s+(INFO|WARN|ERROR)"                   # 级别
@@ -79,7 +79,7 @@ def build_report(path, records, level_count, hour_count, component_level, top_n)
     """生成文本报告字符串。"""
     lines = []
     lines.append("=" * 46)
-    lines.append("车联网诊断日志分析报告")
+    lines.append("服务诊断日志分析报告")
     lines.append("=" * 46)
     lines.append(f"日志文件: {path}")
     lines.append(f"有效记录: {len(records)} 条")

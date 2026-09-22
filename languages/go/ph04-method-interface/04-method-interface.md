@@ -414,7 +414,7 @@ func main() {
 
 核心教训：接口值 =（类型, 数据指针），类型非 nil 时接口就不为 nil。返回接口时永远 `return nil`，不写 `return (*Dog)(nil)`。
 
-### 示例 5：类型断言与 type switch——车联网数据分发
+### 示例 5：类型断言与 type switch——多源数据分发
 
 ```go
 package main

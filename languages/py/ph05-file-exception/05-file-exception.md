@@ -1,6 +1,6 @@
 # Python 文件操作与异常处理阶段
 
-> 在 OOP 基础上，掌握 Python 文件 I/O 的完整能力：用 `with` 安全管理资源、按编码读写常见格式（txt/csv/json/yaml/xml/log/excel）、用 `try/except/else/finally` 构建健壮的错误处理、写出能面对真实数据的车联网工具脚本。
+> 在 OOP 基础上，掌握 Python 文件 I/O 的完整能力：用 `with` 安全管理资源、按编码读写常见格式（txt/csv/json/yaml/xml/log/excel）、用 `try/except/else/finally` 构建健壮的错误处理、写出能面对真实数据的运维工具脚本。
 
 ## 1. 概述
 
@@ -114,7 +114,7 @@ with open("output.csv", "w", encoding="utf-8", newline="") as f:
     writer.writerow({"ts": "08:00:01", "id": "0x123", "data": "A1B2"})
 ```
 
-`delimiter` 处理 TSV（`delimiter="\t"`）等分隔符变体；`quotechar` 处理字段内含分隔符的引用。**车联网场景**：CAN 日志常以 CSV 导出，`DictReader` 按列名访问比 `reader` 按索引 `row[0]` 更可靠。
+`delimiter` 处理 TSV（`delimiter="\t"`）等分隔符变体；`quotechar` 处理字段内含分隔符的引用。**设备日志场景**：诊断日志常以 CSV 导出，`DictReader` 按列名访问比 `reader` 按索引 `row[0]` 更可靠。
 
 ### 3.5 `json` 模块
 
@@ -376,11 +376,11 @@ from collections import Counter
 with tempfile.TemporaryDirectory() as d:
     path = os.path.join(d, "diag.log")
     with open(path, "w", encoding="utf-8") as f:
-        f.write("2024-06-01 08:00:01 INFO  BMS-001 电池温度正常 32C\n")
-        f.write("2024-06-01 08:00:05 WARN  MCU-003 电机温度偏高 85C\n")
-        f.write("2024-06-01 08:00:10 ERROR BMS-001 电芯压差异常 0.15V\n")
-        f.write("2024-06-01 08:00:15 INFO  VCU-002 车速 60km/h\n")
-        f.write("2024-06-01 08:00:20 ERROR MCU-003 过流保护触发 320A\n")
+        f.write("2024-06-01 08:00:01 INFO  SVC-001 CPU 温度正常 32C\n")
+        f.write("2024-06-01 08:00:05 WARN  NODE-003 磁盘温度偏高 85C\n")
+        f.write("2024-06-01 08:00:10 ERROR SVC-001 内存水位异常 0.15V\n")
+        f.write("2024-06-01 08:00:15 INFO  NODE-002 延迟 60ms\n")
+        f.write("2024-06-01 08:00:20 ERROR NODE-003 网络限流触发 320MB/s\n")
 
     pattern = re.compile(
         r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})"
@@ -491,7 +491,7 @@ with tempfile.TemporaryDirectory() as d:
 
 ### 阶段项目
 
-本阶段综合项目见 [project/](./project/)：**日志分析工具**（读取车联网诊断日志，按级别/部件统计、时间分布、错误 Top-N，输出分析报告，可选导出 CSV）。
+本阶段综合项目见 [project/](./project/)：**日志分析工具**（读取服务诊断日志，按级别/部件统计、时间分布、错误 Top-N，输出分析报告，可选导出 CSV）。
 
 - [ ] 完成 exercises 全部练习并复盘
 - [ ] 独立完成 project（通过 README 验收标准）

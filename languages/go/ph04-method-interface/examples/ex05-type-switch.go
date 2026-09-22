@@ -1,4 +1,4 @@
-// 来源：04-method-interface.md 第 6 章示例 5 —— 类型断言与 type switch：车联网数据分发
+// 来源：04-method-interface.md 第 6 章示例 5 —— 类型断言与 type switch：多源数据分发
 // 一句话说明：演示 ok 模式断言（失败不 panic）与 type switch 按具体类型分发数据。
 // 验证环境：Go 1.22.2（darwin/arm64）
 // 运行：go run ex05-type-switch.go

@@ -314,7 +314,7 @@ logging.basicConfig(level=args.log_level.upper(),
 
 ### 3.10 CAN 日志解析（格式规约解析样本）
 
-**CAN 日志**是车联网数据的第一手来源：车辆控制器局域网（CAN 总线）上的报文被 `candump` 工具导出为文本，一行一帧。roadmap 练习 4 与 project 都是围绕它——解析格式、按 ID 统计、出报表，正好把 3.1/3.3/3.5 的批处理 + 正则 + 报表三件套合体。
+**CAN 日志**是设备总线数据的第一手来源：控制器局域网（CAN 总线）上的报文被 `candump` 工具导出为文本，一行一帧。roadmap 练习 4 与 project 都是围绕它——解析格式、按 ID 统计、出报表，正好把 3.1/3.3/3.5 的批处理 + 正则 + 报表三件套合体。
 
 ```python
 # 关键片段：project/can_log_tool.py —— candump 格式解析（完整版见 project，本机已验证）
@@ -368,7 +368,7 @@ SSH（Secure Shell）是**加密的远程登录协议**，paramiko 是它的 Pyt
 | 结果通知（报表发邮件、告警通知） | smtplib + EmailMessage + 附件（ex05） |
 | 定时任务（到点跑报表/抓数/巡检） | schedule + 调度循环（ex06） |
 | 远程运维（批量执行命令、拉取采集文件） | paramiko/fabric（概念层，3.8） |
-| 车联网数据处理（CAN 日志统计） | 正则解析 + 按 ID 统计 + 报表（练习 4、project） |
+| 总线日志处理（CAN 日志统计） | 正则解析 + 按 ID 统计 + 报表（练习 4、project） |
 
 **不适合此阶段的事项**：
 

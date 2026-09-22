@@ -1,4 +1,4 @@
-// exercises/sol-03-device-service.java —— 练习 3 参考实现：设备管理服务（车联网方向，幂等注册）
+// exercises/sol-03-device-service.java —— 练习 3 参考实现：设备管理服务（数据平台方向，幂等注册）
 // 验证环境：OpenJDK 17.0.18 + Maven 3.9.12 + Spring Boot 3.3.0（starter-web/test 离线缓存内）
 // 验证状态：已验证（本机离线 mvn -o -Dmaven.repo.local=/tmp/m2clone test，BUILD SUCCESS）
 // 实测结果：Tests run: 5, Failures: 0, Errors: 0
@@ -11,7 +11,7 @@
 //   artifactId 改 sol03-device-service，运行端口 18324）+ 下列文件。
 //   验证命令：mvn -o -Dmaven.repo.local=/tmp/m2clone test
 // 教学点：幂等两层防——请求级幂等键（网络重试）+ 业务级唯一约束（换 key 重发）。设备注册是
-//   车联网典型写入路径：弱网环境下设备会反复上报注册，服务端必须幂等（对应 roadmap 练习「设备管理服务」）。
+//   数据平台典型写入路径：弱网环境下设备会反复上报注册，服务端必须幂等（对应 roadmap 练习「设备管理服务」）。
 // 码义说明：本练习沿用 ph16 码表——40000=参数校验（sn 为空/缺失 → 40000，BAD_REQUEST 语义，本阶段参数校验码）、
 //   40001=缺 Idempotency-Key、40400=资源不存在；ph15 的 40002（非法角色）在 ph16 已不使用（project 与
 //   本练习均不引用；跨阶段码义演进见主文档 1 节末尾说明）。
@@ -110,7 +110,7 @@ package com.example.devicesvc;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 
-/** 练习 3：设备管理服务（默认端口 18324）——车联网方向的设备注册/查询，幂等注册 */
+/** 练习 3：设备管理服务（默认端口 18324）——数据平台方向的设备注册/查询，幂等注册 */
 @SpringBootApplication
 public class DeviceServiceApp {
 

@@ -541,4 +541,4 @@ func TestNotifyRetriesUntilSuccess(t *testing.T) {
 
 ---
 
-*验证说明：全部代码（examples/exercises/project）均已在 go1.25.6 本机实测（go vet / go build / go test 全绿、gofmt 合规），文件头与 README 标注「已验证」；运行环境零第三方依赖，GOCACHE/GOMODCACHE 可重定位到 /tmp。文中引用的后续阶段均已链到真实目录（Go 路线共 21 节，本阶段之后为 ph21 IoT / 车联网 / 嵌入式相关 Go，已建成）。*
+*验证说明：全部代码（examples/exercises/project）均已在 go1.25.6 本机实测（go vet / go build / go test 全绿、gofmt 合规），文件头与 README 标注「已验证」；运行环境零第三方依赖，GOCACHE/GOMODCACHE 可重定位到 /tmp。文中引用的后续阶段均已链到真实目录（Go 路线共 21 节，本阶段之后为 ph21 通用数据采集与接入网关方向 Go，已建成）。*

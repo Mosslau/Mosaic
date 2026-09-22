@@ -412,7 +412,7 @@ sequenceDiagram
 
 ## 5. 使用场景
 
-- **企业单体后端的事实标准**：管理后台、业务中台、车联网平台后端等「一套业务 + 多角色 + 需要运维」的系统，Spring 全家桶（Boot + Data + Security + actuator）是 Java 生态覆盖最全、招人最多的组合——本阶段 project 的权限管理系统就是最小样板。ph16 微服务也建立在这一底座上（每个服务仍是 Spring Boot）。
+- **企业单体后端的事实标准**：管理后台、业务中台、数据平台后端等「一套业务 + 多角色 + 需要运维」的系统，Spring 全家桶（Boot + Data + Security + actuator）是 Java 生态覆盖最全、招人最多的组合——本阶段 project 的权限管理系统就是最小样板。ph16 微服务也建立在这一底座上（每个服务仍是 Spring Boot）。
 - **什么时候不用/少用全家桶**：纯内部工具或极简演示用 ph14 ex01 的裸 `HttpServer` 就够；对启动体积/延迟极敏感、或要云原生构建期优化（native image）时，Quarkus/Micronaut 更合适（它们 CDI 规范 + 构建期处理，见 java-coding-standards [QUARKUS] 节）——本阶段学的容器/AOP/事务心智在那里直接平移（同一批概念、不同方言）。
 - **各组件怎么选**（roadmap 必会概念的工程落点）：横切逻辑先问「哪一层」——Servlet 容器级用 Filter、需要知道目标方法用拦截器、安全用 Security、日志/计时/审计/事务用 AOP；事务边界永远在 Service；「用户从哪来」抽象成 `UserDetailsService`，换数据库只换实现；可观测性默认 actuator。
 - **与其他语言的对比**（为 analysis/ 与 Tenet 合成积累素材）：Java 的 Spring 是**注解声明式 + 运行时容器**的极致——框架替你管对象图、横切、安全，代价是「魔法感」与学习曲线；Go 的主流（标准库 + 显式中间件）反着来——依赖用手工构造器传入（`func NewService(repo Repo)`），横切用显式 middleware 链，无反射、可读性优先，代价是样板代码；Python FastAPI 用装饰器 + 类型注解做依赖注入（函数级、按需解析），介于两者之间；Quarkus 的 CDI 与 Spring 是同一套概念的两个实现（注释与作用域关键词不同）。三种语言对「谁来管依赖」给出三种答案：Java 容器托管、Go 手工人传、Python 请求级注入——这是 Tenet 语言设计时「依赖管理正交化」的绝佳素材。

@@ -822,7 +822,7 @@ client → gateway → service-a → service-b → database
 ### 推荐项目
 
 - 微服务订单系统
-- 车联网服务拆分 demo
+- 数据平台服务拆分 demo
 
 ## 17. 消息队列与搜索阶段
 

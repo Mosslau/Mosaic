@@ -702,5 +702,5 @@ deploy.sh（构建 → 上传 → systemd 重启 + 探活）、health-check.sh�
 
 ### 下一阶段
 
-[ph20 高级 Java 阶段](../ph20-advanced-java/20-advanced-java.md)——本阶段在容器与探针之外埋了两个 JVM 深水区的入口：`-XX:MaxRAMPercentage` 只回答了「容器配额内怎么分内存」，GC 到底怎么选、堆内外的指标曲线怎么解读、Native Image/CDS 这类部署形态的底层机制，都要回到 JVM 本身；同时 4.3 的调度与 3.11 的优雅停机背后还有并发与状态的精细语义（AQS、JMM）——这些是 ph20 的主题，届时以 roadmap 为准。roadmap 第 21 节的车联网方向则将用本阶段的部署模板承接设备接入服务的交付形态。
+[ph20 高级 Java 阶段](../ph20-advanced-java/20-advanced-java.md)——本阶段在容器与探针之外埋了两个 JVM 深水区的入口：`-XX:MaxRAMPercentage` 只回答了「容器配额内怎么分内存」，GC 到底怎么选、堆内外的指标曲线怎么解读、Native Image/CDS 这类部署形态的底层机制，都要回到 JVM 本身；同时 4.3 的调度与 3.11 的优雅停机背后还有并发与状态的精细语义（AQS、JMM）——这些是 ph20 的主题，届时以 roadmap 为准。roadmap 第 21 节的数据平台方向则将用本阶段的部署模板承接数据接入服务的交付形态。
 

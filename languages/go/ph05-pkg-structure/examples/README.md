@@ -7,7 +7,7 @@
 | 目录 | 说明 | 运行 |
 |------|------|------|
 | `ex01-todo-cli/` | 标准布局最小项目：cmd/todo 入口 + internal/todo 业务包，add/done/list/demo 命令 | `cd ex01-todo-cli && go run ./cmd/todo demo` |
-| `ex02-vehicle-server/` | 车联网语义标准布局：cmd + internal/vehicle + internal/canbus + internal/config 四包协作 | `cd ex02-vehicle-server && go run ./cmd/vehicle-server` |
+| `ex02-vehicle-server/` | 设备接入语义标准布局：cmd + internal/vehicle + internal/canbus + internal/config 四包协作 | `cd ex02-vehicle-server && go run ./cmd/vehicle-server` |
 | `ex03-workspace/` | 多模块 workspace：go.work 串联 lib/shared 共享库 + collector / reporter 两个服务 | `cd ex03-workspace && go run ./services/collector` |
 
 > **说明**：ex03-workspace 的 collector / reporter 同时带 require + replace（示意脱离 workspace 时的替代路径）；有 go.work 时 workspace 优先，两者可并存。

@@ -1,10 +1,10 @@
 # Go 并发编程 Goroutine 与 Channel 阶段
 
-> "不要通过共享内存来通信，而要通过通信来共享内存"——goroutine 与 channel 构成的并发模型，是后端服务、云原生、车联网数据平台方向的核心能力。
+> "不要通过共享内存来通信，而要通过通信来共享内存"——goroutine 与 channel 构成的并发模型，是后端服务、云原生、通用数据平台方向的核心能力。
 
 ## 1. 概述
 
-Go 并发编程阶段的目标是：**掌握 goroutine 与 channel 构成的核心并发模型，以及 select、WaitGroup、Mutex、RWMutex、context 等同步与生命周期控制工具**。ph05 解决了"代码怎么组织"，本阶段回答"代码怎么跑得快"——从单线程顺序执行进入多任务并行执行，数据采集、任务调度、日志处理等后端与车联网核心场景全部依赖并发模型。
+Go 并发编程阶段的目标是：**掌握 goroutine 与 channel 构成的核心并发模型，以及 select、WaitGroup、Mutex、RWMutex、context 等同步与生命周期控制工具**。ph05 解决了"代码怎么组织"，本阶段回答"代码怎么跑得快"——从单线程顺序执行进入多任务并行执行，数据采集、任务调度、日志处理等后端核心场景全部依赖并发模型。
 
 | 核心维度 | 覆盖内容 |
 |----------|---------|
@@ -313,7 +313,7 @@ channel 操作构成 **happens-before（先行发生）** 关系，是 Go 内存
 | 优雅停机（退出前排空在途任务） | context 取消、channel 关闭、WaitGroup |
 | 共享计数器/指标统计保护 | Mutex、RWMutex |
 | 并发爬虫（多源抓取汇总） | worker pool + fan-in |
-| 车联网多设备数据并发采集 | 每设备 goroutine + channel + context |
+| 多源设备数据并发采集 | 每设备 goroutine + channel + context |
 
 **不适合**此阶段的事项：
 

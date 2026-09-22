@@ -1,6 +1,6 @@
 # Go 数据库阶段
 
-> 面向后端服务、云原生和车联网数据平台方向，本阶段掌握 Go 操作数据库与缓存——SQL、database/sql、事务、连接池、索引、ORM 选型与 Redis，把"内存数据"升级为"可持久化、可并发、可上生产的存储"。
+> 面向后端服务、云原生和通用数据平台方向，本阶段掌握 Go 操作数据库与缓存——SQL、database/sql、事务、连接池、索引、ORM 选型与 Redis，把"内存数据"升级为"可持久化、可并发、可上生产的存储"。
 
 ## 1. 概述
 
@@ -400,7 +400,7 @@ SEARCH users USING COVERING INDEX sqlite_autoindex_users_1 (username=?)
 | 在线设备列表/去重 | Redis Set、SCard/SIsMember |
 | 计数与限流 | Redis INCR + 过期（ph09 是内存滑动窗口限流，本阶段可升级为 Redis 分布式限流） |
 | 接口热点数据加速 | 旁路缓存、击穿/雪崩防护 |
-| 车联网轨迹存储 | 批量写入 + 设备时间复合索引 + 最新位置缓存（见 project/） |
+| 轨迹存储 | 批量写入 + 设备时间复合索引 + 最新位置缓存（见 project/） |
 | schema 演进 | golang-migrate/goose 版本化迁移 |
 
 **不适合**此阶段的事项：

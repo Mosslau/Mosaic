@@ -1,10 +1,10 @@
 # Python Web 后端开发阶段
 
-> 面向自动化、Web 服务、车联网数据平台方向，本阶段用 FastAPI + Pydantic + SQLAlchemy 写出能跑、能校验、能鉴权、能连数据库的 API 服务，让「用 Python 写后端接口」成为核心能力。
+> 面向自动化、Web 服务、数据平台方向，本阶段用 FastAPI + Pydantic + SQLAlchemy 写出能跑、能校验、能鉴权、能连数据库的 API 服务，让「用 Python 写后端接口」成为核心能力。
 
 ## 1. 概述
 
-Python Web 后端开发阶段的目标是：**能用 Python 写 API 服务——用 FastAPI 定义路由与参数、用 Pydantic 完成数据校验和序列化、用 JWT 做认证鉴权、用 SQLAlchemy + Alembic 连接数据库并管理结构变更、用中间件与日志统一横切关注点**。这一阶段把 ph09 数据分析阶段的分析能力接到「数据从哪来、给谁用」的接口层，同时把四个必会概念内化为习惯——**Pydantic 负责数据校验和序列化、API 层不应写复杂业务、异步接口要配套异步依赖、OpenAPI 文档是交付物**——这是数据库与缓存（ph11）、并发（ph14）、部署（ph16）与车联网数据平台方向共同的地基。
+Python Web 后端开发阶段的目标是：**能用 Python 写 API 服务——用 FastAPI 定义路由与参数、用 Pydantic 完成数据校验和序列化、用 JWT 做认证鉴权、用 SQLAlchemy + Alembic 连接数据库并管理结构变更、用中间件与日志统一横切关注点**。这一阶段把 ph09 数据分析阶段的分析能力接到「数据从哪来、给谁用」的接口层，同时把四个必会概念内化为习惯——**Pydantic 负责数据校验和序列化、API 层不应写复杂业务、异步接口要配套异步依赖、OpenAPI 文档是交付物**——这是数据库与缓存（ph11）、并发（ph14）、部署（ph16）与数据平台方向共同的地基。
 
 | 核心维度 | 覆盖内容 |
 |----------|---------|
@@ -320,7 +320,7 @@ FastAPI 从**类型注解与模型定义**自动生成 OpenAPI 3 规范：交互
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 app = FastAPI(title="设备管理 API",
-              description="车联网设备管理服务：设备 CRUD 与状态查询",
+              description="设备管理服务：设备 CRUD 与状态查询",
               version="1.0.0")
 class Device(BaseModel):
     vin: str = Field(description="车辆识别码", min_length=17, max_length=17)
@@ -433,7 +433,7 @@ JWT 是「**自包含、可验证、无状态**」的三段式令牌 `header.pay
 | 车辆遥测数据上报 | 请求体校验（速度/SOC 范围）+ 批量写入 + 按设备查询 + 分组统计 |
 | 内部门户 / 报表页 | Jinja2 模板渲染 + StaticFiles（CSS/JS）+ FileResponse 导出 |
 | 内部工具 API / 自动化平台 | 轻量接口 + OpenAPI 文档 + 统一错误处理 + 日志 |
-| 车联网数据平台后端 | REST 契约 + JWT 鉴权 + 中间件（日志/CORS）+ 数据库持久化 |
+| 数据平台后端 | REST 契约 + JWT 鉴权 + 中间件（日志/CORS）+ 数据库持久化 |
 
 **不适合此阶段的事项**：
 

@@ -1,6 +1,6 @@
 # Go 微服务与 RPC 阶段
 
-> 面向后端服务、云原生和车联网数据平台方向，本阶段把 ph09/ph10 的"单体服务"拆成"可扩展的多服务系统"——掌握 RPC 模式、JSON-RPC 编解码、服务注册与发现、负载均衡/熔断/超时与微服务拆分原则，以标准库 net/rpc 起步理解 RPC 本质，再以 gRPC/protobuf 完成生态选型。
+> 面向后端服务、云原生和通用数据平台方向，本阶段把 ph09/ph10 的"单体服务"拆成"可扩展的多服务系统"——掌握 RPC 模式、JSON-RPC 编解码、服务注册与发现、负载均衡/熔断/超时与微服务拆分原则，以标准库 net/rpc 起步理解 RPC 本质，再以 gRPC/protobuf 完成生态选型。
 
 ## 1. 概述
 
@@ -238,7 +238,7 @@ protoc --go_out=. --go_opt=paths=source_relative \
 
 要点：**生成代码是"一次性契约"**——重新生成会覆盖、手改无效，改接口只改 .proto；**实现接口必须嵌入 `pb.UnimplementedUserServiceServer`**——proto 后续新增方法时旧实现不会编译失败；**server 三步：net.Listen → grpc.NewServer + RegisterUserServiceServer → Serve**；**client 三步：`grpc.NewClient`（取代已弃用的 `grpc.Dial`）→ `pb.NewUserServiceClient(conn)` → 带 ctx 调用**；本地调试用 `insecure.NewCredentials()`、生产必须 TLS（ph12）；**"RPC 必须有超时"落地为 `context.WithTimeout`**——超时后返回 `codes.DeadlineExceeded`（示例 6 有确定性用例：服务端对 id=100 睡 150ms、客户端 20ms deadline）；**错误用 `status.Code(err)` 取 gRPC 错误码**（如 `codes.NotFound`），据此决策重试/降级/报错——这是 net/rpc"错误只传字符串"的升级版。
 
-**四种 RPC 模式在 proto 中的写法**：一元 `rpc GetUser(Req) returns (Resp)`；服务端流 `rpc ListUsers(Req) returns (stream Resp)`；客户端流 `rpc Upload(stream Req) returns (Resp)`；双向流 `rpc Chat(stream Req) returns (stream Resp)`——**四种模式只影响传输方式，不影响接口契约**；本阶段掌握一元 + 服务端流（示例 6），双向流在 ph21 车联网实时推送中深入。
+**四种 RPC 模式在 proto 中的写法**：一元 `rpc GetUser(Req) returns (Resp)`；服务端流 `rpc ListUsers(Req) returns (stream Resp)`；客户端流 `rpc Upload(stream Req) returns (Resp)`；双向流 `rpc Chat(stream Req) returns (stream Resp)`——**四种模式只影响传输方式，不影响接口契约**；本阶段掌握一元 + 服务端流（示例 6），双向流在 ph21 实时数据推送中深入。
 
 **拦截器（Interceptor）是 gRPC 的"中间件"**：在 RPC 进入 handler 前/返回后插入横切逻辑（日志、鉴权、限流、tracing），与 ph09 的 HTTP middleware 同构；服务端签名 `func(ctx, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error)`，调 `handler(ctx, req)` 即"放行到下一层"；`grpc.ChainUnaryInterceptor(a, b)` 按传入顺序包裹；客户端拦截器通过 `invoker` 发起真实调用（示例 6 有日志 + 超时两个拦截器的可运行版）。**可观测性三支柱**（日志看细节、指标看趋势、追踪看链路）与 OpenTelemetry 的接入点见 4.6，工具链完整部署属 ph12。
 

@@ -11,7 +11,7 @@ import re
 import tempfile
 from collections import Counter
 
-# 日志行格式：2024-06-01 08:00:10 ERROR BMS-001 电芯压差异常 0.15V
+# 日志行格式：2024-06-01 08:00:10 ERROR SVC-001 内存水位异常 0.15V
 ERROR_PATTERN = re.compile(
     r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})"
     r"\s+ERROR\s+([A-Z]+-\d+)"
@@ -38,13 +38,13 @@ def main():
     with tempfile.TemporaryDirectory() as d:
         path = os.path.join(d, "diag.log")
         with open(path, "w", encoding="utf-8") as f:
-            f.write("2024-06-01 08:00:01 INFO  BMS-001 电池温度正常 32C\n")
-            f.write("2024-06-01 08:00:05 ERROR BMS-001 电芯压差异常 0.15V\n")
-            f.write("2024-06-01 08:00:10 ERROR MCU-003 过流保护触发 320A\n")
-            f.write("2024-06-01 08:00:15 ERROR MCU-003 过流保护再次触发\n")
-            f.write("2024-06-01 08:00:20 ERROR VCU-002 通信超时\n")
-            f.write("2024-06-01 08:00:25 ERROR BMS-001 电芯压差异常 0.18V\n")
-            f.write("2024-06-01 08:00:30 ERROR MCU-003 过流保护三次触发\n")
+            f.write("2024-06-01 08:00:01 INFO  SVC-001 CPU 温度正常 32C\n")
+            f.write("2024-06-01 08:00:05 ERROR SVC-001 内存水位异常 0.15V\n")
+            f.write("2024-06-01 08:00:10 ERROR NODE-003 网络限流触发 320MB/s\n")
+            f.write("2024-06-01 08:00:15 ERROR NODE-003 网络限流再次触发\n")
+            f.write("2024-06-01 08:00:20 ERROR NODE-002 通信超时\n")
+            f.write("2024-06-01 08:00:25 ERROR SVC-001 内存水位异常 0.18V\n")
+            f.write("2024-06-01 08:00:30 ERROR NODE-003 网络限流三次触发\n")
             f.write("malformed line without level\n")  # 非法行：忽略不崩溃
 
         stats = count_error_components(path)

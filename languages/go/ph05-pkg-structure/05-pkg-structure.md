@@ -300,7 +300,7 @@ func (s *Store) List() []Item    { return s.items }
 
 完整文件：`examples/ex01-todo-cli/`（cmd/todo/main.go + internal/todo/todo.go）
 
-### 示例 2：车辆数据服务 —— 车联网语义的标准布局
+### 示例 2：设备数据服务 —— 设备接入语义的标准布局
 
 ```text
 vehicle-server/

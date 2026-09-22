@@ -1,4 +1,4 @@
-# examples/ex05-device-manager.py —— 车联网设备管理系统（组合 + 多态）
+# examples/ex05-device-manager.py —— 设备管理系统（组合 + 多态）
 # 来源：04-oop.md 第 6 章示例 5
 # 验证环境：Python 3.13.12
 # 运行：python3 ex05-device-manager.py

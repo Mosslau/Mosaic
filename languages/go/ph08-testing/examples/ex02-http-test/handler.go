@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-// Device 车联网设备（与 ph07 标准库阶段示例同领域）
+// Device 设备（与 ph07 标准库阶段示例同领域）
 type Device struct {
 	ID     string `json:"id"`
 	Status string `json:"status"`
