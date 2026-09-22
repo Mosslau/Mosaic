@@ -1,7 +1,7 @@
 // 来源：ph21-data-ingest-gateway project/cmd/platform/main.go
 // 一句话说明：云端接入平台进程入口——env 配置 + API 服务 + 优雅退出。构建注入：
 //
-//	go build -ldflags "-X tenetlang/go/ph21-data-ingest-gateway/project/internal/version.Version=v1.0.0 -X tenetlang/go/ph21-data-ingest-gateway/project/internal/version.Commit=abc123 -X tenetlang/go/ph21-data-ingest-gateway/project/internal/version.BuildTime=2026-09-04T00:00:00Z" -o /tmp/edge-platform ./cmd/platform
+//	go build -ldflags "-X tenetlang/go/ph21-data-ingest-gateway/project/internal/version.Version=v1.0.0 -X tenetlang/go/ph21-data-ingest-gateway/project/internal/version.Commit=abc123 -X tenetlang/go/ph21-data-ingest-gateway/project/internal/version.BuildTime=2026-09-04T00:00:00Z" -o /tmp/relay-platform ./cmd/platform
 //
 // 验证环境：go1.25.6（darwin/arm64），依赖：零第三方（标准库）
 // 验证状态：已验证（go1.25.6 本机实测：vet/build/test 全绿；运行需本地起服务）
@@ -30,7 +30,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("配置加载失败: %v", err)
 	}
-	log.Printf("edge-platform 启动（版本 %s / commit %s / %s）", version.Version, version.Commit, version.BuildTime)
+	log.Printf("relay-platform 启动（版本 %s / commit %s / %s）", version.Version, version.Commit, version.BuildTime)
 
 	core := platform.NewCore(cfg.Secrets)
 	srv := &http.Server{

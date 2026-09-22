@@ -40,24 +40,24 @@ func testClient(t *testing.T, broker *Broker, id, token string) *Client {
 }
 
 func TestAuthAllowsKnownRejectsUnknown(t *testing.T) {
-	b := startBroker(t, func(u, p string) bool { return u == "veh-001" && p == "tok-1" })
+	b := startBroker(t, func(u, p string) bool { return u == "src-001" && p == "tok-1" })
 
-	// 好设备：鉴权通过
-	good := testClient(t, b, "veh-001", "tok-1")
+	// 好采集端：鉴权通过
+	good := testClient(t, b, "src-001", "tok-1")
 	if good == nil {
-		t.Fatal("合法设备应接入成功")
+		t.Fatal("合法采集端应接入成功")
 	}
-	// 坏 token / 未知设备：返回 ErrNotAuthorized
+	// 坏 token / 未知采集端：返回 ErrNotAuthorized
 	for _, tc := range []struct{ id, token string }{
-		{"veh-001", "wrong"}, // 好设备坏 token
-		{"veh-999", "tok-1"}, // 未知设备
+		{"src-001", "wrong"}, // 好采集端坏 token
+		{"veh-999", "tok-1"}, // 未知采集端
 	} {
 		bad := NewClient(ClientOptions{Broker: b.Addr().String(), ClientID: tc.id, Username: tc.id, Password: tc.token})
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		err := bad.Connect(ctx)
 		cancel()
 		if !errors.Is(err, ErrNotAuthorized) {
-			t.Errorf("设备 %s token %q 应被拒（ErrNotAuthorized），got %v", tc.id, tc.token, err)
+			t.Errorf("采集端 %s token %q 应被拒（ErrNotAuthorized），got %v", tc.id, tc.token, err)
 		}
 	}
 }
@@ -68,7 +68,7 @@ func TestPublishSubscribeRoundTrip(t *testing.T) {
 	got := make(chan string, 4)
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	if err := sub.Subscribe(ctx, "veh/veh-001/telemetry", func(_ string, payload []byte) {
+	if err := sub.Subscribe(ctx, "ingest/src-001/metrics", func(_ string, payload []byte) {
 		got <- string(payload)
 	}); err != nil {
 		t.Fatalf("订阅: %v", err)
@@ -76,10 +76,10 @@ func TestPublishSubscribeRoundTrip(t *testing.T) {
 
 	// 发布者（独立连接）发两帧 → 订阅者按序收两帧（单连接 FIFO，序号可断言）。
 	pub := testClient(t, b, "pub-1", "x")
-	if err := pub.Publish("veh/veh-001/telemetry", []byte(`{"seq":1,"speed":40}`)); err != nil {
+	if err := pub.Publish("ingest/src-001/metrics", []byte(`{"seq":1,"value":40}`)); err != nil {
 		t.Fatalf("Publish: %v", err)
 	}
-	if err := pub.Publish("veh/veh-001/telemetry", []byte(`{"seq":2,"speed":45}`)); err != nil {
+	if err := pub.Publish("ingest/src-001/metrics", []byte(`{"seq":2,"value":45}`)); err != nil {
 		t.Fatalf("Publish: %v", err)
 	}
 	for i, want := range []string{`"seq":1`, `"seq":2`} {
@@ -96,34 +96,34 @@ func TestPublishSubscribeRoundTrip(t *testing.T) {
 
 func TestWildcardRouting(t *testing.T) {
 	b := startBroker(t, nil)
-	a := testClient(t, b, "a", "x")  // 订阅 veh/+/telemetry（单层通配）
-	c1 := testClient(t, b, "c", "x") // 订阅 veh/#（多层通配）
+	a := testClient(t, b, "a", "x")  // 订阅 ingest/+/metrics（单层通配）
+	c1 := testClient(t, b, "c", "x") // 订阅 ingest/#（多层通配）
 	gotA := make(chan string, 4)
 	gotC := make(chan string, 4)
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	if err := a.Subscribe(ctx, "veh/+/telemetry", func(_ string, p []byte) { gotA <- string(p) }); err != nil {
+	if err := a.Subscribe(ctx, "ingest/+/metrics", func(_ string, p []byte) { gotA <- string(p) }); err != nil {
 		t.Fatal(err)
 	}
-	if err := c1.Subscribe(ctx, "veh/#", func(_ string, p []byte) { gotC <- string(p) }); err != nil {
+	if err := c1.Subscribe(ctx, "ingest/#", func(_ string, p []byte) { gotC <- string(p) }); err != nil {
 		t.Fatal(err)
 	}
 	pub := testClient(t, b, "pub", "x")
-	if err := pub.Publish("veh/veh-001/telemetry", []byte("speed-66")); err != nil {
+	if err := pub.Publish("ingest/src-001/metrics", []byte("value-66")); err != nil {
 		t.Fatal(err)
 	}
-	if err := pub.Publish("veh/veh-001/cmd/ack", []byte("ack-7")); err != nil { // 只命中 veh/#
+	if err := pub.Publish("ingest/src-001/cmd/ack", []byte("ack-7")); err != nil { // 只命中 ingest/#
 		t.Fatal(err)
 	}
 	select {
 	case m := <-gotA:
-		if m != "speed-66" {
+		if m != "value-66" {
 			t.Errorf("A 收到 %q", m)
 		}
 	case <-ctx.Done():
-		t.Fatal("A 未收到遥测")
+		t.Fatal("A 未收到指标")
 	}
-	for _, want := range []string{"speed-66", "ack-7"} {
+	for _, want := range []string{"value-66", "ack-7"} {
 		select {
 		case m := <-gotC:
 			if m != want {

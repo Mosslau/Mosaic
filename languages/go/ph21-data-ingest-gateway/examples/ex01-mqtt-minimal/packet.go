@@ -31,7 +31,7 @@ const (
 var ErrNotAuthorized = errors.New("mqtt: connection not authorized")
 
 // encodeRL 把剩余长度编码成 MQTT 变长格式：每字节低 7 位存值、最高位表示续段，
-// 最多 4 字节。小负载（典型遥测帧 <128B）只占 1 字节——这是 MQTT 省字节的关键。
+// 最多 4 字节。小负载（典型指标帧 <128B）只占 1 字节——这是 MQTT 省字节的关键。
 func encodeRL(n int) ([]byte, error) {
 	if n < 0 || n > 0x0FFFFFFF { // 4 字节变长的上限
 		return nil, fmt.Errorf("mqtt: remaining length %d 超上限", n)

@@ -1,7 +1,7 @@
 // 来源：ph21-data-ingest-gateway exercises/sol-04-websocket-monitor/sol04.go
-// 一句话说明：练习 4 参考实现——WebSocket 实时监控面板的广播核心：车辆状态带
+// 一句话说明：练习 4 参考实现——WebSocket 实时监控面板的广播核心：数据源状态带
 // 单调版本号，每次变更广播给所有订阅会话；版本回退被拒；新会话入会先收当前快照
-// （断线重连的补齐语义）。会话抽象为接口，假会话离线可测（主文档 3.4/3.6/4.2）。
+// （断线重连的补齐语义）。会话抽象为接口，假会话离线可测（主文档 34/4.2）。
 // 验证环境：go1.25.6（darwin/arm64），依赖：零第三方（标准库）
 // 构建：go build ./...   测试：go test ./...   静态检查：go vet ./...
 // 运行：go run .          验证状态：已验证（go1.25.6 本机实测全绿）
@@ -16,9 +16,9 @@ import (
 // ErrStaleVersion 版本回退（≤ 已见版本）拒绝。
 var ErrStaleVersion = errors.New("monitor: stale version")
 
-// State 一次车辆状态广播（version 单调递增）。
+// State 一次数据源状态广播（version 单调递增）。
 type State struct {
-	Vehicle string
+	Source  string
 	Version int64
 	Data    map[string]any
 }
@@ -30,10 +30,10 @@ type Session interface {
 	Close()
 }
 
-// Monitor 广播核心：每车保存最新快照 + 订阅会话集合。
+// Monitor 广播核心：每个数据源保存最新快照 + 订阅会话集合。
 type Monitor struct {
 	mu       sync.Mutex
-	latest   map[string]*State // vehicle → 最新快照（断线重连补齐）
+	latest   map[string]*State // source → 最新快照（断线重连补齐）
 	sessions map[string]map[Session]struct{}
 }
 
@@ -45,24 +45,24 @@ func NewMonitor() *Monitor {
 	}
 }
 
-// Subscribe 面板订阅某车：立即推送当前快照（若有），之后持续接收变更。
-func (m *Monitor) Subscribe(vehicle string, s Session) {
+// Subscribe 面板订阅某数据源：立即推送当前快照（若有），之后持续接收变更。
+func (m *Monitor) Subscribe(source string, s Session) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.sessions[vehicle] == nil {
-		m.sessions[vehicle] = map[Session]struct{}{}
+	if m.sessions[source] == nil {
+		m.sessions[source] = map[Session]struct{}{}
 	}
-	m.sessions[vehicle][s] = struct{}{}
-	if snap := m.latest[vehicle]; snap != nil {
+	m.sessions[source][s] = struct{}{}
+	if snap := m.latest[source]; snap != nil {
 		_ = s.Send(*snap) // 入会即补最新态：断开期间的状态一条不丢
 	}
 }
 
 // Unsubscribe 面板退订。
-func (m *Monitor) Unsubscribe(vehicle string, s Session) {
+func (m *Monitor) Unsubscribe(source string, s Session) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if set, ok := m.sessions[vehicle]; ok {
+	if set, ok := m.sessions[source]; ok {
 		delete(set, s)
 	}
 }
@@ -71,16 +71,16 @@ func (m *Monitor) Unsubscribe(vehicle string, s Session) {
 // 生效后广播给所有订阅会话；发送失败的会话被摘除（断开）。
 func (m *Monitor) Apply(st State) error {
 	m.mu.Lock()
-	cur := m.latest[st.Vehicle]
+	cur := m.latest[st.Source]
 	if cur != nil && st.Version <= cur.Version {
 		m.mu.Unlock()
-		return fmt.Errorf("%w: vehicle=%s version=%d <= %d", ErrStaleVersion, st.Vehicle, st.Version, cur.Version)
+		return fmt.Errorf("%w: source=%s version=%d <= %d", ErrStaleVersion, st.Source, st.Version, cur.Version)
 	}
 	cp := st
 	cp.Data = cloneMap(st.Data)
-	m.latest[st.Vehicle] = &cp
-	subs := make([]Session, 0, len(m.sessions[st.Vehicle]))
-	for s := range m.sessions[st.Vehicle] {
+	m.latest[st.Source] = &cp
+	subs := make([]Session, 0, len(m.sessions[st.Source]))
+	for s := range m.sessions[st.Source] {
 		subs = append(subs, s)
 	}
 	m.mu.Unlock()
@@ -88,17 +88,17 @@ func (m *Monitor) Apply(st State) error {
 	// 广播在锁外执行：慢会话不阻塞其他面板的推送。
 	for _, s := range subs {
 		if err := s.Send(cp); err != nil {
-			m.Unsubscribe(st.Vehicle, s) // 断开的会话摘除，等待它重连重新 Subscribe
+			m.Unsubscribe(st.Source, s) // 断开的会话摘除，等待它重连重新 Subscribe
 		}
 	}
 	return nil
 }
 
-// Latest 某车最新快照（供演示与运维查询）。
-func (m *Monitor) Latest(vehicle string) (*State, bool) {
+// Latest 某数据源最新快照（供演示与运维查询）。
+func (m *Monitor) Latest(source string) (*State, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	st, ok := m.latest[vehicle]
+	st, ok := m.latest[source]
 	if !ok {
 		return nil, false
 	}

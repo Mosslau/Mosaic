@@ -97,7 +97,7 @@ func (b *Broker) handleConn(c net.Conn) {
 	// 2) 连接态鉴权：失败回 CONNACK rc=5 并关闭——不进入会话。
 	if b.auth != nil && !b.auth(cp.Username, cp.Password) {
 		_, _ = c.Write(connackPacket(5))
-		log.Printf("broker: 拒绝设备 %q 连接（鉴权失败）", cp.ClientID)
+		log.Printf("broker: 拒绝采集端 %q 连接（鉴权失败）", cp.ClientID)
 		return
 	}
 	st := &connState{
@@ -130,7 +130,7 @@ func (b *Broker) handleConn(c net.Conn) {
 		typ, rest, err := readFrame(c)
 		if err != nil {
 			if err != io.EOF {
-				log.Printf("broker: 设备 %q 连接异常断开: %v", st.id, err)
+				log.Printf("broker: 采集端 %q 连接异常断开: %v", st.id, err)
 			}
 			return
 		}
@@ -144,7 +144,7 @@ func (b *Broker) handleConn(c net.Conn) {
 			if err := st.send(subackPacket(sp.PacketID, 0)); err != nil {
 				return
 			}
-			log.Printf("broker: 设备 %q 订阅 %q", st.id, sp.Filter)
+			log.Printf("broker: 采集端 %q 订阅 %q", st.id, sp.Filter)
 		case typePUBLISH:
 			pp, err := decodePublish(rest)
 			if err != nil {

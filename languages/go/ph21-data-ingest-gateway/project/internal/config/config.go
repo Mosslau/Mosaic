@@ -1,6 +1,6 @@
 // 来源：ph21-data-ingest-gateway project/internal/config/config.go
 // 一句话说明：env 加载最小形态（ph20 分层纪律的应用层取子集）——必填项 fail-fast、
-// 端口范围校验、每网关密钥表（"id=secret,id2=secret2"）。零第三方。
+// 端口范围校验、每采集器密钥表（"id=secret,id2=secret2"）。零第三方。
 // 验证环境：go1.25.6（darwin/arm64），依赖：零第三方（标准库）
 // 测试：go test ./...   验证状态：已验证（go1.25.6 本机实测全绿）
 package config
@@ -14,20 +14,20 @@ import (
 
 // Config 运行配置（env 注入）。
 type Config struct {
-	Addr          string
-	Secrets       map[string]string // 每网关一密（接入鉴权）
-	GatewayID     string
-	GatewaySecret string
-	CloudURL      string
-	FlushSize     int
-	SpoolCap      int
+	Addr            string
+	Secrets         map[string]string // 每采集器一密（接入鉴权）
+	CollectorID     string
+	CollectorSecret string
+	CloudURL        string
+	FlushSize       int
+	SpoolCap        int
 }
 
 // Load 从 getenv 加载；未提供的可选项用默认值。
 func Load(getenv func(string) string) (*Config, error) {
 	cfg := &Config{
 		Addr:      ":8080",
-		Secrets:   map[string]string{"edge-001": "dev-secret-1"},
+		Secrets:   map[string]string{"relay-001": "dev-secret-1"},
 		FlushSize: 3,
 		SpoolCap:  64,
 	}
@@ -42,10 +42,10 @@ func Load(getenv func(string) string) (*Config, error) {
 		cfg.Secrets = m
 	}
 	if v := getenv("GATEWAY_ID"); v != "" {
-		cfg.GatewayID = v
+		cfg.CollectorID = v
 	}
 	if v := getenv("GATEWAY_SECRET"); v != "" {
-		cfg.GatewaySecret = v
+		cfg.CollectorSecret = v
 	}
 	if v := getenv("CLOUD_URL"); v != "" {
 		cfg.CloudURL = v

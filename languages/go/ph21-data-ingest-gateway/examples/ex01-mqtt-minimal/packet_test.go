@@ -35,7 +35,7 @@ func TestEncodeRLTooBig(t *testing.T) {
 }
 
 func TestConnectDecodeRoundTrip(t *testing.T) {
-	in := connectPacket{ClientID: "veh-001", Username: "veh-001", Password: "tok-1", KeepAlive: 30}
+	in := connectPacket{ClientID: "src-001", Username: "src-001", Password: "tok-1", KeepAlive: 30}
 	full := in.encode()
 	typ, rest, err := readFrame(bytes.NewReader(full))
 	if err != nil {
@@ -60,7 +60,7 @@ func TestConnectMissingProtocol(t *testing.T) {
 }
 
 func TestPublishRoundTrip(t *testing.T) {
-	in := publishPacket{Topic: "veh/veh-001/telemetry", Payload: []byte(`{"seq":7,"speed":66}`)}
+	in := publishPacket{Topic: "ingest/src-001/metrics", Payload: []byte(`{"seq":7,"value":66}`)}
 	full := in.encode()
 	typ, rest, err := readFrame(bytes.NewReader(full))
 	if err != nil {
@@ -79,7 +79,7 @@ func TestPublishRoundTrip(t *testing.T) {
 }
 
 func TestSubscribeDecodeRoundTrip(t *testing.T) {
-	in := subscribePacket{PacketID: 3, Filter: "veh/+/cmd"}
+	in := subscribePacket{PacketID: 3, Filter: "ingest/+/cmd"}
 	full := in.encode()
 	typ, rest, err := readFrame(bytes.NewReader(full))
 	if err != nil {
@@ -92,7 +92,7 @@ func TestSubscribeDecodeRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decodeSubscribe: %v", err)
 	}
-	if got.PacketID != 3 || got.Filter != "veh/+/cmd" {
+	if got.PacketID != 3 || got.Filter != "ingest/+/cmd" {
 		t.Errorf("SUBSCRIBE 往返不一致: got %+v", got)
 	}
 }
@@ -102,15 +102,15 @@ func TestTopicMatch(t *testing.T) {
 		filter, topic string
 		want          bool
 	}{
-		{"veh/veh-001/telemetry", "veh/veh-001/telemetry", true},
-		{"veh/veh-001/telemetry", "veh/veh-002/telemetry", false},
-		{"veh/+/telemetry", "veh/veh-001/telemetry", true}, // + 匹配单层
-		{"veh/+/telemetry", "veh/veh-001/cmd", false},      // 层级不同不命中
-		{"veh/#", "veh/veh-001/telemetry", true},           // # 匹配剩余全部
-		{"#", "anything/else", true},                       // 根 # 全匹配
-		{"veh/+/telemetry", "veh/a/b/telemetry", false},    // + 只匹配一层
-		{"veh/veh-001/#", "veh/veh-001", true},             // # 匹配零层
-		{"veh/veh-001/#", "veh/veh-002/telemetry", false},
+		{"ingest/src-001/metrics", "ingest/src-001/metrics", true},
+		{"ingest/src-001/metrics", "ingest/src-002/metrics", false},
+		{"ingest/+/metrics", "ingest/src-001/metrics", true}, // + 匹配单层
+		{"ingest/+/metrics", "ingest/src-001/cmd", false},    // 层级不同不命中
+		{"ingest/#", "ingest/src-001/metrics", true},         // # 匹配剩余全部
+		{"#", "anything/else", true},                         // 根 # 全匹配
+		{"ingest/+/metrics", "ingest/a/b/metrics", false},    // + 只匹配一层
+		{"ingest/src-001/#", "ingest/src-001", true},         // # 匹配零层
+		{"ingest/src-001/#", "ingest/src-002/metrics", false},
 	}
 	for _, c := range cases {
 		if got := topicMatch(c.filter, c.topic); got != c.want {

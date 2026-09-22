@@ -18,11 +18,11 @@ import (
 	"time"
 )
 
-// ClientOptions 连接参数（broker 地址、设备身份与 token、keepalive）。
+// ClientOptions 连接参数（broker 地址、采集端身份与 token、keepalive）。
 type ClientOptions struct {
 	Broker    string        // host:port
-	ClientID  string        // 设备唯一 ID（车联网里即 VIN）
-	Username  string        // 通常 = 设备 ID
+	ClientID  string        // 采集端唯一 ID（数据平台里即 SourceID）
+	Username  string        // 通常 = 采集端 ID
 	Password  string        // 连接态鉴权 token（主文档 3.2）
 	KeepAlive time.Duration // 心跳周期；<=0 关闭心跳
 }
@@ -78,7 +78,7 @@ func (c *Client) Connect(ctx context.Context) error {
 	if rc := rest[1]; rc != 0 {
 		_ = conn.Close()
 		if rc == 5 {
-			return fmt.Errorf("%w: 设备 %s", ErrNotAuthorized, c.opts.ClientID)
+			return fmt.Errorf("%w: 采集端 %s", ErrNotAuthorized, c.opts.ClientID)
 		}
 		return fmt.Errorf("mqtt: CONNACK 返回码 %d", rc)
 	}

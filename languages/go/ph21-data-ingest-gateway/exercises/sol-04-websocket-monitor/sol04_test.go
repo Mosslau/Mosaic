@@ -26,10 +26,10 @@ func TestBroadcastToAllSubscribers(t *testing.T) {
 	m := NewMonitor()
 	p1 := newFakeSession("a")
 	p2 := newFakeSession("b")
-	m.Subscribe("veh-001", p1)
-	m.Subscribe("veh-001", p2)
+	m.Subscribe("src-001", p1)
+	m.Subscribe("src-001", p2)
 	for i := int64(1); i <= 3; i++ {
-		if err := m.Apply(State{Vehicle: "veh-001", Version: i, Data: map[string]any{"speed": float64(i) * 10}}); err != nil {
+		if err := m.Apply(State{Source: "src-001", Version: i, Data: map[string]any{"value": float64(i) * 10}}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -49,13 +49,13 @@ func TestBroadcastToAllSubscribers(t *testing.T) {
 func TestReconnectCatchesUpToLatest(t *testing.T) {
 	m := NewMonitor()
 	p1 := newFakeSession("a")
-	m.Subscribe("veh-001", p1)
+	m.Subscribe("src-001", p1)
 	for i := int64(1); i <= 3; i++ {
-		_ = m.Apply(State{Vehicle: "veh-001", Version: i, Data: map[string]any{}})
+		_ = m.Apply(State{Source: "src-001", Version: i, Data: map[string]any{}})
 	}
 	// p1 断开后新面板订阅 → 应立即收到最新快照 v3（含入会快照）。
 	p2 := newFakeSession("b")
-	m.Subscribe("veh-001", p2)
+	m.Subscribe("src-001", p2)
 	st, ok := p2.Next()
 	if !ok || st.Version != 3 {
 		t.Fatalf("重连面板应补 v3, got v%d ok=%v", st.Version, ok)
@@ -65,17 +65,17 @@ func TestReconnectCatchesUpToLatest(t *testing.T) {
 func TestClosedSessionRemoved(t *testing.T) {
 	m := NewMonitor()
 	p := newFakeSession("a")
-	m.Subscribe("veh-001", p)
+	m.Subscribe("src-001", p)
 	p.Close()
 	// 断开后的广播：Send 报错 → 该会话被摘除；后续广播不再影响其他会话。
-	if err := m.Apply(State{Vehicle: "veh-001", Version: 1, Data: map[string]any{}}); err != nil {
+	if err := m.Apply(State{Source: "src-001", Version: 1, Data: map[string]any{}}); err != nil {
 		t.Fatal(err)
 	}
-	if err := m.Apply(State{Vehicle: "veh-001", Version: 2, Data: map[string]any{}}); err != nil {
+	if err := m.Apply(State{Source: "src-001", Version: 2, Data: map[string]any{}}); err != nil {
 		t.Fatal(err)
 	}
 	m.mu.Lock()
-	n := len(m.sessions["veh-001"])
+	n := len(m.sessions["src-001"])
 	m.mu.Unlock()
 	if n != 0 {
 		t.Errorf("断开会话应被摘除, 剩 %d", n)
@@ -85,9 +85,9 @@ func TestClosedSessionRemoved(t *testing.T) {
 func TestStaleVersionRejected(t *testing.T) {
 	m := NewMonitor()
 	p := newFakeSession("a")
-	m.Subscribe("veh-001", p)
-	_ = m.Apply(State{Vehicle: "veh-001", Version: 5, Data: map[string]any{}})
-	err := m.Apply(State{Vehicle: "veh-001", Version: 4, Data: map[string]any{}}) // 回退
+	m.Subscribe("src-001", p)
+	_ = m.Apply(State{Source: "src-001", Version: 5, Data: map[string]any{}})
+	err := m.Apply(State{Source: "src-001", Version: 4, Data: map[string]any{}}) // 回退
 	if !errors.Is(err, ErrStaleVersion) {
 		t.Fatalf("版本回退应 ErrStaleVersion, got %v", err)
 	}
@@ -102,11 +102,11 @@ func TestStaleVersionRejected(t *testing.T) {
 
 func TestSnapshotCopyIsolated(t *testing.T) {
 	m := NewMonitor()
-	_ = m.Apply(State{Vehicle: "veh-001", Version: 1, Data: map[string]any{"speed": 10.0}})
-	snap, _ := m.Latest("veh-001")
-	snap.Data["speed"] = 999.0 // 篡改快照副本
-	again, _ := m.Latest("veh-001")
-	if again.Data["speed"].(float64) != 10.0 {
+	_ = m.Apply(State{Source: "src-001", Version: 1, Data: map[string]any{"value": 10.0}})
+	snap, _ := m.Latest("src-001")
+	snap.Data["value"] = 999.0 // 篡改快照副本
+	again, _ := m.Latest("src-001")
+	if again.Data["value"].(float64) != 10.0 {
 		t.Error("Latest 应返回副本，调用方改写不得污染内部")
 	}
 }
