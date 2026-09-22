@@ -672,7 +672,7 @@ grep -c 'languages/studies/' "$f"
 grep -n 'languages/' "$f" | grep -v 'languages/studies/' | head
 ```
 
-Expected: `改动 N 行`（N 应为 10 或接近）；`grep -c` 打印改后的行数；最后一条 grep 只应剩下确属 `languages/analysis/`、`languages/tenet/` 的行（若有）。**逐行核对最后一条输出，确认没有漏改的管辖路径。**
+Expected: `改动 10 行`（已逐字预跑确认：10 行被改，改后「含 `languages/` 但不含 `languages/studies/`」的行数为 **0**）；最后一条 grep **无输出**。若最后一条 grep 有输出，说明正则漏了某种形态，**逐行核对后再继续**。
 
 - [ ] **Step 11: 站点构建验证**
 
@@ -960,7 +960,7 @@ PY
 grep -n 'engineering/' "$f" | grep -v 'engineering/ai-platform/' | head
 ```
 
-Expected: `改动 N 行`；最后一条 grep **无输出**（说明所有 `engineering/` 都已带 `ai-platform/`）。
+Expected: `改动 5 行`（已逐字预跑确认：5 行被改，改后「含 `engineering/` 但不含 `engineering/ai-platform/`」的行数为 **0**）；最后一条 grep **无输出**。
 
 - [ ] **Step 7: 改写 4 个文件 6 行的「分工/边界」段落为新域词汇**
 
