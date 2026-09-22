@@ -31,10 +31,10 @@ jobs:
       fail-fast: false
       matrix:
         module:
-          - ingest/device-contracts
-          - ingest/device-gateway
-          - ingest/device-codec
-          - ingest/device-simulator
+          - engineering/data-platform/ingest/device-contracts
+          - engineering/data-platform/ingest/device-gateway
+          - engineering/data-platform/ingest/device-codec
+          - engineering/data-platform/ingest/device-simulator
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
@@ -72,15 +72,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: build device-gateway image
-        run: docker build -f ingest/device-gateway/Dockerfile -t oceanverse/device-gateway:ci .
+        run: docker build -f engineering/data-platform/ingest/device-gateway/Dockerfile -t oceanverse/device-gateway:ci engineering/data-platform
       - name: build device-codec image
-        run: docker build -f ingest/device-codec/Dockerfile -t oceanverse/device-codec:ci .
+        run: docker build -f engineering/data-platform/ingest/device-codec/Dockerfile -t oceanverse/device-codec:ci engineering/data-platform
       # Flink 镜像自建(官方镜像不含任何连接器, 见 deploy/flink/Dockerfile)。
       # 这里只验"能构建 + 三个 jar 真在 lib 里" —— 构建期要拉 Maven, 版本写错不会报错,
       # 只会在作业提交时炸(NoSuchMethodError), 所以把"jar 在位"也断言掉。
       - name: build flink image
         run: |
-          docker build -f deploy/flink/Dockerfile -t oceanverse/flink:ci deploy/flink
+          docker build -f engineering/data-platform/deploy/flink/Dockerfile -t oceanverse/flink:ci engineering/data-platform/deploy/flink
           docker run --rm --entrypoint sh oceanverse/flink:ci -c 'ls /opt/flink/lib | grep -q flink-sql-connector-kafka'
           # 只断言 kafka 连接器: ClickHouse sink 走 Kafka 结果 topic + CH Kafka 引擎(见 Dockerfile 头注)
           # 注意 jar 名是 flink-**sql**-connector-kafka —— 第一版断言写成 flink-connector-kafka, 少了 sql-,
@@ -153,8 +153,8 @@ jobs:
       - uses: actions/checkout@v7
       - name: build images
         run: |
-          docker build -f ingest/device-gateway/Dockerfile -t oceanverse/device-gateway:ci .
-          docker build -f ingest/device-codec/Dockerfile -t oceanverse/device-codec:ci .
+          docker build -f engineering/data-platform/ingest/device-gateway/Dockerfile -t oceanverse/device-gateway:ci engineering/data-platform
+          docker build -f engineering/data-platform/ingest/device-codec/Dockerfile -t oceanverse/device-codec:ci engineering/data-platform
       - name: start gateway + codec (宿主网络, 模拟本机拓扑)
         run: |
           docker run -d --name gw-health --network host \
@@ -185,7 +185,7 @@ jobs:
           KAFKA_CONTAINER: ${{ steps.kafka.outputs.id }}
           # 不灌探针帧(CI 里没有 EMQX, 注入必然失败): PROBE=0 只做不依赖流量的判据
           PROBE: "0"
-        run: bash scripts/check-pipeline-health.sh -w 15
+        run: bash engineering/data-platform/scripts/check-pipeline-health.sh -w 15
       - name: dump logs on failure
         if: failure()
         run: docker logs gw-health | tail -20; docker logs codec-health | tail -20
@@ -205,18 +205,18 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: compose config
-        working-directory: deploy
+        working-directory: engineering/data-platform/deploy
         run: |
           cp .env.example .env || true
           docker compose config -q
       - name: memory budget gate
-        run: bash scripts/check-compose-budget.sh
+        run: bash engineering/data-platform/scripts/check-compose-budget.sh
       # 门禁自己也会退化成"僵尸判据"(实测: 成对约束判据长期打印"跳过"而没人发现),
       # 故把负向对照固化: 在隔离假树里施加 10 种扰动, 每种都必须让门禁变红
       - name: budget gate self-test (negative controls)
-        run: bash scripts/test-compose-budget.sh
+        run: bash engineering/data-platform/scripts/test-compose-budget.sh
       - name: compose up (等待全部 healthy)
-        working-directory: deploy
+        working-directory: engineering/data-platform/deploy
         run: |
           # 8883 TLS 需要证书; CI 不走公网路径, 但 emqx.conf 引用了证书文件 → 先生成自签
           bash emqx/gen-certs.sh
@@ -246,7 +246,7 @@ jobs:
             exit 1
           fi
       - name: smoke queries (Kafka / ClickHouse / MySQL / Redis)
-        working-directory: deploy
+        working-directory: engineering/data-platform/deploy
         run: |
           set -e
           docker exec ov-kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
@@ -258,7 +258,7 @@ jobs:
           docker exec ov-redis redis-cli ping | grep -qx PONG
           docker exec ov-redis redis-cli config get maxmemory | tail -1 | grep -qx 201326592
       - name: flink profile up (真起 session cluster)
-        working-directory: deploy
+        working-directory: engineering/data-platform/deploy
         run: |
           set -e
           # 只 build 不 up 曾让"官方镜像缺连接器、入口缺角色参数"这类问题跑到运行期(本机实测踩过)
@@ -294,7 +294,7 @@ jobs:
           docker compose --profile realtime ps
           test -z "$bad"
       - name: realtime layer (建表 + 提作业 + 断言运行)
-        working-directory: deploy
+        working-directory: engineering/data-platform/deploy
         run: |
           set -e
           # 结果 topic 预创建（topic 一律预创建, 不依赖 broker auto-create —— 设计文档 §11.2 的纪律）
@@ -323,7 +323,7 @@ jobs:
           #   **代价（如实记录）**: SQL 语义/字段类型/时区/去重口径改坏了, CI **不会再拦住** ——
           #   这两条判据只能本地手动跑, 见 scripts/README.md 与 roadmap「P0 收口」的修订。
       - name: prometheus rules loaded == file (配置新鲜度)
-        working-directory: deploy
+        working-directory: engineering/data-platform/deploy
         run: |
           set -e
           for i in $(seq 1 20); do curl -sf http://localhost:9090/-/healthy >/dev/null && break; sleep 2; done
@@ -338,11 +338,11 @@ jobs:
           docker exec ov-prometheus promtool test rules /etc/prometheus/rules/tests/flink-checkpoints.test.yml
       - name: dump logs on failure
         if: failure()
-        working-directory: deploy
+        working-directory: engineering/data-platform/deploy
         run: docker compose logs --tail 40
       - name: cleanup
         if: always()
-        working-directory: deploy
+        working-directory: engineering/data-platform/deploy
         run: docker compose down -v || true
 
   # ---------- 文档事实校验 + Mermaid 渲染 ----------
@@ -352,6 +352,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: docs facts check
-        run: bash scripts/check-docs.sh
+        run: bash engineering/data-platform/scripts/check-docs.sh
       - name: mermaid render check
-        run: bash scripts/check-mermaid.sh
+        run: bash engineering/data-platform/scripts/check-mermaid.sh
