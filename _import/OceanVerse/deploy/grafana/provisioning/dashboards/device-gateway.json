@@ -1,0 +1,204 @@
+{
+  "uid": "device-gateway",
+  "title": "device-gateway 车端接入网关",
+  "tags": ["oceanverse", "ingest"],
+  "timezone": "",
+  "refresh": "5s",
+  "time": { "from": "now-15m", "to": "now" },
+  "schemaVersion": 39,
+  "version": 1,
+  "annotations": { "list": [] },
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "请求速率（按结果分类）",
+      "description": "sum by (result) rate(gateway_requests_total[1m])。ok 应占绝对主体；unauthorized/rate_limited/invalid_* 冒头即查。",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "drawStyle": "line", "fillOpacity": 20, "stacking": { "mode": "normal" }, "showPoints": "never" }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+          "expr": "sum by (result) (rate(gateway_requests_total[1m]))",
+          "legendFormat": "{{result}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "处理延迟分位（按通道）",
+      "description": "histogram_quantile 基于 gateway_request_duration_seconds_bucket[5m]。正常 p99 应在 50ms 攒批窗口以内；超过说明 Kafka 或解码路径变慢。",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+          "expr": "histogram_quantile(0.99, sum by (le, path) (rate(gateway_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "p99 {{path}}"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+          "expr": "histogram_quantile(0.95, sum by (le, path) (rate(gateway_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "p95 {{path}}"
+        },
+        {
+          "refId": "C",
+          "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+          "expr": "histogram_quantile(0.50, sum by (le, path) (rate(gateway_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "p50 {{path}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "对账：网关受理 vs Kafka 写入",
+      "description": "设计文档 §9 对账公式的网关段：两线应重合，分叉=积压在 Kafka 客户端缓冲或写入失败；error 线应贴 0。",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+          "expr": "sum(rate(gateway_requests_total{result=\"ok\"}[1m]))",
+          "legendFormat": "网关受理 ok"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+          "expr": "sum(rate(gateway_kafka_write_total{result=\"ok\"}[1m]))",
+          "legendFormat": "Kafka 写入 ok"
+        },
+        {
+          "refId": "C",
+          "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+          "expr": "sum(rate(gateway_kafka_write_total{result=\"error\"}[1m]))",
+          "legendFormat": "Kafka 写入 error"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "在途请求（背压先行指标）",
+      "description": "gateway_inflight_requests：此刻卡在网关处理链中的请求数。贴 0 小幅抖动为正常；单调爬升=下游(Kafka)变慢或资源耗尽, 是过载的最早信号。",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "line", "fillOpacity": 25, "showPoints": "never" }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": false },
+        "tooltip": { "mode": "single" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+          "expr": "gateway_inflight_requests",
+          "legendFormat": "在途请求"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "上行延迟 SLI：EMQX 接收 → 受理完成（按通道）",
+      "description": "gateway_ingest_latency_seconds：EMQX 的**毫秒**接收时间戳 → 网关受理完成（含 Kafka 落盘确认）。这一段精确到毫秒，不受设备侧秒级 ts 限制（《接入层设计》§9 说的两段之间的桥）。持续上涨 = Kafka 变慢，或 EMQX 因网关 5xx 在重投（重投会如实计入，属预期信号）。",
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ov-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ov-prometheus"
+          },
+          "expr": "histogram_quantile(0.99, sum by (le, channel) (rate(gateway_ingest_latency_seconds_bucket[5m])))",
+          "legendFormat": "p99 {{channel}}"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ov-prometheus"
+          },
+          "expr": "histogram_quantile(0.5, sum by (le, channel) (rate(gateway_ingest_latency_seconds_bucket[5m])))",
+          "legendFormat": "p50 {{channel}}"
+        }
+      ]
+    }
+  ]
+}

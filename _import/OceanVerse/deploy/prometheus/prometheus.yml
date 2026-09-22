@@ -1,0 +1,48 @@
+# OceanVerse 第 1 阶段 Prometheus 抓取配置
+# 注意: 网关跑在宿主机(go run / 二进制), 容器经 host.docker.internal 访问——
+# 与 emqx.conf webhook 同一主机名(不通时把 host.docker.internal 换成 host.lima.internal 或宿主局域网 IP)。
+global:
+  scrape_interval: 5s   # 压测/故障演练要看清瞬时曲线, 第 1 阶段本机资源充裕
+  evaluation_interval: 15s
+
+# 告警规则: 本机无 Alertmanager, 告警只出现在 UI/API(http://localhost:9090/alerts);
+# 复验: 打开 /alerts 应看到 0 个 firing。规则含义见 rules/ 文件内注释。
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+scrape_configs:
+  # 网关: 请求速率/延迟/拒绝率/在途(门面指标)
+  # 指标走**专用端口 18081**(GATEWAY_METRICS_PORT), 不再复用业务端口 18080:
+  # 业务端口只服务上报流量, /debug/pprof 另绑回环(127.0.0.1:18082)。
+  - job_name: device-gateway
+    metrics_path: /metrics
+    static_configs:
+      # 本机 8080~8083 被公司 Java 服务占用, 开发期网关跑 18080(GATEWAY_PORT=18080)
+      # 与 emqx.conf webhook url 同端口(§5.3 对齐线); 若 8080 腾出可整体改回
+      - targets: ["host.docker.internal:18081"]
+        labels:
+          service: device-gateway
+
+  # 编解码服务: 消费/解码/DLQ/lag/flush(管道指标)
+  # 同为宿主机进程, 端口见 CODEC_METRICS_PORT(默认 18090); 指标口径见《接入层设计》§9
+  - job_name: device-codec
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["host.docker.internal:18090"]
+        labels:
+          service: device-codec
+
+  # Flink 实时作业: 指标来自自建镜像里的 flink-metrics-prometheus
+  # (JM/TM 各在自己的容器里暴露 :9249; **不发布到宿主**, Prometheus 走容器网直连)。
+  - job_name: flink-jobmanager
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["flink-jobmanager:9249"]
+        labels:
+          service: flink-jobmanager
+  - job_name: flink-taskmanager
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["flink-taskmanager:9249"]
+        labels:
+          service: flink-taskmanager

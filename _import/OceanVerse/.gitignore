@@ -1,0 +1,54 @@
+# ============================================================
+# OceanVerse .gitignore
+# 原则: 只忽略"可再生的构建产物/环境产物", 绝不按扩展名忽略数据文件
+# (数据平台合法地会提交 .zip/.csv/.xlsx 等样本与夹具)
+# ============================================================
+
+# ---------- Go ----------
+# 构建输出与测试产物(各服务模块的 bin/ 统一忽略)
+/ingest/device-gateway/bin/
+/ingest/device-codec/bin/
+/ingest/device-simulator/bin/
+*.test
+*.out
+# go build 在 cmd 目录下产生的同名二进制(锚定完整路径, 裸词会误伤同名目录)
+/ingest/device-gateway/cmd/server/server
+/ingest/device-gateway/cmd/simulator/simulator
+/ingest/device-gateway/cmd/mqtt-simulator/mqtt-simulator
+
+# ---------- Java (第 1 阶段 services/) ----------
+target/
+*.class
+*.jar
+*.war
+hs_err_pid*
+replay_pid*
+
+# ---------- Python (第 1 阶段 analysis/) ----------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# ---------- 操作系统/编辑器 ----------
+.DS_Store
+.idea/
+.vscode/
+
+# ---------- 工具目录 ----------
+.workbuddy
+
+# ---------- 通用临时目录(评审/构建脚手架) ----------
+# 约定: 所有临时产物放 .tmp-*/, 避免 git add -A 时误提交构建缓存(曾出现 .tmp-gocache 400MB)
+.tmp-*/
+# 同前缀的**文件**也要忽略(曾把 .tmp-ci-run 误提交进仓库)
+.tmp-*
+
+# ---------- 本地安全演练产物(可再生, 不入库) ----------
+# 自签证书与私钥: deploy/emqx/gen-certs.sh 一键重生
+deploy/emqx/certs/
+# 本机 compose 覆盖(如 1883 被 RabbitMQ 占用时 EMQX_MQTT_PORT=11883)
+deploy/.env
+.tmp-mmdc/

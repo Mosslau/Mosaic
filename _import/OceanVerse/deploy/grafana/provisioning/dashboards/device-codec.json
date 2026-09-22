@@ -1,0 +1,257 @@
+{
+  "uid": "device-codec",
+  "title": "device-codec 编解码服务",
+  "tags": ["oceanverse", "ingest"],
+  "timezone": "",
+  "refresh": "5s",
+  "time": { "from": "now-15m", "to": "now" },
+  "schemaVersion": 39,
+  "version": 1,
+  "annotations": { "list": [] },
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "消费 vs 解码（按 type）",
+      "description": "consumed 为原始帧速率, decoded 按 L2 type 分类。比值=每帧平均拆出几条; decoded 总量应恒 ≥ consumed(一帧可拆多条)。",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "drawStyle": "line", "fillOpacity": 15, "showPoints": "never" }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+          "expr": "sum(rate(codec_consumed_total[1m]))",
+          "legendFormat": "消费(原始帧)"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+          "expr": "sum by (type) (rate(codec_decoded_total[1m]))",
+          "legendFormat": "{{type}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "DLQ 速率（按 stage）",
+      "description": "codec 是链路上唯一会丢弃消息的环节。任何非零且持续增长都要查: parse/decode=对端字节问题, validate=契约不同步, envelope=版本/信封问题, encode=平台侧序列化异常(§6.1)。",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "line", "fillOpacity": 30, "showPoints": "never" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 0.001 }] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+          "expr": "sum by (stage) (rate(codec_dlq_total[1m]))",
+          "legendFormat": "{{stage}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "消费滞后 lag（实时性核心）",
+      "description": "codec_consumer_lag(来自 kafka-go ReaderStats)。持续 >0 = 解码跟不上或下游写慢; 归零能力是第 2 阶段 HPA 的判据。",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "line", "fillOpacity": 25, "showPoints": "never" }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": false },
+        "tooltip": { "mode": "single" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+          "expr": "codec_consumer_lag",
+          "legendFormat": "lag(条)"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "微批写出耗时（p50/p99）与平均批大小",
+      "description": "codec_flush_duration_seconds: 每批\"写出+提交位移\"耗时。变慢=Kafka 或网络抖动; 同时看批大小是否塌陷(攒批失效)。",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(codec_flush_duration_seconds_bucket[5m])))",
+          "legendFormat": "p99"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(codec_flush_duration_seconds_bucket[5m])))",
+          "legendFormat": "p50"
+        },
+        {
+          "refId": "C",
+          "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+          "expr": "sum(rate(codec_flush_batch_size_sum[5m])) / clamp_min(sum(rate(codec_flush_batch_size_count[5m])), 1)",
+          "legendFormat": "平均批大小(条)"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "上行延迟 SLI：EMQX 接收 → 解码完成（毫秒精度）",
+      "description": "codec_ingest_to_decode_seconds：网关透传的 ingest_ts_ms → 解码完成，覆盖 webhook 转发 + Kafka 投递 + 消费 + 解码。缺 ingest_ts_ms 的存量旧信封不观测（不灌噪声样本）。",
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ov-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ov-prometheus"
+          },
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(codec_ingest_to_decode_seconds_bucket[5m])))",
+          "legendFormat": "p99 EMQX→解码"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ov-prometheus"
+          },
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(codec_ingest_to_decode_seconds_bucket[5m])))",
+          "legendFormat": "p50 EMQX→解码"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "数据陈旧度：设备 ts → 解码完成（1 秒分辨率）",
+      "description": "codec_device_to_decode_seconds：设备侧 ts（契约上是 Unix 秒，GB32960 数据单元时间也是秒级）→ 解码完成。分辨率只有 1 秒，**不能**用来测链路性能；它回答的是「进入平台的数据已陈旧到什么量级」——设备时钟错、帧在 EMQX 重试/DLQ 里滞留、离线补发都会抬高它。",
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ov-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ov-prometheus"
+          },
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(codec_device_to_decode_seconds_bucket[5m])))",
+          "legendFormat": "p50 设备ts→解码"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ov-prometheus"
+          },
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(codec_device_to_decode_seconds_bucket[5m])))",
+          "legendFormat": "p99 设备ts→解码"
+        }
+      ]
+    }
+  ]
+}

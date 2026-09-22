@@ -1,0 +1,78 @@
+# promtool 单测 —— 检查点两条告警规则的"该响 / 不该响"
+#
+# 跑法（容器里就有 promtool, 规则目录已挂载）:
+#   docker exec ov-prometheus promtool test rules /etc/prometheus/rules/tests/flink-checkpoints.test.yml
+# CI: compose 作业里 prometheus 起来后跑同一条命令。
+#
+# 为什么需要它: 这两条规则在**运行态**踩过假阳性 —— 作业被取消后, 它的 series 仍留在 15m 窗口里,
+#   `increase(...[15m]) == 0` 照样成立, 于是告警为"已经不存在的作业"持续 firing(实测踩到)。
+#   修法是加 `and on(job_id) <同一指标>` 守卫(只保留当前仍被暴露的 series), 本文件把
+#   ①"作业在跑但零完成 → 必须响" 与 ②"作业已消失(series 断流) → 必须不响" 两种场景都钉住,
+#   免得守卫被后人当成冗余删掉。
+rule_files:
+  - /etc/prometheus/rules/oceanverse-alerts.yml
+evaluation_interval: 1m
+tests:
+  # ---------- ① 该响: 作业持续被暴露, 但 15 分钟零完成检查点 ----------
+  - interval: 1m
+    input_series:
+      - series: 'flink_jobmanager_job_numberOfCompletedCheckpoints{job_id="live-stalled",job_name="ov_online_count_1m"}'
+        values: '0x25'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: FlinkCheckpointStalled
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job_id: live-stalled
+              job_name: ov_online_count_1m
+            exp_annotations:
+              summary: "Flink 作业 ov_online_count_1m 15 分钟内没有完成任何检查点"
+              description: "检查点间隔 60s: 15 分钟零完成 = 卡住或被持续跳过(MinIO/反压/刚重启), 详见本文件注释"
+
+  # ---------- ② 不该响: 作业已取消(series 断流 `_`), 残留样本仍落在 15m 窗口内 ----------
+  - interval: 1m
+    input_series:
+      - series: 'flink_jobmanager_job_numberOfCompletedCheckpoints{job_id="gone-cancelled",job_name="ov_online_count_1m"}'
+        values: '0x10 _x15'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: FlinkCheckpointStalled
+        exp_alerts: []          # ← 修复前这里是 1 条告警(firing 一直不消)
+
+  # ---------- ③ 不该响: 作业健康, 每分钟完成一次 ----------
+  - interval: 1m
+    input_series:
+      - series: 'flink_jobmanager_job_numberOfCompletedCheckpoints{job_id="live-healthy",job_name="ov_fault_count_1m"}'
+        values: '0+1x25'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: FlinkCheckpointStalled
+        exp_alerts: []
+
+  # ---------- ④ 该响: 检查点开始失败 ----------
+  - interval: 1m
+    input_series:
+      - series: 'flink_jobmanager_job_numberOfFailedCheckpoints{job_id="live-failing",job_name="ov_fault_count_1m"}'
+        values: '0x10 1x15'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: FlinkCheckpointFailures
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job_id: live-failing
+              job_name: ov_fault_count_1m
+            exp_annotations:
+              summary: "Flink 作业 ov_fault_count_1m 15 分钟内有检查点失败"
+              description: "检查点失败不报错但会退化恢复能力: 查 MinIO 可达性/桶/凭据与 TM 内存(详见本文件注释)"
+
+  # ---------- ⑤ 不该响: 作业消失后, 之前失败过的记录不该继续报 ----------
+  - interval: 1m
+    input_series:
+      - series: 'flink_jobmanager_job_numberOfFailedCheckpoints{job_id="gone-failed",job_name="ov_fault_count_1m"}'
+        values: '0x5 1x5 _x15'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: FlinkCheckpointFailures
+        exp_alerts: []
