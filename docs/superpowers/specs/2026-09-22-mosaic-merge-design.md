@@ -28,7 +28,7 @@
 2. **不做内容改写**：126 个阶段、23 个算法实验、7 个工程项目的正文一个字不动。本次是纯搬迁 + 路径假设修正。
 3. **不动 `languages/studies/` 内的 L3 车辆教学示例**（约 169 个文件，py 87 / go 57 / java 23 / rs 2）：它们是语言路线的教学素材，与工程域的去车联网是两件事，前序讨论已确认保留。
 4. **不删三个源仓**：验收全绿前一律不动；验收后统一 Archive（不删除）。
-5. **站点不扩展内容族**（决策 D6）：本次站点仍只服务语言域，算法域与工程域暂不进站。
+5. **站点不扩展内容族**（决策 D6）：本次站点仍只服务语言域（且因此归入 `languages/`，D7），算法域与工程域暂不进站。
 
 ## 3. 决策记录
 
@@ -39,10 +39,11 @@
 | D3 | 语言学习路线的子目录名 `studies/` | 表达「学习路线 + 阶段笔记」；三个候选（`learning` / `studies` / `tracks`）中选定。 |
 | D4 | 新建仓库 `Mosaic`，`git subtree` 保留历史 | 拒绝「以 TenetLang 为基座改名扩仓」（会继承无关的 issue/star 语境）、「submodule」（三仓仍独立演进，不成其为单仓）、「裸拷贝」（丢历史）。 |
 | D5 | `roadmap/` 保留在顶层 | `MindSpring` 的 23 个算法实验 README 以 `> 对应文档章节：第 X.Y.Z 章` 锚定 `roadmap/人工智能代表算法演进路线.md`，且 `mindspring-lab/validate.py` 的 `parse_roadmap_chapters()` 从 `ROOT/roadmap/` 读取。保持该路径 → 23 处锚点与校验器**零改动**。 |
-| D6 | 站点本次只服务语言域（方案 S1） | 站点（VitePress + `curriculum.json`）是语言课程站。一次吞五域要把首页/导航/数据结构一起重做，会把「搬迁」与「改版」混在一个变更里。算法/工程域进站列为后续项。 |
-| D7 | `OceanVerse` **整仓搬入** `engineering/data-platform/` | `scripts/check-*.sh` 全部以 `ROOT="$(cd "$(dirname "$0")/.." && pwd)"` 自定位，`deploy/` 的 compose 构建上下文也是域内相对路径。整体平移 → 这些一行都不用改。 |
-| D8 | 技能目录 `tenetlang-notes` / `mindspring-lab` 暂不改名 | 二者是「辖区」名，被多处文档引用；改名的收益只是观感，成本是全域引用更新。列为后续项。 |
-| D9 | 本次只修「会失效的路径与指代」，不改「仓名自称」 | 分界线：**路径类引用必须修**（不改就断链/失效，实测约 68 处）；**仓名自称不改**（TenetLang 22 / MindSpring 16 / OceanVerse 47 = 85 行，不影响可运行性，且混入会让 `git diff` 无法区分「搬动」与「改写」，破坏 §9 门禁的可判定性）。自称退休列入 §11 后续项。**例外**：4 个文件里的「与 TenetLang 的分工/边界」是实质内容，随新域 README 一并改写成新词汇（见 §6）。 |
+| D6 | 站点只服务语言域（方案 S1） | 站点（VitePress + `curriculum.json`）是语言课程站。一次吞五域要把首页/导航/数据结构一起重做，会把「搬迁」与「改版」混在一个变更里。算法/工程域进站列为后续项；届时站点提升到顶层是一次**有意义的**提升（因为那时它真的全仓了）。 |
+| D7 | 站点归入语言域：`languages/website/` | 站点既只服务语言域（D6），摆在跨域顶层就名不副实——与 D2 被否的方案同属「层级与管辖不符」。移入后 `sync-docs.mjs` 的 `REPO_DIR` 自然收缩为语言域根，改动反而更少（详见 §6）。 |
+| D8 | `OceanVerse` **整仓搬入** `engineering/data-platform/` | `scripts/check-*.sh` 全部以 `ROOT="$(cd "$(dirname "$0")/.." && pwd)"` 自定位，`deploy/` 的 compose 构建上下文也是域内相对路径。整体平移 → 这些一行都不用改。 |
+| D9 | 技能目录 `tenetlang-notes` / `mindspring-lab` 暂不改名 | 二者是「辖区」名，被多处文档引用；改名的收益只是观感，成本是全域引用更新。列为后续项。 |
+| D10 | 本次只修「会失效的路径与指代」，不改「仓名自称」 | 分界线：**路径类引用必须修**（不改就断链/失效，实测 78 处）；**仓名自称不改**（TenetLang 22 / MindSpring 16 / OceanVerse 47 = 85 行，不影响可运行性，且混入会让 `git diff` 无法区分「搬动」与「改写」，破坏 §9 门禁的可判定性）。自称退休列入 §11 后续项。**例外**：4 个文件里的「与 TenetLang 的分工/边界」是实质内容，随新域 README 一并改写成新词汇（见 §6）。 |
 
 ## 4. 目标结构
 
@@ -52,16 +53,18 @@
 Mosaic/
 ├── README.md                        新写：三部分总入口
 ├── LICENSE                          ← 三份逐字节相同（md5 e58bcab3…），留一份
-├── .gitignore                       三份并集 + 路径锚定修正（见 §5）
+├── .gitignore                       分层规则：顶层通用 + 各域自带（见 §5）
 ├── .mcp.json                        ← 三份逐字节相同（md5 f99d3636…），留一份
 ├── pyproject.toml                   ← MindSpring（改项目名/描述 + testpaths）
 ├── .python-version                  ← MindSpring
 │
 ├── languages/                       ① 开发语言部分
 │   ├── README.md                    新写：学/析/合 三主线导航 + 边界 + 校验命令
+│   ├── .gitignore                   ← TenetLang 域内产物清单（19 行，10 行需改前缀，见 §5）
 │   ├── studies/                     ← TenetLang/languages/（6 语言 × 126 阶段）
 │   ├── analysis/                    ← TenetLang/analysis/
-│   └── tenet/                       ← TenetLang/tenet/
+│   ├── tenet/                       ← TenetLang/tenet/
+│   └── website/                     ← TenetLang/website/（D6+D7：站点只服务语言域，故归入语言域）
 │
 ├── algorithms/                      ② 算法部分
 │   ├── README.md                    ← MindSpring/algorithms/README.md
@@ -80,18 +83,21 @@ Mosaic/
 │   ├── 大模型数据中心平台工程师.md    ← MindSpring
 │   └── 智能大数据平台工程师.md        ← OceanVerse（出链 0、入链 0，搬运零成本）
 │
-├── books/                           ← TenetLang/books/
-├── website/                         ← TenetLang/website/（VitePress；站点唯一，见 D6）
+├── books/                           ← TenetLang/books/（计算机书单，横跨三部分，不在站点内容族内）
 ├── .github/workflows/ci.yml         ← OceanVerse（全仓唯一 CI）
 └── .dsh/skills/                     16 个 skill 的并集
 ```
 
+顶层构成可以一句话说清：**三个内容域**（`languages/` `algorithms/` `engineering/`）+ **四类跨域支撑**（`roadmap/` `books/` `.dsh/` `.github/`）+ 根级元文件。没有任何「只管一个域的东西」摆在跨域层级上。
+
 ### 4.1 关键「搬对了就零成本」的证据
 
-- **OceanVerse 内部相对路径全部继续成立**（D7）。
+- **OceanVerse 内部相对路径全部继续成立**（D8）。
 - **`智能大数据平台工程师.md` 上移零成本**：实测其在 OceanVerse 内出链 0、入链 0；OceanVerse 只引用 `项目进度.md` 与 `OceanVerse架构总览.md`，后两者留在 `engineering/data-platform/roadmap/`，域内引用不受影响。
 - **`studies/` 内部数百条阶段互链（`../../<lang>/phNN-*`）全是域内相对路径**，域整体平移后全部继续成立。这正是「域整体搬迁」优于「文件级重排」的地方。
 - **`.dsh/skills/` 去重是真正的并集**：14 个共享 skill 在三仓间 `diff -rq` 差异块均为 0，并集 = TenetLang 15 个 + `mindspring-lab` = 16 个。
+- **站点移入 `languages/` 反而减少改动**（D7）：`website/.gitignore` 自包含（`node_modules/`、`docs/`、`.vitepress/*` 均相对自身），搬迁零改动；且 `sync-docs.mjs` 的 `REPO_DIR = path.resolve(SITE_DIR, '..')` 会自然收缩为「语言域根」，`FAMILIES` 随之变成干净的 `['studies','analysis','tenet']`，`rootReadme`（476 行）、372/417/435 行全部**无需改动**。脚本改动从 11 处降到 6 处，站点路由也从 `/languages/studies/py/…` 缩短为 `/py/…`。
+- **站点无外部引用**：`grep -rn 'website/'` 在 `website/` 之外零命中，搬迁零入链成本。
 
 ### 4.2 被否决的备选结构
 
@@ -104,9 +110,9 @@ Mosaic/
 |---|---|
 | `LICENSE` | 三份 md5 相同，保留一份。 |
 | `.mcp.json` | 三份 md5 相同，保留一份。 |
-| `.gitignore` | 三份并集。**必须修正的点**：OceanVerse 的 `.tmp-gocache` / `.tmp-gh-cache` / `.tmp-mmdc` 等模式原本相对仓根，合并后需写成 `engineering/data-platform/.tmp-*` 或 `**/.tmp-*`；TenetLang 忽略 `website/docs/`（站点产物）需保留且路径仍成立。逐条核对并集**不得新增误伤**（例如不得让某个模式意外匹配到 `languages/studies/` 内的文件）。 |
+| `.gitignore` | **分层，不合并成一份**（与「域整体搬迁」同一哲学：忽略规则跟着域走，各域可独立演进）。<br>① 顶层一份**通用规则**并集：编辑器/OS、`target/`、`__pycache__/`、虚拟环境、各类缓存、`.workbuddy`，以及 MindSpring 的 `/build/` `/dist/` `/site`（Python 打包产物，锚在 `pyproject.toml` 所在处 = 仓库根，位置正确）。<br>② `languages/.gitignore` ← TenetLang 的域内产物清单（19 行路径规则）。**其中 9 行零改动**（`analysis/cpp/demos/*` 5 行、`tenet/compiler-*` 4 行——根从「仓库根」变成「语言域根」后自动继续成立）；**10 行需改**：`/languages/go/ph21-data-ingest-gateway/…` → `/studies/go/ph21-data-ingest-gateway/…`。<br>③ `engineering/data-platform/.gitignore` ← OceanVerse **原样**（11 行路径规则全部是 `/ingest/…`、`deploy/…`、`.tmp-*` 这类锚定或域内相对形式，根变成 `engineering/data-platform/` 后**全部自动成立，零改动**）。<br>④ `languages/website/.gitignore` ← 原样，零改动。<br>⚠ 注意 OceanVerse 的 `.tmp-*` 规则**不需要**改写成 `**/.tmp-*`：它随域自带，天然只作用于数据平台域。 |
 | `pyproject.toml` | 取自 MindSpring：`name`/`description` 更新为 Mosaic；`testpaths = ["algorithms", "engineering"]` → `["algorithms", "engineering/ai-platform"]`。保留在仓库根（`mindspring-lab/validate.py` 以 `cwd=ROOT` 跑 `pytest`）。 |
-| `.dsh/skills/` | 16 个 skill 并集，逐字节去重（D8：`tenetlang-notes` / `mindspring-lab` 不改名）。 |
+| `.dsh/skills/` | 16 个 skill 并集，逐字节去重（D9：`tenetlang-notes` / `mindspring-lab` 不改名）。 |
 | `MindSpring/website/` | 仅含一行标题的 stub（`# MindSpring 文档站`），内容无独有信息，**删除**。 |
 | `MindSpring/roadmap/README.md` | 扩写为全仓路线索引（四份路线文档的入口）。 |
 | `.github/` | 仅 OceanVerse 有，直接落 `Mosaic/.github/`；workflow 内路径需加域前缀（见 §6）。 |
@@ -123,15 +129,16 @@ Mosaic/
 | `engineering/ai-platform/README.md` | `../roadmap/大模型数据中心平台工程师.md` → `../../roadmap/大模型数据中心平台工程师.md` | 1 条 |
 | `.dsh/skills/tenetlang-notes/scripts/validate.py` | `lang_root = root / "languages"` → `root / "languages" / "studies"`（含第 447 行错误提示文案） | 1 行 |
 | `.dsh/skills/mindspring-lab/scripts/validate.py` | `ENG_INDEX` → `engineering/ai-platform/README.md`；`ROOT.glob("engineering/[0-9][0-9]-*")` → `engineering/ai-platform/[0-9][0-9]-*` | 2 处 |
-| `website/scripts/sync-docs.mjs` | `FAMILIES`（第 23 行）改为带路径的三元组；`REPO_DIR/'languages'/<lang>`（347/357/481/495/505）→ `languages/studies/<lang>`；`rootReadme`（476 行）由 `REPO_DIR/README.md` 改指 `languages/README.md`；`analysisDocs`/`tenetDocs`/`languageDocs` 计数键（530–532）随 FAMILIES 调整；372/417/435 行路径随域前缀调整 | 约 11 处 |
-| `website/README.md` | 内容真源描述 `languages/`、`analysis/`、`tenet/` → 新路径 | 措辞 |
+| `languages/website/scripts/sync-docs.mjs` | `REPO_DIR`（17 行）**不变**——`SITE_DIR/..` 自动成为语言域根；`FAMILIES`（23 行）`'languages'` → `'studies'`；347/357/481/505 行的 `'languages'` 路径段 → `'studies'`；530–532 计数键 `familyFiles.languages` → `familyFiles.studies`。**476/372/417/435 行无需改动**（`rootReadme` 自动指向 `languages/README.md`） | 6 处 |
+| `languages/website/README.md` | 内容真源描述改为域根相对（`studies/`、`analysis/`、`tenet/`） | 措辞 |
+| `languages/.gitignore` | `/languages/go/ph21-data-ingest-gateway/…` ×10 → `/studies/go/ph21-data-ingest-gateway/…` | 10 行 |
 | `.github/workflows/ci.yml` | 13 处 `working-directory` + 8 处 `matrix.module` 取值 + 1 处 `path` 加 `engineering/data-platform/` 前缀 | 22 处 |
 | `.dsh/skills/tenetlang-notes/SKILL.md`、`.dsh/skills/mindspring-lab/SKILL.md` | 管辖范围措辞（`languages/` 相关共 15 行） | 措辞 |
 | `engineering/ai-platform/README.md`（原 `MindSpring/engineering/README.md`） | 项目总览表格内无跨目录相对链接，仅需更新管辖路径措辞 | 0 条链接 |
 | 跨仓指代（`MindSpring/README.md:24,26`；`MindSpring/engineering/README.md:45,47`；`MindSpring/engineering/07-ai-platform/README.md:89`） | 「与 TenetLang 的分工/边界」实质内容改写成新域词汇（`languages/` ↔ `engineering/ai-platform/`）；其中 `../TenetLang/` 路径链接复用新 `languages/README.md` 锚点 | 4 文件 6 行 |
 | 新写 | `README.md`、`languages/README.md`、`engineering/README.md`、`roadmap/README.md` | 4 个 |
 
-**合计：73 处路径/指代修正 + 4 个新文档 + 2 处 SKILL 措辞**（4 + 2 + 24 + 1 + 1 + 2 + 11 + 22 + 6）。
+**合计：78 处路径/指代修正 + 4 个新文档 + 2 处 SKILL 措辞**（4 + 2 + 24 + 1 + 1 + 2 + 6 + 10 + 22 + 6）。
 
 不动的相关项（已核实无需处理）：
 
@@ -163,8 +170,8 @@ git rm -r _import                                                # 最后删空�
 |---|---|---|
 | C0 | 仓库初始化 + 本 spec（根提交） | — |
 | C1 | `git subtree` 导入三仓 → `_import/` | 三仓内容原样在 `_import/` 下 |
-| C2 | 顶层公共资产：`.dsh/skills/` 并集、`LICENSE`、`.mcp.json`、`.gitignore` 并集、`pyproject.toml` | 技能与配置就位 |
-| C3 | 语言域：`studies/analysis/tenet` 重排 + 4 条 `analysis→studies` 链接 + 2 条 `books`/`website` 链接 + 站点脚本 + `tenetlang-notes` 校验器 + `languages/README.md` | `validate.py` 全绿（含 `--links`）、站点可 build |
+| C2 | 顶层公共资产：`.dsh/skills/` 并集（16 个）、`LICENSE`、`.mcp.json`、顶层**通用** `.gitignore`、`pyproject.toml` | 技能与配置就位；`git check-ignore -v` 抽样确认无误伤 |
+| C3 | 语言域：`studies/analysis/tenet/website` 重排 + 4 条 `analysis→studies` 链接 + 2 条 `books`/`website` 链接 + `languages/.gitignore`（10 行前缀）+ 站点脚本 6 处 + `tenetlang-notes` 校验器 + `languages/README.md` | `validate.py` 全绿（含 `--links`）、`languages/website` 内 `npm run build` 通过 |
 | C4 | 算法域：`algorithms/` + 顶层 `roadmap/` + `roadmap/README.md` | 算法实验 README 锚点全部解析成功 |
 | C5 | 工程域 ai-platform：7 个项目 + 25 条跨目录链接修正 + 4 文件 6 行边界文案改写 + `mindspring-lab` 校验器 + `pyproject.toml` testpaths | `mindspring-lab/validate.py` 全绿、根目录 `pytest` 通过 |
 | C6 | 工程域 data-platform：OceanVerse 整仓 + CI 前缀 | `check-docs.sh` / `check-mermaid.sh` / `check-compose-budget.sh` 通过、`docker compose config` 通过 |
@@ -175,16 +182,16 @@ git rm -r _import                                                # 最后删空�
 1. `.dsh/skills/tenetlang-notes/scripts/validate.py`（含 `--links` 悬空链接检查）在 Mosaic 根执行通过。
 2. `.dsh/skills/mindspring-lab/scripts/validate.py` 通过；根目录 `python -m pytest -q` 通过；`ruff check` / `ruff format --check` 通过。
 3. OceanVerse 的 `scripts/check-docs.sh`、`check-mermaid.sh`、`check-compose-budget.sh` 通过；`docker compose -f engineering/data-platform/deploy/docker-compose.yml config` 通过。
-4. `website/`：`npm run build`（内部已含 `sync`，会重新生成 gitignored 的 `docs/`）通过。
+4. `languages/website/`：`npm run build`（内部已含 `sync`，会重新生成 gitignored 的 `docs/`）通过。
 5. `git log --follow` 抽样（语言域、算法域、工程域各 1 个文件）能追到源仓提交。
-6. 仓库内 `grep` 确认无残留的失效路径：`../TenetLang/`、`../MindSpring/`、`../OceanVerse/`、`_import/`（仓名自称的 85 行按 D9 允许保留，不在本条门禁内）。
+6. 仓库内 `grep` 确认无残留的失效路径：`../TenetLang/`、`../MindSpring/`、`../OceanVerse/`、`_import/`（仓名自称的 85 行按 D10 允许保留，不在本条门禁内）。
 7. `git status` 干净，无构建产物入库（`target/`、`docs/`、Go 二进制、`__pycache__`）。
 
 ## 10. 风险与回滚
 
 | 风险 | 缓解 |
 |---|---|
-| `.gitignore` 并集误伤 | C2 后立即用 `git status` 与 `git check-ignore -v` 抽样比对，确认无文件被意外忽略/纳入。 |
+| `.gitignore` **分层规则**误伤 | C2 后立即用 `git status` 与 `git check-ignore -v` 抽样比对；重点验证 `languages/.gitignore`（作用域从仓库根缩小到语言域根）与 `engineering/data-platform/.gitignore`（作用域不变）都没有把已跟踪文件意外纳入或漏掉。 |
 | CI 路径前缀遗漏（22 处） | C6 后逐个 job 本地复算命令；`paths:` 过滤条件一并核对。 |
 | 中文文件名（`人工智能代表算法演进路线.md` 等）在 macOS(NFD) / Linux(NFC) 的规范化差异 | 该风险在原仓已存在，迁移不新增；不在本次范围内解决。 |
 | `git subtree add` 首次导入耗时（TenetLang 3955 文件） | 纯本地操作、可重试；不推送直到 C7。 |
@@ -195,12 +202,12 @@ git rm -r _import                                                # 最后删空�
 ## 11. 后续项（不在本次范围）
 
 1. **OceanVerse 去车联网**（GB/T 32960 协议层、VIN 语义、CI 断言）——合并验收后单独一轮。
-2. **仓名自称退休**（决策 D9 的欠账）：把正文里的 `TenetLang` 22 行 / `MindSpring` 16 行 / `OceanVerse` 47 行统一改为新域词汇，包含文件名 `OceanVerse/roadmap/OceanVerse架构总览.md`（改名会牵动 2 处入链）。建议与第 1 项合并为同一轮「文案统一」。
-3. **算法域 / 工程域进站**（站点方案 S2）：首页、导航、`curriculum.json` 结构重做。
+2. **仓名自称退休**（决策 D10 的欠账）：把正文里的 `TenetLang` 22 行 / `MindSpring` 16 行 / `OceanVerse` 47 行统一改为新域词汇，包含文件名 `OceanVerse/roadmap/OceanVerse架构总览.md`（改名会牵动 2 处入链）。建议与第 1 项合并为同一轮「文案统一」。
+3. **算法域 / 工程域进站**（站点方案 S2）：首页、导航、`curriculum.json` 结构重做；届时站点从 `languages/website/` **提升到顶层 `website/`**（因为那时它才真的覆盖全仓），同时 `sync-docs.mjs` 的 `REPO_DIR` 回到仓库根。
 4. **技能改名**：`tenetlang-notes` → 语言域辖区的更贴切名字；`mindspring-lab` 同理。
 5. **三仓 Archive**：Mosaic 验收全绿后执行。
 6. 已知小问题：`a-star` 深检提示「实验结果段未写明复现方式」；`rs/ph25` 两处陈旧表述。
 
 ## 12. 开放问题
 
-无。本文所有决策均已确认（结构方案 A、子目录名 `studies/`、新仓名 `Mosaic`、`git subtree` 保历史、`roadmap/` 留顶层、站点范围 S1、旧仓 Archive）。
+无。本文所有决策均已确认（结构方案 A、子目录名 `studies/`、新仓名 `Mosaic`、`git subtree` 保历史、`roadmap/` 留顶层、站点只服务语言域 S1 **且归入 `languages/website/`**、`.gitignore` 分层而非合并、旧仓 Archive）。
