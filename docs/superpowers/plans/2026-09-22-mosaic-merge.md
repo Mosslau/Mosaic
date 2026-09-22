@@ -126,18 +126,22 @@ Expected: 每条打印 `Added dir '_import/<name>' …`。若报 `working tree h
 
 ```bash
 cd /Users/ninebot/code/mosslau/Mosaic
-expect=$(( $(git -C ../TenetLang ls-files | wc -l) + $(git -C ../MindSpring ls-files | wc -l) + $(git -C ../OceanVerse ls-files | wc -l) + 1 ))
+# 基线自带 2 个跟踪文件（specs/…-design.md 与 plans/…-mosaic-merge.md），故 +2
+expect=$(( $(git -C ../TenetLang ls-files | wc -l) + $(git -C ../MindSpring ls-files | wc -l) + $(git -C ../OceanVerse ls-files | wc -l) + 2 ))
 got=$(git ls-files | wc -l | tr -d ' ')
-echo "跟踪文件数 got=$got expect=$expect（+1 是 spec 文件）"
+echo "跟踪文件数 got=$got expect=$expect（+2 是基线自带的两个文档）"
 [ "$got" = "$expect" ] && echo "OK 文件数一致" || echo "FAIL 文件数不一致"
 
-git log --oneline | wc -l                       # 期望 ≥ 3（三条 subtree merge commit）
-git log --oneline -- _import/TenetLang | wc -l  # 期望 154
-git log --oneline -- _import/MindSpring | wc -l # 期望 41
-git log --oneline -- _import/OceanVerse | wc -l # 期望 123
+# 历史连通：subtree 的历史挂在 Add commit 的**第二父**上，
+# 所以 `git log -- _import/<name>` 只返回 1 条（路径过滤不追第二父），
+# 也无法用 `git log --follow`（文件由 merge 引入，--follow 不跟 merge，实测返回 0 条）。
+for c in $(git log --format='%h %s' --grep='^Add ' | awk '{print $1}'); do
+  printf "  %s  ^2=%s  提交数=%s\n" "$c" "$(git rev-parse --short $c^2)" "$(git rev-list --count $c^2)"
+done
+git rev-list --count HEAD    # 期望 324 = 154+41+123 + 基线 3 + 空提交 1 + 3 个 Add merge
 ```
 
-Expected: `跟踪文件数 got=4782 expect=4782` + `OK 文件数一致`；三个历史计数分别为 154 / 41 / 123。
+Expected: `跟踪文件数 got=4783 expect=4783` + `OK 文件数一致`；三条 Add commit 的 `^2` 分别为 `37b494a` / `a0d1d7d` / `2ef5087`，提交数 154 / 41 / 123；`HEAD` 可达提交数 324。
 
 - [ ] **Step 5: 确认源仓未被改动**
 
@@ -251,7 +255,6 @@ debug
 /dist/
 /site
 *.o
-*.d
 *.a
 *.so
 *.pdb
@@ -307,7 +310,12 @@ docs/_build/
 **/data/cache/
 
 # --- 日志 ---
+# 语言域的教学样例里**故意跟踪** .log 数据文件（py/ph05 的 sample_logs.log、
+# rs/ph06 的 sample.log），下面两行豁免必须保留——删掉它们会让以后新增的同
+# 类样例被静默忽略（gitignore 不作用于已跟踪文件，症状只在新增文件时出现）。
 *.log
+!languages/studies/py/ph05-file-exception/project/sample_logs.log
+!languages/studies/rs/ph06-cargo-module/project/log-analyzer/sample.log
 ```
 
 - [ ] **Step 6: 写 `pyproject.toml`**
@@ -1312,17 +1320,26 @@ echo "== ③ 数据平台域 =="
 (cd engineering/data-platform && bash scripts/check-docs.sh && bash scripts/check-mermaid.sh && bash scripts/check-compose-budget.sh)
 echo "== ④ 站点 =="
 (cd languages/website && npm run build 2>&1 | tail -3)
-echo "== ⑤ 历史连通 =="
-for f in languages/studies/java/ph21-data-platform/21-data-platform.md \
-         algorithms/README.md engineering/data-platform/README.md; do
-  n=$(git log --follow --oneline -- "$f" | wc -l | tr -d ' ')
-  echo "$f → $n 个提交"
+echo "== ⑤ 历史连通（subtree 感知：--follow 在此结构性失效，不要用它）=="
+# ① 三个源 tip 都必须是 HEAD 的祖先
+for tip in 37b494a a0d1d7d 2ef5087; do
+  git merge-base --is-ancestor "$tip" HEAD && echo "OK $tip 是 HEAD 的祖先"
 done
+# ② 三仓全部历史可达（318 = 154+41+123，三仓无共享提交）
+echo "可达提交数: $(git rev-list --count 37b494a) $(git rev-list --count a0d1d7d) $(git rev-list --count 2ef5087)"
+# ③ 内容零丢失：新路径下的文件内容 == 源 tip 原路径的内容
+diff <(git show 37b494a:languages/java/ph21-data-platform/21-data-platform.md) \
+     <(git show HEAD:languages/studies/java/ph21-data-platform/21-data-platform.md) \
+  && echo "OK 语言域样本内容与源 tip 一致"
+diff <(git show a0d1d7d:algorithms/README.md) <(git show HEAD:algorithms/README.md) \
+  && echo "OK 算法域样本内容与源 tip 一致"
+diff <(git show 2ef5087:README.md) <(git show HEAD:engineering/data-platform/README.md) \
+  && echo "OK 数据平台域样本内容与源 tip 一致"
 echo "== ⑦ 工作树干净 =="
 git status --porcelain | head
 ```
 
-Expected: ①–④ 全绿；⑤ 三个文件的历史提交数均 **> 1**（证明 `git log --follow` 跨过 subtree 边界）；⑦ `git status` 无输出（除本步产生的构建产物，均在 gitignore 内）。
+Expected: ①–④ 全绿；⑤ 三行 `OK … 是 HEAD 的祖先` + 提交数 `154 41 123` + 三行 `OK … 内容与源 tip 一致`；⑦ `git status` 无输出（除本步产生的构建产物，均在 gitignore 内）。
 
 - [ ] **Step 5: 建远端并推送**
 
