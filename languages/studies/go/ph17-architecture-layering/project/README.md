@@ -75,7 +75,7 @@ cmd/deviceapi（组装）──▶ handler ──▶ service ──▶ domain �
 - 本机 go-build 缓存在沙箱外会被拒，因此本仓库统一把缓存重定位到 `/tmp`：
 
 ```bash
-cd languages/go/ph17-architecture-layering/project
+cd languages/studies/go/ph17-architecture-layering/project
 GOCACHE=/tmp/gocache-goph17 GOPATH=/tmp/gopath-goph17 go build ./... && \
 GOCACHE=/tmp/gocache-goph17 GOPATH=/tmp/gopath-goph17 go vet ./... && \
 GOCACHE=/tmp/gocache-goph17 GOPATH=/tmp/gopath-goph17 go test ./... && \

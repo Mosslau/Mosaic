@@ -102,7 +102,7 @@ project/
 验证环境：**OpenJDK 17.0.18（Homebrew）**；零第三方依赖；构建产物只写到 `/tmp`。
 
 ```bash
-# 在 languages/java/ph22-ai-platform/project/ 目录执行
+# 在 languages/studies/java/ph22-ai-platform/project/ 目录执行
 javac -encoding UTF-8 -d /tmp/ph22-proj src/aiplat/*.java     # 1. 编译
 java -cp /tmp/ph22-proj aiplat.AiPlatformDemo                 # 2. 运行（输出即验收报告）
 rm -rf /tmp/ph22-proj                                         # 3. 清理

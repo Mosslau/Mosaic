@@ -20,7 +20,7 @@
 ## 运行方式（已在 go1.25.6 / darwin / arm64 验证，零第三方依赖）
 
 ```bash
-cd languages/go/ph15-version-toolchain/project
+cd languages/studies/go/ph15-version-toolchain/project
 go test ./... && go vet ./... && go test -race ./...   # 验证：测试 + 竞态检测
 go run ./cmd/toolcheck                                 # 检查 project 自身（OK, exit 0）
 go run ./cmd/toolcheck -json                           # JSON 输出

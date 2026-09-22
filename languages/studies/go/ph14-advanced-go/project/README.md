@@ -22,7 +22,7 @@
 ## 运行方式（已在 go1.25.6 / darwin / arm64 验证，零第三方依赖）
 
 ```bash
-cd languages/go/ph14-advanced-go/project
+cd languages/studies/go/ph14-advanced-go/project
 go test ./... && go test -race ./...          # 验证：测试 + 竞态检测
 go run ./cmd/rtlab -exp all                   # 一键跑全部实验
 go run ./cmd/rtlab -exp slice                 # 单独跑某个实验

@@ -19,7 +19,7 @@ Python 高级 Python 阶段的目标是：**理解 Python 底层机制和高级�
 | 性能边界 | GIL 切换时机与影响、free-threaded 实验、引用计数 + 分代 GC 与循环引用、`weakref`、`__slots__`、ctypes/cffi/C 扩展/Cython 定位对比——3.10/第 4 章 |
 | 代码层 | 7 个示例（examples/）+ 5 个练习（exercises/）+ 综合项目（project/：流式日志处理器） |
 
-这个阶段只涉及**Python 语言自身的协议、机制与运行时原理**——迭代器/生成器/装饰器/上下文管理器/描述符/元类/import/dataclass/协程原理/GIL/垃圾回收/C 扩展定位，**不涉及并发编程的选型与 API 使用本身（threading/multiprocessing/asyncio 的用法、实测与选型口诀——那是 ph14 并发、并行与异步阶段的内容，本阶段 3.9/4.4 只补「事件循环内部怎么转」的机制层）、Web 框架与接口层（FastAPI 路由/中间件、Pydantic 在 Web 边界的使用与 pydantic-core 的 Rust 校验原理——那是 ph10 Web 后端开发阶段的内容，本阶段 3.8 只做数据类三选一的定位对比）、数据分析与 AI 训练（NumPy/Pandas/PyTorch 与建模评估——ph09 数据分析阶段 / ph15 AI 与机器学习阶段的内容，本阶段不碰数据科学栈，只讲语言机制）和 C 语言的语法与内存细节（ctypes/cffi/C 扩展要求 C 基础——C 语言学习路线另有 languages/c 的完整阶段，本阶段只讲 Python 侧的接口形态与定位对比）**。与 ph14 的边界尤其要划清：ph14 回答「并发怎么写、怎么选」，本阶段回答「await 挂起时事件循环内部发生了什么、GIL 凭什么限制并行、一个进程为什么能服务上千连接」；与 ph16 的边界同理：ph16 用 GIL 结论做部署选型（pre-fork 多进程），本阶段解释这个结论为什么成立。本阶段四层交付物已就位：主文档 + [`examples/`](./examples/) + [`exercises/`](./exercises/) + [`project/`](./project/)，入口见第 6、7 章。
+这个阶段只涉及**Python 语言自身的协议、机制与运行时原理**——迭代器/生成器/装饰器/上下文管理器/描述符/元类/import/dataclass/协程原理/GIL/垃圾回收/C 扩展定位，**不涉及并发编程的选型与 API 使用本身（threading/multiprocessing/asyncio 的用法、实测与选型口诀——那是 ph14 并发、并行与异步阶段的内容，本阶段 3.9/4.4 只补「事件循环内部怎么转」的机制层）、Web 框架与接口层（FastAPI 路由/中间件、Pydantic 在 Web 边界的使用与 pydantic-core 的 Rust 校验原理——那是 ph10 Web 后端开发阶段的内容，本阶段 3.8 只做数据类三选一的定位对比）、数据分析与 AI 训练（NumPy/Pandas/PyTorch 与建模评估——ph09 数据分析阶段 / ph15 AI 与机器学习阶段的内容，本阶段不碰数据科学栈，只讲语言机制）和 C 语言的语法与内存细节（ctypes/cffi/C 扩展要求 C 基础——C 语言学习路线另有 languages/studies/c 的完整阶段，本阶段只讲 Python 侧的接口形态与定位对比）**。与 ph14 的边界尤其要划清：ph14 回答「并发怎么写、怎么选」，本阶段回答「await 挂起时事件循环内部发生了什么、GIL 凭什么限制并行、一个进程为什么能服务上千连接」；与 ph16 的边界同理：ph16 用 GIL 结论做部署选型（pre-fork 多进程），本阶段解释这个结论为什么成立。本阶段四层交付物已就位：主文档 + [`examples/`](./examples/) + [`exercises/`](./exercises/) + [`project/`](./project/)，入口见第 6、7 章。
 
 ## 2. 来源与演变
 
@@ -443,7 +443,7 @@ def sum_range(long n):
 
 **定位一句话**：ctypes/cffi 是「**调用** C」的胶水，C 扩展是「**写** Python 模块给 C 代码」，Cython 是「把 Python 代码**渐进变快**」的中间带——三者共同点：性能临界区才值得，且都要对 GIL 有概念（C 代码可主动释放 GIL 让多线程真并行，4.3 收尾）。
 
-> 阶段内容隔离：C 语言的语法、指针与内存模型是 languages/c 学习路线（c.md 的 ph01~phNN）的内容，本阶段只给出 Python 侧的接口形态与选型坐标，不展开 C 语言本身。
+> 阶段内容隔离：C 语言的语法、指针与内存模型是 languages/studies/c 学习路线（c.md 的 ph01~phNN）的内容，本阶段只给出 Python 侧的接口形态与选型坐标，不展开 C 语言本身。
 
 ## 4. 底层原理
 

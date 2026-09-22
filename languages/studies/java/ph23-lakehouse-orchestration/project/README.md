@@ -123,7 +123,7 @@ project/
 验证环境：**OpenJDK 17.0.18（Homebrew）**；零第三方依赖；构建产物只写到 `/tmp`。
 
 ```bash
-# 在 languages/java/ph23-lakehouse-orchestration/project/ 目录执行
+# 在 languages/studies/java/ph23-lakehouse-orchestration/project/ 目录执行
 javac -encoding UTF-8 -d /tmp/ph23-proj src/lakeplat/*.java     # 1. 编译
 java -cp /tmp/ph23-proj lakeplat.LakePlatformDemo               # 2. 运行（输出即验收报告）
 rm -rf /tmp/ph23-proj                                           # 3. 清理

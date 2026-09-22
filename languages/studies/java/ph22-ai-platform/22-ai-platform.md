@@ -375,7 +375,7 @@ loop:
 | ex07 | 配额超限拒绝（含可读原因）、GPU 秒计量汇总与事件数一致 |
 | ex08 | 一屏输出队列/利用率/版本分布/就绪副本；Prometheus 文本语法自检通过 |
 
-**一条验证主链**（纯 Java + 零依赖，从零复现全部断言；在 `languages/java/ph22-ai-platform/` 目录内执行）：
+**一条验证主链**（纯 Java + 零依赖，从零复现全部断言；在 `languages/studies/java/ph22-ai-platform/` 目录内执行）：
 
 ```bash
 # 1) 八个示例：各自独立编译到 /tmp，Demo 末尾打印 ALL PASS: N/N

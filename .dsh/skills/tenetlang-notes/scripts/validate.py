@@ -451,7 +451,7 @@ def main() -> int:
     if args.lang:
         langs = [p for p in langs if p.name == args.lang]
         if not langs:
-            print(f"找不到语言目录 languages/{args.lang}", file=sys.stderr)
+            print(f"找不到语言目录 {lang_root / args.lang}", file=sys.stderr)
             return 2
 
     # 该语言目录下受管辖的 md（按语言归属去重）

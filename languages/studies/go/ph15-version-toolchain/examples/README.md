@@ -68,7 +68,7 @@ GOWORK       = (空)                                     ← 非空 = 处于 wor
 
 ```
 $ go env GOWORK
-…/languages/go/ph15-version-toolchain/examples/ex04-workspace/go.work
+…/languages/studies/go/ph15-version-toolchain/examples/ex04-workspace/go.work
 $ go run ./service-a
 Hello from sharedlib, service-a!
 $ go test ./service-a/... ./sharedlib/...

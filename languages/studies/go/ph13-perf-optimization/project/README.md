@@ -22,7 +22,7 @@
 ## 运行方式（已在 go1.25.6 / darwin / arm64 验证，零第三方依赖）
 
 ```bash
-cd languages/go/ph13-perf-optimization/project
+cd languages/studies/go/ph13-perf-optimization/project
 go test ./... && go test -race ./...          # 验证：测试 + 竞态检测
 go run ./cmd/logbench -gen 100000 -out /tmp/logs.jsonl   # 1. 生成 10 万行
 go run ./cmd/logbench -bench /tmp/logs.jsonl              # 2. 三种解析耗时/分配对比

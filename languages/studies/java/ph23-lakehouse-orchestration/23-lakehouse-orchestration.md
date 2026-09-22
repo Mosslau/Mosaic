@@ -365,7 +365,7 @@ table/
 | ex07 | 重复回填同一分区结果一致；重算闭包覆盖 DWS/ADS 对应分区；中断后从缺口继续 |
 | ex08 | 门禁 FAIL 时提交被拒（表停在上一快照）；列级血缘可回溯到 ODS；成本一屏与状态同源 |
 
-**一条验证主链**（纯 Java + 零依赖，从零复现全部断言；在 `languages/java/ph23-lakehouse-orchestration/` 目录内执行）：
+**一条验证主链**（纯 Java + 零依赖，从零复现全部断言；在 `languages/studies/java/ph23-lakehouse-orchestration/` 目录内执行）：
 
 ```bash
 # 1) 八个示例：各自独立编译到 /tmp，Demo 末尾打印 ALL PASS: N/N
