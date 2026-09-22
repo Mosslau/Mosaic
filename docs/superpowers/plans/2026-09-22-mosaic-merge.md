@@ -26,6 +26,7 @@
 - **`git mv` 而非 `cp`**：所有搬迁必须用 `git mv`，否则 `git log --follow` 断链。
 - **沙箱环境变量**：Go 命令一律加 `GOCACHE=/tmp/gocache-mosaic GOPATH=/tmp/gopath-mosaic`；npm 一律加 `--cache /tmp/npm-cache-mosaic`（`~/.npm` 不可写）。
 - **中文文件名**：所有列文件清单的 git 命令加 `-c core.quotepath=false`，否则 `tenet/Tenet架构设计.md` 会被写成八进制转义。
+- **中间态的已知报错**：`pyproject.toml` 的 `testpaths` 指向 `algorithms/` 与 `engineering/ai-platform/`，这两处要到 Task 4/5 才存在——在它们落地前执行 `pytest` 会报「目录不存在」，`readme = "README.md"` 同理由 Task 7 补齐。这是**预期中间态**，不是缺陷（Task 2 审查者指出原文只说明了 `readme`，未说明 `testpaths`）。
 - **不推送**：`Mosslau/Mosaic` 远端在 Task 7 之前不推送。
 - **回滚**：任何一步出错 → `rm -rf /Users/ninebot/code/mosslau/Mosaic && git clone <spec 提交>` 重建，源仓无副作用。
 
@@ -933,7 +934,18 @@ for f,t in miss: print(f"   MISSING {f} -> {t}")
 PY
 ```
 
-Expected: `解析不到的 0 条`（结尾无 `MISSING` 行）。
+Expected: `ai-platform 内相对链接 212 条；解析不到的 2 条`，且这 2 条**恰好**是：
+
+```
+06-agent-nest/agent-core/docs/实施计划方案.md -> ../frameworks/README.md
+06-agent-nest/agent-core/docs/技术架构方案.md -> ../frameworks/README.md
+```
+
+⚠ 这**不是**本次迁移引入的：`frameworks/` 是 `agent-core` 的**兄弟**目录，正确写法应为
+`../../frameworks/`，源仓 `a0d1d7d` 起就是这样，且没有任何校验器覆盖它（`mindspring-lab/validate.py`
+无链接检查）。本次**不修**（属内容改写，超出迁移范围）。因此本步的判据是**「不新增坏链」**：
+条数必须等于基线 **2**、集合必须与上面两条完全一致。**若出现第 3 条**，说明 Step 3 的路径
+替换制造了新的断链，必须停下排查。
 
 - [ ] **Step 5: 修 `mindspring-lab/validate.py` 的工程域定位（3 处）**
 
