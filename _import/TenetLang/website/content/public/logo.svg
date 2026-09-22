@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 34 32" width="34" height="32" role="img" aria-label="TenetLang">
+  <g fill="none" stroke-width="1.9" stroke-linecap="round">
+    <path d="M2 5 L16 16" stroke="#2b62be" />
+    <path d="M2 9.6 L16 16" stroke="#6a46c8" />
+    <path d="M2 14.2 L16 16" stroke="#0e7f97" />
+    <path d="M2 18.8 L16 16" stroke="#c22b45" />
+    <path d="M2 23.4 L16 16" stroke="#96700c" />
+    <path d="M2 28 L16 16" stroke="#b5501f" />
+  </g>
+  <path d="M22 5.5 L22 26.5" stroke="#101a2b" stroke-width="3.2" stroke-linecap="round" />
+</svg>

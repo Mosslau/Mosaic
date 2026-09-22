@@ -1,0 +1,181 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "设备管理 API 规范（ph18 综合项目：spec-first + 双版本兼容）",
+    "version": "2.0.0",
+    "description": "本文件是设备管理 API 的唯一权威规范，同时描述 /v1 与 /v2 两代接口。演进策略：v1（2019 年发布）字段 {id,name,online}；v2（2025 年发布）为 v1 的字段超集——新增 model/lastSeen，列表新增 sort 参数。v1 已标记弃用（Deprecation header），但仍在服务期内共存。契约测试保证：spec ↔ 实现双向对齐、v1 schema ⊆ v2 schema、错误结构全 API 统一。"
+  },
+  "paths": {
+    "/v1/devices": {
+      "get": {
+        "summary": "列出设备（v1：固定按 id 排序）",
+        "operationId": "listDevicesV1",
+        "parameters": [
+          { "name": "status", "in": "query", "required": false, "schema": { "type": "string", "enum": ["online", "offline", "maintenance"] } },
+          { "name": "offset", "in": "query", "required": false, "schema": { "type": "integer", "format": "int32", "default": 0, "minimum": 0 } },
+          { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "format": "int32", "default": 20, "maximum": 100 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok（返回 v1 字段的设备数组）",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/DeviceV1" } },
+                "example": [{ "id": "dev-001", "name": "1号车", "online": true }]
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ErrorResponse" }
+        }
+      },
+      "post": {
+        "summary": "注册设备（id 由服务端分配）",
+        "operationId": "createDevice",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/DeviceInput" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DeviceV1" },
+                "example": { "id": "dev-003", "name": "3号车", "online": false }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ErrorResponse" }
+        }
+      }
+    },
+    "/v1/devices/{id}": {
+      "get": {
+        "summary": "查询单个设备（v1 视图）",
+        "operationId": "getDeviceV1",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DeviceV1" },
+                "example": { "id": "dev-001", "name": "1号车", "online": true }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/ErrorResponse" }
+        }
+      },
+      "delete": {
+        "summary": "注销设备（幂等：不存在也 204）",
+        "operationId": "deleteDevice",
+        "responses": {
+          "204": { "description": "deleted" },
+          "404": { "$ref": "#/components/responses/ErrorResponse" }
+        }
+      }
+    },
+    "/v2/devices": {
+      "get": {
+        "summary": "列出设备（v2：新增 sort 参数，返回超集字段）",
+        "operationId": "listDevicesV2",
+        "parameters": [
+          { "name": "status", "in": "query", "required": false, "schema": { "type": "string", "enum": ["online", "offline", "maintenance"] } },
+          { "name": "offset", "in": "query", "required": false, "schema": { "type": "integer", "format": "int32", "default": 0, "minimum": 0 } },
+          { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "format": "int32", "default": 20, "maximum": 100 } },
+          { "name": "sort", "in": "query", "required": false, "schema": { "type": "string", "enum": ["id", "name"], "default": "id" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok（设备数组，v2 超集字段）",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/DeviceV2" } },
+                "example": [{ "id": "dev-001", "name": "1号车", "online": true, "model": "M300", "lastSeen": 1700000000 }]
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ErrorResponse" }
+        }
+      }
+    },
+    "/v2/devices/{id}": {
+      "get": {
+        "summary": "查询单个设备（v2 视图）",
+        "operationId": "getDeviceV2",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DeviceV2" },
+                "example": { "id": "dev-001", "name": "1号车", "online": true, "model": "M300", "lastSeen": 1700000000 }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/ErrorResponse" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "DeviceV1": {
+        "type": "object",
+        "required": ["id", "name", "online"],
+        "properties": {
+          "id": { "type": "string", "description": "设备唯一标识" },
+          "name": { "type": "string" },
+          "online": { "type": "boolean" }
+        }
+      },
+      "DeviceV2": {
+        "type": "object",
+        "required": ["id", "name", "online", "model", "lastSeen"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "online": { "type": "boolean" },
+          "model": { "type": "string", "description": "硬件型号（v2 新增）" },
+          "lastSeen": { "type": "integer", "format": "int64", "description": "最后心跳 unix 秒（v2 新增）" }
+        }
+      },
+      "DeviceInput": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": ["code", "message"],
+        "properties": {
+          "code": { "type": "string", "description": "稳定错误码（注册表见 internal/apierr，只增不删）" },
+          "message": { "type": "string", "description": "人类可读说明" }
+        }
+      }
+    },
+    "responses": {
+      "ErrorResponse": {
+        "description": "统一错误体 {code,message}",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "code": "DEVICE_NOT_FOUND", "message": "device not found" }
+          }
+        }
+      }
+    }
+  }
+}

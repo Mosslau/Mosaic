@@ -1,0 +1,7 @@
+[package]
+name = "ex01-wal-replay"
+version = "0.1.0"
+edition = "2021"
+description = "ph25 ex01：WAL append/replay 与崩溃恢复（纯 std，零第三方依赖）"
+
+[dependencies]

@@ -1,0 +1,8 @@
+[package]
+name = "ph24-vulndemo"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# 故意锁定存在 RustSec 公告的 time 0.1.x 旧版本（仅用于演示 cargo audit 命中）
+time = "=0.1.35"

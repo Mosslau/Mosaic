@@ -1,0 +1,50 @@
+//! Tenet 编译器统一错误类型：词法 / 语法 / 类型 / 代码生成全链路共用，
+//! 携带源码位置 `[行:列]`。
+
+use std::fmt;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Position {
+    pub line: usize,
+    pub col: usize,
+}
+
+impl Position {
+    pub fn new(line: usize, col: usize) -> Self {
+        Self { line, col }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TenetError {
+    pub message: String,
+    pub pos: Option<Position>,
+}
+
+impl TenetError {
+    pub fn new(message: impl Into<String>, pos: Option<Position>) -> Self {
+        Self {
+            message: message.into(),
+            pos,
+        }
+    }
+    pub fn at(message: impl Into<String>, line: usize, col: usize) -> Self {
+        Self::new(message, Some(Position::new(line, col)))
+    }
+    pub fn at_pos(message: impl Into<String>, pos: Position) -> Self {
+        Self::new(message, Some(pos))
+    }
+}
+
+impl fmt::Display for TenetError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.pos {
+            Some(p) => write!(f, "[{}:{}] {}", p.line, p.col, self.message),
+            None => write!(f, "{}", self.message),
+        }
+    }
+}
+
+impl std::error::Error for TenetError {}
+
+pub type TResult<T> = Result<T, TenetError>;

@@ -1,0 +1,23 @@
+# ex06：pyo3 —— 把 Rust 函数包装成 Python 扩展模块
+# 教学流程：Rust 侧 #[pyfunction] + #[pymodule] → cargo build 产出 cdylib →
+# 改名 .so 放入 Python path → import 调用。
+# 验证环境：cargo/rustc 1.92.0；pyo3 0.23.5；Python 3.13.12（本机实测「已验证」）
+#
+# 【macOS 手动构建 extension-module 的链接说明（已实测）】extension-module 特性意味着
+# 扩展不链接 libpython，符号在运行时由宿主 Python 提供。Linux 默认允许共享库带未定义
+# 符号；macOS 的链接器默认拒绝，因此构建时需要额外放开动态查找（maturin 内部也是这么做的）：
+#   export RUSTFLAGS="-C link-arg=-Wl,-undefined,dynamic_lookup"
+# 生产发布建议直接用 maturin（ph23 project/README 会演示等价流程）；本示例保留手动
+# cargo 构建，便于观察 pyo3 的编译产物到底是什么。
+[package]
+name = "ex06-pyo3-module"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "ex06_geo"
+crate-type = ["cdylib"] # pyo3 模块必须 cdylib，产物改名 .so 后即可被 Python import
+
+[dependencies]
+pyo3 = { version = "0.23.5", features = ["extension-module"] }

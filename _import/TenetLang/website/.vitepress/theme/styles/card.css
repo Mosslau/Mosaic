@@ -1,0 +1,81 @@
+/* ============================================================================
+   共享的「图纸格」版式：`section` 小标题 + `lattice` 细线格。
+   卡片之间共用 1px 分隔线，不用阴影与圆角堆叠——信息靠线，不靠盒子。
+   ========================================================================== */
+
+.section:not(:first-child) {
+  margin-top: 76px;
+}
+
+.section__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 16px;
+  margin: 0 0 22px;
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--t-ink);
+}
+
+.section__note {
+  font-size: 13.5px;
+  font-weight: 400;
+  color: var(--t-ink-3);
+}
+
+.lattice {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: var(--t-hair) solid var(--t-rule);
+  border-left: var(--t-hair) solid var(--t-rule);
+}
+
+.lattice > li {
+  position: relative;
+  border-right: var(--t-hair) solid var(--t-rule);
+  border-bottom: var(--t-hair) solid var(--t-rule);
+  background: var(--t-surface);
+}
+
+/* ---------------------------------------------------------------------------
+   .vp-doc 列表样式的隔离
+   ---------------------------------------------------------------------------
+   VitePress 会往 .vp-doc 里的列表注入三条默认规则，特异性都高于组件类：
+
+     .vp-doc ul        { list-style: disc; padding-left: 1.25rem; margin: 16px 0 }  (0,1,1)
+     .vp-doc li + li   { margin-top: 8px }                                          (0,1,2)
+     .vp-doc li > ul   { margin: 8px 0 0 }                                          (0,1,2)
+
+   结果是卡片网格里冒出圆点标记、整格右移 20px，并且**除每行第一张外每张卡片下坠 8px**
+   （看起来就是「大小不一致、高度对不齐」）；同一行里的代码层 chips 也会被 li+li 顶歪。
+   下面用 (0,2,x) 的写法压回去。只在套了 layout: doc 的页面发生——首页是 layout: page，
+   不经过 .vp-doc，所以一直正常。
+   --------------------------------------------------------------------------- */
+
+.lattice,
+.vp-doc .lattice {
+  list-style: none;
+}
+
+.vp-doc .lattice {
+  margin: 0;
+  padding: 0;
+}
+
+.lattice > li,
+.vp-doc .lattice > li,
+.vp-doc .an__notes > li,
+.vp-doc .ch__code > li {
+  margin-top: 0;
+}
+
+@media (max-width: 640px) {
+  .lattice {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

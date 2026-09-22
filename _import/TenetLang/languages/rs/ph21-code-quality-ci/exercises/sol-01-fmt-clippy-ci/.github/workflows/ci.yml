@@ -1,0 +1,30 @@
+# sol-01/.github/workflows/ci.yml —— 练习 1 参考解：给项目加 fmt/clippy/test CI。
+#
+# 验证状态：未在本环境实际运行验证 —— GitHub Actions 需远端 runner；YAML 经 Ruby psych
+# 静态解析通过，且三个 run 与本地 verify-local.sh 逐条一致（本地侧已实测全绿）。
+# 结构要点见主文档 3.5：fmt/clippy/test 拆三个 step（失败可定位）、最便宜的在前。
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  quality-gate:
+    name: fmt / clippy / test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: 门禁 1/3：格式化断言
+        run: cargo fmt --all --check
+
+      - name: 门禁 2/3：clippy 零告警
+        run: cargo clippy --all-targets --workspace -- -D warnings
+
+      - name: 门禁 3/3：测试
+        run: cargo test --workspace

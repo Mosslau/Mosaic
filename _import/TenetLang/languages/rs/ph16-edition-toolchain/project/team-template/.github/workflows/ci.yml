@@ -1,0 +1,54 @@
+# .github/workflows/ci.yml —— 团队模板 CI（GitHub Actions）
+# 四道闸：格式化 → lint（零警告）→ 测试（stable + MSRV 矩阵）→ 锁文件构建
+# 注意：本文件未在本环境验证（本地无 GitHub Actions 运行环境）；语法遵循 GitHub Actions 官方文档
+# 与 dtolnay/rust-toolchain 的通行用法，MSRV 版本取自 Cargo.toml 的 rust-version。
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --all --check
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - run: cargo clippy --all-targets -- -D warnings
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # stable 保「跟得上」，MSRV 保「不破下限」——rust-version 变更时必须同步这里
+        toolchain: [stable, "1.85.0"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+      - run: cargo test --all-targets
+
+  locked-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      # --locked：Cargo.lock 与 Cargo.toml 失配时直接失败，防「锁文件没跟上」
+      - run: cargo build --locked --release

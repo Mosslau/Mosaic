@@ -1,0 +1,70 @@
+# examples/ex03-dockerfile-compose/docker-compose.yml
+# Java + MySQL 8 + Redis 7 一键编排（对应主文档 3.4）
+# 教学点：
+#   1. depends_on + condition: service_healthy：先等 MySQL/Redis「真就绪」再起应用（不是容器启动即就绪）
+#   2. 服务名即 DNS：应用配置里连 mysql:3306 / redis:6379，而不是 localhost（每个容器有独立网络命名空间，主文档 4.1）
+#   3. 数据进命名卷：容器删了数据还在；初始化 SQL 挂官方约定的 /docker-entrypoint-initdb.d
+#   4. mem_limit 与 Dockerfile 的 MaxRAMPercentage=75 配套（主文档 4.4）
+# 验证环境：Docker 24+ / Compose v2（需联网拉镜像，并先把本目录 Dockerfile + pom.xml 备好）
+# 验证命令（在 examples/ex03-dockerfile-compose/ 目录下执行）：
+#   docker compose up -d --build                    # 构建镜像并按依赖顺序拉起三个服务
+#   docker compose ps                                # 看健康状态（app 应显示 healthy）
+#   curl -fsS http://127.0.0.1:8080/actuator/health # 探活
+#   docker compose logs -f app                       # 看应用日志
+#   docker compose down -v                           # 停止并清数据卷（-v 慎用：会删 mysql 数据）
+# 验证状态：未在本环境实际构建验证（本机无 docker）
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: ph19-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: myapp
+      MYSQL_USER: app
+      MYSQL_PASSWORD: app123
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro   # 仅首次初始化执行
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-papp123"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 20s                          # MySQL 首次初始化可能要十几秒
+
+  redis:
+    image: redis:7-alpine
+    container_name: ph19-redis
+    command: ["redis-server", "--requirepass", "redis123", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis123", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  app:
+    build: .                                      # 用同目录 Dockerfile 构建（多阶段，见 Dockerfile）
+    image: myapp:dev
+    container_name: ph19-app
+    depends_on:
+      mysql:
+        condition: service_healthy                # v2 的健康依赖：不满足就不启动 app
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: compose
+      DB_URL: jdbc:mysql://mysql:3306/myapp?useSSL=false&serverTimezone=UTC&characterEncoding=utf8
+      DB_USERNAME: app
+      DB_PASSWORD: app123
+      REDIS_HOST: redis
+      REDIS_PASSWORD: redis123
+    ports:
+      - "8080:8080"
+    mem_limit: 512m                               # 容器内存墙（与镜像内 MaxRAMPercentage=75 配合）
+    cpus: "1.0"
+
+volumes:
+  mysql-data:
+  redis-data:

@@ -1,0 +1,20 @@
+# ex05 的 cbindgen 配置：生成 C 头文件（不是 C++）
+language = "C"
+# 头文件里也带上 Rust 侧 doc 注释
+documentation = true
+# 生成 include guard
+include_guard = "EX05_RUST_LIB_H"
+
+[parse]
+# 不把依赖 crate 的类型带进头文件（默认即 false，写明以示教学）
+parse_deps = false
+
+[export]
+# 显式指定要导出的条目（缺省为全部 pub 项；列出是为了教学上「导出面可控」）
+include = [
+    "Point2D",
+    "Quadrant",
+    "ex05_distance",
+    "ex05_quadrant",
+    "ex05_tag",
+]

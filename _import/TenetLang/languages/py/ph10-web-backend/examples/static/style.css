@@ -1,0 +1,17 @@
+/* examples/static/style.css —— 静态资源示例：被 ex04 模板与 ex05 静态文件示例共用 */
+body {
+  font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+  margin: 2rem;
+  color: #222;
+}
+h1 {
+  color: #1a5fb4;
+}
+table {
+  border-collapse: collapse;
+}
+td,
+th {
+  border: 1px solid #ccc;
+  padding: 0.3rem 0.8rem;
+}

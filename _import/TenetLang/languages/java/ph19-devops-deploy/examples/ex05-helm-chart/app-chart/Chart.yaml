@@ -1,0 +1,13 @@
+# examples/ex05-helm-chart/app-chart/Chart.yaml
+# Helm Chart 元数据（对应主文档 3.6）
+# 验证命令（有 helm 的环境）：
+#   helm lint ./app-chart
+#   helm template myapp ./app-chart -f app-chart/values-prod.yaml   # 本地渲染看结果，不碰集群
+#   helm install myapp ./app-chart -n myapp --create-namespace --set image.tag=1.4.2
+# 验证状态：未在本环境实际构建验证（本机无 helm）
+apiVersion: v2
+name: myapp
+description: Java Spring Boot 服务部署模板（ph19 部署模板的 Helm 形态）
+type: application
+version: 0.1.0            # Chart 版本：Chart 自身每改一版 +1
+appVersion: "1.4.2"       # 应用版本：默认对应镜像 tag

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 父 pom：packaging=pom 同时做聚合（<modules> 声明子模块）与继承（子模块 <parent> 指向本 pom）
+     验证环境：OpenJDK 17.0.18 + Maven 3.9.12；验证状态：已验证（根目录 mvn -o clean package, BUILD SUCCESS）
+     要点：第三方版本集中在 <dependencyManagement>, 子模块引用时不再写版本（见 app/pom.xml 的 gson 依赖） -->
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.example</groupId>
+  <artifactId>text-stats</artifactId>
+  <version>1.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+  <modules>
+    <module>common</module>
+    <module>app</module>
+  </modules>
+  <properties>
+    <maven.compiler.release>17</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.google.code.gson</groupId>
+        <artifactId>gson</artifactId>
+        <version>2.10.1</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+</project>

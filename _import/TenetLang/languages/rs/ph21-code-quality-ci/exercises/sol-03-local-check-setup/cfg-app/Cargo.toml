@@ -1,0 +1,17 @@
+#
+# cfg-app —— sol-03 的示例 crate。
+# 验证环境：rustc/cargo/clippy 1.92.0（macOS arm64），edition 2021。
+# 验证状态：已验证（scripts/check.sh 绿态退出 0、注入 lint 后红态退出非零；fmt/clippy/test 全绿）。
+#
+# [lints.clippy] 集中管理（主文档 3.4）：级别策略进 Cargo.toml；阈值类配置在 clippy.toml。
+[package]
+name = "cfg-app"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lints.clippy]
+all = "warn"
+pedantic = "allow"
+
+[dependencies]

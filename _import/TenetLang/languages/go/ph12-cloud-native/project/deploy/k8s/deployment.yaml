@@ -1,0 +1,108 @@
+# ph12 阶段项目 —— K8s 部署清单（ConfigMap + Deployment + Service + Ingress）
+# 应用：kubectl apply -f deploy/k8s/（需 K8s 集群；本机无集群则标注「未在本环境验证」）
+# 说明：ConfigMap 注入环境变量（12-Factor 配置分离）；探针由 kubelet 执行 HTTP 请求；
+# 滚动更新逐个替换副本；DB_URL 由同目录 secret.yaml 的 Secret 注入（演示值，
+# 生产用外部 Secret 管理，如 sealed-secrets / External Secrets Operator）。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ph12-api-config
+data:
+  PORT: "58010"
+  LOG_LEVEL: "info"
+  ENABLE_METRICS: "true"
+  SHUTDOWN_TIMEOUT: "10s"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ph12-api
+  labels:
+    app: ph12-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ph12-api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: ph12-api
+    spec:
+      containers:
+        - name: api
+          image: ph12-api:latest      # 生产指向镜像仓库地址（带版本 tag）
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 58010
+          envFrom:
+            - configMapRef:
+                name: ph12-api-config
+          env:
+            - name: DB_URL             # 必填项从 Secret 注入（演示值见同目录 secret.yaml）
+              valueFrom:
+                secretKeyRef:
+                  name: ph12-api-secret
+                  key: db-url
+          livenessProbe:               # 存活：失败 → kubelet 重启容器
+            httpGet:
+              path: /healthz
+              port: 58010
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          readinessProbe:              # 就绪：失败 → 从 Service 摘除
+            httpGet:
+              path: /readyz
+              port: 58010
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            timeoutSeconds: 2
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+---
+# Service：集群内稳定入口
+apiVersion: v1
+kind: Service
+metadata:
+  name: ph12-api
+spec:
+  selector:
+    app: ph12-api
+  ports:
+    - port: 80
+      targetPort: 58010
+  type: ClusterIP
+---
+# 对外暴露示例（可选）：Ingress 把集群外流量路由到 Service（API Gateway 概念的集群内形态，
+# 完整 API Gateway 治理见主文档 3.8）
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ph12-api-ingress
+spec:
+  rules:
+    - host: api.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ph12-api
+                port:
+                  number: 80

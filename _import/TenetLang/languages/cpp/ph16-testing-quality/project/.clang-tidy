@@ -1,0 +1,14 @@
+# project/.clang-tidy —— 项目级 clang-tidy 配置（make tidy 使用）
+# 与 exercises/sol-02.clang-tidy 同策略：三个检查族 + 显式豁免（豁免理由见 sol-02 注释）。
+Checks: >
+  bugprone-*,
+  -bugprone-exception-escape,
+  modernize-*,
+  -modernize-use-trailing-return-type,
+  -modernize-use-nodiscard,
+  performance-*,
+  cppcoreguidelines-special-member-functions
+WarningsAsErrors: '*'
+HeaderFilterRegex: 'stl_utils\.h'   # 只查本项目头文件，不扫 examples/ 的 mini 框架与系统头
+CheckOptions:
+  cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor: true

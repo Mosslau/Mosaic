@@ -1,0 +1,9 @@
+# project/.clang-format —— 项目级格式配置（与 examples/ex03.clang-format 相同策略）
+# 仓库根目录放一个 .clang-format，clang-format 不带 --style 即自动拾取；
+# make format-check 显式指定 --style=file:.clang-format 是为了教学演示明确来源。
+BasedOnStyle: LLVM
+IndentWidth: 4
+ColumnLimit: 100
+PointerAlignment: Left
+AllowShortFunctionsOnASingleLine: None
+ReflowComments: false

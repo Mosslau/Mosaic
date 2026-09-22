@@ -1,0 +1,140 @@
+{
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "creationInfo": {
+    "created": "2026-09-04T07:22:00Z",
+    "creators": [
+      "Tool: cargo-sbom-v0.10.0"
+    ]
+  },
+  "dataLicense": "CC0-1.0",
+  "documentNamespace": "https://spdx.org/spdxdocs/vulndemo-a950f987-e53f-40c5-81fc-bd80d964ecd7",
+  "files": [
+    {
+      "SPDXID": "SPDXRef-File-ph24-vulndemo",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "350ab052314f2ebe5aef489614984e270e1bccb8"
+        }
+      ],
+      "fileName": "./Cargo.lock",
+      "fileTypes": [
+        "SOURCE",
+        "TEXT"
+      ]
+    }
+  ],
+  "name": "vulndemo",
+  "packages": [
+    {
+      "SPDXID": "SPDXRef-Package-ph24-vulndemo-0.1.0",
+      "downloadLocation": "NONE",
+      "licenseConcluded": "NOASSERTION",
+      "name": "ph24-vulndemo",
+      "versionInfo": "0.1.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-time-0.1.35",
+      "description": "Utilities for working with time-related functions in Rust.\n",
+      "downloadLocation": "registry+https://github.com/rust-lang/crates.io-index",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceLocator": "pkg:cargo/time@0.1.35",
+          "referenceType": "purl"
+        }
+      ],
+      "homepage": "https://github.com/rust-lang/time",
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "name": "time",
+      "versionInfo": "0.1.35"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-libc-0.2.189",
+      "description": "Raw FFI bindings to platform libraries like libc.",
+      "downloadLocation": "registry+https://github.com/rust-lang/crates.io-index",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceLocator": "pkg:cargo/libc@0.2.189",
+          "referenceType": "purl"
+        }
+      ],
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "name": "libc",
+      "versionInfo": "0.2.189"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-kernel32-sys-0.2.2",
+      "description": "Contains function definitions for the Windows API library kernel32. See winapi for types and constants.",
+      "downloadLocation": "registry+https://github.com/rust-lang/crates.io-index",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceLocator": "pkg:cargo/kernel32-sys@0.2.2",
+          "referenceType": "purl"
+        }
+      ],
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "kernel32-sys",
+      "versionInfo": "0.2.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-winapi-0.2.8",
+      "description": "Types and constants for WinAPI bindings. See README for list of crates providing function bindings.",
+      "downloadLocation": "registry+https://github.com/rust-lang/crates.io-index",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceLocator": "pkg:cargo/winapi@0.2.8",
+          "referenceType": "purl"
+        }
+      ],
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "name": "winapi",
+      "versionInfo": "0.2.8"
+    }
+  ],
+  "relationships": [
+    {
+      "relatedSpdxElement": "SPDXRef-Package-kernel32-sys-0.2.2",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-time-0.1.35"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-time-0.1.35",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-ph24-vulndemo-0.1.0"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-winapi-0.2.8",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-kernel32-sys-0.2.2"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-ph24-vulndemo-0.1.0",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-ph24-vulndemo"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-ph24-vulndemo",
+      "relationshipType": "DESCRIBES",
+      "spdxElementId": "SPDXRef-DOCUMENT"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-libc-0.2.189",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-time-0.1.35"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-winapi-0.2.8",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-time-0.1.35"
+    }
+  ],
+  "spdxVersion": "SPDX-2.3"
+}

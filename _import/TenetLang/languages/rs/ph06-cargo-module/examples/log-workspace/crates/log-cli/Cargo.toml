@@ -1,0 +1,13 @@
+# examples/log-workspace/crates/log-cli/Cargo.toml —— 示例 5 成员 crate：二进制入口（依赖 parser + aggregator）
+# 来源：languages/rs/ph06-cargo-module/06-cargo-module.md 第 6 章示例 5
+# 验证环境：rustc 1.92.0 + cargo 1.92.0，纯标准库，继承根 workspace 元数据
+# 编译：cargo build --workspace；运行：cargo run -p log-cli（在 log-workspace/ 目录执行）
+# 验证状态：已验证（rustc 1.92.0）
+[package]
+name = "log-cli"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+log-parser = { path = "../log-parser" }
+log-aggregator = { path = "../log-aggregator" }

@@ -1,0 +1,78 @@
+# project/springboot-deploy-template/.github/workflows/ci.yml
+# 与 examples/ex06-github-actions 同源（注释详解见该处 README）：build → test → image → deploy
+# 差异：Helm Chart 未随模板附（用 kubectl apply 部署，见下），镜像 tag 仍是 Git SHA
+# 验证状态：未在本环境实际构建验证（需真实 GitHub 仓库 / 托管 runner）
+name: build-test-deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: build & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: test
+        run: mvn -B -ntp test
+      - name: package
+        run: mvn -B -ntp -DskipTests package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-jar
+          path: target/myapp.jar
+
+  build-image:
+    name: build & push image
+    needs: build-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: login ghcr
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: build & push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+            ghcr.io/${{ github.repository }}:latest
+
+  deploy:
+    name: deploy to k8s
+    needs: build-image
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - uses: actions/checkout@v4
+      - name: apply manifests
+        run: |
+          kubectl create namespace myapp --dry-run=client -o yaml | kubectl apply -f -
+          kubectl apply -f deploy/k8s/
+          kubectl set image deployment/myapp myapp=ghcr.io/${{ github.repository }}:${{ github.sha }} -n myapp
+        env:
+          KUBECONFIG: ${{ secrets.KUBECONFIG }}
+      - name: wait rollout
+        run: kubectl rollout status deployment/myapp -n myapp --timeout=180s
+        env:
+          KUBECONFIG: ${{ secrets.KUBECONFIG }}

@@ -1,0 +1,11 @@
+# sol-01：导出 C 可调用函数（练习 1 参考实现）
+# 验证环境：cargo/rustc 1.92.0（macOS arm64）+ Apple clang 21.0.0；本机实测「已验证」
+[package]
+name = "sol01-c-callable"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "sol01_math"
+crate-type = ["staticlib", "cdylib"] # 一次构建同时产出 .a 与 .dylib

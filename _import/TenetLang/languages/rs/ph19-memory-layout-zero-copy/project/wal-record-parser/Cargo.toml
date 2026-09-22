@@ -1,0 +1,16 @@
+[package]
+name = "wal-record-parser"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# ph19 阶段项目「WAL record 解析器」：纯 std、零第三方依赖，可离线构建。
+# 格式规范与主文档 3.8 / examples/ex05-wal-record-parse.rs 完全一致（字段一律小端）：
+#   [magic: u32]["WAL1"] [crc: u32](对 key||value) [seq: u64] [op: u8]
+#   [klen: u32][vlen: u32][key][value]        op: 1=Put 2=Delete
+#
+# 质量闸门（与 ph19 验收一致）：
+#   CARGO_TARGET_DIR=/tmp/ph19-target cargo build
+#   CARGO_TARGET_DIR=/tmp/ph19-target cargo test
+#   CARGO_TARGET_DIR=/tmp/ph19-target cargo fmt --check
+#   CARGO_TARGET_DIR=/tmp/ph19-target cargo clippy --all-targets -- -D warnings

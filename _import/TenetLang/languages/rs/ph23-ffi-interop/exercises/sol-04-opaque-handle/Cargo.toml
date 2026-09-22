@@ -1,0 +1,14 @@
+# sol-04：不透明句柄模式（练习 4 参考实现）
+# 验证环境：cargo/rustc 1.92.0（macOS arm64）+ Apple clang 21.0.0；本机实测「已验证」
+[package]
+name = "sol04-opaque-handle"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "sol04_vecstore"
+crate-type = ["cdylib", "rlib"] # rlib 供 cargo test 测内部逻辑
+
+[profile.release]
+opt-level = 3

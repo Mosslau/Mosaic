@@ -1,0 +1,21 @@
+# examples/ex04-hello-cli/pyproject.toml —— 可安装 CLI 工具包（console_scripts 入口点，src 布局）
+# 来源：07-venv-packaging.md 第 6 章示例 4
+# 验证环境：Python 3.13.12，setuptools>=68
+# 验证：python3 -m venv .venv && .venv/bin/pip install -e . && .venv/bin/hello Alice
+# 验证状态：已验证
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hello-cli"
+version = "0.1.0"
+description = "示例 CLI：pip install -e . 后全局可用 hello 命令"
+requires-python = ">=3.10"
+
+[project.scripts]                       # console_scripts 入口点：把函数变成命令
+hello = "hello.cli:main"
+
+[tool.setuptools.packages.find]         # src 布局：告诉 setuptools 去 src/ 找包
+where = ["src"]

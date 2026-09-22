@@ -1,0 +1,57 @@
+# examples/ex02-cargo-deny-config/deny.toml —— cargo-deny 门禁配置示例
+#
+# 验证状态：本文件已用 cargo-deny 0.20.2 实测校验（schema 合法，check 运行输出见 README）；
+#   四个段各防一类攻击（主文档 3.3~3.5）：
+#   advisories — 已知漏洞（与 cargo audit 同源 RustSec advisory-db）
+#   licenses   — 许可证合规事故（无许可/不兼容许可混入）
+#   bans       — 同 crate 多版本并存（修复不对称）与非法版本约束
+#   sources    — 依赖混淆 / git 依赖失控
+
+[advisories]
+db-path = "~/.cargo/advisory-db"   # 直接复用 cargo audit 已拉取的 RustSec 库（离线可用，实测有效）
+# 若首次使用无缓存：默认 $CARGO_HOME/advisory-dbs 会自动 clone（需联网）
+# db-urls = ["https://github.com/rustsec/advisory-db"]
+ignore = [
+    # 例外仅当「接受并登记」时填 RUSTSEC-ID，必须带理由注释：
+    # { id = "RUSTSEC-2020-XXXX", reason = "仅影响未启用 feature 的不可达路径，已登记 risk-log#123" },
+]
+# 注意：deny 无 `yanked` 布尔键；依赖树里出现被 yank 的版本由 ignore 条目管理
+# （ignore 可写 "crate@version" 形式放行某个被 yank 的版本，见官方文档）
+
+[licenses]
+allow = [
+    # 注意：allow 列表每项是「单个 SPDX 标识符」（可带 WITH 例外）。
+    # 包声明 "MIT OR Apache-2.0" 时只要 MIT 与 Apache-2.0 都在 allow 里即合规（OR 语义自动处理）
+    "MIT",
+    "Apache-2.0",
+    "BSD-3-Clause",
+    "ISC",
+    "MPL-2.0",
+    "0BSD",
+    "Unicode-3.0",
+    "Zlib",
+    "Apache-2.0 WITH LLVM-exception",
+]
+# 未匹配任何 allow 的许可证默认拒绝（门禁语义：default 不可配，靠 allow 名单收口）
+confidence-threshold = 0.8     # SPDX 识别置信度阈值；低于则判 unknown 需人工
+exceptions = []                # 每 crate 级例外：允许清单整体之外单独放行某包（登记理由）
+# exceptions = [
+#     { allow = ["Zlib"], crate = "adler32" },
+# ]
+# [[licenses.clarify]]         # 对 license 元数据缺失/含混的包人工指定（见官方文档）
+
+[bans]
+multiple-versions = "deny"     # 同 crate 多版本 → 报错（防修复不对称；LintLevel："warn" 也常见）
+wildcards = "allow"            # 允许 manifest 声明通配版本（库工程常见）
+skip = []                      # 对「真实无害」的并存放行，必须带理由
+# skip = [
+#     { crate = "time@0.1.35", reason = "历史遗留：仅被 log 0.4 旧链使用，锁在 0.3 分支外" },
+# ]
+skip-tree = []                 # 放行某棵子树内的重复（如构建期工具链隔离）
+# deny = []                    # 显式禁用的 crate/版本区间
+
+[sources]
+unknown-registry = "deny"      # 未知 registry 默认拒绝（防依赖混淆）
+unknown-git = "deny"           # git 依赖默认拒绝（发布 crate 不该有）
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]  # crates.io 白名单
+allow-git = []                 # 白名单 git 源（如公司内部仓库，带注释理由）

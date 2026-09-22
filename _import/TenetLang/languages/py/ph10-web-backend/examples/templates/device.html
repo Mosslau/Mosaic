@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>{{ device.vin }} 设备详情</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <h1>设备 {{ device.vin }}</h1>
+  <p>车型：{{ device.model }}</p>
+  <p>状态：{% if device.online %}在线 ✅{% else %}离线 ⛔{% endif %}</p>
+  <h2>最近遥测</h2>
+  <table>
+    <tr><th>时间</th><th>速度 (km/h)</th><th>SOC (%)</th></tr>
+    {% for reading in readings %}
+    <tr>
+      <td>{{ reading.time }}</td>
+      <td>{{ reading.speed | round(1) }}</td>
+      <td>{{ reading.soc | int }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="3">暂无遥测记录</td></tr>
+    {% endfor %}
+  </table>
+  <p>共 {{ readings | length }} 条记录。</p>
+</body>
+</html>

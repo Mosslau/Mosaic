@@ -1,0 +1,8 @@
+# clippy.toml —— clippy 工具级「阈值类」配置（与 Cargo.toml [lints] 的级别策略互补）。
+#
+# 注意：crate 根放一份 clippy.toml 会影响全 crate 所有 clippy 运行。
+# 这里保持默认 7 是为了让 src/main.rs 的 #[allow(clippy::too_many_arguments)] 确实需要
+# （若把阈值提到 8，8 参的 parse_csv_row 不再触发该 lint，代码里的 allow 就变成「僵尸例外」——
+# 这正是集中管理阈值与代码内 allow 需要联动维护的演示）。
+too-many-arguments-threshold = 7
+# type-complexity-threshold = 250   # 默认 250：类型嵌套复杂度过高阈值

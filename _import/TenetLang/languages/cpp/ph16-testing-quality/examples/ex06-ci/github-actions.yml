@@ -1,0 +1,82 @@
+# examples/ex06-ci/github-actions.yml —— C++ 工程质量闭环的 CI 模板（GitHub Actions）
+# ⚠️ 未在本环境验证：本机无 docker，无法本地跑 GitHub Actions runner；
+#    语法与工作流结构遵循 GitHub Actions 官方文档与各 action 的公开用法。
+#    落地位置：仓库根目录 .github/workflows/ci.yml。
+#
+# 设计要点（对应主文档 3.6）：
+# 1. 四个 job 各管一道闸门——格式（最快）→ 静态分析 → 测试矩阵 → Sanitizer/覆盖率；
+# 2. 失败即红：clang-format --dry-run --Werror、clang-tidy WarningsAsErrors、
+#    测试与 Sanitizer 构建的非零退出码，任何一个不过 PR 都不能合；
+# 3. 矩阵覆盖「编译器 × 构建类型」，Sanitizer 独立 job（与 Release 矩阵解耦）。
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: clang-format 格式门禁
+        run: |
+          find src tests -name '*.cpp' -o -name '*.h' | \
+            xargs clang-format --dry-run --Werror
+
+  tidy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 配置（生成 compile_commands.json 供 clang-tidy 使用）
+        run: cmake -B build -DCMAKE_CXX_CLANG_TIDY="clang-tidy;-warnings-as-errors=*"
+      - name: 构建（clang-tidy 随编译执行，告警即失败）
+        run: cmake --build build -j
+
+  test-matrix:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        cxx: [g++, clang++]
+        build_type: [Debug, Release]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: 配置
+        run: cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+               -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
+      - name: 构建
+        run: cmake --build build -j
+      - name: 单元测试
+        run: ctest --test-dir build --output-on-failure
+
+  sanitizer-coverage:
+    runs-on: ubuntu-latest   # Sanitizer 全家桶（含 LSan）只在 Linux 上齐活；macOS 无 LSan
+    steps:
+      - uses: actions/checkout@v4
+      - name: ASan+UBSan 构建并跑测试
+        run: |
+          cmake -B build-asan -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-sanitize-recover=all"
+          cmake --build build-asan -j
+          ctest --test-dir build-asan --output-on-failure
+      - name: TSan 构建并跑测试（独立 job 段——TSan 与 ASan 不能同进程共存）
+        run: |
+          cmake -B build-tsan -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_FLAGS="-fsanitize=thread"
+          cmake --build build-tsan -j
+          ctest --test-dir build-tsan --output-on-failure
+      - name: 覆盖率（gcov + lcov 出 HTML）
+        run: |
+          cmake -B build-cov -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_FLAGS="--coverage"
+          cmake --build build-cov -j
+          ctest --test-dir build-cov
+          lcov --capture --directory build-cov --output-file coverage.info
+          lcov --remove coverage.info '/usr/*' '*/tests/*' --output-file coverage.info
+          genhtml coverage.info --output-directory coverage-html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: coverage-html

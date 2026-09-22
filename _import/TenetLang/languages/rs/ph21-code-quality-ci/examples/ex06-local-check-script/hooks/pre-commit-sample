@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# hooks/pre-commit-sample —— 手写 git pre-commit hook 的示例。
+#
+# 安装（在 ex06 根，若它是 git 仓库）：
+#   mkdir -p .git/hooks
+#   cp hooks/pre-commit-sample .git/hooks/pre-commit
+#   chmod +x .git/hooks/pre-commit
+# 之后每次 `git commit` 都会先跑一遍本地门禁；红则提交被拒。
+#
+# 诚实边界：本 hook 与 scripts/check.sh 逻辑同源、已按脚本方式实测（非零退出即拒绝提交）；
+# 但「安装进 .git/hooks 由 git 触发」的完整链路未在本环境演练（临时目录无 git 仓库）。
+# 另外注意 hook 可被 `git commit --no-verify` 绕过——最终裁判永远是 CI（主文档 3.7/3.8）。
+set -euo pipefail
+cd "$(dirname "$0")/.."   # 切到仓库根
+./scripts/check.sh

@@ -1,0 +1,4 @@
+# sol-02 的 cbindgen 配置：生成 C 头文件
+language = "C"
+documentation = true
+include_guard = "SOL02_FRACTION_H"

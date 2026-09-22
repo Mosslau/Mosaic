@@ -1,0 +1,18 @@
+[package]
+name = "team-template"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"          # MSRV 声明：团队约定最低支持 Rust 1.85（2025-02 发布）
+description = "ph16 阶段项目：团队模板仓库（工具链文件 + CI + 格式化 + lint + README 约定）"
+license = "MIT OR Apache-2.0"
+
+# 模板约定：零外部依赖起步；加依赖前先在 README「依赖引入约定」里登记理由
+[dependencies]
+
+# lint 集中声明在 Cargo.toml（cargo 1.74+ 支持 [lints] 表），全队同一把尺子
+[lints.rust]
+unsafe_code = "deny"           # 模板默认禁 unsafe；确有需要时在具体模块 #[allow] 并写 Safety 注释
+
+[lints.clippy]
+all = "warn"
+pedantic = "warn"              # 严格档；个别误报用 #[allow(clippy::xxx)] 点杀并注释理由

@@ -1,0 +1,16 @@
+# examples/ex02 配置（主文档 3.2/3.3）：Boot 自动配置把 spring.kafka.* 翻译成 Kafka 客户端 Properties
+# 验证状态：未在本环境验证（需本地 Kafka，docker compose 见 examples/）
+spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: order-created-group
+      auto-offset-reset: earliest   # 组内无已提交 offset 时从头读（教学方便；生产默认 latest）
+      enable-auto-commit: false     # 关闭自动提交 —— 配合 listener.ack-mode 手动提交（3.3）
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    listener:
+      ack-mode: manual              # MANUAL：监听方法收到 Acknowledgment 自己调 acknowledge()
+logging:
+  level:
+    com.example.ex02: INFO

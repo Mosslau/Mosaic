@@ -1,0 +1,3 @@
+# clippy.toml —— 阈值类配置（级别策略在 workspace 根 Cargo.toml 的 [workspace.lints]，二者互补）。
+# 验证状态：阈值行为已在本机对照实验验证（改阈值后对应 lint 停发/触发）。
+too-many-arguments-threshold = 7

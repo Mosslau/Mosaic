@@ -1,0 +1,4 @@
+# project/requirements.txt —— 锁版本（可复现部署：必会概念）
+fastapi==0.139.1
+uvicorn==0.50.0
+scikit-learn==1.7.2

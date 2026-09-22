@@ -1,0 +1,83 @@
+# examples/ex06-github-actions/.github/workflows/ci.yml
+# GitHub Actions 流水线：build → test → image → deploy（对应主文档 3.8）
+# 教学点：
+#   1. 三个 Job 三道门禁：测试不过不推镜像、镜像没推成不碰集群、deploy 只走 main + environment 审批
+#   2. 产物沿流水线向下游传递：Job 1 产出 jar artifact；Job 2 重建镜像并推 GHCR（tag = Git SHA，不可变）
+#   3. 密钥进 Actions Secret（GITHUB_TOKEN / KUBECONFIG），不进仓库文件
+# 验证命令：推到 GitHub 仓库（启用 Actions）观察运行；本地可装 act（nektos/act）做 dry-run
+# 验证状态：未在本环境实际构建验证（需 GitHub 托管 runner / 真仓库）
+name: build-test-deploy
+
+on:
+  push:
+    branches: [main]          # 主线 push 跑全流程（含 deploy）
+  pull_request:               # PR 只跑 build-test（不给 PR 推镜像/部署）
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true   # 同一分支新提交自动取消旧流水线，省资源
+
+jobs:
+  build-test:
+    name: build & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven                         # 缓存 ~/.m2，第二次起不重下依赖
+      - name: test
+        run: mvn -B -ntp test
+      - name: package
+        run: mvn -B -ntp -DskipTests package   # test 已在上面跑过，这里只产出
+      - name: upload jar artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-jar
+          path: target/myapp.jar               # 与 ex02 pom.xml 的 finalName 对应
+
+  build-image:
+    name: build & push image
+    needs: build-test                          # 门禁 1：测试绿才有资格推镜像
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write                          # 推 GHCR 需要 packages 写权限
+    steps:
+      - uses: actions/checkout@v4
+      - name: login ghcr
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: build & push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ github.sha }}   # 不可变 tag：回滚/审计的锚点（3.3）
+            ghcr.io/${{ github.repository }}:latest              # latest 仅供手动拉取，不作发布目标
+
+  deploy:
+    name: deploy to k8s
+    needs: build-image                          # 门禁 2：镜像推成功才有资格部署
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: prod                          # environment 门禁：可在此开启「等待人工批准」
+    steps:
+      - uses: actions/checkout@v4
+      - name: helm upgrade
+        run: |
+          helm upgrade --install myapp ./deploy/app-chart \
+            --namespace myapp --create-namespace \
+            --set image.tag=${{ github.sha }}
+        env:
+          KUBECONFIG: ${{ secrets.KUBECONFIG }}    # 集群凭据放 Actions Secret，永不入库
+      - name: wait rollout
+        run: kubectl rollout status deployment/myapp -n myapp --timeout=180s
+        env:
+          KUBECONFIG: ${{ secrets.KUBECONFIG }}

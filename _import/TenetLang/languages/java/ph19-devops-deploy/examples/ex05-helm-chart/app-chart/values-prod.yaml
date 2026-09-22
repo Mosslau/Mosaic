@@ -1,0 +1,16 @@
+# examples/ex05-helm-chart/app-chart/values-prod.yaml
+# 生产环境覆盖：只写与默认不同的键（Helm 合并策略：-f 文件覆盖 values.yaml 同名键）
+# 验证命令（有 helm 的环境）：helm template myapp ./app-chart -f app-chart/values-prod.yaml
+# 验证状态：未在本环境实际构建验证（本机无 helm）
+replicaCount: 5
+image:
+  tag: "1.4.2"
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    cpu: "2"
+    memory: 2Gi
+config:
+  SPRING_PROFILES_ACTIVE: "prod"

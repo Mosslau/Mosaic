@@ -1,0 +1,8 @@
+{
+  "port": 8443,
+  "name": "release-server-prod",
+  "debug": false,
+  "region": "cn-north-1",
+  "logLevel": "info",
+  "dbDsn": "postgres://app@prod-db.internal:5432/fleet"
+}

@@ -1,0 +1,27 @@
+# examples/ex01-toolchain-file/rust-toolchain.toml —— 项目级工具链钉死文件
+# 验证环境：rustup 1.28.2 + stable 1.92.0（macOS arm64）
+# 验证方式：本目录下执行 `rustup show`，输出含
+#   "active because: overridden by '<...>/examples/ex01-toolchain-file/rust-toolchain.toml'"
+# 验证状态：已验证（channel = "stable" 路径实测；版本钉死见下方注释说明）
+
+[toolchain]
+# channel 支持三类写法：
+#   "stable" / "beta" / "nightly"        —— 发布通道（本文件取 stable，见下行）
+#   "1.92.0"                              —— 精确版本号（不存在时 rustup 自动下载安装）
+#   "nightly-2025-12-08"                  —— 按日期的快照（rustup 文法接受 <channel>-<date>，
+#                                           如 stable-<date>/beta-<date>；日期归档的实际可用性
+#                                           以 rustup 官方文档为准，本环境未实测）
+# 注意：写成精确版本号时，若该机没有该工具链，rustup 会联网下载；
+# 本仓库只装过 stable，钉 "1.92.0" 的写法在本环境因沙箱禁止写 ~/.rustup 未实测下载流程，
+# 语义以 rustup 官方文档为准（channel 字段存在即触发「解析或安装」）。
+channel = "stable"
+
+# 进入本目录即自动可用的组件（没有则 rustup 自动补齐）
+components = ["rustfmt", "clippy"]
+
+# 编译目标（交叉编译时才需要，本阶段用不到，留注释示意）
+# targets = ["x86_64-unknown-linux-gnu"]
+
+# profile 控制 rustup 安装粒度："minimal"（默认，只装 rustc/cargo/rust-std）
+# / "default"（加 clippy/rustfmt/rust-docs）/ "complete"（全量）
+# profile = "minimal"

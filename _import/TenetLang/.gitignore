@@ -1,0 +1,96 @@
+# ============================================================
+# 系统 / 编辑器
+# ============================================================
+
+# macOS 目录元数据文件
+.DS_Store
+
+# JetBrains IDE（RustRover 等）配置目录
+# 官方模板维护在 https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
+# 如需彻底忽略可放开下行（不推荐，会连共享配置一起忽略）
+#.idea/
+
+# AI 助手本地工作目录
+.workbuddy/
+
+# ============================================================
+# Rust
+# ============================================================
+
+# Cargo 构建产物（编译中间文件与可执行文件）
+debug
+target
+
+# rustfmt 生成的备份文件
+**/*.rs.bk
+
+# MSVC 版 rustc 在 Windows 下生成的调试信息文件
+*.pdb
+
+# cargo mutants 生成的变异测试数据
+**/mutants.out*/
+
+# ============================================================
+# Python
+# ============================================================
+
+# 字节码缓存
+__pycache__/
+*.py[cod]
+
+# 打包元数据
+*.egg-info/
+
+# 虚拟环境目录
+.venv/
+venv/
+
+# pytest 运行缓存
+.pytest_cache/
+
+# ruff 检查缓存
+.ruff_cache/
+
+# mypy 类型检查缓存
+.mypy_cache/
+
+# ============================================================
+# C / C++
+# ============================================================
+
+# 目标文件 / 头文件依赖记录 / 静态库
+*.o
+*.d
+*.a
+
+# ============================================================
+# 本仓库特定构建产物
+# ============================================================
+
+# 语言设计分析 demo 可执行文件（analysis/cpp/demos 下与 .cpp 同名）
+analysis/cpp/demos/01_raii
+analysis/cpp/demos/02_move
+analysis/cpp/demos/03_multiparadigm
+analysis/cpp/demos/04_stl
+analysis/cpp/demos/05_constexpr
+
+# compiler-cpp 构建产物
+tenet/compiler-cpp/tenet
+tenet/compiler-cpp/test_tenet
+
+# compiler-arm64 构建产物
+tenet/compiler-arm64/tenet
+tenet/compiler-arm64/test_tenet
+
+# Go 示例/练习的编译产物：go build 在各 module 目录内生成与目录同名的可执行文件
+# （产物纪律：构建命令请用 -o /tmp/<名字>；以下为历史遗留的显式清单）
+/languages/go/ph21-data-ingest-gateway/examples/ex01-mqtt-minimal/ex01-mqtt-minimal
+/languages/go/ph21-data-ingest-gateway/examples/ex02-source-reconnect-idempotent/ex02-source-reconnect-idempotent
+/languages/go/ph21-data-ingest-gateway/examples/ex03-websocket-config-push/ex03-websocket-config-push
+/languages/go/ph21-data-ingest-gateway/examples/ex04-agent-rollout/ex04-agent-rollout
+/languages/go/ph21-data-ingest-gateway/examples/ex05-collect-agent/ex05-collect-agent
+/languages/go/ph21-data-ingest-gateway/examples/ex06-ingest-platform/ex06-ingest-platform
+/languages/go/ph21-data-ingest-gateway/exercises/sol-01-mqtt-data-access/sol-01-mqtt-data-access
+/languages/go/ph21-data-ingest-gateway/exercises/sol-02-metrics-receiver/sol-02-metrics-receiver
+/languages/go/ph21-data-ingest-gateway/exercises/sol-03-agent-rollout/sol-03-agent-rollout
+/languages/go/ph21-data-ingest-gateway/exercises/sol-04-websocket-monitor/sol-04-websocket-monitor

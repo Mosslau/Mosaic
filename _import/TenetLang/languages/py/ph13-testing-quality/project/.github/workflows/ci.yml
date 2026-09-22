@@ -1,0 +1,32 @@
+# .github/workflows/ci.yml —— GitHub Actions 持续集成（本环境无 CI 平台，未在本环境验证）
+# 本地等价验证：ruff check . && ruff format --check . && black --check . && mypy telemetry_stats cli.py && pytest
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+      - name: Lint (ruff)
+        run: ruff check .
+      - name: Format check (ruff format + black)
+        run: |
+          ruff format --check .
+          black --check .
+      - name: Type check (mypy)
+        run: mypy telemetry_stats cli.py
+      - name: Test with coverage (pytest-cov)
+        run: pytest --cov=telemetry_stats --cov-report=term-missing

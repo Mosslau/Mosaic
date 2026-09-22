@@ -1,0 +1,17 @@
+[package]
+name = "ph12-tokio-demos"
+version = "0.1.0"
+edition = "2021"
+description = "ph12 并发与异步阶段 tokio 示例（任务、定时器、超时、网络 I/O、异步背压）"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+
+# 构建命令（本环境已验证，tokio 1.53.1）：
+#   1. 配置国内镜像（rsproxy，一次即可）：写入 $CARGO_HOME/config.toml
+#      [source.crates-io] replace-with = "rsproxy"
+#      [source.rsproxy] registry = "sparse+https://rsproxy.cn/index/"
+#   2. CARGO_TARGET_DIR=/tmp/ph12-tokio-target cargo build --release
+#   3. CARGO_TARGET_DIR=/tmp/ph12-tokio-target cargo run --release --bin ex07-tokio-tasks
+#      （ex08-tokio-timeout / ex09-tokio-tcp-echo 同理）
+# 产物输出到 CARGO_TARGET_DIR，仓库内不残留二进制。

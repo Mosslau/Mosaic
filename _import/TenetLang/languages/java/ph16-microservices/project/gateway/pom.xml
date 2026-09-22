@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- gateway —— 微服务入口网关：JWT 验签（复用 common 的 JwtService，jjwt 随 common 传递引入，
+     无需直接声明 jjwt 坐标）+ 按路径路由转发（/api/auth、/api/users → user-service；/api/orders → order-service）。
+     转发客户端必须用 JdkClientHttpRequestFactory——SimpleClientHttpRequestFactory 在 POST + 下游 401
+     时抛 HttpRetryException（已实测，见 exercises/sol-04 文件头注释）。
+     可执行服务（spring-boot-maven-plugin，版本由父 pom pluginManagement 仲裁 3.3.5）。
+     user-service / order-service 仅 test-scope：测试起真实三个服务做验签链路实测。
+     默认端口 18313（src/main/resources/application.properties）。
+     验证环境：OpenJDK 17.0.18 + Maven 3.9.12 + Spring Boot 3.3.0（依赖全在 /tmp/m2clone 离线缓存，实测）
+     验证命令：cd languages/java/ph16-microservices/project && mvn -o -Dmaven.repo.local=/tmp/m2clone test
+     验证状态：已验证（Tests run 数字见 ../README.md「验收标准」） -->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.example.msdemo</groupId>
+    <artifactId>msdemo-parent</artifactId>
+    <version>1.0.0</version>
+  </parent>
+  <artifactId>gateway</artifactId>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.example.msdemo</groupId>
+      <artifactId>msdemo-common</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.platform</groupId>
+      <artifactId>junit-platform-launcher</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- 仅测试需要：起真实 user-service / order-service 做全链路验签测试（版本由父 pom 仲裁） -->
+    <dependency>
+      <groupId>com.example.msdemo</groupId>
+      <artifactId>user-service</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.example.msdemo</groupId>
+      <artifactId>order-service</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

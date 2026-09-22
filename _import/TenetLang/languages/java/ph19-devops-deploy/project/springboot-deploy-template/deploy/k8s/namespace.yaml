@@ -1,0 +1,6 @@
+# project/springboot-deploy-template/deploy/k8s/namespace.yaml
+# 与 examples/ex04-k8s-manifests 同源，逐项解释见该目录 README。验证状态：未在本环境实际构建验证
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: myapp

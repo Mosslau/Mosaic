@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  exercises/sol-01-spring-boot-packaging/pom.xml —— 练习 1 参考实现（对应主文档 3.2）
+  答案要点（对照检查你的版本是否具备）：
+    1. repackage 由 spring-boot-maven-plugin 完成：把普通 jar 改造成可执行 fat jar
+       （MANIFEST Main-Class=JarLauncher，Start-Class 指向你的 @SpringBootApplication 主类）；
+    2. <layers><enabled>true</enabled></layers> 生成 BOOT-INF/layers.idx 分层；
+    3. finalName 让产物名稳定（Dockerfile/流水线按名引用）；
+    4. 配置外置的载体不在 pom —— 见 src/main/resources/application.yml（同目录）
+  验证命令（有 mvn 的环境）：
+    # 1. 打包
+    mvn -B clean package
+    # 2. 直接运行
+    java -jar target/myapp.jar
+    # 3. 结构检查（分层 jar 是否生成）
+    unzip -p target/myapp.jar BOOT-INF/layers.idx
+    java -cp <ex02 的 JarLayersInspector.class 目录> JarLayersInspector target/myapp.jar
+  无 mvn 的替代检查：与 examples/ex02-spring-boot-jar-packaging/pom.xml 对照 diff
+  验证状态：未在本环境验证（本机无 mvn，无法离线拉 Boot 依赖；文件与 ex02 的 pom 同基线）
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.3.0</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>com.example</groupId>
+  <artifactId>myapp</artifactId>
+  <version>0.0.1</version>
+
+  <properties>
+    <java.version>17</java.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-prometheus</artifactId>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <finalName>myapp</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <layers>
+            <enabled>true</enabled>
+          </layers>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

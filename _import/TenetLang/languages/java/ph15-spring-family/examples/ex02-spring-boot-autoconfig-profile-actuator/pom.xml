@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- examples/ex02-spring-boot-autoconfig-profile-actuator/pom.xml —— Boot 自动配置追踪 + profile + actuator
+     验证环境：OpenJDK 17.0.18 + Maven 3.9.12 + Spring Boot 3.3.0（starter-web/actuator/test 在离线缓存，实测）
+     验证命令：mvn -o -Dmaven.repo.local=/tmp/m2clone test
+     运行命令：mvn -o -Dmaven.repo.local=/tmp/m2clone spring-boot:run -Dspring-boot.run.profiles=dev （端口 18092）
+              mvn -o -Dmaven.repo.local=/tmp/m2clone spring-boot:run -Dspring-boot.run.profiles=prod（端口 18093）
+     离线说明：缓存缺 junit-platform-launcher 1.10.2（默认版本），钉到 1.10.1；surefire 3.2.5、
+               spring-boot-maven-plugin 3.3.5 显式钉住（缓存缺默认版本）。联网环境可删这些仲裁项。 -->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.3.0</version>
+    <relativePath/>
+  </parent>
+  <groupId>com.example</groupId>
+  <artifactId>ex02-spring-boot-autoconfig-profile-actuator</artifactId>
+  <version>1.0.0</version>
+
+  <properties>
+    <java.version>17</java.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <!-- 离线版本仲裁：缓存只有 junit-platform-launcher 1.10.1 -->
+      <dependency>
+        <groupId>org.junit.platform</groupId>
+        <artifactId>junit-platform-launcher</artifactId>
+        <version>1.10.1</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <!-- starter-actuator：引进来 /actuator/* 端点自动出现（自动配置的可观察证据） -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.platform</groupId>
+      <artifactId>junit-platform-launcher</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.2.5</version>
+        <dependencies>
+          <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-launcher</artifactId>
+            <version>1.10.1</version>
+          </dependency>
+        </dependencies>
+      </plugin>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <version>3.3.5</version>
+      </plugin>
+    </plugins>
+  </build>
+</project>

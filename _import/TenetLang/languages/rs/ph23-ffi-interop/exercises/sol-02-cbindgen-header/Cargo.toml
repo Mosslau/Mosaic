@@ -1,0 +1,11 @@
+# sol-02：用 cbindgen 生成头文件（练习 2 参考实现）
+# 验证环境：cargo/rustc 1.92.0（macOS arm64）+ Apple clang 21.0.0 + cbindgen 0.27.0；本机实测「已验证」
+[package]
+name = "sol02-cbindgen-header"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "sol02_fraction"
+crate-type = ["staticlib", "cdylib"] # 头文件消费方按静态库链接

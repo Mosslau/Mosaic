@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  examples/ex02-spring-boot-jar-packaging/pom.xml —— Spring Boot 打包配置（对应主文档 3.2）
+  教学点：
+    1. spring-boot-starter-parent 托管 Boot 依赖版本与 spring-boot-maven-plugin 版本；
+    2. spring-boot-maven-plugin 的 repackage（默认绑定 package 阶段）把普通 jar 改造成可执行 fat jar：
+       Main-Class=org.springframework.boot.loader.JarLauncher，Start-Class=com.example.myapp.MyappApplication；
+    3. <layers><enabled>true</enabled></layers> 生成 BOOT-INF/layers.idx 分层，
+       供 Dockerfile 按层 COPY 命中镜像缓存（examples/ex03-dockerfile-compose/Dockerfile）。
+  验证环境：Maven 3.9 + OpenJDK 17 + Spring Boot 3.3.0（与 ph14~ph18 同基线）
+  验证命令（有 mvn 的环境）：
+    # 1. 打包（产出 target/myapp-0.0.1.jar 可执行 jar 与 .jar.original 备份）
+    mvn -B clean package
+    # 2. 直接运行
+    java -jar target/myapp-0.0.1.jar
+    # 3. 查看内部结构（无 mvn 本机可用同目录的 JarLayersInspector 工具，见 README）
+    unzip -l target/myapp-0.0.1.jar | head -30
+    unzip -p target/myapp-0.0.1.jar BOOT-INF/layers.idx
+  验证状态：未在本环境验证（本机无 mvn，无法离线拉取 Boot 依赖）
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.3.0</version>
+    <relativePath/> <!-- 从父 pom 拉取依赖管理，不指向本地文件 -->
+  </parent>
+
+  <groupId>com.example</groupId>
+  <artifactId>myapp</artifactId>
+  <version>0.0.1</version>
+  <name>myapp</name>
+  <description>Spring Boot deployable demo (packaging baseline for ph19)</description>
+
+  <properties>
+    <java.version>17</java.version>
+  </properties>
+
+  <dependencies>
+    <!-- Web：内嵌 Tomcat 随 fat jar 走，这是 java -jar 能直接跑的原因（3.2） -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <!-- Actuator：健康端点 /actuator/health（liveness/readiness 由配置开启，见 application.yml） -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <!-- Micrometer Prometheus registry：暴露 /actuator/prometheus 供 Prometheus 抓取（3.10） -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-prometheus</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <finalName>myapp</finalName> <!-- target/myapp.jar，Dockerfile 与流水线都按这个名字引用 -->
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <layers>
+            <enabled>true</enabled>
+          </layers>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

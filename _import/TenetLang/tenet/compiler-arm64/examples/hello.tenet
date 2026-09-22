@@ -1,0 +1,19 @@
+// Tenet 入门示例：变量、表达式、print
+let name: string = "Tenet";
+let year: int = 2026;
+let score: float = 95.5;
+
+print("Hello,", name, "!");
+print("year:", year, "score:", score);
+
+// 类型推断 + 字符串拼接
+let greeting = "欢迎来到 " + name + " 的世界";
+print(greeting);
+
+// 优先级与括号
+let calc: int = 1 + 2 * 3;          // 7
+let calc2: int = (1 + 2) * 3;       // 9
+print("calc:", calc, "calc2:", calc2);
+
+// 整数除法与取模
+print("7 / 2 =", 7 / 2, "  7 % 2 =", 7 % 2);

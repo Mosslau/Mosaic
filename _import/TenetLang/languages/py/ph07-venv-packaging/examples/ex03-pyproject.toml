@@ -1,0 +1,30 @@
+# examples/ex03-pyproject.toml —— pyproject.toml 定义项目（PEP 621 元数据 + 可选依赖分组）
+# 来源：07-venv-packaging.md 第 6 章示例 3
+# 验证环境：Python 3.13.12，setuptools>=68
+# 用法：复制到项目根目录后 pip install -e ".[dev]"（需配套包目录，见示例 4 与 project/）
+# 验证状态：已验证（以 project/ 中的同构配置实测 pip install -e . 通过）
+
+[build-system]                          # PEP 517：构建后端
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]                               # PEP 621：项目元数据
+name = "can-toolkit"
+version = "0.1.0"
+description = "CAN 报文分析小工具"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [                        # 运行依赖
+    "requests>=2.28,<3",
+    "python-can>=4.3",
+]
+
+[project.optional-dependencies]         # 可选依赖分组（开发期工具）
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+    "mypy>=1.8",
+]
+
+[tool.setuptools.packages.find]         # 告诉 setuptools 包含哪些包
+include = ["can_toolkit*"]

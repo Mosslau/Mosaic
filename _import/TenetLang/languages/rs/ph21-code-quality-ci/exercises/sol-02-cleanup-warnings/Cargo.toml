@@ -1,0 +1,7 @@
+# sol-02 —— workspace 根（虚拟清单）
+# 验证环境：rustc/cargo/clippy 1.92.0（macOS arm64），edition 2021。
+# 验证状态：record-tool（治理后）已验证全绿；before/ 治理前样例的 clippy 触发名单
+#          在 /tmp 副本 crate 中实测（见 exercises/README 练习 2 与 record-tool Cargo 注释）。
+[workspace]
+resolver = "2"
+members = ["record-tool"]

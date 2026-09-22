@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- examples/ex05-maven-fatjar/pom.xml —— gson 依赖 + shade 打可执行 fat jar
+     验证环境：OpenJDK 17.0.18 + Maven 3.9.12；验证状态：已验证
+     命令（工程根目录 examples/ex05-maven-fatjar/）：
+       1. mvn clean package             # 实测 BUILD SUCCESS
+       2. mvn dependency:tree           # 实测: \- com.google.code.gson:gson:jar:2.10.1:compile
+       3. printf 'line1\nline2\nline3\n' > demo.txt && java -jar target/cli-tool.jar demo.txt
+                                         # 实测输出: {"file":"demo.txt","lines":3,"chars":18}
+     产物：target/cli-tool.jar 287538 字节（≈280KB, 含 gson）; target/original-cli-tool.jar 3462 字节（薄 jar, 不含依赖）
+     说明：maven-shade-plugin 把依赖类合并进同一 jar 并写入 Main-Class（ManifestResourceTransformer 干的事）,
+           使 java -jar 可直接运行; shade 版本固定 3.5.1（本环境实测版本）。 -->
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.example</groupId>
+  <artifactId>cli-tool</artifactId>
+  <version>1.0-SNAPSHOT</version>
+  <properties>
+    <maven.compiler.release>17</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+  <dependencies>
+    <dependency>
+      <groupId>com.google.code.gson</groupId>
+      <artifactId>gson</artifactId>
+      <version>2.10.1</version>
+    </dependency>
+  </dependencies>
+  <build>
+    <finalName>cli-tool</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>3.5.1</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals><goal>shade</goal></goals>
+            <configuration>
+              <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                  <mainClass>com.example.CliTool</mainClass>
+                </transformer>
+              </transformers>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

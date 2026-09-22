@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>设备状态</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <h1>设备状态</h1>
+  <!-- range 遍历切片：{{.}} 是传给 Execute 的数据，每个元素是 Device -->
+  <table>
+    <tr><th>ID</th><th>状态</th><th>速度 (km/h)</th></tr>
+    {{range .}}
+    <tr><td>{{.ID}}</td><td>{{.Status}}</td><td>{{.Speed}}</td></tr>
+    {{end}}
+  </table>
+
+  <h2>添加设备</h2>
+  <!-- action="/devices" method="post"：表单 POST 走 handleCreate -->
+  <form action="/devices" method="post">
+    <input name="device_id" placeholder="设备 ID" required>
+    <select name="status">
+      <option value="online">online</option>
+      <option value="offline">offline</option>
+    </select>
+    <input name="speed" type="number" step="0.1" min="0" max="300" placeholder="速度" required>
+    <button type="submit">添加</button>
+  </form>
+</body>
+</html>

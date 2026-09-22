@@ -1,0 +1,8 @@
+# examples/ex02-docker-multistage/.dockerignore —— 构建上下文瘦身
+# 不把仓库里的这些东西送进构建上下文（加速构建、防把产物/缓存打进镜像）
+__pycache__/
+*.pyc
+.pytest_cache/
+.git/
+*.joblib
+/tmp/

@@ -1,0 +1,16 @@
+#
+# 验证环境：rustc/cargo 1.92.0（macOS arm64，rustup 管理）；第三方依赖版本见 dev-dependencies 与 Cargo.lock。
+# 验证状态：已验证（本机 cargo test / cargo bench 全绿；cargo fmt --check 干净、clippy --all-targets -- -D warnings 零告警）。
+[package]
+name = "record-parser"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# ph20 exercises 共享被测对象（Device Under Test）：
+# 从 ph19 阶段项目 wal-record-parser 复刻结构的迷你 record 解析库（ph19-memory-layout-zero-copy/project/wal-record-parser）。
+# 它是练习 1~4 唯一的被测对象：练习只改测试，不改解析器。
+# 质量闸门（在项目目录内执行）：
+#   CARGO_TARGET_DIR=/tmp/ph20-target cargo test
+#   CARGO_TARGET_DIR=/tmp/ph20-target cargo fmt --check
+#   CARGO_TARGET_DIR=/tmp/ph20-target cargo clippy --all-targets -- -D warnings

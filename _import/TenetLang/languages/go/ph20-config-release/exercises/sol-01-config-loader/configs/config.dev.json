@@ -1,0 +1,6 @@
+{
+  "port": 9090,
+  "name": "fleet-api-dev",
+  "debug": true,
+  "dbDsn": "postgres://dev@localhost:5432/fleet"
+}

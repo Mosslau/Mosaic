@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- examples/ex04-maven-minimal/pom.xml —— 手写最小 Maven 工程
+     验证环境：OpenJDK 17.0.18 + Maven 3.9.12；验证状态：已验证（mvn clean package → target/hello-maven.jar 2552 字节）
+     命令：mvn clean package && java -jar target/hello-maven.jar（实测输出: hello maven）
+     说明：maven-jar-plugin 的 archive/manifest/mainClass 让普通 jar 带上 Main-Class,
+           不加这段配置打出的 jar 用 java -jar 会报「中没有主清单属性」（见 ex02 演示）。 -->
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.example</groupId>
+  <artifactId>hello-maven</artifactId>
+  <version>1.0-SNAPSHOT</version>
+  <properties>
+    <maven.compiler.release>17</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+  <build>
+    <finalName>hello-maven</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.1</version>
+        <configuration>
+          <archive>
+            <manifest>
+              <mainClass>com.example.HelloMaven</mainClass>
+            </manifest>
+          </archive>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

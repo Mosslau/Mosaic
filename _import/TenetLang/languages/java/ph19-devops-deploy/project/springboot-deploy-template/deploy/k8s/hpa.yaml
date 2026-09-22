@@ -1,0 +1,24 @@
+# project/springboot-deploy-template/deploy/k8s/hpa.yaml
+# CPU 平均利用率触发扩缩（2~8 副本）。前置：metrics-server。验证状态：未在本环境实际构建验证
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: myapp
+  namespace: myapp
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: myapp
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300

@@ -1,0 +1,14 @@
+[package]
+name = "ph19-examples-crates"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# 仅承载 ex06（bytes crate）/ ex07（nom 8）两个教学 bin。
+# 依赖锁定：bytes 1.12.1（本机有缓存）、nom 8.0.0（大版本，示例按 8.x API 编写）。
+[dependencies]
+bytes = "1.12.1"
+nom = "8.0.0"
+
+[profile.release]
+# 教学示例用不到发布优化，默认即可；此段仅示意可选的常规配置。

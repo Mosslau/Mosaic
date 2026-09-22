@@ -1,0 +1,298 @@
+/* ============================================================================
+   TenetLang 文档站 · 基础层
+   把设计令牌接到 VitePress 默认主题的变量上，并统一站点外壳的排印。
+   ========================================================================== */
+
+:root {
+  --vp-font-family-base: 'IBM Plex Sans', 'PingFang SC', 'Hiragino Sans GB',
+    'Noto Sans SC', 'Source Han Sans SC', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
+  --vp-font-family-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo,
+    Consolas, 'Liberation Mono', monospace;
+
+  /* 不要调大：VitePress 大量使用 calc((100vw - var(--vp-layout-max-width)) / 2 + …)
+     来计算导航与正文两侧的内边距。视口窄于该值时算出负值，导航右侧内边距会从 32px
+     缩水、正文的 padding-left 甚至会把内容压到侧边栏下面。1440px 是它自己的默认值。 */
+  --vp-layout-max-width: 1440px;
+  --vp-sidebar-width: 276px;
+
+  /* 内容色 */
+  --vp-c-bg: var(--t-surface);
+  --vp-c-bg-alt: var(--t-paper);
+  --vp-c-bg-soft: var(--t-surface-sunken);
+  --vp-c-bg-elv: var(--t-surface);
+
+  --vp-c-text-1: var(--t-ink);
+  --vp-c-text-2: var(--t-ink-2);
+  --vp-c-text-3: var(--t-ink-3);
+
+  --vp-c-divider: var(--t-rule);
+  --vp-c-border: var(--t-rule);
+  --vp-c-gutter: var(--t-rule);
+
+  /* 品牌 = Tenet 的汇流色，取六色中最深的一支作交互色 */
+  --vp-c-brand-1: #1e4f9e;
+  --vp-c-brand-2: #2b62be;
+  --vp-c-brand-3: #3570d2;
+  --vp-c-brand-soft: rgba(43, 98, 190, 0.12);
+
+  --vp-custom-block-tip-border: transparent;
+  --vp-custom-block-tip-text: var(--t-ink-2);
+  --vp-custom-block-tip-bg: var(--t-surface-sunken);
+}
+
+html.dark {
+  --vp-c-brand-1: #86adf0;
+  --vp-c-brand-2: #6d9ae8;
+  --vp-c-brand-3: #9cc0f6;
+  --vp-c-brand-soft: rgba(109, 154, 232, 0.16);
+
+  --vp-custom-block-tip-text: var(--t-ink-2);
+  --vp-custom-block-tip-bg: var(--t-surface-sunken);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---------------------------------------------------------------- 站点外壳 */
+
+/* GitHub 图标默认排在亮暗切换之后（DOM 顺序是 search → menu → appearance → social-links）。
+   用 flex order 把它提到菜单正后方，即「仓库总览」右边、亮暗切换左边。
+   两个都是 .content-body 的直接子元素；其余项 order 默认为 0，所以它们自然排在前面。 */
+.VPNavBarSocialLinks {
+  order: 1;
+}
+
+.VPNavBarAppearance {
+  order: 2;
+}
+
+/* VitePress 的分隔竖线是按 DOM 相邻关系画的（.menu + .appearance::before、
+   .appearance + .social-links::before …）。order 只改视觉顺序，这些线会错位夹在
+   GitHub 与亮暗切换之间，所以要按元素本身关掉，而不是按相邻关系。
+   选择器刻意用满四层类名，压过 VitePress 的 (0,3,0)。 */
+.VPNavBar .container .content .VPNavBarSocialLinks::before,
+.VPNavBar .container .content .VPNavBarAppearance::before {
+  content: none;
+}
+
+/* 原来两处控件的间距是那条竖线自带的 margin（8px / 16px）撑起来的，线去掉后会塌成 0。
+   这里显式给一组等距值，并把两者外框统一成 36px 高，与 GitHub 图标外框一致：
+   GitHub 图标 36px 外框 + 左右各 8px 外边距、开关外框 36px，
+   于是「菜单 → 图标」与「图标 → 开关」的视觉间距都是 16px（图标外框内含 8px 内边距）。 */
+.VPNavBar .content-body .VPNavBarSocialLinks {
+  margin-left: 8px;
+  margin-right: 8px;
+}
+
+.VPNavBar .content-body .VPNavBarAppearance {
+  height: 36px;
+}
+
+/* 站点名用等宽字，和卡片上的语言字标同源 */
+.VPNavBarTitle .title {
+  font-family: var(--vp-font-family-mono);
+  font-weight: 600;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+}
+
+/* 导航底边线交给 VitePress 自带的 .divider-line（1px，色值已由 --vp-c-gutter → --t-rule 接管）。
+   之前这里额外加过 border-bottom，与它相邻叠成 2px：侧边栏右侧粗、侧边栏上方细，拐角也对不齐。 */
+
+/* 侧边栏：去掉圆角与阴影，回到图纸的直角分隔 */
+.VPSidebar {
+  border-right: var(--t-hair) solid var(--t-rule);
+  background: var(--t-paper);
+}
+
+.VPSidebarItem.level-0 > .item > .text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--t-ink-3);
+  letter-spacing: 0.02em;
+}
+
+.VPSidebarItem.level-1 .text,
+.VPSidebarItem.level-2 .text {
+  font-size: 14px;
+}
+
+/* 当前条目：VitePress 默认已给出品牌色，这里只补一条左侧色标，
+   位置与 VPSidebarItem 的 .item 对齐 */
+.VPSidebarItem.is-active > .item::before {
+  content: '';
+  position: absolute;
+  left: -18px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: var(--vp-c-brand-2);
+}
+
+.VPSidebarItem .item {
+  position: relative;
+}
+
+/* VitePress 的折叠箭头是一个 32px 定宽盒子（图标居中）+ margin-right:-7px，
+   结果图标右缘离侧边栏右边框还有 ~42px，而左侧文字内边距只有 16px，左右不对称、看着发飘。
+   这里让图标贴齐右侧 16px 内边距，与左边对齐。 */
+.VPSidebarItem > .item .caret {
+  justify-content: flex-end;
+  margin-right: -16px;
+}
+
+/* ------------------------------------------------- 侧边栏折叠（自定义） */
+
+/* 折叠状态由 html.sidebar-collapsed 标记，由 SidebarResizer 写入、并在首次绘制前由
+   config.mts 注入的内联脚本按 localStorage 恢复，避免「先展开再收起」的闪动。
+
+   选择器都写成 html.sidebar-collapsed … 的 (0,n,1) 形式，比 VitePress 自带的
+   .VPNavBar.has-sidebar .content[data-v-x] 等规则多一个元素，因此不依赖样式注入顺序。 */
+@media (min-width: 960px) {
+  html.sidebar-collapsed .VPSidebar {
+    transform: translateX(-100%);
+    opacity: 0;
+    pointer-events: none;
+    visibility: hidden;
+    /* visibility 延迟到滑出动画结束，否则会瞬间消失、动画看不到 */
+    transition: opacity 0.35s ease, transform 0.25s ease, visibility 0s linear 0.35s;
+  }
+
+  /* 正文占满腾出来的空间 */
+  html.sidebar-collapsed .VPContent.has-sidebar {
+    padding-left: 0;
+  }
+
+  /* 导航底部的分隔线原本左侧留出侧边栏的宽度，折叠后铺满 */
+  html.sidebar-collapsed .VPNavBar.has-sidebar .divider {
+    padding-left: 0;
+  }
+}
+
+@media (min-width: 1440px) {
+  /* ≥1440px 时 VitePress 会让正文整体内缩 (100vw - max) / 2，折叠后保持这个外缘 */
+  html.sidebar-collapsed .VPContent.has-sidebar {
+    padding-left: calc((100vw - var(--vp-layout-max-width)) / 2);
+  }
+
+  html.sidebar-collapsed .VPNavBar.has-sidebar .divider {
+    padding-left: 0;
+  }
+}
+
+/* ---------------------------------------------------------------- 正文排印 */
+
+.vp-doc {
+  --vp-doc-line-height: 1.78;
+}
+
+.vp-doc h1 {
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+}
+
+.vp-doc h2 {
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.008em;
+  border-top: var(--t-hair) solid var(--t-rule);
+  margin-top: 44px;
+  padding-top: 22px;
+}
+
+.vp-doc h3 {
+  font-size: 17px;
+  font-weight: 600;
+  margin-top: 30px;
+}
+
+.vp-doc p,
+.vp-doc li {
+  line-height: var(--vp-doc-line-height);
+}
+
+.vp-doc a {
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+/* 行内代码不作为装饰性色块，回到纸面 */
+.vp-doc :not(pre) > code {
+  background: var(--t-surface-sunken);
+  color: var(--t-ink);
+  border: var(--t-hair) solid var(--t-rule);
+  border-radius: var(--t-radius);
+  padding: 1px 5px;
+  font-size: 0.86em;
+}
+
+.vp-doc div[class*='language-'] {
+  border-radius: var(--t-radius-lg);
+  border: var(--t-hair) solid var(--t-rule);
+}
+
+/* 表格：图纸式细线，去掉斑马纹 */
+.vp-doc table {
+  display: table;
+  width: 100%;
+  border-collapse: collapse;
+  border: var(--t-hair) solid var(--t-rule);
+}
+
+.vp-doc tr {
+  background: transparent !important;
+  border-top: var(--t-hair) solid var(--t-rule);
+}
+
+.vp-doc th {
+  background: var(--t-surface-sunken);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--t-ink-2);
+}
+
+.vp-doc th,
+.vp-doc td {
+  border: var(--t-hair) solid var(--t-rule);
+  padding: 9px 13px;
+}
+
+/* 引用块：定位说明，用左侧色条 */
+.vp-doc blockquote {
+  border-left: 2px solid var(--t-rule-strong);
+  background: transparent;
+  padding: 2px 0 2px 18px;
+  color: var(--t-ink-2);
+}
+
+.vp-doc blockquote > p {
+  font-size: 14.5px;
+}
+
+/* ---------------------------------------------------------------- 可达性 */
+
+:focus-visible {
+  outline: 2px solid var(--vp-c-brand-2);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

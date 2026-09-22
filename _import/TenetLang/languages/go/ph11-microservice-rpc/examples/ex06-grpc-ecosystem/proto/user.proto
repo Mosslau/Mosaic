@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+// 用户服务接口契约（IDL）：与示例 1/2 的 net/rpc 用户服务同构，方便对照
+// 生成命令见 generate.sh；产物 proto/user.pb.go 与 proto/user_grpc.pb.go 已提交，
+// 无 protoc 环境也能直接 go build / go test。
+package user;
+
+option go_package = "tenetlang/go/ph11-microservice-rpc/examples/ex06-grpc-ecosystem/proto;pb";
+
+// UserService：一元 RPC（GetUser）+ 服务端流式 RPC（ListUsers）
+service UserService {
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);   // 一元：请求/响应
+  rpc ListUsers(ListUsersRequest) returns (stream User);   // 服务端流：逐条推送
+}
+
+message GetUserRequest {
+  int64 id = 1;
+}
+
+message GetUserResponse {
+  User user = 1;
+}
+
+message ListUsersRequest {
+  repeated int64 ids = 1;
+}
+
+message User {
+  int64  id = 1;
+  string name = 2;
+  string email = 3;
+  int32  status = 4; // 1=在线 2=离线
+}

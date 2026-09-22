@@ -1,0 +1,111 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "设备管理 API（spec-first 契约同步演示）",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/v1/devices": {
+      "get": {
+        "summary": "列出全部设备",
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Device" }
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/ErrorResponse" }
+        }
+      },
+      "post": {
+        "summary": "创建设备",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/DeviceInput" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Device" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ErrorResponse" }
+        }
+      }
+    },
+    "/v1/devices/{id}": {
+      "get": {
+        "summary": "查询单个设备",
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Device" }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/ErrorResponse" }
+        }
+      },
+      "delete": {
+        "summary": "注销设备",
+        "responses": {
+          "204": { "description": "deleted (idempotent)" },
+          "404": { "$ref": "#/components/responses/ErrorResponse" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Device": {
+        "type": "object",
+        "required": ["id", "name", "online"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "online": { "type": "boolean" }
+        }
+      },
+      "DeviceInput": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": ["code", "message"],
+        "properties": {
+          "code": { "type": "string" },
+          "message": { "type": "string" }
+        }
+      }
+    },
+    "responses": {
+      "ErrorResponse": {
+        "description": "unified error body {code,message}",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      }
+    }
+  }
+}

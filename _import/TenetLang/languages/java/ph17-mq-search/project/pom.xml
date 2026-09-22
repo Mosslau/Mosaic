@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- project/pom.xml —— 设备事件搜索系统父 pom（聚合 device-emitter + search-service）
+     验证环境：OpenJDK 17 + Maven 3.9 + Spring Boot 3.3.0 父 POM
+     构建命令（在 project/ 目录执行；联网环境去掉 -o 参数）：
+       mvn -o -Dmaven.repo.local=/tmp/m2clone -DskipTests package
+       mvn -o -Dmaven.repo.local=/tmp/m2clone test            # search-service 离线可测部分
+     验证状态：未在本环境验证（README 有模式 A/B 两种运行步骤） -->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.3.0</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>com.example</groupId>
+  <artifactId>device-event-search</artifactId>
+  <version>1.0.0</version>
+  <packaging>pom</packaging>
+
+  <modules>
+    <module>device-emitter</module>
+    <module>search-service</module>
+  </modules>
+
+  <properties>
+    <java.version>17</java.version>
+    <kafka.version>3.7.0</kafka.version>
+    <elasticsearch.version>8.13.4</elasticsearch.version>
+  </properties>
+</project>

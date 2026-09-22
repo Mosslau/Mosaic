@@ -1,0 +1,33 @@
+# ph17 示例用的中间件：Kafka（KRaft 单节点）+ Elasticsearch（8.x 单节点）
+# 未在本环境验证：命令按官方镜像口径编写，请在联网可拉镜像的机器上执行
+services:
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: mqs-kafka
+    ports:
+      - "9092:9092"
+    environment:
+      # KRaft 单节点：一个进程同时当 broker 与 controller（Kafka 3.3+ 元数据新模式，主文档 4.1）
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      # 单节点演示：副本因子压到 1，否则 __consumer_offsets 等内部主题起不来
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: mqs-es
+    ports:
+      - "9200:9200"
+    environment:
+      discovery.type: single-node      # 单节点演示（集群/分片规划属 ph19）
+      xpack.security.enabled: "false"  # 教学演示关安全；生产默认开
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"

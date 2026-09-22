@@ -1,0 +1,63 @@
+# exercises/sol-03-compose-java-mysql-redis/docker-compose.yml
+# 练习 3 参考实现（对应主文档 3.4）—— Java + MySQL 8 + Redis 7 一键编排
+# 答案要点：
+#   1. 健康依赖：app 的 depends_on 带 condition: service_healthy，等中间件「真就绪」才启动
+#   2. 服务名即 DNS：app 连 "mysql:3306"/"redis:6379"（每个容器独立网络命名空间，localhost 是容器自己）
+#   3. 数据进命名卷 + init.sql 挂 initdb 目录（仅首次初始化执行）
+#   4. mem_limit 与 Dockerfile 的 MaxRAMPercentage=75 配套（主文档 4.4）
+# 验证命令（有 docker 的环境）：
+#   docker compose up -d --build
+#   docker compose ps                       # 三服务均 healthy 才算就绪
+#   curl -fsS http://127.0.0.1:8080/actuator/health
+#   docker compose stop mysql && curl -s http://127.0.0.1:8080/actuator/health/readiness
+#   docker compose down -v
+# 验证状态：未在本环境实际构建验证（本机无 docker）
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: myapp
+      MYSQL_USER: app
+      MYSQL_PASSWORD: app123
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-papp123"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 20s
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--requirepass", "redis123"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis123", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  app:
+    build: .
+    image: myapp:dev
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: compose
+      DB_URL: jdbc:mysql://mysql:3306/myapp?useSSL=false&serverTimezone=UTC&characterEncoding=utf8
+      DB_USERNAME: app
+      DB_PASSWORD: app123
+      REDIS_HOST: redis
+      REDIS_PASSWORD: redis123
+    ports:
+      - "8080:8080"
+    mem_limit: 512m
+    cpus: "1.0"
+
+volumes:
+  mysql-data:

@@ -1,0 +1,13 @@
+[package]
+name = "ph24-relpipe"
+version = "0.1.0"
+edition = "2021"
+description = "ph24 安全发布流水线演示 crate：release-check.sh + deny.toml + CI 模板的载体"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://example.invalid/ph24-relpipe"
+keywords = ["supply-chain", "release", "demo"]
+categories = ["development-tools"]
+
+[dependencies]
+hex = "0.4"   # 最小依赖（零传递依赖、MIT OR Apache-2.0）——让 audit/deny/licenses 有真实输出

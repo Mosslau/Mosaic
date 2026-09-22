@@ -1,0 +1,15 @@
+[package]
+name = "ex08-agent-tool-backend"
+version = "0.1.0"
+edition = "2021"
+description = "ph25 ex08：Agent 工具后端（Tool trait / 权限 / 超时 / 审计日志 / 可观测计数）"
+
+[dependencies]
+axum = "0.8"
+tokio = { version = "1", features = ["full"] }
+serde_json = "1"
+serde = { version = "1", features = ["derive"] }
+async-trait = "0.1"
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }

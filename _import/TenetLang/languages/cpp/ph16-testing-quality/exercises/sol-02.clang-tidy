@@ -1,0 +1,22 @@
+# exercises/sol-02.clang-tidy —— 练习 2 参考实现（配置侧）：clang-tidy 教学配置
+# 三个检查族 + 显式豁免清单；真实项目可在此之上再扩 readability-*。
+# 用法：clang-tidy sol-02-tidy-clean.cpp --config-file=sol-02.clang-tidy -- -std=c++20
+#       （WarningsAsErrors='*'：有告警即非零退出；本配置对 sol-02-tidy-clean.cpp 实测零告警）
+#
+# 豁免清单的理由（教学点：检查族不是全开就好，要按项目约定修剪）：
+# - modernize-use-trailing-return-type：强制 auto f() -> T 尾置返回，风格争议大，多数项目不开
+# - modernize-use-nodiscard：要求给大量函数加 [[nodiscard]]，教学代码从简（库代码建议开）
+# - bugprone-exception-escape：main 里任何可能抛异常的分配（如 vector 构造）都会报，
+#   对「可执行程序」过于严格（对「库」是合理的）
+Checks: >
+  bugprone-*,
+  -bugprone-exception-escape,
+  modernize-*,
+  -modernize-use-trailing-return-type,
+  -modernize-use-nodiscard,
+  performance-*,
+  cppcoreguidelines-special-member-functions
+WarningsAsErrors: '*'         # CI 门禁：任何告警都判失败（练习要求「零告警」由此强制）
+HeaderFilterRegex: ''
+CheckOptions:
+  cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor: true

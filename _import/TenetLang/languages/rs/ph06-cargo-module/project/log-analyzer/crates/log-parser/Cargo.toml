@@ -1,0 +1,11 @@
+# project/log-analyzer/crates/log-parser/Cargo.toml —— 阶段项目解析层：日志行 -> LogLine
+# 来源：languages/rs/ph06-cargo-module/project/log-analyzer（阶段项目源码）
+# 验证环境：rustc 1.92.0 + cargo 1.92.0，纯标准库，继承根 workspace 元数据
+# 编译：cargo build --workspace；测试：cargo test -p log-parser（在 log-analyzer/ 目录执行）
+# 验证状态：已验证（rustc 1.92.0）
+[package]
+name = "log-parser"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]

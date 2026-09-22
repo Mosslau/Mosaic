@@ -1,0 +1,6 @@
+# rust-toolchain.toml —— 把工具链钉进仓库（ph16 已讲字段语义；这里作为模板标配落地）。
+# clone 即生效：任何 cargo/rustc 调用都会按本文件选工具链（主文档 2/3.6：门禁稳定性的地基）。
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]
+# profile = "minimal"          # 需要时去掉注释（省磁盘），组件按需加回

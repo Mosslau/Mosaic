@@ -1,0 +1,48 @@
+# ex05-matrix-cache/.github/workflows/matrix-cache.yml —— 矩阵（OS × 工具链）+ 缓存 完整 workflow。
+#
+# 验证状态：未在本环境实际运行验证 —— GitHub Actions 需要远端 runner；本文件经 Ruby psych
+# 静态 YAML 解析通过，并按官方 action 用法人工核对（Swatinem/rust-cache@v2 的 key 组装、
+# matrix 策略语义见主文档 3.6/4.3）。改 OS/工具链组合时注意成本是乘法：3 OS × 2 工具链 = 6 runner。
+#
+# 教学要点（对应主文档 3.6）：
+#   1. strategy.matrix 声明组合；fail-fast: false 让一个组合失败不取消其他组合；
+#   2. rust: ["stable", "1.85"] 是「MSRV 矩阵」——1.85 需引号（YAML 会当数字）；
+#   3. Swatinem/rust-cache 自动按「当前 matrix cell」生成缓存 key（rustc 版本 + Cargo.lock hash），
+#      miss 只是慢、不会错（与可复现构建的关系见主文档 4.3）；
+#   4. cargo test --locked 断言 Cargo.lock 与仓库一致——可复现构建的 CI 侧落地。
+name: ci-matrix
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:   # 允许页面手动触发（调试 YAML 不必反复 push）
+
+jobs:
+  quality:
+    name: ${{ matrix.rust }} / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        rust: [stable, "1.85"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+          components: rustfmt, clippy
+
+      # 缓存 cargo registry + target；key 自动含 rustc 版本 / Cargo.lock hash / OS，
+      # 换依赖或换工具链必然 miss（只是慢，不会用错产物）。
+      - uses: Swatinem/rust-cache@v2
+
+      - name: 门禁 1/3：格式化断言
+        run: cargo fmt --all --check
+
+      - name: 门禁 2/3：clippy 零告警
+        run: cargo clippy --all-targets --workspace -- -D warnings
+
+      - name: 门禁 3/3：测试（--locked 防 lock 漂移）
+        run: cargo test --workspace --locked

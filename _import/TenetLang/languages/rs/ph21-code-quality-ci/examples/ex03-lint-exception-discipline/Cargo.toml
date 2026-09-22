@@ -1,0 +1,19 @@
+#
+# 验证环境：rustc/cargo/clippy 1.92.0（macOS arm64），edition 2021。
+# 验证状态：已验证（本 crate 全绿：cargo fmt --check / cargo clippy --all-targets -- -D warnings
+#           / cargo test 全部通过）。
+#
+# [lints] 集中管理演示（Rust 1.74+）：lint 策略进 Cargo.toml，团队决策不再散落文件头。
+# 这里只声明「默认组 warn、pedantic 不开整组」；逐条例外的 #[allow]/#[expect] 留在代码里
+# 贴近触发点（带理由注释），见 src/main.rs。阈值类配置在 clippy.toml，见仓库根。
+[package]
+name = "ex03-lint-exception-discipline"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lints.clippy]
+all = "warn"        # 三连门禁下 clippy 默认组保持 warn（配合 -D warnings 使用）
+pedantic = "allow"  # pedantic 不整组开（主文档 3.3：全开会把门禁变成 TODO 清单）
+
+[dependencies]

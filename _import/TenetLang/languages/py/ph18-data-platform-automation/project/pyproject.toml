@@ -1,0 +1,14 @@
+# project/pyproject.toml —— platdash（平台指标 Dashboard）构建/lint/测试配置
+# 运行测试：python3 -m pytest（project 目录内，受限环境加 TMPDIR=/tmp）
+# lint：ruff check . && ruff format --check .
+# 验证状态：已验证（Python 3.13.12 + pandas 3.0.5 + matplotlib 3.11.1 + pytest 9.1.1 + ruff 0.16.5 本机实测）
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

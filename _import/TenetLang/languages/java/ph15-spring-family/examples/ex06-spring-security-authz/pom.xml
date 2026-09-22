@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- examples/ex06-spring-security-authz/pom.xml —— Spring Security：认证 + URL/方法级授权
+     验证环境：OpenJDK 17.0.18 + Maven 3.9.12 + Spring Boot 3.3.0 + Spring Security 6.3.4
+     验证命令：mvn -o -Dmaven.repo.local=/tmp/m2clone test
+     运行命令：mvn -o -Dmaven.repo.local=/tmp/m2clone spring-boot:run（端口 18095）
+     离线仲裁说明：Boot 3.3.0 默认管 Spring Security 6.3.0（缓存缺），用 spring-security-bom 6.3.4
+               import 压过（缓存有 6.3.4 全家）；starter-security 3.3.0 缓存也没有，故直接声明
+               spring-security-web/config（BOM 管版本）。hsqldb 钉 2.5.0、junit-platform-launcher 钉
+               1.10.1、surefire 3.2.5、spring-boot-maven-plugin 3.3.5 同其他示例。联网环境可删仲裁项。 -->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.3.0</version>
+    <relativePath/>
+  </parent>
+  <groupId>com.example</groupId>
+  <artifactId>ex06-spring-security-authz</artifactId>
+  <version>1.0.0</version>
+
+  <properties>
+    <java.version>17</java.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.junit.platform</groupId>
+        <artifactId>junit-platform-launcher</artifactId>
+        <version>1.10.1</version>
+      </dependency>
+      <dependency>
+        <groupId>org.hsqldb</groupId>
+        <artifactId>hsqldb</artifactId>
+        <version>2.5.0</version>
+      </dependency>
+      <!-- 离线仲裁：Spring Security 钉 6.3.4（Boot 3.3.0 默认管的 6.3.0 缓存缺） -->
+      <dependency>
+        <groupId>org.springframework.security</groupId>
+        <artifactId>spring-security-bom</artifactId>
+        <version>6.3.4</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <!-- Security 本体：starter-security 3.3.0 缓存缺，直接声明两个核心模块（BOM 管 6.3.4） -->
+    <dependency>
+      <groupId>org.springframework.security</groupId>
+      <artifactId>spring-security-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.security</groupId>
+      <artifactId>spring-security-config</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.platform</groupId>
+      <artifactId>junit-platform-launcher</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.2.5</version>
+        <dependencies>
+          <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-launcher</artifactId>
+            <version>1.10.1</version>
+          </dependency>
+        </dependencies>
+      </plugin>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <version>3.3.5</version>
+      </plugin>
+    </plugins>
+  </build>
+</project>

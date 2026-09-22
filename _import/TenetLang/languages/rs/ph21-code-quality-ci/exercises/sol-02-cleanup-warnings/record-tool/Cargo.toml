@@ -1,0 +1,12 @@
+#
+# 验证环境：rustc/cargo/clippy 1.92.0（macOS arm64），edition 2021。
+# 验证状态：已验证（治理后全绿：fmt --check / clippy --all-targets -- -D warnings / test）。
+# 治理前版本：../before/main.rs（故意携带 lint 的整文件样例，复制到 src/ 即可在
+#   `cargo clippy` 下复现 warning 清单；该文件不在 src/，不会参与本 crate 构建与门禁）。
+[package]
+name = "record-tool"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]

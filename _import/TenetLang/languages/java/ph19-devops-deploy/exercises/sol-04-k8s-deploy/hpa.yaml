@@ -1,0 +1,25 @@
+# exercises/sol-04-k8s-deploy/hpa.yaml —— 练习 4 参考实现（对应主文档 3.5/3.12 扩缩容）
+# 前置：集群装有 metrics-server，否则 HPA 取不到 CPU 指标不工作
+# 验证状态：未在本环境实际构建验证
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: myapp
+  namespace: myapp
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: myapp
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300

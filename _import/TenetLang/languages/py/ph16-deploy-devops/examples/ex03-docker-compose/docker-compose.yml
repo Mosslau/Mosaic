@@ -1,0 +1,50 @@
+# examples/ex03-docker-compose/docker-compose.yml —— 单台机器上的多服务编排：web + 数据库
+# 验证环境目标：Docker Compose 的 `docker compose` 命令（v2 命令形态；本机 Compose CLI 在、
+#   daemon 未启动——具体版本以本机 `docker compose version` 实测为准）
+# 验证状态：语法已验证（`docker compose -f docker-compose.yml config` 离线解析通过，本机实测）；
+#           未实际构建/启动容器（daemon 未启动）——在 daemon 可用的机器上按下方命令验证
+# 运行（在 daemon 可用的机器上）：
+#   # 1. 构建并后台启动全部服务
+#   docker compose up -d --build
+#   # 2. 看状态与日志（db 通过 healthcheck 后 web 才会启动）
+#   docker compose ps && docker compose logs -f web
+#   # 3. 打健康检查后收尾
+#   curl http://127.0.0.1:8000/health && docker compose down
+#   # 语法离线检查（不需要 daemon）：docker compose config
+
+services:
+  web:
+    build: ../ex02-docker-multistage # 复用 ex02 的多阶段 Dockerfile
+    ports:
+      - "8000:8000" # 宿主机:容器
+    environment:
+      # 配置与代码分离（必会概念）：连接串走环境变量，不进代码
+      DATABASE_URL: postgresql://demo:demo@db:5432/demo
+    depends_on:
+      db:
+        condition: service_healthy # 等 db 真正可连接再启动 web，而不是只等容器起来
+    healthcheck:
+      # python:slim 里没有 curl，用 python 自己的 urllib 打 /health
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped # 进程/容器挂了自动拉起（单机场景替代 systemd 的角色）
+
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: demo
+      POSTGRES_PASSWORD: demo # 教学环境明文；生产用 secrets/环境注入，绝不入库
+      POSTGRES_DB: demo
+    volumes:
+      - pgdata:/var/lib/postgresql/data # 数据卷：容器删了数据还在
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U demo -d demo"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  pgdata:

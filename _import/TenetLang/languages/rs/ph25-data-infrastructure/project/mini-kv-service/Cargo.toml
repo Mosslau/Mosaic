@@ -1,0 +1,19 @@
+[package]
+name = "mini-kv-service"
+version = "0.1.0"
+edition = "2021"
+description = "ph25 收官工程：Mini LSM-KV + Axum HTTP + Agent 工具 API 三合一服务"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://example.invalid/mini-kv-service"
+keywords = ["kv", "wal", "lsm", "demo"]
+categories = ["database"]
+
+[dependencies]
+axum = "0.8"
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }

@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# hooks/pre-commit-sample —— 手写 git pre-commit hook（sol-03 参考解，cfg-app 内）。
+#
+# 安装（cfg-app 若为 git 仓库）：
+#   mkdir -p .git/hooks
+#   cp hooks/pre-commit-sample .git/hooks/pre-commit
+#   chmod +x .git/hooks/pre-commit
+#
+# 验证状态：脚本逻辑（执行 check.sh、非零即拒提交）已按直接运行方式实测；
+# 「安装进 .git/hooks 由 git 触发」链路未在本环境演练。hook 可被
+# `git commit --no-verify` 绕过——最终裁判永远是 CI（主文档 3.7/3.8）。
+set -euo pipefail
+cd "$(dirname "$0")/.."
+./scripts/check.sh

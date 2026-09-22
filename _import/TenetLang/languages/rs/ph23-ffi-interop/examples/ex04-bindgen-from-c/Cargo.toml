@@ -1,0 +1,14 @@
+# ex04：bindgen —— 从 C 头文件生成 Rust 绑定
+# 教学流程：include/vector_math.h（C 库接口）→ build.rs 里 bindgen 扫描生成绑定
+# → 同一步用 clang 把 c_src/vector_math.c 编成静态库 → Rust 安全封装并调用。
+# 验证环境：cargo/rustc 1.92.0 + Apple clang 21.0.0（macOS arm64）；bindgen 0.71.1（build-dependencies）
+[package]
+name = "ex04-bindgen-from-c"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+
+[build-dependencies]
+bindgen = "0.71.1"

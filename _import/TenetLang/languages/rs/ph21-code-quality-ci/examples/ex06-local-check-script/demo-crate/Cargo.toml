@@ -1,0 +1,10 @@
+#
+# 验证环境：rustc/cargo/clippy 1.92.0（macOS arm64），edition 2021。
+# 验证状态：已验证（cargo test / fmt --check / clippy -D warnings 全绿，见 ex06 README）。
+[package]
+name = "demo-crate"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]

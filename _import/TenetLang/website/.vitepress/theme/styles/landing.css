@@ -1,0 +1,39 @@
+/* ============================================================================
+   落地页外壳（frontmatter: layout: page + pageClass: t-home）
+   VPPage 本身不带内边距，这里给落地页定版心与节奏。
+   ========================================================================== */
+
+.t-home .VPPage {
+  max-width: var(--t-shell);
+  margin: 0 auto;
+  padding: 0 28px 104px;
+}
+
+/* 汇流台是唯一使用「图纸网格」的地方：它是这张图纸的底纹 */
+.t-home .hero {
+  position: relative;
+}
+
+.t-home .hero::before {
+  content: '';
+  position: absolute;
+  inset: -28px -28px 0;
+  background-image: linear-gradient(var(--t-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--t-grid-line) 1px, transparent 1px);
+  background-size: 28px 28px;
+  -webkit-mask-image: radial-gradient(120% 90% at 12% 30%, #000 0%, transparent 72%);
+  mask-image: radial-gradient(120% 90% at 12% 30%, #000 0%, transparent 72%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.t-home .hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 960px) {
+  .t-home .VPPage {
+    padding: 0 20px 76px;
+  }
+}

@@ -1,0 +1,8 @@
+#
+# 验证环境：rustc/cargo 1.92.0、rustfmt 1.8.0（macOS arm64，rustup 管理），edition 2021。
+# 验证状态：已验证（cargo fmt --check 在治理前/后两种状态分别实测退出 1 / 0）。
+[package]
+name = "ex01-fmt-diff"
+version = "0.1.0"
+edition = "2021"
+publish = false

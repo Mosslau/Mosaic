@@ -1,0 +1,14 @@
+# examples/ex03-dockerfile-compose/.dockerignore
+# 构建上下文过滤：发给 docker daemon 的文件越少，构建越快、越不会误打包本地产物/密钥
+# 教学点：上下文里的每个文件都会被打包发给 daemon（哪怕 Dockerfile 没 COPY），.git 与 target 是最常见的臃肿来源
+.git
+.gitignore
+target
+out
+*.class
+*.iml
+.idea
+.vscode
+**/.DS_Store
+deploy
+README.md

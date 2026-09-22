@@ -1,0 +1,12 @@
+[package]
+name = "ex07-pyo3-accelerate"
+version = "0.1.0"
+edition = "2021"
+description = "ph25 ex07：pyo3 Python 加速模块（WAL 帧解析 + 向量距离/暴力 top-k）"
+
+[lib]
+name = "ph25_accel"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.23.5", features = ["extension-module", "abi3-py311"] }

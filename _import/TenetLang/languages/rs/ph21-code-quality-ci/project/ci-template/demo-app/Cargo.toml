@@ -1,0 +1,16 @@
+#
+# demo-app —— ci-template 的示例成员 crate（治理后全绿基线）。
+# 验证环境：rustc/cargo/clippy 1.92.0（macOS arm64），edition 2021。
+# 验证状态：已验证（cargo test / fmt --check / clippy -D warnings 全绿，见 project/README.md）。
+# 治理前版本：before/linty_main.rs —— 故意带 lint 的整文件，复制到 src/main.rs 即可让
+#   门禁变红（红→绿验收流程见 project/README.md「验收标准」）。
+[package]
+name = "demo-app"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lints]
+workspace = true    # 继承 workspace 根的 [workspace.lints]
+
+[dependencies]

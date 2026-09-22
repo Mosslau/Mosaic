@@ -1,0 +1,24 @@
+[package]
+name = "sol04-feature-control"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+
+# exercises/sol-04-feature-control —— 练习 4 参考实现（改造后：关默认 + 精开）
+# 验证环境：rustc/cargo 1.92.0（edition 2021）；依赖需联网从 crates.io 拉取（国内配 rsproxy 镜像）。
+# 编译/运行：cargo build / cargo run —— 编译已验证（本机实测 cargo build 通过）；运行需联网未验证。
+# 改动说明与「加一问」答案见本目录 README.md。
+
+[dependencies]
+# 改造前（练习给出的起点）：
+#   reqwest = "0.12"                          ← 默认特性含 native-tls（拖 openssl-sys）
+#   tokio = { version = "1", features = ["full"] }  ← full = 数十个特性全家桶
+# 改造后：关默认 + 只开当前工程用到的
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+tokio = { version = "1", default-features = false, features = ["rt-multi-thread", "macros"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# 供 main.rs 演示 cfg(feature) 双路径（未默认开启；开启方式：cargo run --features demo-extra）
+[features]
+demo-extra = []

@@ -1,0 +1,53 @@
+# ph12 练习 5 —— compose.yaml（Go + MySQL + Redis 服务栈）
+# 在 sol-05-containerize/ 目录执行：docker compose up --build
+# 验证状态：本机有 docker daemon 时实测；无则标注「未在本环境验证（需 Docker 环境）」——
+# 本机 docker daemon 未就绪，本文件仅做语法与结构编写，未实际 up。
+# 对应 roadmap 练习「用 Compose 启动 Go + MySQL + Redis」：app 服务 + 两个依赖服务。
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sol05:latest
+    ports:
+      - "59005:59005"
+    environment:
+      PORT: "59005"     # 12-Factor：配置走环境变量，镜像不携带环境信息
+      # 演示"配置经环境变量注入"：真实项目里 DB_URL 由 Secret/外部注入，app 据此连库
+      DB_URL: "mysql://app:app_pw@mysql:3306/ph12"   # 服务名 mysql 即 DNS 名
+      REDIS_ADDR: "redis:6379"
+    depends_on:
+      mysql:
+        condition: service_healthy    # 等 MySQL 健康再起 app（Compose 的依赖顺序控制）
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    # 真实项目探针写进 K8s 清单（见 deploy/k8s/deployment.yaml），由 kubelet 执行；
+    # compose 环境的健康检查同样需要镜像内探针工具，此处从略（教学聚焦清单结构）
+
+  mysql:
+    image: mysql:8.4    # 固定 tag：避免 latest 漂移导致"昨天能起今天不能"
+    environment:
+      MYSQL_ROOT_PASSWORD: root_pw     # 演示值；生产用 Secret/环境注入
+      MYSQL_DATABASE: ph12
+      MYSQL_USER: app
+      MYSQL_PASSWORD: app_pw
+    ports:
+      - "3306:3306"     # 宿主 3306 -> 容器 3306；与本机端口冲突时可改左侧宿主端口
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p$$MYSQL_ROOT_PASSWORD"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped

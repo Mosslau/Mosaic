@@ -1,0 +1,25 @@
+# project/pyproject.toml —— 依赖声明 + ruff / pytest 配置
+[project]
+name = "can-log-tool"
+version = "0.1.0"
+description = "ph12 阶段项目：CAN 日志批处理工具"
+requires-python = ">=3.11"
+# 核心零第三方依赖：标准库 re / csv / argparse / logging / pathlib；
+# 测试与门禁（pytest / ruff）放 dev 依赖
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
