@@ -491,7 +491,7 @@ const languages = LANGUAGES.map((meta) => {
     ...meta,
     tagline: firstLede(text),
     link: routeOf(docsPathOf(roadmapPath)),
-    board: `/languages/${meta.id}/`,
+    board: `/studies/${meta.id}/`,
     docs: familyFiles.studies.filter((f) => f.startsWith(langDir + path.sep)).length,
     chapters: parseRoadmap(text, meta.name, meta.id),
   }

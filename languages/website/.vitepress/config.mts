@@ -56,7 +56,7 @@ const nav = [
   {
     text: '学习',
     items: [
-      { text: '六门语言总览', link: '/languages/' },
+      { text: '六门语言总览', link: '/studies/' },
       ...data.languages.map((lang) => ({
         text: `${lang.name} · ${lang.chapters.length} 阶段`,
         link: lang.board,
@@ -77,7 +77,7 @@ const nav = [
 /** 每种语言一个侧边栏：章节总览 → roadmap → 各阶段正文（代码层由正文与卡片进入） */
 const langSidebars = Object.fromEntries(
   data.languages.map((lang) => [
-    `/languages/${lang.id}/`,
+    `/studies/${lang.id}/`,
     [
       {
         text: lang.name,
@@ -101,7 +101,7 @@ const langSidebars = Object.fromEntries(
 )
 
 const sidebar = {
-  '/languages/': [
+  '/studies/': [
     {
       text: '六门语言',
       items: data.languages.map((lang) => ({

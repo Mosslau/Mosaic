@@ -9,7 +9,7 @@ const paths = [
     title: '语言学习笔记',
     question: '这门语言有什么、怎么学',
     detail: `${curriculum.stats.languages} 门语言，${curriculum.stats.chapters} 个编号阶段，${curriculum.stats.languageDocs} 篇文档`,
-    link: '/languages/',
+    link: '/studies/',
   },
   {
     mark: '析',
