@@ -727,14 +727,20 @@ Expected: `algorithms` 下有 `01-search … 05-generative README.md`；`roadmap
 
 ```bash
 cd /Users/ninebot/code/mosslau/Mosaic
-diff <(git -C ../MindSpring ls-files algorithms roadmap | sort) <(git ls-files algorithms roadmap | sort) \
-  && echo "OK 算法域与路线图搬迁完整（路径未变，天然一致）"
+# ⚠ 右侧会**多出** Step 1 从 OceanVerse 上移的那一份路线文档，所以左侧必须显式补上它，
+#   否则 diff 会因恰好 1 行而失败，看起来像"搬迁有遗漏"。
+diff <(cat <(git -C ../MindSpring -c core.quotepath=false ls-files algorithms roadmap) \
+          <(echo 'roadmap/智能大数据平台工程师.md') | sort) \
+     <(git -c core.quotepath=false ls-files algorithms roadmap | sort) \
+  && echo "OK 算法域与路线图搬迁完整（MS 原样 + 1 份上移的 OceanVerse 路线文档）"
+echo "--- 两侧行数（都应 97）---"
+echo "左侧 $(cat <(git -C ../MindSpring ls-files algorithms roadmap) <(echo 'roadmap/智能大数据平台工程师.md') | wc -l | tr -d ' ') / 右侧 $(git ls-files algorithms roadmap | wc -l | tr -d ' ')"
 echo "--- 被引用的路线文档确实在位 ---"
 test -f roadmap/人工智能代表算法演进路线.md && test -f roadmap/大模型数据中心平台工程师.md \
   && echo "OK 两份被锚定的路线文档在位"
 ```
 
-Expected: `OK 算法域与路线图搬迁完整（路径未变，天然一致）` + `OK 两份被锚定的路线文档在位`。
+Expected: `OK 算法域与路线图搬迁完整（MS 原样 + 1 份上移的 OceanVerse 路线文档）`、`左侧 97 / 右侧 97`、`OK 两份被锚定的路线文档在位`。
 
 - [ ] **Step 3: 跑校验器确认算法线绿，并记录工程线此刻是空转的**
 
@@ -1122,15 +1128,24 @@ Expected: `README.md  .gitignore  contracts  deploy  ingest  lakehouse  roadmap 
 
 ```bash
 cd /Users/ninebot/code/mosslau/Mosaic
-diff \
-  <(git -C ../OceanVerse -c core.quotepath=false ls-files \
-    | grep -v -E '^(LICENSE|\.mcp\.json|\.dsh/|roadmap/智能大数据平台工程师\.md)$' | sort) \
-  <(git -c core.quotepath=false ls-files engineering/data-platform .github \
-    | sed -e 's|^engineering/data-platform/||' -e 's|^\.github/|.github/|' | sort) \
-  && echo "OK 数据平台域搬迁无遗漏、无多余"
+# ⚠ 排除模式必须**分段锚定**。写成 '^(A|B|\.dsh/|C)$' 时，$ 作用于整个 alternation，
+#   于是 '^\.dsh/…$' 要求整行恰好等于 '.dsh/' —— 没有真实路径满足，41 个 .dsh/ 文件
+#   会被漏排除，右侧（已丢弃这些文件）不含它们 → 本检查会**误报「搬迁有遗漏」**。
+EXCL='^(LICENSE|\.mcp\.json)$|^\.dsh/|^roadmap/智能大数据平台工程师\.md$'
+left=$(git -C ../OceanVerse -c core.quotepath=false ls-files | grep -v -E "$EXCL" | sort)
+right=$(git -c core.quotepath=false ls-files engineering/data-platform .github \
+        | sed -e 's|^engineering/data-platform/||' -e 's|^\.github/|.github/|' | sort)
+echo "左侧 $(echo "$left" | wc -l | tr -d ' ') 行 / 右侧 $(echo "$right" | wc -l | tr -d ' ') 行（两侧都应为 108）"
+diff <(echo "$left") <(echo "$right") && echo "OK 数据平台域搬迁无遗漏、无多余"
+
+# 负向对照：确认这个 diff 真能发现遗漏（删一行应报出差异）
+diff <(echo "$left" | head -107) <(echo "$right") >/dev/null \
+  && echo "⚠ 负向对照未生效：删掉一行后 diff 仍通过，说明检查无效" \
+  || echo "OK 负向对照有效（删一行即被发现）"
 ```
 
-Expected: 只有 `OK …`。（`LICENSE`/`.mcp.json` 与顶层重复；`.dsh/` 已并集到顶层；`智能大数据平台工程师.md` 已在 Task 4 上移到 `roadmap/`。）
+Expected: `左侧 108 行 / 右侧 108 行`、`OK 数据平台域搬迁无遗漏、无多余`、`OK 负向对照有效`。
+（`LICENSE`/`.mcp.json` 与顶层重复；`.dsh/` 全 41 个文件已并集到顶层；`智能大数据平台工程师.md` 已在 Task 4 上移到 `roadmap/`。152 − 44 = 108。）
 
 - [ ] **Step 3: 验证 OceanVerse 的自定位脚本仍能找到自己的根**
 
