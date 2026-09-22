@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "TenetLang 文档站：languages / analysis / tenet 三族的卡片式 VitePress 站点",
+  "description": "TenetLang 文档站：studies / analysis / tenet 三族的卡片式 VitePress 站点",
   "scripts": {
     "sync": "node scripts/sync-docs.mjs",
     "dev": "node scripts/dev.mjs",

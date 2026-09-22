@@ -4,7 +4,7 @@
  * 主题组件消费的数据模块（`.vitepress/data/curriculum.json`）。
  *
  * `docs/` 是纯产物目录：随时可以删掉重建，任何手工编辑都会在下次 sync 时丢失。
- * 内容唯一真源始终是仓库里的 `languages/`、`analysis/`、`tenet/`。
+ * 内容唯一真源始终是域根下的 `studies/`、`analysis/`、`tenet/`。
  * 站点工程的整体说明见 `website/README.md`。
  *
  * 用法：node scripts/sync-docs.mjs
@@ -472,7 +472,7 @@ for (const family of FAMILIES) {
   }
 }
 
-// 2) 仓库根 README → 站点「总览」页（不能走 README→index 的默认映射，那会覆盖首页）
+// 2) 域根 README → 站点「总览」页（不能走 README→index 的默认映射，那会覆盖首页）
 const rootReadme = path.join(REPO_DIR, 'README.md')
 if (fs.existsSync(rootReadme)) copyMarkdown(rootReadme, path.join(DOCS_DIR, 'about.md'))
 
@@ -483,7 +483,7 @@ const languages = LANGUAGES.map((meta) => {
     .readdirSync(langDir, { withFileTypes: true })
     .filter((e) => e.isFile() && e.name.endsWith('.md'))
     .map((e) => e.name)
-  if (roadmaps.length !== 1) warn(`languages/${meta.id}/ 顶层应有且仅有 1 篇 roadmap，实际 ${roadmaps.length} 篇`)
+  if (roadmaps.length !== 1) warn(`studies/${meta.id}/ 顶层应有且仅有 1 篇 roadmap，实际 ${roadmaps.length} 篇`)
   const roadmapPath = path.join(langDir, roadmaps[0])
   const text = fs.readFileSync(roadmapPath, 'utf8')
 

@@ -2,7 +2,7 @@
 /**
  * 开发服务器：启动 VitePress，并监听仓库里的文档源。
  *
- * 内容真源是 `languages/`、`analysis/`、`tenet/` 与仓库根 README，`docs/` 只是产物。
+ * 内容真源是域根下的 `studies/`、`analysis/`、`tenet/` 与域根 README，`docs/` 只是产物。
  * 这个脚本让你**只改原文**即可：原文一变就重跑一次同步，VitePress 的 HMR 再把页面刷出来，
  * 不需要手工执行 `npm run sync`，也不需要碰 `docs/` 里的任何文件。
  *
@@ -18,14 +18,14 @@ const REPO_DIR = path.resolve(SITE_DIR, '..')
 const SYNC = path.join(SITE_DIR, 'scripts', 'sync-docs.mjs')
 const VITEPRESS = path.join(SITE_DIR, 'node_modules', 'vitepress', 'bin', 'vitepress.js')
 
-/** 需要监听的文档源：三个内容族（仓库根）+ 手写页面目录（站点内） */
+/** 需要监听的文档源：三个内容族（域根）+ 手写页面目录（站点内） */
 const WATCH_DIRS = [
-  path.join(REPO_DIR, 'languages'),
+  path.join(REPO_DIR, 'studies'),
   path.join(REPO_DIR, 'analysis'),
   path.join(REPO_DIR, 'tenet'),
   path.join(SITE_DIR, 'content'),
 ]
-/** 仓库根 README 会被复制成站点的「总览」页，也要监听 */
+/** 域根 README 会被复制成站点的「总览」页，也要监听 */
 const WATCH_FILES = [path.join(REPO_DIR, 'README.md')]
 
 const DEBOUNCE_MS = 180
