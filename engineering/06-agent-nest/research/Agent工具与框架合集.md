@@ -24,7 +24,7 @@
 **对本仓库的三个结论**：
 
 1. **Skills 方法论**提升文档质量——doc-coauthoring、spec-kit 的 SDD 闭环、superpowers 的 brainstorming/writing-plans 可直接用于文档产线；
-2. **多 Agent 编排**支撑智能电动车平台的多语言栈分工协作——crewAI 三角色 crew、openai-agents-python 嵌入 Python AI 应用层、claw-code 作长期主力储备；
+2. **多 Agent 编排**支撑数据平台 / AI 平台的多语言栈分工协作——crewAI 三角色 crew、openai-agents-python 嵌入 Python AI 应用层、claw-code 作长期主力储备；
 3. **Token 优化工具**降低使用成本——rtk 压 CLI 输入、caveman 压回复输出、OmniRoute 在网关层叠加路由+压缩。
 
 ---
@@ -147,7 +147,7 @@ codegraph、claude-hud、claude-plugins-official
 | **oh-my-claudecode** | 安装并实验 5 种编排模式（串行/并行/投票/辩论/流水线） | 一周内跑通全部模式，输出对比笔记 |
 | **ccg-workflow** | `go install` 编译，用 `/ccg:go` 触发多模型协作 | 验证 Go 栈多模型互补效果 |
 | **claw-code** | 关注 Releases 页，API 稳定后立即安装试用 | 作为长期多 Agent 主力框架储备 |
-| **deer-flow** | Docker 部署，`/goal` 命令测试长期任务自主执行 | 验证长时域 SuperAgent 模式对智能电动车平台的适用性 |
+| **deer-flow** | Docker 部署，`/goal` 命令测试长期任务自主执行 | 验证长时域 SuperAgent 模式对数据平台 / AI 平台的适用性 |
 | **openai-agents-python** | `pip install openai-agents`，构建 Python AI 应用层多 Agent 原型 | 完成一个 handoff + sandbox 的 demo |
 | **chrome-devtools-mcp** | `claude mcp add chrome-devtools` 注册 MCP 工具 | 让 agent 能操控浏览器做前端调试和截图验证 |
 | **crewAI** | `pip install crewai`，定义 3 角色 crew（研究者/写作者/审校者）跑通文档协作闭环 | 验证角色编排 vs oh-my-claudecode 5 模式的差异，输出对比笔记 |
