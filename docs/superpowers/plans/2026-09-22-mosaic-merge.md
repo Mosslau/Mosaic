@@ -185,7 +185,7 @@ _import/OceanVerse 123 提交 /  152 文件
 ## Task 2: 顶层公共资产与跨域资产
 
 **Files:**
-- Create: `.gitignore`、`pyproject.toml`、`.dsh/skills/`（16 个 skill）
+- Create: `.gitignore`、`pyproject.toml`、`.dsh/skills/`（16 个目录 = 15 个 skill + `_desgin` 设计笔记）
 - Move: `_import/TenetLang/.dsh/skills/*` → `.dsh/skills/`；`_import/MindSpring/.dsh/skills/mindspring-lab` → `.dsh/skills/mindspring-lab`；`_import/TenetLang/books` → `books`；`_import/TenetLang/{LICENSE,.mcp.json}` → 顶层；`_import/MindSpring/.python-version` → 顶层
 
 **Interfaces:**
@@ -1780,7 +1780,7 @@ Expected: 前三个 `archived=true`，`Mosaic archived=false`。
 | §4 目标结构 | File Structure 的搬迁映射表 |
 | §5 顶层资产（LICENSE/.mcp.json/`.gitignore` 分层/`pyproject.toml`/skills 并集/website stub） | Task 2；stub 删除随 `git rm -r _import`（Task 7 Step 3） |
 | §6 93 处路径修正 | Task 3（4+1+7+12+10）、Task 4（0）、Task 5（27+2+1+2+6）、Task 6（22） |
-| §7 subtree 保历史 | Task 1 Step 3、Task 7 Step 4 的 `--follow` 验证 |
+| §7 subtree 保历史 | Task 1 Step 3、Task 7 Step 4 的 **subtree 感知**历史连通验证（`git merge-base --is-ancestor`，**不用** `--follow`） |
 | §8 C1–C7 提交切分 | Task 1–7 与之一一对应 |
 | §9 七项门禁 | Task 7 Step 4 |
 | §10 风险与回滚 | Global Constraints「回滚」条 + Task 3 Step 6 的 fail-fast |

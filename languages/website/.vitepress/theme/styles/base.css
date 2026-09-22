@@ -62,7 +62,7 @@ body {
 /* ---------------------------------------------------------------- 站点外壳 */
 
 /* GitHub 图标默认排在亮暗切换之后（DOM 顺序是 search → menu → appearance → social-links）。
-   用 flex order 把它提到菜单正后方，即「仓库总览」右边、亮暗切换左边。
+   用 flex order 把它提到菜单正后方，即「语言域总览」右边、亮暗切换左边。
    两个都是 .content-body 的直接子元素；其余项 order 默认为 0，所以它们自然排在前面。 */
 .VPNavBarSocialLinks {
   order: 1;
