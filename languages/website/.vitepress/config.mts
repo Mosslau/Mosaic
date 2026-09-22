@@ -191,7 +191,7 @@ export default defineConfig({
     logo: { light: '/logo.svg', dark: '/logo-dark.svg' },
     nav,
     sidebar,
-    // 仓库入口。默认会排在亮暗切换之后，样式里用 order 把它提到「仓库总览」正后方。
+    // 仓库入口。默认会排在亮暗切换之后，样式里用 order 把它提到「语言域总览」正后方。
     socialLinks: [
       { icon: 'github', link: 'https://github.com/Mosslau/Mosaic', ariaLabel: 'GitHub 仓库' },
     ],

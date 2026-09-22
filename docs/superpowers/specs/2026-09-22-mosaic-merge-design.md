@@ -43,7 +43,7 @@
 | D7 | 站点归入语言域：`languages/website/` | 站点既只服务语言域（D6），摆在跨域顶层就名不副实——与 D2 被否的方案同属「层级与管辖不符」。移入后 `sync-docs.mjs` 的 `REPO_DIR` 自然收缩为语言域根，改动反而更少（详见 §6）。 |
 | D8 | `OceanVerse` **整仓搬入** `engineering/data-platform/` | `scripts/check-*.sh` 全部以 `ROOT="$(cd "$(dirname "$0")/.." && pwd)"` 自定位，`deploy/` 的 compose 构建上下文也是域内相对路径。整体平移 → 这些一行都不用改。 |
 | D9 | 技能目录 `tenetlang-notes` / `mindspring-lab` 暂不改名 | 二者是「辖区」名，被多处文档引用；改名的收益只是观感，成本是全域引用更新。列为后续项。 |
-| D10 | 本次只修「会失效的路径与指代」，不改「仓名自称」 | 分界线：**路径类引用必须修**（不改就断链/失效，实测 93 处）；**仓名自称不改**（TenetLang 22 / MindSpring 16 / OceanVerse 47 = 85 行，不影响可运行性，且混入会让 `git diff` 无法区分「搬动」与「改写」，破坏 §9 门禁的可判定性）。自称退休列入 §11 后续项。**例外**：4 个文件里的「与 TenetLang 的分工/边界」是实质内容，随新域 README 一并改写成新词汇（见 §6）。 |
+| D10 | 本次只修「会失效的路径与指代」，不改「仓名自称」 | 分界线：**路径类引用必须修**（不改就断链/失效，实测 93 处）；**仓名自称不改**（内容域残留 71 行：`.md` 60 行 + 其他文件类型 11 行；不影响可运行性，且混入会让 `git diff` 无法区分「搬动」与「改写」，破坏 §9 门禁的可判定性）。自称退休列入 §11 后续项。**例外**：4 个文件里的「与 TenetLang 的分工/边界」是实质内容，随新域 README 一并改写成新词汇（见 §6）。 |
 
 ## 4. 目标结构
 
@@ -183,7 +183,7 @@ git rm -r _import                                                # 最后删空�
 3. `engineering/data-platform/` 下 `scripts/check-docs.sh`、`check-compose-budget.sh`、`test-compose-budget.sh` 通过；`docker compose -f engineering/data-platform/deploy/docker-compose.yaml config -q` 通过（**纯客户端解析，不需要 daemon**）。⚠ `check-mermaid.sh` **依赖 Docker daemon + `minlag/mermaid-cli` 镜像，属环境依赖项**：发布机无 daemon，故记为**未验证**（已用源仓内容副本复现同样失败，证明非迁移回归），需在有 Docker 的机器上补跑。
 4. `languages/website/`：`npm run build`（内部已含 `sync`，会重新生成 gitignored 的 `docs/`）通过。
 5. 历史连通用 **subtree 感知**证法（`git log --follow` **不能**穿过 `git subtree` 合并提交，属 git 限制，本次迁移实测确认）：每个 subtree 合并提交的 `^2` 等于对应源仓 tip，`git merge-base --is-ancestor <tip> HEAD` 对三个 tip 均成立，`git rev-list --count <tip>` = `154 41 123`，并以 `git show <tip>:<原路径>` 与 `git show HEAD:<新路径>` 比对内容一致。
-6. 仓库内 `grep` 确认无残留的失效路径：`../TenetLang/`、`../MindSpring/`、`../OceanVerse/`、`_import/`（仓名自称约 **233 行**——`.md` 222 行 + 其他文件类型 11 行——按决策 D10 **刻意保留**，留待后续「文案统一」轮，不在本条门禁内）。
+6. 仓库内 `grep` 确认无残留的失效路径：`../TenetLang/`、`../MindSpring/`、`../OceanVerse/`、`_import/`（内容域里的仓名自称残留 **71 行**——`.md` 60 行 + 其他文件类型 11 行——按决策 D10 **刻意保留**，留待后续「文案统一」轮，不在本条门禁内。注意 `docs/superpowers/` 内另有 **172 行**是**迁移自身的元文本**（spec / plan / migration-record 在讨论迁移本身），**不是残留**，后续清理时不要动它们）。
 7. `git status` 干净，无构建产物入库（`target/`、`docs/`、Go 二进制、`__pycache__`）。
 
 ## 10. 风险与回滚
@@ -201,7 +201,7 @@ git rm -r _import                                                # 最后删空�
 ## 11. 后续项（不在本次范围）
 
 1. **OceanVerse 去车联网**（GB/T 32960 协议层、VIN 语义、CI 断言）——合并验收后单独一轮。
-2. **仓名自称退休**（决策 D10 的欠账）：把正文里的 `TenetLang` 22 行 / `MindSpring` 16 行 / `OceanVerse` 47 行统一改为新域词汇，包含文件名 `OceanVerse/roadmap/OceanVerse架构总览.md`（改名会牵动 2 处入链）。建议与第 1 项合并为同一轮「文案统一」。
+2. **仓名自称退休**（决策 D10 的欠账）：把内容域里的仓名自称残留 **71 行**（`.md` 60 行 + 其他文件类型 11 行）统一改为新域词汇；另含文件名 `engineering/data-platform/roadmap/OceanVerse架构总览.md`——该文件实测**没有任何 Markdown 入链**，只有 **4 处正文提及**（`engineering/data-platform/README.md:25`、`engineering/data-platform/ingest/docs/01-接入层设计-v1.md:803`、`engineering/data-platform/roadmap/项目进度.md:3` 与 `:81`），因此改名是**文案任务**而非链接修复任务。建议与第 1 项合并为同一轮「文案统一」。
 3. **算法域 / 工程域进站**（站点方案 S2）：首页、导航、`curriculum.json` 结构重做；届时站点从 `languages/website/` **提升到顶层 `website/`**（因为那时它才真的覆盖全仓），同时 `sync-docs.mjs` 的 `REPO_DIR` 回到仓库根。
 4. **技能改名**：`tenetlang-notes` → 语言域辖区的更贴切名字；`mindspring-lab` 同理。
 5. **三仓 Archive**：Mosaic 验收全绿后执行。
