@@ -1367,10 +1367,29 @@ Expected: `左侧 108 行 / 右侧 108 行`、`OK 数据平台域搬迁无遗漏
 cd /Users/ninebot/code/mosslau/Mosaic/engineering/data-platform
 grep -n 'ROOT=' scripts/*.sh
 bash scripts/check-docs.sh && echo "OK check-docs"
-bash scripts/check-mermaid.sh && echo "OK check-mermaid"
 ```
 
-Expected: 每条脚本 `ROOT="$(cd "$(dirname "$0")/.." && pwd)"` 不变；两条脚本通过（`scripts/` 与 `deploy/` 的相对位置未变）。
+Expected: 每条脚本 `ROOT="$(cd "$(dirname "$0")/.." && pwd)"` 不变（`scripts/` 与 `deploy/` 的相对位置未变）；
+`check-docs.sh` 通过。
+
+⚠ **`check-mermaid.sh` 依赖 Docker daemon + `minlag/mermaid-cli` 镜像**（脚本头注释即写明；它用
+`docker run … minlag/mermaid-cli` 逐张渲染，并把 docker 的报错 `>/dev/null 2>&1` 吞掉，所以失败时只显示
+「❌ … 首行: flowchart LR」，看不到真正原因）。**必须先判别失败原因，再决定算不算通过**：
+
+```bash
+cd /Users/ninebot/code/mosslau/Mosaic/engineering/data-platform
+if docker info >/dev/null 2>&1; then echo "docker daemon 可用 → check-mermaid 必须通过"; bash scripts/check-mermaid.sh; echo "exit=$?"; else
+  echo "docker daemon 不可用 → check-mermaid 无法运行，按环境缺失记录"
+  docker run --rm hello-world 2>&1 | head -2      # 复现真实原因（脚本把它吞掉了）
+  echo "--- 负向核对：源仓未修改副本上同一脚本的表现 ---"
+  ( cd ../../_import/OceanVerse && bash scripts/check-mermaid.sh >/dev/null 2>&1; echo "源仓同项 exit=$?" )
+fi
+```
+
+- **daemon 不可用**：把 `check-mermaid.sh` 记为**未验证（环境缺 docker daemon / minlag 镜像）**，并**必须**
+  用源仓副本作对照——若源仓上同样是全失败（预期如此），则证明这是**环境问题而非迁移回归**；两侧表现不一致
+  就说明是回归，**停下排查**。不要把这项写成「通过」。
+- **daemon 可用而图仍失败**：那是真问题（图语法确实坏了或 `deploy/` 相对位置变了），必须停在原地查。
 
 - [ ] **Step 4: 修 `.github/workflows/ci.yml` 的 22 处路径前缀**
 
@@ -1433,7 +1452,12 @@ bash scripts/test-compose-budget.sh
 cd deploy && cp -n .env.example .env 2>/dev/null; docker compose config -q && echo "OK compose config"
 ```
 
-Expected: 预算门禁与负向自检通过；`OK compose config`。若本机无 docker，记录跳过并**在最终报告里如实标注该项未验证**。
+Expected: 预算门禁与负向自检通过（**实测两者 exit 0**）；`OK compose config`。
+
+⚠ **`docker compose config -q` 是纯客户端解析，不需要 daemon**——在 daemon 未运行的机器上实测仍 `exit 0`。
+所以这一项**必须通过**，不得以「本机无 docker」为由跳过。只有 `docker compose up` 这类真正拉起容器的命令
+才需要 daemon，而本计划不跑它们（那是 CI 的 compose 作业负责的事）。若 `config -q` 失败，那是 compose 文件
+或 `.env` 的真问题。
 
 - [ ] **Step 7: 提交**
 
