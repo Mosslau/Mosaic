@@ -47,8 +47,8 @@ public final class OpsDashboard {
                  注册数据源   %d     在线数据源   %d     在线率   %.0f%%
                  活跃告警   %d     进行中 版本发布%d     累计消息  %d
                 +----------------------------------------------------------+
-                """, m.totalVehicles(), m.onlineVehicles(),
-                m.totalVehicles() == 0 ? 0 : m.onlineVehicles() * 100.0 / m.totalVehicles(),
+                """, m.totalSources(), m.onlineSources(),
+                m.totalSources() == 0 ? 0 : m.onlineSources() * 100.0 / m.totalSources(),
                 m.activeAlerts(), m.otaRunningBatches(), m.totalMsgs());
     }
 }

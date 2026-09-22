@@ -79,12 +79,12 @@ public final class DataPlatformDemo {
         // ⑤ 版本发布：批次结果 + 失败数据源回滚 + 版本升级
         check(pass, batch.count(ReleasePlatform.TaskState.SUCCEEDED) == 2, "版本发布：2 台升级成功");
         check(pass, batch.count(ReleasePlatform.TaskState.ROLLED_BACK) == 1, "版本发布：失败数据源已回滚(ROLLED_BACK)");
-        check(pass, registry.findByVin("LSV0000004").orElseThrow().fwVersion().equals("v2.2.0"),
+        check(pass, registry.findById("LSV0000004").orElseThrow().fwVersion().equals("v2.2.0"),
                 "版本发布：4 号数据源版本已升到 FW 2.2.0");
         check(pass, batch.audit().size() >= 8 && ota.audit().size() >= 2, "审计：批次与平台操作均可回溯");
         // ⑥ 运维台聚合读数
         OpsConsole.OpsView view = ops.snapshot();
-        check(pass, view.totalVehicles() == 6 && view.onlineVehicles() == 3
+        check(pass, view.totalSources() == 6 && view.onlineSources() == 3
                         && view.activeAlerts() == 2 && view.busLag() == 0,
                 "运维台：6 个数据源 / 在线 3 / 告警 2 / 无积压，聚合读数一致");
         System.out.printf("ALL PASS: %d/14%n", pass.get());

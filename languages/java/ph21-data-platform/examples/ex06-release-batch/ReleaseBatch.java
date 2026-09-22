@@ -30,10 +30,10 @@ public final class ReleaseBatch {
     private final List<AuditLine> audit = new ArrayList<>();
     private final ReentrantLock batchLock = new ReentrantLock();   // 串行化所有状态变更
 
-    public ReleaseBatch(String batchId, ReleaseVersion targetVersion, ReleaseVersion beforeVersion, List<String> vins) {
+    public ReleaseBatch(String batchId, ReleaseVersion targetVersion, ReleaseVersion beforeVersion, List<String> ids) {
         this.batchId = batchId;
         this.targetVersion = targetVersion;
-        for (String sourceId : vins) {
+        for (String sourceId : ids) {
             tasks.add(new CarTask(sourceId, beforeVersion, CarTaskStatus.PENDING, "created"));
         }
     }
@@ -47,7 +47,7 @@ public final class ReleaseBatch {
     public void advance(String sourceId, CarTaskStatus expect, CarTaskStatus next, String detail) {
         batchLock.lock();
         try {
-            CarTask task = findByVin(sourceId);
+            CarTask task = findById(sourceId);
             if (task.status() != expect) {
                 throw new IllegalStateException("批次 " + batchId + " 数据源 " + sourceId
                         + " 期望状态 " + expect + " 实际 " + task.status());
@@ -85,12 +85,12 @@ public final class ReleaseBatch {
         return tasks.stream().filter(t -> t.status() == s).count();
     }
 
-    private CarTask findByVin(String sourceId) {
+    private CarTask findById(String sourceId) {
         return tasks.stream().filter(t -> t.sourceId().equals(sourceId)).findFirst().orElseThrow();
     }
 
     private ReleaseVersion fromVersionOf(String sourceId) {
-        return findByVin(sourceId).fromVersion();
+        return findById(sourceId).fromVersion();
     }
 
     private void replace(String sourceId, CarTask updated) {

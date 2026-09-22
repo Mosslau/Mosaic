@@ -81,7 +81,7 @@ e2e_test.go ──▶ cmd 之外组装：api + collector + platform（真 HTTP l
 在线期 6 批 ×3 样本 → 入库 18（spool=0）
 断网 3 批 → spool=3；恢复补传 → 水位 9、spool=0、入库 27
 重放批 1 → 不二次生效（入库仍 27，dup+1）
-坏密钥 → 401；/healthz 200；/metrics 含 fleet_samples_cleaned_total 27
+坏密钥 → 401；/healthz 200；/metrics 含 ingest_samples_cleaned_total 27
 /sources 3 台；veh-001 最新量值 = 205.2 %%
 ```
 

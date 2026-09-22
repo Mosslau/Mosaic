@@ -131,8 +131,8 @@ func TestRelayPlatformEndToEnd(t *testing.T) {
 		b, _ := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
 		body := string(b)
-		if !strings.Contains(body, "fleet_samples_cleaned_trolloutl 27") ||
-			!strings.Contains(body, "fleet_batches_trolloutl 10") {
+		if !strings.Contains(body, "ingest_samples_cleaned_total 27") ||
+			!strings.Contains(body, "ingest_batches_total 10") {
 			t.Errorf("metrics 文本异常:\n%s", body)
 		}
 	}
@@ -157,7 +157,7 @@ func TestRelayPlatformEndToEnd(t *testing.T) {
 	}
 	_ = json.NewDecoder(valueResp.Body).Decode(&valueOut)
 	_ = valueResp.Body.Close()
-	want := float64(30+9*3) / 10 // 205.2 %%（src-001 最后一条 s=9）
+	want := float64(30+9*3) / 10 // 5.7 %（src-001 最后一条 s=9）
 	if diff := valueOut.ValuePct - want; diff < -1e-6 || diff > 1e-6 {
 		t.Errorf("src-001 最新量值应约 %v, got %v", want, valueOut.ValuePct)
 	}

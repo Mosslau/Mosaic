@@ -30,7 +30,7 @@ public final class ReportApiDemo {
                 "最终状态收敛到 seq=1000(旧帧未覆写新帧)");
 
         // 2) 坏帧：非法 SOURCE_ID / CPU 越界
-        check(pass, api.handle(new DataReport("SOURCE_ID", 1, 50, 60, 40)) == ReportApi.Verdict.REJECT_INVALID_VIN,
+        check(pass, api.handle(new DataReport("SOURCE_ID", 1, 50, 60, 40)) == ReportApi.Verdict.REJECT_INVALID_ID,
                 "非法 SOURCE_ID 被拒");
         check(pass, api.handle(new DataReport(SOURCE_ID, 1001, 105.0, 60, 40)) == ReportApi.Verdict.REJECT_RANGE,
                 "CPU 越界被拒");

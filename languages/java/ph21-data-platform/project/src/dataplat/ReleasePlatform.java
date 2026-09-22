@@ -31,15 +31,15 @@ public final class ReleasePlatform {
 
     public ReleaseVersion highest() { return versions.isEmpty() ? null : versions.get(versions.size() - 1); }
 
-    public ReleaseBatch createBatch(String batchId, String version, List<String> vins) {
+    public ReleaseBatch createBatch(String batchId, String version, List<String> ids) {
         if (!versions.contains(ReleaseVersion.of(version))) {
             throw new IllegalArgumentException("版本未发布: " + version);
         }
-        ReleaseBatch batch = new ReleaseBatch(batchId, ReleaseVersion.of(version), vins, this);
+        ReleaseBatch batch = new ReleaseBatch(batchId, ReleaseVersion.of(version), ids, this);
         if (batches.putIfAbsent(batchId, batch) != null) {
             throw new IllegalArgumentException("批次已存在: " + batchId);
         }
-        platformAudit.add(new AuditLine("createBatch " + batchId + " -> " + version + " vins=" + vins.size()));
+        platformAudit.add(new AuditLine("createBatch " + batchId + " -> " + version + " ids=" + ids.size()));
         return batch;
     }
 
@@ -55,26 +55,26 @@ public final class ReleasePlatform {
     public static final class ReleaseBatch {
         private final String id;
         private final ReleaseVersion target;
-        private final ConcurrentHashMap<String, TaskState> perVin = new ConcurrentHashMap<>();
+        private final ConcurrentHashMap<String, TaskState> perSource = new ConcurrentHashMap<>();
         private final List<String> audit = new ArrayList<>();
         private final ReleasePlatform platform;
 
-        ReleaseBatch(String id, ReleaseVersion target, List<String> vins, ReleasePlatform platform) {
+        ReleaseBatch(String id, ReleaseVersion target, List<String> ids, ReleasePlatform platform) {
             this.id = id;
             this.target = target;
             this.platform = platform;
-            vins.forEach(v -> perVin.put(v, TaskState.PENDING));
+            ids.forEach(v -> perSource.put(v, TaskState.PENDING));
         }
 
         public synchronized void advance(String sourceId, TaskState from, TaskState to) {
-            TaskState cur = perVin.get(sourceId);
+            TaskState cur = perSource.get(sourceId);
             if (cur == null) {
                 throw new IllegalArgumentException("批次不含数据源 " + sourceId);
             }
             if (cur != from) {
                 throw new IllegalStateException("数据源 " + sourceId + " 期望 " + from + " 实际 " + cur);
             }
-            perVin.put(sourceId, to);
+            perSource.put(sourceId, to);
             audit.add(sourceId + " " + from + "->" + to);
             platform.auditPlatform("batch " + id + " " + sourceId + " " + from + "->" + to);
         }
@@ -83,9 +83,9 @@ public final class ReleasePlatform {
             advance(sourceId, TaskState.FAILED, TaskState.ROLLED_BACK);
         }
 
-        public TaskState stateOf(String sourceId) { return perVin.get(sourceId); }
-        public long count(TaskState s) { return perVin.values().stream().filter(t -> t == s).count(); }
-        public int vehicleCount()      { return perVin.size(); }
+        public TaskState stateOf(String sourceId) { return perSource.get(sourceId); }
+        public long count(TaskState s) { return perSource.values().stream().filter(t -> t == s).count(); }
+        public int sourceCount()      { return perSource.size(); }
         public List<String> audit()    { return List.copyOf(audit); }
         public String id()             { return id; }
         public ReleaseVersion target()     { return target; }

@@ -4,7 +4,7 @@ import java.util.Optional;
 
 /** DDD：仓储只对聚合根操作，接口放在领域层、实现在基础设施层。 */
 interface NodeRepository {
-    Optional<SourceNode> findByVin(String sourceId);
+    Optional<SourceNode> findById(String sourceId);
     void save(SourceNode node);
     int count();
 }

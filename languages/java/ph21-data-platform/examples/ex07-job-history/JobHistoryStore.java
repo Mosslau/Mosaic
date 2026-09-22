@@ -12,18 +12,18 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 
 public final class JobHistoryStore {
-    private final ConcurrentHashMap<String, ConcurrentSkipListMap<Long, JobRecord>> byVin =
+    private final ConcurrentHashMap<String, ConcurrentSkipListMap<Long, JobRecord>> bySource =
             new ConcurrentHashMap<>();
 
     /** 追加一个点：同秒重复点被覆盖(去重)。 */
     public void append(JobRecord p) {
-        byVin.computeIfAbsent(p.sourceId(), k -> new ConcurrentSkipListMap<>())
+        bySource.computeIfAbsent(p.sourceId(), k -> new ConcurrentSkipListMap<>())
                 .put(p.atEpochSec(), p);
     }
 
     /** 时间窗查询：闭区间 [fromSec, toSec] 内按时间升序的全部点。 */
     public List<JobRecord> queryWindow(String sourceId, long fromSec, long toSec) {
-        NavigableMap<Long, JobRecord> bucket = byVin.get(sourceId);
+        NavigableMap<Long, JobRecord> bucket = bySource.get(sourceId);
         if (bucket == null) {
             return List.of();
         }
@@ -32,7 +32,7 @@ public final class JobHistoryStore {
 
     /** 最新一点：判断数据源此刻位置/是否刚有上报。 */
     public JobRecord latest(String sourceId) {
-        NavigableMap<Long, JobRecord> bucket = byVin.get(sourceId);
+        NavigableMap<Long, JobRecord> bucket = bySource.get(sourceId);
         if (bucket == null || bucket.isEmpty()) {
             return null;
         }
@@ -40,6 +40,6 @@ public final class JobHistoryStore {
     }
 
     public int totalPoints() {
-        return byVin.values().stream().mapToInt(NavigableMap::size).sum();
+        return bySource.values().stream().mapToInt(NavigableMap::size).sum();
     }
 }

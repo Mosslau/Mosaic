@@ -33,7 +33,7 @@ public final class OpsConsole {
         OpsView v = snapshot();
         System.out.println("+----------------------- 运维总览 -----------------------+");
         System.out.printf("  数据源 %d | 在线 %d (%.0f%%) | 活跃告警 %d | 总线积压 %d | 状态缓存 %d%n",
-                v.totalVehicles(), v.onlineVehicles(), v.onlineRatePct(),
+                v.totalSources(), v.onlineSources(), v.onlineRatePct(),
                 v.activeAlerts(), v.busLag(), v.stateCount());
         System.out.println("  数据源明细:");
         for (NodeRegistry.Source veh : registry.all()) {
@@ -46,13 +46,13 @@ public final class OpsConsole {
             System.out.printf("    版本发布batch %s -> %s | 成功=%d 失败=%d 回滚=%d 进行中=%d%n",
                     b.id(), b.target(), b.count(ReleasePlatform.TaskState.SUCCEEDED),
                     b.count(ReleasePlatform.TaskState.FAILED), b.count(ReleasePlatform.TaskState.ROLLED_BACK),
-                    b.vehicleCount() - (int) (b.count(ReleasePlatform.TaskState.SUCCEEDED)
+                    b.sourceCount() - (int) (b.count(ReleasePlatform.TaskState.SUCCEEDED)
                             + b.count(ReleasePlatform.TaskState.FAILED)
                             + b.count(ReleasePlatform.TaskState.ROLLED_BACK)));
         }
         System.out.println("+--------------------------------------------------------+");
     }
 
-    public record OpsView(int totalVehicles, long onlineVehicles, double onlineRatePct,
+    public record OpsView(int totalSources, long onlineSources, double onlineRatePct,
                           long activeAlerts, long busLag, int stateCount) { }
 }

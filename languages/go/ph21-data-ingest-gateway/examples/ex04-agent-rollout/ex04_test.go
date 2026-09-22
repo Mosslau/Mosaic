@@ -17,7 +17,7 @@ func fw(version, content string) AgentVersion {
 	return AgentVersion{Version: version, SHA256: sum, Size: 100, ReleasedAt: time.Now()}
 }
 
-func fleetBatch(sourceIDs []string, from, to int) *Batch {
+func batchSpec(sourceIDs []string, from, to int) *Batch {
 	return &Batch{Index: from, SourceIDs: sourceIDs[from:to]}
 }
 
@@ -60,7 +60,7 @@ func TestRolloutFullSuccess(t *testing.T) {
 	for _, v := range sourceIDs {
 		start[v] = "v1.0"
 	}
-	batches := []*Batch{fleetBatch(sourceIDs, 0, 4), fleetBatch(sourceIDs, 4, 8), fleetBatch(sourceIDs, 8, 12)}
+	batches := []*Batch{batchSpec(sourceIDs, 0, 4), batchSpec(sourceIDs, 4, 8), batchSpec(sourceIDs, 8, 12)}
 	r, err := NewRollout(RolloutOptions{TargetVersion: "v2.0", FailRateLimit: 0.2}, batches, start)
 	if err != nil {
 		t.Fatal(err)
@@ -92,7 +92,7 @@ func TestRolloutRollsBackOnHighFailRate(t *testing.T) {
 	for _, v := range sourceIDs {
 		start[v] = "v1.0"
 	}
-	batches := []*Batch{fleetBatch(sourceIDs, 0, 4), fleetBatch(sourceIDs, 4, 8)}
+	batches := []*Batch{batchSpec(sourceIDs, 0, 4), batchSpec(sourceIDs, 4, 8)}
 	r, _ := NewRollout(RolloutOptions{TargetVersion: "v2.0", FailRateLimit: 0.2}, batches, start)
 	for _, v := range batches[0].SourceIDs {
 		if r.OnAgentReport(v, true) == DecisionRollback {
@@ -127,7 +127,7 @@ func TestRolloutIgnoresUnknownSourceID(t *testing.T) {
 		start[v] = "v1.0"
 	}
 	r, _ := NewRollout(RolloutOptions{TargetVersion: "v2.0", FailRateLimit: 0.2},
-		[]*Batch{fleetBatch(sourceIDs, 0, 4)}, start)
+		[]*Batch{batchSpec(sourceIDs, 0, 4)}, start)
 	if d := r.OnAgentReport("veh-999", true); d != DecisionHold {
 		t.Errorf("未知 SourceID 应 hold, got %v", d)
 	}

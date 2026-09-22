@@ -47,13 +47,13 @@ func (s *Server) handleVersion(w http.ResponseWriter, _ *http.Request) {
 func (s *Server) handleMetrics(w http.ResponseWriter, _ *http.Request) {
 	ing, clean, dup, authFail, bad, alerts := s.Core.Count.Snapshot()
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
-	fmt.Fprintf(w, "# HELP fleet_batches_trolloutl 接入层收到的上行批总数\n# TYPE fleet_batches_trolloutl counter\nfleet_batches_trolloutl %d\n", ing)
-	fmt.Fprintf(w, "# HELP fleet_samples_cleaned_trolloutl 清洗入库的样本总数\n# TYPE fleet_samples_cleaned_trolloutl counter\nfleet_samples_cleaned_trolloutl %d\n", clean)
-	fmt.Fprintf(w, "# HELP fleet_dup_trolloutl 重复拦截总数（批/样本）\n# TYPE fleet_dup_trolloutl counter\nfleet_dup_trolloutl %d\n", dup)
-	fmt.Fprintf(w, "# HELP fleet_auth_fail_trolloutl 鉴权失败总数\n# TYPE fleet_auth_fail_trolloutl counter\nfleet_auth_fail_trolloutl %d\n", authFail)
-	fmt.Fprintf(w, "# HELP fleet_bad_batch_trolloutl 非法上行批总数（死信）\n# TYPE fleet_bad_batch_trolloutl counter\nfleet_bad_batch_trolloutl %d\n", bad)
-	fmt.Fprintf(w, "# HELP fleet_alerts_trolloutl 告警命中总数\n# TYPE fleet_alerts_trolloutl counter\nfleet_alerts_trolloutl %d\n", alerts)
-	fmt.Fprintf(w, "# HELP fleet_stored_samples 内存时序库样本数\n# TYPE fleet_stored_samples gauge\nfleet_stored_samples %d\n", s.Core.Store().SampleCount())
+	fmt.Fprintf(w, "# HELP ingest_batches_total 接入层收到的上行批总数\n# TYPE ingest_batches_total counter\ningest_batches_total %d\n", ing)
+	fmt.Fprintf(w, "# HELP ingest_samples_cleaned_total 清洗入库的样本总数\n# TYPE ingest_samples_cleaned_total counter\ningest_samples_cleaned_total %d\n", clean)
+	fmt.Fprintf(w, "# HELP ingest_dup_total 重复拦截总数（批/样本）\n# TYPE ingest_dup_total counter\ningest_dup_total %d\n", dup)
+	fmt.Fprintf(w, "# HELP ingest_auth_fail_total 鉴权失败总数\n# TYPE ingest_auth_fail_total counter\ningest_auth_fail_total %d\n", authFail)
+	fmt.Fprintf(w, "# HELP ingest_bad_batch_total 非法上行批总数（死信）\n# TYPE ingest_bad_batch_total counter\ningest_bad_batch_total %d\n", bad)
+	fmt.Fprintf(w, "# HELP ingest_alerts_total 告警命中总数\n# TYPE ingest_alerts_total counter\ningest_alerts_total %d\n", alerts)
+	fmt.Fprintf(w, "# HELP ingest_stored_samples 内存时序库样本数\n# TYPE ingest_stored_samples gauge\ningest_stored_samples %d\n", s.Core.Store().SampleCount())
 }
 
 func (s *Server) handleBatches(w http.ResponseWriter, r *http.Request) {

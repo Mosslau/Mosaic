@@ -101,11 +101,11 @@ type Rollout struct {
 }
 
 type groupStat struct {
-	trolloutl, ok, fail int
+	total, ok, fail int
 }
 
 // NewRollout 从数据源集群台账快照创建一场灰度。目标版本 t 必须 != 任一个数据源当前版本由调用方保证。
-func NewRollout(target string, failLimit float64, groups []*Group, fleet *Registry) (*Rollout, error) {
+func NewRollout(target string, failLimit float64, groups []*Group, registry *Registry) (*Rollout, error) {
 	if failLimit <= 0 || failLimit >= 1 {
 		return nil, fmt.Errorf("失败率上限须在 (0,1) 内, got %v", failLimit)
 	}
@@ -119,10 +119,10 @@ func NewRollout(target string, failLimit float64, groups []*Group, fleet *Regist
 		stat:        make(map[string]*groupStat),
 	}
 	for gi, g := range groups {
-		r.stat[g.Name] = &groupStat{trolloutl: len(g.SourceIDs)}
+		r.stat[g.Name] = &groupStat{total: len(g.SourceIDs)}
 		for _, sourceID := range g.SourceIDs {
 			r.sourceGroup[sourceID] = gi
-			if v, ok := fleet.VersionOf(sourceID); ok {
+			if v, ok := registry.VersionOf(sourceID); ok {
 				r.oldVersion[sourceID] = v // 升级前版本 → 回滚目标
 			}
 		}
@@ -151,11 +151,11 @@ func (r *Rollout) Report(sourceID string, ok bool) Action {
 	} else {
 		st.fail++
 	}
-	if float64(st.fail) > float64(st.trolloutl)*r.failLimit {
+	if float64(st.fail) > float64(st.total)*r.failLimit {
 		r.status = "rolledback"
 		return Rollback
 	}
-	if st.ok+st.fail >= st.trolloutl {
+	if st.ok+st.fail >= st.total {
 		if gi == len(r.groups)-1 {
 			r.status = "done"
 			return Complete

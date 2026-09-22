@@ -10,27 +10,27 @@ public final class ReleaseDemo {
     public static void main(String[] args) {
         ReleaseVersion before = ReleaseVersion.of("1.4.0");
         ReleaseVersion target = ReleaseVersion.of("2.0.0");
-        List<String> vins = List.of("LSV0000001", "LSV0000002", "LSV0000003", "LSV0000004", "LSV0000005");
+        List<String> ids = List.of("LSV0000001", "LSV0000002", "LSV0000003", "LSV0000004", "LSV0000005");
 
-        ReleaseBatch batch = new ReleaseBatch("版本发布-2025-09-B", target, before, vins);
+        ReleaseBatch batch = new ReleaseBatch("版本发布-2025-09-B", target, before, ids);
 
         // 5 个数据源各自走完 DOWNLOADING -> INSTALLING
-        for (String sourceId : vins) {
+        for (String sourceId : ids) {
             batch.advance(sourceId, ReleaseBatch.CarTaskStatus.PENDING, ReleaseBatch.CarTaskStatus.DOWNLOADING, "download-start");
             batch.advance(sourceId, ReleaseBatch.CarTaskStatus.DOWNLOADING, ReleaseBatch.CarTaskStatus.INSTALLING, "download-done");
         }
         // 安装：4 台成功、第 5 台失败(模拟刷写中断)
         for (int i = 0; i < 4; i++) {
-            batch.advance(vins.get(i), ReleaseBatch.CarTaskStatus.INSTALLING,
+            batch.advance(ids.get(i), ReleaseBatch.CarTaskStatus.INSTALLING,
                     ReleaseBatch.CarTaskStatus.SUCCEEDED, "install-ok");
         }
-        batch.advance(vins.get(4), ReleaseBatch.CarTaskStatus.INSTALLING,
+        batch.advance(ids.get(4), ReleaseBatch.CarTaskStatus.INSTALLING,
                 ReleaseBatch.CarTaskStatus.FAILED, "install-eeprom-error");
 
         // 非法迁移必须被拒(已完成的g不能再被推回 INSTALLING)
         boolean rejected = false;
         try {
-            batch.advance(vins.get(0), ReleaseBatch.CarTaskStatus.INSTALLING,
+            batch.advance(ids.get(0), ReleaseBatch.CarTaskStatus.INSTALLING,
                     ReleaseBatch.CarTaskStatus.SUCCEEDED, "duplicate");
         } catch (IllegalStateException e) {
             rejected = true;

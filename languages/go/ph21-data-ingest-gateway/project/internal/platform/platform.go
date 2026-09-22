@@ -85,7 +85,7 @@ func (s *Store) appendClean(cs model.CleanSample) {
 	s.mu.Unlock()
 }
 
-// LatestValue 某数据源最新量值（%%）。
+// LatestValue 某数据源最新量值（%）。
 func (s *Store) LatestValue(sourceID string) (float64, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

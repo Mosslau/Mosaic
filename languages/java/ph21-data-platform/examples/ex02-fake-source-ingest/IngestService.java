@@ -25,7 +25,7 @@ public final class IngestService {
     private final class Lane implements Runnable {
         private final ArrayBlockingQueue<String> queue;
         private final Thread thread = new Thread(this, "ingest-lane");
-        private final java.util.HashMap<String, Long> lastSeqByVin = new java.util.HashMap<>();
+        private final java.util.HashMap<String, Long> lastSeqBySource = new java.util.HashMap<>();
 
         Lane(int capacity) {
             this.queue = new ArrayBlockingQueue<>(capacity);
@@ -66,12 +66,12 @@ public final class IngestService {
                 return;
             }
             // 单线程、per-SOURCE_ID 独立序号：同一数据源帧即使被其它数据源的帧隔开，判重也不受干扰
-            long last = lastSeqByVin.getOrDefault(frame.sourceId(), -1L);
+            long last = lastSeqBySource.getOrDefault(frame.sourceId(), -1L);
             if (frame.seq() <= last) {
                 duplicates.incrementAndGet();   // 重传/乱序：丢弃
                 return;
             }
-            lastSeqByVin.put(frame.sourceId(), frame.seq());
+            lastSeqBySource.put(frame.sourceId(), frame.seq());
             accepted.incrementAndGet();
             maybePublish(frame);                // 真实系统这里写 Kafka(见 ex05)
         }

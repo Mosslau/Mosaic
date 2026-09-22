@@ -1,4 +1,4 @@
-// examples/ex04-alert-rule-engine/CpuWatermarkRule.java —— SPI 实现 1：CPU过高告警
+// examples/ex04-alert-rule-engine/CpuWatermarkRule.java —— SPI 实现 1：CPU 过高告警
 // 验证环境：OpenJDK 17.0.18(Homebrew)，命令：javac -encoding UTF-8 -d /tmp/tl21-cls *.java
 import java.util.Optional;
 

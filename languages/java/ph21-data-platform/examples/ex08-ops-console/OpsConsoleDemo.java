@@ -28,8 +28,8 @@ public final class OpsConsoleDemo {
         System.out.print(OpsDashboard.render(snapshot));
 
         AtomicInteger pass = new AtomicInteger();
-        check(pass, snapshot.totalVehicles() == 3, "注册数据源 = 3");
-        check(pass, snapshot.onlineVehicles() == 3, "在线数据源 = 3");
+        check(pass, snapshot.totalSources() == 3, "注册数据源 = 3");
+        check(pass, snapshot.onlineSources() == 3, "在线数据源 = 3");
         check(pass, snapshot.activeAlerts() == 1, "活跃告警 = 1");
         check(pass, snapshot.otaRunningBatches() == 1, "进行中 版本发布= 1");
         check(pass, snapshot.totalMsgs() == 3, "累计消息 = 3(事件流语义，非滚动窗口)");

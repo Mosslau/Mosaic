@@ -1,7 +1,7 @@
 // 来源：ph21-data-ingest-gateway examples/ex06-metrics-platform/pipeline.go
 // 一句话说明：指标数据平台最小闭环——接入(计数)→清洗(校验/去重/换算)→时序存储
 // + 实时状态缓存 → 告警规则 → Prometheus 文本指标/查询。Kafka 段即 ph19 的
-// fleet.metrics.v1 消费链路（此处不重复实现，主文档 3.7 数据链路图）。
+// ingest.metrics.v1 消费链路（此处不重复实现，主文档 3.7 数据链路图）。
 // 验证环境：go1.25.6（darwin/arm64），依赖：零第三方（标准库）
 // 构建：go build ./...   测试：go test ./...   静态检查：go vet ./...
 // 运行：go run .          验证状态：已验证（go1.25.6 本机实测全绿）
@@ -24,7 +24,7 @@ type Event struct {
 	Ts       time.Time // 到达时间（平台对齐时基）
 }
 
-// CleanEvent 清洗后的规范事件（value 已换算 %%）。
+// CleanEvent 清洗后的规范事件（value 已换算为 %）。
 type CleanEvent struct {
 	SourceID string
 	Seq      uint64
@@ -75,7 +75,7 @@ func (c *Cleaner) Clean(ev Event) (*CleanEvent, error) {
 	}
 	c.seen[key] = ev.Seq
 	c.mu.Unlock()
-	// m/s → %% 换算：统一为展示单位（换算留 raw 由上游保证，主文档 3.7）。
+	// 原始计数 0.1% → % 换算：统一为展示单位（换算留 raw 由上游保证，主文档 3.7）。
 	return &CleanEvent{SourceID: ev.SourceID, Seq: ev.Seq, ValuePct: ev.Value / 10, Ts: ev.Ts}, nil
 }
 

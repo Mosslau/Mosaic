@@ -11,24 +11,24 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.LongAdder;
 
 public final class ReportApi {
-    public enum Verdict { OK, REJECT_INVALID_VIN, REJECT_RANGE, DUPLICATE }
+    public enum Verdict { OK, REJECT_INVALID_ID, REJECT_RANGE, DUPLICATE }
 
-    private final ConcurrentHashMap<String, DataReport> latestByVin = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, DataReport> latestBySource = new ConcurrentHashMap<>();
     private final LongAdder okCount = new LongAdder();
     private final LongAdder rejectCount = new LongAdder();
 
     /** 处理一条上报。网关层(Netty/ex02)每收到一帧调用一次。 */
     public Verdict handle(DataReport report) {
-        if (!report.vinValid()) {
+        if (!report.idValid()) {
             rejectCount.increment();
-            return Verdict.REJECT_INVALID_VIN;
+            return Verdict.REJECT_INVALID_ID;
         }
         if (!report.rangeValid()) {
             rejectCount.increment();
             return Verdict.REJECT_RANGE;
         }
         boolean[] accepted = {false};
-        latestByVin.compute(report.sourceId(), (sourceId, cur) -> {
+        latestBySource.compute(report.sourceId(), (sourceId, cur) -> {
             if (cur == null || report.seq() > cur.seq()) {   // 首帧或更新帧
                 accepted[0] = true;
                 return report;
@@ -43,10 +43,10 @@ public final class ReportApi {
         return Verdict.DUPLICATE;
     }
 
-    public DataReport latest(String sourceId)          { return latestByVin.get(sourceId); }
+    public DataReport latest(String sourceId)          { return latestBySource.get(sourceId); }
     public long okCount()                            { return okCount.sum(); }
     public long rejectCount()                        { return rejectCount.sum(); }
-    public List<String> knownVins() {
-        return latestByVin.keySet().stream().sorted().toList();
+    public List<String> knownIds() {
+        return latestBySource.keySet().stream().sorted().toList();
     }
 }

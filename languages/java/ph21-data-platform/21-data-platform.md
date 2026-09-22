@@ -74,8 +74,8 @@ roadmap 第 21 节(即本阶段)是整个 **Java 学习路线的终点**。ph01~
 节点聚合的设计要点(参照 [`examples/ex01-node-management/`](./examples/ex01-node-management/))：
 
 1. **聚合根 = sourceId + 状态机**。sourceId（数据源标识）是唯一身份，终身不变；状态(REGISTERED/ONLINE/OFFLINE/UPDATING/RETIRED)只允许经聚合方法迁移，迁移合法性由聚合自己校验，而不是散在 Service 的 if-else 里：`activate()`、`onMetrics(seq)`(收到指标即视为在线且按序号丢弃乱序旧帧)、`markOffline()`、`startRelease()/finishRelease(newFw)/failRelease()`(升级态，完成后固件版本提升并回 ONLINE)、`retire()`(RETIRED 为终态)。
-2. **状态变更全部产事件**：每次迁移生成一条 `NodeEvent(vin, from, to, at, reason)` 追加到事件流——这就是「数据源生命周期审计」，也是运维后台「今天哪些数据源上下线过」的数据来源。
-3. **仓储只认聚合根**：`NodeRepository` 接口提供 `findByVin/save`；`InMemoryNodeRepository` 用 `ConcurrentHashMap` + `computeIfAbsent` 保证并发注册同 sourceId 只建一次(ph20 CHM 语义的又一次复用)。
+2. **状态变更全部产事件**：每次迁移生成一条 `NodeEvent(id, from, to, at, reason)` 追加到事件流——这就是「数据源生命周期审计」，也是运维后台「今天哪些数据源上下线过」的数据来源。
+3. **仓储只认聚合根**：`NodeRepository` 接口提供 `findById/save`；`InMemoryNodeRepository` 用 `ConcurrentHashMap` + `computeIfAbsent` 保证并发注册同 sourceId 只建一次(ph20 CHM 语义的又一次复用)。
 
 ```java
 // examples/ex01-node-management/SourceNode.java —— 节点聚合：状态机收在聚合根内(已验证)
@@ -132,15 +132,15 @@ public static Optional<MetricsFrame> decode(String line) {
     String[] p = line.split("\\|");
     if (p.length != 6) return Optional.empty();
     try {
-        String vin = p[1];
+        String id = p[1];
         long seq = Long.parseLong(p[2]);
         double soc = Double.parseDouble(p[3]);
         double latencyMs = Double.parseDouble(p[4]);
         double temp = Double.parseDouble(p[5]);
-        if (!vin.startsWith("LSV") || vin.length() != 10
+        if (!id.startsWith("LSV") || id.length() != 10
                 || soc < 0.0 || soc > 100.0 || latencyMs < 0.0 || latencyMs > 220.0
                 || temp < -40.0 || temp > 150.0) return Optional.empty();
-        return Optional.of(MetricsFrame.of(vin, seq, soc, latencyMs, temp));
+        return Optional.of(MetricsFrame.of(id, seq, soc, latencyMs, temp));
     } catch (NumberFormatException e) {
         return Optional.empty();
     }
@@ -156,7 +156,7 @@ public static Optional<MetricsFrame> decode(String line) {
 examples/ex02 的 `IngestService` 演示了这一模型：`submit` 先按 sourceId 哈希选 lane，每个 lane 一条有界 `ArrayBlockingQueue` + 一个消费线程，lane 内维护每个数据源 seq 基线(单线程访问，无需原子类)；队列有界且满即丢弃并计数——**背压可观测**。这与 Kafka 按 key 分区、Netty 连接绑定 EventLoop 是**同一个哲学**：用「一个 key 一个执行流」换取「无需加锁的有序」。
 
 ```text
-submit("T|LSV…|…") ─▶ lane = hash(vin) % L ─▶ ArrayBlockingQueue(有界，队满丢弃+计数) ─▶ lane 消费线程(单线程)
+submit("T|LSV…|…") ─▶ lane = hash(id) % L ─▶ ArrayBlockingQueue(有界，队满丢弃+计数) ─▶ lane 消费线程(单线程)
                         │                                    ▲
                         └──────── 同 sourceId 永远同一 lane ◀──────┘ 每个数据源 seq 基线只在 lane 内访问
 ```
@@ -168,7 +168,7 @@ submit("T|LSV…|…") ─▶ lane = hash(vin) % L ─▶ ArrayBlockingQueue(有
 接入层把干净帧写进 Kafka(按 sourceId 做分区键，同一数据源同分区保证有序)，指标消费服务从 Kafka 读并同步下游。ph17 讲过 Kafka 的使用，这里补**数据平台消费服务的三个工程纪律**(都在 [`examples/ex05-metric-consumer/`](./examples/ex05-metric-consumer/) 与 project 的 `MetricsConsumer` 里落地)：
 
 1. **先处理、后提交 offset**：poll 一批 → 逐个处理 → 成功推进 nextOffset。顺序反了(先 commit 后处理)，消费者一崩溃，已 commit 未处理的消息就永久丢了。
-2. **幂等兜底重复投递**：Kafka 是「至少一次」语义，重放是常态。消费侧用 `vin#seq` 做幂等键(内存 `ConcurrentHashMap`，生产落 Redis 或 DB 唯一索引)，重复消息直接跳过。
+2. **幂等兜底重复投递**：Kafka 是「至少一次」语义，重放是常态。消费侧用 `id#seq` 做幂等键(内存 `ConcurrentHashMap`，生产落 Redis 或 DB 唯一索引)，重复消息直接跳过。
 3. **积压(lag)要可观测**：`lag = logEndOffset - committedOffset`，运维后台(3.8)与监控都靠它判断消费是否跟得上。
 
 内存版 `MiniKafka` 复刻了分区日志/offset/幂等语义，让「消费逻辑」可以离线单测；生产代码形态是 kafka-clients(标「未在本环境验证」)：
@@ -195,7 +195,7 @@ nextOffset = batch.nextOffset();     // 处理成功整批，才把 offset 推�
 // }
 ```
 
-**为什么说这是 ph17 技能的「数据平台化」**：ph17 教你 Kafka 机制本身，本阶段告诉你数据平台里 Kafka 的分区键必须选 sourceId(保序)、幂等键必须是 `vin#seq`(重放无害)、消费下游是三件套(状态缓存 + 作业历史 + 告警)——**机制不变，选键与编排是业务问题**。
+**为什么说这是 ph17 技能的「数据平台化」**：ph17 教你 Kafka 机制本身，本阶段告诉你数据平台里 Kafka 的分区键必须选 sourceId(保序)、幂等键必须是 `id#seq`(重放无害)、消费下游是三件套(状态缓存 + 作业历史 + 告警)——**机制不变，选键与编排是业务问题**。
 
 ### 3.4 告警规则引擎：可插拔规则(兑现 SPI/代理预告)
 
@@ -229,7 +229,7 @@ private static AlertRule timingProxy(AlertRule target) {
 }
 ```
 
-引擎维护一张**活跃告警表** `Map<vin#rule, ActiveAlert>`：命中进入、解决后清除、`putIfAbsent` 保证同一数据源同规则不重复刷屏——告警要「去重且可关闭」，不能每条触发帧都发一条消息。规则本身保持**无状态纯函数**(只读最新状态、返回 Optional)，跨帧规则(如「连续 N 帧急加速」)需要引擎提供状态窗口，这是引擎边界设计的进阶点(project 扩展方向)。
+引擎维护一张**活跃告警表** `Map<id#rule, ActiveAlert>`：命中进入、解决后清除、`putIfAbsent` 保证同一数据源同规则不重复刷屏——告警要「去重且可关闭」，不能每条触发帧都发一条消息。规则本身保持**无状态纯函数**(只读最新状态、返回 Optional)，跨帧规则(如「连续 N 帧急加速」)需要引擎提供状态窗口，这是引擎边界设计的进阶点(project 扩展方向)。
 
 ### 3.5 实时状态缓存：兑现 CHM/缓存预告
 
@@ -240,7 +240,7 @@ private static AlertRule timingProxy(AlertRule target) {
 ```java
 // project/src/sourceiot/SourceStateCache.java —— CHM 实时状态缓存(已验证)
 // compute 桶锁内整段原子：不存在「先 get 再 put」的竞态窗口
-states.compute(incoming.vin(), (vin, current) -> {
+states.compute(incoming.id(), (id, current) -> {
     if (current == null || incoming.seq() > current.seq()) {
         return incoming;              // 首帧或更新帧：替换
     }
@@ -251,12 +251,12 @@ states.compute(incoming.vin(), (vin, current) -> {
 ```java
 // Redis 形态(Spring Data Redis，依赖 Redis 真件)── 未在本环境验证
 // docker run -d -p 6379:6379 redis:7
-// key: source:state:{vin}   value: JSON {vin,seq,cpuPct,...}   EXPIRE 86400(数据源持续上报自动续期)
+// key: source:state:{id}   value: JSON {id,seq,cpuPct,...}   EXPIRE 86400(数据源持续上报自动续期)
 // 写：Lua 脚本原子执行「新 seq > 旧 seq 才 SET」，等价于上面 compute 的分支：
 //   local o = redis.call('GET', KEYS[1])
 //   if not o or tonumber(ARGV[1]) > tonumber(cjson.decode(o).seq)
 //   then redis.call('SET', KEYS[1], ARGV[2], 'EX', 86400) return 1 else return 0 end
-// 读：GET source:state:{vin}，cache-aside 兜底(ph18 已讲缓存策略，这里不复述)
+// 读：GET source:state:{id}，cache-aside 兜底(ph18 已讲缓存策略，这里不复述)
 ```
 
 **② 缓存与「最新状态查询 API」之间是 Cache-Aside**。查询接口先读缓存，miss 再回源写回；TTL 是兜底——数据源持续上报自动续期，长时间不上报(停驶/断网)的缓存自然过期，避免「查一个退役数据源还能拿到几天前的状态」。ph18 的缓存穿透/雪崩防护(热 key 保护、单飞回源)在「节点集群热榜」这类运营页仍然适用，属 ph18 已讲内容不重复。
@@ -289,21 +289,21 @@ record ReleaseVersion(int major, int minor, int patch) implements Comparable<Rel
 }
 ```
 
-**② 批次内每个数据源一个任务状态机，推进必须带期望状态**。平台建「批次」(一个目标版本 + 一组 sourceId)，批内每个数据源是独立任务：`PENDING → DOWNLOADING → INSTALLING → SUCCEEDED/FAILED →(失败可)ROLLED_BACK`。`advance(vin, from, to)` 校验「当前状态 == from」才推进——这一行是**防并发重复推进**的关键(两个线程同时推进同一个数据源，期望状态校验会让后到者抛异常)：
+**② 批次内每个数据源一个任务状态机，推进必须带期望状态**。平台建「批次」(一个目标版本 + 一组 sourceId)，批内每个数据源是独立任务：`PENDING → DOWNLOADING → INSTALLING → SUCCEEDED/FAILED →(失败可)ROLLED_BACK`。`advance(id, from, to)` 校验「当前状态 == from」才推进——这一行是**防并发重复推进**的关键(两个线程同时推进同一个数据源，期望状态校验会让后到者抛异常)：
 
 ```java
 // examples/ex06-release-batch/ReleaseBatch.java —— 批次 + 单节点状态机(已验证)
-public void advance(String vin, CarTaskStatus expect, CarTaskStatus next, String detail) {
+public void advance(String id, CarTaskStatus expect, CarTaskStatus next, String detail) {
     batchLock.lock();
     try {
-        CarTask task = findByVin(vin);
+        CarTask task = findById(id);
         if (task.status() != expect) {
-            throw new IllegalStateException("批次 " + batchId + " 数据源 " + vin
+            throw new IllegalStateException("批次 " + batchId + " 数据源 " + id
                     + " 期望状态 " + expect + " 实际 " + task.status());   // 关键：期望状态校验
         }
-        CarTask updated = new CarTask(vin, task.fromVersion(), next, detail);
-        replace(vin, updated);
-        audit.add(AuditLine.of(vin, expect + "->" + next, detail));      // 每个迁移一条审计
+        CarTask updated = new CarTask(id, task.fromVersion(), next, detail);
+        replace(id, updated);
+        audit.add(AuditLine.of(id, expect + "->" + next, detail));      // 每个迁移一条审计
     } finally {
         batchLock.unlock();
     }
@@ -318,15 +318,15 @@ public void advance(String vin, CarTaskStatus expect, CarTaskStatus next, String
 
 指标消费在更新最新状态的同时，还要把带位置的帧追加进**每个数据源的作业历史序列**——App 看回放、运营查路径。工程要点：
 
-1. **作业历史 = 每个数据源一条按时间有序的点列**，不是一张大表里随便插。Java 内存形态用 `ConcurrentHashMap<sourceId, ConcurrentSkipListMap<time, Point>>`(examples/ex07)：每个数据源一个并发有序桶，`append` 按时间点写入(同秒覆盖=去重)，`queryWindow(vin, from, to)` 用 `subMap` 闭区间取点——全部并发安全、无手动锁。
+1. **作业历史 = 每个数据源一条按时间有序的点列**，不是一张大表里随便插。Java 内存形态用 `ConcurrentHashMap<sourceId, ConcurrentSkipListMap<time, Point>>`(examples/ex07)：每个数据源一个并发有序桶，`append` 按时间点写入(同秒覆盖=去重)，`queryWindow(id, from, to)` 用 `subMap` 闭区间取点——全部并发安全、无手动锁。
 2. **查询形态三种**：最新点（数据源在哪，3.5 缓存已有 → 作业历史管历史)、时间窗(某段时间路径)、回放(按序逐点)。ex07 只做时间窗 + 最新点，足够演示「有序桶 + subMap」的心智。
-3. **生产落库在时序库/对象存储**：内存版的价值是保留「按 (vin, time) 排序」的查询心智；百万级节点集群的历史作业历史必然落 HBase/时序库/OSS，按 `vin/yyyyMMdd` 分桶(ph17 的按日分桶思路)。真实里程计算、地图逆地理编码属地图服务，超出 Java 本阶段范围。
+3. **生产落库在时序库/对象存储**：内存版的价值是保留「按 (id, time) 排序」的查询心智；百万级节点集群的历史作业历史必然落 HBase/时序库/OSS，按 `id/yyyyMMdd` 分桶(ph17 的按日分桶思路)。真实里程计算、地图逆地理编码属地图服务，超出 Java 本阶段范围。
 
 ```java
 // examples/ex07-job-history/JobHistoryStore.java —— 每个数据源一个并发有序桶(已验证)
 // queryWindow：subMap 闭区间取点，O(log n + k)
-public List<GpsPoint> queryWindow(String vin, long fromSec, long toSec) {
-    NavigableMap<Long, GpsPoint> bucket = byVin.get(vin);
+public List<GpsPoint> queryWindow(String id, long fromSec, long toSec) {
+    NavigableMap<Long, GpsPoint> bucket = bySource.get(id);
     if (bucket == null) {
         return List.of();
     }
@@ -357,10 +357,10 @@ Java 端实现极简：`OpsConsole` 依赖各域 store(构造注入)，`snapshot
 采集端连接 N 条 ──▶ 网关 workerGroup(每连接绑定一个 EventLoop，串行无锁)
                        │ 按行还原
                        ▼
-IngestService.submit(每帧) ──▶ lane = hash(vin) % L ──▶ ArrayBlockingQueue(有界, cap C)
+IngestService.submit(每帧) ──▶ lane = hash(id) % L ──▶ ArrayBlockingQueue(有界, cap C)
                                                                 │ lane 消费线程 × L(常驻)
                                                                 ▼ 校验 + 去重 + 投递 Kafka
-Kafka 分区 = hash(vin) % P ──▶ 消费 worker(每分区单消费者，先处理再 commit)
+Kafka 分区 = hash(id) % P ──▶ 消费 worker(每分区单消费者，先处理再 commit)
 ```
 
 三个「为什么」直接来自 ph20：
@@ -387,7 +387,7 @@ Kafka 分区 = hash(vin) % P ──▶ 消费 worker(每分区单消费者，先
 发布批次并发推进时的一致性靠三个层次，从易到难：
 
 1. **锁串行化批内操作**：一批数据源（几十到上千个）的操作频率很低，直接用锁把 `advance` 串行化，正确性第一(ex06 的 batchLock)。锁内做的唯一事是「校验期望状态 → 改状态 → 写审计」，三步合成一个临界区，不存在「检查完被别人改了」的窗口。
-2. **期望状态校验 = 显式的版本判断**：`advance(vin, from, to)` 要求当前状态等于 from。即使并发进来两个推进请求，期望状态校验会让后到者抛异常而不是静默覆盖——这比「直接 put 新状态」安全得多，因为**状态机不允许跳变**(DOWNLOADING 的数据源不能直接变成 ROLLED_BACK)。
+2. **期望状态校验 = 显式的版本判断**：`advance(id, from, to)` 要求当前状态等于 from。即使并发进来两个推进请求，期望状态校验会让后到者抛异常而不是静默覆盖——这比「直接 put 新状态」安全得多，因为**状态机不允许跳变**(DOWNLOADING 的数据源不能直接变成 ROLLED_BACK)。
 3. **审计是状态机的影子**：每次迁移成功必写审计(谁、何时、哪个数据源、什么迁移、什么原因)。崩溃恢复/合规追溯都靠审计：**状态表可以重建，审计日志是唯一不可删的事实**。生产中审计落 DB/WORM 存储，demo 用内存列表(ex06/ReleasePlatform 的 audit)，结构一致。
 
 ## 5. 使用场景
@@ -493,7 +493,7 @@ Netty 主从 Reactor + line codec 的数据源网关：`REG|<sourceId>` 注册�
 - **「一个 key 一个执行流」是整条高吞吐链的钥匙**：Netty 连接绑定 EventLoop、接入层按 sourceId 分 lane、Kafka 按 sourceId 分区——每层用同一数据源串行换取无需加锁的有序，换并行度就加 lane/分区数
 - **有界队列 + 丢弃计数 = 可观测的背压**：无界队列会让内存被帧撑爆(ph20 陷阱)，背压不是错误而是系统的自述，计数让它进监控
 - **并发正确性优先选 compute 一段式**：状态缓存的「读旧→比 seq→写新」用 CHM compute 或 Redis Lua 做成原子段，绝不拆成 get+put 两段
-- **规则要可插拔、观测要横切**：SPI 管「找到哪个规则」、代理管「规则怎么被观测」，引擎保持零改动；活跃告警要按 vin#rule 去重且可关闭
+- **规则要可插拔、观测要横切**：SPI 管「找到哪个规则」、代理管「规则怎么被观测」，引擎保持零改动；活跃告警要按 id#rule 去重且可关闭
 - **版本发布合规三件套**：语义版本比较(防倒退) + 期望状态推进(防并发重复) + 不可删审计(可追溯)
 - **运维后台是只读聚合器**：口径纪律(状态表 vs 事件流、lag vs 吞吐)比渲染更重要，聚合交给各域、展示只做拼装
 
@@ -502,7 +502,7 @@ Netty 主从 Reactor + line codec 的数据源网关：`REG|<sourceId>` 注册�
 - [ ] 能说清节点管理/版本发布/告警/作业历史为什么是四个限界上下文，并画出节点聚合的状态机(ex01)
 - [ ] 能解释「接入层为什么按 sourceId 分 lane 而不是共享队列」及有界队列背压的取舍(ex02)
 - [ ] 能用 Netty 的 pipeline/codec 描述长连接长连接网关如何把字节流还原成行(ex09)
-- [ ] 能说清 Kafka 消费的「先处理再提交」「幂等键 vin#seq」「lag 可观测」三条纪律(ex05)
+- [ ] 能说清 Kafka 消费的「先处理再提交」「幂等键 id#seq」「lag 可观测」三条纪律(ex05)
 - [ ] 能用 SPI + 动态代理组合描述告警规则引擎的扩展方式(ex04)
 - [ ] 能说明 CHM compute 与 Redis Lua 是同一并发问题的两种载体(ex03/3.5)
 - [ ] 能完成一个 发布批次的状态机推进并解释期望状态校验防什么(ex06)

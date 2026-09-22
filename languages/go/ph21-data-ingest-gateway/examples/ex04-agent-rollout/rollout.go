@@ -63,7 +63,7 @@ type Rollout struct {
 }
 
 type batchStat struct {
-	trolloutl, ok, fail int
+	total, ok, fail int
 }
 
 // NewRollout 创建一场灰度并立即启动。startFrom 是每个数据源升级前版本（"上一版即回滚目标"）。
@@ -77,7 +77,7 @@ func NewRollout(opts RolloutOptions, batches []*Batch, startFrom map[string]stri
 		stat:        make(map[int]*batchStat),
 	}
 	for _, b := range batches {
-		r.stat[b.Index] = &batchStat{trolloutl: len(b.SourceIDs)}
+		r.stat[b.Index] = &batchStat{total: len(b.SourceIDs)}
 		for _, sourceID := range b.SourceIDs {
 			r.sourceBatch[sourceID] = b.Index
 		}
@@ -128,12 +128,12 @@ func (r *Rollout) OnAgentReport(sourceID string, ok bool) Decision {
 	} else {
 		st.fail++
 	}
-	if float64(st.fail) > float64(st.trolloutl)*r.opts.FailRateLimit {
+	if float64(st.fail) > float64(st.total)*r.opts.FailRateLimit {
 		r.status = "rolledback"
 		r.decided = append(r.decided, DecisionRollback)
 		return DecisionRollback
 	}
-	if st.ok+st.fail >= st.trolloutl { // 批内全部确认
+	if st.ok+st.fail >= st.total { // 批内全部确认
 		if bi == r.batches[len(r.batches)-1].Index {
 			r.status = "done"
 			r.decided = append(r.decided, DecisionComplete)

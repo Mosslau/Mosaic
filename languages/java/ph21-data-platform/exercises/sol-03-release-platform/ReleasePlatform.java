@@ -18,7 +18,7 @@ public final class ReleasePlatform {
     public enum TaskState { PENDING, DOWNLOADING, INSTALLING, SUCCEEDED, FAILED, ROLLED_BACK }
 
     public record BatchSummary(int total, Map<TaskState, Long> byState) { }
-    public record BatchInfo(String batchId, ReleaseVersion version, List<String> vins) { }
+    public record BatchInfo(String batchId, ReleaseVersion version, List<String> ids) { }
 
     private final List<ReleaseVersion> publishedVersions = new ArrayList<>();   // 只增不减
     private final ConcurrentHashMap<String, Batch> batches = new ConcurrentHashMap<>();
@@ -39,11 +39,11 @@ public final class ReleasePlatform {
     }
 
     /** 创建批次：版本必须已发布；目标数据源非空。 */
-    public Batch createBatch(String batchId, String version, List<String> vins) {
+    public Batch createBatch(String batchId, String version, List<String> ids) {
         ReleaseVersion target = publishedVersions.stream()
                 .filter(v -> v.toString().equals(version)).findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("版本未发布: " + version));
-        Batch b = new Batch(batchId, target, List.copyOf(vins));
+        Batch b = new Batch(batchId, target, List.copyOf(ids));
         if (batches.putIfAbsent(batchId, b) != null) {
             throw new IllegalArgumentException("批次已存在: " + batchId);
         }
@@ -58,13 +58,13 @@ public final class ReleasePlatform {
     public static final class Batch {
         private final String batchId;
         private final ReleaseVersion version;
-        private final ConcurrentHashMap<String, TaskState> perVin = new ConcurrentHashMap<>();
+        private final ConcurrentHashMap<String, TaskState> perSource = new ConcurrentHashMap<>();
         private final List<String> audit = new ArrayList<>();
 
-        Batch(String batchId, ReleaseVersion version, List<String> vins) {
+        Batch(String batchId, ReleaseVersion version, List<String> ids) {
             this.batchId = batchId;
             this.version = version;
-            vins.forEach(v -> perVin.put(v, TaskState.PENDING));
+            ids.forEach(v -> perSource.put(v, TaskState.PENDING));
         }
 
         public String batchId()  { return batchId; }
@@ -72,23 +72,23 @@ public final class ReleasePlatform {
 
         /** 期望当前状态 = from，迁移到 to；否则抛异常(防并发重复推进)。 */
         public synchronized void advance(String sourceId, TaskState from, TaskState to) {
-            TaskState cur = perVin.get(sourceId);
+            TaskState cur = perSource.get(sourceId);
             if (cur == null) {
                 throw new IllegalArgumentException("批次不含数据源: " + sourceId);
             }
             if (cur != from) {
                 throw new IllegalStateException("数据源 " + sourceId + " 期望 " + from + " 实际 " + cur);
             }
-            perVin.put(sourceId, to);
+            perSource.put(sourceId, to);
             audit.add(String.format("%s %s->%s batch=%s", sourceId, from, to, batchId));
         }
 
-        public synchronized TaskState stateOf(String sourceId) { return perVin.get(sourceId); }
+        public synchronized TaskState stateOf(String sourceId) { return perSource.get(sourceId); }
 
         public BatchSummary summary() {
             Map<TaskState, Long> byState = new EnumMap<>(TaskState.class);
-            perVin.values().forEach(s -> byState.merge(s, 1L, Long::sum));
-            return new BatchSummary(perVin.size(), byState);
+            perSource.values().forEach(s -> byState.merge(s, 1L, Long::sum));
+            return new BatchSummary(perSource.size(), byState);
         }
 
         public List<String> auditLog() { return List.copyOf(audit); }

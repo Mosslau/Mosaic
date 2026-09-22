@@ -280,7 +280,7 @@ func (s *ConfigState) Apply(update Update, currentVersion int64) error {
 
 ```text
 采集端传感器 ──▶ TBOX/采集器 ──MQTT/TCP──▶ 接入服务 ──▶ 清洗服务 ──▶ Kafka topic ──▶ 消费服务
-  (CAN 信号)    (本地聚合/缓存)   (鉴权/解包/帧)  (校验/去重/换算) (fleet.metrics.v1)  │
+  (采集信号)    (本地聚合/缓存)   (鉴权/解包/帧)  (校验/去重/换算) (ingest.metrics.v1)  │
                                                                      ┌──────────────────┘
                                                          ┌───────────▼───────────┐
                                                          │ 存储(时序库/列存)      │
@@ -352,12 +352,12 @@ type Series struct {
 // 验证环境：go1.25.6，零第三方依赖；验证状态：已验证
 func (m *Metrics) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
 	// 官方抓取就是 GET /metrics → 解析 text/plain 样本行，命名约定 metric{label="v"} value
-	fmt.Fprintf(w, "# HELP fleet_ingest_total 接入层收到的消息总数\n")
-	fmt.Fprintf(w, "# TYPE fleet_ingest_total counter\n")
-	fmt.Fprintf(w, "fleet_ingest_total{protocol=%q} %d\n", "mqtt", m.ingestTotal.Load())
-	fmt.Fprintf(w, "fleet_auth_fail_total{reason=%q} %d\n", "bad_token", m.authFail.Load())
-	fmt.Fprintf(w, "# TYPE fleet_online_vehicles gauge\n")
-	fmt.Fprintf(w, "fleet_online_vehicles %d\n", m.online.Load())
+	fmt.Fprintf(w, "# HELP ingest_received_total 接入层收到的消息总数\n")
+	fmt.Fprintf(w, "# TYPE ingest_received_total counter\n")
+	fmt.Fprintf(w, "ingest_received_total{protocol=%q} %d\n", "mqtt", m.ingestTotal.Load())
+	fmt.Fprintf(w, "ingest_auth_fail_total{reason=%q} %d\n", "bad_token", m.authFail.Load())
+	fmt.Fprintf(w, "# TYPE ingest_online_sources gauge\n")
+	fmt.Fprintf(w, "ingest_online_sources %d\n", m.online.Load())
 }
 ```
 
@@ -530,7 +530,7 @@ WebSocket 的线格式是一组"帧"，但客户端与服务器方向**不对称
 | 采集代理（聚合/缓存/转发） | ✅ 主选 | 静态单二进制扔进采集器盒子零依赖；cgo 可调本地采集库 | MCU 上的实时采集（周期 ms 级、中断） |
 | 数据平台（清洗/Kafka/存储/告警） | ✅ 主选 | 与 ph19/ph20 全链路衔接，分层与测试纪律现成 | 深度时序分析/ML（Python 更顺手，见 Python 路线 ph18） |
 | 指标高吞吐管道（接入→缓冲） | ✅ 擅长 | 并发 + 低分配，性能基线足够（ph13 再调） | 需要亚毫秒级确定性时延的场景（实时控制面） |
-| 采集端采集器版本、BMS/CAN 实时控制 | ❌ 不碰 | GC 停顿、无硬实时、位操作心智不符 | 那是 C/Rust 嵌入式路线 |
+| 采集端采集器版本、现场总线实时控制 | ❌ 不碰 | GC 停顿、无硬实时、位操作心智不符 | 那是 C/Rust 嵌入式路线 |
 | 重型协议栈（完整 TLS/视频流转发） | 部分 | TLS 用标准库没问题；编解码密集型交给专用栈 | 媒体转码/高密度编解码 |
 
 **何时选 MQTT / 何时选私有 TCP / 何时选 WebSocket**的判断（3.1/3.4/3.5 的收口）：协议不熟或要生态（broker 现成、工具链全）选 MQTT；**存量采集端已定私有帧格式**只能接 TCP/UDP（换协议成本在采集端侧不在平台侧）；**要面向浏览器/需要服务端主动推送**才加 WebSocket——不要为了"实时"在接入主干上硬上 WS。**何时上采集代理**：连接数多到云端吃力、上行带宽贵（蜂窝流量计费）、本地要毫秒级响应、断网容忍度低——四选二就该有采集器；反之采集端量小、云端一跳可达就别为了架构好看加一层。
@@ -609,7 +609,7 @@ go c.KeepAliveLoop(ctx) // 定时 PINGREQ，broker 超时不回即判死 → 触
 
 ### 跨语言对比
 
-- **与 C/Rust 嵌入式**：边界是"确定性/实时"——采集端 MCU/TBOX 的 CAN 收发、采集器版本、ms 级控制是 C/Rust 的领地（无 GC、位操作、硬实时），Go 站在其上方做采集器与云端；"控制周期 ≤ ms 且要求确定性"向下，其余向上（第 5 章分工表）
+- **与 C/Rust 嵌入式**：边界是"确定性/实时"——采集端 MCU 的现场总线收发、采集器版本、ms 级控制是 C/Rust 的领地（无 GC、位操作、硬实时），Go 站在其上方做采集器与云端；"控制周期 ≤ ms 且要求确定性"向下，其余向上（第 5 章分工表）
 - **与 Python 数据侧**：Python 路线 ph18 证明 Python 管"清洗/分析/原型/异常检测"的厚度，Go 管"接入/采集/吞吐"的速度——同一指标流，Go 收得下、Python 算得动（为 analysis/ 与 Tenet 合成积累素材：语言分工 = 生态 × 吞吐 × 开发速度的三角取舍）
 - **跨语言共性**：弱网可靠性纪律（seq 幂等、水位 ack、退避重连）、时序模型（series/time/value）、配置状态/版本灰度 的 desired-vs-reported 状态机是**与语言无关的领域模式**——Java 平台侧、Go 新接入层、Rust 边缘侧能互操作，靠的是这些共享模式 + ph11 gRPC/ph19 Kafka 的标准契约，不是语言魔法
 
@@ -628,7 +628,7 @@ go c.KeepAliveLoop(ctx) // 定时 PINGREQ，broker 超时不回即判死 → 触
 
 **本阶段是 Go 学习路线的终点（roadmap 第 21 节即最后一节，无 ph22）**——ph01~ph21 走完「语法 → 数据结构 → 接口 → 工程化 → 并发 → 标准库 → 测试 → Web → 数据库 → 微服务 → 云原生 → 性能 → 底层 → 消息 → 发布 → IoT 应用整合」的完整闭环，落点是把服务接到真实数据来源的能力。终点之后不再另设编号阶段，但有几个可继续深入的**方向**（各自通向别处，而非 Go 路线的新阶段）：
 
-- **边缘嵌入式与采集端侧**：把采集器再往下沉——CAN 采集、采集器版本升级双区切换、RTOS 实时任务属 C/Rust 嵌入式路线（本仓库 C/Rust 各语言路线），Go 只在其上方消费数据；
+- **边缘嵌入式与采集端侧**：把采集器再往下沉——现场总线采集、版本升级双区切换、RTOS 实时任务属 C/Rust 嵌入式路线（本仓库 C/Rust 各语言路线），Go 只在其上方消费数据；
 - **时序库与数据引擎内核**：本阶段的时序模型是教学内存形态；深入列存压缩、LSM/日志结构文件、降采样保留策略，可研究 InfluxDB/VictoriaMetrics/TDengine 的 Go 内核（或在 C/Rust 里自研），这是"数据平台"方向的新纵深；
 - **大规模数据平台的工程纵深**：十万级连接压测与接入层水平扩展、broker 集群与 Kafka 吞吐调优、跨地域多机房接入、行业标准协议完整对接——本阶段把形态与纪律给了你，规模问题交给真实的线上系统；
 - **协议与新标准**：MQTT 5.0 完整语义（用户属性/主题别名/原因码）、WebTransport/HTTP/3 实时通道、工业实时协议（如 OPC UA PubSub）——Go 生态在这些标准上持续生长，随时可以再捡起一门协议做自研实现（本阶段 ex01/ex03 证明了一件事：**Go 自研一个协议最小版并测绿，是很现实的能力**）。

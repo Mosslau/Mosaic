@@ -77,7 +77,7 @@ func TestWatermarkPerCollector(t *testing.T) {
 
 func TestAlertCounting(t *testing.T) {
 	c := NewCore(map[string]string{"relay-001": "s1"})
-	// 135%% → 超 120 warn；180%% → 超 120 且超 160（2 条）。
+	// 85% → 超 80 warn；95% → 超 80 且超 90（2 条）。
 	_, _ = c.HandleBatch(batch("relay-001", 1, "src-001", 0, 850), time.Now())
 	_, _ = c.HandleBatch(batch("relay-001", 2, "src-001", 1, 950), time.Now()) // seq2 继续单调
 	if _, _, _, _, _, alerts := c.Count.Snapshot(); alerts != 3 {

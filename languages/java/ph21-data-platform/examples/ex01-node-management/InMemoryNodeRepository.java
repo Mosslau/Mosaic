@@ -29,7 +29,7 @@ public final class InMemoryNodeRepository implements NodeRepository {
         }
     }
 
-    @Override public Optional<SourceNode> findByVin(String sourceId) { return Optional.ofNullable(nodes.get(sourceId)); }
+    @Override public Optional<SourceNode> findById(String sourceId) { return Optional.ofNullable(nodes.get(sourceId)); }
     @Override public void save(SourceNode node) { nodes.put(node.sourceId(), node); }
     @Override public int count() { return nodes.size(); }
     public List<NodeEvent> eventStream() { return new ArrayList<>(eventStream); }

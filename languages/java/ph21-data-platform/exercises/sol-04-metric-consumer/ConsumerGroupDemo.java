@@ -6,13 +6,13 @@
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class ConsumerGroupDemo {
-    private static final int VIN_COUNT = 300;
+    private static final int SOURCE_COUNT = 300;
 
     public static void main(String[] args) throws InterruptedException {
         MemoryKafka kafka = new MemoryKafka();
         // 生产：600 条唯一 + 200 条重复(重复投递是 Kafka 常态，必须由消费侧幂等兜住)
         int dup = 0;
-        for (int v = 1; v <= VIN_COUNT; v++) {
+        for (int v = 1; v <= SOURCE_COUNT; v++) {
             String sourceId = "LSV" + String.format("%07d", v);
             for (long seq = 1; seq <= 2; seq++) {
                 kafka.produce(new MetricMsg(sourceId, seq, 40 + seq));

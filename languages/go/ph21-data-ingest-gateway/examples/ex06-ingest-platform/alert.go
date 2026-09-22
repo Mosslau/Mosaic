@@ -33,7 +33,7 @@ type AlertEngine struct {
 	last     map[string]time.Time // source|ruleID → 上次告警时间
 }
 
-// NewAlertEngine 建引擎并注册两条默认规则（限速 120%% 与过低电量占位）。
+// NewAlertEngine 建引擎并注册两条默认规则（CPU 高水位 80% 与磁盘过热 75℃）。
 func NewAlertEngine() *AlertEngine {
 	return &AlertEngine{
 		rules: []Rule{

@@ -1,6 +1,6 @@
 // 来源：ph21-data-ingest-gateway exercises/sol-02-metrics-receiver/sol02.go
 // 一句话说明：练习 2 参考实现——数据源指标数据接收服务的清洗核心：解析 JSON、
-// 校验 sourceID/seq/value 量程、按 (sourceID, seq) 有界去重、m/s → %% 换算，输出
+// 校验 sourceID/seq/value 量程、按 (sourceID, seq) 有界去重、原始计数 0.1% → % 换算，输出
 // 生效/重复/坏数据三路计数（主文档 3.7 清洗段纪律）。
 // 验证环境：go1.25.6（darwin/arm64），依赖：零第三方（标准库）
 // 构建：go build ./...   测试：go test ./...   静态检查：go vet ./...

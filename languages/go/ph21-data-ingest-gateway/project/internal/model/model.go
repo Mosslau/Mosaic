@@ -62,7 +62,7 @@ func (b BatchUpload) Validate() error {
 	return nil
 }
 
-// CleanSample 清洗后（换算为 %%、以到达时间对齐）的可入库样本。
+// CleanSample 清洗后（换算为 %、以到达时间对齐）的可入库样本。
 type CleanSample struct {
 	SourceID string
 	Seq      uint64

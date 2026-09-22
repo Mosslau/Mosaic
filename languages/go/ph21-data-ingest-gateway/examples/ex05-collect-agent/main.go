@@ -75,9 +75,9 @@ func main() {
 		n, ok, cloud.ack, gw.spool.Len())
 
 	// 阶段 4：水位一致性——云上确认批数应等于累计生成批数。
-	trolloutl := flushCount
-	fmt.Printf("== 汇总：生成批 %d / 云端确认 %d（水位 %d）==\n", trolloutl, len(cloud.seen), cloud.ack)
-	if int(cloud.ack) == trolloutl && gw.spool.Len() == 0 {
+	total := flushCount
+	fmt.Printf("== 汇总：生成批 %d / 云端确认 %d（水位 %d）==\n", total, len(cloud.seen), cloud.ack)
+	if int(cloud.ack) == total && gw.spool.Len() == 0 {
 		fmt.Println("== ex05 演示完成：本地聚合 / 断网缓存 / 断点续传 / 水位归零 全通 ==")
 	} else {
 		fmt.Println("== 演示未对齐（数据丢失或水位未收敛），请检查 ==")

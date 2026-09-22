@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public final class IngestService {
     private final MetricBus bus;
-    private final ConcurrentHashMap<String, AtomicLong> lastSeqByVin = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, AtomicLong> lastSeqBySource = new ConcurrentHashMap<>();
     private final AtomicLong accepted = new AtomicLong();
     private final AtomicLong rejected = new AtomicLong();
     private final AtomicLong duplicates = new AtomicLong();
@@ -26,7 +26,7 @@ public final class IngestService {
             rejected.incrementAndGet();
             return false;
         }
-        AtomicLong seen = lastSeqByVin.computeIfAbsent(frame.sourceId(), k -> new AtomicLong());
+        AtomicLong seen = lastSeqBySource.computeIfAbsent(frame.sourceId(), k -> new AtomicLong());
         long prev = seen.get();
         if (frame.seq() <= prev) {
             duplicates.incrementAndGet();

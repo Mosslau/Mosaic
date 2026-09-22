@@ -1,7 +1,7 @@
-// 来源：ph21-data-ingest-gateway examples/ex06-metrics-platform/main.go
-// 一句话说明：演示主程序——确定性车流 6 条：2 条正常(30/90%%)、1 条超阈值
-// (135%%→warn)、1 条超阈值(180%%→critical)、1 条坏数据(超量程→死信)、
-// 1 条重复(seq 重复→幂等拦)。随后打印时序查询、实时状态、/metrics 文本、汇总。
+// 来源：ph21-data-ingest-gateway examples/ex06-ingest-platform/main.go
+// 一句话说明：演示主程序——确定性数据流 6 条：2 条正常（30%/90%）、1 条高水位
+// （85%→warn）、1 条高水位（95%→critical）、1 条坏数据（超量程→死信）、
+// 1 条重复（seq 重复→幂等拦）。随后打印时序查询、实时状态、/metrics 文本、汇总。
 // 用法：go run .
 // 验证环境：go1.25.6（darwin/arm64），依赖：零第三方（标准库）
 // 验证状态：已验证（go1.25.6 本机实测全绿，输出见下方预期）
@@ -19,12 +19,12 @@ func main() {
 	now := time.Now()
 
 	feed := []Event{
-		{SourceID: "src-001", Seq: 1, Value: 30.0 / 3.6, Ts: now.Add(time.Second)},
-		{SourceID: "src-001", Seq: 2, Value: 90.0 / 3.6, Ts: now.Add(2 * time.Second)},
-		{SourceID: "src-001", Seq: 3, Value: 135.0 / 3.6, Ts: now.Add(3 * time.Second)},
-		{SourceID: "src-001", Seq: 4, Value: 180.0 / 3.6, Ts: now.Add(4 * time.Second)},
-		{SourceID: "src-001", Seq: 5, Value: 999.0, Ts: now.Add(5 * time.Second)},      // 超量程坏数据
-		{SourceID: "src-001", Seq: 1, Value: 30.0 / 3.6, Ts: now.Add(6 * time.Second)}, // 重复
+		{SourceID: "src-001", Seq: 1, Value: 300, Ts: now.Add(time.Second)},      // 30%（正常）},
+		{SourceID: "src-001", Seq: 2, Value: 900, Ts: now.Add(2 * time.Second)},  // 90%（>80 → warn）},
+		{SourceID: "src-001", Seq: 3, Value: 850, Ts: now.Add(3 * time.Second)},  // 85%（warn 冷却内不重复）},
+		{SourceID: "src-001", Seq: 4, Value: 950, Ts: now.Add(4 * time.Second)},  // 95%（>90 → critical）},
+		{SourceID: "src-001", Seq: 5, Value: 1200, Ts: now.Add(5 * time.Second)}, // 超量程坏数据}
+		{SourceID: "src-001", Seq: 1, Value: 300, Ts: now.Add(6 * time.Second)},  // 重复}
 	}
 	for _, ev := range feed {
 		if err := p.Ingest(ev); err != nil {

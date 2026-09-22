@@ -8,14 +8,14 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class StateCacheDemo {
-    private static final int VIN_COUNT = 4;
+    private static final int SOURCE_COUNT = 4;
     private static final int SEQ_MAX = 2000;
 
     public static void main(String[] args) throws InterruptedException {
         SourceStateCache cache = new SourceStateCache();
         List<Thread> writers = new ArrayList<>();
 
-        for (int v = 1; v <= VIN_COUNT; v++) {
+        for (int v = 1; v <= SOURCE_COUNT; v++) {
             String sourceId = "LSV" + String.format("%06d", v);
             // 双路网关：A 路正常速率、B 路先睡 30ms 再上报(制造大量乱序旧帧)
             writers.add(new Thread(() -> pump(cache, sourceId, SEQ_MAX, 0), "gw-A-" + sourceId));
@@ -39,7 +39,7 @@ public final class StateCacheDemo {
         reader.join();
 
         AtomicInteger pass = new AtomicInteger();
-        check(pass, cache.size() == VIN_COUNT, "4 个 SOURCE_ID 全部进入状态缓存");
+        check(pass, cache.size() == SOURCE_COUNT, "4 个 SOURCE_ID 全部进入状态缓存");
         boolean allConverged = cache.snapshot().stream()
                 .allMatch(s -> s.seq() == SEQ_MAX);
         check(pass, allConverged, "每个 SOURCE_ID 最终收敛到最大 seq=" + SEQ_MAX + "(乱序帧被拒，无旧值覆写)");

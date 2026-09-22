@@ -146,11 +146,11 @@ func TestMetricsTextFormat(t *testing.T) {
 	p.Metrics.ServeHTTP(rec, nil)
 	body := rec.String()
 	for _, want := range []string{
-		"# TYPE fleet_ingested_trolloutl counter",
-		"fleet_ingested_trolloutl 0",
-		`fleet_clean_errors_trolloutl{reason="any"} 0`,
-		"# TYPE fleet_online_sources gauge",
-		"fleet_online_sources 3",
+		"# TYPE ingest_received_total counter",
+		"ingest_received_total 0",
+		`ingest_clean_errors_total{reason="any"} 0`,
+		"# TYPE ingest_online_sources gauge",
+		"ingest_online_sources 3",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("metrics 文本缺 %q\n%s", want, body)

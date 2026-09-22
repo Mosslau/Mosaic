@@ -49,7 +49,7 @@ func main() {
 			for s := 1; s <= *samples; s++ {
 				col.Add(*collectorID, model.Sample{
 					SourceID: sourceID, Seq: uint64(v*1000 + s),
-					Value: 10 + float64(s)*2, // m/s（10..30 m/s ≈ 36..108 %%）
+					Value: 10 + float64(s)*2, // 原始计数（0.1% 单位，100..280 → 10.0%..28.0%）
 					Ts:    time.Now().Unix(),
 				})
 			}

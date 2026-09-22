@@ -48,15 +48,15 @@ func TestFullSuccessAdvancesToComplete(t *testing.T) {
 	sourceIDs := mkSourceIDs(9)
 	f := mkFleetN(sourceIDs)
 	r, _ := NewRollout("v2.0", 0.2, threeGroups(sourceIDs), f)
-	trolloutl, reports := 0, 0
+	total, reports := 0, 0
 	for _, g := range r.groups {
-		trolloutl += len(g.SourceIDs)
+		total += len(g.SourceIDs)
 	}
 	for _, g := range r.groups {
 		for _, sourceID := range g.SourceIDs {
 			reports++
 			act := r.Report(sourceID, true)
-			if reports == trolloutl { // 整场最后一台上报 → complete
+			if reports == total { // 整场最后一台上报 → complete
 				if act != Complete {
 					t.Fatalf("末台上报应 Complete, got %v", act)
 				}
