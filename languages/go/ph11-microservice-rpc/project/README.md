@@ -84,4 +84,4 @@ kill -TERM <各进程 pid>
 - **服务框架化**：把"发现 → LB → 熔断 → 超时重试"沉淀为可复用框架（roadmap 另一个推荐项目「gRPC 服务框架 demo」），新服务只注册 handler
 - **真实注册中心**：把 internal/registry 换成 etcd/Consul 的 Go client（本环境未装 etcd/Consul，未验证）
 - **共享存储**：设备状态落到 SQLite/MySQL（ph10 的连接池与事务），多实例读写同一份数据
-- **设备遥测推送**：状态实时推送（服务端流，参考 examples/ex05 的通知流）——属 ph21 IoT/车联网深入阶段
+- **设备遥测推送**：状态实时推送（服务端流，参考 examples/ex05 的通知流）——属 ph21 通用数据采集与接入网关深入阶段

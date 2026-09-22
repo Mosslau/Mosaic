@@ -1219,6 +1219,14 @@ Java 基础语法（含 var、Text Blocks）
 - 平台告警规则引擎
 - 作业历史查询服务
 
+### AI 平台 / 训练与推理调度项目
+
+- 训练任务编排平台
+- GPU 资源池与配额治理
+- 模型注册与发布平台
+- 推理服务灰度与回滚
+- 平台计量与成本核算
+
 ## 对你最推荐的 Java 路线
 
 ```text
@@ -1240,6 +1248,7 @@ Java 基础（含 var、Text Blocks）
 → Spring Cloud
 → Docker / Kubernetes
 → 数据平台 / 数据中心
+→ AI 平台 / 训练与推理调度
 ```
 
 重点掌握：OOP、record、sealed class、Collection、HashMap、ArrayList、Generic、Exception、Stream、Switch Expressions、Pattern Matching、Optional、ThreadPool、Virtual Threads、ConcurrentHashMap、JVM、Maven、JUnit、Spring Boot、MyBatis、Redis、Kafka、Docker、Kubernetes。
