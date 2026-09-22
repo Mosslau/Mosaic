@@ -41,7 +41,7 @@
 | `.gitignore` | 顶层通用忽略规则（三仓通用部分并集） |
 | `pyproject.toml` | Python 工程配置，覆盖 `algorithms/` 与 `engineering/ai-platform/` 两域 |
 | `README.md` | 三部分总入口 + 校验命令 + 边界 |
-| `languages/README.md` | 语言域导航（学/析/合 + 6 语言阶段表）；同时是站点首页源（`sync-docs.mjs` 的 `rootReadme`） |
+| `languages/README.md` | 语言域导航（学/析/合 + 6 语言阶段表）；同时是站点「总览」页源（`sync-docs.mjs` 的 `rootReadme` → `docs/about.md`） |
 | `engineering/README.md` | 工程域导航：两域分工、依赖关系与开工顺序 |
 | `roadmap/README.md` | 全仓路线索引（4 份路线文档） |
 | `languages/.gitignore` | 语言域产物清单（由 `TenetLang/.gitignore` 改名而来，10 行前缀修正） |
@@ -402,7 +402,7 @@ git commit -m "chore: 合并顶层公共资产与跨域资产
 
 **Interfaces:**
 - Consumes: Task 2 的 `.dsh/skills/tenetlang-notes/`
-- Produces: `languages/` 域，`validate.py` 可跑绿；`languages/README.md`（Task 7 的顶层 README 会链接它；`sync-docs.mjs` 的 `rootReadme` 依赖它）
+- Produces: `languages/` 域，`validate.py` 可跑绿；`languages/README.md`（Task 7 的顶层 README 会链接它；`sync-docs.mjs` 的 `rootReadme` 依赖它（落 `docs/about.md`））
 
 - [ ] **Step 1: 四组 `git mv` + `.gitignore` 改名**
 
@@ -438,18 +438,39 @@ Expected: 只有 `OK 语言域搬迁无遗漏、无多余`（`diff` 无输出）
 
 - [ ] **Step 3: 修 4 条 `analysis → studies` 链接**
 
-对 `languages/analysis/{cpp,java,py,rs}/README.md` 各一条：`](../../languages/<lang>/)` → `](../studies/<lang>/)`。
+对 `languages/analysis/{cpp,java,py,rs}/README.md` 各一条：`](../../languages/<lang>/)` → `](../../studies/<lang>/)`。
+
+⚠ **深度不变，只换族名段。** 源文件同时也下沉了一级（`analysis/cpp/` → `languages/analysis/cpp/`）：原来的两个 `../`
+是「爬出 `analysis/` 到仓库根」，现在的两个 `../` 是「爬出 `languages/analysis/` 到 `languages/`」——步数相同。
+写成 `](../studies/…)` 会指向不存在的 `languages/analysis/studies/`（实施时确实踩到，站点同步报了 4 条失效链接）。
+
+⚠ 这 4 条链接**不在语言域校验器的管辖范围内**（`lang_root = languages/studies`，而它们位于 `languages/analysis/`），
+`validate.py --links` 抓不到；**只有 Step 11 站点同步的死链报告能发现它们**，所以 Step 11 必须要求 **0 条失效链接**。
 
 ```bash
 cd /Users/ninebot/code/mosslau/Mosaic
-sed -i '' -e 's|](\.\./\.\./languages/|](../studies/|g' \
+sed -i '' -e 's|](\.\./\.\./languages/|](../../studies/|g' \
   languages/analysis/cpp/README.md languages/analysis/java/README.md \
   languages/analysis/py/README.md  languages/analysis/rs/README.md
-grep -rn '](\.\./studies/' languages/analysis | wc -l   # 期望 4
-grep -rn '\.\./\.\./languages/' languages/analysis | wc -l  # 期望 0
+grep -rho '](\.\./\.\./studies/' languages/analysis | wc -l  # 期望 4（正确深度）
+grep -rho '](\.\./studies/'           languages/analysis | wc -l  # 期望 0（错误深度）
+grep -rho '\.\./\.\./languages/'      languages/analysis | wc -l  # 期望 0（残留旧形态）
+for l in cpp java py rs; do test -d "languages/studies/$l" || echo "❌ languages/studies/$l 不存在"; done
+echo "四个目标目录均存在"
 ```
 
-Expected: `4` 与 `0`。
+Expected: `4` / `0` / `0` + `四个目标目录均存在`。
+
+⚠ **Step 2 的映射 diff 只在 Step 7b 之前有效。** Step 7b 把 `content/languages/index.md` 改名为
+`content/studies/index.md`（族名改了，手写总览页必须落在对应的**路由**上），此后重跑 Step 2 会多出 2 行。
+那是**纯改名、零内容丢失**，用 blob 比对即可证伪：
+
+```bash
+cd /Users/ninebot/code/mosslau/Mosaic
+a=$(git rev-parse ../TenetLang:website/content/languages/index.md)
+b=$(git rev-parse HEAD:languages/website/content/studies/index.md)
+test "$a" = "$b" && echo "OK 纯改名，blob 相同：$a" || echo "❌ 内容变了：$a vs $b"
+```
 
 - [ ] **Step 4: 修 `languages/.gitignore` 的 10 行前缀**
 
@@ -568,6 +589,78 @@ grep -c 'familyFiles\.studies'   languages/website/scripts/sync-docs.mjs   # 期
 
 Expected: `0` 与 `2`。
 
+- [ ] **Step 7b: 修站点侧的**全部**族名假设（路由 + 监听路径 + 文案）**
+
+Step 7 只改了 `sync-docs.mjs` 的**数据路径**。站点的族名假设还有三层，且每层的失败方式都不同——**必须三层一起改**：
+
+| 层 | 文件 | 行 | 原文 | 改为 |
+|---|---|---|---|---|
+| 路由 | `scripts/sync-docs.mjs` | 494 | `` board: `/languages/${meta.id}/`, `` | `` board: `/studies/${meta.id}/`, `` |
+| 路由 | `.vitepress/config.mts` | 59 | `{ text: '六门语言总览', link: '/languages/' }` | `link: '/studies/'` |
+| 路由 | `.vitepress/config.mts` | 80 | `` `/languages/${lang.id}/`, `` | `` `/studies/${lang.id}/`, `` |
+| 路由 | `.vitepress/config.mts` | 104 | `'/languages/': [` | `'/studies/': [` |
+| 路由 | `.vitepress/theme/components/ThreePaths.vue` | 12 | `link: '/languages/',` | `link: '/studies/',` |
+| 路由 | `content/analysis/index.md` | 20 | `[六门语言](/languages/)` | `[六门语言](/studies/)` |
+| 路由 | `content/languages/index.md` | — | （文件） | `git mv` 为 `content/studies/index.md` |
+| **监听** | `scripts/dev.mjs` | 23 | `path.join(REPO_DIR, 'languages'),` | `path.join(REPO_DIR, 'studies'),` |
+| 文案 | `scripts/dev.mjs` | 5 / 21 | 「内容真源是 `languages/`…与仓库根 README」/「三个内容族（仓库根）」 | 域根下的 `studies/`…与域根 README /（域根） |
+| 文案 | `scripts/sync-docs.mjs` | 7 / 486 | 头注释「仓库里的 `languages/`」/ 告警文案 `languages/${meta.id}/` | 域根下的 `studies/` / `studies/${meta.id}/` |
+| 文案 | `package.json` | 6 | description `languages / analysis / tenet 三族` | `studies / analysis / tenet 三族` |
+
+**三层各自的失败方式是本步存在的理由：**
+- **路由层**不改：构建照样成功，但导航与侧边栏每个语言链接**静默 404**。
+- **监听层**（`dev.mjs:23`）不改：`REPO_DIR` 现在是语言域根，该路径解析为不存在的 `languages/languages`，而第 78 行的
+  `fs.existsSync` 守卫**静默跳过**它——`npm run dev` 正常启动，但**不再监听 3905 个语言源文件**。
+- **文案层**不改：不影响运行，但会误导后来者。
+
+⚠ **不要改** `curriculum.languages` / `stats.languages`——那是 `curriculum.json` 的**数据模型键**（由 `sync-docs.mjs:524/528`
+产出，与路径无关）；`dev.mjs:29` 的 `path.join(REPO_DIR, 'README.md')` 也是**对的**（现在解析为 `languages/README.md`）。
+
+```bash
+cd /Users/ninebot/code/mosslau/Mosaic/languages/website
+python3 - <<'PY'
+import pathlib
+edits = {
+  'scripts/sync-docs.mjs': [("    board: `/languages/${meta.id}/`,", "    board: `/studies/${meta.id}/`,"),
+                            ("内容唯一真源始终是仓库里的 `languages/`、`analysis/`、`tenet/`。",
+                             "内容唯一真源始终是域根下的 `studies/`、`analysis/`、`tenet/`。"),
+                            ("warn(`languages/${meta.id}/ 顶层应有且仅有 1 篇 roadmap",
+                             "warn(`studies/${meta.id}/ 顶层应有且仅有 1 篇 roadmap")],
+  '.vitepress/config.mts': [("{ text: '六门语言总览', link: '/languages/' },", "{ text: '六门语言总览', link: '/studies/' },"),
+                            ("    `/languages/${lang.id}/`,", "    `/studies/${lang.id}/`,"),
+                            ("  '/languages/': [", "  '/studies/': [")],
+  '.vitepress/theme/components/ThreePaths.vue': [("    link: '/languages/',", "    link: '/studies/',")],
+  'content/analysis/index.md': [("[六门语言](/languages/)", "[六门语言](/studies/)")],
+  'scripts/dev.mjs': [("  path.join(REPO_DIR, 'languages'),", "  path.join(REPO_DIR, 'studies'),"),
+                      ("内容真源是 `languages/`、`analysis/`、`tenet/` 与仓库根 README",
+                       "内容真源是域根下的 `studies/`、`analysis/`、`tenet/` 与域根 README"),
+                      ("三个内容族（仓库根）", "三个内容族（域根）")],
+  'package.json': [("languages / analysis / tenet 三族", "studies / analysis / tenet 三族")],
+}
+n=0
+for f,reps in edits.items():
+    q=pathlib.Path(f); s=q.read_text(encoding='utf-8')
+    for a,b in reps:
+        assert s.count(a)==1, f"{f}: 命中 {s.count(a)} 次: {a[:45]}"
+        s=s.replace(a,b); n+=1
+    q.write_text(s,encoding='utf-8')
+print(f"共改 {n} 处（期望 15）")
+PY
+git mv content/languages/index.md content/studies/index.md
+rmdir content/languages 2>/dev/null || true
+
+echo "--- 路由层：站点工程内不得再有 /languages 路由引用 ---"
+grep -rn '/languages' .vitepress scripts content 2>/dev/null | grep -v node_modules | grep -v '/dist/' | wc -l  # 期望 0
+test -f content/studies/index.md && echo "OK 总览页已在 content/studies/index.md"
+test ! -e content/languages && echo "OK content/languages/ 已不存在"
+echo "--- 监听层：dev server 必须真的在监听 studies ---"
+timeout 30 node scripts/dev.mjs 2>&1 | grep -m1 '监听中'   # 必须出现 studies
+echo "--- 文案层：陈旧表述清零 ---"
+grep -rn "REPO_DIR, 'languages'\|仓库里的 `languages/`\|仓库根 README" scripts package.json | wc -l  # 期望 0
+```
+
+Expected: `共改 15 处（期望 15）`；`0` + 两行 `OK …`；`监听中：studies、analysis、tenet、website/content、README.md`（站点现在位于域根之下，故 `content` 的相对路径带 `website/` 前缀）；最后 `0`。
+
 - [ ] **Step 8: 修 `languages/website/README.md` 的 12 处路径（站点内容根 = 语言域根）**
 
 站点移进 `languages/` 后，它的**内容根就是语言域根**，所以内容族名写成 `studies/`（不是 `languages/studies/`），
@@ -608,7 +701,8 @@ Expected: `OK 旧写法已清零`；`studies/` 命中若干行；`cd languages/w
 
 - [ ] **Step 9: 写 `languages/README.md`**
 
-Create `languages/README.md`（**必须是站点首页可读的域导航页**，因为 `sync-docs.mjs:476` 用它当首页源）：
+Create `languages/README.md`（**必须是站点可读的域导航页**：`sync-docs.mjs:476` 的 `rootReadme` 会把它复制成站点的
+「总览」页 `docs/about.md`——**不是**首页，首页是手写的 `content/index.md`）：
 
 ````markdown
 # languages —— 开发语言部分
@@ -704,7 +798,14 @@ npm run build
 ls docs/index.md docs/studies 2>/dev/null | head
 ```
 
-Expected: 构建成功（`✓ building client + server bundles`、`build complete`）；`docs/index.md` 存在（由 `languages/README.md` 生成）；`docs/studies/` 存在。
+Expected: 构建成功（`✓ building client + server bundles`、`build complete`）；**同步输出中 0 条「失效链接」**
+（这是 Step 3 那 4 条 `analysis → studies` 链接的**唯一**把关点，见 Step 3 的说明）。
+
+产物归属（**不要搞错**）：
+- `docs/index.md` ← **手写的 `content/index.md`**（站点首页），**不是** `languages/README.md`；
+- `docs/about.md` ← `languages/README.md`（域导航页落成站点的「总览/about」页，`sync-docs.mjs:475–477` 的 `rootReadme`）；
+- `docs/studies/index.md` ← Step 7b 改名的 `content/studies/index.md`（六门语言总览页）；
+- `docs/studies/<lang>/index.md` ← 生成的语言卡片页；**`docs/languages` 必须不存在**。
 
 - [ ] **Step 12: 提交**
 
@@ -1346,7 +1447,7 @@ grep -rn '\.\./TenetLang/\|\.\./MindSpring/\|\.\./OceanVerse/' \
   --include='*.md' --include='*.py' --include='*.mjs' --include='*.yml' --include='*.sh' . \
   | grep -v '^\./docs/superpowers/' || echo "OK 无仓外路径"
 echo "--- 旧语言域路径（必须为 0）---"
-grep -rn "REPO_DIR, 'languages'\|root / \"languages\"$" --include='*.py' --include='*.mjs' . || echo "OK 无旧路径假设"
+grep -rnE "REPO_DIR,[[:space:]]*'languages'|root / \"languages\"$" --include='*.py' --include='*.mjs' . || echo "OK 无旧路径假设"
 ```
 
 Expected: 两行 `OK …`。
