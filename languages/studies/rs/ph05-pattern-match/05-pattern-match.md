@@ -16,7 +16,7 @@
 | matches! 宏 | 返回 bool 的轻量匹配 |
 | 状态建模 | 用 enum 表达设备状态、订单状态、连接状态——枚举最核心的实战用法 |
 
-**本阶段边界**：不展开 trait 对象与 enum 的取舍（ph07 trait）、`#[non_exhaustive]` API 演进策略、宏中的模式匹配。ph03 讲过 enum 基础定义和简单 match，ph04 深入过 Option/Result（本身就是枚举）——本阶段在它们之上系统讲透模式匹配的全部能力。
+**本阶段边界**：不涉及 trait 对象与 enum 的取舍（ph07 trait）、`#[non_exhaustive]` API 演进策略、宏中的模式匹配。ph03 讲过 enum 基础定义和简单 match，ph04 深入过 Option/Result（本身就是枚举）——本阶段在它们之上系统讲透模式匹配的全部能力。
 
 ## 2. 来源与演变
 

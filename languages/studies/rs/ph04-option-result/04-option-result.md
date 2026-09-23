@@ -16,7 +16,7 @@ Option 和 Result 阶段的定位是：**能判断何时用 Option 或 Result、
 | Result 组合子 | map_err、and_then、ok() 转 Option |
 | 类型转换 | copied()/cloned()、map_err 转换错误类型 |
 
-**本阶段边界**：不展开自定义错误类型设计（ph07 trait）、thiserror/anyhow 库、panic/unwind 机制。枚举深度模式匹配在 **ph05 模式匹配与枚举阶段**。ph02 猜数字示例中用过的 `unwrap`/`expect`、ph03 `Vec::first()` 返回 `Option`——本阶段正式讲透。
+**本阶段边界**：不涉及自定义错误类型设计（ph07 trait）、thiserror/anyhow 库、panic/unwind 机制。枚举深度模式匹配在 **ph05 模式匹配与枚举阶段**。ph02 猜数字示例中用过的 `unwrap`/`expect`、ph03 `Vec::first()` 返回 `Option`——本阶段正式讲透。
 
 ## 2. 来源与演变
 

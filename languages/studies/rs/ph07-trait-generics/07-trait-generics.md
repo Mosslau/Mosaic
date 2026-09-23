@@ -17,7 +17,7 @@ Trait 与泛型阶段的定位是：**能用 trait 定义行为契约（"能做�
 | 静态分发与单态化 | 编译期为每种类型生成专用代码，零运行时开销 |
 | trait 对象与对象安全初步 | dyn Trait、vtable、对象安全条件、异构集合 |
 
-**本阶段边界**：承接 ph06 模块化与 Cargo（本阶段示例按 crate 组织，先建立模块再抽象行为）；不展开生命周期标注深入（ph08）、trait 对象与 dyn 的深入用法（ph08+）、闭包与迭代器深入（ph09）、异步 trait（ph12）、宏与过程宏（[ph15 宏与元编程阶段](../ph15-macros-metaprogramming/15-macros-metaprogramming.md)，本阶段只"用"derive）。
+**本阶段边界**：承接 ph06 模块化与 Cargo（本阶段示例按 crate 组织，先建立模块再抽象行为）；不涉及生命周期标注深入（ph08）、trait 对象与 dyn 的深入用法（ph08+）、闭包与迭代器深入（ph09）、异步 trait（ph12）、宏与过程宏（[ph15 宏与元编程阶段](../ph15-macros-metaprogramming/15-macros-metaprogramming.md)，本阶段只"用"derive）。
 
 ## 2. 来源与演变
 
