@@ -11,7 +11,7 @@
 
 ```text
 ingest/device-contracts/
-├── go.mod                  # module github.com/Mosslau/OceanVerse/ingest/device-contracts（零外部依赖）
+├── go.mod                  # module github.com/Mosslau/Mosaic/ingest/device-contracts（零外部依赖）
 └── vehicle/
     ├── vehicle.go          # VehicleReport + ReportData + Validate + SchemaV1（信封 v2）
     └── vehicle_test.go     # 契约校验单测
@@ -26,11 +26,11 @@ ingest/device-contracts/
 
 ```go
 // go.mod:
-require github.com/Mosslau/OceanVerse/ingest/device-contracts v0.0.0-00010101000000-000000000000
-replace github.com/Mosslau/OceanVerse/ingest/device-contracts => ../device-contracts   // 按实际相对路径调整
+require github.com/Mosslau/Mosaic/ingest/device-contracts v0.0.0-00010101000000-000000000000
+replace github.com/Mosslau/Mosaic/ingest/device-contracts => ../device-contracts   // 按实际相对路径调整
 
 // 代码:
-import "github.com/Mosslau/OceanVerse/ingest/device-contracts/vehicle"
+import "github.com/Mosslau/Mosaic/ingest/device-contracts/vehicle"
 ```
 
 ## 4. 契约设计（两层/结构/字段/版本）

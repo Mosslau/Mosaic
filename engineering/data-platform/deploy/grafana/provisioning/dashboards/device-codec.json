@@ -1,7 +1,7 @@
 {
   "uid": "device-codec",
   "title": "device-codec 编解码服务",
-  "tags": ["oceanverse", "ingest"],
+  "tags": ["mosaic", "ingest"],
   "timezone": "",
   "refresh": "5s",
   "time": { "from": "now-15m", "to": "now" },
@@ -16,7 +16,7 @@
       "title": "消费 vs 解码（按 type）",
       "description": "consumed 为原始帧速率, decoded 按 L2 type 分类。比值=每帧平均拆出几条; decoded 总量应恒 ≥ consumed(一帧可拆多条)。",
       "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
-      "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+      "datasource": { "type": "prometheus", "uid": "mosaic-prometheus" },
       "fieldConfig": {
         "defaults": {
           "unit": "reqps",
@@ -31,13 +31,13 @@
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+          "datasource": { "type": "prometheus", "uid": "mosaic-prometheus" },
           "expr": "sum(rate(codec_consumed_total[1m]))",
           "legendFormat": "消费(原始帧)"
         },
         {
           "refId": "B",
-          "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+          "datasource": { "type": "prometheus", "uid": "mosaic-prometheus" },
           "expr": "sum by (type) (rate(codec_decoded_total[1m]))",
           "legendFormat": "{{type}}"
         }
@@ -49,7 +49,7 @@
       "title": "DLQ 速率（按 stage）",
       "description": "codec 是链路上唯一会丢弃消息的环节。任何非零且持续增长都要查: parse/decode=对端字节问题, validate=契约不同步, envelope=版本/信封问题, encode=平台侧序列化异常(§6.1)。",
       "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
-      "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+      "datasource": { "type": "prometheus", "uid": "mosaic-prometheus" },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
@@ -65,7 +65,7 @@
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+          "datasource": { "type": "prometheus", "uid": "mosaic-prometheus" },
           "expr": "sum by (stage) (rate(codec_dlq_total[1m]))",
           "legendFormat": "{{stage}}"
         }
@@ -77,7 +77,7 @@
       "title": "消费滞后 lag（实时性核心）",
       "description": "codec_consumer_lag(来自 kafka-go ReaderStats)。持续 >0 = 解码跟不上或下游写慢; 归零能力是第 2 阶段 HPA 的判据。",
       "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
-      "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+      "datasource": { "type": "prometheus", "uid": "mosaic-prometheus" },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
@@ -92,7 +92,7 @@
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+          "datasource": { "type": "prometheus", "uid": "mosaic-prometheus" },
           "expr": "codec_consumer_lag",
           "legendFormat": "lag(条)"
         }
@@ -104,7 +104,7 @@
       "title": "微批写出耗时（p50/p99）与平均批大小",
       "description": "codec_flush_duration_seconds: 每批\"写出+提交位移\"耗时。变慢=Kafka 或网络抖动; 同时看批大小是否塌陷(攒批失效)。",
       "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
-      "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+      "datasource": { "type": "prometheus", "uid": "mosaic-prometheus" },
       "fieldConfig": {
         "defaults": {
           "unit": "s",
@@ -119,19 +119,19 @@
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+          "datasource": { "type": "prometheus", "uid": "mosaic-prometheus" },
           "expr": "histogram_quantile(0.99, sum by (le) (rate(codec_flush_duration_seconds_bucket[5m])))",
           "legendFormat": "p99"
         },
         {
           "refId": "B",
-          "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+          "datasource": { "type": "prometheus", "uid": "mosaic-prometheus" },
           "expr": "histogram_quantile(0.50, sum by (le) (rate(codec_flush_duration_seconds_bucket[5m])))",
           "legendFormat": "p50"
         },
         {
           "refId": "C",
-          "datasource": { "type": "prometheus", "uid": "ov-prometheus" },
+          "datasource": { "type": "prometheus", "uid": "mosaic-prometheus" },
           "expr": "sum(rate(codec_flush_batch_size_sum[5m])) / clamp_min(sum(rate(codec_flush_batch_size_count[5m])), 1)",
           "legendFormat": "平均批大小(条)"
         }
@@ -150,7 +150,7 @@
       },
       "datasource": {
         "type": "prometheus",
-        "uid": "ov-prometheus"
+        "uid": "mosaic-prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -179,7 +179,7 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "ov-prometheus"
+            "uid": "mosaic-prometheus"
           },
           "expr": "histogram_quantile(0.99, sum by (le) (rate(codec_ingest_to_decode_seconds_bucket[5m])))",
           "legendFormat": "p99 EMQX→解码"
@@ -188,7 +188,7 @@
           "refId": "B",
           "datasource": {
             "type": "prometheus",
-            "uid": "ov-prometheus"
+            "uid": "mosaic-prometheus"
           },
           "expr": "histogram_quantile(0.5, sum by (le) (rate(codec_ingest_to_decode_seconds_bucket[5m])))",
           "legendFormat": "p50 EMQX→解码"
@@ -208,7 +208,7 @@
       },
       "datasource": {
         "type": "prometheus",
-        "uid": "ov-prometheus"
+        "uid": "mosaic-prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -237,7 +237,7 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "ov-prometheus"
+            "uid": "mosaic-prometheus"
           },
           "expr": "histogram_quantile(0.5, sum by (le) (rate(codec_device_to_decode_seconds_bucket[5m])))",
           "legendFormat": "p50 设备ts→解码"
@@ -246,7 +246,7 @@
           "refId": "B",
           "datasource": {
             "type": "prometheus",
-            "uid": "ov-prometheus"
+            "uid": "mosaic-prometheus"
           },
           "expr": "histogram_quantile(0.99, sum by (le) (rate(codec_device_to_decode_seconds_bucket[5m])))",
           "legendFormat": "p99 设备ts→解码"

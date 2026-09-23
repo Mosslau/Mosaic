@@ -1,4 +1,4 @@
--- OceanVerse Flink 实时作业 —— 共享表定义（用 sql-client 的 `-i` 载入, 三个作业公用）
+-- Mosaic Flink 实时作业 —— 共享表定义（用 sql-client 的 `-i` 载入, 三个作业公用）
 --
 -- 为什么把"源表 + 三个 sink"都放这里: 连接参数与字段映射是**单一源** ——
 --   三个作业文件只写 INSERT, 避免 Kafka 地址 / ClickHouse 凭据 / 字段类型在三处各抄一份而漂移

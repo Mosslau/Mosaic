@@ -26,9 +26,9 @@ import (
 
 	"github.com/segmentio/kafka-go"
 
-	"github.com/Mosslau/OceanVerse/ingest/device-codec/internal/gbt32960"
-	"github.com/Mosslau/OceanVerse/ingest/device-codec/internal/metrics"
-	"github.com/Mosslau/OceanVerse/ingest/device-contracts/vehicle"
+	"github.com/Mosslau/Mosaic/ingest/device-codec/internal/gbt32960"
+	"github.com/Mosslau/Mosaic/ingest/device-codec/internal/metrics"
+	"github.com/Mosslau/Mosaic/ingest/device-contracts/vehicle"
 )
 
 // rawEnvelope 网关透传信封(映射文档 §7)

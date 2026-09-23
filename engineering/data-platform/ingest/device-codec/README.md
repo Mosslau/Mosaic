@@ -2,7 +2,7 @@
 
 > 📚 **简称约定**：《接入层设计》= 《../docs/01-接入层设计-v1.md》｜《GB32960 映射》= 《../docs/02-GB32960协议规格-v1.md》｜《示例集》= 《../docs/03-验收示例集-v1.md》。下文以这三个简称标注跨文档引用。
 
-> OceanVerse 第 1 阶段收尾（提前量）——二进制链路的 L1→L2 翻译层
+> Mosaic 第 1 阶段收尾（提前量）——二进制链路的 L1→L2 翻译层
 > 职责：消费 `ov.raw.binary.v1` → 按 `proto_ver` 选解码器 → 输出 `VehicleReport` 到 `vehicle-report-raw`（与 JSON 通道汇合，下游无感）
 > 纪律：未知版本不猜、直接 DLQ；不做鉴权/限流/业务判断；无状态可横扩
 > 📐 **规格**：《GB32960 映射》（已定稿 v1.4）；链路与 DLQ 见《接入层设计》§7
@@ -43,10 +43,10 @@ CODEC_PPROF_PORT=18091          # /debug/pprof 端口
 构建上下文同样是**仓库根**（依赖 `ingest/device-contracts` 的 replace）：
 
 ```bash
-docker build -f ingest/device-codec/Dockerfile -t oceanverse/device-codec:dev .
-docker run --rm --network oceanverse_ov-net \
+docker build -f ingest/device-codec/Dockerfile -t mosaic/device-codec:dev .
+docker run --rm --network mosaic_net \
   -e KAFKA_BROKERS=kafka:9092 \        # 容器内用内部监听器(host 侧是 localhost:19092)
-  oceanverse/device-codec:dev
+  mosaic/device-codec:dev
 ```
 
 无端口：输入输出都是 Kafka topic；容器内验证看消费组 lag 与 `vehicle-report-raw` 是否新增。

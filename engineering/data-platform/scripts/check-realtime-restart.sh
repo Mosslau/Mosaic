@@ -32,11 +32,11 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 REST="${FLINK_REST:-http://127.0.0.1:18088}"
-KAFKA_CT="${KAFKA_CONTAINER:-ov-kafka}"
-CH_CT="${CLICKHOUSE_CONTAINER:-ov-clickhouse}"
+KAFKA_CT="${KAFKA_CONTAINER:-mosaic-kafka}"
+CH_CT="${CLICKHOUSE_CONTAINER:-mosaic-clickhouse}"
 TIMEOUT="${RST_TIMEOUT:-180}"          # 每条断言各自的预算(秒)
-JOBS=(ov-online-count-1m ov-fault-count-1m ov-high-temp-battery-1m)
-FAULT_JOB=ov-fault-count-1m
+JOBS=(mosaic-online-count-1m mosaic-fault-count-1m mosaic-high-temp-battery-1m)
+FAULT_JOB=mosaic-fault-count-1m
 GROUP=flink-realtime-fault-1m          # 作业②的消费组(位移恢复就靠它)
 VIN_A=OVRST00001
 VIN_B=OVRST00002
@@ -75,7 +75,7 @@ group_offsets() { docker exec "${KAFKA_CT}" /opt/kafka/bin/kafka-consumer-groups
     --bootstrap-server kafka:9092 --describe --group "$1" 2>/dev/null \
     | awk 'NR>1 && $2=="vehicle-report-raw" {c+=$4; e+=$5} END {printf "%d %d\n", c+0, e+0}'; }
 # 结果表里某故障码的行数（按码计, 与作业②口径一致）
-code_rows() { num "SELECT count() FROM oceanverse.ads_fault_count_1m WHERE code='$1'"; }
+code_rows() { num "SELECT count() FROM mosaic.ads_fault_count_1m WHERE code='$1'"; }
 
 # 注入一台车的故障 + 心跳, 心跳的 ts 是**未来**时刻(最多 +70s) → 水位线立刻越过窗口结束
 # 窗口 = TUMBLE(ts, 1 MINUTE); WATERMARK 容忍 10s ⇒ 需要 max_ts ≥ 窗口结束 + 10s = T0 + 65s
@@ -110,7 +110,7 @@ if [ "${n:-0}" != "3" ]; then
   echo "     先起集群与作业: docker compose -f deploy/docker-compose.yaml --profile realtime up -d && bash lakehouse/warehouse/streaming/submit-jobs.sh"
   exit 2
 fi
-tables=$(num "SELECT count() FROM system.tables WHERE database='oceanverse' AND name IN ('ads_vehicle_online_1m','ads_fault_count_1m','ads_high_temp_battery_1m')")
+tables=$(num "SELECT count() FROM system.tables WHERE database='mosaic' AND name IN ('ads_vehicle_online_1m','ads_fault_count_1m','ads_high_temp_battery_1m')")
 if [ "${tables:-0}" != "3" ]; then
   echo "  ⚠️ 前置不满足: ClickHouse 结果表不全（${tables:-?}/3）→ 先跑 init.sql"
   exit 2
@@ -165,14 +165,14 @@ fi
 
 # ---------- ④ 重新提交, 断言停机期间的数据不丢 ----------
 info "重新提交三个作业（submit-jobs.sh）"
-bash "${ROOT}/lakehouse/warehouse/streaming/submit-jobs.sh" >/tmp/ov-restart-submit.log 2>&1
+bash "${ROOT}/lakehouse/warehouse/streaming/submit-jobs.sh" >/tmp/mosaic-restart-submit.log 2>&1
 deadline=$(( $(date +%s) + TIMEOUT ))
 while [ "$(date +%s)" -lt "${deadline}" ]; do
   [ "$(running)" = "3" ] && break
   sleep 5
 done
 n=$(running)
-[ "${n:-0}" = "3" ] && ok "三个作业重新提交后 RUNNING" || { bad "重新提交后有 ${n:-0} 个作业 RUNNING（详见 /tmp/ov-restart-submit.log）"; }
+[ "${n:-0}" = "3" ] && ok "三个作业重新提交后 RUNNING" || { bad "重新提交后有 ${n:-0} 个作业 RUNNING（详见 /tmp/mosaic-restart-submit.log）"; }
 wait_rows "${CODE_B}" 1 "停机期间的数据已进结果表（${CODE_B}）—— **窗口没因重启断档**" || true
 
 # ---------- ⑤ 位移前进(补读完成) ----------
@@ -193,8 +193,8 @@ fi
 # ---------- ⑥ 幂等落表: 停机期间那条窗口"去重后恰好一行" ----------
 # 目标表是 ReplacingMergeTree, 排序键 (window_start, code) 就是业务键 ⇒ FINAL 查询天然幂等。
 # 不加 FINAL 的原始行数一并打出来: 大于 1 说明真有重复被写进去过(靠去重兜住), 也是有用信息。
-rows_final=$(num "SELECT count() FROM oceanverse.ads_fault_count_1m FINAL WHERE code='${CODE_B}'")
-rows_raw=$(num "SELECT count() FROM oceanverse.ads_fault_count_1m WHERE code='${CODE_B}'")
+rows_final=$(num "SELECT count() FROM mosaic.ads_fault_count_1m FINAL WHERE code='${CODE_B}'")
+rows_raw=$(num "SELECT count() FROM mosaic.ads_fault_count_1m WHERE code='${CODE_B}'")
 if [ "${rows_final:-0}" = "1" ]; then
   ok "幂等落表: ${CODE_B} 去重后恰好 1 行（原始 ${rows_raw} 行; 排序键 (window_start, code)）"
 else

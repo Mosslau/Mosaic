@@ -1,11 +1,11 @@
-module github.com/Mosslau/OceanVerse/ingest/device-codec
+module github.com/Mosslau/Mosaic/ingest/device-codec
 
 go 1.25
 
-replace github.com/Mosslau/OceanVerse/ingest/device-contracts => ../device-contracts
+replace github.com/Mosslau/Mosaic/ingest/device-contracts => ../device-contracts
 
 require (
-	github.com/Mosslau/OceanVerse/ingest/device-contracts v0.0.0-00010101000000-000000000000
+	github.com/Mosslau/Mosaic/ingest/device-contracts v0.0.0-00010101000000-000000000000
 	github.com/prometheus/client_golang v1.23.2
 	github.com/prometheus/client_model v0.6.2
 	github.com/segmentio/kafka-go v0.4.49

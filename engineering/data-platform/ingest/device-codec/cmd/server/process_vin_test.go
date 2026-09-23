@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Mosslau/OceanVerse/ingest/device-codec/internal/gbt32960"
+	"github.com/Mosslau/Mosaic/ingest/device-codec/internal/gbt32960"
 )
 
 // 本文件复用 flush_test.go 的 goldenFrameHex(同一 package main 的测试常量):

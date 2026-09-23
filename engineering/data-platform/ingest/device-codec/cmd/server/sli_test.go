@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Mosslau/OceanVerse/ingest/device-codec/internal/metrics"
+	"github.com/Mosslau/Mosaic/ingest/device-codec/internal/metrics"
 )
 
 // 本文件锁定 codec 侧的上行延迟 SLI(《接入层设计》§9):

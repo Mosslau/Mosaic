@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Mosslau/OceanVerse/ingest/device-contracts/vehicle"
-	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/metrics"
-	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/model"
+	"github.com/Mosslau/Mosaic/ingest/device-contracts/vehicle"
+	"github.com/Mosslau/Mosaic/ingest/device-gateway/internal/metrics"
+	"github.com/Mosslau/Mosaic/ingest/device-gateway/internal/model"
 )
 
 // webhookTokenHeader EMQX webhook 来源鉴权头

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/Mosslau/OceanVerse/ingest/device-contracts/vehicle"
-	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/metrics"
-	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/model"
+	"github.com/Mosslau/Mosaic/ingest/device-contracts/vehicle"
+	"github.com/Mosslau/Mosaic/ingest/device-gateway/internal/metrics"
+	"github.com/Mosslau/Mosaic/ingest/device-gateway/internal/model"
 )
 
 // MQTTIngestHandler 接收 EMQX 规则引擎 Webhook 推送的车端消息。

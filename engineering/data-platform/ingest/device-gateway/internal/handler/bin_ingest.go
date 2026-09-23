@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/metrics"
-	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/model"
+	"github.com/Mosslau/Mosaic/ingest/device-gateway/internal/metrics"
+	"github.com/Mosslau/Mosaic/ingest/device-gateway/internal/model"
 )
 
 // BinIngestHandler 二进制透传通道(MQTT 载荷先行, §8-⑦)。

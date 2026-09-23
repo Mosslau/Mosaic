@@ -1,11 +1,11 @@
-module github.com/Mosslau/OceanVerse/ingest/device-gateway
+module github.com/Mosslau/Mosaic/ingest/device-gateway
 
 go 1.25
 
-replace github.com/Mosslau/OceanVerse/ingest/device-contracts => ../device-contracts
+replace github.com/Mosslau/Mosaic/ingest/device-contracts => ../device-contracts
 
 require (
-	github.com/Mosslau/OceanVerse/ingest/device-contracts v0.0.0-00010101000000-000000000000
+	github.com/Mosslau/Mosaic/ingest/device-contracts v0.0.0-00010101000000-000000000000
 	github.com/eclipse/paho.mqtt.golang v1.5.0
 	github.com/prometheus/client_golang v1.23.2
 	// client_model 由 internal/kafka/producer_test.go 直接 import(读取 CounterVec 快照),

@@ -9,7 +9,7 @@ import (
 
 	"github.com/segmentio/kafka-go"
 
-	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/metrics"
+	"github.com/Mosslau/Mosaic/ingest/device-gateway/internal/metrics"
 )
 
 // Producer 车端数据 Kafka 生产者

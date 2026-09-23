@@ -11,8 +11,8 @@ import (
 
 	"golang.org/x/time/rate"
 
-	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/metrics"
-	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/model"
+	"github.com/Mosslau/Mosaic/ingest/device-gateway/internal/metrics"
+	"github.com/Mosslau/Mosaic/ingest/device-gateway/internal/model"
 )
 
 // Limiter 双层限流器

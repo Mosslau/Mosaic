@@ -2,7 +2,7 @@
 # 车端接入网关镜像: 多阶段构建, 最终产物为静态二进制 + CA 证书
 #
 # ⚠️ 构建上下文必须是**仓库根**(契约模块在 ingest/device-contracts, go.mod 的 replace 指过去):
-#     docker build -f ingest/device-gateway/Dockerfile -t oceanverse/device-gateway:dev .
+#     docker build -f ingest/device-gateway/Dockerfile -t mosaic/device-gateway:dev .
 #   (历史写法——在模块目录内 `docker build .`——在契约拆分后失效:
 #    replace ../device-contracts 落在构建上下文之外, 会报 replacement directory does not exist)
 

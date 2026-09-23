@@ -46,4 +46,4 @@ lakehouse/                            ← 本层
 - `warehouse/README.md` —— 数仓分层规约（ODS→DWD→DWS→ADS）与命名
 - `warehouse/streaming/README.md` —— 流处理模块手册：口径 / 四步跑起来 / 实测证据 / 运维 / 6 条已知边界
 - `../deploy/README.md` —— 基础设施：部署步骤、组件清单、修订记录
-- `engineering/data-platform/roadmap/项目进度.md` —— 阶段进度与待收口项
+- `roadmap/项目进度.md` —— 阶段进度与待收口项

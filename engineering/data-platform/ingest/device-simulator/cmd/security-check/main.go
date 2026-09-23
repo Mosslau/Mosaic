@@ -30,7 +30,7 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 
-	"github.com/Mosslau/OceanVerse/ingest/device-simulator/internal/simconn"
+	"github.com/Mosslau/Mosaic/ingest/device-simulator/internal/simconn"
 )
 
 var (
@@ -47,7 +47,7 @@ var failed int
 
 func main() {
 	flag.Parse()
-	fmt.Println("=== OceanVerse 公网路径安全基线自检 ===")
+	fmt.Println("=== Mosaic 公网路径安全基线自检 ===")
 	fmt.Printf("TLS 端口: %s | 明文端口: %s | 被测设备: %s\n\n", *tlsBroker, *plainBroker, *vin)
 
 	// 前置: 凭证可用性(不可判定 → 早退, 见文件头说明)

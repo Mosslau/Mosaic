@@ -2,7 +2,7 @@ apiVersion: 1
 
 # Grafana 启动时自动加载本目录下的 *.json 面板(面板即代码, 随仓版本化)
 providers:
-  - name: oceanverse
+  - name: mosaic
     orgId: 1
     folder: ''
     type: file

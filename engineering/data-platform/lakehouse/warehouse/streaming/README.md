@@ -18,7 +18,7 @@ flowchart LR
   T1["ov.ads.vehicle_online_1m.v1"]
   T2["ov.ads.fault_count_1m.v1"]
   T3["ov.ads.high_temp_battery_1m.v1"]
-  CH["ClickHouse oceanverse<br/>Kafka 引擎表 → 物化视图 → ReplacingMergeTree"]
+  CH["ClickHouse mosaic<br/>Kafka 引擎表 → 物化视图 → ReplacingMergeTree"]
   G["Grafana 实时指标面板"]
 
   RAW --> FL
@@ -94,14 +94,14 @@ curl -s http://127.0.0.1:18088/overview    # 期望 taskmanagers=1, slots-total=
 #   注意用 127.0.0.1 不要用 localhost（本机 8081 被公司 Java 服务占着; localhost 会解析成 ::1）
 
 # ② 建 ClickHouse 对象（3 目标表 + 3 Kafka 引擎表 + 3 物化视图 = 9 个）
-docker exec -i ov-clickhouse clickhouse-client --user ov_admin --password ov_pass_2026 --multiquery < lakehouse/warehouse/streaming/clickhouse/init.sql
+docker exec -i mosaic-clickhouse clickhouse-client --user ov_admin --password ov_pass_2026 --multiquery < lakehouse/warehouse/streaming/clickhouse/init.sql
 
 # ③ 提交三个作业（判据 = 集群里真出现该作业名）
 bash lakehouse/warehouse/streaming/submit-jobs.sh
 
 # ④ 看结果
-docker exec ov-clickhouse clickhouse-client --user ov_admin --password ov_pass_2026 \
-  --query "SELECT * FROM oceanverse.ads_vehicle_online_1m ORDER BY window_start DESC LIMIT 5 FORMAT PrettyCompact"
+docker exec mosaic-clickhouse clickhouse-client --user ov_admin --password ov_pass_2026 \
+  --query "SELECT * FROM mosaic.ads_vehicle_online_1m ORDER BY window_start DESC LIMIT 5 FORMAT PrettyCompact"
 #   Grafana: http://localhost:3000 → Dashboards → "realtime 实时指标（在线数 / 故障 / 高温电池）"
 #   该看板 realtime-metrics（4 图）：最新在线数 / 在线数趋势 / 故障数按码 / 高温告警表
 
@@ -117,7 +117,7 @@ for j in json.load(sys.stdin)['jobs']:
     if j['state']=='RUNNING':
         c=json.load(u.urlopen('http://127.0.0.1:18088/jobs/%s/checkpoints'%j['jid']))['counts']
         print(j['name'], c)"
-docker exec ov-minio sh -c 'mc alias set local http://127.0.0.1:9000 ov_minio ov_minio_2026 >/dev/null; mc ls --recursive local/oceanverse-flink/checkpoints | head'
+docker exec mosaic-minio sh -c 'mc alias set local http://127.0.0.1:9000 ov_minio ov_minio_2026 >/dev/null; mc ls --recursive local/mosaic-flink/checkpoints | head'
 ```
 
 产生测试流量（另开终端；三条通道任选）：
@@ -175,7 +175,7 @@ go run ./cmd/bin-simulator  -broker tcp://localhost:11883 -devices 20 -interval 
 
 **⑥ 检查点真的落了 MinIO（2026-09-20 P1，物理证据）**：三个作业的 `completed` **随检查点递增**
 （首次观测 1，`failed` 恒 0），Prometheus `flink_jobmanager_job_numberOfCompletedCheckpoints` 同步增长，
-MinIO 侧出现实体对象 `oceanverse-flink/checkpoints/<jid>/chk-N/_metadata`（首次观测 8.6KiB / 9.5KiB）。
+MinIO 侧出现实体对象 `mosaic-flink/checkpoints/<jid>/chk-N/_metadata`（首次观测 8.6KiB / 9.5KiB）。
 **判据取"对象真的在桶里"+"计数真的在涨"，不取"配置文件里写了"** —— 原因见下方那段。
 
 ```bash
@@ -186,14 +186,14 @@ for j in json.load(sys.stdin)['jobs']:
     if j['state']=='RUNNING':
         print(j['name'], json.load(u.urlopen('http://127.0.0.1:18088/jobs/%s/checkpoints'%j['jid']))['counts'])"
 # 对象（应看到 <jid>/chk-N/_metadata）
-docker exec ov-minio sh -c 'mc alias set local http://127.0.0.1:9000 ov_minio ov_minio_2026 >/dev/null; mc ls --recursive local/oceanverse-flink/checkpoints'
+docker exec mosaic-minio sh -c 'mc alias set local http://127.0.0.1:9000 ov_minio ov_minio_2026 >/dev/null; mc ls --recursive local/mosaic-flink/checkpoints'
 ```
 **sink 的 exactly-once 不是"配了就算"**：Kafka 事务协调者里能直接列出本层的事务 ID（形如
 `<每作业前缀>-<subtask>-<检查点号>`），状态是 `CompleteCommit`/`Empty`（没有挂死的事务）：
 
 ```bash
-docker exec ov-kafka /opt/kafka/bin/kafka-transactions.sh --bootstrap-server kafka:9092 list
-# oceanverse-online-1m-0-1  …  oceanverse-fault-1m-1-4  …  oceanverse-hightemp-1m-0-10
+docker exec mosaic-kafka /opt/kafka/bin/kafka-transactions.sh --bootstrap-server kafka:9092 list
+# mosaic-online-1m-0-1  …  mosaic-fault-1m-1-4  …  mosaic-hightemp-1m-0-10
 ```
 
 这同时证明了三件事：① 事务写**真的开着**（没有静默降级成 at-least-once）；
@@ -208,7 +208,7 @@ docker exec ov-kafka /opt/kafka/bin/kafka-transactions.sh --bootstrap-server kaf
 
 ```bash
 for g in flink-realtime-online-1m flink-realtime-fault-1m flink-realtime-hightemp-1m; do
-  docker exec ov-kafka /opt/kafka/bin/kafka-consumer-groups.sh \
+  docker exec mosaic-kafka /opt/kafka/bin/kafka-consumer-groups.sh \
     --bootstrap-server kafka:9092 --describe --group "$g" | tail -3
 done
 ```

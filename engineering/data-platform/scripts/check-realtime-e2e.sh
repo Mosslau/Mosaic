@@ -29,10 +29,10 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 REST="${FLINK_REST:-http://127.0.0.1:18088}"
-KAFKA_CT="${KAFKA_CONTAINER:-ov-kafka}"
-CH_CT="${CLICKHOUSE_CONTAINER:-ov-clickhouse}"
+KAFKA_CT="${KAFKA_CONTAINER:-mosaic-kafka}"
+CH_CT="${CLICKHOUSE_CONTAINER:-mosaic-clickhouse}"
 TIMEOUT="${E2E_TIMEOUT:-240}"   # 每条断言各自的预算(心跳 120s 之后开始计时)
-JOBS=(ov-online-count-1m ov-fault-count-1m ov-high-temp-battery-1m)
+JOBS=(mosaic-online-count-1m mosaic-fault-count-1m mosaic-high-temp-battery-1m)
 VEHICLES=(OVE2E00001 OVE2E00002 OVE2E00003 OVE2E00004 OVE2E00005)
 
 pass=0; fail=0; skip=0
@@ -60,10 +60,10 @@ fi
 for j in "${JOBS[@]}"; do
   curl -s --max-time 5 "${REST}/jobs/overview" | grep -q "\"name\":\"${j}\"" || { echo "  ⚠️ 前置不满足: 缺少作业 ${j}"; exit 2; }
 done
-tables=$(ch "SELECT count() FROM system.tables WHERE database='oceanverse' AND name IN ('ads_vehicle_online_1m','ads_fault_count_1m','ads_high_temp_battery_1m')" 2>/dev/null)
+tables=$(ch "SELECT count() FROM system.tables WHERE database='mosaic' AND name IN ('ads_vehicle_online_1m','ads_fault_count_1m','ads_high_temp_battery_1m')" 2>/dev/null)
 if [ "${tables:-0}" != "3" ]; then
   echo "  ⚠️ 前置不满足: ClickHouse 结果表不全（${tables}/3）"
-  echo "     先建表: docker exec -i ov-clickhouse clickhouse-client --user ov_admin --password ov_pass_2026 --multiquery < lakehouse/warehouse/streaming/clickhouse/init.sql"
+  echo "     先建表: docker exec -i mosaic-clickhouse clickhouse-client --user ov_admin --password ov_pass_2026 --multiquery < lakehouse/warehouse/streaming/clickhouse/init.sql"
   exit 2
 fi
 info "前置通过: 3 个作业 RUNNING、3 张结果表存在"
@@ -111,12 +111,12 @@ num() { ch "$1" 2>/dev/null | tr -d ' \n'; }
 deadline=$(( $(date +%s) + TIMEOUT ))
 A=""; B=""; C1=""; C2=""; P=""
 while [ "$(date +%s)" -lt "${deadline}" ]; do
-  A=$(num  "SELECT max(online_cnt) FROM oceanverse.ads_vehicle_online_1m WHERE ${W}")
-  B=$(num  "SELECT count() FROM oceanverse.ads_fault_count_1m WHERE code='E2E01' AND ${W} AND fault_cnt=1 AND vehicle_cnt=1")
-  C1=$(num "SELECT count() FROM oceanverse.ads_high_temp_battery_1m WHERE vin='OVE2E00002' AND ${W} AND level='alarm' AND temp_max >= 55")
-  C2=$(num "SELECT count() FROM oceanverse.ads_high_temp_battery_1m WHERE vin='OVE2E00003' AND ${W} AND level='warn' AND temp_max >= 45 AND temp_max < 55")
-  P=$(num  "SELECT (SELECT count() FROM oceanverse.ads_fault_count_1m WHERE code LIKE 'OVPROBE%')
-                  + (SELECT count() FROM oceanverse.ads_high_temp_battery_1m WHERE vin LIKE 'OVPROBE%')")
+  A=$(num  "SELECT max(online_cnt) FROM mosaic.ads_vehicle_online_1m WHERE ${W}")
+  B=$(num  "SELECT count() FROM mosaic.ads_fault_count_1m WHERE code='E2E01' AND ${W} AND fault_cnt=1 AND vehicle_cnt=1")
+  C1=$(num "SELECT count() FROM mosaic.ads_high_temp_battery_1m WHERE vin='OVE2E00002' AND ${W} AND level='alarm' AND temp_max >= 55")
+  C2=$(num "SELECT count() FROM mosaic.ads_high_temp_battery_1m WHERE vin='OVE2E00003' AND ${W} AND level='warn' AND temp_max >= 45 AND temp_max < 55")
+  P=$(num  "SELECT (SELECT count() FROM mosaic.ads_fault_count_1m WHERE code LIKE 'OVPROBE%')
+                  + (SELECT count() FROM mosaic.ads_high_temp_battery_1m WHERE vin LIKE 'OVPROBE%')")
   [ "${A:-0}" -ge "${#VEHICLES[@]}" ] 2>/dev/null && [ "${B:-0}" -ge 1 ] 2>/dev/null \
     && [ "${C1:-0}" -ge 1 ] 2>/dev/null && [ "${C2:-0}" -ge 1 ] 2>/dev/null && break
   sleep 6
@@ -134,7 +134,7 @@ fi
 if [ "${B:-0}" -ge 1 ] 2>/dev/null; then
   ok "故障数 + QoS1 去重: 同一条注入 2 次 → fault_cnt=1 / vehicle_cnt=1"
 else
-  actual=$(ch "SELECT max(fault_cnt), max(vehicle_cnt) FROM oceanverse.ads_fault_count_1m WHERE code='E2E01' AND ${W}" 2>/dev/null | tr '\t' '/')
+  actual=$(ch "SELECT max(fault_cnt), max(vehicle_cnt) FROM mosaic.ads_fault_count_1m WHERE code='E2E01' AND ${W}" 2>/dev/null | tr '\t' '/')
   bad "故障数去重: 期望 fault_cnt/vehicle_cnt = 1/1, 实测 '${actual:-无数据}'（2 次注入被算成 2 次即去重失效）"
 fi
 

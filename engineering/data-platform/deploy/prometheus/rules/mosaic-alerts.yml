@@ -1,4 +1,4 @@
-# OceanVerse 第 1 阶段告警规则
+# Mosaic 第 1 阶段告警规则
 #
 # 加载: docker-compose.yaml 挂载到 /etc/prometheus/rules/ → prometheus.yml 的 rule_files 引用。
 # 查看: http://localhost:9090/alerts 或 curl -s localhost:9090/api/v1/rules | python3 -m json.tool
@@ -7,7 +7,7 @@
 # 第 2 阶段接 Alertmanager 后这批规则可直接复用。在那之前, 判据是"打开 /alerts 应看到 0 个 firing"。
 
 groups:
-  - name: oceanverse-critical
+  - name: mosaic-critical
     rules:
       # ---------- 1. 组件掉线 ----------
       # 覆盖: 网关/codec 进程被杀、六容器任一挂掉、VM 掉线(那时全部 target 一起 down)
@@ -35,7 +35,7 @@ groups:
           summary: "网关写 Kafka 失败(5 分钟内 {{ $value | printf \"%.0f\" }} 条)"
           description: >-
             消息未落盘, 已按设计返回 5xx 让上游重试。查 Kafka 可用性与
-            `docker exec ov-kafka /opt/kafka/bin/kafka-topics.sh --list`。
+            `docker exec mosaic-kafka /opt/kafka/bin/kafka-topics.sh --list`。
 
       # ---------- 3. codec 投递失败(丢数据之前的第一道信号) ----------
       - alert: CodecFlushFailures
@@ -158,7 +158,7 @@ groups:
         annotations:
           summary: "Flink 运行中的作业少于 3 个(当前 {{ $value }})"
           description: >-
-            实时层应有 3 个作业(ov-online-count-1m / ov-fault-count-1m / ov-high-temp-battery-1m)。
+            实时层应有 3 个作业(mosaic-online-count-1m / mosaic-fault-count-1m / mosaic-high-temp-battery-1m)。
             查看: curl -s 127.0.0.1:18088/jobs/overview。重提前先看 JobManager 日志;
             注意**本步尚未开 checkpoint**: JM 重启即丢作业, 需要重新提交(lakehouse/warehouse/streaming/submit-jobs.sh)。
 
@@ -172,7 +172,7 @@ groups:
         annotations:
           summary: "Flink 没有已注册的 TaskManager"
           description: >-
-            ov-flink-tm 掉线或未注册。作业会卡在"等待资源"。查: docker compose --profile realtime ps 与 TM 日志。
+            mosaic-flink-tm 掉线或未注册。作业会卡在"等待资源"。查: docker compose --profile realtime ps 与 TM 日志。
 
       # ---------- 13. 作业重启过 ----------
       # 语义: 已开 checkpoint + 位点 group-offsets, 重启会**从最近检查点/已提交位移恢复**,
@@ -201,7 +201,7 @@ groups:
       #   右侧是瞬时向量, 只保留**当前仍被暴露**的 series; 正/负两种场景都有 promtool 单测钉住
       #   (rules/tests/flink-checkpoints.test.yml)。
       # 排查: MinIO 桶不存在/凭据错(s3.* 配置)、状态超过 execution.checkpointing.timeout、TM 内存不足。
-      #   `curl -s 127.0.0.1:18088/jobs/<jid>/checkpoints` + `docker exec ov-minio mc ls ov/oceanverse-flink/checkpoints`
+      #   `curl -s 127.0.0.1:18088/jobs/<jid>/checkpoints` + `docker exec mosaic-minio mc ls ov/mosaic-flink/checkpoints`
       - alert: FlinkCheckpointFailures
         expr: increase(flink_jobmanager_job_numberOfFailedCheckpoints[15m]) > 0
               and on(job_id) flink_jobmanager_job_numberOfFailedCheckpoints

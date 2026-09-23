@@ -23,8 +23,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Mosslau/OceanVerse/ingest/device-contracts/vehicle"
-	"github.com/Mosslau/OceanVerse/ingest/device-simulator/internal/simdata"
+	"github.com/Mosslau/Mosaic/ingest/device-contracts/vehicle"
+	"github.com/Mosslau/Mosaic/ingest/device-simulator/internal/simdata"
 )
 
 var (

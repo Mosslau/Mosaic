@@ -12,8 +12,8 @@
 # 退出码: 0=就绪; 1=失败
 set -uo pipefail
 
-BUCKET="${FLINK_CHECKPOINT_BUCKET:-oceanverse-flink}"
-MINIO_CT="${MINIO_CONTAINER:-ov-minio}"
+BUCKET="${FLINK_CHECKPOINT_BUCKET:-mosaic-flink}"
+MINIO_CT="${MINIO_CONTAINER:-mosaic-minio}"
 
 echo "=== 建 Flink 检查点 bucket ==="
 if docker exec "${MINIO_CT}" sh -c "

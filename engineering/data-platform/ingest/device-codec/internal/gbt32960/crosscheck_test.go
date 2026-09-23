@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Mosslau/OceanVerse/ingest/device-contracts/vehicle"
+	"github.com/Mosslau/Mosaic/ingest/device-contracts/vehicle"
 )
 
 // 交叉对拍(2026-09-20 新建): **造帧器(simframe)的产出字节** → **解码器(本包)的解码结果**。

@@ -1,4 +1,4 @@
-<!-- OceanVerse ClickHouse 内存上限
+<!-- Mosaic ClickHouse 内存上限
 
      为什么**必须用配置文件**而不是环境变量:
        官方镜像只映射它认识的那一批 CLICKHOUSE_* 环境变量。实测

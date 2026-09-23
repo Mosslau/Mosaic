@@ -1,4 +1,4 @@
-# ingest 接入层 —— OceanVerse 的数据国门
+# ingest 接入层 —— Mosaic 的数据国门
 
 > 对应架构总览能力域①数据集成 / 架构图 Access Layer。
 > **本层职责**：把"杂乱的设备流量"变成"干净、可信、有节制的标准数据流"；本层不含业务逻辑。
@@ -40,7 +40,7 @@
 | 401/429/400/500 长什么样 | 《示例集》§2 |
 | 模拟器参数默认值 | `device-simulator/README.md` 全参数表 |
 | 压测数字 | 《接入层设计》§7.3 |
-| 现在走到哪一步 | 《engineering/data-platform/roadmap/项目进度.md》 |
+| 现在走到哪一步 | 《roadmap/项目进度.md》 |
 | 服务起不来 / 数据没到 | `bash scripts/check-pipeline-health.sh` + 《示例集》§7 |
 
 ---
@@ -139,7 +139,7 @@ ingest/
 
 ## 当前状态（第 1 阶段）
 
-> 阶段级滚动进度见《engineering/data-platform/roadmap/项目进度.md》；下方为接入层自身的细节状态。
+> 阶段级滚动进度见《roadmap/项目进度.md》；下方为接入层自身的细节状态。
 
 | 项 | 状态 |
 |---|---|

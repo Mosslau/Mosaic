@@ -6,7 +6,7 @@
 #   ./seed-users.sh --vin OV20260001         按**显式 VIN** 灌单台(序号格式化放不下的大号 VIN)
 #
 # 密码规则(仅开发!): pw-{VIN}。生产换随机强密码 + 档案服务管理(设计文档 §8.2)。
-# 依赖: ov-emqx 容器运行中; 原理 = emqx eval 调 emqx_authn_chains:add_user/3
+# 依赖: mosaic-emqx 容器运行中; 原理 = emqx eval 调 emqx_authn_chains:add_user/3
 #
 # ⚠️ 前提与坑(实测):
 #   ① 凭证存放在 mnesia 的 `data/mnesia/<节点名>/` 下。若 EMQX 节点名随容器 IP 变化
@@ -23,7 +23,7 @@ AUTHN="password_based:built_in_database"
 add_one() {
   local vin="$1"
   local result
-  result=$(docker exec ov-emqx emqx eval \
+  result=$(docker exec mosaic-emqx emqx eval \
     "R = emqx_authn_chains:add_user(binary_to_atom(<<\"$CHAIN\">>), <<\"$AUTHN\">>, #{user_id => <<\"$vin\">>, password => <<\"pw-$vin\">>, is_superuser => false}), io:format(\"~p\", [element(1, R)])." \
     2>/dev/null | head -1)   # eval 结尾会多打一行 ok, 取第一行才是我们的结果
   case "$result" in
@@ -33,7 +33,7 @@ add_one() {
 }
 
 total() {
-  docker exec ov-emqx emqx eval 'io:format("~p", [length(mnesia:dirty_all_keys(emqx_authn_mnesia))]).' 2>/dev/null | head -1
+  docker exec mosaic-emqx emqx eval 'io:format("~p", [length(mnesia:dirty_all_keys(emqx_authn_mnesia))]).' 2>/dev/null | head -1
 }
 
 if [[ "${1:-}" == "--vin" ]]; then

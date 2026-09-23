@@ -1,4 +1,4 @@
-# OceanVerse Flink 运行镜像（第 1 阶段第 3 步：实时作业）
+# Mosaic Flink 运行镜像（第 1 阶段第 3 步：实时作业）
 #
 # 为什么必须自建（实测, 不是照抄文档）:
 #   官方 `flink:1.20.5-scala_2.12-java17` 的 /opt/flink/lib **不含任何连接器** ——
@@ -37,7 +37,7 @@
 #   "等待首个 checkpoint"、UI 上 checkpoint 全线失败）。在这里建好并 chown 即可根治。
 #
 # 构建（仓库根执行）:
-#   docker build -f deploy/flink/Dockerfile -t oceanverse/flink:1.20.5 deploy/flink
+#   docker build -f deploy/flink/Dockerfile -t mosaic/flink:1.20.5 deploy/flink
 #   可用 --build-arg MAVEN_MIRRORS="<源1> <源2>" 覆盖（空格分隔，按序 failover）
 #
 # 为什么要多源 failover（实测）:

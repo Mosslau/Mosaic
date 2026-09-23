@@ -43,7 +43,7 @@ case "$PROBE" in
   0|1) ;;
   *) echo "PROBE 只能是 0 或 1, 实际 '${PROBE}'" >&2; exit 2;;
 esac
-KAFKA_CONTAINER="${KAFKA_CONTAINER:-ov-kafka}"
+KAFKA_CONTAINER="${KAFKA_CONTAINER:-mosaic-kafka}"
 GROUP="${CODEC_GROUP:-device-codec-v1}"
 SRC_TOPIC="${CODEC_SRC_TOPIC:-ov.raw.binary.v1}"
 CODEC_METRICS="${CODEC_METRICS:-http://localhost:18090}"
@@ -72,7 +72,7 @@ kafka() { docker exec "$KAFKA_CONTAINER" /opt/kafka/bin/"$@" 2>/dev/null; }
 # 二者在旧版实现里都会表现为空输出, 容易误判。
 if ! kafka kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1; then
   echo "  [FAIL] 无法通过 docker exec ${KAFKA_CONTAINER} 调用 Kafka CLI（容器名/镜像/路径不对?）"
-  echo "         提示: 本机容器名是 ov-kafka, CI(GitHub service container) 是 kafka —— 用 KAFKA_CONTAINER 覆盖"
+  echo "         提示: 本机容器名是 mosaic-kafka, CI(GitHub service container) 是 kafka —— 用 KAFKA_CONTAINER 覆盖"
   echo; echo "==== 自检结果: 前置检查未通过, 后续判据不可信 ===="
   exit 1
 fi
@@ -92,12 +92,12 @@ loaded_rule_count() {
 
 # 规则文件里声明的告警条数(仓库/挂载的真实内容)
 file_rule_count() {
-  local f="$ROOT/deploy/prometheus/rules/oceanverse-alerts.yml"
+  local f="$ROOT/deploy/prometheus/rules/mosaic-alerts.yml"
   [[ -f "$f" ]] || { echo ""; return; }
   grep -c '^\s*- alert:' "$f"
 }
 
-echo "=== OceanVerse 链路健康自检 ==="
+echo "=== Mosaic 链路健康自检 ==="
 echo "观测窗口: ${WINDOW}s | 消费者组: ${GROUP} | 主题: ${SRC_TOPIC}"
 echo
 
@@ -214,9 +214,9 @@ else
     # 下游 Flink/ClickHouse 的车辆画像、在线数、故障数会把探针当成真实车辆数据。
     # 现在探针一律带 OVPROBE 前缀, 下游按前缀过滤即可(约定见《接入层设计》§9)。
     info "无新消息, 灌少量合法探针帧以做强判据(保留 VIN 段 OVPROBE)..."
-    if docker exec ov-emqx emqx ctl status >/dev/null 2>&1 && \
+    if docker exec mosaic-emqx emqx ctl status >/dev/null 2>&1 && \
        (cd "$(dirname "$0")/../ingest/device-simulator" 2>/dev/null && \
-        GOCACHE="${GOCACHE:-/tmp/ov-health-gocache}" timeout 60 go run ./cmd/bin-simulator \
+        GOCACHE="${GOCACHE:-/tmp/mosaic-health-gocache}" timeout 60 go run ./cmd/bin-simulator \
           -broker "tcp://localhost:${EMQX_MQTT_PORT:-11883}" -vin-prefix OVPROBE \
           -devices 2 -interval 1s -duration 3s >/dev/null 2>&1); then
       # 轮询等待(最多 20s)而不是固定 sleep: 探针要走完 EMQX→网关→Kafka→codec(100ms 定时 flush)
@@ -272,7 +272,7 @@ r_file=$(file_rule_count)
 if [[ -z "$r_loaded" ]]; then
   info "Prometheus 不可达，跳过（不计失败）"
 elif [[ -z "$r_file" ]]; then
-  info "规则文件缺失，跳过（$ROOT/deploy/prometheus/rules/oceanverse-alerts.yml）"
+  info "规则文件缺失，跳过（$ROOT/deploy/prometheus/rules/mosaic-alerts.yml）"
 elif [[ "$r_loaded" -eq "$r_file" ]]; then
   ok "已加载 ${r_loaded} 条规则 == 文件声明 ${r_file} 条"
 else

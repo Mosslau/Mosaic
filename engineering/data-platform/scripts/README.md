@@ -108,7 +108,7 @@ bash scripts/check-realtime-restart.sh     # 9 项断言, 本机实测 ~2.5 分�
 
 ## init-minio-bucket.sh — 幂等建检查点桶
 
-`docker exec ov-minio mc mb --ignore-existing local/oceanverse-flink`（别名不存在时先 `mc alias set`）。
+`docker exec mosaic-minio mc mb --ignore-existing local/mosaic-flink`（别名不存在时先 `mc alias set`）。
 **为什么是脚本而不是 compose 服务**：容器内存预算合计 6656 MiB **正好等于**门禁预算上限，
 再加一个常驻容器就会让 `check-compose-budget.sh` 判据②失败；而且建桶是一次性动作，不需要常驻。
 **不建会怎样**：S3 不会自动建桶 → 检查点**静默失败**（作业照常 RUNNING、指标一片绿、恢复能力为零）。
@@ -165,7 +165,7 @@ README 合计漂移 / README 单值漂移 / README 漏服务 / 百分比不自�
 
 - **章节编号**：服务手册的 `##` 一律带序号（`## 1.` …），其下 `### N.x` 的 N 必须与父节号一致——否则 `§x.y` 读者找不到
 - **跨文档引用写法**：统一用简称《接入层设计》/《GB32960 映射》/《示例集》（每篇手册头部一行"简称约定"给出相对路径），不用 `《../docs/xx.md》` 这种路径式写法
-- **单一源不变**：topic/QoS → 《接入层设计》§4.2；配置全表 → `device-gateway/README.md`；模拟器参数 → `device-simulator/README.md`；字节规格 → 《GB32960 映射》；进度 → `engineering/data-platform/roadmap/项目进度.md`
+- **单一源不变**：topic/QoS → 《接入层设计》§4.2；配置全表 → `device-gateway/README.md`；模拟器参数 → `device-simulator/README.md`；字节规格 → 《GB32960 映射》；进度 → `roadmap/项目进度.md`
 
 ## 文档图表约定
 

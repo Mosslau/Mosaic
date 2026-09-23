@@ -1,13 +1,13 @@
-name: oceanverse
+name: mosaic
 
-# OceanVerse 第 1 阶段 最小可用链路基础设施
+# Mosaic 第 1 阶段 最小可用链路基础设施
 # 组件: Kafka(KRaft 单节点) + ClickHouse + MinIO + EMQX + Prometheus + Grafana
 #       + MySQL + Redis (八组件) + Flink JM/TM(profile realtime, 默认不起)
 # 用法: cd deploy && docker compose up -d
 # 注意: 使用 Rancher Desktop(moby) 运行, 非 Docker Desktop
 #
 # 四条固定纪律(改动历史见 deploy/README.md §6 附录):
-#   ① 宿主端口一律绑 127.0.0.1(弱口令/无认证组件不能暴露给同网段; 容器间通信走 ov-net 服务名)
+#   ① 宿主端口一律绑 127.0.0.1(弱口令/无认证组件不能暴露给同网段; 容器间通信走 net 服务名)
 #   ② 全服务 restart: unless-stopped + mem_limit + 日志轮转(引擎/宿主重启后无需人工干预)
 #   ③ Kafka 显式 KAFKA_LOG_DIRS 指向被挂载的卷(否则 down+up 丢全部 topic 与位移)
 #   ④ 内存数字的单一来源 = 本文件的 mem_limit + scripts/check-compose-budget.sh 的预算默认值;
@@ -23,7 +23,7 @@ services:
   # ---------- 消息总线 ----------
   kafka:
     image: apache/kafka:3.9.1
-    container_name: ov-kafka
+    container_name: mosaic-kafka
     restart: unless-stopped
     ports:
       - "127.0.0.1:19092:19092"   # 宿主机访问(开发调试用)
@@ -33,7 +33,7 @@ services:
       KAFKA_PROCESS_ROLES: broker,controller
       # 注意: 本镜像只认 CLUSTER_ID(不带 KAFKA_ 前缀); 写 KAFKA_CLUSTER_ID 会被忽略并回落
       # 到镜像默认值(实测日志: CLUSTER_ID not set. Setting it to default value ...)。
-      CLUSTER_ID: oceanverse-kraft-cluster-01
+      CLUSTER_ID: mosaic-kraft-cluster-01
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:19092
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:19092
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
@@ -67,18 +67,18 @@ services:
     # 640m: 堆上限 512m(见 KAFKA_HEAP_OPTS) + 页缓存/元数据余量(实测用量 ~537 MiB)
     mem_limit: 640m
     logging: *default-logging
-    networks: [ov-net]
+    networks: [net]
 
   # ---------- OLAP 查询加速层 (serving) ----------
   clickhouse:
     image: clickhouse/clickhouse-server:25.8
-    container_name: ov-clickhouse
+    container_name: mosaic-clickhouse
     restart: unless-stopped
     ports:
       - "127.0.0.1:8123:8123"     # HTTP 接口
       - "127.0.0.1:9000:9000"     # native 协议
     environment:
-      CLICKHOUSE_DB: oceanverse
+      CLICKHOUSE_DB: mosaic
       CLICKHOUSE_USER: ov_admin
       CLICKHOUSE_PASSWORD: ov_pass_2026
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
@@ -102,13 +102,13 @@ services:
     # scripts/check-compose-budget.sh
     mem_limit: 2560m
     logging: *default-logging
-    networks: [ov-net]
+    networks: [net]
 
   # ---------- 对象存储 (第 2 阶段湖仓底座, 第 1 阶段先就位) ----------
   minio:
     # 镜像用 quay.io: Docker Hub 的 minio/minio 已拒绝匿名拉取(同一镜像, digest 一致)
     image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
-    container_name: ov-minio
+    container_name: mosaic-minio
     restart: unless-stopped
     ports:
       - "127.0.0.1:9001:9000"     # S3 API (宿主端口 9001, 避免与 ClickHouse native 冲突)
@@ -128,20 +128,20 @@ services:
     # 192m: 实测用量 ~90 MiB; 若用量明显上涨按实测上调
     mem_limit: 192m
     logging: *default-logging
-    networks: [ov-net]
+    networks: [net]
 
   # ---------- 关系库 (第 4 步 Java 微服务 ×5 的底座) ----------
   # 只建库不建表: 业务 DDL 归各服务(MyBatis Plus), 在这里造表是空转。
   mysql:
     image: mysql:8.4
-    container_name: ov-mysql
+    container_name: mosaic-mysql
     restart: unless-stopped
     ports:
       # 宿主 3306 常被本机/公司已有 MySQL 占用, 故用 13306(同 EMQX 1883→11883 的避让口径)
       - "127.0.0.1:${MYSQL_HOST_PORT:-13306}:3306"
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-ov_root_2026}
-      MYSQL_DATABASE: oceanverse
+      MYSQL_DATABASE: mosaic
       MYSQL_USER: ov_app
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-ov_app_2026}
       TZ: Asia/Shanghai
@@ -161,12 +161,12 @@ services:
     # 512m: 零业务负载实测 ~240 MiB, 第 4 步起量后按实测上调 (innodb 缓冲池已在 command 里显式压到 64M, performance_schema 关闭)
     mem_limit: 512m
     logging: *default-logging
-    networks: [ov-net]
+    networks: [net]
 
   # ---------- 缓存 (第 1 阶段 Java 服务缓存; 第 2 阶段"限流器 Redis 化"的落点) ----------
   redis:
     image: redis:7-alpine
-    container_name: ov-redis
+    container_name: mosaic-redis
     restart: unless-stopped
     ports:
       - "127.0.0.1:${REDIS_HOST_PORT:-16379}:6379"
@@ -189,12 +189,12 @@ services:
     # 256m: 必须同时满足"明显高于 maxmemory(192mb)"与门禁的成对约束(192 = 256×75%); 实测用量仅 ~10 MiB
     mem_limit: 256m
     logging: *default-logging
-    networks: [ov-net]
+    networks: [net]
 
   # ---------- MQTT Broker (车端长连接接入, 规则引擎转发到网关) ----------
   emqx:
     image: emqx/emqx:5.8.8
-    container_name: ov-emqx
+    container_name: mosaic-emqx
     restart: unless-stopped
     ports:
       - "127.0.0.1:${EMQX_MQTT_PORT:-1883}:1883"     # MQTT TCP(宿主端口可覆盖: 本机 1883 被 RabbitMQ MQTT 插件等占用时 EMQX_MQTT_PORT=11883)
@@ -221,13 +221,13 @@ services:
     # 384m: 实测用量 ~227 MiB, 留 ~70% 余量应对连接/会话峰值
     mem_limit: 384m
     logging: *default-logging
-    networks: [ov-net]
+    networks: [net]
 
   # ---------- 指标采集 (网关 /metrics → Prometheus → Grafana, 设计文档 §9) ----------
   prometheus:
     # 同 grafana: 不钉小版本号(国内镜像站常缺 tag)
     image: prom/prometheus:latest
-    container_name: ov-prometheus
+    container_name: mosaic-prometheus
     restart: unless-stopped
     # --web.enable-lifecycle: 允许 POST /-/reload 热载配置与规则文件 —— 规则是 bind mount,
     # Prometheus 只在启动时读它, 不 reload 则新规则不生效。改规则后: curl -X POST localhost:9090/-/reload
@@ -251,13 +251,13 @@ services:
     # 256m: 实测用量约 65 MiB
     mem_limit: 256m
     logging: *default-logging
-    networks: [ov-net]
+    networks: [net]
 
   # ---------- 可视化看板 ----------
   grafana:
     # 注意: 不要钉具体小版本号 国内镜像站经常缺特定 tag; latest 实测可拉取
     image: grafana/grafana-oss:latest
-    container_name: ov-grafana
+    container_name: mosaic-grafana
     restart: unless-stopped
     ports:
       - "127.0.0.1:3000:3000"
@@ -282,7 +282,7 @@ services:
     # 320m: 实测约 238 MiB 且渲染有尖峰, 比其余组件留更多余量
     mem_limit: 320m
     logging: *default-logging
-    networks: [ov-net]
+    networks: [net]
 
   # ---------- 实时计算 (第 1 阶段第 3 步: Flink SQL 三个作业) ----------
   # 形态: session cluster(1 JM + 1 TM), 作业用 sql-client 提交 —— 3 个小作业反复重提交的调试场景,
@@ -295,8 +295,8 @@ services:
     # 版本与 Flink minor 强绑定(3.4.0-1.20 ↔ 1.20.x)
     build:
       context: ./flink
-    image: oceanverse/flink:1.20.5
-    container_name: ov-flink-jm
+    image: mosaic/flink:1.20.5
+    container_name: mosaic-flink-jm
     # 角色参数必须显式给: 官方入口 docker-entrypoint.sh 不带默认角色, 缺了它只打印 usage
     # 然后 exit 0 —— 症状是容器 restarting 循环、日志里反复出现 Usage 行(实测踩到)
     command: jobmanager
@@ -316,8 +316,8 @@ services:
         jobmanager.memory.process.size: 448m
         jobmanager.memory.jvm-metaspace.size: 128m
         jobmanager.memory.jvm-overhead.min: 128m
-        execution.checkpointing.dir: s3://oceanverse-flink/checkpoints
-        execution.checkpointing.savepoint-dir: s3://oceanverse-flink/savepoints
+        execution.checkpointing.dir: s3://mosaic-flink/checkpoints
+        execution.checkpointing.savepoint-dir: s3://mosaic-flink/savepoints
         execution.checkpointing.interval: 60s
         execution.checkpointing.min-pause: 30s
         execution.checkpointing.timeout: 5min
@@ -342,12 +342,12 @@ services:
     # 512m: 进程上限 448m + 余量；与 TM 合计 1536 MiB = 第 3 步预留额度
     mem_limit: 512m
     logging: *default-logging
-    networks: [ov-net]
+    networks: [net]
 
   flink-taskmanager:
     profiles: ["realtime"]
-    image: oceanverse/flink:1.20.5   # 复用 JM 构建的同名镜像(同一 context, 不重复构建)
-    container_name: ov-flink-tm
+    image: mosaic/flink:1.20.5   # 复用 JM 构建的同名镜像(同一 context, 不重复构建)
+    container_name: mosaic-flink-tm
     command: taskmanager
     restart: unless-stopped
     depends_on:
@@ -366,7 +366,7 @@ services:
         taskmanager.memory.jvm-overhead.min: 128m
         taskmanager.memory.managed.size: 128m
         taskmanager.memory.network.min: 64m
-        execution.checkpointing.dir: s3://oceanverse-flink/checkpoints
+        execution.checkpointing.dir: s3://mosaic-flink/checkpoints
         s3.endpoint: http://minio:9000
         s3.path.style.access: true
         s3.access-key: ov_minio
@@ -385,7 +385,7 @@ services:
     # 1024m: 进程上限 896m + 余量
     mem_limit: 1024m
     logging: *default-logging
-    networks: [ov-net]
+    networks: [net]
 
 volumes:
   kafka_data:
@@ -399,5 +399,5 @@ volumes:
   # redis 无卷: appendonly 关闭(纯缓存语义), 重启即空是预期行为
 
 networks:
-  ov-net:
+  net:
     driver: bridge

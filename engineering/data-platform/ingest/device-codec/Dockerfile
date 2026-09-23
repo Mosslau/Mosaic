@@ -3,7 +3,7 @@
 # 仅暴露可观测端口 /metrics+/health(18090, 供 Prometheus 抓取)与 /debug/pprof(18091, 仅回环)
 #
 # ⚠️ 构建上下文必须是**仓库根**:
-#     docker build -f ingest/device-codec/Dockerfile -t oceanverse/device-codec:dev .
+#     docker build -f ingest/device-codec/Dockerfile -t mosaic/device-codec:dev .
 
 FROM golang:1.25-alpine AS build
 WORKDIR /src

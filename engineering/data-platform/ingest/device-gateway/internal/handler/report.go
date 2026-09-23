@@ -7,10 +7,10 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/Mosslau/OceanVerse/ingest/device-contracts/vehicle"
-	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/auth"
-	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/metrics"
-	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/model"
+	"github.com/Mosslau/Mosaic/ingest/device-contracts/vehicle"
+	"github.com/Mosslau/Mosaic/ingest/device-gateway/internal/auth"
+	"github.com/Mosslau/Mosaic/ingest/device-gateway/internal/metrics"
+	"github.com/Mosslau/Mosaic/ingest/device-gateway/internal/model"
 )
 
 // Sender 消息投递接口(kafka.Producer 实现)。依赖接口便于测试与替换。

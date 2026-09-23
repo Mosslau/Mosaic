@@ -165,7 +165,7 @@ def canon(t, self_p):
     if t in ALIAS:
         return ALIAS[t]
     if not t.endswith('.md'):
-        return None                     # 非文档名（如《OceanVerse 架构总览》标题式引用）不计入
+        return None                     # 非文档名（如《Mosaic 架构总览》标题式引用）不计入
     for c in (pathlib.Path(t), self_p.parent / t,
               pathlib.Path('ingest/docs') / pathlib.Path(t).name,
               pathlib.Path('ingest') / t, pathlib.Path('deploy') / t):
@@ -198,7 +198,7 @@ for p in MD:
 print("⑧ 告警规则数 / 面板数 / DLQ stage 枚举")
 
 # --- ⑧.1 告警规则数 ---
-RULE_FILE = pathlib.Path('deploy/prometheus/rules/oceanverse-alerts.yml')
+RULE_FILE = pathlib.Path('deploy/prometheus/rules/mosaic-alerts.yml')
 rule_n = len(re.findall(r'^\s*- alert:', RULE_FILE.read_text(encoding='utf-8'), re.M))
 alert_claims = set()
 for p in MD:

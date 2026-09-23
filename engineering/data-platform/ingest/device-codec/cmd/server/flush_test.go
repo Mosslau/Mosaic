@@ -13,7 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/segmentio/kafka-go"
 
-	"github.com/Mosslau/OceanVerse/ingest/device-contracts/vehicle"
+	"github.com/Mosslau/Mosaic/ingest/device-contracts/vehicle"
 )
 
 // counterValue 从 Prometheus 默认注册表读取一个 CounterVec 的当前值(按标签筛选)。

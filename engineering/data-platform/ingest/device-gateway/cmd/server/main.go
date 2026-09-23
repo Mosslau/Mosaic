@@ -13,12 +13,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/auth"
-	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/config"
-	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/handler"
-	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/kafka"
-	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/metrics"
-	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/ratelimit"
+	"github.com/Mosslau/Mosaic/ingest/device-gateway/internal/auth"
+	"github.com/Mosslau/Mosaic/ingest/device-gateway/internal/config"
+	"github.com/Mosslau/Mosaic/ingest/device-gateway/internal/handler"
+	"github.com/Mosslau/Mosaic/ingest/device-gateway/internal/kafka"
+	"github.com/Mosslau/Mosaic/ingest/device-gateway/internal/metrics"
+	"github.com/Mosslau/Mosaic/ingest/device-gateway/internal/ratelimit"
 )
 
 func main() {

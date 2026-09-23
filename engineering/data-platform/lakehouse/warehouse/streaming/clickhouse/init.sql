@@ -1,4 +1,4 @@
--- OceanVerse 实时作业结果表（第 1 阶段第 3 步）
+-- Mosaic 实时作业结果表（第 1 阶段第 3 步）
 --
 -- 定位: ClickHouse 是 **serving 层**, 不是真相源(真相源是第 2 阶段的 Iceberg 湖仓)。
 --       这三张表是 **ADS 层**产物 —— 由 Flink 作业算出、经 Kafka 结果 topic 灌入, 只服务查询/看板。
@@ -25,12 +25,12 @@
 --
 -- 应用方式(实测: ClickHouse 的 HTTP 口**不支持一次多条语句** —— "Multi-statements are not allowed",
 --   故走容器内 client 的 --multiquery; 另外 curl 对 SQL 错误仍返回 0, 不能只看退出码):
---   docker exec -i ov-clickhouse clickhouse-client --user ov_admin --password ov_pass_2026 --multiquery < lakehouse/warehouse/streaming/clickhouse/init.sql
+--   docker exec -i mosaic-clickhouse clickhouse-client --user ov_admin --password ov_pass_2026 --multiquery < lakehouse/warehouse/streaming/clickhouse/init.sql
 
 -- ============================================================
 -- ① 在线数
 -- ============================================================
-CREATE TABLE IF NOT EXISTS oceanverse.ads_vehicle_online_1m
+CREATE TABLE IF NOT EXISTS mosaic.ads_vehicle_online_1m
 (
     window_start DateTime('Asia/Shanghai'),
     window_end   DateTime('Asia/Shanghai'),
@@ -43,7 +43,7 @@ PARTITION BY toYYYYMMDD(window_start)
 ORDER BY window_start                       -- 一个窗口一行 → 天然去重键
 TTL window_start + INTERVAL 90 DAY;
 
-CREATE TABLE IF NOT EXISTS oceanverse.kafka_vehicle_online_1m
+CREATE TABLE IF NOT EXISTS mosaic.kafka_vehicle_online_1m
 (
     window_start_s Int64,
     window_end_s   Int64,
@@ -59,20 +59,20 @@ SETTINGS kafka_broker_list = 'kafka:9092',
          kafka_flush_interval_ms = 2000,
          kafka_skip_broken_messages = 100;
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS oceanverse.mv_vehicle_online_1m
-TO oceanverse.ads_vehicle_online_1m
+CREATE MATERIALIZED VIEW IF NOT EXISTS mosaic.mv_vehicle_online_1m
+TO mosaic.ads_vehicle_online_1m
 AS SELECT
     toDateTime(window_start_s) AS window_start,
     toDateTime(window_end_s) AS window_end,
     online_cnt,
     report_cnt,
     now() AS ingested_at
-FROM oceanverse.kafka_vehicle_online_1m;
+FROM mosaic.kafka_vehicle_online_1m;
 
 -- ============================================================
 -- ② 故障数
 -- ============================================================
-CREATE TABLE IF NOT EXISTS oceanverse.ads_fault_count_1m
+CREATE TABLE IF NOT EXISTS mosaic.ads_fault_count_1m
 (
     window_start DateTime('Asia/Shanghai'),
     window_end   DateTime('Asia/Shanghai'),
@@ -86,7 +86,7 @@ PARTITION BY toYYYYMMDD(window_start)
 ORDER BY (window_start, code)
 TTL window_start + INTERVAL 365 DAY;         -- 故障保留期更长(与位置类数据区分)
 
-CREATE TABLE IF NOT EXISTS oceanverse.kafka_fault_count_1m
+CREATE TABLE IF NOT EXISTS mosaic.kafka_fault_count_1m
 (
     window_start_s Int64,
     window_end_s   Int64,
@@ -103,8 +103,8 @@ SETTINGS kafka_broker_list = 'kafka:9092',
          kafka_flush_interval_ms = 2000,
          kafka_skip_broken_messages = 100;
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS oceanverse.mv_fault_count_1m
-TO oceanverse.ads_fault_count_1m
+CREATE MATERIALIZED VIEW IF NOT EXISTS mosaic.mv_fault_count_1m
+TO mosaic.ads_fault_count_1m
 AS SELECT
     toDateTime(window_start_s) AS window_start,
     toDateTime(window_end_s) AS window_end,
@@ -112,12 +112,12 @@ AS SELECT
     fault_cnt,
     vehicle_cnt,
     now() AS ingested_at
-FROM oceanverse.kafka_fault_count_1m;
+FROM mosaic.kafka_fault_count_1m;
 
 -- ============================================================
 -- ③ 高温电池
 -- ============================================================
-CREATE TABLE IF NOT EXISTS oceanverse.ads_high_temp_battery_1m
+CREATE TABLE IF NOT EXISTS mosaic.ads_high_temp_battery_1m
 (
     window_start DateTime('Asia/Shanghai'),
     window_end   DateTime('Asia/Shanghai'),
@@ -131,7 +131,7 @@ PARTITION BY toYYYYMMDD(window_start)
 ORDER BY (window_start, vin)
 TTL window_start + INTERVAL 180 DAY;
 
-CREATE TABLE IF NOT EXISTS oceanverse.kafka_high_temp_battery_1m
+CREATE TABLE IF NOT EXISTS mosaic.kafka_high_temp_battery_1m
 (
     window_start_s Int64,
     window_end_s   Int64,
@@ -148,8 +148,8 @@ SETTINGS kafka_broker_list = 'kafka:9092',
          kafka_flush_interval_ms = 2000,
          kafka_skip_broken_messages = 100;
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS oceanverse.mv_high_temp_battery_1m
-TO oceanverse.ads_high_temp_battery_1m
+CREATE MATERIALIZED VIEW IF NOT EXISTS mosaic.mv_high_temp_battery_1m
+TO mosaic.ads_high_temp_battery_1m
 AS SELECT
     toDateTime(window_start_s) AS window_start,
     toDateTime(window_end_s) AS window_end,
@@ -157,4 +157,4 @@ AS SELECT
     temp_max,
     level,
     now() AS ingested_at
-FROM oceanverse.kafka_high_temp_battery_1m;
+FROM mosaic.kafka_high_temp_battery_1m;

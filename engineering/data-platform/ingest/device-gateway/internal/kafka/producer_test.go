@@ -16,7 +16,7 @@ import (
 	"github.com/segmentio/kafka-go/protocol/metadata"
 	"github.com/segmentio/kafka-go/protocol/produce"
 
-	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/metrics"
+	"github.com/Mosslau/Mosaic/ingest/device-gateway/internal/metrics"
 )
 
 // counterValue 读 Prometheus 计数器当前值(不引 testutil, 避免多拉一个测试依赖)

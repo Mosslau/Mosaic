@@ -1,4 +1,4 @@
-// Package vehicle 定义 OceanVerse 平台的车端数据契约（Go 绑定）。
+// Package vehicle 定义 Mosaic 平台的车端数据契约（Go 绑定）。
 // 本包是根 contracts/（语言无关形态）的 Go 投影；Kafka 上的 JSON 消息形态
 // 是全平台数据流的"宪法"：Flink DDL、ClickHouse 表结构、Java 服务 DTO、
 // device-codec 解析产物均与该 JSON 形态对齐。修改本包必须走评审。

@@ -1,4 +1,4 @@
-# OceanVerse 第 1 阶段 基础设施部署文档
+# Mosaic 第 1 阶段 基础设施部署文档
 
 > 📚 **简称约定**：《接入层设计》= 《../ingest/docs/01-接入层设计-v1.md》｜《GB32960 映射》= 《../ingest/docs/02-GB32960协议规格-v1.md》。
 
@@ -60,7 +60,7 @@ until docker info >/dev/null 2>&1; do sleep 5; done && echo "engine ready"
 | EMQX 5.8 | MQTT Broker（车端长连接接入；dev 明文 + 公网 TLS） | MQTT `localhost:11883`/ TLS `localhost:8883`（一车一密 + ACL）/ Dashboard `http://localhost:18083` | `admin` / `public`（登录后立即改密，或启动前设 `EMQX_DASHBOARD_PASSWORD`） |
 | Grafana OSS | 看板 | `http://localhost:3000` | `admin` / `admin` |
 | Prometheus | 指标采集（网关 `/metrics`，5s 抓取） | `http://localhost:9090` | 无认证（第 1 阶段本地） |
-| MySQL 8.4 | 关系库（Java 微服务 ×5 的底座） | `localhost:13306`（避让本机/公司 3306） | `root` / `ov_root_2026`；应用账号 `ov_app` / `ov_app_2026`，库 `oceanverse` |
+| MySQL 8.4 | 关系库（Java 微服务 ×5 的底座） | `localhost:13306`（避让本机/公司 3306） | `root` / `ov_root_2026`；应用账号 `ov_app` / `ov_app_2026`，库 `mosaic` |
 | Redis 7 | 缓存| `localhost:16379` | 无认证；`maxmemory 192mb` + `allkeys-lru`（`mem_limit 256m`） |
 
 ---
@@ -77,7 +77,7 @@ bash emqx/gen-certs.sh
 docker compose up -d
 
 # 第 1 阶段第 3 步：另起 Flink（JobManager + TaskManager，session cluster）
-# 首次会构建 oceanverse/flink:1.20.5（官方镜像不含连接器，构建时补 3 个 jar，见 flink/Dockerfile）
+# 首次会构建 mosaic/flink:1.20.5（官方镜像不含连接器，构建时补 3 个 jar，见 flink/Dockerfile）
 docker compose --profile realtime up -d
 
 # 查看状态（healthy 即就绪）
@@ -107,9 +107,9 @@ docker compose down -v
 
 ```bash
 # ① Kafka：建一个测试 topic 并自检
-docker exec ov-kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --topic ov-smoke-test --partitions 1 --replication-factor 1
-docker exec ov-kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
-# 期望输出包含: ov-smoke-test
+docker exec mosaic-kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --topic mosaic-smoke-test --partitions 1 --replication-factor 1
+docker exec mosaic-kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
+# 期望输出包含: mosaic-smoke-test
 
 # ② ClickHouse：HTTP ping + 查询
 curl -s http://localhost:8123/ping        # 期望: Ok.
@@ -122,12 +122,12 @@ open http://localhost:9002   # 控制台, ov_minio / ov_minio_2026 登录
 # ④ Grafana：健康检查 + 数据源
 curl -s http://localhost:3000/api/health   # 期望: {"database":"ok",...}
 open http://localhost:3000   # admin / admin 登录
-# 期望: 数据源自动出现 "ClickHouse" 与 "Prometheus"(uid=ov-prometheus); 面板应有三个(网关/codec/实时指标)
+# 期望: 数据源自动出现 "ClickHouse" 与 "Prometheus"(uid=mosaic-prometheus); 面板应有三个(网关/codec/实时指标)
 
 # ⑤ EMQX：状态 + Dashboard
 curl -s http://localhost:18083/status    # 期望: "Node emqx@127.0.0.1 is started" + "emqx is running"(非字面 "ok")
 open http://localhost:18083              # admin / public 登录(建议立即改密)
-docker exec ov-emqx emqx ctl listeners | grep -E "tcp:default|ssl:default"
+docker exec mosaic-emqx emqx ctl listeners | grep -E "tcp:default|ssl:default"
 # 期望: Dashboard → 集成 → 规则 应有 ov_vehicle_ingress 与 ov_binary_ingress 两条
 
 # ⑥ Prometheus：抓取目标 + 网关指标(需网关已在宿主机运行)
@@ -135,25 +135,25 @@ curl -s 'http://localhost:9090/api/v1/targets?state=active' | grep -o '"health":
 curl -s -g 'http://localhost:9090/api/v1/query?query=up{job="device-gateway"}' # 告警规则已加载
 curl -s http://localhost:9090/api/v1/rules | grep -c '"name"'    # 期望: 15
 curl -s http://localhost:9090/api/v1/alerts | grep -c '"state":"firing"' || true   # 期望: 0
-docker exec ov-prometheus promtool test rules /etc/prometheus/rules/tests/flink-checkpoints.test.yml
+docker exec mosaic-prometheus promtool test rules /etc/prometheus/rules/tests/flink-checkpoints.test.yml
 
 # ⑦ MySQL：ping + 库存在(只建库不建表, 故查 information_schema 应为空)
-docker exec ov-mysql mysqladmin ping -h 127.0.0.1 -u root -pov_root_2026   # 期望: mysqld is alive
-docker exec ov-mysql mysql -u root -pov_root_2026 -e "SHOW DATABASES LIKE 'oceanverse';" 
-docker exec ov-mysql mysql -u root -pov_root_2026 -e "SELECT COUNT(*) AS tables_now FROM information_schema.tables WHERE table_schema='oceanverse';"   # 期望: 库存在, tables_now = 0
+docker exec mosaic-mysql mysqladmin ping -h 127.0.0.1 -u root -pov_root_2026   # 期望: mysqld is alive
+docker exec mosaic-mysql mysql -u root -pov_root_2026 -e "SHOW DATABASES LIKE 'mosaic';" 
+docker exec mosaic-mysql mysql -u root -pov_root_2026 -e "SELECT COUNT(*) AS tables_now FROM information_schema.tables WHERE table_schema='mosaic';"   # 期望: 库存在, tables_now = 0
 
 # ⑧ Redis：ping + 内存上限确实生效(这条是防"整机被缓存吃穿"的关键)
-docker exec ov-redis redis-cli ping                                        # 期望: PONG
-docker exec ov-redis redis-cli config get maxmemory                        # 期望: 201326592 (192mb)
-docker exec ov-redis redis-cli config get maxmemory-policy                 # 期望: allkeys-lru
+docker exec mosaic-redis redis-cli ping                                        # 期望: PONG
+docker exec mosaic-redis redis-cli config get maxmemory                        # 期望: 201326592 (192mb)
+docker exec mosaic-redis redis-cli config get maxmemory-policy                 # 期望: allkeys-lru
 
 # ⑨ Flink（第 3 步；需已用 --profile realtime 启动）
 curl -s http://127.0.0.1:18088/overview   # 期望含 "taskmanagers":1 与 "slots-available":3
-docker compose --profile realtime ps      # 期望 ov-flink-jm / ov-flink-tm 均 healthy
+docker compose --profile realtime ps      # 期望 mosaic-flink-jm / mosaic-flink-tm 均 healthy
 
 # ⑨.1 检查点配置**真的生效**了吗（只看配置文件会被骗: 作业级配置只在提交端生效, 集群侧只是默认值）
-docker exec ov-flink-jm sh -c 'grep -A4 "checkpointing:" /opt/flink/conf/config.yaml'
-docker exec ov-flink-tm sh -c 'grep -A5 "^s3:" /opt/flink/conf/config.yaml'   # TM 才是上传状态的一方
+docker exec mosaic-flink-jm sh -c 'grep -A4 "checkpointing:" /opt/flink/conf/config.yaml'
+docker exec mosaic-flink-tm sh -c 'grep -A5 "^s3:" /opt/flink/conf/config.yaml'   # TM 才是上传状态的一方
 ```
 
 ---
@@ -173,7 +173,7 @@ docker exec ov-flink-tm sh -c 'grep -A5 "^s3:" /opt/flink/conf/config.yaml'   # 
 | 2026-09-18 | Prometheus 告警规则从无到有 | VM 掉线导致链路停摆而监控无人知晓 |
 | 2026-09-20 | MinIO 镜像改 `quay.io/minio/minio`（digest 与 Docker Hub 一致） | Docker Hub 已拒绝匿名拉取，CI 干净环境首跑才发现 |
 | 2026-09-20 | Rancher VM 6→8 GB；按实测用量重分配（ClickHouse 1280m→2560m，合计 6656 MiB） | CH 进程内上限余量不足 → "活着但干不了活" |
-| 2026-09-20 | Flink 入栈：自建镜像 `oceanverse/flink:1.20.5`（补连接器 jar）、profile `realtime`、宿主端口 18088 | 第 3 步实时作业；官方镜像不含连接器；8081 被公司 Java 服务占 |
+| 2026-09-20 | Flink 入栈：自建镜像 `mosaic/flink:1.20.5`（补连接器 jar）、profile `realtime`、宿主端口 18088 | 第 3 步实时作业；官方镜像不含连接器；8081 被公司 Java 服务占 |
 | 2026-09-20 | Flink 告警 5 条补齐（规则总数 15）+ promtool 规则语义单测进 CI | 实时层此前零指标零告警；检查点类规则曾出现残留 series 假阳性 |
 | 2026-09-20 | Prometheus 规则热载纪律：`--web.enable-lifecycle` + 改后必须 `/-/reload` | 规则文件是 bind mount，改完不 reload 则新规则不生效 |
 | 2026-09-20 | P1 配置：检查点落 MinIO（镜像自带 s3 插件）、位点 `group-offsets`、sink exactly-once、作业级配置改到提交端（`CLIENT_FLINK_PROPERTIES`）、TM 补 `s3.*`、`FLINK_PROPERTIES` 只许 `key: value` | 检查点/位点/幂等落地过程中连踩四个静默配置坑 |

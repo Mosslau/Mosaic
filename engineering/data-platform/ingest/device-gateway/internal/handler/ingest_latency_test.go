@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/metrics"
+	"github.com/Mosslau/Mosaic/ingest/device-gateway/internal/metrics"
 )
 
 // 本文件锁定上行延迟 SLI(《接入层设计》§9 的"分段延迟之间没有桥"):

@@ -3,7 +3,7 @@
 #
 # 为什么用**独立的短命容器**提交, 而不是 `docker exec` 进 JobManager:
 #   2026-09-20 实测 —— 在 512m 的 JM 容器里跑 sql-client(第二个 JVM)会挤爆同一个 cgroup 触发 OOM
-#   (`docker events --filter event=oom` 有 ov-flink-jm 的 oom 事件), 症状是"提交到一半容器重启",
+#   (`docker events --filter event=oom` 有 mosaic-flink-jm 的 oom 事件), 症状是"提交到一半容器重启",
 #   日志里没有 OOM 字样, 极易误判。独立容器提交后 JM 只需管自己。
 #
 # 判据为什么是"集群里出现该作业名"而不是"客户端打印 succeeded":
@@ -19,8 +19,8 @@ set -uo pipefail
 # ⚠️ 这个变量已经因目录重构错过一次(2026-09-20): 脚本深了一层而这里没跟着改, 挂载源变成不存在的路径,
 #    docker 直接报错, 但脚本当时仍打印 ✅(假成功)。**改目录层级时必须一起看这里**。
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-IMAGE="${FLINK_IMAGE:-oceanverse/flink:1.20.5}"
-NET="${FLINK_NETWORK:-oceanverse_ov-net}"
+IMAGE="${FLINK_IMAGE:-mosaic/flink:1.20.5}"
+NET="${FLINK_NETWORK:-mosaic_net}"
 REST="${FLINK_REST:-http://127.0.0.1:18088}"
 # 作业专属 SQL 的暂存目录（占位符替换后挂进提交容器; .tmp-* 已在 .gitignore）
 STAGE="${ROOT}/.tmp-realtime-submit"
@@ -37,8 +37,8 @@ JOBS=("$@")
 CLIENT_FLINK_PROPERTIES="rest.address: flink-jobmanager
 rest.port: 8081
 env.java.opts.client: -Xmx256m
-execution.checkpointing.dir: s3://oceanverse-flink/checkpoints
-execution.checkpointing.savepoint-dir: s3://oceanverse-flink/savepoints
+execution.checkpointing.dir: s3://mosaic-flink/checkpoints
+execution.checkpointing.savepoint-dir: s3://mosaic-flink/savepoints
 execution.checkpointing.interval: 60s
 execution.checkpointing.min-pause: 30s
 execution.checkpointing.timeout: 5min
@@ -61,9 +61,9 @@ s3.secret-key: ov_minio_2026"
 # 否则两个作业的事务会互相覆盖）。与消费组同源命名。
 job_txn_prefix() {
   case "$1" in
-    10-online-count) echo oceanverse-online-1m ;;
-    20-fault-count)  echo oceanverse-fault-1m ;;
-    30-high-temp)    echo oceanverse-hightemp-1m ;;
+    10-online-count) echo mosaic-online-1m ;;
+    20-fault-count)  echo mosaic-fault-1m ;;
+    30-high-temp)    echo mosaic-hightemp-1m ;;
     *)               echo "" ;;
   esac
 }
@@ -79,9 +79,9 @@ job_group() {
 
 job_name() {
   case "$1" in
-    10-online-count) echo ov-online-count-1m ;;
-    20-fault-count)  echo ov-fault-count-1m ;;
-    30-high-temp)    echo ov-high-temp-battery-1m ;;
+    10-online-count) echo mosaic-online-count-1m ;;
+    20-fault-count)  echo mosaic-fault-count-1m ;;
+    30-high-temp)    echo mosaic-high-temp-battery-1m ;;
     *)               echo "" ;;
   esac
 }

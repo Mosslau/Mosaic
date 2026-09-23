@@ -10,8 +10,8 @@ deleteDatasources:
 datasources:
   - name: ClickHouse
     # 固定 uid: 面板/告警按 uid 引用数据源; 不固定则每次重建 /var/lib/grafana 都会生成新 uid → 断链
-    # (prometheus.yaml 同样固定为 ov-prometheus)
-    uid: ov-clickhouse
+    # (prometheus.yaml 同样固定为 mosaic-prometheus)
+    uid: mosaic-clickhouse
     type: grafana-clickhouse-datasource
     access: proxy
     url: http://clickhouse:8123
@@ -19,7 +19,7 @@ datasources:
       # host 是**必须项**: ClickHouse 插件(实测 v4.21.3)不看 Grafana 的 `url`, 只认 jsonData.host,
       # 缺了它查询直接报 `[config] invalid server host`。
       host: clickhouse
-      defaultDatabase: oceanverse
+      defaultDatabase: mosaic
       port: 8123
       protocol: http
       username: ov_admin

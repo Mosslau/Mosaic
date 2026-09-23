@@ -1,4 +1,4 @@
-SET 'pipeline.name' = 'ov-fault-count-1m';
+SET 'pipeline.name' = 'mosaic-fault-count-1m';
 -- 并行度 1: 集群只有 3 个 slot, 而这是第 3 个作业 —— 三个作业各占 1 个正好用满。
 --   横向扩: 加 TaskManager + 把这里改成 3（Kafka raw topic 已是 3 分区, 可直接吃满）。
 SET 'parallelism.default' = '1';

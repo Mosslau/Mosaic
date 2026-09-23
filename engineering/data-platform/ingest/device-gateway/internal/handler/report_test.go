@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Mosslau/OceanVerse/ingest/device-contracts/vehicle"
-	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/model"
+	"github.com/Mosslau/Mosaic/ingest/device-contracts/vehicle"
+	"github.com/Mosslau/Mosaic/ingest/device-gateway/internal/model"
 )
 
 // fakeSender 可控的 Sender 实现: 记录投递内容, 可注入错误

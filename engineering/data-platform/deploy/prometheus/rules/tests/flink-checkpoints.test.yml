@@ -1,7 +1,7 @@
 # promtool 单测 —— 检查点两条告警规则的"该响 / 不该响"
 #
 # 跑法（容器里就有 promtool, 规则目录已挂载）:
-#   docker exec ov-prometheus promtool test rules /etc/prometheus/rules/tests/flink-checkpoints.test.yml
+#   docker exec mosaic-prometheus promtool test rules /etc/prometheus/rules/tests/flink-checkpoints.test.yml
 # CI: compose 作业里 prometheus 起来后跑同一条命令。
 #
 # 为什么需要它: 这两条规则在**运行态**踩过假阳性 —— 作业被取消后, 它的 series 仍留在 15m 窗口里,
@@ -10,7 +10,7 @@
 #   ①"作业在跑但零完成 → 必须响" 与 ②"作业已消失(series 断流) → 必须不响" 两种场景都钉住,
 #   免得守卫被后人当成冗余删掉。
 rule_files:
-  - /etc/prometheus/rules/oceanverse-alerts.yml
+  - /etc/prometheus/rules/mosaic-alerts.yml
 evaluation_interval: 1m
 tests:
   # ---------- ① 该响: 作业持续被暴露, 但 15 分钟零完成检查点 ----------

@@ -2,7 +2,7 @@
 
 > 📚 **简称约定**：《接入层设计》= 《../docs/01-接入层设计-v1.md》｜《GB32960 映射》= 《../docs/02-GB32960协议规格-v1.md》｜《示例集》= 《../docs/03-验收示例集-v1.md》。下文以这三个简称标注跨文档引用。
 
-> OceanVerse 第 1 阶段第 2 步 —— 平台的数据"国门"
+> Mosaic 第 1 阶段第 2 步 —— 平台的数据"国门"
 > 职责: 设备鉴权 → 限流 → 协议解析/校验 → 写 Kafka → 全程可观测
 > 原则: 网关无业务逻辑、无状态、不直连数据库; 越"笨"越稳。
 > 📐 **设计见**《接入层设计》（含 §12 成熟度评估）；二进制链路见《GB32960 映射》
@@ -106,7 +106,7 @@ curl -i -X POST http://localhost:18080/api/v1/vehicle/report \
 # 期望: HTTP 202 {"code":0,"message":"accepted"}
 
 # Kafka 里应消费到(Kafka 自动建 topic)
-docker exec ov-kafka /opt/kafka/bin/kafka-console-consumer.sh \
+docker exec mosaic-kafka /opt/kafka/bin/kafka-console-consumer.sh \
   --bootstrap-server localhost:9092 --topic vehicle-report-raw \
   --from-beginning --timeout-ms 5000
 ```
@@ -261,7 +261,7 @@ GATEWAY_DEV_MODE=true go run ./cmd/server
 (cd ../device-simulator && go run ./cmd/mqtt-simulator -broker tcp://localhost:1883 -devices 100 -interval 5s -duration 60s)
 
 # 3. Kafka 应消费到 MQTT 来源的消息(与 HTTP 通道同一个 topic)
-docker exec ov-kafka /opt/kafka/bin/kafka-console-consumer.sh \
+docker exec mosaic-kafka /opt/kafka/bin/kafka-console-consumer.sh \
   --bootstrap-server localhost:9092 --topic vehicle-report-raw \
   --from-beginning --timeout-ms 10000
 
@@ -284,12 +284,12 @@ cd ../device-codec && go run ./cmd/server
 (cd ../device-simulator && go run ./cmd/bin-simulator -broker tcp://localhost:1883 -devices 100 -interval 10s -duration 60s)
 
 # 3. codec 输出应进 vehicle-report-raw(与 JSON 通道汇合, 下游无感)
-docker exec ov-kafka /opt/kafka/bin/kafka-console-consumer.sh \
+docker exec mosaic-kafka /opt/kafka/bin/kafka-console-consumer.sh \
   --bootstrap-server localhost:9092 --topic vehicle-report-raw \
   --from-beginning --timeout-ms 10000
 
 # 4. 失败帧(版本未知/CRC 错等)落 DLQ 排查:
-docker exec ov-kafka /opt/kafka/bin/kafka-console-consumer.sh \
+docker exec mosaic-kafka /opt/kafka/bin/kafka-console-consumer.sh \
   --bootstrap-server localhost:9092 --topic ov.dlq.codec.v1 \
   --from-beginning --timeout-ms 5000
 
@@ -303,7 +303,7 @@ docker exec ov-kafka /opt/kafka/bin/kafka-console-consumer.sh \
 
 ```bash
 # 在仓库根执行
-docker build -f ingest/device-gateway/Dockerfile -t oceanverse/device-gateway:dev .
+docker build -f ingest/device-gateway/Dockerfile -t mosaic/device-gateway:dev .
 # 国内网络如拉依赖慢, 可覆盖代理: --build-arg GOPROXY=https://goproxy.cn,direct
 ```
 
@@ -311,11 +311,11 @@ docker build -f ingest/device-gateway/Dockerfile -t oceanverse/device-gateway:de
 在容器里 `localhost` 指向容器自身 → 会 202 受理但写入失败，指标 `kafka_write_total{result="error"}` 可查）：
 
 ```bash
-docker run --rm --network oceanverse_ov-net -p 18080:18080 \
+docker run --rm --network mosaic_net -p 18080:18080 \
   -e GATEWAY_PORT=18080 \
   -e KAFKA_BROKERS=kafka:9092 \          # 容器内走内部监听器(内部广播 kafka:9092)
   -e GATEWAY_DEV_MODE=true \
-  oceanverse/device-gateway:dev
+  mosaic/device-gateway:dev
 # 容器里验证: curl -s localhost:18080/health  → {"status":"up"}
 #             打一条上报后看 topic offset 是否 +1(202 只代表受理, 不代表落盘)
 ```

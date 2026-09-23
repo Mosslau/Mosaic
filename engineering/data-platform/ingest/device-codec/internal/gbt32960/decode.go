@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/Mosslau/OceanVerse/ingest/device-contracts/vehicle"
+	"github.com/Mosslau/Mosaic/ingest/device-contracts/vehicle"
 )
 
 // 信息类型标志(§4 启用表)

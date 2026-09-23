@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/auth"
-	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/metrics"
-	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/model"
+	"github.com/Mosslau/Mosaic/ingest/device-gateway/internal/auth"
+	"github.com/Mosslau/Mosaic/ingest/device-gateway/internal/metrics"
+	"github.com/Mosslau/Mosaic/ingest/device-gateway/internal/model"
 )
 
 // 本文件覆盖"载荷 VIN 必须与 token 绑定的设备身份一致"(2026-09-18 审计补齐)。

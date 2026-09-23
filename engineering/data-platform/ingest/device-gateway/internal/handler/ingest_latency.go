@@ -3,7 +3,7 @@ package handler
 import (
 	"time"
 
-	"github.com/Mosslau/OceanVerse/ingest/device-gateway/internal/metrics"
+	"github.com/Mosslau/Mosaic/ingest/device-gateway/internal/metrics"
 )
 
 // observeIngestLatency 记录上行链路延迟: EMQX 接收(信封 ts, 毫秒) → 当前时刻。

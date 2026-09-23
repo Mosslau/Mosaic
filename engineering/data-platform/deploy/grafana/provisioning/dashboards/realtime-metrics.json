@@ -2,7 +2,7 @@
   "uid": "realtime-metrics",
   "title": "realtime 实时指标（在线数 / 故障 / 高温电池）",
   "tags": [
-    "oceanverse",
+    "mosaic",
     "realtime"
   ],
   "timezone": "",
@@ -33,7 +33,7 @@
       },
       "datasource": {
         "type": "grafana-clickhouse-datasource",
-        "uid": "ov-clickhouse"
+        "uid": "mosaic-clickhouse"
       },
       "fieldConfig": {
         "defaults": {
@@ -70,11 +70,11 @@
           "refId": "A",
           "datasource": {
             "type": "grafana-clickhouse-datasource",
-            "uid": "ov-clickhouse"
+            "uid": "mosaic-clickhouse"
           },
           "queryType": "sql",
           "format": 1,
-          "rawSql": "SELECT window_start AS t, max(online_cnt) AS online_cnt FROM oceanverse.ads_vehicle_online_1m GROUP BY t ORDER BY t"
+          "rawSql": "SELECT window_start AS t, max(online_cnt) AS online_cnt FROM mosaic.ads_vehicle_online_1m GROUP BY t ORDER BY t"
         }
       ]
     },
@@ -91,7 +91,7 @@
       },
       "datasource": {
         "type": "grafana-clickhouse-datasource",
-        "uid": "ov-clickhouse"
+        "uid": "mosaic-clickhouse"
       },
       "fieldConfig": {
         "defaults": {
@@ -120,11 +120,11 @@
           "refId": "A",
           "datasource": {
             "type": "grafana-clickhouse-datasource",
-            "uid": "ov-clickhouse"
+            "uid": "mosaic-clickhouse"
           },
           "queryType": "sql",
           "format": 1,
-          "rawSql": "SELECT window_start AS t, max(online_cnt) AS online_cnt FROM oceanverse.ads_vehicle_online_1m GROUP BY t ORDER BY t"
+          "rawSql": "SELECT window_start AS t, max(online_cnt) AS online_cnt FROM mosaic.ads_vehicle_online_1m GROUP BY t ORDER BY t"
         }
       ]
     },
@@ -141,7 +141,7 @@
       },
       "datasource": {
         "type": "grafana-clickhouse-datasource",
-        "uid": "ov-clickhouse"
+        "uid": "mosaic-clickhouse"
       },
       "fieldConfig": {
         "defaults": {
@@ -176,11 +176,11 @@
           "refId": "A",
           "datasource": {
             "type": "grafana-clickhouse-datasource",
-            "uid": "ov-clickhouse"
+            "uid": "mosaic-clickhouse"
           },
           "queryType": "sql",
           "format": 1,
-          "rawSql": "SELECT window_start AS t, code, sum(fault_cnt) AS fault_cnt FROM oceanverse.ads_fault_count_1m GROUP BY t, code ORDER BY t"
+          "rawSql": "SELECT window_start AS t, code, sum(fault_cnt) AS fault_cnt FROM mosaic.ads_fault_count_1m GROUP BY t, code ORDER BY t"
         }
       ]
     },
@@ -197,7 +197,7 @@
       },
       "datasource": {
         "type": "grafana-clickhouse-datasource",
-        "uid": "ov-clickhouse"
+        "uid": "mosaic-clickhouse"
       },
       "fieldConfig": {
         "defaults": {
@@ -263,11 +263,11 @@
           "refId": "A",
           "datasource": {
             "type": "grafana-clickhouse-datasource",
-            "uid": "ov-clickhouse"
+            "uid": "mosaic-clickhouse"
           },
           "queryType": "sql",
           "format": 2,
-          "rawSql": "SELECT window_start, vin, temp_max, level FROM oceanverse.ads_high_temp_battery_1m FINAL WHERE level = 'alarm' ORDER BY window_start DESC, temp_max DESC LIMIT 100"
+          "rawSql": "SELECT window_start, vin, temp_max, level FROM mosaic.ads_high_temp_battery_1m FINAL WHERE level = 'alarm' ORDER BY window_start DESC, temp_max DESC LIMIT 100"
         }
       ]
     }
