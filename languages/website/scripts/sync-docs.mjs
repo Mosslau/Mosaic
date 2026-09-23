@@ -105,7 +105,20 @@ function walk(dir, filter) {
     for (const entry of entries) {
       const full = path.join(cur, entry.name)
       if (entry.isDirectory()) {
-        if (entry.name === 'node_modules' || entry.name === 'target' || entry.name === '.git') continue
+        // 跳过点目录（.git / .pytest_cache / .ruff_cache / .venv …）与构建缓存目录。
+        // 必须跳：walk 的结果按字典序排序，而 `.`(0x2E) 在字母之前，所以缓存目录里的
+        // `.pytest_cache/README.md` 会抢在阶段自己的 `README.md` 之前被选为代码层入口
+        // （见 parseRoadmap 里 `mds.find(f => basename === 'README.md')`），
+        // 生成指向本地缓存的死链——而这类链接由 curriculum.json 注入、不经 markdown
+        // 渲染，VitePress 自带的死链检查抓不到。
+        if (
+          entry.name.startsWith('.') ||
+          entry.name === 'node_modules' ||
+          entry.name === 'target' ||
+          entry.name === '__pycache__'
+        ) {
+          continue
+        }
         stack.push(full)
       } else if (!filter || filter(full)) {
         out.push(full)
