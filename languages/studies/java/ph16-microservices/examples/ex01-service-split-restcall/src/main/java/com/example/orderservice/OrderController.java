@@ -11,7 +11,7 @@ import java.util.Map;
 public class OrderController {
 
     private static final Map<Long, OrderDto> ORDERS = Map.of(
-            1001L, new OrderDto(1001L, 1L, "电动补能电器"),
+            1001L, new OrderDto(1001L, 1L, "电动充电电器"),
             1002L, new OrderDto(1002L, 9L, "查无此人的订单"),
             1003L, new OrderDto(1003L, 99L, "慢用户的订单"));
 

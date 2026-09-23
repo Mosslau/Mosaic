@@ -15,12 +15,12 @@ class InheritanceInterfaceDemo {
         String describe() { return name + "（设备）"; }   // 子类可覆写（动态分派）
     }
 
-    interface Electric { void charge(); }                 // 契约：能补能
+    interface Electric { void charge(); }                 // 契约：能充电
     interface Navigable { void navigate(); }              // 契约：能导航
 
     static class Car extends Device implements Electric, Navigable {
         Car() { super("设备"); }
-        @Override public void charge()   { System.out.println("   补能中……"); }
+        @Override public void charge()   { System.out.println("   充电中……"); }
         @Override public void navigate() { System.out.println("   导航中……"); }
         @Override public String describe() { return super.describe() + " · Car"; }
     }
@@ -37,7 +37,7 @@ class InheritanceInterfaceDemo {
     }
 
     // 面向契约编程：函数只认接口，不关心具体类
-    static void goCharge(Electric e) { System.out.println("   [按 Electric 契约补能]"); e.charge(); }
+    static void goCharge(Electric e) { System.out.println("   [按 Electric 契约充电]"); e.charge(); }
     static void goNav(Navigable n)   { System.out.println("   [按 Navigable 契约导航]"); n.navigate(); }
 
     // ---- main ----

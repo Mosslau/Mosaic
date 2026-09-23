@@ -25,7 +25,7 @@ class Component:
         return self.cap * self._soc / 100.0
 
     def charge(self, a):
-        """补能 a 个百分点，超过 100% 报过充错误。"""
+        """充电 a 个百分点，超过 100% 报过充错误。"""
         n = self._soc + a
         if n > 100:
             raise ValueError(f"过充: 当前{self._soc}%")
@@ -40,7 +40,7 @@ class Component:
 
 
 def main():
-    """演示放电、补能与越界校验。"""
+    """演示放电、充电与越界校验。"""
     b = Component(70.0)
     print(f"SOC={b.soc}% 可用={b.available:.1f}kWh")  # SOC=100.0% 可用=70.0kWh
     b.discharge(30)

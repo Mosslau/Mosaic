@@ -30,7 +30,7 @@ from sklearn.preprocessing import StandardScaler
 
 SEED = 7  # 故意与示例 ex03（seed=42）不同
 N = 1500
-CLASSES = ["健康", "补能过压", "过热振动"]
+CLASSES = ["健康", "充电过压", "过热振动"]
 
 
 def make_fault_data() -> tuple[np.ndarray, np.ndarray]:

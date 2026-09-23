@@ -11,7 +11,7 @@
 在 12 段内置的电动设备手册语料上，用「词袋 / TF-IDF + 余弦相似度」手工实现检索，
 对比不同检索方案与查询措辞的命中率，并演示「检索错了，生成再强也答错」：
   A. 查询措辞决定检索质量：措辞清晰 6 问 top1 全中；「component seems weak and
-     drains fast」这类模糊问法，top1 命中文不对题的补能文档；
+     drains fast」这类模糊问法，top1 命中文不对题的充电文档；
   B. top-k 是补救手段：把 top-3 上下文都给生成器，有一问救回（hit@3 7/8），
      但完全失败的一问（car range → 冬季续航文档）仍在 top-3 之外；
   C. 检索函数与预处理：停用词不移除时词频检索 5/8 vs TF-IDF 6/8——先做对
@@ -27,7 +27,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-# 停用词表（超高频功能词，对「补能」「续航」这类主题几乎无区分力）
+# 停用词表（超高频功能词，对「充电」「续航」这类主题几乎无区分力）
 STOP = set(
     """a an the and or but of to in on for with at by from as is are was were be been it its
 this that these those can could would should will may might do does did not no yes you your we our
@@ -38,19 +38,19 @@ they their about into over under""".split()
 CORPUS: list[tuple[str, str, str]] = [
     (
         "doc_chg_1",
-        "补能",
+        "充电",
         "Fast charging at 150 kilowatts takes about 30 minutes to reach 80 percent "
         "state of charge. The last 20 percent charges slower to protect the component.",
     ),
     (
         "doc_chg_2",
-        "补能",
+        "充电",
         "Avoid charging to 100 percent every day for daily use. The recommended "
         "daily limit is 80 percent because high state of charge accelerates component aging.",
     ),
     (
         "doc_chg_3",
-        "补能",
+        "充电",
         "Home charging with a 7 kilowatt AC wallbox adds about 40 minutes of runtime "
         "per hour. An overnight charge from empty to full takes about 9 hours.",
     ),
@@ -216,7 +216,7 @@ def section_a_b_phrasing_and_topk() -> None:
     gold_ids = [doc_id for doc_id, _, _ in CORPUS]
     report_variant("段落级", docs, gold_ids, remove_stop=True)
     print(
-        "   → 清晰措辞 6 问全中；模糊组：component 问法 top1 答非所问（补能文档），"
+        "   → 清晰措辞 6 问全中；模糊组：component 问法 top1 答非所问（充电文档），"
         "car range 问法 top1 是冬季续航文档——同主题不同文档在抢答"
     )
 

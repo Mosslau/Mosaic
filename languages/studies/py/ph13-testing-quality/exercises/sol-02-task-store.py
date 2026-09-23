@@ -49,7 +49,7 @@ def empty_store(store_dir):
 def prefilled_store(store_dir):
     """预置 3 条任务：依赖 store_dir，pytest 自动先建目录再建 store。"""
     s = TaskStore(store_dir / "pre.jsonl")
-    for title in ("补能", "换轮胎", "年检"):
+    for title in ("充电", "换轮胎", "年检"):
         s.add(title)
     return s
 
@@ -75,7 +75,7 @@ def test_add_returns_increasing_ids(empty_store):
 
 
 def test_list_orders_by_id(prefilled_store):
-    assert [t["title"] for t in prefilled_store.list()] == ["补能", "换轮胎", "年检"]
+    assert [t["title"] for t in prefilled_store.list()] == ["充电", "换轮胎", "年检"]
 
 
 def test_mark_done(prefilled_store):

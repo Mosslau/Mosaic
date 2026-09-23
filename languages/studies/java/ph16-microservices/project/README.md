@@ -52,7 +52,7 @@ $ curl -s http://localhost:18313/api/orders/1001 -H "Authorization: Bearer $TOKE
 
 # 4) 全链路聚合：gateway(验签+注入 alice) → order-service → user-service 取回用户名 alice
 $ curl -s http://localhost:18313/api/orders/1001 -H "Authorization: Bearer $TOKEN"
-{"code":0,"message":"ok","data":{"orderId":1001,"item":"电动补能电器","userName":"alice","degraded":false,"userServiceTraceId":"a53e123d-..."}}   [HTTP 200]
+{"code":0,"message":"ok","data":{"orderId":1001,"item":"电动充电电器","userName":"alice","degraded":false,"userServiceTraceId":"a53e123d-..."}}   [HTTP 200]
 
 # 5) X-Trace-Id 透传：响应头与聚合结果里的 userServiceTraceId 都是 curl-demo-trace-1
 $ curl -s -i http://localhost:18313/api/orders/1001 \
@@ -72,7 +72,7 @@ $ curl -s -X POST http://localhost:18313/api/auth/login \
 
 # 8) 降级：停掉 user-service 后仍可查订单详情（degraded=true 占位，HTTP 200）
 $ curl -s http://localhost:18312/api/orders/1001 -H 'X-Auth-User: alice'
-{"code":0,"message":"ok","data":{"orderId":1001,"item":"电动补能电器","userName":"（用户服务暂不可用，降级展示）","degraded":true,"userServiceTraceId":null}}   [HTTP 200]
+{"code":0,"message":"ok","data":{"orderId":1001,"item":"电动充电电器","userName":"（用户服务暂不可用，降级展示）","degraded":true,"userServiceTraceId":null}}   [HTTP 200]
 ```
 
 - 能画出链路并说出每跳在做什么：client → gateway（验签一次，注入身份头）→ order-service（聚合，身份头 + traceId 透传）→ user-service（按网关注入的身份头放行，返回用户名）；并说明与真实 Spring Cloud Gateway + 认证过滤器、OpenFeign、Nacos 的对应关系（主文档 3.2，见下）。

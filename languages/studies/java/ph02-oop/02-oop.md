@@ -132,7 +132,7 @@ public class Device {
 }
 
 public class ElectricCar extends Device {
-    public void charge() { System.out.println(device_id + " 正在补能"); }
+    public void charge() { System.out.println(device_id + " 正在充电"); }
 }
 ```
 

@@ -56,7 +56,7 @@ public class OrderController {
     }
 
     private static final Map<Long, Order> ORDERS = Map.of(
-            1001L, new Order(1001L, 1L, "补能器"),
+            1001L, new Order(1001L, 1L, "充电器"),
             1002L, new Order(1002L, 9L, "查无此人的订单"),
             1003L, new Order(1003L, 99L, "慢用户的订单"),
             1004L, new Order(1004L, 7L, "抖动用户的订单"));

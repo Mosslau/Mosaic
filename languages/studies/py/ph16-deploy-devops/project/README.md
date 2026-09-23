@@ -6,7 +6,7 @@
 
 ph15 的模型交付止步于「另一个进程能加载产物做预测」（命令行）。生产要的是：**模型变成一个长期存活、可探活、可观测、可重建的服务**。本模板把这件事的最小闭环做出来：
 
-- **服务化**：`POST /predict` 输入部件工况（循环次数/温度/放电深度/补能倍率），返回 HEALTH 与健康等级——推理后端有两档：加载 joblib 产物（`JoblibPredictor` 按产物**形态**分派：ph15 的 `ComponentHealthPipeline` 形态走 `predict_health(X)`、sklearn 模型/管线走 `.predict`——形态兼容是 stub 级验证，真实 ph15 产物加载需 `health` 可导入，边界见下方扩展方向，实现见 [`app/predictor.py`](./app/predictor.py)）或规则公式兜底（`RulePredictor`，无产物也能起服务）；
+- **服务化**：`POST /predict` 输入部件工况（循环次数/温度/放电深度/充电倍率），返回 HEALTH 与健康等级——推理后端有两档：加载 joblib 产物（`JoblibPredictor` 按产物**形态**分派：ph15 的 `ComponentHealthPipeline` 形态走 `predict_health(X)`、sklearn 模型/管线走 `.predict`——形态兼容是 stub 级验证，真实 ph15 产物加载需 `health` 可导入，边界见下方扩展方向，实现见 [`app/predictor.py`](./app/predictor.py)）或规则公式兜底（`RulePredictor`，无产物也能起服务）；
 - **可探活**：`/health`（liveness）与 `/ready`（readiness）分工——配置了 `MODEL_PATH` 但产物缺失时 `/ready` 与 `/predict` 都返回 503，**不静默降级**（把「模型没挂上」藏成「服务正常」是生产事故的经典开局）；
 - **可观测**：`/metrics` 手写最小 Prometheus 文本格式（请求计数、预测耗时、当前推理后端、运行时长），compose 里带 Prometheus 抓取配置；
 - **可重建**：多阶段 Dockerfile（构建期与运行期分离、非 root 运行、产物不烤进镜像）+ Compose 一键起「服务 + 监控」。

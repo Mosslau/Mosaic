@@ -9,7 +9,7 @@
 #                泄漏特征失效后 test acc 0.897（回归真实水平）
 """数据质量与数据泄漏演示（roadmap 必会概念：数据质量决定模型上限）。
 
-同一份「部件传感器故障」分类数据（0=健康 88%、1=补能过压 8%、2=过热振动 4%），
+同一份「部件传感器故障」分类数据（0=健康 88%、1=充电过压 8%、2=过热振动 4%），
 三种改法对比验证分数，全部用同一套 60/20/20 划分 + StandardScaler + kNN(5)：
   A. 干净基线：train/val/test 严格隔离 —— 记录每个类的召回率（少数类召回低是
      「准确率骗人」的第一现场，主文档 3.5 与 ex03 展开）
@@ -38,11 +38,11 @@ SEED = 42
 N = 1500
 # 特征列名（temp:°C / voltage:V / current:A / vibration:无量纲 / resistance:Ω）
 FEATURES = ["temp", "voltage", "current", "vibration", "resistance"]
-CLASSES = ["健康", "补能过压", "过热振动"]
+CLASSES = ["健康", "充电过压", "过热振动"]
 
 
 def make_fault_data(n: int = N, seed: int = SEED) -> tuple[np.ndarray, np.ndarray]:
-    """生成部件传感器故障数据：0=健康(88%)、1=补能过压(8%)、2=过热振动(4%)。
+    """生成部件传感器故障数据：0=健康(88%)、1=充电过压(8%)、2=过热振动(4%)。
 
     只生成干净数据；标签噪声不在生成期施加——见 corrupt_training_labels：
     噪声必须等 train/test 划分完之后再只污染训练子集，否则评估标签也被改错，
@@ -56,7 +56,7 @@ def make_fault_data(n: int = N, seed: int = SEED) -> tuple[np.ndarray, np.ndarra
         return np.asarray(mean) + np.asarray(std) * rng.standard_normal((k, 5))
 
     healthy = gauss([30, 3.7, 10, 0.5, 1.2], [5, 0.16, 2.8, 0.3, 0.12], n0)  # 正常工况
-    fault_a = gauss([34, 4.0, 8.5, 1.0, 1.4], [5, 0.3, 3.2, 0.4, 0.18], n1)  # 补能过压
+    fault_a = gauss([34, 4.0, 8.5, 1.0, 1.4], [5, 0.3, 3.2, 0.4, 0.18], n1)  # 充电过压
     fault_b = gauss([46, 3.7, 12, 1.6, 1.5], [12, 0.28, 4.5, 1.2, 0.35], n2)  # 过热/振动
     X = np.vstack([healthy, fault_a, fault_b])
     y = np.concatenate([np.zeros(n0), np.ones(n1), np.full(n2, 2)]).astype(int)

@@ -5,7 +5,7 @@
     cycles      累计充放电循环次数（次）
     avg_temp    平均工作温度（°C）
     depth       平均放电深度 DoD（%）
-    c_rate      平均补能倍率 C（1C=1 小时充满）
+    c_rate      平均充电倍率 C（1C=1 小时充满）
 - 目标 1：health —— 健康状态（%）。HEALTH = 100 − 循环数 × 每循环老化率 + 噪声，
   每循环老化率 = 基础 0.008 + 高温/深放/大倍率分段加成 + 电芯个体差异。
 - 目标 2：grade —— 健康等级（0=健康 HEALTH≥90 / 1=退化 80≤HEALTH<90 / 2=临界 HEALTH<80），
@@ -60,7 +60,7 @@ def _aging_loss(
         0.008
         + 0.00025 * np.maximum(avg_temp - 25, 0)  # 高温加速老化（25°C 为基准）
         + 0.0005 * np.maximum(depth - 70, 0)  # 深放（>70% DoD）加速老化
-        + 0.0015 * np.maximum(c_rate - 1.5, 0)  # 大倍率补能加速老化
+        + 0.0015 * np.maximum(c_rate - 1.5, 0)  # 大倍率充电加速老化
         + cell_noise
     )
 
@@ -71,7 +71,7 @@ def make_component_data(n: int, seed: int) -> ComponentDataset:
     cycles = rng.uniform(100, 3200, n)  # 累计循环次数
     avg_temp = rng.uniform(18, 45, n)  # 平均温度
     depth = rng.uniform(40, 100, n)  # 平均放电深度
-    c_rate = rng.uniform(0.3, 2.2, n)  # 平均补能倍率
+    c_rate = rng.uniform(0.3, 2.2, n)  # 平均充电倍率
     X = np.column_stack([cycles, avg_temp, depth, c_rate])
 
     loss = _aging_loss(avg_temp, depth, c_rate, rng.normal(0, 0.0012, n))

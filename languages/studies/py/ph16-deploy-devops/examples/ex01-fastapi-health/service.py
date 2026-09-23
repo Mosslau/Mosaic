@@ -33,7 +33,7 @@ class Condition(BaseModel):
     cycles: float = Field(ge=0, description="累计充放电循环次数")
     avg_temp: float = Field(description="平均工作温度 °C")
     depth: float = Field(ge=0, le=100, description="平均放电深度 %")
-    c_rate: float = Field(gt=0, description="平均补能倍率 C")
+    c_rate: float = Field(gt=0, description="平均充电倍率 C")
 
 
 def rule_based_health(c: Condition) -> float:

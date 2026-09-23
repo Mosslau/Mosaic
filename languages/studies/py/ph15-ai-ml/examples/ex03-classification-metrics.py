@@ -38,7 +38,7 @@ from sklearn.preprocessing import StandardScaler
 
 SEED = 42
 N = 1500
-CLASSES = ["健康", "补能过压", "过热振动"]
+CLASSES = ["健康", "充电过压", "过热振动"]
 
 
 def make_fault_data() -> tuple[np.ndarray, np.ndarray]:
@@ -52,7 +52,7 @@ def make_fault_data() -> tuple[np.ndarray, np.ndarray]:
     X = np.vstack(
         [
             gauss([30, 3.7, 10, 0.5, 1.2], [5, 0.16, 2.8, 0.3, 0.12], n0),  # 健康
-            gauss([34, 4.0, 8.5, 1.0, 1.4], [5, 0.3, 3.2, 0.4, 0.18], n1),  # 补能过压
+            gauss([34, 4.0, 8.5, 1.0, 1.4], [5, 0.3, 3.2, 0.4, 0.18], n1),  # 充电过压
             gauss([46, 3.7, 12, 1.6, 1.5], [12, 0.28, 4.5, 1.2, 0.35], n2),  # 过热振动
         ]
     )

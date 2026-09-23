@@ -17,7 +17,7 @@ class Device {                      // 单根继承：Object ← Device ← Car
     void start() { /* ... */ }
 }
 
-interface Electric {                 // 契约一：能补能
+interface Electric {                 // 契约一：能充电
     void charge();
 }
 

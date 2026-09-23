@@ -34,7 +34,7 @@ class ElectricDevice(Device):
         self._soc = 100.0
 
     def charge(self, amount):
-        """补能 amount 个百分点（0~100 边界保护）。"""
+        """充电 amount 个百分点（0~100 边界保护）。"""
         self._soc = min(100.0, self._soc + amount)
 
     def range(self):

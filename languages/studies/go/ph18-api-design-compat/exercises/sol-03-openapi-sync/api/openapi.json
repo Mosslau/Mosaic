@@ -60,7 +60,7 @@
         "required": ["id", "plate", "status"],
         "properties": {
           "id": { "type": "string", "description": "设备唯一标识" },
-          "plate": { "type": "string", "description": "设备编号号" },
+          "plate": { "type": "string", "description": "设备编号" },
           "status": { "type": "string", "enum": ["online", "offline", "maintenance"] }
         }
       },

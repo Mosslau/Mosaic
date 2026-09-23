@@ -44,7 +44,7 @@ func main() {
 		if errors.As(err, &ve) {
 			switch ve.Code {
 			case 2001:
-				fmt.Printf("设备 %s 电量过低（code=%d），请补能\n", ve.DeviceID, ve.Code)
+				fmt.Printf("设备 %s 电量过低（code=%d），请充电\n", ve.DeviceID, ve.Code)
 			default:
 				fmt.Println("设备校验失败:", ve)
 			}

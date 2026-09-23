@@ -60,8 +60,8 @@ class IdempotencyTest {
     void sameKeyReplaysResultWithoutReprocessing() {
         String key = "key-" + System.nanoTime();
         int before = processCount();
-        OrderResult first = submit(key, "补能器");
-        OrderResult second = submit(key, "补能器");
+        OrderResult first = submit(key, "充电器");
+        OrderResult second = submit(key, "充电器");
         assertThat(second.orderId()).isEqualTo(first.orderId());
         assertThat(first.replayed()).isFalse();
         assertThat(second.replayed()).isTrue();
