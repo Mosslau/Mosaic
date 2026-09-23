@@ -244,20 +244,43 @@ def check_phase_doc(root: Path, doc: Path) -> None:
 
 
 def check_phase_code(root: Path, d: Path) -> None:
-    """题解数量对应（只查数量，不查内容）。"""
+    """题解覆盖：按**题号集合**核对，不数条目。
+
+    一题多文件（`sol-01-lib.cpp` + `sol-01-lib.h` + `sol-01-host.cpp`）与
+    一题多解（`sol-05a` / `sol-05b`）都归到同一题号，因此不再误报；
+    同时保留对真缺口的检出（有题号无任何 sol-* 即 warn）。
+
+    `sol-*` 允许嵌在子工程里（如 rs/ph15 的练习 4 在
+    `exercises/crates/src/bin/sol-04-serde-derive.rs`），故用 rglob 递归查找。
+    """
     ex = d / "exercises"
     if not ex.is_dir():
         return
-    sols = [p for p in ex.iterdir() if p.name.startswith("sol-") and p.name != "README.md"]
+    sols = [p for p in ex.rglob("sol-*") if "target" not in p.relative_to(ex).parts]
     if sols and not (ex / "README.md").exists():
         problems.append(f"{rel(ex, root)}: 有 sol-* 但缺 README.md（题目）")
     readme = ex / "README.md"
     if readme.exists():
         text = readme.read_text(encoding="utf-8")
-        asked = len(re.findall(r"^## 练习\s*\d+", text, re.M))
-        if asked and len(sols) != asked:
+        asked = {int(n) for n in re.findall(r"^## 练习\s*(\d+)", text, re.M)}
+        if not asked:
+            return
+        got = set()
+        for p in sols:
+            m = re.match(r"sol-(\d+)", p.name)
+            if m:
+                got.add(int(m.group(1)))
+        missing = sorted(asked - got)
+        extra = sorted(got - asked)
+        if missing or extra:
+            why = []
+            if missing:
+                why.append("第 " + "、".join(map(str, missing)) + " 题无参考实现")
+            if extra:
+                why.append("第 " + "、".join(map(str, extra)) + " 题无对应题目")
             warnings.append(
-                f"{rel(ex, root)}: 题目 {asked} 道 vs 参考实现 {len(sols)} 份（一题多解请用 sol-05a/sol-05b 命名）")
+                f"{rel(ex, root)}: 题目 {len(asked)} 道 vs 参考实现覆盖 {len(got & asked)} 道"
+                f"（{'；'.join(why)}）")
 
 
 def expand_sections(spec: str) -> list[int]:
