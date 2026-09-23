@@ -1,7 +1,7 @@
 # streaming 流处理 —— Flink SQL 作业（lakehouse/warehouse 下的流处理模块）
 
 > 上位：`../../README.md`（湖仓层：定位与边界）｜`../README.md`（数仓加工：分层规约 ODS→DWD→DWS→ADS）
-> 对应《OceanVerse 架构总览》§1.1 实时计算层 / 能力域③计算引擎。
+> 对应《架构总览》§1.1 实时计算层 / 能力域③计算引擎。
 > **本模块职责**：把 `vehicle-report-raw` 里的标准信封（接入层契约）算成**可直接查询的 ADS 指标**，落到 ClickHouse serving 层。
 >
 > 📚 **简称约定**：《接入层设计》= 《../../../ingest/docs/01-接入层设计-v1.md》｜《GB32960 映射》= 《../../../ingest/docs/02-GB32960协议规格-v1.md》

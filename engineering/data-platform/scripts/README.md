@@ -165,7 +165,7 @@ README 合计漂移 / README 单值漂移 / README 漏服务 / 百分比不自�
 
 - **章节编号**：服务手册的 `##` 一律带序号（`## 1.` …），其下 `### N.x` 的 N 必须与父节号一致——否则 `§x.y` 读者找不到
 - **跨文档引用写法**：统一用简称《接入层设计》/《GB32960 映射》/《示例集》（每篇手册头部一行"简称约定"给出相对路径），不用 `《../docs/xx.md》` 这种路径式写法
-- **单一源不变**：topic/QoS → 《接入层设计》§4.2；配置全表 → `device-gateway/README.md`；模拟器参数 → `device-simulator/README.md`；字节规格 → 《GB32960 映射》；进度 → `roadmap/项目进度.md`
+- **单一源不变**：topic/QoS → 《接入层设计》§4.2；配置全表 → `device-gateway/README.md`；模拟器参数 → `device-simulator/README.md`；字节规格 → 《GB32960 映射》；进度 → `engineering/data-platform/roadmap/项目进度.md`
 
 ## 文档图表约定
 
@@ -176,7 +176,7 @@ README 合计漂移 / README 单值漂移 / README 漏服务 / 百分比不自�
 其它要求：
 
 - **单一真相**：一处图只保留一种形式（转 Mermaid 即删 ASCII），避免两处漂移
-- **大图拆分**：一张图超过 ~40 行就拆（例：《OceanVerse 架构总览》§1.1 的 154 行 ASCII 拆成"分层总览 / 接入层细节 / 湖仓与计算细节"三张）
+- **大图拆分**：一张图超过 ~40 行就拆（例：《架构总览》§1.1 的 154 行 ASCII 拆成"分层总览 / 接入层细节 / 湖仓与计算细节"三张）
 - **渲染前提**：Mermaid 需要渲染器（GitHub / VS Code / GitLab / 多数 Markdown 预览）；纯终端 `cat` 不可读——因此**面向排障的速查内容仍用文字/表格**
 
 ## 目录约定（2026-09-17 决定）

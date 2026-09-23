@@ -1,6 +1,6 @@
 # lakehouse 湖仓层 —— 建模与加工的落点
 
-> 对应《OceanVerse 架构总览》§1.1 的**湖仓层 (Lakehouse)** 与计算层。
+> 对应《架构总览》§1.1 的**湖仓层 (Lakehouse)** 与计算层。
 > **本层职责**：把接进来的数据**按数仓分层建起来**（ODS→DWD→DWS→ADS），并定义这些表的口径。
 >
 > **边界（重要）**：**存储组件的配置不在这里** —— ClickHouse 的内存上限、MinIO、Kafka、Flink 集群的编排都在
@@ -46,4 +46,4 @@ lakehouse/                            ← 本层
 - `warehouse/README.md` —— 数仓分层规约（ODS→DWD→DWS→ADS）与命名
 - `warehouse/streaming/README.md` —— 流处理模块手册：口径 / 四步跑起来 / 实测证据 / 运维 / 6 条已知边界
 - `../deploy/README.md` —— 基础设施：部署步骤、组件清单、修订记录
-- `../roadmap/项目进度.md` —— 阶段进度与待收口项
+- `engineering/data-platform/roadmap/项目进度.md` —— 阶段进度与待收口项

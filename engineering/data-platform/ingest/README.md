@@ -40,7 +40,7 @@
 | 401/429/400/500 长什么样 | 《示例集》§2 |
 | 模拟器参数默认值 | `device-simulator/README.md` 全参数表 |
 | 压测数字 | 《接入层设计》§7.3 |
-| 现在走到哪一步 | 《roadmap/项目进度.md》 |
+| 现在走到哪一步 | 《engineering/data-platform/roadmap/项目进度.md》 |
 | 服务起不来 / 数据没到 | `bash scripts/check-pipeline-health.sh` + 《示例集》§7 |
 
 ---
@@ -139,7 +139,7 @@ ingest/
 
 ## 当前状态（第 1 阶段）
 
-> 阶段级滚动进度见《roadmap/项目进度.md》；下方为接入层自身的细节状态。
+> 阶段级滚动进度见《engineering/data-platform/roadmap/项目进度.md》；下方为接入层自身的细节状态。
 
 | 项 | 状态 |
 |---|---|
