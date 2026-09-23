@@ -15,7 +15,7 @@ java StudentDemo
 | 文件 | 说明 | 入口类 | 编译 | 运行 |
 |------|------|--------|------|------|
 | ex01-student.java | 封装：private 字段 + getter/setter 校验不变量 | StudentDemo | `javac ex01-student.java` | `java StudentDemo` |
-| ex02-vehicle.java | 继承与多态：abstract 父类 + 子类重写 start() | VehicleDemo | `javac ex02-vehicle.java` | `java VehicleDemo` |
+| ex02-device.java | 继承与多态：abstract 父类 + 子类重写 start() | DeviceDemo | `javac ex02-device.java` | `java DeviceDemo` |
 | ex03-sensor.java | 接口解耦：readSensor 只依赖 Sensor 接口 | SensorDemo | `javac ex03-sensor.java` | `java SensorDemo` |
 | ex04-record.java | record 不可变数据：withTemperature 返回新实例 | RecordDemo | `javac ex04-record.java` | `java RecordDemo` |
 | ex05-sealed.java | sealed class：permits 限定子类 + instanceof 模式匹配 | SealedDemo | `javac ex05-sealed.java` | `java SealedDemo` |

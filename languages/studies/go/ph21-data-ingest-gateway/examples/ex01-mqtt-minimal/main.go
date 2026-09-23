@@ -48,7 +48,7 @@ func main() {
 	}); err != nil {
 		log.Fatalf("订阅下行: %v", err)
 	}
-	// 3. 平台客户端：订阅该车指标（演示通配：ingest/+/metrics 也命中单层 +）。
+	// 3. 平台客户端：订阅该设备指标（演示通配：ingest/+/metrics 也命中单层 +）。
 	plat := NewClient(ClientOptions{
 		Broker: b.Addr().String(), ClientID: "platform-1",
 		Username: "platform-1", Password: "plat-tok", KeepAlive: 5 * time.Second,

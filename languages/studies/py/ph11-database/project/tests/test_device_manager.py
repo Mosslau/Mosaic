@@ -74,8 +74,8 @@ def test_user_unique_email(tmp_path):
     db.conn.close()
 
 
-# ---------- 设备注册（vin 唯一） ----------
-def test_device_register_duplicate_vin(tmp_path):
+# ---------- 设备注册（device_id 唯一） ----------
+def test_device_register_duplicate_device_id(tmp_path):
     db = make_db(tmp_path)
     devices = DeviceRepo(db)
     devices.register("V001", "EV-A")
@@ -84,7 +84,7 @@ def test_device_register_duplicate_vin(tmp_path):
     except sqlite3.IntegrityError:
         pass
     else:
-        raise AssertionError("重复 vin 应抛 IntegrityError")
+        raise AssertionError("重复 device_id 应抛 IntegrityError")
     assert len(devices.list_all()) == 1
     db.conn.close()
 
@@ -94,7 +94,7 @@ def test_device_set_online(tmp_path):
     devices = DeviceRepo(db)
     devices.register("V001", "EV-A")
     assert devices.set_online("V001", True) == 1
-    assert devices.get_by_vin("V001")["online"] == 1
+    assert devices.get_by_device_id("V001")["online"] == 1
     db.conn.close()
 
 
@@ -188,7 +188,7 @@ def test_cache_invalidation_on_update(tmp_path):
 def test_demo_offline(capsys):
     assert demo() == 0
     out = capsys.readouterr().out
-    for fragment in ("迁移完成", "用户 CRUD", "重复 vin 被拒", "状态批量入库",
+    for fragment in ("迁移完成", "用户 CRUD", "重复 device_id 被拒", "状态批量入库",
                      "分组统计", "缓存", "自检通过"):
         assert fragment in out
 

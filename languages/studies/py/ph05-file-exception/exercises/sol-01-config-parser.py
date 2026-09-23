@@ -37,12 +37,12 @@ def main():
     with tempfile.TemporaryDirectory() as d:
         path = os.path.join(d, "app.cfg")
         with open(path, "w", encoding="utf-8") as f:
-            f.write("# 车辆平台配置\n")
+            f.write("# 设备平台配置\n")
             f.write("[server]\n")
             f.write("host = 0.0.0.0\n")
             f.write("port = 8080\n")
             f.write("this is a bad line\n")  # 非法行 -> 报行号并跳过
-            f.write("[battery]\n")
+            f.write("[component]\n")
             f.write("chemistry = LFP\n")
 
         config = parse_config(path)

@@ -9,7 +9,7 @@
 #                （本数据轻度不平衡，balanced 反而略降——体会「加权不是免费午餐」）
 """练习 2（故障分类，对应 roadmap）：分类 + 评估指标 + 类别不平衡。
 
-任务：用 kNN / 随机森林对电池传感器故障（健康 88% / 过压 8% / 过热振动 4%）分类，
+任务：用 kNN / 随机森林对部件传感器故障（健康 88% / 过压 8% / 过热振动 4%）分类，
 用准确率 + macro-F1 + 混淆矩阵评估并挑选模型。要点：
   1. 换一个随机种子（seed=7），数据与示例不同——数字必须自己跑出来；
   2. k 值越小，少数类召回越高但噪声越敏感（kNN(3) macro-F1 0.829 > kNN(7) 0.762）；
@@ -30,7 +30,7 @@ from sklearn.preprocessing import StandardScaler
 
 SEED = 7  # 故意与示例 ex03（seed=42）不同
 N = 1500
-CLASSES = ["健康", "充电过压", "过热振动"]
+CLASSES = ["健康", "补能过压", "过热振动"]
 
 
 def make_fault_data() -> tuple[np.ndarray, np.ndarray]:

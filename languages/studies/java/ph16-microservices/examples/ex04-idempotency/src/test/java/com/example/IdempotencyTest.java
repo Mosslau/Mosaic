@@ -60,8 +60,8 @@ class IdempotencyTest {
     void sameKeyReplaysResultWithoutReprocessing() {
         String key = "key-" + System.nanoTime();
         int before = processCount();
-        OrderResult first = submit(key, "充电器");
-        OrderResult second = submit(key, "充电器");
+        OrderResult first = submit(key, "补能器");
+        OrderResult second = submit(key, "补能器");
         assertThat(second.orderId()).isEqualTo(first.orderId());
         assertThat(first.replayed()).isFalse();
         assertThat(second.replayed()).isTrue();
@@ -79,7 +79,7 @@ class IdempotencyTest {
         for (int i = 0; i < threads; i++) {
             tasks.add(() -> {
                 gate.await();
-                return submit(key, "电池");
+                return submit(key, "部件");
             });
         }
         List<Future<OrderResult>> futures = new ArrayList<>();
@@ -109,7 +109,7 @@ class IdempotencyTest {
     @Test
     void missingIdempotencyKeyIsRejected() {
         var response = client.post().uri("/orders")
-                .body(Map.of("item", "车灯", "quantity", 1))
+                .body(Map.of("item", "设备配件", "quantity", 1))
                 .exchange((req, res) -> new int[]{res.getStatusCode().value()});
         assertThat(response[0]).isEqualTo(400);
     }

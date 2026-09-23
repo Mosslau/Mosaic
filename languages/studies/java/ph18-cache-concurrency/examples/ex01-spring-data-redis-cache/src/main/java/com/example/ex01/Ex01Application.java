@@ -45,10 +45,10 @@ public class Ex01Application implements CommandLineRunner {
         System.out.println("   TTL(剩余秒) -> " + redis.getExpire("ex01:user:1:name", TimeUnit.SECONDS));
 
         // 2. Hash：一个对象多个字段（比把整个 JSON 塞 String 更省流量、可改单个字段）
-        redis.opsForHash().put("ex01:vehicle:sn001", "status", "ONLINE");
-        redis.opsForHash().put("ex01:vehicle:sn001", "speed", "42");
-        Map<Object, Object> vehicle = redis.opsForHash().entries("ex01:vehicle:sn001");
-        System.out.println("2. Hash vehicle -> " + vehicle);
+        redis.opsForHash().put("ex01:device:sn001", "status", "ONLINE");
+        redis.opsForHash().put("ex01:device:sn001", "speed", "42");
+        Map<Object, Object> device = redis.opsForHash().entries("ex01:device:sn001");
+        System.out.println("2. Hash device -> " + device);
 
         // 3. List：右侧入队左侧消费 = 简单队列（ph17 消息队列的单机形态）
         redis.opsForList().rightPush("ex01:queue:task", "t1");
@@ -98,7 +98,7 @@ public class Ex01Application implements CommandLineRunner {
                 + "（库存不足，返回 0 不扣 —— 原子性由 Redis 单线程执行 Lua 保证）");
 
         // 清理演示键（学习场景别污染本地 Redis）
-        redis.delete(List.of("ex01:user:1:name", "ex01:vehicle:sn001", "ex01:queue:task",
+        redis.delete(List.of("ex01:user:1:name", "ex01:device:sn001", "ex01:queue:task",
                 "ex01:dedup:order-1001", "ex01:rank", "ex01:user:2:name", stockKey));
         System.out.println("演示结束。对照主文档 3.1：五种结构的选型表 + 缓存读写姿势；");
         System.out.println("7/8 对应 3.4 分布式锁与 3.3 的原子扣减（Lua 是 Redis 原子性的事实标准）。");

@@ -1,4 +1,4 @@
-// 来源：ph10-database 阶段项目 —— 车辆轨迹存储服务（cmd/api 入口）
+// 来源：ph10-database 阶段项目 —— 设备轨迹存储服务（cmd/api 入口）
 // 一句话说明：组装 Store（SQLite）+ Cache（Redis，故障降级内存缓存）+ HTTP 路由，
 // http.Server 显式超时 + SIGINT/SIGTERM 优雅关闭（ph09 ex06 模式延续）。
 // 验证环境：go1.25.6（darwin/arm64），依赖：modernc.org/sqlite v1.57.0、
@@ -33,7 +33,7 @@ import (
 
 func main() {
 	addr := flag.String("addr", "127.0.0.1:18080", "监听地址")
-	dbPath := flag.String("db", "/tmp/vehicle-trajectory.db", "SQLite 数据库文件路径")
+	dbPath := flag.String("db", "/tmp/device-trajectory.db", "SQLite 数据库文件路径")
 	redisAddr := flag.String("redis", "127.0.0.1:16379", "Redis 地址（不可达时自动降级内存缓存）")
 	flag.Parse()
 
@@ -66,7 +66,7 @@ func main() {
 
 	// 4. 优雅关闭：等信号 → 停止接收新连接 → 给存量请求 10 秒
 	go func() {
-		log.Printf("车辆轨迹存储服务监听 %s（健康检查 GET /healthz）", *addr)
+		log.Printf("设备轨迹存储服务监听 %s（健康检查 GET /healthz）", *addr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("服务异常退出: %v", err)
 		}

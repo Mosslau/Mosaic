@@ -7,8 +7,8 @@
 #                误判全部是 info → warning/error（无关键词的 info 句被挤出去）
 """练习 4（文本分类，对应 roadmap）：把日志文本变成向量再分类。
 
-任务：用「句子模板 + 每类专属词表」合成一批车辆日志（info / warning / error 三级，
-措辞刻意有交集：battery、brake、software 在多级都出现），流程：
+任务：用「句子模板 + 每类专属词表」合成一批设备日志（info / warning / error 三级，
+措辞刻意有交集：component、brake、software 在多级都出现），流程：
   文本 → TfidfVectorizer（词频×逆文档频率，把「句子」变「向量」）→
   LogisticRegression → accuracy / macro-F1 / 混淆矩阵评估。
 要点：
@@ -31,7 +31,7 @@ from sklearn.model_selection import train_test_split
 SEED = 42
 N_PER_CLASS = 15
 
-# 每级日志的「句子模板 + 可填词表」：故意让 battery/brake/software 等词跨级出现
+# 每级日志的「句子模板 + 可填词表」：故意让 component/brake/software 等词跨级出现
 TEMPLATES: dict[str, list[tuple[str, list[str]]]] = {
     "info": [
         (
@@ -47,14 +47,14 @@ TEMPLATES: dict[str, list[tuple[str, list[str]]]] = {
         ("all system checks passed, no faults found",),
         (
             "{x} is within normal range",
-            ["battery temperature", "tire pressure", "coolant level"],
+            ["component temperature", "mount torque", "coolant level"],
         ),
         ("telemetry connection restored, data flowing again",),
         ("route to destination recalculated",),
         ("{x} reached target level", ["charge level", "cabin temperature"]),
     ],
     "warning": [
-        ("{x} is low, please recharge", ["battery", "washer fluid"]),
+        ("{x} is low, please recharge", ["component", "washer fluid"]),
         (
             "{x} pressure low on {y}",
             ["tire"],
@@ -65,22 +65,22 @@ TEMPLATES: dict[str, list[tuple[str, list[str]]]] = {
         ("{x} approaching limit, schedule service", ["brake pads", "tire tread"]),
         (
             "software update paused, {x} below threshold",
-            ["battery level", "network signal"],
+            ["component level", "network signal"],
         ),
     ],
     "error": [
         (
-            "{x} fault detected, vehicle disabled",
+            "{x} fault detected, device disabled",
             ["motor inverter", "charger", "brake module"],
         ),
         (
             "communication lost with {x}",
-            ["battery management system", "sensor cluster", "charger"],
+            ["component management system", "sensor cluster", "charger"],
         ),
         ("{x} failed, rolling back", ["software update", "thermal management"]),
         ("high voltage {x} stuck", ["contactor", "relay"]),
         ("{x} pressure lost", ["brake hydraulic", "coolant"]),
-        ("battery {x} critical", ["temperature", "cell imbalance"]),
+        ("component {x} critical", ["temperature", "cell imbalance"]),
     ],
 }
 

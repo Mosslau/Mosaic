@@ -30,7 +30,7 @@ def test_parse_links_dedup_and_absolute(parsed):
 
 
 def test_parse_table_rows(parsed):
-    assert parsed["table_rows"][0] == ["vehicle_id", "speed"]
+    assert parsed["table_rows"][0] == ["device_id", "speed"]
     assert parsed["table_rows"][1] == ["V001", "80"]
     assert len(parsed["table_rows"]) == 3
 

@@ -12,7 +12,7 @@ ph16 的主题是中间件生态，本机离线缓存对中间件覆盖有限，
 
 | 构件 | 主文档对应小节 | 本机缓存（/tmp/m2clone） | 处理方式 |
 |------|---------------|--------------------------|---------|
-| spring-cloud-starter-gateway / openfeign 等 Spring Cloud | 3.2 | ⚠️ 2021.0.8 的 **jar 在缓存**（starter-gateway/starter-openfeign、gateway-server、openfeign-core 为 3.1.8，commons 为 3.1.7——同列车组件版本不统一、均属 3.1.x；2026-09-02 复核），但 2021.x 对应 Boot 2.x（javax），与本阶段 Boot 3.3.0 基线二进制不兼容（表述以构建时缓存快照口径为准） | 主文档讲机制（未在本环境验证）；ex01/ex02 用 RestClient 同构实测调用语义；网关用 exercises/sol-04 与 project 的手写 mini 网关演示 |
+| spring-cloud-starter-gateway / openfeign 等 Spring Cloud | 3.2 | ⚠️ 2021.0.8 的 **jar 在缓存**（starter-gateway/starter-openfeign、gateway-server、openfeign-core 为 3.1.8，commons 为 3.1.7——同设备组件版本不统一、均属 3.1.x；2026-09-02 复核），但 2021.x 对应 Boot 2.x（javax），与本阶段 Boot 3.3.0 基线二进制不兼容（表述以构建时缓存快照口径为准） | 主文档讲机制（未在本环境验证）；ex01/ex02 用 RestClient 同构实测调用语义；网关用 exercises/sol-04 与 project 的手写 mini 网关演示 |
 | Nacos / Sentinel（com.alibaba.cloud/csp） | 3.2/3.3 | ❌ 完全不在缓存（需中间件） | 主文档讲机制（未在本环境验证） |
 | Resilience4j（io.github.resilience4j） | 3.3 | ❌ 只有 BOM，无核心 jar | 主文档讲机制（未在本环境验证）；ex03 手写熔断器/令牌桶同构实测 |
 | Micrometer Tracing / OpenTelemetry bridge | 3.5 | ❌ 只有 micrometer-tracing-bom 与 opentelemetry-api，无 bridge jar | 主文档讲机制（未在本环境验证）；ex01 用 X-Trace-Id 头 + MDC 同构实测透传语义 |

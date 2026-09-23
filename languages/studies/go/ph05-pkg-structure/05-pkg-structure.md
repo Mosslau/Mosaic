@@ -53,7 +53,7 @@ Go 依赖管理经历了从"无方案"到"默认方案"的 10 年演进：
 go.mod 核心指令：
 
 ```text
-module github.com/example/vehicle-server  // 模块路径——全局唯一标识
+module github.com/example/device-server  // 模块路径——全局唯一标识
 go 1.21                                   // 最低 Go 版本，影响语言特性与标准库行为
 require github.com/gin-gonic/gin v1.9.1  // 直接依赖
 require github.com/cespare/xxhash/v2 v2.2.0 // indirect  // 间接依赖
@@ -73,8 +73,8 @@ retract v1.0.0                                            // 声明撤回版本
 可见性两级：大写公开（exported）、小写私有（unexported，仅同一 package 内）。`internal` 是编译器级第三级——**包含 `internal` 路径元素的包，只能被其父级目录树内的代码导入**：
 
 ```text
-cmd/vehicle-server/main.go → import "example.com/proj/internal/vehicle" ✅ 父级是 proj/
-pkg/codec/decoder.go       → import "example.com/proj/internal/vehicle" ❌ 不在父链上
+cmd/device-server/main.go → import "example.com/proj/internal/device" ✅ 父级是 proj/
+pkg/codec/decoder.go       → import "example.com/proj/internal/device" ❌ 不在父链上
 // compiler error: "use of internal package ... not allowed"
 ```
 
@@ -303,31 +303,31 @@ func (s *Store) List() []Item    { return s.items }
 ### 示例 2：设备数据服务 —— 设备接入语义的标准布局
 
 ```text
-vehicle-server/
-├── go.mod                          (module github.com/example/vehicle-server, go 1.21)
-├── cmd/vehicle-server/main.go
-├── internal/vehicle/service.go
-├── internal/canbus/frame.go
+device-server/
+├── go.mod                          (module github.com/example/device-server, go 1.21)
+├── cmd/device-server/main.go
+├── internal/device/service.go
+├── internal/bus/frame.go
 └── internal/config/config.go
 ```
 
 ```go
-// cmd/vehicle-server/main.go
+// cmd/device-server/main.go
 package main
 
 import (
     "fmt"
     "log"
-    "github.com/example/vehicle-server/internal/canbus"
-    "github.com/example/vehicle-server/internal/config"
-    "github.com/example/vehicle-server/internal/vehicle"
+    "github.com/example/device-server/internal/bus"
+    "github.com/example/device-server/internal/config"
+    "github.com/example/device-server/internal/device"
 )
 
 func main() {
     cfg := config.Load()
-    fmt.Printf("车辆数据服务启动 [端口:%d 协议:%s]\n", cfg.Port, cfg.Protocol)
-    svc := vehicle.NewService()
-    frames := []canbus.Frame{
+    fmt.Printf("设备数据服务启动 [端口:%d 协议:%s]\n", cfg.Port, cfg.Protocol)
+    svc := device.NewService()
+    frames := []bus.Frame{
         {ID: 0x18F, Data: [8]byte{0x00, 0xFA, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00}},
         {ID: 0x7E8, Data: [8]byte{0x04, 0x41, 0x0C, 0x1A, 0xF4, 0x00, 0x00, 0x00}},
     }
@@ -339,25 +339,25 @@ func main() {
 ```
 
 ```go
-// internal/vehicle/service.go
-package vehicle
+// internal/device/service.go
+package device
 
 import (
     "errors"
     "fmt"
     "sync"
-    "github.com/example/vehicle-server/internal/canbus"
+    "github.com/example/device-server/internal/bus"
 )
 
 type Service struct { mu sync.Mutex; running bool }
 func NewService() *Service { return &Service{running: true} }
 
-func (s *Service) Process(frame canbus.Frame) string {
+func (s *Service) Process(frame bus.Frame) string {
     switch frame.ID {
-    case canbus.SpeedID:
-        return fmt.Sprintf("车速: %.1f km/h", canbus.ParseSpeed(frame))
-    case canbus.EngineRPM:
-        return fmt.Sprintf("转速: %.0f rpm", canbus.ParseRPM(frame))
+    case bus.SpeedID:
+        return fmt.Sprintf("运行速度: %.1f km/h", bus.ParseSpeed(frame))
+    case bus.EngineRPM:
+        return fmt.Sprintf("转速: %.0f rpm", bus.ParseRPM(frame))
     }
     return "未知帧类型"
 }
@@ -366,16 +366,16 @@ func (s *Service) Shutdown() error {
     s.mu.Lock(); defer s.mu.Unlock()
     if !s.running { return errors.New("服务已关闭") }
     s.running = false
-    fmt.Println("车辆数据服务已安全关闭")
+    fmt.Println("设备数据服务已安全关闭")
     return nil
 }
 ```
 
 ```go
-// internal/canbus/frame.go
-package canbus
+// internal/bus/frame.go
+package bus
 
-type Frame struct { ID uint32; Data [8]byte } // CAN 2.0A 标准帧
+type Frame struct { ID uint32; Data [8]byte } // BUS 2.0A 标准帧
 const ( SpeedID uint32 = 0x18F; EngineRPM uint32 = 0x7E8 )
 
 func ParseSpeed(f Frame) float64 {
@@ -392,20 +392,20 @@ func ParseRPM(f Frame) float64 {
 // internal/config/config.go
 package config
 type Config struct { Port int; Protocol string }
-func Load() Config { return Config{Port: 8080, Protocol: "CAN"} }
+func Load() Config { return Config{Port: 8080, Protocol: "BUS"} }
 ```
 
 三个 internal 包在模块内互引无障碍，对外部不可见——Go 工程化的标准姿势。
 
-完整文件：`examples/ex02-vehicle-server/`（cmd/vehicle-server/main.go + internal/vehicle/service.go + internal/canbus/frame.go + internal/config/config.go）
+完整文件：`examples/ex02-device-server/`（cmd/device-server/main.go + internal/device/service.go + internal/bus/frame.go + internal/config/config.go）
 
 ### 示例 3：多模块 Workspace —— 共享库 + 多服务
 
 ```text
-vehicle-platform/
+device-platform/
 ├── go.work
 ├── lib/shared/          (module: ../shared, go 1.21)
-│   └── vin.go
+│   └── device_id.go
 ├── services/collector/  (module: ../collector + replace→../../lib/shared)
 │   ├── go.mod
 │   └── main.go
@@ -421,18 +421,18 @@ use ( ./lib/shared  ./services/collector  ./services/reporter )
 ```
 
 ```go
-// lib/shared/vin.go —— 跨模块共享的 VIN 校验库
+// lib/shared/device_id.go —— 跨模块共享的 DEVICE_ID 校验库
 package shared
 
 import "fmt"
 
-func ValidateVIN(vin string) error {
-    if len(vin) != 17 {
-        return fmt.Errorf("VIN 长度 %d 不符合 17 位标准", len(vin))
+func ValidateDEVICE_ID(device_id string) error {
+    if len(device_id) != 17 {
+        return fmt.Errorf("DEVICE_ID 长度 %d 不符合 17 位标准", len(device_id))
     }
-    for _, ch := range vin {
-        if ch == 'I' || ch == 'O' || ch == 'Q' { // OBD-II: VIN 不含 I/O/Q 防混淆
-            return fmt.Errorf("VIN 包含非法字符 '%c'", ch)
+    for _, ch := range device_id {
+        if ch == 'I' || ch == 'O' || ch == 'Q' { // OBD-II: DEVICE_ID 不含 I/O/Q 防混淆
+            return fmt.Errorf("DEVICE_ID 包含非法字符 '%c'", ch)
         }
     }
     return nil
@@ -441,10 +441,10 @@ func ValidateVIN(vin string) error {
 
 ```go
 // services/collector/go.mod
-module github.com/example/vehicle-platform/collector
+module github.com/example/device-platform/collector
 go 1.21
-require github.com/example/vehicle-platform/shared v0.0.0
-replace github.com/example/vehicle-platform/shared v0.0.0 => ../../lib/shared
+require github.com/example/device-platform/shared v0.0.0
+replace github.com/example/device-platform/shared v0.0.0 => ../../lib/shared
 ```
 
 ```go
@@ -453,15 +453,15 @@ package main
 
 import (
     "fmt"
-    "github.com/example/vehicle-platform/shared"
+    "github.com/example/device-platform/shared"
 )
 
 func main() {
-    for _, vin := range []string{"LSVAA4184ES000001", "WVWZZZ3CZ8E123456", "INVALID"} {
-        if err := shared.ValidateVIN(vin); err != nil {
-            fmt.Printf("[拒绝] %s: %v\n", vin, err)
+    for _, device_id := range []string{"LSVAA4184ES000001", "WVWZZZ3CZ8E123456", "INVALID"} {
+        if err := shared.ValidateDEVICE_ID(device_id); err != nil {
+            fmt.Printf("[拒绝] %s: %v\n", device_id, err)
         } else {
-            fmt.Printf("[接受] %s\n", vin)
+            fmt.Printf("[接受] %s\n", device_id)
         }
     }
 }
@@ -473,22 +473,22 @@ package main
 
 import (
     "fmt"
-    "github.com/example/vehicle-platform/shared"
+    "github.com/example/device-platform/shared"
 )
 
 func main() {
-    vin := "LSVAA4184ES000001"
-    if err := shared.ValidateVIN(vin); err != nil {
+    device_id := "LSVAA4184ES000001"
+    if err := shared.ValidateDEVICE_ID(device_id); err != nil {
         fmt.Printf("报告生成失败: %v\n", err)
         return
     }
-    fmt.Printf("为 VIN=%s 生成日报 [模拟]\n  采集点: 120 组\n  异常: 无\n", vin)
+    fmt.Printf("为 DEVICE_ID=%s 生成日报 [模拟]\n  采集点: 120 组\n  异常: 无\n", device_id)
 }
 ```
 
 `go.work` 使 workspace 内模块可直接 import 彼此无需 replace；示例同时展示 replace 是为说明两种路径的完整性。
 
-完整文件：`examples/ex03-workspace/`（go.work + lib/shared/vin.go + services/collector/main.go + services/reporter/main.go）
+完整文件：`examples/ex03-workspace/`（go.work + lib/shared/device_id.go + services/collector/main.go + services/reporter/main.go）
 
 ## 7. 总结
 

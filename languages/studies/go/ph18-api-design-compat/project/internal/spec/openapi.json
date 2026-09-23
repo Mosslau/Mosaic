@@ -21,7 +21,7 @@
             "content": {
               "application/json": {
                 "schema": { "type": "array", "items": { "$ref": "#/components/schemas/DeviceV1" } },
-                "example": [{ "id": "dev-001", "name": "1号车", "online": true }]
+                "example": [{ "id": "dev-001", "name": "1号设备", "online": true }]
               }
             }
           },
@@ -45,7 +45,7 @@
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/DeviceV1" },
-                "example": { "id": "dev-003", "name": "3号车", "online": false }
+                "example": { "id": "dev-003", "name": "3号设备", "online": false }
               }
             }
           },
@@ -66,7 +66,7 @@
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/DeviceV1" },
-                "example": { "id": "dev-001", "name": "1号车", "online": true }
+                "example": { "id": "dev-001", "name": "1号设备", "online": true }
               }
             }
           },
@@ -98,7 +98,7 @@
             "content": {
               "application/json": {
                 "schema": { "type": "array", "items": { "$ref": "#/components/schemas/DeviceV2" } },
-                "example": [{ "id": "dev-001", "name": "1号车", "online": true, "model": "M300", "lastSeen": 1700000000 }]
+                "example": [{ "id": "dev-001", "name": "1号设备", "online": true, "model": "M300", "lastSeen": 1700000000 }]
               }
             }
           },
@@ -119,7 +119,7 @@
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/DeviceV2" },
-                "example": { "id": "dev-001", "name": "1号车", "online": true, "model": "M300", "lastSeen": 1700000000 }
+                "example": { "id": "dev-001", "name": "1号设备", "online": true, "model": "M300", "lastSeen": 1700000000 }
               }
             }
           },

@@ -15,9 +15,9 @@ class DeviceFilter {
                 new Device("d-003", "online", 30), new Device("d-004", "fault", 95));
 
         Predicate<Device> isOnline = d -> "online".equals(d.status);
-        Predicate<Device> batteryOk = d -> d.battery >= 50;
+        Predicate<Device> componentOk = d -> d.component >= 50;
         List<Device> candidates = devices.stream()
-                .filter(isOnline.and(batteryOk))        // Predicate 组合
+                .filter(isOnline.and(componentOk))        // Predicate 组合
                 .collect(Collectors.toList());
         System.out.println("可调度设备: " + candidates);
 
@@ -27,23 +27,23 @@ class DeviceFilter {
         Device result = found.orElse(new Device("unknown", "offline", 0));  // 兜底默认对象
         System.out.println("查找 d-999: " + result);
 
-        int battery = devices.stream()
+        int component = devices.stream()
                 .filter(d -> d.id.equals("d-001"))
                 .findFirst()
-                .map(d -> d.battery)                    // 链式：存在才转换
+                .map(d -> d.component)                    // 链式：存在才转换
                 .orElseThrow(() -> new IllegalStateException("设备 d-001 不存在"));
-        System.out.println("d-001 电量: " + battery);
+        System.out.println("d-001 电量: " + component);
     }
 
     // 教学简化：为聚焦 Stream 主题，字段未做封装（省略 private + getter）
     static class Device {
         String id, status;   // status: online / offline / fault
-        int battery;         // 0-100
-        Device(String id, String status, int battery) {
-            this.id = id; this.status = status; this.battery = battery;
+        int component;         // 0-100
+        Device(String id, String status, int component) {
+            this.id = id; this.status = status; this.component = component;
         }
         @Override public String toString() {
-            return id + "(" + status + ", 电量" + battery + "%)";
+            return id + "(" + status + ", 电量" + component + "%)";
         }
     }
 }

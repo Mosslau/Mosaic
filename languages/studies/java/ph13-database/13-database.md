@@ -510,4 +510,4 @@ Flyway 先迁移（`V1` 建 users 表、`V2` 加 email 索引），MyBatis 接�
 
 ### 下一阶段
 
-[ph14 Web 后端开发阶段](../ph14-web-backend/14-web-backend.md) — 本阶段 JDBC/事务/连接池/MyBatis/JPA 都是「裸 API 直连数据库」，ph14 把数据访问层接入 HTTP 服务：Servlet/Tomcat 讲清请求怎么进来、REST API/JSON 定接口形状、JWT 管「谁在调」、统一异常处理与日志把「能查库」升级为「能对外服务」——本阶段的存储层接口形状可平移为 ph14 的 `VehicleStore` 实现。
+[ph14 Web 后端开发阶段](../ph14-web-backend/14-web-backend.md) — 本阶段 JDBC/事务/连接池/MyBatis/JPA 都是「裸 API 直连数据库」，ph14 把数据访问层接入 HTTP 服务：Servlet/Tomcat 讲清请求怎么进来、REST API/JSON 定接口形状、JWT 管「谁在调」、统一异常处理与日志把「能查库」升级为「能对外服务」——本阶段的存储层接口形状可平移为 ph14 的 `DeviceStore` 实现。

@@ -72,7 +72,7 @@ def _drop_isolated_spikes(df: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, int
     for col, jump in SPIKE_JUMPS.items():
         if col not in df.columns:
             continue
-        # 先按车滚动：时间已全局排序，按服务实例分组重置索引再滚动（避免跨车窗口）
+        # 先按设备滚动：时间已全局排序，按服务实例分组重置索引再滚动（避免跨设备窗口）
         medians = []
         for _vid, grp in df.groupby("service_id", sort=False):
             med = grp[col].rolling(7, center=True, min_periods=3).median()

@@ -1,4 +1,4 @@
-// 来源：ph09-web-backend 阶段项目 —— 车辆数据上报 API（internal/api 包）
+// 来源：ph09-web-backend 阶段项目 —— 设备数据上报 API（internal/api 包）
 // 一句话说明：路由组装（NewHandler 依赖注入 Store + 密钥 + 限流参数）+ 各接口实现：
 // 设备认证换 JWT / 列表与详情 / 上报（鉴权 + 校验 + 限流 + 统一错误）/ 健康检查。
 // 验证环境：go1.25.6（darwin/arm64），仅标准库
@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"tenetlang/go/ph09-web-backend/project/internal/auth"
-	"tenetlang/go/ph09-web-backend/project/internal/vehicle"
+	"tenetlang/go/ph09-web-backend/project/internal/device"
 )
 
 // ReportReq 上报请求体
@@ -28,7 +28,7 @@ type ReportReq struct {
 }
 
 // NewHandler 组装全部路由；依赖注入：Store 可换实现，限流参数可调
-func NewHandler(store vehicle.Store, secret []byte, reportLimit int, window time.Duration) http.Handler {
+func NewHandler(store device.Store, secret []byte, reportLimit int, window time.Duration) http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /healthz", handleHealthz)
@@ -54,7 +54,7 @@ func handleHealthz(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleDeviceAuth 设备认证：{device_id, secret} → {token}（JWT，24h 有效）
-func handleDeviceAuth(store vehicle.Store, secret []byte) http.HandlerFunc {
+func handleDeviceAuth(store device.Store, secret []byte) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			DeviceID string `json:"device_id"`
@@ -81,7 +81,7 @@ func handleDeviceAuth(store vehicle.Store, secret []byte) http.HandlerFunc {
 	}
 }
 
-func handleList(store vehicle.Store) http.HandlerFunc {
+func handleList(store device.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		status := r.URL.Query().Get("status")
 		if status != "" && status != "online" && status != "offline" {
@@ -92,12 +92,12 @@ func handleList(store vehicle.Store) http.HandlerFunc {
 	}
 }
 
-func handleGet(store vehicle.Store) http.HandlerFunc {
+func handleGet(store device.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
 		v, ok := store.Get(id)
 		if !ok {
-			writeError(w, http.StatusNotFound, "NOT_FOUND", "车辆不存在: "+id)
+			writeError(w, http.StatusNotFound, "NOT_FOUND", "设备不存在: "+id)
 			return
 		}
 		writeJSON(w, http.StatusOK, v)
@@ -105,7 +105,7 @@ func handleGet(store vehicle.Store) http.HandlerFunc {
 }
 
 // handleReport 上报：四段式（解析 → 校验 → 业务 → 响应），限流在中间件层
-func handleReport(store vehicle.Store, limiter *deviceLimiter) http.HandlerFunc {
+func handleReport(store device.Store, limiter *deviceLimiter) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// 归属校验：token 里的 device_id 必须等于路径 id（设备只能上报自己的数据）
 		deviceID := auth.ClaimsDeviceID(r.Context())
@@ -140,8 +140,8 @@ func handleReport(store vehicle.Store, limiter *deviceLimiter) http.HandlerFunc 
 
 		v, err := store.Report(deviceID, req.Speed, req.Lat, req.Lng)
 		if err != nil {
-			if errors.Is(err, vehicle.ErrNotFound) {
-				writeError(w, http.StatusNotFound, "NOT_FOUND", "车辆不存在: "+deviceID)
+			if errors.Is(err, device.ErrNotFound) {
+				writeError(w, http.StatusNotFound, "NOT_FOUND", "设备不存在: "+deviceID)
 				return
 			}
 			writeError(w, http.StatusInternalServerError, "INTERNAL", "上报失败")

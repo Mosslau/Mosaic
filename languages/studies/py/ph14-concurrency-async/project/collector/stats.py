@@ -1,4 +1,4 @@
-"""采集结果汇总：按车辆分组 + 总体统计。"""
+"""采集结果汇总：按设备分组 + 总体统计。"""
 
 from __future__ import annotations
 
@@ -8,15 +8,15 @@ from collector.fetcher import FetchResult
 
 
 @dataclass
-class VehicleSummary:
-    """单辆车在本次采集中的汇总。"""
+class DeviceSummary:
+    """单台设备在本次采集中的汇总。"""
 
-    vehicle_id: str
+    device_id: str
     ok: bool
     attempts: int
     elapsed_ms: float
     speed: float | None
-    battery: float | None
+    component: float | None
 
 
 @dataclass
@@ -34,25 +34,25 @@ class OverallStats:
         return round(self.success_rate * 100, 1)
 
 
-def summarize(results: list[FetchResult]) -> list[VehicleSummary]:
-    """按车辆 id 分组汇总（每辆车一条），按 id 排序保证输出确定性。"""
+def summarize(results: list[FetchResult]) -> list[DeviceSummary]:
+    """按设备 id 分组汇总（每台设备一条），按 id 排序保证输出确定性。"""
     by_id: dict[str, list[FetchResult]] = {}
     for r in results:
-        by_id.setdefault(r.vehicle_id, []).append(r)
+        by_id.setdefault(r.device_id, []).append(r)
 
-    summaries: list[VehicleSummary] = []
+    summaries: list[DeviceSummary] = []
     for vid in sorted(by_id):
         rows = by_id[vid]
         # 取最后一次（成功或失败）的尝试信息
         last = rows[-1]
         ok_rows = [r for r in rows if r.ok]
-        summary = VehicleSummary(
-            vehicle_id=vid,
+        summary = DeviceSummary(
+            device_id=vid,
             ok=last.ok,
             attempts=sum(r.attempts for r in rows),
             elapsed_ms=round(sum(r.elapsed_ms for r in rows), 1),
             speed=ok_rows[-1].speed if ok_rows else None,
-            battery=ok_rows[-1].battery if ok_rows else None,
+            component=ok_rows[-1].component if ok_rows else None,
         )
         summaries.append(summary)
     return summaries

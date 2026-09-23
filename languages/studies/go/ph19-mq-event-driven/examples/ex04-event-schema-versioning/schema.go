@@ -64,7 +64,7 @@ func ParseEnvelope(b []byte) (Envelope, error) {
 // 版本化载荷：v2 = v1 超集（新增 lat/lng）。字段只增不删靠结构演进保证——
 // 老消费者用 v1 结构解析 v2 数据时，多余字段被 JSON 解码器忽略。
 type TelemetryV1 struct {
-	VehicleID string  `json:"vehicleId"`
+	DeviceID string  `json:"deviceId"`
 	TS        int64   `json:"ts"`
 	Speed     float64 `json:"speed"`
 }

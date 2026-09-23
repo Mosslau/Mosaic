@@ -7,8 +7,8 @@ from dataclasses import dataclass
 
 
 @dataclass
-class Vehicle:
-    vehicle_id: str
+class Device:
+    device_id: str
     speed: float
 
 
@@ -16,22 +16,22 @@ def add(a: int, b: int) -> int:
     return a + b
 
 
-def total_speed(vehicles: list[Vehicle]) -> int:
+def total_speed(devices: list[Device]) -> int:
     total = 0
-    for v in vehicles:
+    for v in devices:
         total += v.speed            # 错误 2: assignment —— float 累加进 int 变量（与错误 1 同为 assignment 码）
     return total
 
 
-def speed_label(v: Vehicle) -> str:
-    return v.vehicle_id.upper()
+def speed_label(v: Device) -> str:
+    return v.device_id.upper()
 
 
 def main() -> None:
     x: str = add(1, 2)              # 错误 1: assignment —— int 赋给声明为 str 的变量
     print(x)
-    print(speed_label(Vehicle("EV-001", 42)))
-    v = Vehicle("EV-002", 30.0)
+    print(speed_label(Device("EV-001", 42)))
+    v = Device("EV-002", 30.0)
     print(v.speed.upper())          # 错误 3: attr-defined —— float 没有 upper 方法
     total = total_speed([v])
     print(total, add("1", 2))       # 错误 4: arg-type —— str 传给声明为 int 的参数

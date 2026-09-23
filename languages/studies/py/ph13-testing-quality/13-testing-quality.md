@@ -119,8 +119,8 @@ def _ensure_workdir(tmp_path):
 
 ```python
 # examples/ex03-mock.py —— mock 外部依赖（完整版见示例 3，本机已验证，不会真的发请求）
-def fetch_speed(vehicle_id: str, base_url: str = "https://api.example.com") -> float:
-    resp = requests.get(f"{base_url}/vehicles/{vehicle_id}/speed", timeout=2)
+def fetch_speed(device_id: str, base_url: str = "https://api.example.com") -> float:
+    resp = requests.get(f"{base_url}/devices/{device_id}/speed", timeout=2)
     resp.raise_for_status()                 # 4xx/5xx 抛 HTTPError
     return float(resp.json()["speed"])
 
@@ -129,7 +129,7 @@ def test_success_with_context_manager():
         assert fetch_speed("EV-001") == 42.5
     # 顺带断言「被测代码确实按预期调用了接口」——参数与 timeout 都不能错
     mock_get.assert_called_once_with(
-        "https://api.example.com/vehicles/EV-001/speed", timeout=2
+        "https://api.example.com/devices/EV-001/speed", timeout=2
     )
 ```
 
@@ -191,20 +191,20 @@ lines   cov%   module
 ```python
 # examples/ex05-mypy.py —— 类型注解 + mypy（完整版见示例 5，本机已验证）
 @dataclass
-class VehicleTelemetry:
-    """一行遥测数据：车辆、速度、电量。"""
-    vehicle_id: str
+class DeviceTelemetry:
+    """一行遥测数据：设备、速度、电量。"""
+    device_id: str
     speed: float
-    battery: float
+    component: float
 
 class Formatter(Protocol):
-    """结构类型（Protocol）：任何带 format(VehicleTelemetry) -> str 的对象都可被接受。"""
-    def format(self, t: VehicleTelemetry) -> str: ...
+    """结构类型（Protocol）：任何带 format(DeviceTelemetry) -> str 的对象都可被接受。"""
+    def format(self, t: DeviceTelemetry) -> str: ...
 
-def find_vehicle(rows: list[VehicleTelemetry], vehicle_id: str) -> VehicleTelemetry | None:
-    """找指定车辆的第一条记录；找不到返回 None（联合类型显式声明）。"""
+def find_device(rows: list[DeviceTelemetry], device_id: str) -> DeviceTelemetry | None:
+    """找指定设备的第一条记录；找不到返回 None（联合类型显式声明）。"""
     for r in rows:
-        if r.vehicle_id == vehicle_id:
+        if r.device_id == device_id:
             return r
     return None
 ```
@@ -213,15 +213,15 @@ def find_vehicle(rows: list[VehicleTelemetry], vehicle_id: str) -> VehicleTeleme
 
 ```python
 # examples/ex05b-mypy-bugs.py —— 故意出错示例（类型错误版）：仅供 mypy 检查演示，请勿直接运行
-def total_speed(vehicles: list[Vehicle]) -> int:
+def total_speed(devices: list[Device]) -> int:
     total = 0
-    for v in vehicles:
+    for v in devices:
         total += v.speed            # 错误 2: assignment —— float 累加进 int 变量（与错误 1 同为 assignment 码）
     return total
 
 def main() -> None:
     x: str = add(1, 2)              # 错误 1: assignment —— int 赋给声明为 str 的变量
-    v = Vehicle("EV-002", 30.0)
+    v = Device("EV-002", 30.0)
     print(v.speed.upper())          # 错误 3: attr-defined —— float 没有 upper 方法
     print(total, add("1", 2))       # 错误 4: arg-type —— str 传给声明为 int 的参数
 ```
@@ -419,7 +419,7 @@ def test_parse_score_parametrized(line, expected):
 @pytest.fixture
 def data_file(tmp_path):
     f = tmp_path / "raw.csv"
-    f.write_text("ts,vehicle,speed\n2026-09-01 10:00,EV-001,42.0\n", encoding="utf-8")
+    f.write_text("ts,device,speed\n2026-09-01 10:00,EV-001,42.0\n", encoding="utf-8")
     return f
 
 @pytest.fixture
@@ -431,7 +431,7 @@ def store(data_file):
 
 def test_store_injected(store):
     assert store.count() == 1
-    assert store.vehicles() == {"EV-001"}
+    assert store.devices() == {"EV-001"}
 ```
 
 实测输出：`python3 -m pytest ex02-fixture-scope.py -q` → **7 passed**（session 共享 2 + autouse 1 + 工厂 2 + 依赖注入 2）。
@@ -476,11 +476,11 @@ def test_parse_reading_invalid(text):
 
 ```python
 # examples/ex05-mypy.py —— 类型注解 + mypy（离线可跑，已验证）
-def avg_speed_by_vehicle(rows: list[VehicleTelemetry]) -> dict[str, float]:
-    """按车辆分组求平均速度；空输入返回空 dict。"""
+def avg_speed_by_device(rows: list[DeviceTelemetry]) -> dict[str, float]:
+    """按设备分组求平均速度；空输入返回空 dict。"""
     speeds: dict[str, list[float]] = {}
     for r in rows:
-        speeds.setdefault(r.vehicle_id, []).append(r.speed)
+        speeds.setdefault(r.device_id, []).append(r.speed)
     return {vid: sum(v) / len(v) for vid, v in speeds.items()}
 ```
 
@@ -495,8 +495,8 @@ def avg_speed_by_vehicle(rows: list[VehicleTelemetry]) -> dict[str, float]:
 def main() -> None:
     x: str = add(1, 2)              # 错误 1: assignment —— int 赋给声明为 str 的变量
     print(x)
-    print(speed_label(Vehicle("EV-001", 42)))
-    v = Vehicle("EV-002", 30.0)
+    print(speed_label(Device("EV-001", 42)))
+    v = Device("EV-002", 30.0)
     print(v.speed.upper())          # 错误 3: attr-defined —— float 没有 upper 方法
     total = total_speed([v])
     print(total, add("1", 2))       # 错误 4: arg-type —— str 传给声明为 int 的参数
@@ -584,7 +584,7 @@ import json         # F401: 未使用的导入
 
 ### 阶段项目
 
-本阶段综合项目见 [`project/`](./project/)：**带测试与质量门禁的遥测数据处理库（telemetry-stats）**——CSV 解析清洗 → 按车辆分组统计 → CSV 报表 + 文本汇总，24 个 pytest 用例 + ruff/mypy/black 全绿 + `--demo` 离线自检，并把门禁搬上 pre-commit 配置与 GitHub Actions CI（对应 roadmap「推荐项目」第一个「带测试的数据处理库」；另一个「FastAPI 测试模板」作为扩展方向）。建议完成练习后再动手，尤其练习 4/5（覆盖率与类型门禁的缩小版）。
+本阶段综合项目见 [`project/`](./project/)：**带测试与质量门禁的遥测数据处理库（telemetry-stats）**——CSV 解析清洗 → 按设备分组统计 → CSV 报表 + 文本汇总，24 个 pytest 用例 + ruff/mypy/black 全绿 + `--demo` 离线自检，并把门禁搬上 pre-commit 配置与 GitHub Actions CI（对应 roadmap「推荐项目」第一个「带测试的数据处理库」；另一个「FastAPI 测试模板」作为扩展方向）。建议完成练习后再动手，尤其练习 4/5（覆盖率与类型门禁的缩小版）。
 
 - [ ] 完成 exercises/ 全部 5 题并对照参考实现复盘
 - [ ] 独立完成 project/ 并通过其验收标准（`python3 -m pytest` → 24 passed；`ruff check .`、`mypy telemetry_stats cli.py`、`black --check .` 全绿；`python3 cli.py --demo` 自检通过）

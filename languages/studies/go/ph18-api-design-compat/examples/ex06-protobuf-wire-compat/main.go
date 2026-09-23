@@ -11,8 +11,8 @@ package main
 import "fmt"
 
 func main() {
-	b1 := encodeV1(v1Device{ID: "car-001", Name: "1号车", Online: true})
-	b2 := encodeV2(v2Device{ID: "car-001", Name: "1号车", Online: true, Model: "M300"})
+	b1 := encodeV1(v1Device{ID: "car-001", Name: "1号设备", Online: true})
+	b2 := encodeV2(v2Device{ID: "car-001", Name: "1号设备", Online: true, Model: "M300"})
 
 	fmt.Printf("v1 bytes (%d B): % x\n", len(b1), b1)
 	fmt.Printf("v2 bytes (%d B): % x\n", len(b2), b2)

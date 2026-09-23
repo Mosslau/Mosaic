@@ -71,7 +71,7 @@ func newStub(msgs []model.Message) *stubLog {
 
 // TestDuplicateDeliverySkipped 重复投递（同 MsgID 两次出现）：生效一次，拦截一次。
 func TestDuplicateDeliverySkipped(t *testing.T) {
-	ev := model.TelemetryEvent{MsgID: "m1", SchemaVersion: 1, VehicleID: "car-1", TS: 1, Speed: 10}
+	ev := model.TelemetryEvent{MsgID: "m1", SchemaVersion: 1, DeviceID: "car-1", TS: 1, Speed: 10}
 	log := newStub([]model.Message{
 		{Partition: 0, Offset: 0, Payload: mustEncode(ev)},
 		{Partition: 0, Offset: 1, Payload: mustEncode(ev)},
@@ -99,7 +99,7 @@ func TestPoisonDecode(t *testing.T) {
 
 // TestPoisonSchema 未来 schema 版本：Processor 返回 ErrSchema → 死信 schema 分类。
 func TestPoisonSchema(t *testing.T) {
-	ev := model.TelemetryEvent{MsgID: "m9", SchemaVersion: 9, VehicleID: "car-9"}
+	ev := model.TelemetryEvent{MsgID: "m9", SchemaVersion: 9, DeviceID: "car-9"}
 	log := newStub([]model.Message{{Partition: 0, Offset: 0, Payload: mustEncode(ev)}})
 	dlog := store.NewDeadLog()
 	c := New(log, store.NewSeenWindow(100), &seqProc{err: process.ErrSchema}, dlog, Config{MaxAttempts: 3})
@@ -114,7 +114,7 @@ func TestPoisonSchema(t *testing.T) {
 
 // TestRetryThenSuccess 抖动恢复：失败一次后成功 → applied=1、retried=1、无死信。
 func TestRetryThenSuccess(t *testing.T) {
-	ev := model.TelemetryEvent{MsgID: "m2", SchemaVersion: 1, VehicleID: "car-2"}
+	ev := model.TelemetryEvent{MsgID: "m2", SchemaVersion: 1, DeviceID: "car-2"}
 	log := newStub([]model.Message{{Partition: 0, Offset: 0, Payload: mustEncode(ev)}})
 	c := New(log, store.NewSeenWindow(100),
 		&seqProc{err: errors.New("downstream down"), maxCalls: 2},
@@ -127,7 +127,7 @@ func TestRetryThenSuccess(t *testing.T) {
 
 // TestExhaustedAfterRetries 持续瞬时故障：达到上限进死信（exhausted）。
 func TestExhaustedAfterRetries(t *testing.T) {
-	ev := model.TelemetryEvent{MsgID: "m3", SchemaVersion: 1, VehicleID: "car-3"}
+	ev := model.TelemetryEvent{MsgID: "m3", SchemaVersion: 1, DeviceID: "car-3"}
 	log := newStub([]model.Message{{Partition: 0, Offset: 0, Payload: mustEncode(ev)}})
 	dlog := store.NewDeadLog()
 	c := New(log, store.NewSeenWindow(100),

@@ -12,13 +12,13 @@ import requests
 
 
 class ApiHandler(BaseHTTPRequestHandler):
-    """迷你车辆 API：GET /health、GET /vehicles、POST /vehicles、GET /slow（睡 1.5s）。"""
+    """迷你设备 API：GET /health、GET /devices、POST /devices、GET /slow（睡 1.5s）。"""
 
     def do_GET(self) -> None:
         if self.path == "/health":
             self._json(200, {"status": "ok"})
-        elif self.path == "/vehicles":
-            self._json(200, {"vehicles": ["EV-001", "EV-002", "EV-003"]})
+        elif self.path == "/devices":
+            self._json(200, {"devices": ["EV-001", "EV-002", "EV-003"]})
         elif self.path == "/slow":
             import time
             time.sleep(1.5)
@@ -27,7 +27,7 @@ class ApiHandler(BaseHTTPRequestHandler):
             self._json(404, {"error": "not found"})
 
     def do_POST(self) -> None:
-        if self.path == "/vehicles":
+        if self.path == "/devices":
             length = int(self.headers.get("Content-Length", 0))
             self.rfile.read(length)  # 读掉请求体
             self._json(201, {"created": "EV-004"})
@@ -54,8 +54,8 @@ def main() -> None:
         r = requests.get(f"{base}/health", timeout=2)  # 超时是铁律：别让脚本挂死
         print("GET /health ->", r.status_code, r.json(), "| Content-Type:", r.headers["Content-Type"])
 
-        r = requests.post(f"{base}/vehicles", json={"vin": "V004"}, timeout=2)
-        print("POST /vehicles ->", r.status_code, r.json())
+        r = requests.post(f"{base}/devices", json={"device_id": "V004"}, timeout=2)
+        print("POST /devices ->", r.status_code, r.json())
 
         r = requests.get(f"{base}/nope", timeout=2)
         try:

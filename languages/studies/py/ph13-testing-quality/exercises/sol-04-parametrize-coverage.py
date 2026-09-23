@@ -10,7 +10,7 @@
 import pytest
 
 
-# ---- 被测代码（车辆遥测数据处理）----
+# ---- 被测代码（设备遥测数据处理）----
 def categorize_speed(speed: float) -> str:
     """速度分档：invalid / low / normal / high（4 个分支都要有测试覆盖）。"""
     if speed < 0:
@@ -30,11 +30,11 @@ def parse_reading(text: str) -> float:
     return float(parts[0])
 
 
-def estimate_range(battery_kwh: float, consumption: float) -> float:
+def estimate_range(component_kwh: float, consumption: float) -> float:
     """续航估算 = 电量 / 百公里能耗 × 100；能耗为 0 视为参数错误。"""
     if consumption <= 0:
         raise ValueError("能耗必须为正数")
-    return round(battery_kwh / consumption * 100, 1)
+    return round(component_kwh / consumption * 100, 1)
 
 
 # ---- 参数化测试 ----
@@ -62,13 +62,13 @@ def test_parse_reading_invalid(text):
         parse_reading(text)
 
 
-@pytest.mark.parametrize("battery,consumption,expected", [
+@pytest.mark.parametrize("component,consumption,expected", [
     (60.0, 12.5, 480.0),
     (40.0, 20.0, 200.0),
     (80.0, 15.0, 533.3),
 ])
-def test_estimate_range(battery, consumption, expected):
-    assert estimate_range(battery, consumption) == expected
+def test_estimate_range(component, consumption, expected):
+    assert estimate_range(component, consumption) == expected
 
 
 def test_estimate_range_zero_consumption():

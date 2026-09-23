@@ -69,7 +69,7 @@ except sqlite3.IntegrityError as e:
 要点：
 
 - **参数化查询（Parameterized Query）** 是铁律：值永远用 `?` 占位传入，**绝不字符串拼接 SQL**——拼接是 SQL 注入（SQL Injection）的根源（练习 1 实测：`' OR '1'='1` 这类恶意输入命中 0 行）。
-- **关联与聚合**：`JOIN` 把多张表按关联字段拼起来（`LEFT JOIN` 保留左表全量），`GROUP BY` + 聚合函数（`COUNT`/`SUM`/`AVG`）做分组统计——车辆状态按设备分组统计在线时长就是这种查询（project 的 `stats()` 与 ph09 数据分析阶段的分组统计思维同源）。
+- **关联与聚合**：`JOIN` 把多张表按关联字段拼起来（`LEFT JOIN` 保留左表全量），`GROUP BY` + 聚合函数（`COUNT`/`SUM`/`AVG`）做分组统计——设备状态按设备分组统计在线时长就是这种查询（project 的 `stats()` 与 ph09 数据分析阶段的分组统计思维同源）。
 - **坑（忘记 WHERE）**：`UPDATE`/`DELETE` 不带 `WHERE` 会作用全表——先 `SELECT` 验证条件再执行写操作。
 
 ### 3.2 sqlite3 标准库 API（连接·游标·行工厂）
@@ -118,12 +118,12 @@ class Base(DeclarativeBase):                            # ORM：对象 ↔ 行�
 class Device(Base):
     __tablename__ = "devices"
     id: Mapped[int] = mapped_column(primary_key=True)
-    vin: Mapped[str] = mapped_column(unique=True, index=True)
+    device_id: Mapped[str] = mapped_column(unique=True, index=True)
     model: Mapped[str]
     online: Mapped[bool] = mapped_column(default=False)
 Base.metadata.create_all(engine)                        # 演示建表；正式项目用迁移（见 3.7）
 with Session(engine) as session:                        # with 结束自动 close——防连接泄漏
-    session.add(Device(vin="V001", model="EV-A"))
+    session.add(Device(device_id="V001", model="EV-A"))
     session.commit()                                    # 忘记 commit = 数据没写进去
 ```
 
@@ -168,21 +168,21 @@ except Exception:
 import sqlite3
 conn = sqlite3.connect("perf.db")
 cur = conn.cursor()
-cur.execute("CREATE TABLE IF NOT EXISTS devices (id INTEGER PRIMARY KEY, vin TEXT, model TEXT, online INTEGER)")
-cur.executemany("INSERT INTO devices (vin, model, online) VALUES (?, ?, ?)",
-                [(f"VIN{i:06d}", f"EV-{i % 5}", i % 2) for i in range(20000)])
+cur.execute("CREATE TABLE IF NOT EXISTS devices (id INTEGER PRIMARY KEY, device_id TEXT, model TEXT, online INTEGER)")
+cur.executemany("INSERT INTO devices (device_id, model, online) VALUES (?, ?, ?)",
+                [(f"DEVICE_ID{i:06d}", f"EV-{i % 5}", i % 2) for i in range(20000)])
 conn.commit()
-cur.execute("EXPLAIN QUERY PLAN SELECT * FROM devices WHERE vin = 'VIN000123'")
+cur.execute("EXPLAIN QUERY PLAN SELECT * FROM devices WHERE device_id = 'DEVICE_ID000123'")
 print(cur.fetchall())                    # 无索引：SCAN devices（全表扫描）
-cur.execute("CREATE INDEX IF NOT EXISTS idx_devices_vin ON devices(vin)")
-cur.execute("EXPLAIN QUERY PLAN SELECT * FROM devices WHERE vin = 'VIN000123'")
-print(cur.fetchall())                    # 有索引：SEARCH ... USING INDEX idx_devices_vin
+cur.execute("CREATE INDEX IF NOT EXISTS idx_devices_device_id ON devices(device_id)")
+cur.execute("EXPLAIN QUERY PLAN SELECT * FROM devices WHERE device_id = 'DEVICE_ID000123'")
+print(cur.fetchall())                    # 有索引：SEARCH ... USING INDEX idx_devices_device_id
 ```
 
 要点：
 
-- **`EXPLAIN QUERY PLAN` 是 SQLite 的「体检报告」**：看到 `SCAN` 就该考虑加索引，看到 `SEARCH ... USING INDEX` 说明索引生效。示例 3 实测：两万行按 vin 查询从 `SCAN`（0.34 ms）变为 `SEARCH ... USING INDEX`（0.02 ms）；练习 3 把数据量加到 10 万行，复合索引约快 21 倍（1.89 ms → 0.09 ms）。
-- **UNIQUE 约束自带索引**：`vin TEXT UNIQUE` 会隐式创建 `sqlite_autoindex_*` 索引，精确查询天生走索引（练习 2 实测）；非唯一列才需要手动 `CREATE INDEX`。
+- **`EXPLAIN QUERY PLAN` 是 SQLite 的「体检报告」**：看到 `SCAN` 就该考虑加索引，看到 `SEARCH ... USING INDEX` 说明索引生效。示例 3 实测：两万行按 device_id 查询从 `SCAN`（0.34 ms）变为 `SEARCH ... USING INDEX`（0.02 ms）；练习 3 把数据量加到 10 万行，复合索引约快 21 倍（1.89 ms → 0.09 ms）。
+- **UNIQUE 约束自带索引**：`device_id TEXT UNIQUE` 会隐式创建 `sqlite_autoindex_*` 索引，精确查询天生走索引（练习 2 实测）；非唯一列才需要手动 `CREATE INDEX`。
 - **索引不是越多越好**：每多一个索引，写入就多维护一份（写放大），小表、写多读少、频繁更新的列都不该加；索引是**空间换时间**——练习 2 实测两万行小表上耗时差异不明显（数据都在页缓存里），这正是「小表不加索引」的证据。
 - **复合索引（Composite Index）按最左前缀（Leftmost Prefix）生效**：`(device_id, ts)` 索引能加速 `WHERE device_id=?` 和 `WHERE device_id=? AND ts BETWEEN ...`，但**不能**加速只按 `ts` 的查询——列顺序即前缀顺序（练习 3 实测最左前缀）。
 
@@ -242,7 +242,7 @@ MIGRATIONS = [                                  # 版本号递增，只增不改
 
 ```bash
 # redis-cli 命令（需 redis-server；本环境已装 redis-server 8.x，示例 6 实测）
-SET device:1001 '{"vin":"V001"}' EX 300   # 5 分钟过期（TTL）
+SET device:1001 '{"device_id":"V001"}' EX 300   # 5 分钟过期（TTL）
 GET device:1001
 EXPIRE device:1001 60                     # 动态调整过期
 TTL  device:1001                          # 查剩余秒数（-1 永不过期）
@@ -253,7 +253,7 @@ TTL  device:1001                          # 查剩余秒数（-1 永不过期）
 # 验证环境：Python 3.13.9，redis-py 8.0.1 + redis-server 8.x
 import redis
 r = redis.Redis(host="127.0.0.1", port=port, decode_responses=True)
-r.set("device:1001", '{"vin":"V001"}', ex=60)   # 写缓存 + 过期时间（redis-py 8 推荐 set 而非 setex）
+r.set("device:1001", '{"device_id":"V001"}', ex=60)   # 写缓存 + 过期时间（redis-py 8 推荐 set 而非 setex）
 data = r.get("device:1001")                     # 命中返回字符串，未命中返回 None
 ```
 
@@ -305,8 +305,8 @@ Redis **命令执行是单线程的**：一个进程用**事件循环（Event Lo
 | 场景 | 涉及知识点 |
 |------|-----------|
 | 用户 CRUD | sqlite3 建表 + 增删改查 + 参数化查询 + 唯一约束 |
-| 设备信息管理 | vin 唯一约束（自带索引）+ 普通索引 + 迁移脚本加字段（如 `online` 状态） |
-| 车辆状态表 | 高频写入 + 按设备/时间查询 + 复合索引（`(device_id, ts)`） |
+| 设备信息管理 | device_id 唯一约束（自带索引）+ 普通索引 + 迁移脚本加字段（如 `online` 状态） |
+| 设备状态表 | 高频写入 + 按设备/时间查询 + 复合索引（`(device_id, ts)`） |
 | 热点查询缓存 | Redis string 缓存查询结果 + TTL 过期 + 写库主动失效 |
 | 事务型业务（订单/转账） | BEGIN/COMMIT/ROLLBACK + 一致性边界 + 失败回滚 |
 | 数据平台后端 | SQLAlchemy + Alembic 迁移 + 连接池 + Redis 缓存（承接 ph10 Web 后端阶段） |
@@ -322,7 +322,7 @@ Redis **命令执行是单线程的**：一个进程用**事件循环（Event Lo
 
 **新表设计前的自查清单**：
 
-- 主键选对了吗？——绝大多数场景用自增 `INTEGER PRIMARY KEY`（代理键）；业务唯一标识（`vin`/`email`）用 `UNIQUE` 约束表达，不要拿它当主键（会随业务变化）
+- 主键选对了吗？——绝大多数场景用自增 `INTEGER PRIMARY KEY`（代理键）；业务唯一标识（`device_id`/`email`）用 `UNIQUE` 约束表达，不要拿它当主键（会随业务变化）
 - 约束进表了吗？——`NOT NULL`/`UNIQUE`/`DEFAULT`/`FOREIGN KEY` 让数据库把关，而不是靠应用层每次检查
 - 索引是按查询设计的吗？——先写清楚要跑的查询，再定索引并用 `EXPLAIN QUERY PLAN` 验证（3.5）；别建了表顺手把每列都加索引
 - 规范化到够用为止——按业务实体分表、避免重复存储，但别为"理论第三范式"把一张表拆成五张（查询要 JOIN 五次就是过度设计）
@@ -380,18 +380,18 @@ def transfer(cur, frm, to, amount):
 
 ### 示例 3：索引与查询优化（EXPLAIN QUERY PLAN + 实测耗时）
 
-呼应 3.5/4.1：两万行数据按 vin 精确查询，先看全表扫描的执行计划与耗时，加索引后再对比。完整文件 `examples/ex03-index-query-plan.py`。
+呼应 3.5/4.1：两万行数据按 device_id 精确查询，先看全表扫描的执行计划与耗时，加索引后再对比。完整文件 `examples/ex03-index-query-plan.py`。
 
 ```python
 # examples/ex03-index-query-plan.py —— 两万行实测（离线可跑，已验证）
-plan, ms = measure(cur, "VIN000123")         # 无索引
+plan, ms = measure(cur, "DEVICE_ID000123")         # 无索引
 print(plan, f"{ms:.2f} ms")                  # SCAN devices  0.34 ms
-cur.execute("CREATE INDEX IF NOT EXISTS idx_devices_vin ON devices(vin)")
-plan, ms = measure(cur, "VIN000123")         # 有索引
-print(plan, f"{ms:.2f} ms")                  # SEARCH ... USING INDEX idx_devices_vin  0.02 ms
+cur.execute("CREATE INDEX IF NOT EXISTS idx_devices_device_id ON devices(device_id)")
+plan, ms = measure(cur, "DEVICE_ID000123")         # 有索引
+print(plan, f"{ms:.2f} ms")                  # SEARCH ... USING INDEX idx_devices_device_id  0.02 ms
 ```
 
-实测输出：执行计划从 `SCAN devices` 变为 `SEARCH devices USING INDEX idx_devices_vin (vin=?)`，耗时从 `0.34 ms` 降到 `0.02 ms`（约 17 倍）；数据量再大一个数量级时差距更明显（练习 3 在 10 万行上约 21 倍）。**判断「要不要索引」先跑 `EXPLAIN QUERY PLAN`**——这是「SQL 基础比 ORM 更重要」在性能上的落点。
+实测输出：执行计划从 `SCAN devices` 变为 `SEARCH devices USING INDEX idx_devices_device_id (device_id=?)`，耗时从 `0.34 ms` 降到 `0.02 ms`（约 17 倍）；数据量再大一个数量级时差距更明显（练习 3 在 10 万行上约 21 倍）。**判断「要不要索引」先跑 `EXPLAIN QUERY PLAN`**——这是「SQL 基础比 ORM 更重要」在性能上的落点。
 
 ### 示例 4：SQLAlchemy 2.0 Core 与 ORM（echo 看 SQL + 连接池状态）
 
@@ -402,12 +402,12 @@ print(plan, f"{ms:.2f} ms")                  # SEARCH ... USING INDEX idx_device
 engine = create_engine(URL, echo=True)       # echo=True：打印每条 ORM 生成的 SQL
 Base.metadata.create_all(engine)
 with Session(engine) as session:
-    session.add(Device(vin="V001", model="EV-A"))
+    session.add(Device(device_id="V001", model="EV-A"))
     session.commit()
-    device = session.scalars(select(Device).where(Device.vin == "V001")).one()
+    device = session.scalars(select(Device).where(Device.device_id == "V001")).one()
 ```
 
-实测输出：`echo` 打印了 ORM 生成的 `CREATE TABLE devices`、`CREATE UNIQUE INDEX ix_devices_vin`、`INSERT INTO devices` 与 `SELECT devices.id, devices.vin, ...`——「ORM 只是生成 SQL 的映射层」直接可见；连接池部分 `QueuePool(pool_size=2, max_overflow=1)` 实测池状态从「Connections in pool: 0」→「借出 1 条后 Checked out: 1」→「归还后 pool: 1」。
+实测输出：`echo` 打印了 ORM 生成的 `CREATE TABLE devices`、`CREATE UNIQUE INDEX ix_devices_device_id`、`INSERT INTO devices` 与 `SELECT devices.id, devices.device_id, ...`——「ORM 只是生成 SQL 的映射层」直接可见；连接池部分 `QueuePool(pool_size=2, max_overflow=1)` 实测池状态从「Connections in pool: 0」→「借出 1 条后 Checked out: 1」→「归还后 pool: 1」。
 
 ### 示例 5：迁移脚本（schema_version 手写迁移，幂等 + 失败回滚）
 
@@ -486,13 +486,13 @@ def get_device(r, device_id):                # 缓存旁路：先查缓存，未
 本阶段练习见 [`exercises/`](./exercises/)（题目在 [exercises/README.md](./exercises/README.md)，参考实现 sol-* 先别看）。与 roadmap「练习」小节一一对应，完成 4 题后继续：
 
 - 用户 CRUD（★）：四函数 + 参数化查询防注入 + 唯一约束（提示：每个写操作后 `commit()`；重复 email 捕获 `IntegrityError` 后 `rollback()`）
-- 设备信息管理（★★）：vin 唯一约束（自带索引）+ 非唯一列建索引，`EXPLAIN QUERY PLAN` 验证（提示：UNIQUE 自动建 `sqlite_autoindex_*`；小表耗时差异不明显是正常现象）
-- 车辆状态表（★★）：`executemany` 批量写入 10 万行 + 复合索引 `(device_id, ts)` + 最左前缀（提示：对比有/无索引耗时，本机实测约快 21 倍）
+- 设备信息管理（★★）：device_id 唯一约束（自带索引）+ 非唯一列建索引，`EXPLAIN QUERY PLAN` 验证（提示：UNIQUE 自动建 `sqlite_autoindex_*`；小表耗时差异不明显是正常现象）
+- 设备状态表（★★）：`executemany` 批量写入 10 万行 + 复合索引 `(device_id, ts)` + 最左前缀（提示：对比有/无索引耗时，本机实测约快 21 倍）
 - Redis 缓存查询结果（★★★）：缓存旁路 + TTL 过期 + 写库主动失效（提示：真实 redis-server 起在随机端口 + 临时目录，结束 `terminate()`；用 `set(key, value, ex=...)`）
 
 ### 阶段项目
 
-本阶段综合项目见 [`project/`](./project/)：**设备管理后端**——`devices` 表（vin 唯一索引）+ `device_status` 状态表（复合索引）+ 用户 CRUD + 手写迁移脚本演进结构 + 缓存设备热点查询（TTL 过期 + 写库主动失效）（对应 roadmap「推荐项目」第一个「设备管理后端」；示例 1/3/5 的合体，也是 ph10 设备管理 API 的数据层升级）。建议完成练习后再动手；roadmap 的另一个「车辆状态存储服务」可作为进阶扩展目标。
+本阶段综合项目见 [`project/`](./project/)：**设备管理后端**——`devices` 表（device_id 唯一索引）+ `device_status` 状态表（复合索引）+ 用户 CRUD + 手写迁移脚本演进结构 + 缓存设备热点查询（TTL 过期 + 写库主动失效）（对应 roadmap「推荐项目」第一个「设备管理后端」；示例 1/3/5 的合体，也是 ph10 设备管理 API 的数据层升级）。建议完成练习后再动手；roadmap 的另一个「设备状态存储服务」可作为进阶扩展目标。
 
 - [ ] 完成 exercises/ 全部 4 题并对照参考实现复盘
 - [ ] 独立完成 project/ 并通过其验收标准

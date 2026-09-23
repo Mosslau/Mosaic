@@ -20,14 +20,14 @@ func main() {
 	now := base
 	c.now = func() time.Time { return now }
 
-	events := []VehicleEvent{
+	events := []DeviceEvent{
 		{MsgID: "m1", CarID: "car-001", Kind: "telemetry", Data: "speed=50"},
 		{MsgID: "m2", CarID: "car-001", Kind: "telemetry", Data: "speed=55"},
-		{MsgID: "m3", CarID: "car-002", Kind: "alarm", Data: "battery_low"},
+		{MsgID: "m3", CarID: "car-002", Kind: "alarm", Data: "component_low"},
 		{MsgID: "m4", CarID: "car-002", Kind: "telemetry", Data: "speed=40"},
 		{MsgID: "m5", CarID: "car-003", Kind: "telemetry", Data: "speed=70"},
 	}
-	feed := func(e VehicleEvent) {
+	feed := func(e DeviceEvent) {
 		applied, err := c.Consume(e)
 		if err != nil {
 			fmt.Println("   error:", err)

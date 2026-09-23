@@ -42,7 +42,7 @@ Python 3.13.12，仅标准库（`json` / `os`）。运行（在 `project/` 目�
 
 ```bash
 # 1. 首次运行：交互创建数据并保存
-printf 'add device EV01 高压电池组\nadd sensor EV01 绕组温度 °C 32.5\nadd sensor EV01 母线电压 V 400.0\nadd actuator EV01 驱动电机 5000\nonline\ncontrol EV01 2 60\nshow\nsave\nquit\n' | python3 device_manager.py
+printf 'add device EV01 高压部件组\nadd sensor EV01 绕组温度 °C 32.5\nadd sensor EV01 母线电压 V 400.0\nadd actuator EV01 驱动电机 5000\nonline\ncontrol EV01 2 60\nshow\nsave\nquit\n' | python3 device_manager.py
 
 # 2. 二次运行：验证从 devices.json 加载
 printf 'load\nonline\nshow\nquit\n' | python3 device_manager.py

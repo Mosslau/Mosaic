@@ -1,5 +1,5 @@
-// 来源：exercises/README.md 练习 4 —— 用接口模拟 CAN/UART 数据读取参考实现
-// 一句话说明：Reader 小接口 + CAN/UART 两个链路实现，采集器循环读取并用 errors.Is 处理链路中断。
+// 来源：exercises/README.md 练习 4 —— 用接口模拟 BUS/UART 数据读取参考实现
+// 一句话说明：Reader 小接口 + BUS/UART 两个链路实现，采集器循环读取并用 errors.Is 处理链路中断。
 // 验证环境：Go 1.22.2（darwin/arm64）
 // 运行：go run sol-04-can-uart.go
 // 验证状态：已验证（Go 1.22.2）
@@ -24,13 +24,13 @@ type Reader interface {
 // ErrLinkDown 哨兵错误：模拟链路中断
 var ErrLinkDown = errors.New("link down")
 
-// CANReader 模拟 CAN 总线读取，读到 maxFrames 帧后持续返回链路故障
-type CANReader struct {
+// BUSReader 模拟 BUS 总线读取，读到 maxFrames 帧后持续返回链路故障
+type BUSReader struct {
 	frame     int
 	maxFrames int
 }
 
-func (r *CANReader) Read() (Frame, error) {
+func (r *BUSReader) Read() (Frame, error) {
 	r.frame++
 	if r.frame > r.maxFrames {
 		return Frame{}, ErrLinkDown
@@ -67,7 +67,7 @@ func collect(r Reader) (count int, sum float64, err error) {
 
 func main() {
 	readers := []Reader{
-		&CANReader{maxFrames: 4},
+		&BUSReader{maxFrames: 4},
 		&UARTReader{maxFrames: 3},
 	}
 	for _, r := range readers {

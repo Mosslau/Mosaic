@@ -2,7 +2,7 @@
 # 验证环境：Python 3.13.9（stdlib，零第三方依赖）
 # 运行：python3 device_manager.py --demo（离线可跑，已验证；数据库与缓存全部走系统临时目录）
 # 测试：pytest -q（tests/test_device_manager.py，已验证）
-# 说明：对应 roadmap「推荐项目」第一个「设备管理后端」——devices 表（vin 唯一索引）+
+# 说明：对应 roadmap「推荐项目」第一个「设备管理后端」——devices 表（device_id 唯一索引）+
 #       device_status 状态表（复合索引）+ 用户 CRUD + 手写迁移脚本演进结构 +
 #       缓存设备热点查询（TTL 过期 + 写库主动失效）。标准库实现，SQL 优先；
 #       换 SQLAlchemy + Alembic 与 redis-py 的落法见 README「扩展方向」。
@@ -18,7 +18,7 @@ MIGRATIONS: list[tuple[int, str]] = [
     (1, "CREATE TABLE users ("
         "id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE)"),
     (2, "CREATE TABLE devices ("
-        "id INTEGER PRIMARY KEY, vin TEXT NOT NULL UNIQUE, "
+        "id INTEGER PRIMARY KEY, device_id TEXT NOT NULL UNIQUE, "
         "model TEXT NOT NULL, online INTEGER DEFAULT 0)"),
     (3, "CREATE TABLE device_status ("
         "id INTEGER PRIMARY KEY, device_id INTEGER NOT NULL, "
@@ -106,21 +106,21 @@ class UserRepo:
 
 
 class DeviceRepo:
-    """设备注册与查询：vin 唯一约束自带索引，重复注册抛 IntegrityError。"""
+    """设备注册与查询：device_id 唯一约束自带索引，重复注册抛 IntegrityError。"""
 
     def __init__(self, db: Database) -> None:
         self.conn = db.conn
 
-    def register(self, vin: str, model: str) -> int:
+    def register(self, device_id: str, model: str) -> int:
         cur = self.conn.execute(
-            "INSERT INTO devices (vin, model) VALUES (?, ?)", (vin, model)
+            "INSERT INTO devices (device_id, model) VALUES (?, ?)", (device_id, model)
         )
         self.conn.commit()
         return cur.lastrowid
 
-    def get_by_vin(self, vin: str) -> sqlite3.Row | None:
+    def get_by_device_id(self, device_id: str) -> sqlite3.Row | None:
         return self.conn.execute(
-            "SELECT * FROM devices WHERE vin = ?", (vin,)
+            "SELECT * FROM devices WHERE device_id = ?", (device_id,)
         ).fetchone()
 
     def list_all(self) -> list[sqlite3.Row]:
@@ -128,16 +128,16 @@ class DeviceRepo:
             "SELECT * FROM devices ORDER BY id"
         ).fetchall()
 
-    def set_online(self, vin: str, online: bool) -> int:
+    def set_online(self, device_id: str, online: bool) -> int:
         cur = self.conn.execute(
-            "UPDATE devices SET online = ? WHERE vin = ?", (int(online), vin)
+            "UPDATE devices SET online = ? WHERE device_id = ?", (int(online), device_id)
         )
         self.conn.commit()
         return cur.rowcount
 
 
 class StatusRepo:
-    """车辆状态：高频批量写入 + 复合索引查询 + 分组统计。"""
+    """设备状态：高频批量写入 + 复合索引查询 + 分组统计。"""
 
     def __init__(self, db: Database) -> None:
         self.conn = db.conn
@@ -219,22 +219,22 @@ class DeviceService:
         self.status = StatusRepo(db)
         self.cache = cache
 
-    def get_device(self, vin: str) -> dict:
+    def get_device(self, device_id: str) -> dict:
         """查设备（热点查询走缓存）；未命中查库并回填。"""
-        key = f"device:{vin}"
+        key = f"device:{device_id}"
         cached = self.cache.get(key)
         if cached is not None:
-            return {"vin": vin, "model": cached, "cached": True}
-        row = self.devices.get_by_vin(vin)
+            return {"device_id": device_id, "model": cached, "cached": True}
+        row = self.devices.get_by_device_id(device_id)
         if row is None:
-            raise KeyError(f"设备不存在: {vin}")
+            raise KeyError(f"设备不存在: {device_id}")
         self.cache.set(key, row["model"])
-        return {"vin": vin, "model": row["model"], "cached": False}
+        return {"device_id": device_id, "model": row["model"], "cached": False}
 
-    def update_device(self, vin: str, online: bool) -> int:
+    def update_device(self, device_id: str, online: bool) -> int:
         """更新设备并删除缓存（主动失效）——下次读取必然重新查库。"""
-        n = self.devices.set_online(vin, online)
-        self.cache.delete(f"device:{vin}")
+        n = self.devices.set_online(device_id, online)
+        self.cache.delete(f"device:{device_id}")
         return n
 
 
@@ -259,22 +259,22 @@ def demo() -> int:
           users.update(uid, "Alice2"), "| get:",
           dict(users.get(uid)))
 
-    # 3. 设备注册（vin 唯一）
-    for vin, model in [("V001", "EV-A"), ("V002", "EV-B"), ("V003", "EV-C")]:
-        service.devices.register(vin, model)
+    # 3. 设备注册（device_id 唯一）
+    for device_id, model in [("V001", "EV-A"), ("V002", "EV-B"), ("V003", "EV-C")]:
+        service.devices.register(device_id, model)
     try:
-        service.devices.register("V001", "EV-A")  # 重复 vin
+        service.devices.register("V001", "EV-A")  # 重复 device_id
     except sqlite3.IntegrityError as e:
-        print("重复 vin 被拒 ->", e)
+        print("重复 device_id 被拒 ->", e)
 
-    # 4. 状态批量入库：3 台车 × 24 条 = 72 条（按 (device_id, ts) 复合索引）
+    # 4. 状态批量入库：3 台设备 × 24 条 = 72 条（按 (device_id, ts) 复合索引）
     rows = [
         (i % 3 + 1, f"2024-06-01T08:{h:02d}:{m:02d}", "online",
          round(50 + (i % 24) * 0.5, 1))
         for i, (h, m) in enumerate(divmod(i, 60) for i in range(72))
     ]
     inserted = service.status.ingest_batch(rows)
-    print(f"状态批量入库 -> {inserted} 条（3 车 × 24 条）")
+    print(f"状态批量入库 -> {inserted} 条（3 台设备 × 24 条）")
 
     # 5. 查询 + 统计
     first = service.status.query(1, since="2024-06-01T08:00:00",

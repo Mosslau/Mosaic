@@ -9,7 +9,7 @@ app = FastAPI(title="Car API")
 
 
 class Car(BaseModel):  # Pydantic：声明 + 校验 + 文档三合一
-    vehicle_id: str
+    device_id: str
     speed: float
 
 
@@ -52,11 +52,11 @@ if __name__ == "__main__":  # 免启动服务，用 TestClient 自测
     print("GET 空列表:", client.get("/cars/0").status_code)  # 404：越界守卫
     print(
         "POST 合法:",
-        client.post("/cars", json={"vehicle_id": "V001", "speed": 80}).status_code,
+        client.post("/cars", json={"device_id": "V001", "speed": 80}).status_code,
     )  # 201
     print(
         "POST 非法:",
-        client.post("/cars", json={"vehicle_id": "V001", "speed": "很快"}).status_code,
+        client.post("/cars", json={"device_id": "V001", "speed": "很快"}).status_code,
     )  # 422
     print("GET:", client.get("/cars").json())
     print("DELETE:", client.delete("/cars/0").status_code)  # 200

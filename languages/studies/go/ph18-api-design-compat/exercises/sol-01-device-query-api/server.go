@@ -19,9 +19,9 @@ const (
 	maxLimit     = 100
 )
 
-// Server 车辆查询服务。
+// Server 设备查询服务。
 type Server struct {
-	fleet []Vehicle
+	fleet []Device
 }
 
 // NewServer 构造服务。
@@ -29,8 +29,8 @@ func NewServer() *Server { return &Server{fleet: makeFleet()} }
 
 // Register 挂载路由。
 func (s *Server) Register(mux *http.ServeMux) {
-	mux.HandleFunc("GET /api/v1/vehicles", s.handleList)
-	mux.HandleFunc("GET /api/v1/vehicles/{id}", s.handleGet)
+	mux.HandleFunc("GET /api/v1/devices", s.handleList)
+	mux.HandleFunc("GET /api/v1/devices/{id}", s.handleGet)
 }
 
 func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
@@ -49,7 +49,7 @@ func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	writeError(w, http.StatusNotFound, "VEHICLE_NOT_FOUND", "vehicle not found")
+	writeError(w, http.StatusNotFound, "VEHICLE_NOT_FOUND", "device not found")
 }
 
 // parseQuery 解析并校验查询参数；非法时写 400 并返回 nil。

@@ -1,4 +1,4 @@
-// 来源：ph09-web-backend 阶段项目 —— 车辆数据上报 API（internal/api 包）
+// 来源：ph09-web-backend 阶段项目 —— 设备数据上报 API（internal/api 包）
 // 一句话说明：每设备窗口限流器（滑动时间窗日志：按时间戳剪枝计数）——单机实现（map + Mutex），
 // 分布式（Redis 令牌桶）见 ph10。
 // 验证环境：go1.25.6（darwin/arm64），仅标准库

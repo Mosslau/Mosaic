@@ -31,7 +31,7 @@ def analyze_log(path: Path) -> list[tuple[str, int]]:
 def main() -> None:
     """生成含非法行的样例日志并演示提取与统计。"""
     with tempfile.TemporaryDirectory() as d:
-        log_path = Path(d) / "vehicle.log"
+        log_path = Path(d) / "device.log"
         log_path.write_text(
             "2024-06-01 08:00:01 ERROR 192.168.1.10 E1001 电芯压差异常\n"
             "2024-06-01 08:00:05 WARN  10.0.0.5   E2003 电机温度偏高\n"

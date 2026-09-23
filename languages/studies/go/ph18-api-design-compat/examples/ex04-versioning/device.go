@@ -62,8 +62,8 @@ func NewStore() *Store { return &Store{byID: make(map[string]Device)} }
 func (s *Store) Seed() {
 	s.next = 3
 	s.byID = map[string]Device{
-		"car-001": {ID: "car-001", Name: "1号车", Online: true, Model: "M300", LastSeen: 1700000000},
-		"car-002": {ID: "car-002", Name: "2号车", Online: false, Model: "M300", LastSeen: 0},
+		"car-001": {ID: "car-001", Name: "1号设备", Online: true, Model: "M300", LastSeen: 1700000000},
+		"car-002": {ID: "car-002", Name: "2号设备", Online: false, Model: "M300", LastSeen: 0},
 	}
 }
 

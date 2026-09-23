@@ -2,12 +2,12 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <title>{{ device.vin }} 设备详情</title>
+  <title>{{ device.device_id }} 设备详情</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <h1>设备 {{ device.vin }}</h1>
-  <p>车型：{{ device.model }}</p>
+  <h1>设备 {{ device.device_id }}</h1>
+  <p>设备型号：{{ device.model }}</p>
   <p>状态：{% if device.online %}在线 ✅{% else %}离线 ⛔{% endif %}</p>
   <h2>最近遥测</h2>
   <table>

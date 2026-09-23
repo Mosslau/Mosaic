@@ -1,11 +1,11 @@
-# ph10 阶段项目：车辆轨迹存储服务
+# ph10 阶段项目：设备轨迹存储服务
 
-> 对应 Roadmap「数据库阶段」推荐项目之二（与 ph09 阶段项目「车辆数据上报 API」一脉相承——ph09 数据暂存内存 map，本阶段落库）。把本阶段的技能拼成一个完整服务：
+> 对应 Roadmap「数据库阶段」推荐项目之二（与 ph09 阶段项目「设备数据上报 API」一脉相承——ph09 数据暂存内存 map，本阶段落库）。把本阶段的技能拼成一个完整服务：
 > **SQLite 持久化（批量事务写入 + 设备时间复合索引）+ Redis 最新位置旁路缓存（go-redis，故障降级内存缓存）+ HTTP 接口（ph09 的 handler 四段式与统一错误延续）+ 优雅关闭**。
 
 ## 需求
 
-车机端定时上报 GPS 点（device_id、lat、lng、speed、ts），服务把轨迹落库、按"设备 + 时间"建索引，Redis 缓存"最新位置"（短 TTL），提供三类接口：
+设备端端定时上报 GPS 点（device_id、lat、lng、speed、ts），服务把轨迹落库、按"设备 + 时间"建索引，Redis 缓存"最新位置"（短 TTL），提供三类接口：
 
 - **批量上报**：一次上报一批 GPS 点，事务内全部写入（任一点非法整体回滚）
 - **查最新位置**：走旁路缓存——先 Redis，未命中查库并回填
@@ -44,7 +44,7 @@ project/
 
 - `go test ./...` 全部通过、`go vet ./...` 零告警、`go test -race ./...` 无数据竞争
 - `go test -cover ./...` 覆盖率：internal/api 80.8%、internal/cache 84.0%、internal/store 78.3%（实测，go1.25.6；cache 的 84.0% 含 Redis 实测用例）
-- `go run ./cmd/api -addr 127.0.0.1:18080` 启动后（本环境实测通过，测完已 kill、无残留进程与二进制）。注：**优雅关闭"退出码 0"需用编译产物验证**（`go build -o /tmp/vehicle-api ./cmd/api && /tmp/vehicle-api -addr 127.0.0.1:18080` 再 `kill -TERM`）——经 `go run` 包装启动时 SIGTERM 由 go run 转发给子进程，进程退出码为 143、优雅关闭日志不显示，这是 go run 的信号包装行为，非代码缺陷：
+- `go run ./cmd/api -addr 127.0.0.1:18080` 启动后（本环境实测通过，测完已 kill、无残留进程与二进制）。注：**优雅关闭"退出码 0"需用编译产物验证**（`go build -o /tmp/device-api ./cmd/api && /tmp/device-api -addr 127.0.0.1:18080` 再 `kill -TERM`）——经 `go run` 包装启动时 SIGTERM 由 go run 转发给子进程，进程退出码为 143、优雅关闭日志不显示，这是 go run 的信号包装行为，非代码缺陷：
 
 ```text
 GET  /healthz                                  → ok

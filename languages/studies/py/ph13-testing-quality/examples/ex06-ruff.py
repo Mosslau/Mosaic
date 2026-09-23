@@ -30,9 +30,9 @@ def write_report(rows: list[dict[str, str]], out: Path) -> None:
 def main() -> None:
     work = Path(tempfile.mkdtemp(prefix="ph13-ruff-"))
     rows = [
-        {"id": "EV-001", "speed": "42.0", "battery": "88.0"},
-        {"id": "EV-002", "speed": "30.0", "battery": "91.0"},
-        {"id": "EV-001", "battery": "87.5"},  # 重复 id：合并时补上最新电量
+        {"id": "EV-001", "speed": "42.0", "component": "88.0"},
+        {"id": "EV-002", "speed": "30.0", "component": "91.0"},
+        {"id": "EV-001", "component": "87.5"},  # 重复 id：合并时补上最新电量
     ]
     result = merge_rows(rows)
     report = work / "report.csv"

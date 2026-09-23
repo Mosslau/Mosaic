@@ -9,13 +9,13 @@
 **要求**：字段 `name`、`age`、`score` 全部 `private`；提供构造方法初始化；`setScore` 校验分数必须在 0~100，越界抛 `IllegalArgumentException`；重写 `toString` 返回 `Student{name='Alice', age=20, score=92.5}` 格式。
 **验收**：创建 `Student("Alice", 20)`、`setScore(92.5)` 后打印输出 `Student{name='Alice', age=20, score=92.5}`；`setScore(120)` 被拦截并打印错误信息。
 
-## 练习 2：车辆与电机建模（★★）
+## 练习 2：设备与电机建模（★★）
 
-**目标**：用继承 + 多态建模车辆层次，并用构造方法链建模电机。
+**目标**：用继承 + 多态建模设备层次，并用构造方法链建模电机。
 **要求**：
-- 抽象类 `Vehicle`（字段 `vin`，抽象方法 `start()`），子类 `ElectricCar` 和 `GasCar` 各自重写 `start()`；用 `Vehicle[]` 数组统一调用 `start()` 展示多态。
+- 抽象类 `Device`（字段 `device_id`，抽象方法 `start()`），子类 `ElectricCar` 和 `GasCar` 各自重写 `start()`；用 `Device[]` 数组统一调用 `start()` 展示多态。
 - 类 `Motor`（字段 `model`、`powerKw`）：无参构造通过 `this(...)` 委托给双参构造，演示构造方法链。
-**验收**：数组中电动车输出「EV-001 电动车启动」，燃油车输出「GAS-002 燃油车启动」；`new Motor()` 打印委托构造的痕迹（默认 model 为 "Unknown"）。
+**验收**：数组中电动设备输出「EV-001 电动设备启动」，燃油设备输出「GAS-002 燃油设备启动」；`new Motor()` 打印委托构造的痕迹（默认 model 为 "Unknown"）。
 
 ## 练习 3：用 record 定义设备状态（★★）
 

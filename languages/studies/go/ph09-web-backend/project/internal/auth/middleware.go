@@ -1,4 +1,4 @@
-// 来源：ph09-web-backend 阶段项目 —— 车辆数据上报 API（internal/auth 包）
+// 来源：ph09-web-backend 阶段项目 —— 设备数据上报 API（internal/auth 包）
 // 一句话说明：鉴权中间件——解析 Authorization: Bearer <JWT>，验签后把 device_id 写入 context；
 // 同时校验 token 归属的设备与路径参数一致（设备只能上报自己的数据）。
 // 验证环境：go1.25.6（darwin/arm64），仅标准库

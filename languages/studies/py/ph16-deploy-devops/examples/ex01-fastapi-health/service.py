@@ -28,16 +28,16 @@ _state = {"model_ready": True}
 
 
 class Condition(BaseModel):
-    """电池工况输入（与 ph15 电池健康数据的特征一致）。"""
+    """部件工况输入（与 ph15 部件健康数据的特征一致）。"""
 
     cycles: float = Field(ge=0, description="累计充放电循环次数")
     avg_temp: float = Field(description="平均工作温度 °C")
     depth: float = Field(ge=0, le=100, description="平均放电深度 %")
-    c_rate: float = Field(gt=0, description="平均充电倍率 C")
+    c_rate: float = Field(gt=0, description="平均补能倍率 C")
 
 
-def rule_based_soh(c: Condition) -> float:
-    """规则模型占位：与 ph15 合成数据同一老化公式（无噪声项），SOH 截断到 [40, 100]。"""
+def rule_based_health(c: Condition) -> float:
+    """规则模型占位：与 ph15 合成数据同一老化公式（无噪声项），HEALTH 截断到 [40, 100]。"""
     loss = (
         0.008
         + 0.00025 * max(c.avg_temp - 25, 0)
@@ -71,5 +71,5 @@ def fail_model() -> dict[str, str]:
 
 @app.post("/predict")
 def predict(cond: Condition) -> dict[str, float]:
-    """最小推理端点：规则模型预测 SOH。"""
-    return {"soh": round(rule_based_soh(cond), 1)}
+    """最小推理端点：规则模型预测 HEALTH。"""
+    return {"health": round(rule_based_health(cond), 1)}

@@ -8,19 +8,19 @@ package main
 
 import "fmt"
 
-// TelemetryEvent 一条车辆遥测事件（简化：只保留与幂等相关的字段）。
+// TelemetryEvent 一条设备遥测事件（简化：只保留与幂等相关的字段）。
 type TelemetryEvent struct {
 	MsgID     string  // 幂等键：一次"采样"的全局唯一 ID（重试/重投不变）
-	VehicleID string  // 车辆 ID
+	DeviceID string  // 设备 ID
 	TS        int64   // 采样时刻（unix 秒）
-	Speed     float64 // 车速 km/h
+	Speed     float64 // 运行速度 km/h
 }
 
 // NewEvent 造一条带唯一 MsgID 的事件（演示/测试用）。
-func NewEvent(vehicle string, ts int64, speed float64, seq int) TelemetryEvent {
+func NewEvent(device string, ts int64, speed float64, seq int) TelemetryEvent {
 	return TelemetryEvent{
-		MsgID:     fmt.Sprintf("%s-%d-%d", vehicle, ts, seq),
-		VehicleID: vehicle,
+		MsgID:     fmt.Sprintf("%s-%d-%d", device, ts, seq),
+		DeviceID: device,
 		TS:        ts,
 		Speed:     speed,
 	}

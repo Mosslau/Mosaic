@@ -44,7 +44,7 @@ func (s *TSStore) get(source, metric string) []Point {
 	return append([]Point(nil), s.series[key]...)
 }
 
-// Latest 最新值（仪表盘"这车现在多快"）。
+// Latest 最新值（仪表盘"这设备现在多快"）。
 func (s *TSStore) Latest(source, metric string) (Point, bool) {
 	pts := s.get(source, metric)
 	if len(pts) == 0 {

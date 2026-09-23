@@ -320,7 +320,7 @@ public void advance(String id, CarTaskStatus expect, CarTaskStatus next, String 
 
 1. **作业历史 = 每个数据源一条按时间有序的点列**，不是一张大表里随便插。Java 内存形态用 `ConcurrentHashMap<sourceId, ConcurrentSkipListMap<time, Point>>`(examples/ex07)：每个数据源一个并发有序桶，`append` 按时间点写入(同秒覆盖=去重)，`queryWindow(id, from, to)` 用 `subMap` 闭区间取点——全部并发安全、无手动锁。
 2. **查询形态三种**：最新点（数据源在哪，3.5 缓存已有 → 作业历史管历史)、时间窗(某段时间路径)、回放(按序逐点)。ex07 只做时间窗 + 最新点，足够演示「有序桶 + subMap」的心智。
-3. **生产落库在时序库/对象存储**：内存版的价值是保留「按 (id, time) 排序」的查询心智；百万级节点集群的历史作业历史必然落 HBase/时序库/OSS，按 `id/yyyyMMdd` 分桶(ph17 的按日分桶思路)。真实里程计算、地图逆地理编码属地图服务，超出 Java 本阶段范围。
+3. **生产落库在时序库/对象存储**：内存版的价值是保留「按 (id, time) 排序」的查询心智；百万级节点集群的历史作业历史必然落 HBase/时序库/OSS，按 `id/yyyyMMdd` 分桶(ph17 的按日分桶思路)。真实累计运行量计算、地图逆地理编码属地图服务，超出 Java 本阶段范围。
 
 ```java
 // examples/ex07-job-history/JobHistoryStore.java —— 每个数据源一个并发有序桶(已验证)
@@ -429,7 +429,7 @@ flowchart LR
 - **跨语言对比(为 analysis/ 与 Tenet 合成积累素材)**：
   - **Java vs Go**：同一个「数据源接入网关」，Go 用 goroutine + channel(CSP，「每个连接一个 goroutine，阻塞读自然让出」)，Java 用 Netty EventLoop(事件驱动)或 ph09 虚拟线程(阻塞式语法)。Java 后端的**生态厚度**在 Kafka/Spring/时序库客户端上体现为「组件即插即用」；Go 胜在部署形态单一、内存占用小——所以**接入网关常见 Go/Rust 重写，业务平台留在 Java**，这正是数据平台后台常见的中西合璧架构。
   - **Java vs Rust**：Rust 适合需要极致性能与内存安全的热路径(协议解析核心、网关转发)；Java 的 GC 在百万级连接 + 海量小对象场景下要谨慎控制分配速率(接入层避免每帧造大对象)。Java 用「开发效率 + 生态 + 可观测」换 Rust 的「确定性与零拷贝」。
-  - **Java vs Python**：Python 路线(py/ph18 已收官)擅长数据清洗/分析/ML(Isolation Forest、SOH 估计)，Java 路线擅长高吞吐接入、强一致业务(版本发布/节点)与工程化；一条链路里 Python 做分析服务、Java 做实时与后台，各司其职。
+  - **Java vs Python**：Python 路线(py/ph18 已收官)擅长数据清洗/分析/ML(Isolation Forest、HEALTH 估计)，Java 路线擅长高吞吐接入、强一致业务(版本发布/节点)与工程化；一条链路里 Python 做分析服务、Java 做实时与后台，各司其职。
 
 ## 6. 代码示例
 
@@ -512,8 +512,8 @@ Netty 主从 Reactor + line codec 的数据源网关：`REG|<sourceId>` 注册�
 ### 跨语言对比
 
 - **Go vs Java(数据平台后台)**：Go 的 goroutine「每连接阻塞式」与 Java 的 Netty「事件驱动」殊途同归，虚拟线程(ph09)让 Java 也能写 Go 风格；Java 的生态厚度(Spring/Kafka/时序库客户端)让它坐稳业务平台，Go/Rust 常被用于接入网关重写——数据平台后台常见「Go 收流、Java 做业务」的中西合璧(为 analysis/ 与 Tenet 合成积累素材)
-- **C(嵌入式) vs Java**：采集端(CAN/位操作/实时性)属 C 路线；Java 站采集端上游消费数据——两层通过网关/文件交接，各自管好自己的一侧
-- **Python vs Java**：py/ph18 已演示 Python 做清洗/分析/异常检测(Isolation Forest/SOH)的厚度；Java 本阶段演示实时接入/强一致业务/版本发布的平台面——「数据分析的 Python 化 + 业务平台的 Java 化」是数据平台数据平台的标准分工
+- **C(嵌入式) vs Java**：采集端(BUS/位操作/实时性)属 C 路线；Java 站采集端上游消费数据——两层通过网关/文件交接，各自管好自己的一侧
+- **Python vs Java**：py/ph18 已演示 Python 做清洗/分析/异常检测(Isolation Forest/HEALTH)的厚度；Java 本阶段演示实时接入/强一致业务/版本发布的平台面——「数据分析的 Python 化 + 业务平台的 Java 化」是数据平台数据平台的标准分工
 - **模型结论**：同样是「可靠的高吞吐数据服务」，Java 交出的答卷是「JVM + 成熟中间件 + DDD」，Go 是「CSP + 少依赖」，Rust 是「所有权 + 零拷贝」——**三者的差异本质是托管安全/并发哲学/内存哲学在系统级服务上的投影**
 
 ### 动手练习

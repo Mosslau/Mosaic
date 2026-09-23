@@ -37,7 +37,7 @@ class Base(DeclarativeBase):
 class Device(Base):
     __tablename__ = "devices"
     id: Mapped[int] = mapped_column(primary_key=True)
-    vin: Mapped[str] = mapped_column(unique=True, index=True)
+    device_id: Mapped[str] = mapped_column(unique=True, index=True)
     model: Mapped[str]
     online: Mapped[bool] = mapped_column(default=False)
 
@@ -46,11 +46,11 @@ def orm_demo() -> None:
     engine = create_engine(URL, echo=True)  # echo=True：打印每条 ORM 生成的 SQL
     Base.metadata.create_all(engine)
     with Session(engine) as session:  # with 结束自动 close——防连接泄漏
-        session.add(Device(vin="V001", model="EV-A", online=True))
+        session.add(Device(device_id="V001", model="EV-A", online=True))
         session.commit()  # 忘记 commit = 数据没写进去
-        stmt = select(Device).where(Device.vin == "V001")
+        stmt = select(Device).where(Device.device_id == "V001")
         device = session.scalars(stmt).one()
-        print("ORM 查询结果 ->", device.vin, device.model, device.online)
+        print("ORM 查询结果 ->", device.device_id, device.model, device.online)
     print("（上面两条 SQL 就是 ORM 生成的——会读 SQL 才能调好 ORM）")
 
 

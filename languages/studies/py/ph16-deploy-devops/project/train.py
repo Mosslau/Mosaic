@@ -5,9 +5,9 @@
 服务进程只加载不训练（app/predictor.py 的 JoblibPredictor）。
 
 用法：
-    python3 train.py                          # 产物写 /tmp/bhealth-api-model/model.joblib
+    python3 train.py                          # 产物写 /tmp/health-api-model/model.joblib
     python3 train.py --out /tmp/x --n 800     # 自定义输出目录与样本量
-    MODEL_PATH=/tmp/bhealth-api-model/model.joblib \
+    MODEL_PATH=/tmp/health-api-model/model.joblib \
         python3 -m uvicorn app.main:app --port 8000
 
 产物纪律：默认写 /tmp 不入库；若用 --out 指到仓库内目录，记得自备 *.joblib 的
@@ -20,11 +20,11 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-DEFAULT_OUT = Path("/tmp/bhealth-api-model")
+DEFAULT_OUT = Path("/tmp/health-api-model")
 
 
 def train(n: int = 800, seed: int = 42) -> object:
-    """合成电池老化数据（与 app/predictor.py 规则公式同源 + 噪声），训练随机森林。"""
+    """合成部件老化数据（与 app/predictor.py 规则公式同源 + 噪声），训练随机森林。"""
     import numpy as np
     from sklearn.ensemble import RandomForestRegressor
 
@@ -40,12 +40,12 @@ def train(n: int = 800, seed: int = 42) -> object:
         + 0.0005 * np.maximum(depth - 70, 0)
         + 0.0015 * np.maximum(c_rate - 1.5, 0)
     )
-    soh = np.clip(100 - cycles * loss + rng.normal(0, 1.2, n), 40, 100)
-    return RandomForestRegressor(n_estimators=200, random_state=seed, n_jobs=-1).fit(X, soh)
+    health = np.clip(100 - cycles * loss + rng.normal(0, 1.2, n), 40, 100)
+    return RandomForestRegressor(n_estimators=200, random_state=seed, n_jobs=-1).fit(X, health)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="训练电池 SOH 模型并落盘 joblib 产物")
+    parser = argparse.ArgumentParser(description="训练部件 HEALTH 模型并落盘 joblib 产物")
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT, help="产物目录（默认 /tmp）")
     parser.add_argument("--n", type=int, default=800, help="合成样本量")
     parser.add_argument("--seed", type=int, default=42)

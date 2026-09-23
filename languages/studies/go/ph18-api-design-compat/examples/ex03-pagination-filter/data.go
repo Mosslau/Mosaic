@@ -30,7 +30,7 @@ func makeDataset(n int) []Device {
 		}
 		out = append(out, Device{
 			ID:     fmt.Sprintf("dev-%03d", i),
-			Name:   fmt.Sprintf("车队A-%d号车", i),
+			Name:   fmt.Sprintf("设备组A-%d号设备", i),
 			Status: status,
 		})
 	}

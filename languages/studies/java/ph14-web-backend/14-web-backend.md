@@ -4,7 +4,7 @@
 
 ## 1. 概述
 
-本阶段是整个 Java 学习路线的转折点：ph01~ph13 学的都是「单机程序怎么写得对、快、稳」（语法、集合、并发、JVM、构建、测试、数据库），本阶段把它们接进 **HTTP 服务**——别人（前端、车辆、其他服务）通过 URL 调用你的 Java 代码。目标（roadmap 第 14 节）：**能用 Java 写后端 API 服务**。从「HTTP 请求进来后发生了什么」的底层链路讲起（Servlet/Tomcat 是 Spring Boot 的底子），再讲 REST/JSON 的接口设计，接着是参数校验、JWT、CORS 这三个「接口安全与互操作」主题，然后是全局异常处理、日志、API 文档这三个「工程质量」主题，最后落到 Spring MVC / Spring Boot——前面手写的一切，框架替你做了大半。
+本阶段是整个 Java 学习路线的转折点：ph01~ph13 学的都是「单机程序怎么写得对、快、稳」（语法、集合、并发、JVM、构建、测试、数据库），本阶段把它们接进 **HTTP 服务**——别人（前端、设备、其他服务）通过 URL 调用你的 Java 代码。目标（roadmap 第 14 节）：**能用 Java 写后端 API 服务**。从「HTTP 请求进来后发生了什么」的底层链路讲起（Servlet/Tomcat 是 Spring Boot 的底子），再讲 REST/JSON 的接口设计，接着是参数校验、JWT、CORS 这三个「接口安全与互操作」主题，然后是全局异常处理、日志、API 文档这三个「工程质量」主题，最后落到 Spring MVC / Spring Boot——前面手写的一切，框架替你做了大半。
 
 | 核心维度 | 覆盖内容 |
 |----------|---------|
@@ -18,7 +18,7 @@
 | API 文档 | springdoc-openapi 自动生成 OpenAPI 3 文档 + Swagger UI |
 | Spring MVC / Spring Boot | `@RestController` 注解体系、`@RequestMapping/@GetMapping/@PathVariable/@RequestBody`、内嵌 Tomcat 自动配置、starter 依赖、`spring-boot:run` |
 
-这个阶段只涉及 **Web 层本身**（HTTP 协议、Servlet 容器、REST 设计、框架注解），**不涉及 Spring 的 IOC/DI、Bean 生命周期、AOP、事务管理等容器机制**（那是 [ph15 Spring 全家桶阶段](../ph15-spring-family/15-spring-family.md)的内容，roadmap 第 15 节）、**不涉及微服务架构、服务注册发现、网关与熔断**（ph16 微服务与分布式阶段，roadmap 第 16 节）、**不涉及消息队列与搜索中间件**（[ph17 消息队列与搜索阶段](../ph17-mq-search/17-mq-search.md)，roadmap 第 17 节）、**不涉及缓存穿透/击穿/雪崩、限流等高并发架构**（[ph18 缓存与高并发阶段](../ph18-cache-concurrency/18-cache-concurrency.md)，roadmap 第 18 节）、**不涉及服务的部署运维**（Docker/CI/CD，[ph19 DevOps 与部署阶段](../ph19-devops-deploy/19-devops-deploy.md)）、**不涉及网络编程深入与 Netty**（[ph20 高级 Java 阶段](../ph20-advanced-java/20-advanced-java.md)）。本阶段承接 [ph13 数据库阶段](../ph13-database/13-database.md)——那里讲透了「数据层怎么写得对」，本阶段把它们包成「别人能调的接口」，`VehicleStore` 之类的数据层接口形状保持不变、实现可平移。
+这个阶段只涉及 **Web 层本身**（HTTP 协议、Servlet 容器、REST 设计、框架注解），**不涉及 Spring 的 IOC/DI、Bean 生命周期、AOP、事务管理等容器机制**（那是 [ph15 Spring 全家桶阶段](../ph15-spring-family/15-spring-family.md)的内容，roadmap 第 15 节）、**不涉及微服务架构、服务注册发现、网关与熔断**（ph16 微服务与分布式阶段，roadmap 第 16 节）、**不涉及消息队列与搜索中间件**（[ph17 消息队列与搜索阶段](../ph17-mq-search/17-mq-search.md)，roadmap 第 17 节）、**不涉及缓存穿透/击穿/雪崩、限流等高并发架构**（[ph18 缓存与高并发阶段](../ph18-cache-concurrency/18-cache-concurrency.md)，roadmap 第 18 节）、**不涉及服务的部署运维**（Docker/CI/CD，[ph19 DevOps 与部署阶段](../ph19-devops-deploy/19-devops-deploy.md)）、**不涉及网络编程深入与 Netty**（[ph20 高级 Java 阶段](../ph20-advanced-java/20-advanced-java.md)）。本阶段承接 [ph13 数据库阶段](../ph13-database/13-database.md)——那里讲透了「数据层怎么写得对」，本阶段把它们包成「别人能调的接口」，`DeviceStore` 之类的数据层接口形状保持不变、实现可平移。
 
 ## 2. 来源与演变
 
@@ -79,7 +79,7 @@ Location: /api/users/42               ← 201 时指回新资源的 URL
 | Content-Length | 请求体字节数，服务端据此知道 body 读到哪结束 |
 | Authorization | 认证凭证（`Bearer <token>`，本阶段 JWT 的载体，见 3.5） |
 | Accept | 客户端期望的响应格式——内容协商的输入（见 4.3） |
-| User-Agent | 客户端标识（浏览器 / curl / 车端 SDK），排查兼容问题时先看它 |
+| User-Agent | 客户端标识（浏览器 / curl / 设备端 SDK），排查兼容问题时先看它 |
 | Cookie | 携带服务端此前种下的会话标识（有状态方案，与 3.5 的 JWT 对照理解） |
 
 | 常见响应头 | 作用 |
@@ -200,9 +200,9 @@ REST 把「数据」建模为**资源**，URL 标识资源、方法表达操作�
 | 约定 | 推荐 | 反例 |
 |------|------|------|
 | 资源用名词复数 | `/api/users` | `/api/getUser`（动词塞进了 URL，动作用方法表达） |
-| 层级表达从属关系 | `/api/vehicles/{vin}/reports` | `/api/getReportsByVin?vin=...` |
+| 层级表达从属关系 | `/api/devices/{device_id}/reports` | `/api/getReportsByDeviceID?device_id=...` |
 | 查询参数做筛选与分页 | `GET /api/users?status=active&page=2` | 每种筛选各开一个端点 |
-| 小写 + 连字符分词 | `/api/vehicle-reports` | `/api/VehicleReports`（大小写敏感的坑） |
+| 小写 + 连字符分词 | `/api/device-reports` | `/api/DeviceReports`（大小写敏感的坑） |
 
 **JSON 序列化**是 REST 的数据载体：Java 对象 ↔ JSON 文本。手写版（ex01 的 MiniJson）让你看清「对象怎么变成字符串」；生产用 **Jackson**（Spring Boot 内建，starter-web 自动注册）：`@RequestBody` 把 JSON 反序列化成 Java 对象、`@RestController` 把返回值序列化成 JSON——**序列化是 ph07 IO 阶段「字节↔字符」心智的框架化**。
 
@@ -363,7 +363,7 @@ public class App {
 }
 ```
 
-**三层分工**（roadmap 必会概念「Controller 不应写复杂业务」）：Controller 只做 HTTP 语义（路径/参数/请求体/状态码），Service 做业务规则，Store/Repository 做数据访问——project/ 的 `VehicleController → VehicleService → VehicleStore` 是这条分工的完整落地。
+**三层分工**（roadmap 必会概念「Controller 不应写复杂业务」）：Controller 只做 HTTP 语义（路径/参数/请求体/状态码），Service 做业务规则，Store/Repository 做数据访问——project/ 的 `DeviceController → DeviceService → DeviceStore` 是这条分工的完整落地。
 
 **手写 Servlet 到 Spring MVC 注解的对照**——框架化的本质是「同样的概念换声明方式」：
 
@@ -425,9 +425,9 @@ HMAC-SHA256 是**带密钥的哈希**：`signature = HMAC-SHA256(header.payload,
 
 ## 5. 使用场景
 
-- **对外数据服务**：把业务能力暴露为 HTTP API——本阶段 project/ 的数据上报 API 是数据平台方向的直接落地（roadmap 推荐项目），ph13 的存储层可平移进 `VehicleStore`。这类服务的共性需求本阶段全部覆盖过：语义化状态码让车端 SDK 能编程化分支、统一响应结构让前端/车端共用一套解析、JWT 让「哪辆车在上报」无状态可查、`@Valid` 在入口处挡住脏数据（脏遥测数据入库后再清洗的代价远大于入口拦截）。
+- **对外数据服务**：把业务能力暴露为 HTTP API——本阶段 project/ 的数据上报 API 是数据平台方向的直接落地（roadmap 推荐项目），ph13 的存储层可平移进 `DeviceStore`。这类服务的共性需求本阶段全部覆盖过：语义化状态码让设备端 SDK 能编程化分支、统一响应结构让前端/设备端共用一套解析、JWT 让「哪台设备在上报」无状态可查、`@Valid` 在入口处挡住脏数据（脏遥测数据入库后再清洗的代价远大于入口拦截）。
 - **前后端分离**：REST API + JSON 是前后端分离的事实标准——前端（React/Vue，本阶段用 CORS 允许其跨域调用）只认 `{code, message, data}` 一个形状，这正是「统一响应结构」为什么是必会概念。两个配套实践：springdoc 自动生成的 OpenAPI 文档直接当联调契约用（前端照着 Swagger UI 里的 schema 写类型）；异常分类处理表（3.7）让前端可以按状态码分支 UI——400 提示改输入、401 跳登录、500 显示「稍后重试」。
-- **接口设计的长期维护**：幂等性对照表（3.1）决定客户端能不能安全重试——把「创建」设计成 POST 就要配幂等键，把「更新」设计成 PUT 就能直接重放；资源命名约定（3.3）决定 API 的可读性与可演进性——层级路径 `/api/vehicles/{vin}/reports` 在加「按时间范围查轨迹」这类新需求时只需追加查询参数，而动词式 URL 每加一个动作就多一个端点。
+- **接口设计的长期维护**：幂等性对照表（3.1）决定客户端能不能安全重试——把「创建」设计成 POST 就要配幂等键，把「更新」设计成 PUT 就能直接重放；资源命名约定（3.3）决定 API 的可读性与可演进性——层级路径 `/api/devices/{device_id}/reports` 在加「按时间范围查轨迹」这类新需求时只需追加查询参数，而动词式 URL 每加一个动作就多一个端点。
 - **什么时候不用 Spring Boot**：极简单的内部工具或单机演示（ex01 的 HttpServer 就够）、对启动体积/延迟极敏感的边缘场景（可换 Quarkus/Micronaut，ph15 对比）。本阶段学 Spring Boot 是为了生态（ph15 全家桶、ph16 微服务都建立在它上面）。
 - **与其他语言的对比**（为 analysis/ 与 Tenet 合成积累素材）：Java 的 Servlet/Spring 是「容器托管生命周期」的经典模型（回调 + 注解）；Go 的标准库 `net/http` 是「函数式 Handler」、显式中间件链；Python 的 FastAPI 用装饰器 + 类型注解自动生成 OpenAPI——三种语言解决同一问题（路由/参数/文档）的不同风格：Java 注解声明式最重、Go 显式最小、Python 双注解。Rust 的 axum/actix 走「tower 中间件栈」，与 Go 更近。线程模型上四者同源不同形：Java Servlet 的一请求一线程（4.1）与 Go 的 goroutine-per-conn、Python 的 async loop、Rust 的 tokio task 是同一个「并发处理连接」问题的四代答案。
 
@@ -512,10 +512,10 @@ jjwt 登录鉴权 + HandlerInterceptor + 全局 CORS + springdoc OpenAPI 文档�
 
 ### 阶段项目
 
-本阶段综合项目见 [`project/`](./project/)：**车辆数据上报 API**（roadmap 推荐项目）——REST 上报/查询 + JWT 鉴权 + 声明式校验双层 + 全局异常 + CORS + springdoc 文档，`mvn test` 实测 13 用例全过。建议完成练习后再动手。
+本阶段综合项目见 [`project/`](./project/)：**设备数据上报 API**（roadmap 推荐项目）——REST 上报/查询 + JWT 鉴权 + 声明式校验双层 + 全局异常 + CORS + springdoc 文档，`mvn test` 实测 13 用例全过。建议完成练习后再动手。
 - [ ] 完成 exercises/ 全部练习并对照参考实现复盘
 - [ ] 独立完成 project/ 并通过其验收标准（`mvn test` 13 用例 + curl 验收标准）
 
 ### 下一阶段
 
-[Spring 全家桶阶段](../ph15-spring-family/15-spring-family.md) — 本阶段回答 ph14 留下的「框架替你做了 X」：`@RestController` 只是 Spring 的冰山一角，ph15 讲透容器机制（IOC/DI 与 Bean 生命周期——为什么 `@Autowired`/构造器注入能把 `VehicleService` 塞进 `VehicleController`）、AOP 与事务管理、Spring Security 授权（把本阶段的「认证」升级为「认证 + 授权」）、Spring Boot 自动配置原理（为什么引个 starter 就能跑）与 Actuator 监控、Spring Data 接口即实现（`VehicleStore` 换成 JPA Repository 的形状演进）。
+[Spring 全家桶阶段](../ph15-spring-family/15-spring-family.md) — 本阶段回答 ph14 留下的「框架替你做了 X」：`@RestController` 只是 Spring 的冰山一角，ph15 讲透容器机制（IOC/DI 与 Bean 生命周期——为什么 `@Autowired`/构造器注入能把 `DeviceService` 塞进 `DeviceController`）、AOP 与事务管理、Spring Security 授权（把本阶段的「认证」升级为「认证 + 授权」）、Spring Boot 自动配置原理（为什么引个 starter 就能跑）与 Actuator 监控、Spring Data 接口即实现（`DeviceStore` 换成 JPA Repository 的形状演进）。

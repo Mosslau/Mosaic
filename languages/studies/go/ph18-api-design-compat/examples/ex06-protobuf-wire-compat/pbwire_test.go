@@ -13,19 +13,19 @@ import "testing"
 // TestAddFieldIsForwardCompatible：v2 加字段 4，v1 reader 读 v2 数据无损。
 // 这是"字段只增不删"在 protobuf 世界的机制基础。
 func TestAddFieldIsForwardCompatible(t *testing.T) {
-	b2 := encodeV2(v2Device{ID: "car-001", Name: "1号车", Online: true, Model: "M300"})
+	b2 := encodeV2(v2Device{ID: "car-001", Name: "1号设备", Online: true, Model: "M300"})
 	d, err := decodeV1(b2) // 老 reader 吃新数据
 	if err != nil {
 		t.Fatal(err)
 	}
-	if d.ID != "car-001" || d.Name != "1号车" || !d.Online {
+	if d.ID != "car-001" || d.Name != "1号设备" || !d.Online {
 		t.Fatalf("v1 reader misread v2 data: %+v", d)
 	}
 }
 
 // TestOldDataDefaultsNewField：老 reader 发来的数据没有字段 4，v2 reader 读零值。
 func TestOldDataDefaultsNewField(t *testing.T) {
-	b1 := encodeV1(v1Device{ID: "car-001", Name: "1号车", Online: true})
+	b1 := encodeV1(v1Device{ID: "car-001", Name: "1号设备", Online: true})
 	d, err := decodeV2(b1) // 新 reader 吃老数据
 	if err != nil {
 		t.Fatal(err)
@@ -47,7 +47,7 @@ func TestFieldNumberChangeBreaksOldReaders(t *testing.T) {
 	buf = appendStringField(buf, 1, "car-001")
 	buf = appendStringField(buf, 2, "M300") // 字段号 2 本属于 Name！
 	buf = appendBoolField(buf, 3, true)
-	buf = appendStringField(buf, 5, "1号车")
+	buf = appendStringField(buf, 5, "1号设备")
 
 	d, err := decodeV1(buf) // v1 reader 只认 1/2/3
 	if err != nil {
@@ -68,7 +68,7 @@ func TestUnknownFieldNumbersAreSkippedNotRejected(t *testing.T) {
 	var buf []byte
 	buf = appendStringField(buf, 1, "car-001")
 	buf = appendStringField(buf, 99, "some future field") // 未来才有的字段
-	buf = appendStringField(buf, 2, "1号车")
+	buf = appendStringField(buf, 2, "1号设备")
 	buf = appendBoolField(buf, 3, true)
 
 	fields, err := Parse(buf)
@@ -87,7 +87,7 @@ func TestUnknownFieldNumbersAreSkippedNotRejected(t *testing.T) {
 // TestTruncatedBytesAreRejected：数据被截断时必须报错，而不是静默产出错误字段
 // （损坏检测是兼容的底线——跳过未知字段≠容忍截断）。
 func TestTruncatedBytesAreRejected(t *testing.T) {
-	b2 := encodeV2(v2Device{ID: "car-001", Name: "1号车", Online: true, Model: "M300"})
+	b2 := encodeV2(v2Device{ID: "car-001", Name: "1号设备", Online: true, Model: "M300"})
 	truncated := b2[:len(b2)-3] // 砍掉 Model 的尾部
 	if _, err := decodeV1(truncated); err == nil {
 		t.Fatal("truncated message should be rejected")

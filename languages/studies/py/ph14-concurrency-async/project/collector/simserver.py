@@ -1,4 +1,4 @@
-"""模拟遥测服务器：提供车辆列表与单车辆遥测两个 HTTP 接口。
+"""模拟遥测服务器：提供设备列表与单设备遥测两个 HTTP 接口。
 
 用 aiohttp web 在**进程内**起服务（不占外部端口约定、测完即停），
 延迟与失败率可注入，随机数可播种 —— 测试与演示完全确定性、可复现。
@@ -13,16 +13,16 @@ from datetime import UTC, datetime
 from aiohttp import web
 
 
-def make_vehicle_ids(n: int) -> list[str]:
-    """生成 n 个车辆 id：EV-001 ~ EV-{n}（三位零填充）。"""
+def make_device_ids(n: int) -> list[str]:
+    """生成 n 个设备 id：EV-001 ~ EV-{n}（三位零填充）。"""
     return [f"EV-{i:03d}" for i in range(1, n + 1)]
 
 
 class TelemetrySimulator:
     """进程内模拟遥测服务器。
 
-    - GET /api/vehicles                  → {"vehicles": ["EV-001", ...]}
-    - GET /api/vehicles/{vid}/telemetry  → 200 遥测 JSON，或按 fail_rate 返回 503
+    - GET /api/devices                  → {"devices": ["EV-001", ...]}
+    - GET /api/devices/{vid}/telemetry  → 200 遥测 JSON，或按 fail_rate 返回 503
 
     用法（asyncio 上下文内）：
 
@@ -35,13 +35,13 @@ class TelemetrySimulator:
 
     def __init__(
         self,
-        vehicles: list[str] | None = None,
-        n_vehicles: int = 20,
+        devices: list[str] | None = None,
+        n_devices: int = 20,
         latency_ms: float = 0.0,
         fail_rate: float = 0.0,
         seed: int = 42,
     ) -> None:
-        self._vehicles = vehicles if vehicles is not None else make_vehicle_ids(n_vehicles)
+        self._devices = devices if devices is not None else make_device_ids(n_devices)
         self.latency_ms = latency_ms
         self.fail_rate = fail_rate
         self._rng = random.Random(seed)  # 播种：同一 seed 下失败序列完全可复现
@@ -50,8 +50,8 @@ class TelemetrySimulator:
         self.port: int | None = None
 
     @property
-    def vehicle_ids(self) -> list[str]:
-        return list(self._vehicles)
+    def device_ids(self) -> list[str]:
+        return list(self._devices)
 
     @property
     def base_url(self) -> str:
@@ -60,8 +60,8 @@ class TelemetrySimulator:
 
     async def start(self) -> TelemetrySimulator:
         app = web.Application()
-        app.router.add_get("/api/vehicles", self._list_vehicles)
-        app.router.add_get("/api/vehicles/{vid}/telemetry", self._telemetry)
+        app.router.add_get("/api/devices", self._list_devices)
+        app.router.add_get("/api/devices/{vid}/telemetry", self._telemetry)
         self._runner = web.AppRunner(app)
         await self._runner.setup()
         # 端口 0 = 系统分配临时端口；start 后从底层 socket 读出实际端口号
@@ -76,8 +76,8 @@ class TelemetrySimulator:
             await self._runner.cleanup()
             self._runner = None
 
-    async def _list_vehicles(self, request: web.Request) -> web.Response:
-        return web.json_response({"vehicles": self._vehicles})
+    async def _list_devices(self, request: web.Request) -> web.Response:
+        return web.json_response({"devices": self._devices})
 
     async def _telemetry(self, request: web.Request) -> web.Response:
         vid = request.match_info["vid"]
@@ -87,9 +87,9 @@ class TelemetrySimulator:
             return web.json_response({"error": "busy"}, status=503)
         return web.json_response(
             {
-                "vehicle_id": vid,
+                "device_id": vid,
                 "ts": datetime.now(UTC).isoformat(),
                 "speed": round(self._rng.uniform(20.0, 120.0), 1),
-                "battery": round(self._rng.uniform(40.0, 100.0), 1),
+                "component": round(self._rng.uniform(40.0, 100.0), 1),
             }
         )

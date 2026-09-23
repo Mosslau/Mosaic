@@ -13,11 +13,11 @@ C++ 的多继承威力大、陷阱深（菱形继承、二义性）；Java 的�
 ## 2. 机制拆解
 
 ```java
-class Vehicle {                      // 单根继承：Object ← Vehicle ← Car
+class Device {                      // 单根继承：Object ← Device ← Car
     void start() { /* ... */ }
 }
 
-interface Electric {                 // 契约一：能充电
+interface Electric {                 // 契约一：能补能
     void charge();
 }
 
@@ -25,16 +25,16 @@ interface Navigable {                // 契约二：能导航
     void navigate();
 }
 
-class Car extends Vehicle implements Electric, Navigable {
+class Car extends Device implements Electric, Navigable {
     public void charge()   { /* 实现 Electric */ }
     public void navigate() { /* 实现 Navigable */ }
-    // start() 从 Vehicle 继承，不用重写
+    // start() 从 Device 继承，不用重写
 }
 ```
 
 三个关键机制：
 
-- **虚方法表（vtable）动态分派**：`Vehicle v = new Car(); v.start()` 运行期查
+- **虚方法表（vtable）动态分派**：`Device v = new Car(); v.start()` 运行期查
   Car 的 vtable 找到实际实现——多态的成本是一次间接跳转；
 - **接口默认方法（JDK 8）**：给接口加方法不再破坏实现者，但同名 default 冲突
   必须显式解决（`X.super.m()` 语法），复杂度随之而来；

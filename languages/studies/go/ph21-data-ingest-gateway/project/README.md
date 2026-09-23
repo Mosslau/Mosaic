@@ -92,7 +92,7 @@ e2e_test.go ──▶ cmd 之外组装：api + collector + platform（真 HTTP l
 PLATFORM_ADDR=127.0.0.1:8080 GATEWAY_SECRETS=relay-001=dev-secret-1 \
   go run ./cmd/platform
 
-# 终端 B：采集器跑一轮确定性采集（3 车 × 6 条，flushSize=3 → 6 批）
+# 终端 B：采集器跑一轮确定性采集（3 台设备 × 6 条，flushSize=3 → 6 批）
 go run ./cmd/collector -once -cloud http://127.0.0.1:8080 \
   -collector-id relay-001 -secret dev-secret-1 -sources 3 -samples 6
 

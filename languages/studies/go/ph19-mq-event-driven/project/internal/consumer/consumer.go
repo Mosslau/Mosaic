@@ -146,15 +146,15 @@ func (c *Consumer) processOne(m model.Message) oneResult {
 			res.applied = 1
 			return res
 		case errors.Is(err, process.ErrSchema):
-			c.dead(m, env.MsgID, env.VehicleID, "schema", attempts)
+			c.dead(m, env.MsgID, env.DeviceID, "schema", attempts)
 			res.poison = 1
 			return res
 		case errors.Is(err, process.ErrPoison):
-			c.dead(m, env.MsgID, env.VehicleID, "poison", attempts)
+			c.dead(m, env.MsgID, env.DeviceID, "poison", attempts)
 			res.poison = 1
 			return res
 		case attempts >= c.cfg.MaxAttempts:
-			c.dead(m, env.MsgID, env.VehicleID, "exhausted", attempts)
+			c.dead(m, env.MsgID, env.DeviceID, "exhausted", attempts)
 			res.exhausted = 1
 			return res
 		}
@@ -167,10 +167,10 @@ func (c *Consumer) processOne(m model.Message) oneResult {
 }
 
 // dead 记一条死信（reason 分类让补偿路径与监控能分流）。
-func (c *Consumer) dead(m model.Message, msgID, vehicleID, reason string, attempts int) {
+func (c *Consumer) dead(m model.Message, msgID, deviceID, reason string, attempts int) {
 	c.dlog.Add(store.DeadEntry{
 		MsgID:     msgID,
-		VehicleID: vehicleID,
+		DeviceID: deviceID,
 		Reason:    reason,
 		Attempts:  attempts,
 	})

@@ -9,7 +9,7 @@ app = FastAPI(title="Reading API")
 
 
 class Reading(BaseModel):  # 一个 str 字段 + 一个数值字段
-    vehicle_id: str
+    device_id: str
     speed: float
 
 
@@ -31,8 +31,8 @@ if __name__ == "__main__":
     from fastapi.testclient import TestClient
 
     client = TestClient(app)
-    ok = client.post("/readings", json={"vehicle_id": "V001", "speed": 80})
-    bad = client.post("/readings", json={"vehicle_id": "V001", "speed": "很快"})
+    ok = client.post("/readings", json={"device_id": "V001", "speed": 80})
+    bad = client.post("/readings", json={"device_id": "V001", "speed": "很快"})
     print("POST 合法:", ok.status_code)  # 201
     print("POST 非法:", bad.status_code)  # 422
     print("GET:", client.get("/readings").json())

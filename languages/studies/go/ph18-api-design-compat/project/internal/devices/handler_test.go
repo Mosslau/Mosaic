@@ -113,7 +113,7 @@ func TestListVersionsFields(t *testing.T) {
 	if err := json.Unmarshal(raw, &v2List); err != nil {
 		t.Fatal(err)
 	}
-	if len(v2List) != 2 || v2List[0]["name"] != "1号车" {
+	if len(v2List) != 2 || v2List[0]["name"] != "1号设备" {
 		t.Fatalf("v2 sorted-by-name list = %v", v2List)
 	}
 	if v2List[0]["model"] == nil {
@@ -156,7 +156,7 @@ func TestCreateAndDeleteLifecycle(t *testing.T) {
 	ts := newTestHandler()
 	defer ts.Close()
 
-	resp, err := http.Post(ts.URL+"/v1/devices", "application/json", strings.NewReader(`{"name":"新车"}`))
+	resp, err := http.Post(ts.URL+"/v1/devices", "application/json", strings.NewReader(`{"name":"新设备"}`))
 	if err != nil {
 		t.Fatal(err)
 	}

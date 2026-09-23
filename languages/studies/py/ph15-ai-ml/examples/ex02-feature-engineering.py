@@ -30,12 +30,12 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 SEED = 42
 N = 1500
-# 类别 0=健康 88%、1=充电过压 8%、2=过热振动 4%
+# 类别 0=健康 88%、1=补能过压 8%、2=过热振动 4%
 CATS = ["A", "B", "C", "D"]
 
 
 def make_fault_data(seed: int = SEED, batch_off: dict[str, float] | None = None) -> tuple:
-    """生成电池传感器故障数据；batch_off 非空时追加名义类别「电芯批次」及其电压偏移。
+    """生成部件传感器故障数据；batch_off 非空时追加名义类别「电芯批次」及其电压偏移。
 
     数据与批次必须来自同一个随机流（同一个 rng），保证复现与划分稳定。
     返回 (X, y) 或 (X, y, batch)。
@@ -50,7 +50,7 @@ def make_fault_data(seed: int = SEED, batch_off: dict[str, float] | None = None)
     X = np.vstack(
         [
             gauss([30, 3.7, 10, 0.5, 1.2], [5, 0.16, 2.8, 0.3, 0.12], n0),  # 健康
-            gauss([34, 4.0, 8.5, 1.0, 1.4], [5, 0.3, 3.2, 0.4, 0.18], n1),  # 充电过压
+            gauss([34, 4.0, 8.5, 1.0, 1.4], [5, 0.3, 3.2, 0.4, 0.18], n1),  # 补能过压
             gauss([46, 3.7, 12, 1.6, 1.5], [12, 0.28, 4.5, 1.2, 0.35], n2),  # 过热振动
         ]
     )

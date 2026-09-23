@@ -25,9 +25,9 @@ func newTestServer(t *testing.T) *httptest.Server {
 	return ts
 }
 
-func getVehicles(t *testing.T, base string, params url.Values) Page {
+func getDevices(t *testing.T, base string, params url.Values) Page {
 	t.Helper()
-	u := base + "/api/v1/vehicles"
+	u := base + "/api/v1/devices"
 	if len(params) > 0 {
 		u += "?" + params.Encode()
 	}
@@ -52,7 +52,7 @@ func TestPaginationComplete(t *testing.T) {
 	ts := newTestServer(t)
 	seen := map[string]bool{}
 	for off := 0; off < 57; off += 10 {
-		p := getVehicles(t, ts.URL, url.Values{"offset": {strconv.Itoa(off)}, "limit": {"10"}})
+		p := getDevices(t, ts.URL, url.Values{"offset": {strconv.Itoa(off)}, "limit": {"10"}})
 		for _, v := range p.Items {
 			if seen[v.ID] {
 				t.Fatalf("duplicate %s", v.ID)
@@ -65,35 +65,35 @@ func TestPaginationComplete(t *testing.T) {
 	}
 }
 
-// TestFilterAndTotal：过滤先于分页；offline 车辆在 57 辆里有多少、每页是否全过滤正确。
+// TestFilterAndTotal：过滤先于分页；offline 设备在 57 辆里有多少、每页是否全过滤正确。
 func TestFilterAndTotal(t *testing.T) {
 	ts := newTestServer(t)
-	p := getVehicles(t, ts.URL, url.Values{"status": {"offline"}})
-	// 57 = 14 组 (i%4) + i=56(online)：i%4==1 的离线车共 14 辆
+	p := getDevices(t, ts.URL, url.Values{"status": {"offline"}})
+	// 57 = 14 组 (i%4) + i=56(online)：i%4==1 的离线设备共 14 台
 	if p.Total != 14 {
 		t.Fatalf("offline total = %d, want 14", p.Total)
 	}
 	for _, v := range p.Items {
 		if v.Status != "offline" {
-			t.Fatalf("vehicle %s status=%s, want offline", v.ID, v.Status)
+			t.Fatalf("device %s status=%s, want offline", v.ID, v.Status)
 		}
 	}
 }
 
-// TestPlateSubstring：车牌模糊查询。
+// TestPlateSubstring：设备编号模糊查询。
 func TestPlateSubstring(t *testing.T) {
 	ts := newTestServer(t)
-	p := getVehicles(t, ts.URL, url.Values{"plate": {"京A-00"}})
-	// 车牌 京A-000..京A-009 共 10 辆
+	p := getDevices(t, ts.URL, url.Values{"plate": {"京A-00"}})
+	// 设备编号 京A-000..京A-009 共 10 辆
 	if p.Total != 10 {
 		t.Fatalf("plate total = %d, want 10", p.Total)
 	}
 }
 
-// TestSingleVehicle：单对象查询命中与未命中。
-func TestSingleVehicle(t *testing.T) {
+// TestSingleDevice：单对象查询命中与未命中。
+func TestSingleDevice(t *testing.T) {
 	ts := newTestServer(t)
-	resp, err := http.Get(ts.URL + "/api/v1/vehicles/veh-001")
+	resp, err := http.Get(ts.URL + "/api/v1/devices/veh-001")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +102,7 @@ func TestSingleVehicle(t *testing.T) {
 		t.Fatalf("hit status=%d, want 200", resp.StatusCode)
 	}
 
-	resp, err = http.Get(ts.URL + "/api/v1/vehicles/veh-999")
+	resp, err = http.Get(ts.URL + "/api/v1/devices/veh-999")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func TestSingleVehicle(t *testing.T) {
 // TestInvalidParams：非法 status / 负数 offset → 400。
 func TestInvalidParams(t *testing.T) {
 	ts := newTestServer(t)
-	resp, err := http.Get(ts.URL + "/api/v1/vehicles?status=bogus")
+	resp, err := http.Get(ts.URL + "/api/v1/devices?status=bogus")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +123,7 @@ func TestInvalidParams(t *testing.T) {
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("bogus status -> %d, want 400", resp.StatusCode)
 	}
-	resp, err = http.Get(ts.URL + "/api/v1/vehicles?offset=-1")
+	resp, err = http.Get(ts.URL + "/api/v1/devices?offset=-1")
 	if err != nil {
 		t.Fatal(err)
 	}

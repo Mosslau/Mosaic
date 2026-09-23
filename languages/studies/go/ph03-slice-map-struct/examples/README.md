@@ -7,7 +7,7 @@
 | ex01-slice-grow.go | Slice 扩容实验：观察 append 过程中 len/cap 的变化 | `go run ex01-slice-grow.go` |
 | ex02-subslices-share.go | 子切片共享底层数组，扩容后解除共享 | `go run ex02-subslices-share.go` |
 | ex03-map-ops.go | Map 安全操作（ok 模式）、删除与遍历 | `go run ex03-map-ops.go` |
-| ex04-struct-embed.go | Struct 组合嵌入——车辆实体（字段提升） | `go run ex04-struct-embed.go` |
+| ex04-struct-embed.go | Struct 组合嵌入——设备实体（字段提升） | `go run ex04-struct-embed.go` |
 | ex05-device-status.go | 设备状态管理（Map + Struct，按 ID 排序遍历） | `go run ex05-device-status.go` |
 
 每个文件都是独立的 package main，单独 `go run` 即可（同一目录下多个 main 函数不能一起 `go build ./...`，请逐文件运行）。

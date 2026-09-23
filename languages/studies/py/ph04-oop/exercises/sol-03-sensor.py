@@ -55,9 +55,9 @@ def collect_all(sensors):
 
 def main():
     """演示多态采集与类变量统计。"""
-    collect_all([TemperatureSensor("车外温度", 25.5),
+    collect_all([TemperatureSensor("环境温度", 25.5),
                  VoltageSensor("母线电压", 12.8)])
-    # [TemperatureSensor] 车外温度: 25.5°C
+    # [TemperatureSensor] 环境温度: 25.5°C
     # [VoltageSensor] 母线电压: 12.8V
 
     extra = TemperatureSensor("电机温度", 88.0)

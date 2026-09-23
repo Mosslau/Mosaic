@@ -23,9 +23,9 @@
 
 ## 练习 4：自定义业务错误（★★★）
 
-**目标**：为车辆/设备业务对象定义自定义错误类型，并用 `errors.As` 提取结构化字段。
-**要求**：定义 `VehicleError` 结构体（含 `Code int`、`Vin string`、`Message string` 字段），实现 `Error() string` 方法；实现 `checkVehicle(vin string, soc float64) error`：VIN 为空返回 `Code=1001` 的错误，电量 `soc` 低于 20 返回 `Code=2001` 的低电量错误；`main` 中用 `errors.As` 取出 `*VehicleError`，按 `Code` 分支处理（如低电量提示「请充电」）。
-**验收**：空 VIN 输出 code=1001 的错误；`soc=15` 时 `errors.As` 成功提取并输出「车辆 <vin> 电量过低（code=2001），请充电」。
+**目标**：为设备/设备业务对象定义自定义错误类型，并用 `errors.As` 提取结构化字段。
+**要求**：定义 `DeviceError` 结构体（含 `Code int`、`DeviceID string`、`Message string` 字段），实现 `Error() string` 方法；实现 `checkDevice(device_id string, soc float64) error`：DEVICE_ID 为空返回 `Code=1001` 的错误，电量 `soc` 低于 20 返回 `Code=2001` 的低电量错误；`main` 中用 `errors.As` 取出 `*DeviceError`，按 `Code` 分支处理（如低电量提示「请补能」）。
+**验收**：空 DEVICE_ID 输出 code=1001 的错误；`soc=15` 时 `errors.As` 成功提取并输出「设备 <device_id> 电量过低（code=2001），请补能」。
 
 ## 练习 5：defer 执行顺序与参数求值（★）
 

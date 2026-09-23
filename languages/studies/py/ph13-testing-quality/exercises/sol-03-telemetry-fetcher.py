@@ -11,13 +11,13 @@ from unittest.mock import MagicMock, patch
 
 
 class TelemetryFetcher:
-    """查车辆速度的客户端：真实环境发 HTTP 请求，测试时用 mock 替换。"""
+    """查设备速度的客户端：真实环境发 HTTP 请求，测试时用 mock 替换。"""
 
     def __init__(self, base_url: str = "https://api.example.com") -> None:
         self.base_url = base_url
 
-    def fetch_speed(self, vehicle_id: str) -> float:
-        resp = requests.get(f"{self.base_url}/vehicles/{vehicle_id}/speed", timeout=2)
+    def fetch_speed(self, device_id: str) -> float:
+        resp = requests.get(f"{self.base_url}/devices/{device_id}/speed", timeout=2)
         resp.raise_for_status()
         return float(resp.json()["speed"])
 
@@ -38,7 +38,7 @@ def test_fetch_speed_success():
     with patch("requests.get", return_value=fake_response(payload={"speed": 42.5})) as mock_get:
         speed = TelemetryFetcher().fetch_speed("EV-001")
     assert speed == 42.5
-    mock_get.assert_called_once_with("https://api.example.com/vehicles/EV-001/speed", timeout=2)
+    mock_get.assert_called_once_with("https://api.example.com/devices/EV-001/speed", timeout=2)
 
 
 def test_fetch_speed_http_error():
@@ -80,7 +80,7 @@ def test_fetch_speed_raises_on_missing_key():
 def test_custom_base_url():
     with patch("requests.get", return_value=fake_response(payload={"speed": 1.0})) as mock_get:
         TelemetryFetcher("http://localhost:8000").fetch_speed("EV-007")
-    mock_get.assert_called_once_with("http://localhost:8000/vehicles/EV-007/speed", timeout=2)
+    mock_get.assert_called_once_with("http://localhost:8000/devices/EV-007/speed", timeout=2)
 
 
 if __name__ == "__main__":

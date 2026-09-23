@@ -15,16 +15,16 @@
 
 ## 练习 2：解析 CSV（★★）
 
-- **目标**：用 `csv.DictReader` 统计 CAN 日志中每个 CAN ID 的出现次数
+- **目标**：用 `csv.DictReader` 统计 BUS 日志中每个 BUS ID 的出现次数
 - **要求**：
   - 按列名访问字段（不用 `row[0]` 索引）
   - 用 `collections.Counter` 统计，按次数降序输出
   - 捕获 `FileNotFoundError` 与 `csv.Error`
-- **验收**：给定样例 CSV 输出每个 CAN ID 的出现次数，数量正确且降序排列
+- **验收**：给定样例 CSV 输出每个 BUS ID 的出现次数，数量正确且降序排列
 
 ## 练习 3：读取 JSON（★★）
 
-- **目标**：车辆配置 JSON round-trip（读入 → 修改 → 写回 → 重读验证）
+- **目标**：设备配置 JSON round-trip（读入 → 修改 → 写回 → 重读验证）
 - **要求**：
   - 用 `json.load`/`json.dump` 读写，写入时用 `indent=2, ensure_ascii=False`
   - 定义自定义异常（继承 `Exception`），文件缺失/格式错误时 `raise X from e` 保留根因

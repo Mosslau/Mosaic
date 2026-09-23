@@ -17,7 +17,7 @@ public class OrderService {
     private final Map<Long, Order> orders = new ConcurrentHashMap<>();
 
     public OrderService() {
-        orders.put(1001L, new Order(1001L, 2L, "电动车充电器"));
+        orders.put(1001L, new Order(1001L, 2L, "电动补能电器"));
         orders.put(1002L, new Order(1002L, 999L, "查无此人的订单"));
         orders.put(1003L, new Order(1003L, 1L, "智能头盔"));
     }

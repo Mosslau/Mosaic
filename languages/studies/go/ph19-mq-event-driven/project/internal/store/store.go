@@ -1,5 +1,5 @@
 // 来源：ph19-mq-event-driven project/internal/store/store.go
-// 一句话说明：消费侧状态落地——每车快照（时序表一行）+ 有界幂等窗口（MsgID 去重）
+// 一句话说明：消费侧状态落地——每设备快照（时序表一行）+ 有界幂等窗口（MsgID 去重）
 // + 死信台账。三者的组合回答 roadmap 必会概念 1/4：at-least-once 投递下的幂等、
 // 事件按 schema 版本解码后的可靠落库与失败留证。
 // 验证环境：go1.25.6（darwin/arm64），依赖：零第三方（标准库）
@@ -12,34 +12,34 @@ import (
 	"tenetlang/go/ph19-mq-event-driven/project/internal/model"
 )
 
-// VehicleState 单辆车的最新快照 + 统计（模拟时序/状态库的一行）。
-type VehicleState struct {
-	VehicleID string
+// DeviceState 单台设备的最新快照 + 统计（模拟时序/状态库的一行）。
+type DeviceState struct {
+	DeviceID string
 	Samples   int   // 已生效唯一事件数（重复投递不重复计数）
 	Overspeed int   // 超速(>=120km/h)采样数
 	LastTS    int64 // 最近采样时刻
 	LastSpeed float64
 }
 
-// SnapshotStore 每车快照表。Apply 与只读查询均加锁（消费者组内可多成员并发）。
+// SnapshotStore 每设备快照表。Apply 与只读查询均加锁（消费者组内可多成员并发）。
 type SnapshotStore struct {
 	mu   sync.Mutex
-	byID map[string]*VehicleState
+	byID map[string]*DeviceState
 }
 
 // NewSnapshotStore 建空快照表。
 func NewSnapshotStore() *SnapshotStore {
-	return &SnapshotStore{byID: make(map[string]*VehicleState)}
+	return &SnapshotStore{byID: make(map[string]*DeviceState)}
 }
 
 // Apply 合并一条已通过幂等检查的事件到快照（副作用入口，只被消费端调用一次/键）。
 func (s *SnapshotStore) Apply(e model.TelemetryEvent) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	v, ok := s.byID[e.VehicleID]
+	v, ok := s.byID[e.DeviceID]
 	if !ok {
-		v = &VehicleState{VehicleID: e.VehicleID}
-		s.byID[e.VehicleID] = v
+		v = &DeviceState{DeviceID: e.DeviceID}
+		s.byID[e.DeviceID] = v
 	}
 	v.Samples++
 	if e.Speed >= 120 {
@@ -51,22 +51,22 @@ func (s *SnapshotStore) Apply(e model.TelemetryEvent) {
 	}
 }
 
-// State 读单辆车快照。
-func (s *SnapshotStore) State(vehicleID string) (VehicleState, bool) {
+// State 读单台设备快照。
+func (s *SnapshotStore) State(deviceID string) (DeviceState, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	v, ok := s.byID[vehicleID]
+	v, ok := s.byID[deviceID]
 	if !ok {
-		return VehicleState{}, false
+		return DeviceState{}, false
 	}
 	return *v, true
 }
 
-// Vehicles 返回全部快照副本（排序由调用方负责）。
-func (s *SnapshotStore) Vehicles() map[string]VehicleState {
+// Devices 返回全部快照副本（排序由调用方负责）。
+func (s *SnapshotStore) Devices() map[string]DeviceState {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	out := make(map[string]VehicleState, len(s.byID))
+	out := make(map[string]DeviceState, len(s.byID))
 	for id, v := range s.byID {
 		out[id] = *v
 	}
@@ -117,7 +117,7 @@ func (w *SeenWindow) Mark(id string) {
 // DeadEntry 一条死信：原因分类 + 原始消息信息 + 已尝试次数。
 type DeadEntry struct {
 	MsgID     string
-	VehicleID string
+	DeviceID string
 	Reason    string // poison-decode / poison-schema / exhausted
 	Attempts  int
 }

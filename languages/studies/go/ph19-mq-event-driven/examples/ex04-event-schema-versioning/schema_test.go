@@ -24,7 +24,7 @@ func mustEnvelope(t *testing.T, msgID string, version int, payload any) Envelope
 // TestOldConsumerReadsNewEvent 老消费者（v1 视角）解析 v2 事件成功且老字段完好。
 func TestOldConsumerReadsNewEvent(t *testing.T) {
 	v2 := mustEnvelope(t, "e1", SchemaV2, TelemetryV2{
-		TelemetryV1: TelemetryV1{VehicleID: "car-001", TS: 101, Speed: 55},
+		TelemetryV1: TelemetryV1{DeviceID: "car-001", TS: 101, Speed: 55},
 		Lat:         31.23,
 		Lng:         121.47,
 	})
@@ -32,14 +32,14 @@ func TestOldConsumerReadsNewEvent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("old consumer must tolerate new event: %v", err)
 	}
-	if got.VehicleID != "car-001" || got.Speed != 55 {
+	if got.DeviceID != "car-001" || got.Speed != 55 {
 		t.Fatalf("old fields broken: %+v", got)
 	}
 }
 
 // TestNewConsumerReadsOldEvent 新消费者（v2 视角）解析 v1 老事件：新增字段落零值。
 func TestNewConsumerReadsOldEvent(t *testing.T) {
-	v1 := mustEnvelope(t, "e1", SchemaV1, TelemetryV1{VehicleID: "car-001", TS: 100, Speed: 50})
+	v1 := mustEnvelope(t, "e1", SchemaV1, TelemetryV1{DeviceID: "car-001", TS: 100, Speed: 50})
 	got, err := ParseTelemetryV2(v1.Data)
 	if err != nil {
 		t.Fatal(err)
@@ -82,7 +82,7 @@ func TestUnknownVersionRejected(t *testing.T) {
 // 数据静默丢失（lat→0）。这正是事件 schema 上禁止改名的原因——它不报错。
 func TestFieldRenameIsSilentBreak(t *testing.T) {
 	renamed := mustEnvelope(t, "e4", SchemaV2,
-		map[string]any{"vehicleId": "car-001", "ts": 102, "speed": 60, "latitude": 31.5})
+		map[string]any{"deviceId": "car-001", "ts": 102, "speed": 60, "latitude": 31.5})
 	got, err := ParseTelemetryV2(renamed.Data)
 	if err != nil {
 		t.Fatalf("parse succeeds syntactically: %v", err)
@@ -98,7 +98,7 @@ func TestFieldRenameIsSilentBreak(t *testing.T) {
 // TestFieldDeleteIsBreaking 删字段同样静默：老数据里没有该键，新消费者读零值。
 func TestFieldDeleteIsBreaking(t *testing.T) {
 	// 模拟："v3 删掉了 lng" —— 事件里没有 lng 键
-	data := []byte(`{"vehicleId":"car-001","ts":103,"speed":70,"lat":31.5}`)
+	data := []byte(`{"deviceId":"car-001","ts":103,"speed":70,"lat":31.5}`)
 	got, err := ParseTelemetryV2(data)
 	if err != nil {
 		t.Fatal(err)

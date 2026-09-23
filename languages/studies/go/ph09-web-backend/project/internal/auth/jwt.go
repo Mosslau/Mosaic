@@ -1,4 +1,4 @@
-// 来源：ph09-web-backend 阶段项目 —— 车辆数据上报 API（internal/auth 包）
+// 来源：ph09-web-backend 阶段项目 —— 设备数据上报 API（internal/auth 包）
 // 一句话说明：标准库手写 HS256 JWT 签发/验签（RFC 7519 最小实现），供设备认证使用。
 // 验证环境：go1.25.6（darwin/arm64），仅标准库
 // 运行：

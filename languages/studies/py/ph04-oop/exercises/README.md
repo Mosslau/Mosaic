@@ -19,21 +19,21 @@
 - `sorted([小刚(70), 小明(90)])` 输出小刚在前
 - 两个同名 `Student` 对象 `==` 为 `True`，`len({同名, 同名})` 为 `1`
 
-## 练习 2：车辆类（★★）
+## 练习 2：设备类（★★）
 
-**目标**：实现 `Vehicle` 基类与 `ElectricVehicle` 子类，演示继承与多态。
+**目标**：实现 `Device` 基类与 `ElectricDevice` 子类，演示继承与多态。
 
 **要求**：
-- `Vehicle(brand, speed=0)`：`accelerate(delta)`（速度不低于 0）、`describe()` 返回描述字符串
-- `ElectricVehicle(brand, battery_cap)` 继承 `Vehicle`，在 `__init__` 中调用 `super().__init__()`
+- `Device(brand, speed=0)`：`accelerate(delta)`（速度不低于 0）、`describe()` 返回描述字符串
+- `ElectricDevice(brand, component_cap)` 继承 `Device`，在 `__init__` 中调用 `super().__init__()`
 - 子类新增 `range()`（每 kWh 续航 6 km）与 `charge(amount)`（SOC 上限 100%）
-- 子类**重写** `describe()`，用 `super().describe()` 复用父类逻辑再追加电池信息
-- 写一个 `show_vehicle(v)` 函数：对任何车辆对象调用 `describe()`（多态入口）
+- 子类**重写** `describe()`，用 `super().describe()` 复用父类逻辑再追加部件信息
+- 写一个 `show_device(v)` 函数：对任何设备对象调用 `describe()`（多态入口）
 
 **验收**：
-- `ElectricVehicle("Tesla", 70).range()` → `420`
-- `ElectricVehicle` 的 `describe()` 输出包含父类的速度信息和子类的电池/续航信息
-- 同一个 `show_vehicle` 函数传给基类与子类对象，输出各自的 `describe()`
+- `ElectricDevice("Tesla", 70).range()` → `420`
+- `ElectricDevice` 的 `describe()` 输出包含父类的速度信息和子类的部件/续航信息
+- 同一个 `show_device` 函数传给基类与子类对象，输出各自的 `describe()`
 
 ## 练习 3：传感器类（★★）
 

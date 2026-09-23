@@ -83,7 +83,7 @@ func TestTrajectoryTimeRange(t *testing.T) {
 		{DeviceID: "car-001", Lat: 31.0, Lng: 121.0, Speed: 50, TS: base},                       // 0 分
 		{DeviceID: "car-001", Lat: 31.1, Lng: 121.1, Speed: 55, TS: base.Add(5 * time.Minute)},  // 5 分
 		{DeviceID: "car-001", Lat: 31.2, Lng: 121.2, Speed: 60, TS: base.Add(10 * time.Minute)}, // 10 分
-		{DeviceID: "car-002", Lat: 39.9, Lng: 116.4, Speed: 0, TS: base},                        // 另一台车
+		{DeviceID: "car-002", Lat: 39.9, Lng: 116.4, Speed: 0, TS: base},                        // 另一台设备
 	}
 	if err := s.BatchInsert(context.Background(), points); err != nil {
 		t.Fatal(err)

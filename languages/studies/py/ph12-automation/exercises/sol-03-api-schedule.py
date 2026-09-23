@@ -23,7 +23,7 @@ import requests
 class ApiHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         if self.path == "/api/telemetry":
-            self._json(200, {"vehicle": "EV-001", "speed": 55})
+            self._json(200, {"device": "EV-001", "speed": 55})
         elif self.path == "/api/error":
             self._json(500, {"error": "internal"})
         else:
@@ -68,14 +68,14 @@ def main() -> None:
 
     with csv_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(["时间", "车辆", "速度"])
+        writer.writerow(["时间", "设备", "速度"])
         try:
             print("调度循环 -> 3 轮，每轮拉取 /api/telemetry")
             for round_no in range(3):  # 定时轮询：schedule 库的 run_pending 也是这个思想
                 data = fetch_with_retry(f"{base}/api/telemetry", logger)
                 if data is not None:
                     writer.writerow([time.strftime("%Y-%m-%d %H:%M:%S"),
-                                     data["vehicle"], data["speed"]])
+                                     data["device"], data["speed"]])
                 time.sleep(1)  # 演示「定时」；真实脚本里把这段换成 schedule 主循环（主文档 3.7）
             data = fetch_with_retry(f"{base}/api/error", logger)  # 500 端点：走错误处理路径
             print("错误处理 -> /api/error 首次失败 + 重试仍失败，errors.log 记",

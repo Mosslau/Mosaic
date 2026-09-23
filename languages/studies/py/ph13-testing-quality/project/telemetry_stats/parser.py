@@ -9,28 +9,28 @@ HEADER_MARK = "ts,"
 
 @dataclass
 class TelemetryRow:
-    """一条有效遥测记录：时间、车辆、速度（km/h）、电量（%）。"""
+    """一条有效遥测记录：时间、设备、速度（km/h）、电量（%）。"""
 
     ts: str
-    vehicle_id: str
+    device_id: str
     speed: float
-    battery: float
+    component: float
 
 
 def parse_row(line: str) -> TelemetryRow | None:
-    """解析 'ts,vehicle,speed,battery' 一行；字段数不对或数值非法返回 None。"""
+    """解析 'ts,device,speed,component' 一行；字段数不对或数值非法返回 None。"""
     parts = [p.strip() for p in line.split(",")]
     if len(parts) != 4:
         return None
-    ts, vehicle_id, speed_s, battery_s = parts
+    ts, device_id, speed_s, component_s = parts
     try:
         speed = float(speed_s)
-        battery = float(battery_s)
+        component = float(component_s)
     except ValueError:
         return None
-    if speed < 0 or battery < 0 or battery > 100:
+    if speed < 0 or component < 0 or component > 100:
         return None
-    return TelemetryRow(ts, vehicle_id, speed, battery)
+    return TelemetryRow(ts, device_id, speed, component)
 
 
 def parse_csv(path: Path) -> tuple[list[TelemetryRow], int]:

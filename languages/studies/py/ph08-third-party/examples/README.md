@@ -14,7 +14,7 @@
 说明：
 
 - `ex01`/`ex02`/`ex06` 需要联网（访问 httpbin.org / example.com）；`ex03`/`ex04`/`ex05` 离线可跑
-- `ex03` 会在**当前工作目录**写出 `vehicle.csv` 与 `vehicle_analysis.png`，建议先 `cd` 到临时目录再运行
+- `ex03` 会在**当前工作目录**写出 `device.csv` 与 `device_analysis.png`，建议先 `cd` 到临时目录再运行
 - `ex05-quality-tools/` 验证命令（在该目录下执行）：
 
   ```bash

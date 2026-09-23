@@ -30,7 +30,7 @@ func main() {
 
 	fmt.Printf("投递共 %d 条（含重复），幂等消费后：真实处理 %d 条，跳过重复 %d 条\n",
 		len(log), processed, skipped)
-	fmt.Printf("快照表记录 %d 辆车，副作用计数 = 去重后的唯一事件数\n", storeCnt(store))
+	fmt.Printf("快照表记录 %d 台设备，副作用计数 = 去重后的唯一事件数\n", storeCnt(store))
 	for _, id := range []string{"car-001", "car-002"} {
 		v, ok := store.Get(id)
 		if ok {

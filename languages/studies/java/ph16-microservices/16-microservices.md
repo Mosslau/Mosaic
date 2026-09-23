@@ -20,7 +20,7 @@
 
 微服务不是发明出来的新东西，而是 **SOA（面向服务架构）的轻量化重生**。2000 年代初的 SOA 用 ESB（企业服务总线）做集中编排：重协议（SOAP/WS-*）、重治理（中心总线管一切）、重流程——理念超前但落地笨重，ESB 本身成了单点和瓶颈。2011 年 5 月威尼斯软件架构师研讨会上，「microservices」一词被正式提出；2014 年 Martin Fowler 与 James Lewis 发表《Microservices》定义了今天的共识：**小服务、独立部署、去中心化治理、轻量通信（HTTP/消息）、按业务能力组织**。同一时期 Netflix 把这套理念做成了开源事实标准——Netflix OSS（Eureka 注册发现、Ribbon 负载均衡、Hystrix 熔断、Zuul 网关），设计哲学一句话加粗：**面向失败设计——网络不可靠是前提，韧性不是可选项**。2015 年 Spring Cloud Netflix 把这批组件接进 Spring 生态，Java 微服务进入「引 starter 就用」的时代。2018 年风向再变：Hystrix/Ribbon 进入维护模式，Spring Cloud 官方扶正 **Resilience4j**（熔断）、**Spring Cloud LoadBalancer**、**Spring Cloud Gateway**（基于 WebFlux/Netty，取代 Zuul）；国内则以 Spring Cloud Alibaba（**Nacos** 注册发现+配置中心、**Sentinel** 熔断限流、**Seata** 分布式事务）落地。可观测性一侧，Spring Cloud Sleuth 在 2022 年随 Boot 3 退役，由 **Micrometer Tracing + OpenTelemetry** 接棒。
 
-**Spring Cloud 版本列车（Release Train）与 Spring Boot 的对应关系**——Spring Cloud 用「地名列车」做整体版本（一辆车拉全部子项目），选错车厢是新手最常见的坑：
+**Spring Cloud 版本列车（Release Train）与 Spring Boot 的对应关系**——Spring Cloud 用「地名列车」做整体版本（一列列车拉全部子项目），选错车厢是新手最常见的坑：
 
 | Spring Cloud 列车 | 配套 Spring Boot | 关键变化 |
 |------------------|-----------------|---------|
@@ -32,7 +32,7 @@
 | 2024.0（Moorgate） | 3.4.x | 2024 年末随 Boot 3.4.0 同期发布；架构延续 2023.0，各子项目随 Boot 3.4 对齐升级（本阶段同样未缓存此代 jar） |
 | 2025.0（Northfields） | 3.5.x | 截至 2026-09 快照时的当前最新列车 |
 
-> ⚠️ 本机离线缓存里只有 Spring Cloud **2021.0.8** 一列列车（spring-cloud-dependencies 目录仅此版本；**jar 齐全**——starter-gateway/starter-openfeign、gateway-server、openfeign-core 为 3.1.8，commons 为 3.1.7，同列车组件版本不统一、均属 3.1.x，2021.0.8.pom 钉 commons 3.1.7，2026-09-02 复核）——但 2021.x 对应 Boot 2.x（javax），与本阶段 Boot 3.3.0 基线二进制不兼容，且缓存没有配套 Boot 3.3 的 Spring Cloud 2023.x。所以 Spring Cloud 组件本阶段**全部不实测**，只讲机制；同构模式（RestClient 远程调用、手写熔断器、手写 mini 网关）用缓存内构件实现并实测。
+> ⚠️ 本机离线缓存里只有 Spring Cloud **2021.0.8** 一列列车（spring-cloud-dependencies 目录仅此版本；**jar 齐全**——starter-gateway/starter-openfeign、gateway-server、openfeign-core 为 3.1.8，commons 为 3.1.7，同设备组件版本不统一、均属 3.1.x，2021.0.8.pom 钉 commons 3.1.7，2026-09-02 复核）——但 2021.x 对应 Boot 2.x（javax），与本阶段 Boot 3.3.0 基线二进制不兼容，且缓存没有配套 Boot 3.3 的 Spring Cloud 2023.x。所以 Spring Cloud 组件本阶段**全部不实测**，只讲机制；同构模式（RestClient 远程调用、手写熔断器、手写 mini 网关）用缓存内构件实现并实测。
 
 本文示例以 **Spring Boot 3.3.0 / Java 17** 为基线（选择理由：与 ph14/ph15 完全同基线，离线缓存可实测 Boot 全栈；微服务的拆分原则与失败语义与框架版本无关），验证工具链 **OpenJDK 17.0.18 + Maven 3.9.12**（`javac -version` → 17.0.18、`mvn -version` → 3.9.12）。Boot 3.3.0 父 POM 统一管理 **Spring Framework 6.1.8、lettuce 6.3.2.RELEASE、spring-data-redis 3.3.0**（全部在本地缓存）。微服务治理的概念（注册发现、熔断、Saga、CAP）十年未变——变的是组件名（Hystrix→Resilience4j→Sentinel），不变的是「超时/重试/幂等/降级」这套失败语义。
 

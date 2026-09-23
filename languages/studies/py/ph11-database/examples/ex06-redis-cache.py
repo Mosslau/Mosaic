@@ -65,7 +65,7 @@ def main() -> None:
         wait_ready(r)
 
         # 1. string 读写 + TTL/EXPIRE
-        r.set("device:1001", '{"vin":"V001"}', ex=60)
+        r.set("device:1001", '{"device_id":"V001"}', ex=60)
         print("SET + GET ->", r.get("device:1001"))
         print("TTL       ->", r.ttl("device:1001"), "秒（剩余）")
         r.expire("device:1001", 120)  # 动态调整过期

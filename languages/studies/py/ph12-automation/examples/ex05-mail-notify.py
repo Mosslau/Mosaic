@@ -3,7 +3,7 @@
 # 验证环境：Python 3.13.9（stdlib，无第三方依赖；smtpd 模块自 3.12 起已移除，故用
 #           socketserver 手写一个「只收不发」的最小调试服务器——顺便看清 SMTP 是文本协议）
 # 运行：python3 ex05-mail-notify.py（离线可跑，已验证；CSV 附件与邮件都在内存/临时目录）
-# 说明：对应主文档 3.6/4.4。生成一个车辆状态 CSV 报表 → 组装 EmailMessage（文本 + 附件）
+# 说明：对应主文档 3.6/4.4。生成一个设备状态 CSV 报表 → 组装 EmailMessage（文本 + 附件）
 #       → smtplib.SMTP 发送到本地调试服务器 → 服务器把收到的邮件原样存进内存列表并打印。
 import csv
 import socketserver
@@ -55,10 +55,10 @@ class SinkHandler(socketserver.StreamRequestHandler):
 
 def build_report_csv() -> Path:
     work = Path(tempfile.mkdtemp(prefix="ph12-ex05-"))
-    report = work / "vehicle-report.csv"
+    report = work / "device-report.csv"
     with report.open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(["车辆", "状态", "里程(km)"])
+        writer.writerow(["设备", "状态", "累计运行量(km)"])
         writer.writerow(["EV-001", "正常", 368.3])
         writer.writerow(["EV-002", "正常", 314.0])
         writer.writerow(["EV-003", "告警", 226.2])
@@ -69,9 +69,9 @@ def send_report(host: str, port: int, report: Path) -> EmailMessage:
     msg = EmailMessage()
     msg["From"] = "ops@example.com"
     msg["To"] = "admin@example.com"
-    msg["Subject"] = "车辆状态日报"
+    msg["Subject"] = "设备状态日报"
     msg["Date"] = formatdate(localtime=True)
-    msg.set_content("今日车辆状态汇总见附件，请查收。")
+    msg.set_content("今日设备状态汇总见附件，请查收。")
     msg.add_attachment(
         report.read_bytes(), maintype="text", subtype="csv", filename=report.name
     )

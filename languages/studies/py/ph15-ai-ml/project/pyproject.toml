@@ -1,8 +1,8 @@
-# project/pyproject.toml —— 电池健康预测：依赖 + ruff / pytest 配置
+# project/pyproject.toml —— 部件健康预测：依赖 + ruff / pytest 配置
 [project]
-name = "battery-health"
+name = "component-health"
 version = "0.1.0"
-description = "ph15 阶段项目：电池健康预测（SOH 回归 + 健康等级分类 + 模型保存/推理）"
+description = "ph15 阶段项目：部件健康预测（HEALTH 回归 + 健康等级分类 + 模型保存/推理）"
 requires-python = ">=3.11"
 # 核心依赖：numpy + scikit-learn（含 joblib）；测试/门禁工具放 dev 依赖
 dependencies = [

@@ -67,7 +67,7 @@ func (m *Monitor) Unsubscribe(source string, s Session) {
 	}
 }
 
-// Apply 平台侧状态更新：版本必须比该车已见版本新（回退拒绝），否则 ErrStaleVersion。
+// Apply 平台侧状态更新：版本必须比该设备已见版本新（回退拒绝），否则 ErrStaleVersion。
 // 生效后广播给所有订阅会话；发送失败的会话被摘除（断开）。
 func (m *Monitor) Apply(st State) error {
 	m.mu.Lock()

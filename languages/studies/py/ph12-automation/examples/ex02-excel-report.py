@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# examples/ex02-excel-report.py —— Excel 自动化：openpyxl 生成车辆状态周报
+# examples/ex02-excel-report.py —— Excel 自动化：openpyxl 生成设备状态周报
 # 验证环境：Python 3.13.9，openpyxl 3.1.5（pip install openpyxl）
 # 运行：python3 ex02-excel-report.py（离线可跑，已验证；xlsx 写入系统临时目录）
 # 说明：对应主文档 3.2/3.5。建表头 → 写数据 → 合计行 → 样式（加粗/填充/冻结/列宽），
@@ -9,7 +9,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from pathlib import Path
 import tempfile
 
-HEADERS = ["日期", "车辆", "状态", "里程(km)", "能耗(kWh)", "平均速度(km/h)"]
+HEADERS = ["日期", "设备", "状态", "累计运行量(km)", "能耗(kWh)", "平均速度(km/h)"]
 
 ROWS = [
     ("2026-09-01", "EV-001", "正常", 120.5, 18.2, 55.0),
@@ -27,7 +27,7 @@ ROWS = [
 def build_report(rows: list[tuple]) -> Path:
     wb = Workbook()
     ws = wb.active
-    ws.title = "车辆状态周报"
+    ws.title = "设备状态周报"
 
     ws.append(HEADERS)  # 按行追加：表头
     header_font = Font(bold=True, color="FFFFFF")
@@ -39,7 +39,7 @@ def build_report(rows: list[tuple]) -> Path:
     for r in rows:
         ws.append(r)  # 按行追加：数据
 
-    # 合计行：里程/能耗求和，平均速度求平均
+    # 合计行：累计运行量/能耗求和，平均速度求平均
     total_row = ws.max_row + 1
     ws.cell(total_row, 1, "合计")
     ws.cell(total_row, 4, round(sum(r[3] for r in rows), 1))
@@ -55,7 +55,7 @@ def build_report(rows: list[tuple]) -> Path:
     for row in ws.iter_rows(min_row=2):
         row[0].alignment = Alignment(horizontal="center")  # 日期列居中
 
-    out = Path(tempfile.mkdtemp(prefix="ph12-ex02-")) / "vehicle-weekly-report.xlsx"
+    out = Path(tempfile.mkdtemp(prefix="ph12-ex02-")) / "device-weekly-report.xlsx"
     wb.save(out)
     return out
 
@@ -64,12 +64,12 @@ def main() -> None:
     out = build_report(ROWS)
 
     wb2 = load_workbook(out)  # 重新打开核对：数字可审计的关键一步
-    ws2 = wb2["车辆状态周报"]
+    ws2 = wb2["设备状态周报"]
     print("工作表:", ws2.title, "| 维度:", ws2.max_row, "行 ×", ws2.max_column, "列")
     print("表头:", " | ".join(str(c.value) for c in ws2[1]))
     total_row = ws2.max_row
     print("合计行:", ws2.cell(total_row, 1).value,
-          "| 里程:", ws2.cell(total_row, 4).value,
+          "| 累计运行量:", ws2.cell(total_row, 4).value,
           "| 能耗:", ws2.cell(total_row, 5).value,
           "| 平均速度:", ws2.cell(total_row, 6).value)
     print("示例单元格 B2:", ws2["B2"].value, "| 冻结窗格:", ws2.freeze_panes)

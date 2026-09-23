@@ -13,7 +13,7 @@
 
 package com.example.alarm;
 
-/** 告警事件（severity: CRITICAL/HIGH/MEDIUM/LOW；来自车辆超速等业务规则，见练习 2） */
+/** 告警事件（severity: CRITICAL/HIGH/MEDIUM/LOW；来自设备超速等业务规则，见练习 2） */
 public record AlarmEvent(String alarmId, String sn, String severity, String message, long ts) {
 }
 
@@ -256,7 +256,7 @@ class PushRetryProcessorTest {
     }
 
     private static AlarmEvent alarm(String id) {
-        return new AlarmEvent(id, "sn-A", "HIGH", "battery low", 1);
+        return new AlarmEvent(id, "sn-A", "HIGH", "component low", 1);
     }
 
     @Test

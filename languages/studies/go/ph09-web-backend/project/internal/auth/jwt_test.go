@@ -1,4 +1,4 @@
-// 来源：ph09-web-backend 阶段项目 —— 车辆数据上报 API（internal/auth 包）
+// 来源：ph09-web-backend 阶段项目 —— 设备数据上报 API（internal/auth 包）
 // 一句话说明：JWT 签发/验签单元测试——往返、篡改、错误密钥、过期、格式错误。
 // 验证环境：go1.25.6（darwin/arm64）
 // 运行：

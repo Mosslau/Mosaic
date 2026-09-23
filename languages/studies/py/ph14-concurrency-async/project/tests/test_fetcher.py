@@ -16,10 +16,10 @@ def test_collect_all_success():
     """fail_rate=0：全部成功、无重试、遥测值完整。"""
 
     async def _t() -> None:
-        sim = TelemetrySimulator(n_vehicles=10, fail_rate=0.0, seed=1)
+        sim = TelemetrySimulator(n_devices=10, fail_rate=0.0, seed=1)
         await sim.start()
         try:
-            results = await collect(sim.base_url, sim.vehicle_ids, max_concurrency=5)
+            results = await collect(sim.base_url, sim.device_ids, max_concurrency=5)
             assert len(results) == 10
             assert all(r.ok for r in results)
             assert all(r.attempts == 1 for r in results)  # 无失败不应重试
@@ -35,10 +35,10 @@ def test_collect_retry_exhausted():
     """fail_rate=1.0：恒 503，重试耗尽后全部记为失败，attempts == max_retries。"""
 
     async def _t() -> None:
-        sim = TelemetrySimulator(n_vehicles=4, fail_rate=1.0, seed=2)
+        sim = TelemetrySimulator(n_devices=4, fail_rate=1.0, seed=2)
         await sim.start()
         try:
-            results = await collect(sim.base_url, sim.vehicle_ids, max_concurrency=2, max_retries=2)
+            results = await collect(sim.base_url, sim.device_ids, max_concurrency=2, max_retries=2)
             assert len(results) == 4
             assert all(not r.ok for r in results)
             assert all(r.attempts == 2 for r in results)
@@ -58,12 +58,12 @@ def test_collect_mixed_with_retry():
     """
 
     async def _t() -> None:
-        sim = TelemetrySimulator(n_vehicles=10, fail_rate=0.5, seed=1)
+        sim = TelemetrySimulator(n_devices=10, fail_rate=0.5, seed=1)
         await sim.start()
         try:
-            results = await collect(sim.base_url, sim.vehicle_ids, max_concurrency=3, max_retries=3)
-            ok_ids = {r.vehicle_id for r in results if r.ok}
-            fail_ids = {r.vehicle_id for r in results if not r.ok}
+            results = await collect(sim.base_url, sim.device_ids, max_concurrency=3, max_retries=3)
+            ok_ids = {r.device_id for r in results if r.ok}
+            fail_ids = {r.device_id for r in results if not r.ok}
             assert 2 <= len(ok_ids) <= 8, (
                 f"fail_rate=0.5 应成败兼备（本机实测 6/4），实际 {len(ok_ids)}/{len(fail_ids)}"
             )
@@ -83,13 +83,13 @@ def test_collect_result_consistent_across_concurrency():
     """并发上限不影响结果正确性：max_concurrency=1 与 5 的成功集合一致。"""
 
     async def _run(concurrency: int) -> set[str]:
-        sim = TelemetrySimulator(n_vehicles=12, fail_rate=0.3, seed=99)
+        sim = TelemetrySimulator(n_devices=12, fail_rate=0.3, seed=99)
         await sim.start()
         try:
             results = await collect(
-                sim.base_url, sim.vehicle_ids, max_concurrency=concurrency, max_retries=3
+                sim.base_url, sim.device_ids, max_concurrency=concurrency, max_retries=3
             )
-            return {r.vehicle_id for r in results if r.ok}
+            return {r.device_id for r in results if r.ok}
         finally:
             await sim.stop()
 

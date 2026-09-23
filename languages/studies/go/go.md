@@ -141,7 +141,7 @@ type Motor struct {
 
 - 学生管理系统
 - 设备状态表
-- map + struct 管理车辆数据
+- map + struct 管理设备数据
 - slice 扩容实验
 
 ### 阶段验收
@@ -153,7 +153,7 @@ type Motor struct {
 ### 推荐项目
 
 - 设备状态管理 CLI
-- 车辆数据缓存结构
+- 设备数据缓存结构
 
 ## 4. 方法与接口阶段
 
@@ -190,7 +190,7 @@ type Sensor interface {
 - Sensor 接口
 - Storage 接口
 - Logger 接口
-- 用接口模拟 CAN/UART 数据读取
+- 用接口模拟 BUS/UART 数据读取
 
 ### 阶段验收
 
@@ -457,7 +457,7 @@ http.ListenAndServe(":8080", mux)
 
 ### 推荐项目
 
-- 车辆数据上报 API
+- 设备数据上报 API
 - 后台管理服务
 
 ## 10. 数据库阶段
@@ -508,7 +508,7 @@ defer db.Close()
 ### 推荐项目
 
 - MySQL + Redis 的 Todo 服务
-- 车辆轨迹存储服务
+- 设备轨迹存储服务
 
 ## 11. 微服务与 RPC 阶段
 
@@ -929,7 +929,7 @@ handler → service → repository → database
 
 ### 练习
 
-- Kafka 消费车辆数据
+- Kafka 消费设备数据
 - NATS 发布订阅 demo
 - 实现幂等消费
 - 处理重试和死信
@@ -942,7 +942,7 @@ handler → service → repository → database
 
 ### 推荐项目
 
-- 车辆遥测消费服务
+- 设备遥测消费服务
 - 日志采集流水线
 
 ## 20. 配置管理与发布策略阶段

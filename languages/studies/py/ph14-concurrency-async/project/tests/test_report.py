@@ -9,21 +9,21 @@ from collector.report import write_csv
 
 
 def _mk(
-    vehicle_id: str,
+    device_id: str,
     ok: bool,
     attempts: int = 1,
     elapsed_ms: float = 10.0,
     speed: float | None = 50.0,
-    battery: float | None = 80.0,
+    component: float | None = 80.0,
 ) -> FetchResult:
     return FetchResult(
-        vehicle_id=vehicle_id,
+        device_id=device_id,
         ok=ok,
         status=200 if ok else None,
         attempts=attempts,
         elapsed_ms=elapsed_ms,
         speed=speed,
-        battery=battery,
+        component=component,
     )
 
 
@@ -35,12 +35,12 @@ def _read_rows(path):
 def test_write_csv_header_and_rows(tmp_path):
     results = [
         _mk("EV-002", True, speed=66.0),
-        _mk("EV-001", False, attempts=3, speed=None, battery=None),  # 失败行留空
+        _mk("EV-001", False, attempts=3, speed=None, component=None),  # 失败行留空
     ]
     out = write_csv(results, tmp_path / "report.csv")
     rows = _read_rows(out)
-    assert rows[0] == ["vehicle_id", "ok", "status", "attempts", "elapsed_ms", "speed", "battery"]
-    # 按 vehicle_id 排序：EV-001 在前
+    assert rows[0] == ["device_id", "ok", "status", "attempts", "elapsed_ms", "speed", "component"]
+    # 按 device_id 排序：EV-001 在前
     assert rows[1] == ["EV-001", "fail", "", "3", "10.0", "", ""]
     assert rows[2][:4] == ["EV-002", "ok", "200", "1"]
     assert len(rows) == 3

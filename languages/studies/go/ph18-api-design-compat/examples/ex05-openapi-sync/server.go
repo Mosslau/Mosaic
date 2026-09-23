@@ -59,8 +59,8 @@ func NewServer() *Server {
 	return &Server{
 		next: 2,
 		byID: map[string]Device{
-			"car-001": {ID: "car-001", Name: "1号车", Online: true},
-			"car-002": {ID: "car-002", Name: "2号车", Online: false},
+			"car-001": {ID: "car-001", Name: "1号设备", Online: true},
+			"car-002": {ID: "car-002", Name: "2号设备", Online: false},
 		},
 	}
 }

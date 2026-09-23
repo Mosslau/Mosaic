@@ -1,6 +1,6 @@
 // 来源：ph19-mq-event-driven examples/ex01-consumer-group-semantics/main.go
 // 一句话说明：跑一个完整场景，把"分区 → 消费者组 → 提交 → 重平衡"演给人看：
-// 3 个分区写入一批车辆遥测 → 2 成员组各分到分区 → 第 3 个成员加入触发重平衡
+// 3 个分区写入一批设备遥测 → 2 成员组各分到分区 → 第 3 个成员加入触发重平衡
 // → 再写入的增量由新分配下的成员续读（主文档 3.1/3.3）。
 // 验证环境：go1.25.6（darwin/arm64），依赖：零第三方（标准库）
 // 构建：go build ./...    测试：go test ./...    静态检查：go vet ./...
@@ -10,7 +10,7 @@ package main
 import "fmt"
 
 func main() {
-	// 1. topic 建 3 个分区，写入第一批 9 条车辆遥测（按车 key 散列落分区）。
+	// 1. topic 建 3 个分区，写入第一批 9 条设备遥测（按设备 key 散列落分区）。
 	broker := NewBroker(3)
 	type sample struct{ key, value string }
 	batch1 := []sample{

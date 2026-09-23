@@ -21,12 +21,12 @@ SAMPLE_HTML = """<!DOCTYPE html>
 <html>
 <head><title>样例页面</title></head>
 <body>
-  <h1>车辆数据</h1>
+  <h1>设备数据</h1>
   <a href="/about">关于</a>
   <a href="https://example.com/doc">文档</a>
   <a href="/about">关于（重复，应去重）</a>
   <table>
-    <tr><th>vehicle_id</th><th>speed</th></tr>
+    <tr><th>device_id</th><th>speed</th></tr>
     <tr><td>V001</td><td>80</td></tr>
     <tr><td>V002</td><td>63</td></tr>
   </table>

@@ -160,7 +160,7 @@ func runSelfCheck(configPath string) error {
 	if err := store.Add(device.Device{ID: "D01", Name: "温度传感器", Type: "sensor"}); err != nil {
 		return fmt.Errorf("Add D01: %w", err)
 	}
-	if err := store.Add(device.Device{ID: "D02", Name: "车速传感器", Type: "sensor"}); err != nil {
+	if err := store.Add(device.Device{ID: "D02", Name: "运行速度传感器", Type: "sensor"}); err != nil {
 		return fmt.Errorf("Add D02: %w", err)
 	}
 	if err := store.SetState("D01", "online"); err != nil {

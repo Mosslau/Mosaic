@@ -1,6 +1,6 @@
 # Java Spring 全家桶阶段
 
-> 面向企业级后端、微服务方向，本阶段回答 ph14 留下的问题：为什么 `@Autowired`/构造器注入能把 `VehicleService` 塞进 `VehicleController`？ph14 的 `@RestController` 只是 Spring 的冰山一角——本阶段把冰山水下的容器机制（IOC/DI、Bean 生命周期、AOP、事务）讲透，再沿 Boot 自动配置、profile、actuator、Spring Data、Spring Security 把「能用 Spring 写接口」升级为「掌握企业级 Java 的核心技术栈」。
+> 面向企业级后端、微服务方向，本阶段回答 ph14 留下的问题：为什么 `@Autowired`/构造器注入能把 `DeviceService` 塞进 `DeviceController`？ph14 的 `@RestController` 只是 Spring 的冰山一角——本阶段把冰山水下的容器机制（IOC/DI、Bean 生命周期、AOP、事务）讲透，再沿 Boot 自动配置、profile、actuator、Spring Data、Spring Security 把「能用 Spring 写接口」升级为「掌握企业级 Java 的核心技术栈」。
 
 ## 1. 概述
 
@@ -40,7 +40,7 @@ Spring 的故事始于 Rod Johnson 2002 年的《Expert One-on-One J2EE Design a
 
 ### 3.1 IOC 与 DI：容器管对象创建和依赖
 
-**IOC（控制反转）**把「谁创建对象」从业务代码反转给容器：业务类不写 `new`，只声明依赖（构造器参数），容器按类型找到依赖对象、递归创建并注入。**DI（依赖注入）**是 IOC 的实现手段——注入方式三选一：**构造器注入**（推荐：`final` 字段 + 唯一构造器，依赖一目了然、不可中途换、测试友好）、setter 注入（可选依赖、可变）、字段注入（`@Autowired` 字段——写起来最短但依赖被藏进私有字段、难测试，本仓库 Java 规范判为反面，见 java-coding-standards [SPRING] 节）。ph14 里「`@Autowired`/构造器注入把 `VehicleService` 塞进 `VehicleController`」的答案就是：容器启动时扫描到两个 Bean，`VehicleController` 的构造器要 `VehicleService`，容器就把容器里那个单例传进去。
+**IOC（控制反转）**把「谁创建对象」从业务代码反转给容器：业务类不写 `new`，只声明依赖（构造器参数），容器按类型找到依赖对象、递归创建并注入。**DI（依赖注入）**是 IOC 的实现手段——注入方式三选一：**构造器注入**（推荐：`final` 字段 + 唯一构造器，依赖一目了然、不可中途换、测试友好）、setter 注入（可选依赖、可变）、字段注入（`@Autowired` 字段——写起来最短但依赖被藏进私有字段、难测试，本仓库 Java 规范判为反面，见 java-coding-standards [SPRING] 节）。ph14 里「`@Autowired`/构造器注入把 `DeviceService` 塞进 `DeviceController`」的答案就是：容器启动时扫描到两个 Bean，`DeviceController` 的构造器要 `DeviceService`，容器就把容器里那个单例传进去。
 
 ```java
 // examples/ex01-spring-core-ioc-lifecycle/src/main/java/com/example/WelcomeService.java —— 构造器注入（已验证，Tests run: 6）
@@ -256,7 +256,7 @@ curl /actuator/info   → {"app":{"env":"dev","name":"ph15-ex02-profile-actuator
 
 ### 3.9 Spring Data JPA：接口即实现
 
-Spring Data 把「数据访问」抽象成一句话：**你只写接口，实现由框架在启动时生成**。ph13 手写过 DAO 实现类（`UserDao`/`TaskDao` 等：`findById` 返回 `Optional`、按字段查），ph14 又手写过 `VehicleStore`，Spring Data 让实现类消失——接口方法名即查询声明，JpaRepository 自带 CRUD/分页/批量。
+Spring Data 把「数据访问」抽象成一句话：**你只写接口，实现由框架在启动时生成**。ph13 手写过 DAO 实现类（`UserDao`/`TaskDao` 等：`findById` 返回 `Optional`、按字段查），ph14 又手写过 `DeviceStore`，Spring Data 让实现类消失——接口方法名即查询声明，JpaRepository 自带 CRUD/分页/批量。
 
 ```java
 // examples/ex05-spring-data-jpa/.../BookRepository.java —— 接口即实现（已验证，Tests run: 5）
@@ -271,7 +271,7 @@ public interface BookRepository extends JpaRepository<Book, Long> {
 
 **方法名派生查询的命名规则**：`find/read/get/exists/count/delete` + 实体属性路径 + 连接词（`And/Or`）+ 限制词（`Containing`/`GreaterThan`/`Between`/`OrderByXxxDesc`…）——Spring Data 启动时按前缀分词、解析属性、生成 JPQL（ex05 `show-sql=true` 实录：`findByTitleContainingIgnoreCase("java")` → `select ... where upper(b1_0.title) like upper(?) escape '\'`；`existsByAuthor` → `select b1_0.id ... fetch first ? rows only`）。**方法名表达不了的查询用 `@Query` 写 JPQL**（不是原生 SQL——JPQL 针对实体，可移植性好；极端场景可 `nativeQuery = true`）。分页排序开箱：`findAll(PageRequest.of(0, 2, Sort.by(DESC, "year")))` 返回 `Page`（含总数 COUNT 查询，不整表拉回内存；ex05 实测两页各 2 本、totalElements=4）。
 
-**事务归属**：`JpaRepository` 自带默认事务（find 只读、写操作为原子事务），**多步业务的事务边界仍在 Service 的 `@Transactional`**（ex05 实测：Service 方法两条 save 后抛异常 → 一条不留）。与 ph13 的对照：底层还是 JPA/Hibernate（ph13 讲过实体映射与方言），Spring Data 换掉的是**访问层的实现方式**——「接口形状保持不变、实现由框架生成」在 ph14 的 `VehicleStore` 之后又进一步。HSQLDB 2.5.0 低于 Hibernate 官方下限的 WARN 及仲裁说明见第 2 章与 examples/README（实测无碍）。
+**事务归属**：`JpaRepository` 自带默认事务（find 只读、写操作为原子事务），**多步业务的事务边界仍在 Service 的 `@Transactional`**（ex05 实测：Service 方法两条 save 后抛异常 → 一条不留）。与 ph13 的对照：底层还是 JPA/Hibernate（ph13 讲过实体映射与方言），Spring Data 换掉的是**访问层的实现方式**——「接口形状保持不变、实现由框架生成」在 ph14 的 `DeviceStore` 之后又进一步。HSQLDB 2.5.0 低于 Hibernate 官方下限的 WARN 及仲裁说明见第 2 章与 examples/README（实测无碍）。
 
 **方法名派生还是 @Query（可读性临界点）**：派生查询的名字会随条件增长——两个 `And` 以上、带排序与分页条件时，方法名往往比 JPQL 还难读：
 

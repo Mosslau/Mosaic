@@ -398,7 +398,7 @@ POST /tools/call  body={tool, input} + header x-client-id=requester
  └─ ⑥ 无论哪条路都写审计行 + 计数：allowed/denied/timeout/not_found 各归各桶
 ```
 
-**呼应全库行业语境的一个工具示例**：本仓库 Python/Java/C++/Go 各路线反复出现的「车辆遥测 / 数据平台」语境在这里直接可用——把上面三个 KV 工具换成 `vehicle.get_latest(vin)`、`vehicle.put_dtc(vin, code)`、`vehicle.scan_by_fleet(fleet_id)`，scope 换成 `fleet:read` / `fleet:write`，审计记录的是「谁、在什么时候、读了哪个 VIN 的哪类字段」——**同样的边界代码，接真实业务只需要换工具实现与 scope 名字**。这就是「工具后端边界」与「业务语义」分层的好处。
+**呼应全库行业语境的一个工具示例**：本仓库 Python/Java/C++/Go 各路线反复出现的「设备遥测 / 数据平台」语境在这里直接可用——把上面三个 KV 工具换成 `device.get_latest(device_id)`、`device.put_dtc(device_id, code)`、`device.scan_by_fleet(fleet_id)`，scope 换成 `fleet:read` / `fleet:write`，审计记录的是「谁、在什么时候、读了哪个 DEVICE_ID 的哪类字段」——**同样的边界代码，接真实业务只需要换工具实现与 scope 名字**。这就是「工具后端边界」与「业务语义」分层的好处。
 
 **安全注意**：审计记 key 不记 value 是一条默认纪律——value 可能是密钥、PII、长文本，进审计日志等于把它复制到每一台日志收集器；工具输入里若必须带敏感字段，应写「字段名 + 长度」而不是内容。权限的最小化同样默认：`reader` 只有 `kv:read`，想越权写任何 key 都被 403——**权限是「按工具需要的最小 scope」，不是「按人给的最大权限」**。
 

@@ -8,14 +8,14 @@ package main
 import (
 	"fmt"
 
-	"example.com/vehicle-platform/shared"
+	"example.com/device-platform/shared"
 )
 
 func main() {
-	vin := "LSVAA4184ES000001"
-	if err := shared.ValidateVIN(vin); err != nil {
+	device_id := "LSVAA4184ES000001"
+	if err := shared.ValidateDEVICE_ID(device_id); err != nil {
 		fmt.Printf("报告生成失败: %v\n", err)
 		return
 	}
-	fmt.Printf("为 VIN=%s 生成日报 [模拟]\n  采集点: 120 组\n  异常: 无\n", vin)
+	fmt.Printf("为 DEVICE_ID=%s 生成日报 [模拟]\n  采集点: 120 组\n  异常: 无\n", device_id)
 }

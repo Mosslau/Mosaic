@@ -85,18 +85,18 @@ import "fmt"
 type Describer interface {
     Describe() string
 }
-type Vehicle struct {
-    VIN   string
+type Device struct {
+    DEVICE_ID   string
     Model string
 }
-func (v Vehicle) Describe() string {
-    return fmt.Sprintf("Vehicle{VIN=%s Model=%s}", v.VIN, v.Model)
+func (v Device) Describe() string {
+    return fmt.Sprintf("Device{DEVICE_ID=%s Model=%s}", v.DEVICE_ID, v.Model)
 }
 func printDesc(d Describer) {
     fmt.Println(d.Describe())
 }
 func main() {
-    v := Vehicle{VIN: "LSVAA4184ES000001", Model: "Model S"}
+    v := Device{DEVICE_ID: "LSVAA4184ES000001", Model: "Model S"}
     printDesc(v)
 }
 ```
@@ -107,7 +107,7 @@ func main() {
 
 | 信号 | 例子 | 动作 |
 |------|------|------|
-| 同一行为将有多个实现 | 数据采集：CAN / UART / MQTT 都要 `Read()` | 定义小接口 + 各自实现 |
+| 同一行为将有多个实现 | 数据采集：BUS / UART / MQTT 都要 `Read()` | 定义小接口 + 各自实现 |
 | 需要替换或 mock | 存储层要能换内存版 / 文件版 / 测试替身 | 使用方依赖接口 |
 | 跨包边界要解耦 | 库代码不该 import 使用方的具体类型 | 接口放使用方一侧 |
 
@@ -130,12 +130,12 @@ func (m Motor) Status() string {
     }
     return "停止"
 }
-type Vehicle struct {
-    VIN   string
-    Motor // 匿名字段：Motor 的字段和方法都提升到 Vehicle
+type Device struct {
+    DEVICE_ID   string
+    Motor // 匿名字段：Motor 的字段和方法都提升到 Device
 }
 func main() {
-    v := Vehicle{VIN: "LSV...", Motor: Motor{Speed: 80, Enabled: true}}
+    v := Device{DEVICE_ID: "LSV...", Motor: Motor{Speed: 80, Enabled: true}}
     fmt.Println(v.Status()) // 方法提升
     fmt.Println(v.Speed)    // 字段提升
 }
@@ -204,7 +204,7 @@ var t *TempSensor = nil; s = t
 
 | 场景 | 代码 | 结果 |
 |------|------|------|
-| 值类型赋给只需要值方法的接口 | `var d Describer = Vehicle{}` | ✅ |
+| 值类型赋给只需要值方法的接口 | `var d Describer = Device{}` | ✅ |
 | 值类型赋给**需要指针方法**的接口 | `var w Writer = buf`（`buf` 是 `bytes.Buffer` 值） | ❌ 编译错误：`*Buffer` 才有 `Write` |
 | 可寻址值自动取址 | `var w io.Writer = &buf` 或 `w = buf`（若 `buf` 是变量） | ✅ 编译器自动 `&buf` |
 | 指针类型赋给接口 | `var w io.Writer = &buf` | ✅ 值方法 + 指针方法都在方法集内 |
@@ -221,7 +221,7 @@ var w io.Writer = &bytes.Buffer{}            // 正确:指针在 *T 的方法集
 
 | 场景 | 涉及知识点 |
 |------|-----------|
-| 设备数据采集抽象层 | 接口定义、多实现（CAN / UART / MQTT） |
+| 设备数据采集抽象层 | 接口定义、多实现（BUS / UART / MQTT） |
 | 可替换存储后端 | 接口解耦、依赖注入、mock 测试 |
 | 单元测试 mock | 接口隔离外部依赖、替换真实实现 |
 | 日志/指标标准化 | 小接口（Logger / Metrics）、接口组合 |
@@ -263,7 +263,7 @@ func main() {
 
 完整文件：`examples/ex01-receiver.go`
 
-### 示例 2：Sensor 接口——CAN / UART 数据采集
+### 示例 2：Sensor 接口——BUS / UART 数据采集
 
 ```go
 package main
@@ -275,15 +275,15 @@ type Sensor interface {
     Read() float64
     Name() string
 }
-// CAN 总线传感器——值接收者
-type CANSensor struct {
+// BUS 总线传感器——值接收者
+type BUSSensor struct {
     Channel string
 }
-func (c CANSensor) Read() float64 {
+func (c BUSSensor) Read() float64 {
     return 25.0 + rand.Float64()*10.0
 }
-func (c CANSensor) Name() string {
-    return "CAN-" + c.Channel
+func (c BUSSensor) Name() string {
+    return "BUS-" + c.Channel
 }
 // UART 传感器——指针接收者（需修改校准偏移）
 type UARTSensor struct {
@@ -305,7 +305,7 @@ func collect(sensors []Sensor) {
     }
 }
 func main() {
-    can := CANSensor{Channel: "CAN0"}
+    can := BUSSensor{Channel: "CAN0"}
     uart := &UARTSensor{Port: "/dev/ttyUSB0", offset: 0.5}
     fmt.Println("=== 第 1 轮采集 ===")
     collect([]Sensor{can, uart}) // can 值类型、uart 指针，都满足 Sensor
@@ -419,17 +419,17 @@ func main() {
 ```go
 package main
 import "fmt"
-type CANFrame struct {
+type BUSFrame struct {
     ID   uint32
     Data [8]byte
 }
-func (c CANFrame) String() string {
-    return fmt.Sprintf("CANFrame{ID=0x%X}", c.ID)
+func (c BUSFrame) String() string {
+    return fmt.Sprintf("BUSFrame{ID=0x%X}", c.ID)
 }
 func processData(data interface{}) {
     switch v := data.(type) {
-    case CANFrame:
-        fmt.Printf("CAN 帧  : ID=0x%X Data=%v\n", v.ID, v.Data[:4])
+    case BUSFrame:
+        fmt.Printf("BUS 帧  : ID=0x%X Data=%v\n", v.ID, v.Data[:4])
     case float64:
         fmt.Printf("传感器值: %.2f\n", v)
     case string:
@@ -441,17 +441,17 @@ func processData(data interface{}) {
     }
 }
 func main() {
-    var val interface{} = CANFrame{ID: 0x7E8, Data: [8]byte{0x41, 0x0D, 0x00, 0x00}}
-    if frame, ok := val.(CANFrame); ok {
+    var val interface{} = BUSFrame{ID: 0x7E8, Data: [8]byte{0x41, 0x0D, 0x00, 0x00}}
+    if frame, ok := val.(BUSFrame); ok {
         fmt.Println("断言成功:", frame.String())
     }
     if _, ok := val.(int); !ok {
         fmt.Println("val 不是 int 类型——断言失败不 panic")
     }
     fmt.Println("\n=== type switch 分发 ===")
-    processData(CANFrame{ID: 0x18F, Data: [8]byte{0x00, 0xFA, 0x20}})
+    processData(BUSFrame{ID: 0x18F, Data: [8]byte{0x00, 0xFA, 0x20}})
     processData(36.5)
-    processData("车速传感器离线")
+    processData("运行速度传感器离线")
     processData([]string{"turn_left", "brake"})
 }
 ```
@@ -490,7 +490,7 @@ func main() {
 
 ### 动手练习
 
-本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）：Sensor 接口、Storage 接口、Logger 接口、用接口模拟 CAN/UART 数据读取共 4 题。完成 4 题后继续。
+本阶段练习见 [`exercises/`](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）：Sensor 接口、Storage 接口、Logger 接口、用接口模拟 BUS/UART 数据读取共 4 题。完成 4 题后继续。
 
 ### 阶段项目
 

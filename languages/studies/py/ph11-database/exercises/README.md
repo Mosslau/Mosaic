@@ -1,6 +1,6 @@
 # exercises —— 数据库与缓存阶段练习
 
-> 先自己做，再对照 sol-* 参考实现。每题标注难度（★~★★★）。与 roadmap「练习」小节一一对应：用户 CRUD、设备信息管理、车辆状态表、Redis 缓存查询结果。
+> 先自己做，再对照 sol-* 参考实现。每题标注难度（★~★★★）。与 roadmap「练习」小节一一对应：用户 CRUD、设备信息管理、设备状态表、Redis 缓存查询结果。
 
 完成顺序建议：按 1~4 顺序完成（逐步叠加：CRUD → 约束与索引 → 复合索引与批量写入 → 缓存旁路）。
 
@@ -22,18 +22,18 @@
 
 ## 练习 2：设备信息管理（★★）
 
-- **目标**：`devices` 表 + vin 唯一约束 + 索引，用 `EXPLAIN QUERY PLAN` 验证查询走索引
+- **目标**：`devices` 表 + device_id 唯一约束 + 索引，用 `EXPLAIN QUERY PLAN` 验证查询走索引
 - **要求**：
-  - 建表 `devices (id INTEGER PRIMARY KEY, vin TEXT NOT NULL UNIQUE, model TEXT NOT NULL, online INTEGER DEFAULT 0)`，注册设备时重复 vin 抛 `IntegrityError`（捕获后回滚）
-  - 填充 2 万行后：① 按 `vin` 精确查询看执行计划（思考：为什么 UNIQUE 约束下不用建普通索引？）② 按非唯一列 `model` 查询，建 `CREATE INDEX idx_devices_model ON devices(model)` 前后对比执行计划与耗时
-- **验收**：重复 vin 被拒；能说清 `UNIQUE` 自带索引（`sqlite_autoindex_*`）与普通索引的区别；`EXPLAIN QUERY PLAN` 输出从 `SCAN` 变为 `SEARCH ... USING INDEX`；能解释为什么小表上耗时差异不明显（数据都在页缓存里，见主文档 3.5）
+  - 建表 `devices (id INTEGER PRIMARY KEY, device_id TEXT NOT NULL UNIQUE, model TEXT NOT NULL, online INTEGER DEFAULT 0)`，注册设备时重复 device_id 抛 `IntegrityError`（捕获后回滚）
+  - 填充 2 万行后：① 按 `device_id` 精确查询看执行计划（思考：为什么 UNIQUE 约束下不用建普通索引？）② 按非唯一列 `model` 查询，建 `CREATE INDEX idx_devices_model ON devices(model)` 前后对比执行计划与耗时
+- **验收**：重复 device_id 被拒；能说清 `UNIQUE` 自带索引（`sqlite_autoindex_*`）与普通索引的区别；`EXPLAIN QUERY PLAN` 输出从 `SCAN` 变为 `SEARCH ... USING INDEX`；能解释为什么小表上耗时差异不明显（数据都在页缓存里，见主文档 3.5）
 
-## 练习 3：车辆状态表（★★）
+## 练习 3：设备状态表（★★）
 
-- **目标**：`vehicle_status` 表高频批量写入 + 复合索引，验证最左前缀
+- **目标**：`device_status` 表高频批量写入 + 复合索引，验证最左前缀
 - **要求**：
-  - 建表 `vehicle_status (id INTEGER PRIMARY KEY, device_id INTEGER NOT NULL, ts TEXT NOT NULL, status TEXT NOT NULL, speed REAL)`
-  - 用 `executemany` 批量写入 **10 万行**（如 500 台车 × 200 条）；按 `(device_id, ts 范围)` 查询，建 `CREATE INDEX idx_status_device_ts ON vehicle_status(device_id, ts)` 前后对比执行计划与耗时
+  - 建表 `device_status (id INTEGER PRIMARY KEY, device_id INTEGER NOT NULL, ts TEXT NOT NULL, status TEXT NOT NULL, speed REAL)`
+  - 用 `executemany` 批量写入 **10 万行**（如 500 台设备 × 200 条）；按 `(device_id, ts 范围)` 查询，建 `CREATE INDEX idx_status_device_ts ON device_status(device_id, ts)` 前后对比执行计划与耗时
   - 单独按 `device_id` 查询，验证复合索引**最左前缀**生效
 - **验收**：批量写入后行数为 10 万；有索引时执行计划为 `SEARCH ... USING INDEX`，耗时明显下降（本机实测约 21 倍）；`device_id` 单独查询也走 `idx_status_device_ts`
 

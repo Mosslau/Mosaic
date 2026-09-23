@@ -11,7 +11,7 @@ class SealedDemo {
         describe(new FaultState("E123"));
     }
 
-    static void describe(VehicleState state) {
+    static void describe(DeviceState state) {
         if (state instanceof OnlineState s) {
             System.out.println("在线，速度 " + s.speed);
         } else if (state instanceof OfflineState) {
@@ -24,17 +24,17 @@ class SealedDemo {
     }
 }
 
-abstract sealed class VehicleState
+abstract sealed class DeviceState
         permits OnlineState, OfflineState, FaultState {}
 
-final class OnlineState extends VehicleState {
+final class OnlineState extends DeviceState {
     double speed;
     OnlineState(double speed) { this.speed = speed; }
 }
 
-final class OfflineState extends VehicleState {}
+final class OfflineState extends DeviceState {}
 
-non-sealed class FaultState extends VehicleState {
+non-sealed class FaultState extends DeviceState {
     String code;
     FaultState(String code) { this.code = code; }
 }

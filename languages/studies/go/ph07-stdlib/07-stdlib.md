@@ -23,7 +23,7 @@ Go 标准库阶段的目标是：**熟悉 fmt、os、io、bufio、strings、strc
 
 ## 2. 来源与演变
 
-Go 标准库的设计哲学是"**batteries included，但不臃肿**"：语言内置并发（sync/atomic）、网络（net/http 是可直接上生产的 HTTP 服务器）、测试（testing）三大件，不装任何第三方依赖就能搭建完整后端服务。与 Java 的"标准库庞大 + 框架生态"、Python 的"自带电池"、C++ 的"库分散于生态"相比，Go 选择**把关键能力放进标准库，而不是交给社区约定**。
+Go 标准库的设计哲学是"**batteries included，但不臃肿**"：语言内置并发（sync/atomic）、网络（net/http 是可直接上生产的 HTTP 服务器）、测试（testing）三大件，不装任何第三方依赖就能搭建完整后端服务。与 Java 的"标准库庞大 + 框架生态"、Python 的"自带部件"、C++ 的"库分散于生态"相比，Go 选择**把关键能力放进标准库，而不是交给社区约定**。
 
 **Go 1 兼容性承诺（Go 1 Compatibility Promise）**：自 2012 年 Go 1.0 起，官方承诺标准库已发布 API 只增不删、不改语义——"今天的代码十年后仍能编译"，学习它不会过时。标准库还通过 **golang.org/x 孵化机制**演进：新能力先在 x 仓库实验，成熟后移入标准库（context、slices 都是这条路）。
 
@@ -57,9 +57,9 @@ import (
 )
 
 func main() {
-	name := "vehicle_001"
+	name := "device_001"
 	fmt.Printf("名称: %s, 长度: %d\n", name, len(name))
-	fmt.Println("大写:", strings.ToUpper(name), "含前缀:", strings.HasPrefix(name, "vehicle"))
+	fmt.Println("大写:", strings.ToUpper(name), "含前缀:", strings.HasPrefix(name, "device"))
 	parts := strings.Split("a,b,c", ",")
 	fmt.Println("拆分:", parts, "→ 拼接:", strings.Join(parts, "-"))
 	n, err := strconv.Atoi("8080") // 字符串 → 整数
@@ -194,7 +194,7 @@ import (
 )
 
 // JSON tag：决定字段在 JSON 中的名字，是接口协议的一部分
-type Vehicle struct {
+type Device struct {
 	ID     string  `json:"id"`
 	Speed  float64 `json:"speed"`
 	Status string  `json:"status,omitempty"` // 空值不输出
@@ -202,10 +202,10 @@ type Vehicle struct {
 }
 
 func main() {
-	v := Vehicle{ID: "car-001", Speed: 88.5, secret: "看不见"}
+	v := Device{ID: "car-001", Speed: 88.5, secret: "看不见"}
 	data, _ := json.Marshal(v) // struct → JSON 字节
 	fmt.Println(string(data))  // {"id":"car-001","speed":88.5}
-	var decoded Vehicle
+	var decoded Device
 	json.Unmarshal(data, &decoded) // JSON 字节 → struct（完整错误处理见示例 2）
 	fmt.Printf("解码: %+v\n", decoded)
 }

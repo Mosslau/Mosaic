@@ -12,5 +12,5 @@ def health() -> dict[str, str]:
 
 @app.get("/predict")
 def predict(cycles: float = 1500) -> float:
-    """最简规则模型：SOH = 100 - 0.008 * cycles（占位，真实模型见 ../../project/）。"""
+    """最简规则模型：HEALTH = 100 - 0.008 * cycles（占位，真实模型见 ../../project/）。"""
     return round(max(40.0, 100.0 - 0.008 * cycles), 1)

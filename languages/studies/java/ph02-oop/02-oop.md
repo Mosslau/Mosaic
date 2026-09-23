@@ -107,7 +107,7 @@ public class Counter {
 封装通过访问修饰符隐藏内部状态。`private` 仅限同类；`protected` 允许子类与同包；默认同包；`public` 任意可见。标准做法：字段 `private`，提供 `public` getter/setter，并在 setter 中校验不变量。
 
 ```java
-public class Battery {
+public class Component {
     private int level;  // 0 ~ 100
 
     public int getLevel() { return level; }
@@ -126,13 +126,13 @@ public class Battery {
 继承表达 **is-a** 关系，Java 使用 `extends`，只支持单继承。
 
 ```java
-public class Vehicle {
-    protected String vin;
-    public void start() { System.out.println("Vehicle starting"); }
+public class Device {
+    protected String device_id;
+    public void start() { System.out.println("Device starting"); }
 }
 
-public class ElectricCar extends Vehicle {
-    public void charge() { System.out.println(vin + " 正在充电"); }
+public class ElectricCar extends Device {
+    public void charge() { System.out.println(device_id + " 正在补能"); }
 }
 ```
 
@@ -143,7 +143,7 @@ public class ElectricCar extends Vehicle {
 多态允许子类对象被当作父类使用，运行时根据实际类型调用方法。
 
 ```java
-Vehicle v = new ElectricCar();
+Device v = new ElectricCar();
 v.start();  // 实际执行 ElectricCar 的 start（若重写）
 ```
 
@@ -213,16 +213,16 @@ record 字段为 `private final`，不能继承其他类（隐式 `final`），�
 `sealed class` 是 Java 17 正式引入的受控继承机制，父类用 `permits` 明确限定允许的子类。
 
 ```java
-public abstract sealed class VehicleState
+public abstract sealed class DeviceState
         permits OnlineState, OfflineState, FaultState {}
 
-public final class OnlineState extends VehicleState {
+public final class OnlineState extends DeviceState {
     public double speed;
 }
 
-public final class OfflineState extends VehicleState {}
+public final class OfflineState extends DeviceState {}
 
-public non-sealed class FaultState extends VehicleState {
+public non-sealed class FaultState extends DeviceState {
     public String code;
 }
 ```
@@ -327,51 +327,51 @@ class Student {
 ### 示例 2：继承、多态与重写
 
 ```java
-public class VehicleDemo {
+public class DeviceDemo {
     public static void main(String[] args) {
-        Vehicle[] vehicles = {
+        Device[] devices = {
             new ElectricCar("EV-001", 75),
             new GasCar("GAS-002", 2.0)
         };
 
-        for (Vehicle v : vehicles) {
+        for (Device v : devices) {
             v.start();
         }
     }
 }
 
-abstract class Vehicle {
-    protected String vin;
-    Vehicle(String vin) { this.vin = vin; }
+abstract class Device {
+    protected String device_id;
+    Device(String device_id) { this.device_id = device_id; }
     abstract void start();
 }
 
-class ElectricCar extends Vehicle {
-    private int batteryCapacity;
-    ElectricCar(String vin, int batteryCapacity) {
-        super(vin);
-        this.batteryCapacity = batteryCapacity;
+class ElectricCar extends Device {
+    private int componentCapacity;
+    ElectricCar(String device_id, int componentCapacity) {
+        super(device_id);
+        this.componentCapacity = componentCapacity;
     }
     @Override
     void start() {
-        System.out.println(vin + " 电动车启动，电池 " + batteryCapacity + " kWh");
+        System.out.println(device_id + " 电动设备启动，部件 " + componentCapacity + " kWh");
     }
 }
 
-class GasCar extends Vehicle {
+class GasCar extends Device {
     private double engineDisplacement;
-    GasCar(String vin, double engineDisplacement) {
-        super(vin);
+    GasCar(String device_id, double engineDisplacement) {
+        super(device_id);
         this.engineDisplacement = engineDisplacement;
     }
     @Override
     void start() {
-        System.out.println(vin + " 燃油车启动，排量 " + engineDisplacement + " L");
+        System.out.println(device_id + " 燃油设备启动，排量 " + engineDisplacement + " L");
     }
 }
 ```
 
-完整文件：`examples/ex02-vehicle.java`（编译 `javac ex02-vehicle.java`，运行 `java VehicleDemo`）
+完整文件：`examples/ex02-device.java`（编译 `javac ex02-device.java`，运行 `java DeviceDemo`）
 
 ### 示例 3：接口解耦
 
@@ -437,7 +437,7 @@ public class SealedDemo {
         describe(new FaultState("E123"));
     }
 
-    static void describe(VehicleState state) {
+    static void describe(DeviceState state) {
         if (state instanceof OnlineState s) {
             System.out.println("在线，速度 " + s.speed);
         } else if (state instanceof OfflineState) {
@@ -450,17 +450,17 @@ public class SealedDemo {
     }
 }
 
-abstract sealed class VehicleState
+abstract sealed class DeviceState
         permits OnlineState, OfflineState, FaultState {}
 
-final class OnlineState extends VehicleState {
+final class OnlineState extends DeviceState {
     double speed;
     OnlineState(double speed) { this.speed = speed; }
 }
 
-final class OfflineState extends VehicleState {}
+final class OfflineState extends DeviceState {}
 
-non-sealed class FaultState extends VehicleState {
+non-sealed class FaultState extends DeviceState {
     String code;
     FaultState(String code) { this.code = code; }
 }

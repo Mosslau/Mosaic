@@ -1,4 +1,4 @@
-// 来源：ph10-database 阶段项目 —— 车辆轨迹存储服务（internal/api 包）
+// 来源：ph10-database 阶段项目 —— 设备轨迹存储服务（internal/api 包）
 // 一句话说明：HTTP 接口层——POST /api/devices/{id}/points（批量上报）、
 // GET /api/devices/{id}/latest（最新位置，走旁路缓存）、GET /api/devices/{id}/trajectory
 // （时间段轨迹）。handler 四段式（解析→校验→业务→响应）+ 统一错误 {code, message}

@@ -30,7 +30,7 @@ _started_at = time.monotonic()
 
 
 class Condition(BaseModel):
-    """电池工况输入（与 ex01 相同）。"""
+    """部件工况输入（与 ex01 相同）。"""
 
     cycles: float = Field(ge=0)
     avg_temp: float = Field()
@@ -58,11 +58,11 @@ def predict(cond: Condition) -> dict[str, float]:
         + 0.0005 * max(cond.depth - 70, 0)
         + 0.0015 * max(cond.c_rate - 1.5, 0)
     )
-    soh = min(100.0, max(40.0, 100.0 - cond.cycles * loss))
+    health = min(100.0, max(40.0, 100.0 - cond.cycles * loss))
     _bump("predict")
     _hist["count"] += 1
     _hist["sum"] += time.perf_counter() - t0
-    return {"soh": round(soh, 1)}
+    return {"health": round(health, 1)}
 
 
 @app.get("/metrics")

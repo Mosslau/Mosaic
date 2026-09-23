@@ -4,7 +4,7 @@
 
 roadmap「17. 消息队列与搜索阶段」推荐项目之二——**设备事件搜索系统**，把 roadmap 示例链路「业务服务 → Kafka → 消费服务 → Elasticsearch」完整落一遍（本仓库 ph16 的「设备管理服务」练习升级版：设备产生的不仅是注册请求，而是持续的事件流）：
 
-**模拟设备发事件 → Kafka（`device-events`，按设备 sn 分区，单车/单设备有序）→ 消费服务（group 内手动 ack + (sn,seq) 幂等去重）→ 双引擎索引（内存引擎开箱可跑 / ES 引擎走真实检索）→ REST 检索 API（关键词 + 过滤 + 时间窗）**。
+**模拟设备发事件 → Kafka（`device-events`，按设备 sn 分区，单设备/单设备有序）→ 消费服务（group 内手动 ack + (sn,seq) 幂等去重）→ 双引擎索引（内存引擎开箱可跑 / ES 引擎走真实检索）→ REST 检索 API（关键词 + 过滤 + 时间窗）**。
 
 数据纪律延续本仓库各阶段：消费端**幂等**（roadmap 必会概念「消费者要设计幂等」）、**分区影响顺序和吞吐**（按 sn 分区保序 + 可并行）、**索引同步一致性**（消费成功才 ack，写索引失败走重试——本骨架先「失败即记日志不 ack 交给容器重试」的简化策略，重试/死信的完整版见 exercises 练习 3）。设备事件模型沿用 ph16 数据平台语境：`sn`（设备号）/`seq`（设备侧序号）/`type`（alarm / heartbeat / location）/`severity`/`message`/`ts`。
 
@@ -29,8 +29,8 @@ mvn -o -Dmaven.repo.local=/tmp/m2clone -pl search-service spring-boot:run \
   -Dspring-boot.run.main-class=com.example.device.search.SearchServiceApplication
 # 3. 直接注入事件（绕过 MQ——无 Kafka 时验证索引与检索用），再检索：
 curl -s -X POST localhost:18080/api/events -H 'Content-Type: application/json' \
-  -d '{"sn":"EV-001","seq":1,"type":"alarm","severity":"HIGH","message":"battery low","ts":1700000000000}'
-curl -s 'localhost:18080/api/events/search?q=battery'
+  -d '{"sn":"EV-001","seq":1,"type":"alarm","severity":"HIGH","message":"component low","ts":1700000000000}'
+curl -s 'localhost:18080/api/events/search?q=component'
 ```
 
 ### 模式 B：完整链路（docker compose 起 Kafka + ES）
@@ -58,7 +58,7 @@ docker compose down
 
 ## 功能清单
 
-- [x] **device-emitter（模拟设备）**：按 `sn-001..sn-010` 循环生成事件（type 轮换 alarm/heartbeat/location、severity 随机、seq 每台自增），key=sn 发往 `device-events`（保证单车有序），可配条数与速率
+- [x] **device-emitter（模拟设备）**：按 `sn-001..sn-010` 循环生成事件（type 轮换 alarm/heartbeat/location、severity 随机、seq 每台自增），key=sn 发往 `device-events`（保证单设备有序），可配条数与速率
 - [x] **Kafka 消费**：`@KafkaListener` group `device-search-group`、ack-mode=manual；**(sn,seq) 幂等去重**（重复投递只索引一次）+ seq 回退丢弃（迟到旧数据）
 - [x] **双引擎索引**：`EventIndexer` 接口——memory（内存 Map + 简易倒排，无中间件）与 es（真实索引 `device-events`：message text / type、severity、sn keyword / ts date）
 - [x] **REST 检索**：`GET /api/events/{eventId}`（内存按 id）、`GET /api/events/search?q=&type=&severity=`（引擎查询，两引擎行为对齐）、`GET /api/events/count`（按 severity 分组统计：memory 遍历 / es terms 聚合）
@@ -78,7 +78,7 @@ docker compose down
 - **真实集群**：单节点 docker 换成多 broker Kafka 与多节点 ES——分区/副本规划、索引分片与生命周期策略属 ph19 DevOps 与部署阶段
 - **状态外置**：(sn,seq) 去重表在单实例内存；多实例部署时换 Redis SETNX + 数据库唯一约束（主文档 3.4 方案表；Redis 用法 ph16 已备）
 - **检索增强**：type/severity/sn 的过滤改 filter 语义不算分、message 加 ik 中文分词、时间直方图聚合（主文档 3.9/3.10；中文分词插件与分片规划超出本阶段）
-- **接入真实设备**：模拟 emitter 换成车机上报网关（鉴权/协议/限流），衔接 roadmap 第 21 节数据采集接入方向；告警事件在此触发（本阶段练习 3 的主题）
+- **接入真实设备**：模拟 emitter 换成设备端上报网关（鉴权/协议/限流），衔接 roadmap 第 21 节数据采集接入方向；告警事件在此触发（本阶段练习 3 的主题）
 
 ## 附录：模块与端口
 

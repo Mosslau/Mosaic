@@ -9,9 +9,9 @@ import requests
 from unittest.mock import MagicMock, patch
 
 
-# ---- 被测代码：查车辆实时速度（真实环境会发 HTTP 请求）----
-def fetch_speed(vehicle_id: str, base_url: str = "https://api.example.com") -> float:
-    resp = requests.get(f"{base_url}/vehicles/{vehicle_id}/speed", timeout=2)
+# ---- 被测代码：查设备实时速度（真实环境会发 HTTP 请求）----
+def fetch_speed(device_id: str, base_url: str = "https://api.example.com") -> float:
+    resp = requests.get(f"{base_url}/devices/{device_id}/speed", timeout=2)
     resp.raise_for_status()                 # 4xx/5xx 抛 HTTPError
     return float(resp.json()["speed"])
 
@@ -32,7 +32,7 @@ def test_success_with_context_manager():
         assert fetch_speed("EV-001") == 42.5
     # 顺带断言「被测代码确实按预期调用了接口」——参数与 timeout 都不能错
     mock_get.assert_called_once_with(
-        "https://api.example.com/vehicles/EV-001/speed", timeout=2
+        "https://api.example.com/devices/EV-001/speed", timeout=2
     )
 
 

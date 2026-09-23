@@ -9,16 +9,16 @@ import aiohttp
 from collector.simserver import TelemetrySimulator
 
 
-def test_list_vehicles():
+def test_list_devices():
     async def _t() -> None:
-        sim = TelemetrySimulator(vehicles=["EV-001", "EV-002", "EV-003"])
+        sim = TelemetrySimulator(devices=["EV-001", "EV-002", "EV-003"])
         await sim.start()
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get(f"{sim.base_url}/api/vehicles") as resp:
+                async with session.get(f"{sim.base_url}/api/devices") as resp:
                     assert resp.status == 200
                     body = await resp.json()
-                    assert body["vehicles"] == ["EV-001", "EV-002", "EV-003"]
+                    assert body["devices"] == ["EV-001", "EV-002", "EV-003"]
         finally:
             await sim.stop()
 
@@ -27,16 +27,16 @@ def test_list_vehicles():
 
 def test_telemetry_success_when_fail_rate_zero():
     async def _t() -> None:
-        sim = TelemetrySimulator(vehicles=["EV-001"], latency_ms=5, fail_rate=0.0)
+        sim = TelemetrySimulator(devices=["EV-001"], latency_ms=5, fail_rate=0.0)
         await sim.start()
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get(f"{sim.base_url}/api/vehicles/EV-001/telemetry") as resp:
+                async with session.get(f"{sim.base_url}/api/devices/EV-001/telemetry") as resp:
                     assert resp.status == 200
                     body = await resp.json()
-                    assert body["vehicle_id"] == "EV-001"
+                    assert body["device_id"] == "EV-001"
                     assert isinstance(body["speed"], float)
-                    assert isinstance(body["battery"], float)
+                    assert isinstance(body["component"], float)
         finally:
             await sim.stop()
 
@@ -45,11 +45,11 @@ def test_telemetry_success_when_fail_rate_zero():
 
 def test_telemetry_fails_when_fail_rate_one():
     async def _t() -> None:
-        sim = TelemetrySimulator(vehicles=["EV-001"], fail_rate=1.0)
+        sim = TelemetrySimulator(devices=["EV-001"], fail_rate=1.0)
         await sim.start()
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get(f"{sim.base_url}/api/vehicles/EV-001/telemetry") as resp:
+                async with session.get(f"{sim.base_url}/api/devices/EV-001/telemetry") as resp:
                     assert resp.status == 503
         finally:
             await sim.stop()
@@ -62,7 +62,7 @@ def test_same_seed_is_deterministic():
 
     async def _collect_failures(seed: int) -> list[str]:
         sim = TelemetrySimulator(
-            vehicles=["EV-001", "EV-002", "EV-003", "EV-004"],
+            devices=["EV-001", "EV-002", "EV-003", "EV-004"],
             fail_rate=0.5,
             seed=seed,
         )
@@ -70,8 +70,8 @@ def test_same_seed_is_deterministic():
         try:
             async with aiohttp.ClientSession() as session:
                 results = []
-                for vid in sim.vehicle_ids:
-                    async with session.get(f"{sim.base_url}/api/vehicles/{vid}/telemetry") as resp:
+                for vid in sim.device_ids:
+                    async with session.get(f"{sim.base_url}/api/devices/{vid}/telemetry") as resp:
                         results.append((vid, resp.status))
             return [vid for vid, status in results if status == 503]
         finally:
@@ -82,7 +82,7 @@ def test_same_seed_is_deterministic():
 
 def test_stop_is_idempotent():
     async def _t() -> None:
-        sim = TelemetrySimulator(vehicles=["EV-001"])
+        sim = TelemetrySimulator(devices=["EV-001"])
         await sim.start()
         await sim.stop()
         await sim.stop()  # 第二次 stop 不应抛错

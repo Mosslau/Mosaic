@@ -15,9 +15,9 @@ class DeviceFilterSol {
 
         // Predicate 组合：在线 且 电量 >= 50
         Predicate<Device> isOnline = d -> "online".equals(d.status);
-        Predicate<Device> batteryOk = d -> d.battery >= 50;
+        Predicate<Device> componentOk = d -> d.component >= 50;
         List<Device> candidates = devices.stream()
-                .filter(isOnline.and(batteryOk))
+                .filter(isOnline.and(componentOk))
                 .collect(Collectors.toList());
         System.out.println("可调度设备: " + candidates);
 
@@ -27,10 +27,10 @@ class DeviceFilterSol {
         System.out.println("查找 d-999: " + result);
 
         // 按 id 取电量，查不到抛异常（消息含 id）
-        int battery = findById(devices, "d-001")
-                .map(d -> d.battery)
+        int component = findById(devices, "d-001")
+                .map(d -> d.component)
                 .orElseThrow(() -> new IllegalStateException("设备 d-001 不存在"));
-        System.out.println("d-001 电量: " + battery);
+        System.out.println("d-001 电量: " + component);
 
         // orElse vs orElseGet：orElse 的参数无条件求值，orElseGet 仅空时执行
         Optional<Device> present = findById(devices, "d-002");
@@ -49,12 +49,12 @@ class DeviceFilterSol {
 
     static class Device {
         String id, status;   // status: online / offline / fault
-        int battery;         // 0-100
-        Device(String id, String status, int battery) {
-            this.id = id; this.status = status; this.battery = battery;
+        int component;         // 0-100
+        Device(String id, String status, int component) {
+            this.id = id; this.status = status; this.component = component;
         }
         @Override public String toString() {
-            return id + "(" + status + ", 电量" + battery + "%)";
+            return id + "(" + status + ", 电量" + component + "%)";
         }
     }
 }

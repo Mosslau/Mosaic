@@ -22,6 +22,6 @@
 - `ex01`：WSGI 直驱 `200 OK` + JSON `{"path": "/api/status", "method": "GET"}`；ASGI 直驱 `200` + JSON `{"path": "/devices/V001/telemetry", "method": "GET"}`
 - `ex02`：`GET / → 200 hello from stdlib http.server`；`GET /health → 200 {"status": "ok", "service": "http.server"}`；脚本结束打印「服务已关闭，端口已释放」
 - `ex03`：`/items/me → 200 {"item": "ME"}`；`/items/42?q=abc → 200`（含 `X-Elapsed-Ms` 头）；`/items/not-a-number → 422`（`int_parsing`）；`/calls → {"c1": 3, "c2": 3}`——同一请求内同名依赖只解析一次
-- `ex04`：`/device/V001 → 200 text/html`，渲染片段全部命中（标题/车型/在线/速度保留 1 位小数/共 3 条记录）；`/device/V002 → 200` 离线与空列表分支生效；`/device/UNKNOWN → 404`
+- `ex04`：`/device/V001 → 200 text/html`，渲染片段全部命中（标题/设备型号/在线/速度保留 1 位小数/共 3 条记录）；`/device/V002 → 200` 离线与空列表分支生效；`/device/UNKNOWN → 404`
 - `ex05`：`/static/style.css → 200 text/css`（337 字节）；`/static/missing.css → 404`；`/download/report → 200 text/csv`，`Content-Disposition: attachment; filename="report.csv"`
 - `ex06`：串行 3 个 0.3s 慢请求 ≈ 0.91s；并发 3 个 ≈ 0.30s（事件循环让出并发，见主文档 4.1）

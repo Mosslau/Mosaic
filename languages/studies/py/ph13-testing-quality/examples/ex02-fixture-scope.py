@@ -8,20 +8,20 @@ import pytest
 
 
 class TelemetryStore:
-    """进程内遥测存储：append 追加记录，count/vehicles 统计。"""
+    """进程内遥测存储：append 追加记录，count/devices 统计。"""
 
     def __init__(self, name: str = "store.jsonl") -> None:
         self.name = name
         self._rows: list[tuple[str, str, float]] = []
 
-    def append(self, ts: str, vehicle: str, speed: float) -> int:
-        self._rows.append((ts, vehicle, speed))
+    def append(self, ts: str, device: str, speed: float) -> int:
+        self._rows.append((ts, device, speed))
         return len(self._rows)
 
     def count(self) -> int:
         return len(self._rows)
 
-    def vehicles(self) -> set[str]:
+    def devices(self) -> set[str]:
         return {r[1] for r in self._rows}
 
 
@@ -86,7 +86,7 @@ def test_factory_many(make_store):
 @pytest.fixture
 def data_file(tmp_path):
     f = tmp_path / "raw.csv"
-    f.write_text("ts,vehicle,speed\n2026-09-01 10:00,EV-001,42.0\n", encoding="utf-8")
+    f.write_text("ts,device,speed\n2026-09-01 10:00,EV-001,42.0\n", encoding="utf-8")
     return f
 
 
@@ -100,7 +100,7 @@ def store(data_file):
 
 def test_store_injected(store):
     assert store.count() == 1
-    assert store.vehicles() == {"EV-001"}
+    assert store.devices() == {"EV-001"}
 
 
 def test_store_data_file_exists(data_file, store):

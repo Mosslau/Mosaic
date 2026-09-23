@@ -1,21 +1,21 @@
-# ph19 阶段项目：车辆遥测消费服务
+# ph19 阶段项目：设备遥测消费服务
 
 ## 需求
 
-把 roadmap §19 推荐项目「车辆遥测消费服务」落地为消费链路里的"清洗 / 消费 / 存储"段：车辆侧产生的遥测事件被写入 `fleet.telemetry.v1` topic（本项目用确定性数据集模拟上游，真实上游是 ph21 的 MQTT/网关采集写入），本服务以消费者组形式拉取，兑现 ph17/ph18 埋下的上下文——**ph17 project 的扩展方向"把指令受理扩展为异步队列、管理面与投递链分离"、ph18 3.6 埋的"POST 靠 Idempotency-Key 兜底重试，届时演化为消费端幂等表的异步版本"、ph18 全篇预告的"事件 schema 需要版本管理"在这里逐一兑现**：
+把 roadmap §19 推荐项目「设备遥测消费服务」落地为消费链路里的"清洗 / 消费 / 存储"段：设备侧产生的遥测事件被写入 `fleet.telemetry.v1` topic（本项目用确定性数据集模拟上游，真实上游是 ph21 的 MQTT/网关采集写入），本服务以消费者组形式拉取，兑现 ph17/ph18 埋下的上下文——**ph17 project 的扩展方向"把指令受理扩展为异步队列、管理面与投递链分离"、ph18 3.6 埋的"POST 靠 Idempotency-Key 兜底重试，届时演化为消费端幂等表的异步版本"、ph18 全篇预告的"事件 schema 需要版本管理"在这里逐一兑现**：
 
 - **幂等消费**：每条事件带 `MsgID` 幂等键，投递层 at-least-once（数据集里放了 3 条同 MsgID 的重复投递），消费端用幂等窗口保证副作用只生效一次
 - **schema 版本管理**：事件带 `schemaVersion` 信封；数据集含一条 `v9` 未来版本事件——消费者不猜语义，按毒消息进死信
-- **重试与死信**：抖动车辆事件会先失败再成功（可见重试路径）；坏载荷与未知 schema 是毒消息、不重试立即进死信；重试耗尽另有分类
-- **顺序性与并行度**：key=vehicleID 稳定散列分区 → 同车事件分区内有序（examples/ex05 语义），topic 多分区提供组内并行度
+- **重试与死信**：抖动设备事件会先失败再成功（可见重试路径）；坏载荷与未知 schema 是毒消息、不重试立即进死信；重试耗尽另有分类
+- **顺序性与并行度**：key=deviceID 稳定散列分区 → 同设备事件分区内有序（examples/ex05 语义），topic 多分区提供组内并行度
 - **积压水位**：消费端记录"高水位 − 提交位置"的最大积压，终态必须归零（examples/ex06 语义）
 
 ## 功能清单
 
 - [x] 内存 fake broker（Kafka 语义：N 分区有序日志、key 散列、高水位）——真 Kafka 切换点
-- [x] 确定性数据集：5 辆正常车 ×6 条（含超速样本）+ 3 条重复投递 + 1 条抖动车 + 1 条坏载荷 + 1 条未来 schema
+- [x] 确定性数据集：5 辆正常设备 ×6 条（含超速样本）+ 3 条重复投递 + 1 条抖动设备 + 1 条坏载荷 + 1 条未来 schema
 - [x] 消费循环：解码 → 幂等查重 → 有界重试处理 → 记账/死信 → 分区提交（内嵌接口定义在使用方：`consumer.Log`）
-- [x] 每车快照落库（samples/overspeed/lastTS/lastSpeed）——重复投递不重复计数
+- [x] 每设备快照落库（samples/overspeed/lastTS/lastSpeed）——重复投递不重复计数
 - [x] 死信台账：reason 分类（decode / schema / exhausted）+ attempts
 - [x] 积压观测：过程最大积压 MaxLag、终态归零校验
 - [x] 消费报表 CLI 输出（cmd/telemetry-consumer）
@@ -31,7 +31,7 @@ project/
 └── internal/
     ├── model/                # 遥测事件模型（schemaVersion 信封 + MsgID 幂等键）
     ├── broker/               # fake broker（Kafka 语义 topic；真 Kafka 的替换点）
-    ├── store/                # 每车快照 + 有界幂等窗口 + 死信台账
+    ├── store/                # 每设备快照 + 有界幂等窗口 + 死信台账
     ├── process/              # 解码/schema 校验/落快照 + 毒消息分类哨兵（ErrDecode/ErrSchema）
     ├── consumer/             # 消费循环：幂等+重试+死信+lag（定义 Log/Processor 接口）
     └── dataset/              # 确定性数据集（离线录音回放）
@@ -54,11 +54,11 @@ cmd/telemetry-consumer ──▶ consumer ──▶ process ──▶ store
 - **验证状态：已验证**——go1.25.6 本机实测 vet/build/test 全绿、`go test -race ./...` 全绿、gofmt 合规；运行输出见下方预期
 
 ```text
-== 车辆遥测消费服务：topic=4 分区，数据集 36 条 ==
+== 设备遥测消费服务：topic=4 分区，数据集 36 条 ==
 == 消费报表 ==
    读取 36 条：真实生效 31，重复投递拦截 3，内部重试 1 次
    死信 2 条（毒消息 2 + 重试耗尽 0），最大积压 13 条
-   （每车快照样例、死信台账明细略）
+   （每设备快照样例、死信台账明细略）
 终态积压：0 条（应归零）
 ```
 
@@ -74,7 +74,7 @@ go get github.com/segmentio/kafka-go@latest
 docker run -d --name kafka -p 9092:9092 apache/kafka:3.7.0
 kafka-topics.sh --create --topic fleet.telemetry.v1 --partitions 4 --replication-factor 1 --bootstrap-server localhost:9092
 
-# 3. 生产端：Writer{Topic: "fleet.telemetry.v1"}，按 key=vehicleID 写（保证同车同分区）
+# 3. 生产端：Writer{Topic: "fleet.telemetry.v1"}，按 key=deviceID 写（保证同设备同分区）
 # 4. 消费端：ReaderConfig{GroupID: "fleet-consumers", Brokers: [...]}，
 #    循环 ReadMessage → consumer 的 processOne 逻辑 → CommitOffsets
 ```

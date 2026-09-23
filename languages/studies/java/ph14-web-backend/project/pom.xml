@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- project/pom.xml —— 车辆数据上报 API：上报/查询/鉴权/校验/文档
+<!-- project/pom.xml —— 设备数据上报 API：上报/查询/鉴权/校验/文档
      验证环境：OpenJDK 17.0.18 + Maven 3.9.12 + Spring Boot 3.3.0（本机离线 mvn -o 实测）
      验证命令：mvn -o -Dmaven.repo.local=/tmp/m2clone test
      运行命令：mvn -o -Dmaven.repo.local=/tmp/m2clone spring-boot:run（端口 18090，见 README）
@@ -17,7 +17,7 @@
     <relativePath/>
   </parent>
   <groupId>com.example</groupId>
-  <artifactId>vehicle-report-api</artifactId>
+  <artifactId>device-report-api</artifactId>
   <version>1.0.0</version>
 
   <properties>

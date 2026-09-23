@@ -1,7 +1,7 @@
 //! ph25 ex08：Agent 工具后端（Tool trait / 权限 / 超时 / 审计日志 / 可观测计数）
 //!
 //! 兑现 roadmap §25「Agent 工具后端要关注权限、超时、审计和可观测性」：把
-//! 车辆遥测/KV 数据平台语境的工具（kv.get / kv.put / kv.scan / debug.sleep）
+//! 设备遥测/KV 数据平台语境的工具（kv.get / kv.put / kv.scan / debug.sleep）
 //! 注册进一个带边界的调用器——每次调用先过**权限**（调用方声明的 scope 集合
 //! 与工具的 required_scope 比对，拒绝记审计），再按工具**超时预算**包一层
 //! `tokio::time::timeout`（超时 504 记审计），成功/失败都写**审计日志**

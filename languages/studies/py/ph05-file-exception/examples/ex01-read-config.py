@@ -1,4 +1,4 @@
-# examples/ex01-read-config.py —— 读取车辆配置文件：手动解析 INI 格式并演示四段式异常处理
+# examples/ex01-read-config.py —— 读取设备配置文件：手动解析 INI 格式并演示四段式异常处理
 # 来源：05-file-exception.md 第 6 章示例 1
 # 验证环境：Python 3.13.12
 # 运行：python3 ex01-read-config.py
@@ -37,12 +37,12 @@ def parse_config(path):
 
 
 def main():
-    """在临时目录生成车辆平台配置并解析，随后演示文件不存在分支。"""
+    """在临时目录生成设备平台配置并解析，随后演示文件不存在分支。"""
     with tempfile.TemporaryDirectory() as d:
         path = os.path.join(d, "app.cfg")
         with open(path, "w", encoding="utf-8") as f:
-            f.write("# 车辆平台配置\n[server]\nhost = 0.0.0.0\nport = 8080\n")
-            f.write("[battery]\nchemistry = LFP\ncapacity_kwh = 70.0\n")
+            f.write("# 设备平台配置\n[server]\nhost = 0.0.0.0\nport = 8080\n")
+            f.write("[component]\nchemistry = LFP\ncapacity_kwh = 70.0\n")
 
         parse_config(path)
         parse_config(os.path.join(d, "missing.cfg"))  # 触发 FileNotFoundError 分支

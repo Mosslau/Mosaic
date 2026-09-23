@@ -2,7 +2,7 @@
 [project]
 name = "telemetry-stats"
 version = "0.1.0"
-description = "ph13 阶段项目：带测试与质量门禁的车辆遥测数据处理库"
+description = "ph13 阶段项目：带测试与质量门禁的设备遥测数据处理库"
 requires-python = ">=3.11"
 # 核心零第三方依赖：标准库 dataclasses / csv / argparse / logging / pathlib；
 # 测试与门禁工具放 dev 依赖（CI 里 pip install -e ".[dev]" 一次装齐）

@@ -14,10 +14,10 @@ import (
 func main() {
 	// 1. 同一 topic "fleet.telemetry" 里，先有 v1 事件，后来 producer 升级到 v2。
 	v1msg, _ := BuildEnvelope("e-001", "telemetry", SchemaV1, TelemetryV1{
-		VehicleID: "car-001", TS: 100, Speed: 50,
+		DeviceID: "car-001", TS: 100, Speed: 50,
 	})
 	v2msg, _ := BuildEnvelope("e-002", "telemetry", SchemaV2, TelemetryV2{
-		TelemetryV1: TelemetryV1{VehicleID: "car-001", TS: 101, Speed: 55},
+		TelemetryV1: TelemetryV1{DeviceID: "car-001", TS: 101, Speed: 55},
 		Lat:         31.23,
 		Lng:         121.47,
 	})
@@ -45,7 +45,7 @@ func main() {
 	// 5. 字段改名是静默破坏：producer 把 lat 改成 latitude，按旧契约的消费者
 	//    解析"成功"但丢了坐标——语法通过、语义丢失，比解析报错更难排查。
 	renamed, _ := BuildEnvelope("e-004", "telemetry", SchemaV2,
-		map[string]any{"vehicleId": "car-001", "ts": 102, "speed": 60, "latitude": 31.5})
+		map[string]any{"deviceId": "car-001", "ts": 102, "speed": 60, "latitude": 31.5})
 	v5, perr := ParseTelemetryV2(renamed.Data)
 	fmt.Println("== 字段改名（违禁示范）==")
 	fmt.Printf("   v2'（latitude 顶替 lat）解析：err=%v，lat=%.1f —— 语法成功、语义丢失\n", perr, v5.Lat)

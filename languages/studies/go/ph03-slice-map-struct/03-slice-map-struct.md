@@ -134,19 +134,19 @@ type Motor struct {
     Enabled bool
 }
 
-type Vehicle struct {
-    VIN   string
-    Motor // 匿名字段嵌入，Motor 的字段自动提升到 Vehicle
+type Device struct {
+    DEVICE_ID   string
+    Motor // 匿名字段嵌入，Motor 的字段自动提升到 Device
 }
 
 func main() {
-    v := Vehicle{
-        VIN:   "LSVAA4184ES000001",
+    v := Device{
+        DEVICE_ID:   "LSVAA4184ES000001",
         Motor: Motor{Speed: 120, Enabled: true},
     }
     // 字段提升：直接访问嵌入类型的字段
     v.Speed = 90
-    fmt.Printf("VIN=%s Speed=%d Enabled=%v\n", v.VIN, v.Speed, v.Enabled)
+    fmt.Printf("DEVICE_ID=%s Speed=%d Enabled=%v\n", v.DEVICE_ID, v.Speed, v.Enabled)
 }
 ```
 
@@ -232,7 +232,7 @@ func main() {
 | 字符串处理与子串操作 | 切片表达式、底层数组共享 |
 | ID 快速索引与缓存 | Map 创建、ok 模式查询、delete |
 | 业务实体建模 | Struct 定义、字段组合 |
-| 设备/车辆状态表 | Map + Struct 组合、遍历、更新 |
+| 设备/设备状态表 | Map + Struct 组合、遍历、更新 |
 | 多维度数据聚合 | Slice of Struct、排序与过滤 |
 
 **不适合 / 注意事项**：
@@ -342,7 +342,7 @@ func main() {
 }
 ```
 
-### 示例 4：Struct 嵌入——车辆实体
+### 示例 4：Struct 嵌入——设备实体
 
 完整文件：`examples/ex04-struct-embed.go`
 
@@ -356,35 +356,35 @@ type Motor struct {
     Enabled bool
 }
 
-type Battery struct {
+type Component struct {
     Level int // 百分比 0-100
     Temp  float64
 }
 
-type Vehicle struct {
-    VIN     string
+type Device struct {
+    DEVICE_ID     string
     Model   string
     Motor          // 匿名字段嵌入
-    Battery        // 匿名字段嵌入
+    Component        // 匿名字段嵌入
 }
 
 func main() {
-    v := Vehicle{
-        VIN:   "LSVAA4184ES000001",
+    v := Device{
+        DEVICE_ID:   "LSVAA4184ES000001",
         Model: "Model S",
         Motor: Motor{Speed: 80, Enabled: true},
-        Battery: Battery{Level: 72, Temp: 35.2},
+        Component: Component{Level: 72, Temp: 35.2},
     }
 
     // 字段提升：直接访问嵌入类型的字段
-    fmt.Printf("VIN=%s Model=%s\n", v.VIN, v.Model)
+    fmt.Printf("DEVICE_ID=%s Model=%s\n", v.DEVICE_ID, v.Model)
     fmt.Printf("Speed=%d Enabled=%v\n", v.Speed, v.Enabled)
-    fmt.Printf("Battery=%d%% Temp=%.1fC\n", v.Level, v.Temp)
+    fmt.Printf("Component=%d%% Temp=%.1fC\n", v.Level, v.Temp)
 
     // 也可以通过嵌入类型名访问
     v.Motor.Speed = 100
-    v.Battery.Level = 85
-    fmt.Printf("更新后: Speed=%d Battery=%d%%\n", v.Speed, v.Level)
+    v.Component.Level = 85
+    fmt.Printf("更新后: Speed=%d Component=%d%%\n", v.Speed, v.Level)
 }
 ```
 
@@ -488,8 +488,8 @@ func main() {
 
 - [ ] 能解释 Slice 的 len 与 cap 区别，描述 append 扩容时底层数组的变化
 - [ ] 能正确使用 `v, ok := m[key]` 判断 map key 是否存在，区分"零值"与"缺失"
-- [ ] 能用 struct 组合表达业务实体（如车辆 VIN + Motor + Battery）
-- [ ] 能写出 Map + Struct 组合的管理程序（设备状态表、车辆缓存等）
+- [ ] 能用 struct 组合表达业务实体（如设备 DEVICE_ID + Motor + Component）
+- [ ] 能写出 Map + Struct 组合的管理程序（设备状态表、设备缓存等）
 - [ ] 能说明子切片共享底层数组的场景与陷阱，知道何时需要 copy
 
 ### 动手练习

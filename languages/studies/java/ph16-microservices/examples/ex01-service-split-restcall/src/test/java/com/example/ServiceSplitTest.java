@@ -57,7 +57,7 @@ class ServiceSplitTest {
         OrderDetail detail = orderClient.get().uri("/orders/1001").retrieve().body(OrderDetail.class);
         assertThat(detail).isNotNull();
         assertThat(detail.orderId()).isEqualTo(1001L);
-        assertThat(detail.item()).isEqualTo("电动车充电器");
+        assertThat(detail.item()).isEqualTo("电动补能电器");
         assertThat(detail.userName()).isEqualTo("张三");   // 用户名来自 user-service 的远程响应
     }
 

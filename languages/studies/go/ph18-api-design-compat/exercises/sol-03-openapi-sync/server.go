@@ -1,5 +1,5 @@
 // 来源：ph18-api-design-compat exercises/sol-03-openapi-sync/server.go
-// 一句话说明：按 api/openapi.json 实现的车辆查询服务（练习 3 的实现侧）。实现必须
+// 一句话说明：按 api/openapi.json 实现的设备查询服务（练习 3 的实现侧）。实现必须
 // 满足规范：响应的 JSON 字段集合、查询参数集合、路由集合都以 spec 为准——契约测试
 // 对三者逐一核对。json tag 与 spec properties 同名同义，这是 spec-first 的纪律。
 // 验证环境：go1.25.6（darwin/arm64），依赖：零第三方（标准库）
@@ -17,8 +17,8 @@ import (
 	"strings"
 )
 
-// Vehicle 响应对象：字段与 spec Vehicle schema 完全一致。
-type Vehicle struct {
+// Device 响应对象：字段与 spec Device schema 完全一致。
+type Device struct {
 	ID     string `json:"id"`
 	Plate  string `json:"plate"`
 	Status string `json:"status"`
@@ -33,8 +33,8 @@ type Route struct {
 // Routes 实现侧路由清单（契约测试与 spec.paths 双向比对）。
 func Routes() []Route {
 	return []Route{
-		{Method: http.MethodGet, Path: "/api/v1/vehicles"},
-		{Method: http.MethodGet, Path: "/api/v1/vehicles/{id}"},
+		{Method: http.MethodGet, Path: "/api/v1/devices"},
+		{Method: http.MethodGet, Path: "/api/v1/devices/{id}"},
 	}
 }
 
@@ -43,9 +43,9 @@ func QueryKeys() map[string]bool {
 	return map[string]bool{"status": true, "plate": true, "offset": true, "limit": true, "sort": true}
 }
 
-// Server 车辆查询服务。
+// Server 设备查询服务。
 type Server struct {
-	fleet []Vehicle
+	fleet []Device
 }
 
 // NewServer 构造服务。
@@ -55,7 +55,7 @@ func NewServer() *Server { return &Server{fleet: makeFleet()} }
 func (s *Server) Register(mux *http.ServeMux) {
 	for _, rt := range Routes() {
 		switch {
-		case rt.Method == http.MethodGet && rt.Path == "/api/v1/vehicles":
+		case rt.Method == http.MethodGet && rt.Path == "/api/v1/devices":
 			mux.HandleFunc(rt.Method+" "+rt.Path, s.handleList)
 		case rt.Method == http.MethodGet:
 			mux.HandleFunc(rt.Method+" "+rt.Path, s.handleGet)
@@ -90,7 +90,7 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 	}
 	plate := q.Get("plate")
 
-	filtered := make([]Vehicle, 0, len(s.fleet))
+	filtered := make([]Device, 0, len(s.fleet))
 	for _, v := range s.fleet {
 		if status != "" && v.Status != status {
 			continue
@@ -125,14 +125,14 @@ func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	writeError(w, http.StatusNotFound, "VEHICLE_NOT_FOUND", "vehicle not found")
+	writeError(w, http.StatusNotFound, "VEHICLE_NOT_FOUND", "device not found")
 }
 
-func makeFleet() []Vehicle {
-	out := make([]Vehicle, 0, 57)
+func makeFleet() []Device {
+	out := make([]Device, 0, 57)
 	seq := []string{"online", "offline", "maintenance", "online"}
 	for i := 0; i < 57; i++ {
-		out = append(out, Vehicle{ID: fmt.Sprintf("veh-%03d", i), Plate: fmt.Sprintf("京A-%03d", i), Status: seq[i%len(seq)]})
+		out = append(out, Device{ID: fmt.Sprintf("veh-%03d", i), Plate: fmt.Sprintf("京A-%03d", i), Status: seq[i%len(seq)]})
 	}
 	return out
 }

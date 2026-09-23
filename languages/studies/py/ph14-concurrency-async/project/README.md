@@ -8,11 +8,11 @@
 
 ## 功能清单
 
-- [x] `collector.simserver.TelemetrySimulator`：进程内模拟遥测服务器（aiohttp web），提供车辆列表与单车辆遥测接口；延迟/失败率可注入、随机数可播种（同一 seed 完全可复现）
+- [x] `collector.simserver.TelemetrySimulator`：进程内模拟遥测服务器（aiohttp web），提供设备列表与单设备遥测接口；延迟/失败率可注入、随机数可播种（同一 seed 完全可复现）
 - [x] `collector.fetcher.collect`：aiohttp 并发采集，`asyncio.Semaphore` 把同时在途请求压到 `max_concurrency`；`fetch_one` 非 200 / 网络异常 → 指数退避重试，耗尽 `max_retries` 记为失败；`ClientSession` 复用 TCP 连接
-- [x] `collector.stats`：按车辆分组汇总（`summarize`）+ 总体统计（`overall`：总数/成功/失败/平均耗时/成功率）
-- [x] `collector.report.write_csv`：确定性覆盖写 CSV 报表（按车辆排序、失败行留空、可安全重跑）
-- [x] `cli.py` 命令行入口：`--vehicles/--concurrency/--max-retries/--fail-rate/--latency-ms/--output-dir/--seed` 参数化 + `--demo` 离线自检
+- [x] `collector.stats`：按设备分组汇总（`summarize`）+ 总体统计（`overall`：总数/成功/失败/平均耗时/成功率）
+- [x] `collector.report.write_csv`：确定性覆盖写 CSV 报表（按设备排序、失败行留空、可安全重跑）
+- [x] `cli.py` 命令行入口：`--devices/--concurrency/--max-retries/--fail-rate/--latency-ms/--output-dir/--seed` 参数化 + `--demo` 离线自检
 - [x] `tests/` 16 个 pytest 用例：模拟服务器行为、采集正确性（全成功/全失败/混合重试）、并发上限不影响结果、统计与报表纯函数测试
 - [x] 质量门禁：`pyproject.toml` 统一配置；`ruff check .` 与 `ruff format --check .` 全绿
 
@@ -21,8 +21,8 @@
 - `python3 -m pytest` → **16 passed**（simserver 5 + fetcher 4 + stats 4 + report 3，本机实测）
 - `ruff check .` → `All checks passed!`；`ruff format --check .` → 10 files already formatted（本机实测）
 - `python3 cli.py --demo` → 自检通过：10/10 采集成功、无重试、遥测值完整（本机实测）
-- `python3 cli.py` → 默认 20 辆车、10% 失败率、20ms 延迟：约 **0.12s** 采完，成功率 100%（重试兜底），平均耗时约 21.7ms（本机实测，**随机器与负载波动 ±10~20%**）
-- 高失败率演示：`python3 cli.py --vehicles 30 --fail-rate 0.5 --concurrency 8` → 30 辆车约 0.28s 采完，24 成功 / 6 失败（重试耗尽），CSV 中失败行 `status` 为空、`attempts=3`（本机实测；seed 固定但并发到达顺序影响具体失败车辆，成败数量在 ±10~20% 波动内）
+- `python3 cli.py` → 默认 20 台设备、10% 失败率、20ms 延迟：约 **0.12s** 采完，成功率 100%（重试兜底），平均耗时约 21.7ms（本机实测，**随机器与负载波动 ±10~20%**）
+- 高失败率演示：`python3 cli.py --devices 30 --fail-rate 0.5 --concurrency 8` → 30 台设备约 0.28s 采完，24 成功 / 6 失败（重试耗尽），CSV 中失败行 `status` 为空、`attempts=3`（本机实测；seed 固定但并发到达顺序影响具体失败设备，成败数量在 ±10~20% 波动内）
 - **并发代码怎么测**（主文档 3.9 的落地）：所有测试用**标准 pytest + `asyncio.run` 包装**，不需要 pytest-asyncio——每个用例在 `asyncio.run` 里起模拟服务器、跑采集、断言、`finally` 关闭
 
 > **依赖状态如实标注**：aiohttp 3.13.2 本环境已装并实测；pytest 8.4.2、ruff 0.12.0 已装并实测；**pytest-asyncio 未安装**——测试用标准 `asyncio.run` 包装实现（见 `tests/`）。模拟服务器跑在**进程内**，`stop()`/`runner.cleanup()` 保证无残留端口占用——运行后 `git status` 工作区干净（报表输出到 `/tmp`）。

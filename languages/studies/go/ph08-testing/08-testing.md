@@ -460,7 +460,7 @@ gofmt -l .        # 列出需要格式化的文件（CI 里输出非空即失败
 ### 示例 1：表格驱动测试（业务函数 + 边界用例）
 
 ```go
-// examples/ex01-table-test/speed.go —— 车辆平均速度与超速判断
+// examples/ex01-table-test/speed.go —— 设备平均速度与超速判断
 // 验证环境：go1.25.6（darwin/arm64），测试命令：go test -v ./...（已验证）
 package main
 

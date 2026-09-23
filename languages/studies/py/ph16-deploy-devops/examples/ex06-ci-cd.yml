@@ -48,12 +48,12 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: 构建镜像（推送需配置 GHCR/Docker Hub 的 secrets，这里只演示构建）
-        run: docker build -t bhealth-api:${{ github.sha }} .
+        run: docker build -t health-api:${{ github.sha }} .
 
       # ⑥ 推送 + 部署（示意；secrets 在仓库 Settings → Secrets 配，YAML 里只写
       #    ${{ secrets.REGISTRY_TOKEN }}，绝不出现明文——配置分离在 CI 层的体现）
       # - name: 推送镜像 + 触发部署
       #   run: |
       #     echo "${{ secrets.REGISTRY_TOKEN }}" | docker login ghcr.io -u ci --password-stdin
-      #     docker push ghcr.io/${{ github.repository }}/bhealth-api:${{ github.sha }}
+      #     docker push ghcr.io/${{ github.repository }}/health-api:${{ github.sha }}
       #     # 部署：SSH 到服务器 docker compose pull && up -d，或触发 CD 平台

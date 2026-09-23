@@ -1,5 +1,5 @@
-// 来源：04-method-interface.md 第 6 章示例 2 —— Sensor 接口：CAN / UART 数据采集
-// 一句话说明：演示小接口 + 隐式实现——CANSensor（值接收者）与 UARTSensor（指针接收者）都满足 Sensor 接口。
+// 来源：04-method-interface.md 第 6 章示例 2 —— Sensor 接口：BUS / UART 数据采集
+// 一句话说明：演示小接口 + 隐式实现——BUSSensor（值接收者）与 UARTSensor（指针接收者）都满足 Sensor 接口。
 // 验证环境：Go 1.22.2（darwin/arm64）
 // 运行：go run ex02-sensor.go
 // 验证状态：已验证（Go 1.22.2）
@@ -15,17 +15,17 @@ type Sensor interface {
 	Name() string
 }
 
-// CAN 总线传感器——值接收者
-type CANSensor struct {
+// BUS 总线传感器——值接收者
+type BUSSensor struct {
 	Channel string
 }
 
-func (c CANSensor) Read() float64 {
+func (c BUSSensor) Read() float64 {
 	return 25.0 + rand.Float64()*10.0
 }
 
-func (c CANSensor) Name() string {
-	return "CAN-" + c.Channel
+func (c BUSSensor) Name() string {
+	return "BUS-" + c.Channel
 }
 
 // UART 传感器——指针接收者（需修改校准偏移）
@@ -54,7 +54,7 @@ func collect(sensors []Sensor) {
 }
 
 func main() {
-	can := CANSensor{Channel: "CAN0"}
+	can := BUSSensor{Channel: "CAN0"}
 	uart := &UARTSensor{Port: "/dev/ttyUSB0", offset: 0.5}
 	fmt.Println("=== 第 1 轮采集 ===")
 	collect([]Sensor{can, uart}) // can 值类型、uart 指针，都满足 Sensor

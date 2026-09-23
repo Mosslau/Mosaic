@@ -1,15 +1,15 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "车队车辆查询 API（练习 3：为接口补 OpenAPI 文档）",
+    "title": "设备组设备查询 API（练习 3：为接口补 OpenAPI 文档）",
     "version": "1.0.0",
-    "description": "车辆查询接口的权威规范。契约测试会逐条核对：实现挂载的路由、真实响应字段、错误结构，任何一个漂移都会让 go test 红。"
+    "description": "设备查询接口的权威规范。契约测试会逐条核对：实现挂载的路由、真实响应字段、错误结构，任何一个漂移都会让 go test 红。"
   },
   "paths": {
-    "/api/v1/vehicles": {
+    "/api/v1/devices": {
       "get": {
-        "summary": "查询车辆列表（支持过滤/分页/排序）",
-        "operationId": "listVehicles",
+        "summary": "查询设备列表（支持过滤/分页/排序）",
+        "operationId": "listDevices",
         "parameters": [
           { "name": "status", "in": "query", "required": false, "schema": { "type": "string", "enum": ["online", "offline", "maintenance"] } },
           { "name": "plate", "in": "query", "required": false, "schema": { "type": "string" } },
@@ -22,7 +22,7 @@
             "description": "ok，返回分页 envelope",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/VehiclePage" },
+                "schema": { "$ref": "#/components/schemas/DevicePage" },
                 "example": { "items": [{ "id": "veh-000", "plate": "京A-000", "status": "online" }], "total": 57, "offset": 0, "limit": 20 }
               }
             }
@@ -31,10 +31,10 @@
         }
       }
     },
-    "/api/v1/vehicles/{id}": {
+    "/api/v1/devices/{id}": {
       "get": {
-        "summary": "查询单个车辆",
-        "operationId": "getVehicle",
+        "summary": "查询单个设备",
+        "operationId": "getDevice",
         "parameters": [
           { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
         ],
@@ -43,7 +43,7 @@
             "description": "ok",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Vehicle" },
+                "schema": { "$ref": "#/components/schemas/Device" },
                 "example": { "id": "veh-001", "plate": "京A-001", "status": "offline" }
               }
             }
@@ -55,20 +55,20 @@
   },
   "components": {
     "schemas": {
-      "Vehicle": {
+      "Device": {
         "type": "object",
         "required": ["id", "plate", "status"],
         "properties": {
-          "id": { "type": "string", "description": "车辆唯一标识" },
-          "plate": { "type": "string", "description": "车牌号" },
+          "id": { "type": "string", "description": "设备唯一标识" },
+          "plate": { "type": "string", "description": "设备编号号" },
           "status": { "type": "string", "enum": ["online", "offline", "maintenance"] }
         }
       },
-      "VehiclePage": {
+      "DevicePage": {
         "type": "object",
         "required": ["items", "total", "offset", "limit"],
         "properties": {
-          "items": { "type": "array", "items": { "$ref": "#/components/schemas/Vehicle" } },
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/Device" } },
           "total": { "type": "integer", "description": "过滤后的总数，不是本页条数" },
           "offset": { "type": "integer" },
           "limit": { "type": "integer" }
@@ -89,7 +89,7 @@
         "content": {
           "application/json": {
             "schema": { "$ref": "#/components/schemas/Error" },
-            "example": { "code": "VEHICLE_NOT_FOUND", "message": "vehicle not found" }
+            "example": { "code": "VEHICLE_NOT_FOUND", "message": "device not found" }
           }
         }
       }

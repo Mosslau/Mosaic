@@ -9,57 +9,57 @@ from typing import Protocol
 
 
 @dataclass
-class VehicleTelemetry:
-    """一行遥测数据：车辆、速度、电量。"""
-    vehicle_id: str
+class DeviceTelemetry:
+    """一行遥测数据：设备、速度、电量。"""
+    device_id: str
     speed: float
-    battery: float
+    component: float
 
 
 class Formatter(Protocol):
-    """结构类型（Protocol）：任何带 format(VehicleTelemetry) -> str 的对象都可被接受。"""
+    """结构类型（Protocol）：任何带 format(DeviceTelemetry) -> str 的对象都可被接受。"""
 
-    def format(self, t: VehicleTelemetry) -> str: ...
+    def format(self, t: DeviceTelemetry) -> str: ...
 
 
 class SimpleFormatter:
-    def format(self, t: VehicleTelemetry) -> str:
-        return f"{t.vehicle_id}: {t.speed:.1f} km/h"
+    def format(self, t: DeviceTelemetry) -> str:
+        return f"{t.device_id}: {t.speed:.1f} km/h"
 
 
-def format_row(t: VehicleTelemetry) -> str:
-    return f"{t.vehicle_id},{t.speed:.1f},{t.battery:.1f}"
+def format_row(t: DeviceTelemetry) -> str:
+    return f"{t.device_id},{t.speed:.1f},{t.component:.1f}"
 
 
-def avg_speed_by_vehicle(rows: list[VehicleTelemetry]) -> dict[str, float]:
-    """按车辆分组求平均速度；空输入返回空 dict。"""
+def avg_speed_by_device(rows: list[DeviceTelemetry]) -> dict[str, float]:
+    """按设备分组求平均速度；空输入返回空 dict。"""
     speeds: dict[str, list[float]] = {}
     for r in rows:
-        speeds.setdefault(r.vehicle_id, []).append(r.speed)
+        speeds.setdefault(r.device_id, []).append(r.speed)
     return {vid: sum(v) / len(v) for vid, v in speeds.items()}
 
 
-def find_vehicle(rows: list[VehicleTelemetry], vehicle_id: str) -> VehicleTelemetry | None:
-    """找指定车辆的第一条记录；找不到返回 None（联合类型显式声明）。"""
+def find_device(rows: list[DeviceTelemetry], device_id: str) -> DeviceTelemetry | None:
+    """找指定设备的第一条记录；找不到返回 None（联合类型显式声明）。"""
     for r in rows:
-        if r.vehicle_id == vehicle_id:
+        if r.device_id == device_id:
             return r
     return None
 
 
-def render_all(rows: list[VehicleTelemetry], fmt: Formatter) -> list[str]:
+def render_all(rows: list[DeviceTelemetry], fmt: Formatter) -> list[str]:
     return [fmt.format(r) for r in rows]
 
 
 def main() -> None:
     rows = [
-        VehicleTelemetry("EV-001", 42.0, 88.0),
-        VehicleTelemetry("EV-001", 55.0, 86.5),
-        VehicleTelemetry("EV-002", 30.0, 91.0),
+        DeviceTelemetry("EV-001", 42.0, 88.0),
+        DeviceTelemetry("EV-001", 55.0, 86.5),
+        DeviceTelemetry("EV-002", 30.0, 91.0),
     ]
     print(format_row(rows[0]))
-    print(avg_speed_by_vehicle(rows))
-    hit = find_vehicle(rows, "EV-001")
+    print(avg_speed_by_device(rows))
+    hit = find_device(rows, "EV-001")
     print(render_all([hit] if hit else [], SimpleFormatter()))
 
 

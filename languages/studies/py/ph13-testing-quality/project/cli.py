@@ -4,7 +4,7 @@
 用法：
     python3 cli.py --demo                                   # 离线演示 + 自检
     python3 cli.py --input telemetry.csv --output-dir out/  # 真实使用
-    python3 cli.py --input telemetry.csv --output-dir out/ --filter-vehicle EV-001
+    python3 cli.py --input telemetry.csv --output-dir out/ --filter-device EV-001
 """
 
 import argparse
@@ -15,10 +15,10 @@ from pathlib import Path
 
 from telemetry_stats.parser import parse_csv
 from telemetry_stats.report import write_csv_report, write_summary
-from telemetry_stats.stats import filter_vehicle, per_vehicle_stats
+from telemetry_stats.stats import filter_device, per_device_stats
 
 # 确定性演示样本：4 有效行 + 1 无效行（"bad,line" 字段数不对）
-DEMO_CSV = """ts,vehicle,speed,battery
+DEMO_CSV = """ts,device,speed,component
 2026-09-01 10:00:00,EV-001,42.0,88.0
 2026-09-01 10:01:00,EV-001,55.0,86.5
 bad,line
@@ -31,31 +31,31 @@ logger = logging.getLogger("telemetry_stats.cli")
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="telemetry-stats", description="车辆遥测数据处理：CSV 清洗 → 分组统计 → 报表"
+        prog="telemetry-stats", description="设备遥测数据处理：CSV 清洗 → 分组统计 → 报表"
     )
     parser.add_argument("--input", help="遥测 CSV 路径")
     parser.add_argument("--output-dir", default="out", help="报表输出目录（默认 out/）")
-    parser.add_argument("--filter-vehicle", help="只统计指定车辆（如 EV-001）")
+    parser.add_argument("--filter-device", help="只统计指定设备（如 EV-001）")
     parser.add_argument("--demo", action="store_true", help="离线演示：临时样本 → 全流程 → 自检")
     parser.add_argument("--log-level", default="INFO", help="日志级别（DEBUG/INFO/WARNING）")
     return parser
 
 
 def run_pipeline(
-    source: Path, output_dir: Path, filter_vehicle_id: str | None
+    source: Path, output_dir: Path, filter_device_id: str | None
 ) -> tuple[int, int, int]:
-    """执行「解析 → 过滤 → 统计 → 报表」主流程，返回 (有效行, 无效行, 车辆数)。"""
+    """执行「解析 → 过滤 → 统计 → 报表」主流程，返回 (有效行, 无效行, 设备数)。"""
     rows, invalid = parse_csv(source)
-    if filter_vehicle_id:
-        rows = filter_vehicle(rows, filter_vehicle_id)
-    stats = per_vehicle_stats(rows)
+    if filter_device_id:
+        rows = filter_device(rows, filter_device_id)
+    stats = per_device_stats(rows)
     output_dir.mkdir(parents=True, exist_ok=True)
     write_csv_report(stats, output_dir / "telemetry_report.csv")
     write_summary(rows, invalid, stats, output_dir / "summary.txt", str(source))
     for s in stats:
         logger.info(
             "%s: %d 条 speed=[%s, %s] avg=%s",
-            s.vehicle_id,
+            s.device_id,
             s.count,
             s.speed_min,
             s.speed_max,
@@ -71,17 +71,17 @@ def demo() -> int:
     sample = work / "sample.csv"
     sample.write_text(DEMO_CSV, encoding="utf-8")
     out = work / "reports"
-    valid, invalid, vehicles = run_pipeline(sample, out, None)
+    valid, invalid, devices = run_pipeline(sample, out, None)
 
     # 自检断言（演示「测试思维」：连演示脚本也对自己做检查）
     assert valid == 4, f"有效行应为 4，实际 {valid}"
     assert invalid == 1, f"无效行应为 1，实际 {invalid}"
-    assert vehicles == 2, f"车辆数应为 2，实际 {vehicles}"
+    assert devices == 2, f"设备数应为 2，实际 {devices}"
     report = out / "telemetry_report.csv"
-    assert report.read_text(encoding="utf-8").count("\n") == 3, "报表应为 3 行（表头 + 2 车）"
+    assert report.read_text(encoding="utf-8").count("\n") == 3, "报表应为 3 行（表头 + 2 台设备）"
 
     print(f"样本: {sample}")
-    print(f"总行数: 有效 {valid} | 无效 {invalid} | 车辆 {vehicles}")
+    print(f"总行数: 有效 {valid} | 无效 {invalid} | 设备 {devices}")
     print(report.read_text(encoding="utf-8").strip())
     print(f"汇总: {out / 'summary.txt'}")
     print("自检通过：解析 / 统计 / 报表全部正确")
@@ -110,8 +110,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"错误：输入文件不存在: {source}", file=sys.stderr)
         return 2
 
-    valid, invalid, vehicles = run_pipeline(source, Path(args.output_dir), args.filter_vehicle)
-    print(f"完成: 有效 {valid} 行, 无效 {invalid} 行, {vehicles} 辆车 -> {args.output_dir}/")
+    valid, invalid, devices = run_pipeline(source, Path(args.output_dir), args.filter_device)
+    print(f"完成: 有效 {valid} 行, 无效 {invalid} 行, {devices} 台设备 -> {args.output_dir}/")
     return 0
 
 

@@ -48,9 +48,9 @@ def stock_report(items: list[InventoryItem]) -> dict[str, int]:
 
 # ---- 测试 ----
 SAMPLE = [
-    InventoryItem("EV-BAT-01", "动力电池", 8000.0, 3),
+    InventoryItem("EV-BAT-01", "动力部件", 8000.0, 3),
     InventoryItem("EV-MOT-02", "驱动电机", 2500.0, 8),
-    InventoryItem("EV-CAN-03", "CAN 模块", 120.0, 2),
+    InventoryItem("EV-BUS-03", "BUS 模块", 120.0, 2),
 ]
 
 
@@ -76,15 +76,15 @@ def test_find_by_sku_returns_item():
 
 
 def test_low_stock_default_threshold():
-    assert [i.sku for i in low_stock(SAMPLE)] == ["EV-BAT-01", "EV-CAN-03"]
+    assert [i.sku for i in low_stock(SAMPLE)] == ["EV-BAT-01", "EV-BUS-03"]
 
 
 def test_low_stock_custom_threshold():
-    assert [i.sku for i in low_stock(SAMPLE, threshold=10)] == ["EV-BAT-01", "EV-MOT-02", "EV-CAN-03"]
+    assert [i.sku for i in low_stock(SAMPLE, threshold=10)] == ["EV-BAT-01", "EV-MOT-02", "EV-BUS-03"]
 
 
 def test_stock_report():
-    assert stock_report(SAMPLE) == {"EV-BAT-01": 3, "EV-MOT-02": 8, "EV-CAN-03": 2}
+    assert stock_report(SAMPLE) == {"EV-BAT-01": 3, "EV-MOT-02": 8, "EV-BUS-03": 2}
 
 
 if __name__ == "__main__":

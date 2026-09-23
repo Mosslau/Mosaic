@@ -4,14 +4,14 @@
 # 运行：python3 ex06-mini-rag.py（离线可跑，已验证）
 # 验证状态：已验证 —— 全部数字为固定语料 / 查询下的本机实测，完全可复现
 # 验证块数字实测：8 问中清晰措辞 6 问 hit@1 全中、模糊 2 问全 miss → hit@1 6/8；
-#                top-3 上下文救回 1 问（battery query）→ hit@3 7/8；停用词不移除时
+#                top-3 上下文救回 1 问（component query）→ hit@3 7/8；停用词不移除时
 #                词频检索 hit@1 5/8（TF-IDF 6/8）；句子级分块 hit@1 同样 6/8
 """迷你 RAG 检索质量演示（roadmap 必会概念：RAG 要关注检索质量）。
 
-在 12 段内置的电动车手册语料上，用「词袋 / TF-IDF + 余弦相似度」手工实现检索，
+在 12 段内置的电动设备手册语料上，用「词袋 / TF-IDF + 余弦相似度」手工实现检索，
 对比不同检索方案与查询措辞的命中率，并演示「检索错了，生成再强也答错」：
-  A. 查询措辞决定检索质量：措辞清晰 6 问 top1 全中；「battery seems weak and
-     drains fast」这类模糊问法，top1 命中文不对题的充电文档；
+  A. 查询措辞决定检索质量：措辞清晰 6 问 top1 全中；「component seems weak and
+     drains fast」这类模糊问法，top1 命中文不对题的补能文档；
   B. top-k 是补救手段：把 top-3 上下文都给生成器，有一问救回（hit@3 7/8），
      但完全失败的一问（car range → 冬季续航文档）仍在 top-3 之外；
   C. 检索函数与预处理：停用词不移除时词频检索 5/8 vs TF-IDF 6/8——先做对
@@ -27,7 +27,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-# 停用词表（超高频功能词，对「充电」「续航」这类主题几乎无区分力）
+# 停用词表（超高频功能词，对「补能」「续航」这类主题几乎无区分力）
 STOP = set(
     """a an the and or but of to in on for with at by from as is are was were be been it its
 this that these those can could would should will may might do does did not no yes you your we our
@@ -38,94 +38,94 @@ they their about into over under""".split()
 CORPUS: list[tuple[str, str, str]] = [
     (
         "doc_chg_1",
-        "充电",
+        "补能",
         "Fast charging at 150 kilowatts takes about 30 minutes to reach 80 percent "
-        "state of charge. The last 20 percent charges slower to protect the battery cells.",
+        "state of charge. The last 20 percent charges slower to protect the component.",
     ),
     (
         "doc_chg_2",
-        "充电",
-        "Avoid charging to 100 percent every day for daily driving. The recommended "
-        "daily limit is 80 percent because high state of charge accelerates battery aging.",
+        "补能",
+        "Avoid charging to 100 percent every day for daily use. The recommended "
+        "daily limit is 80 percent because high state of charge accelerates component aging.",
     ),
     (
         "doc_chg_3",
-        "充电",
-        "Home charging with a 7 kilowatt AC wallbox adds about 40 kilometers of range "
+        "补能",
+        "Home charging with a 7 kilowatt AC wallbox adds about 40 minutes of runtime "
         "per hour. An overnight charge from empty to full takes about 9 hours.",
     ),
     (
         "doc_bat_1",
-        "电池",
-        "Battery health measured as state of health declines fastest with deep "
-        "discharges and high temperature. Keeping the battery between 20 and 80 percent "
+        "部件",
+        "Component health measured as state of health declines fastest with deep "
+        "discharges and high temperature. Keeping the component between 20 and 80 percent "
         "slows the loss of capacity.",
     ),
     (
         "doc_bat_2",
-        "电池",
-        "The battery warranty covers 8 years or 160000 kilometers, whichever comes "
+        "部件",
+        "The component warranty covers 8 years or 40000 operating hours, whichever comes "
         "first. Capacity loss below 70 percent within the warranty period is covered.",
     ),
     (
         "doc_rng_1",
         "续航",
-        "Driving range depends on speed, cabin heating and cooling, and ambient "
-        "temperature. Highway driving at 120 kilometers per hour consumes about 30 "
-        "percent more energy than city driving.",
+        "Runtime depends on load, temperature control and ambient, and ambient "
+        "temperature. Sustained full load consumes about 30 "
+        "percent more energy than light duty.",
     ),
     (
         "doc_rng_2",
         "续航",
-        "In cold weather the range can drop by 25 percent because the battery is less "
-        "efficient and the cabin heater uses power. Preconditioning the cabin while the "
-        "car is plugged in preserves range.",
+        "In cold weather the range can drop by 25 percent because the component is less "
+        "efficient and heating uses power. Preconditioning the component while the "
+        "device is powered preserves runtime.",
     ),
     (
         "doc_regen_1",
-        "驾驶",
-        "Regenerative braking recovers energy and converts it back into the battery. "
-        "One pedal driving uses the electric motor to slow the car and extend the range "
-        "in the city.",
+        "能效",
+        "Regenerative braking recovers energy and converts it back into the component. "
+        "Smooth ramping uses the motor to slow the device and extend the runtime "
+        "under light duty.",
     ),
     (
         "doc_mnt_1",
         "保养",
-        "Check tire pressure every month and before long trips. Low tire pressure "
+        "Check the component mounts every month and before long trips. Low mount torque "
         "increases rolling resistance and reduces range by about 5 percent.",
     ),
     (
         "doc_ota_1",
         "软件",
-        "Software updates are delivered over the air while the car is parked. The car "
-        "must have at least 30 percent battery and a stable internet connection to "
+        "Software updates are delivered over the air while the device is idle. The device "
+        "must have at least 30 percent charge and a stable internet connection to "
         "install an update.",
     ),
     (
         "doc_safe_1",
         "安全",
-        "If the battery temperature exceeds 60 degrees Celsius the system disables "
+        "If the component temperature exceeds 60 degrees Celsius the system disables "
         "fast charging until it cools down. Thermal runaway protection continuously "
         "monitors all cell groups.",
     ),
     (
         "doc_eco_1",
-        "驾驶",
-        "Smooth acceleration and steady speed give the best energy economy. Hard "
-        "acceleration uses up to 50 percent more energy than gentle driving.",
+        "能效",
+        "Smooth ramping and steady load give the best energy economy. Hard "
+        "ramping uses up to 50 percent more energy than gentle load changes.",
     ),
 ]
 
 # 评测查询：(query, 标准答案文档, 措辞类型) —— 前 6 问措辞清晰，后 2 问刻意模糊
 QUERIES: list[tuple[str, str, str]] = [
     ("how long does fast charging take to reach 80 percent", "doc_chg_1", "清晰"),
-    ("is it ok to charge the car to 100 percent every night", "doc_chg_2", "清晰"),
+    ("is it ok to charge the device to 100 percent every night", "doc_chg_2", "清晰"),
     ("does cold weather make the range worse", "doc_rng_2", "清晰"),
-    ("what does the battery warranty cover", "doc_bat_2", "清晰"),
-    ("check my tire pressure how often", "doc_mnt_1", "清晰"),
-    ("can i install updates while driving", "doc_ota_1", "清晰"),
-    ("battery seems weak and drains fast", "doc_bat_1", "模糊"),
-    ("car range", "doc_rng_1", "模糊"),
+    ("what does the component warranty cover", "doc_bat_2", "清晰"),
+    ("check my mount torque how often", "doc_mnt_1", "清晰"),
+    ("can i install updates while it is running", "doc_ota_1", "清晰"),
+    ("component seems weak and drains fast", "doc_bat_1", "模糊"),
+    ("device runtime", "doc_rng_1", "模糊"),
 ]
 
 
@@ -216,7 +216,7 @@ def section_a_b_phrasing_and_topk() -> None:
     gold_ids = [doc_id for doc_id, _, _ in CORPUS]
     report_variant("段落级", docs, gold_ids, remove_stop=True)
     print(
-        "   → 清晰措辞 6 问全中；模糊组：battery 问法 top1 答非所问（充电文档），"
+        "   → 清晰措辞 6 问全中；模糊组：component 问法 top1 答非所问（补能文档），"
         "car range 问法 top1 是冬季续航文档——同主题不同文档在抢答"
     )
 
@@ -287,7 +287,7 @@ def section_e_rag_assembly() -> None:
 
 
 if __name__ == "__main__":
-    print("迷你 RAG：12 段电动车手册语料 × 8 个评测问句（6 清晰 + 2 模糊）")
+    print("迷你 RAG：12 段电动设备手册语料 × 8 个评测问句（6 清晰 + 2 模糊）")
     section_a_b_phrasing_and_topk()
     section_c_retrieval_function()
     section_d_chunking()

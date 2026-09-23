@@ -2,7 +2,7 @@
 # 验证环境目标：Docker Engine 29 / 镜像基线 python:3.13-slim
 # 验证状态：未在本环境验证（本机 docker CLI 在、daemon 未启动，无法 build）——
 #   在 daemon 可用的机器上按 README「容器化运行」一节验证
-# 构建：docker build -t bhealth-api:0.1.0 .
+# 构建：docker build -t health-api:0.1.0 .
 
 # ---------- 阶段 1：builder（装依赖；pip 缓存/编译链不进最终镜像） ----------
 FROM python:3.13-slim AS builder

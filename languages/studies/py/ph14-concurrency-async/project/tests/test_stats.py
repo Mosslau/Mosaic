@@ -1,4 +1,4 @@
-"""stats 测试：按车辆分组汇总与总体统计（纯函数，离线）。"""
+"""stats 测试：按设备分组汇总与总体统计（纯函数，离线）。"""
 
 from __future__ import annotations
 
@@ -7,31 +7,31 @@ from collector.stats import overall, summarize
 
 
 def _mk(
-    vehicle_id: str,
+    device_id: str,
     ok: bool,
     attempts: int = 1,
     elapsed_ms: float = 10.0,
     speed: float | None = 50.0,
 ) -> FetchResult:
     return FetchResult(
-        vehicle_id=vehicle_id,
+        device_id=device_id,
         ok=ok,
         status=200 if ok else None,
         attempts=attempts,
         elapsed_ms=elapsed_ms,
         speed=speed,
-        battery=80.0,
+        component=80.0,
     )
 
 
-def test_summarize_groups_by_vehicle_sorted():
+def test_summarize_groups_by_device_sorted():
     results = [
         _mk("EV-002", True),
         _mk("EV-001", True),
         _mk("EV-001", False, attempts=3),
     ]
     summaries = summarize(results)
-    assert [s.vehicle_id for s in summaries] == ["EV-001", "EV-002"]  # 按 id 排序
+    assert [s.device_id for s in summaries] == ["EV-001", "EV-002"]  # 按 id 排序
     ev1 = summaries[0]
     assert ev1.attempts == 4  # 两次尝试之和（1 + 3）
     assert ev1.ok is False  # 最后一次尝试失败

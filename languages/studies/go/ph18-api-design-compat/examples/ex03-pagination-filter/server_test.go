@@ -98,8 +98,8 @@ func TestFilterBeforePagination(t *testing.T) {
 // TestQMatchesNameSubstring：模糊过滤作用于 name。
 func TestQMatchesNameSubstring(t *testing.T) {
 	ts := newTestServer(t)
-	p := getPage(t, ts.URL, url.Values{"q": {"车队A-10"}})
-	// name 含子串 "车队A-10" 的共有 4 条：10 号车与 100/101/102 号车
+	p := getPage(t, ts.URL, url.Values{"q": {"设备组A-10"}})
+	// name 含子串 "设备组A-10" 的共有 4 条：10 号设备与 100/101/102 号设备
 	if p.Total != 4 {
 		t.Fatalf("q total = %d, want 4", p.Total)
 	}

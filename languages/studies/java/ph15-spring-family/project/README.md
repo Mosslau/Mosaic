@@ -2,7 +2,7 @@
 
 ## 需求
 
-roadmap「ph15 Spring 全家桶阶段」推荐项目之一是**权限管理系统**——本项目的落地形态：一个带**用户管理**的 RBAC（Role-Based Access Control）起步 REST 服务，把 ph15 全家桶串成一条真实链路：**Spring Data JPA 管用户数据 → Spring Security 管认证（JWT 无状态）与授权（URL 级；方法级 `@PreAuthorize` 用法见 examples/ex06）→ Bean Validation 管参数 → 统一响应 + 全局异常管契约**。对比 [ph14 project](../../ph14-web-backend/project/README.md)（车辆数据上报 API，手写 VehicleStore + Controller 拦截器验 JWT）：数据层换成 JPA Repository（examples/ex05 的机制），鉴权换成 Security Filter 链原生认证（examples/ex06 + exercises/sol-05 的机制）——同一批需求用 ph15 的框架重写，代码里不再有手写数据访问与手写鉴权。
+roadmap「ph15 Spring 全家桶阶段」推荐项目之一是**权限管理系统**——本项目的落地形态：一个带**用户管理**的 RBAC（Role-Based Access Control）起步 REST 服务，把 ph15 全家桶串成一条真实链路：**Spring Data JPA 管用户数据 → Spring Security 管认证（JWT 无状态）与授权（URL 级；方法级 `@PreAuthorize` 用法见 examples/ex06）→ Bean Validation 管参数 → 统一响应 + 全局异常管契约**。对比 [ph14 project](../../ph14-web-backend/project/README.md)（设备数据上报 API，手写 DeviceStore + Controller 拦截器验 JWT）：数据层换成 JPA Repository（examples/ex05 的机制），鉴权换成 Security Filter 链原生认证（examples/ex06 + exercises/sol-05 的机制）——同一批需求用 ph15 的框架重写，代码里不再有手写数据访问与手写鉴权。
 
 ## 技术栈与验证环境
 

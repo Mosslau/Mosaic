@@ -19,7 +19,7 @@ Python 标准库阶段的目标是：**能用 `pathlib` 熟练处理路径与文
 
 ## 2. 来源与演变
 
-Python 标准库的核心哲学是 **"batteries included"（自带电池）**：解释器发行时捆绑大量实用模块，让开发者"开箱即用"。这一口号由 Guido van Rossum 在 1999 年提出——`http.server`、`sqlite3`、`email` 等模块让很多小需求零依赖解决。
+Python 标准库的核心哲学是 **"batteries included"（自带部件）**：解释器发行时捆绑大量实用模块，让开发者"开箱即用"。这一口号由 Guido van Rossum 在 1999 年提出——`http.server`、`sqlite3`、`email` 等模块让很多小需求零依赖解决。
 
 标准库持续把社区实践收编进来：早期 `os`/`sys` 承袭 Unix 接口；2.3 加入 `logging`；2.6/3.0 加入 `json`（源自 simplejson）；3.4 `pathlib` 实验性进入（PEP 428），3.6 转正并引入 f-string（PEP 498）；3.9 的 `zoneinfo` 带来 IANA 时区；3.11 的 `tomllib` 原生解析 TOML。
 
@@ -86,7 +86,7 @@ shutil.rmtree("sub")                           # 删除目录树
 import json, csv
 from datetime import datetime
 
-print(json.dumps({"vin": "LSVAU2A28N2100001"}, ensure_ascii=False, indent=2))
+print(json.dumps({"device_id": "LSVAU2A28N2100001"}, ensure_ascii=False, indent=2))
 print(json.dumps({"ts": datetime(2024, 6, 1)}, default=str))  # 兜底 datetime
 with open("out.csv", "w", encoding="utf-8-sig", newline="") as f:
     w = csv.DictWriter(f, fieldnames=["ts", "id"])
@@ -154,7 +154,7 @@ logging.warning("磁盘剩余空间不足")
 ```python
 import argparse
 
-parser = argparse.ArgumentParser(description="车辆日志处理工具")
+parser = argparse.ArgumentParser(description="设备日志处理工具")
 parser.add_argument("dir", nargs="?", default=".", help="目标目录（默认当前目录）")
 parser.add_argument("--ext", default=".log", help="扩展名过滤")
 parser.add_argument("--level", choices=["INFO", "WARN", "ERROR"],
@@ -359,7 +359,7 @@ from pathlib import Path
 from collections import Counter
 
 with tempfile.TemporaryDirectory() as d:
-    log_path = Path(d) / "vehicle.log"
+    log_path = Path(d) / "device.log"
     log_path.write_text(
         "2024-06-01 08:00:01 ERROR 192.168.1.10 E1001 电芯压差异常\n"
         "2024-06-01 08:00:05 WARN  10.0.0.5   E2003 电机温度偏高\n"

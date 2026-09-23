@@ -100,19 +100,19 @@ def get_item(item_id: int, q: str | None = None):
 
 ```python
 from pydantic import BaseModel, Field, field_validator
-class Battery(BaseModel):
+class Component(BaseModel):
     soc: float = Field(ge=0, le=100)        # 约束：0~100
     voltage: float = Field(gt=0)
-class Vehicle(BaseModel):
-    vin: str = Field(min_length=17, max_length=17)
+class Device(BaseModel):
+    device_id: str = Field(min_length=17, max_length=17)
     model: str
-    battery: Battery                        # 嵌套模型自动递归校验
-    @field_validator("vin")
+    component: Component                        # 嵌套模型自动递归校验
+    @field_validator("device_id")
     @classmethod
-    def vin_upper(cls, v: str) -> str:
+    def device_id_upper(cls, v: str) -> str:
         return v.upper()                    # 校验时顺便清洗
-v = Vehicle(vin="LVGBE40K5GG123456", model="EV-A",
-            battery={"soc": 80.5, "voltage": 380})
+v = Device(device_id="LVGBE40K5GG123456", model="EV-A",
+            component={"soc": 80.5, "voltage": 380})
 print(v.model_dump())                       # 序列化（v1 的 .dict() 已改名）
 ```
 
@@ -221,12 +221,12 @@ class Base(DeclarativeBase):
 class Device(Base):
     __tablename__ = "devices"
     id: Mapped[int] = mapped_column(primary_key=True)
-    vin: Mapped[str] = mapped_column(unique=True, index=True)
+    device_id: Mapped[str] = mapped_column(unique=True, index=True)
     model: Mapped[str]
     online: Mapped[bool] = mapped_column(default=False)
 Base.metadata.create_all(engine)          # 演示建表；正式项目用 Alembic
 with Session(engine) as session:
-    session.add(Device(vin="V001", model="EV-A"))
+    session.add(Device(device_id="V001", model="EV-A"))
     session.commit()                      # 忘记 commit = 数据没写进去
 ```
 
@@ -323,12 +323,12 @@ app = FastAPI(title="设备管理 API",
               description="设备管理服务：设备 CRUD 与状态查询",
               version="1.0.0")
 class Device(BaseModel):
-    vin: str = Field(description="车辆识别码", min_length=17, max_length=17)
-    model: str = Field(description="车型")
+    device_id: str = Field(description="设备识别码", min_length=17, max_length=17)
+    model: str = Field(description="设备型号")
 @app.get("/devices", tags=["设备"], summary="设备列表")
 def list_devices(limit: int = 10):
     """按 limit 返回设备列表"""              # docstring 也会进文档
-    return [{"vin": "V" + str(i), "model": "EV-A"} for i in range(limit)]
+    return [{"device_id": "V" + str(i), "model": "EV-A"} for i in range(limit)]
 ```
 
 要点：
@@ -350,12 +350,12 @@ from fastapi.templating import Jinja2Templates
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")        # 模板目录
 app.mount("/static", StaticFiles(directory="static"), name="static")   # 目录 → URL 前缀
-@app.get("/device/{vin}")
-def device_page(request: Request, vin: str):              # Request 必须类型注解
-    if vin != "V001":
+@app.get("/device/{device_id}")
+def device_page(request: Request, device_id: str):              # Request 必须类型注解
+    if device_id != "V001":
         raise HTTPException(status_code=404, detail="设备不存在")
     return templates.TemplateResponse(request, "device.html",   # Starlette 0.29+ 必须显式传 request
-                                      {"device": {"vin": vin, "online": True},
+                                      {"device": {"device_id": device_id, "online": True},
                                        "readings": [{"time": "08:00:01", "speed": 59.44, "soc": 78.5}]})
 @app.get("/download/report")
 def download_report():
@@ -364,7 +364,7 @@ def download_report():
 
 要点：
 
-- **模板 = 变量插值 + 控制流 + 过滤器**：`{{ device.vin }}` 插值、`{% if %}`/`{% for %}` 控制流、`{{ speed | round(1) }}` 过滤器（模板文件见 [`examples/templates/device.html`](./examples/templates/device.html)，渲染结果实测见示例 4）。
+- **模板 = 变量插值 + 控制流 + 过滤器**：`{{ device.device_id }}` 插值、`{% if %}`/`{% for %}` 控制流、`{{ speed | round(1) }}` 过滤器（模板文件见 [`examples/templates/device.html`](./examples/templates/device.html)，渲染结果实测见示例 4）。
 - **坑（`TemplateResponse` 签名）**：Starlette 0.29 起必须写成 `TemplateResponse(request, name, context)`——第一个位置参数是 `Request` 对象且路由参数**必须标注 `request: Request` 类型**，否则 FastAPI 会把 `request` 当成查询参数直接 422。
 - **静态文件**：`app.mount("/static", StaticFiles(...))` 把磁盘目录原样挂到 URL 前缀，目录里没有的文件返回 404；`FileResponse` 按需返回单个文件（动态生成的 CSV 报表等，见示例 5）。
 - **边界**：本阶段只做服务端模板的入门用法；SPA 集成、前端工程化（Vue/React 脚手架）不在本路线范围内。
@@ -408,7 +408,7 @@ FastAPI 不是服务器，而是运行在 **ASGI** 之上的框架。ASGI 应用
 
 ### 4.2 Pydantic v2 的 Rust 核心与校验流程
 
-Pydantic v2 把核心重写为 **pydantic-core（Rust 实现）**：模型的校验逻辑被编译成一份 Rust 的**校验计划（validation schema）**，Python 侧只负责传值与拿结果。一次 `Vehicle(...)` 构造：输入 dict → 按字段逐个走 Rust 校验器（类型转换、`Field` 约束、`field_validator` 钩子）→ 失败收集结构化 `ValidationError` → 成功构建模型实例。相比 v1 的纯 Python 逐字段校验，转换与约束检查都在 Rust 层完成，**性能提升数倍到数十倍**——这正是「类型注解驱动校验」能用于高 QPS 接口的底气；`model_dump(mode="json")` 的序列化同样走 Rust 核心。
+Pydantic v2 把核心重写为 **pydantic-core（Rust 实现）**：模型的校验逻辑被编译成一份 Rust 的**校验计划（validation schema）**，Python 侧只负责传值与拿结果。一次 `Device(...)` 构造：输入 dict → 按字段逐个走 Rust 校验器（类型转换、`Field` 约束、`field_validator` 钩子）→ 失败收集结构化 `ValidationError` → 成功构建模型实例。相比 v1 的纯 Python 逐字段校验，转换与约束检查都在 Rust 层完成，**性能提升数倍到数十倍**——这正是「类型注解驱动校验」能用于高 QPS 接口的底气；`model_dump(mode="json")` 的序列化同样走 Rust 核心。
 
 ### 4.3 依赖注入的解析机制（缓存·作用域）
 
@@ -430,7 +430,7 @@ JWT 是「**自包含、可验证、无状态**」的三段式令牌 `header.pay
 | 登录注册 | JWT 签发/校验 + 密码哈希 + OAuth2PasswordBearer + 依赖注入鉴权 |
 | 文件上传（图片/OTA 包） | `UploadFile` + 扩展名/大小校验 + 落盘保存 |
 | 设备管理 API | SQLAlchemy 模型 + Session + CRUD + Alembic 迁移 |
-| 车辆遥测数据上报 | 请求体校验（速度/SOC 范围）+ 批量写入 + 按设备查询 + 分组统计 |
+| 设备遥测数据上报 | 请求体校验（速度/SOC 范围）+ 批量写入 + 按设备查询 + 分组统计 |
 | 内部门户 / 报表页 | Jinja2 模板渲染 + StaticFiles（CSS/JS）+ FileResponse 导出 |
 | 内部工具 API / 自动化平台 | 轻量接口 + OpenAPI 文档 + 统一错误处理 + 日志 |
 | 数据平台后端 | REST 契约 + JWT 鉴权 + 中间件（日志/CORS）+ 数据库持久化 |
@@ -529,19 +529,19 @@ def calls(c1: dict = Depends(count_calls), c2: dict = Depends(count_calls)):
 # examples/ex04-jinja2-template.py —— Jinja2 模板渲染（TestClient 离线验证）
 # 验证环境：Python 3.13.9，fastapi 0.139.1 / jinja2 3.1.6 / httpx 0.28.1
 # 运行：python3 ex04-jinja2-template.py（离线可跑，已验证，不起真实服务）
-@app.get("/device/{vin}")
-def device_page(request: Request, vin: str):      # Request 必须类型注解，否则 422
-    device = DEVICES.get(vin)
+@app.get("/device/{device_id}")
+def device_page(request: Request, device_id: str):      # Request 必须类型注解，否则 422
+    device = DEVICES.get(device_id)
     if device is None:
         raise HTTPException(status_code=404, detail="设备不存在")
     return templates.TemplateResponse(
         request,                                   # Starlette 0.29+ 必须显式传 request
         "device.html",
-        {"device": {"vin": vin, **device}, "readings": READINGS.get(vin, [])},
+        {"device": {"device_id": device_id, **device}, "readings": READINGS.get(device_id, [])},
     )
 ```
 
-实测输出：`GET /device/V001 → 200 text/html`，渲染片段全部命中（标题/车型/在线 ✅/速度保留 1 位小数/共 3 条记录）；`/device/V002 → 200` 离线 ⛔ 与「暂无遥测记录」分支生效；`/device/UNKNOWN → 404`。
+实测输出：`GET /device/V001 → 200 text/html`，渲染片段全部命中（标题/设备型号/在线 ✅/速度保留 1 位小数/共 3 条记录）；`/device/V002 → 200` 离线 ⛔ 与「暂无遥测记录」分支生效；`/device/UNKNOWN → 404`。
 
 ### 示例 5：静态文件与 FileResponse（TestClient 验证）
 
@@ -556,7 +556,7 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")  # �
 @app.get("/download/report")
 def download_report():
     out = Path(tempfile.mkdtemp(prefix="ph10-ex05-")) / "report.csv"   # 产物写临时目录
-    out.write_text("vehicle_id,avg_speed,avg_soc\nV001,59.44,78.5\nV002,62.87,76.1\n")
+    out.write_text("device_id,avg_speed,avg_soc\nV001,59.44,78.5\nV002,62.87,76.1\n")
     return FileResponse(out, filename="report.csv", media_type="text/csv")
 ```
 
@@ -628,11 +628,11 @@ async def measure_concurrent():
 - Todo API（★）：内存版增删改查 + `Field` 校验 + 404（提示：先 `/docs` 调通；`status_code=201/204` 语义化；title 空串应 422）
 - 登录注册（★★）：密码哈希 + JWT 签发 + `Depends(get_current_user)` 保护接口（提示：`/docs` 的 Authorize 按钮贴 token 调试；`exp` 一定设置；验证 401 分支）
 - 文件上传（★★）：`UploadFile` + 扩展名/大小校验 + 随机文件名落盘（提示：`await file.read()`；`python-multipart` 必须装；传 `.exe` 应 400）
-- 设备管理 API（★★★）：SQLAlchemy 模型 + Alembic 迁移 + CRUD + `response_model`（提示：依赖注入 `yield` 会话防泄漏；重复 vin 捕获 `IntegrityError` 返回 409；改模型后跑 `alembic revision --autogenerate`）
+- 设备管理 API（★★★）：SQLAlchemy 模型 + Alembic 迁移 + CRUD + `response_model`（提示：依赖注入 `yield` 会话防泄漏；重复 device_id 捕获 `IntegrityError` 返回 409；改模型后跑 `alembic revision --autogenerate`）
 
 ### 阶段项目
 
-本阶段综合项目见 [`project/`](./project/)：**设备数据上报 API**——车辆遥测上报（单条 + 批量，速度 0~200 / SOC 0~100 校验）、按设备/时间查询、分组统计（呼应 ph09 分组统计思维）、日志中间件记录每条上报的耗时与状态码（对应 roadmap「推荐项目」第二个「设备数据上报 API」）。建议完成练习后再动手；roadmap 的另一个「OTA 管理 API」（设备 + 固件版本 + 升级任务三张表 + JWT 鉴权 + 文件上传）可作为进阶扩展目标。
+本阶段综合项目见 [`project/`](./project/)：**设备数据上报 API**——设备遥测上报（单条 + 批量，速度 0~200 / SOC 0~100 校验）、按设备/时间查询、分组统计（呼应 ph09 分组统计思维）、日志中间件记录每条上报的耗时与状态码（对应 roadmap「推荐项目」第二个「设备数据上报 API」）。建议完成练习后再动手；roadmap 的另一个「OTA 管理 API」（设备 + 固件版本 + 升级任务三张表 + JWT 鉴权 + 文件上传）可作为进阶扩展目标。
 
 - [ ] 完成 exercises/ 全部 4 题并对照参考实现复盘
 - [ ] 独立完成 project/ 并通过其验收标准

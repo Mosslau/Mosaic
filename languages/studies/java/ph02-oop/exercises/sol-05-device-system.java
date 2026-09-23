@@ -74,7 +74,7 @@ class DeviceRegistry {
 class DeviceSystemMain {
     public static void main(String[] args) {
         DeviceRegistry registry = new DeviceRegistry();
-        registry.add(new TemperatureSensor("T-001", "电池温度传感器", 36.5));
+        registry.add(new TemperatureSensor("T-001", "部件温度传感器", 36.5));
         registry.add(new TemperatureSensor("T-002", "电机温度传感器", 58.2));
         registry.add(new PressureDevice("P-001", "胎压监测", 250.0));
         registry.reportAll();

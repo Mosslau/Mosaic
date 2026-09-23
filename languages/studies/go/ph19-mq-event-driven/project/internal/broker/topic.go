@@ -67,7 +67,7 @@ func NewTopic(partitions int) *Topic {
 	return t
 }
 
-// Produce 按 key（vehicleID）稳定散列写入，返回 (partition, offset)。
+// Produce 按 key（deviceID）稳定散列写入，返回 (partition, offset)。
 // 生产端调用，可并发；分区内 Append 有锁。
 func (t *Topic) Produce(key string, payload []byte) (int, int) {
 	p := PartitionForKey(key, t.NumPartitions())

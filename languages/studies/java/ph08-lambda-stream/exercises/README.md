@@ -34,7 +34,7 @@
 **目标**：用 `Predicate` 组合表达复合条件，用 `Optional` 处理「按 ID 查找可能不存在」。
 **要求**：
 
-- 给定设备列表（id + status[online/offline/fault] + battery[0-100]），定义 `Predicate<Device> isOnline` 与 `Predicate<Device> batteryOk`，用 `.and()` 组合筛出「在线且电量 ≥ 50」的可调度设备
+- 给定设备列表（id + status[online/offline/fault] + component[0-100]），定义 `Predicate<Device> isOnline` 与 `Predicate<Device> componentOk`，用 `.and()` 组合筛出「在线且电量 ≥ 50」的可调度设备
 - 实现按 id 查找：`filter` + `findFirst` 返回 `Optional<Device>`，查不到时用 `orElse` 返回一个兜底设备对象
 - 实现按 id 取电量：`findFirst` → `map(取电量)` → `orElseThrow`（查不到抛 `IllegalStateException`，消息含设备 id）
 - 演示 `orElse` 与 `orElseGet` 的区别：兜底逻辑里打一行日志，观察 `orElse` 在值存在时**仍执行**兜底逻辑、`orElseGet` 不执行

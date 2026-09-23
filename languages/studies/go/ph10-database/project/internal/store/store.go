@@ -1,4 +1,4 @@
-// 来源：ph10-database 阶段项目 —— 车辆轨迹存储服务（internal/store 包）
+// 来源：ph10-database 阶段项目 —— 设备轨迹存储服务（internal/store 包）
 // 一句话说明：SQLite 存储层——devices 与 gps_points 两张表、按"设备 + 时间"建索引、
 // 批量上报走事务（全部成功才提交）、查最新位置/时间段轨迹；Store 接口隔离存储细节，
 // api 层只依赖接口（ph08「接口有助于隔离测试依赖」落地）。

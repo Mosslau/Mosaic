@@ -98,7 +98,7 @@ class TemperatureSensor implements Sensor {
 
 ### 练习
 
-- 学生类 / 车辆类 / 电机类建模
+- 学生类 / 设备类 / 电机类建模
 - 用 record 定义设备状态
 - 用 sealed class 限制状态继承层次
 - 设备管理系统
@@ -724,7 +724,7 @@ class HelloController {
 ### 推荐项目
 
 - 后台管理系统
-- 车辆数据上报 API
+- 设备数据上报 API
 
 ## 15. Spring 全家桶阶段
 
@@ -855,7 +855,7 @@ client → gateway → service-a → service-b → database
 ### 练习
 
 - 异步订单处理
-- 车辆数据消费
+- 设备数据消费
 - 告警消息推送
 - 日志搜索
 
@@ -915,7 +915,7 @@ client → gateway → service-a → service-b → database
 ### 推荐项目
 
 - 秒杀系统 demo
-- 车辆状态实时缓存
+- 设备状态实时缓存
 
 ## 19. DevOps 与部署阶段
 

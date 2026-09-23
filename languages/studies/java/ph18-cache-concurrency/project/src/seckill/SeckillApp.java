@@ -33,7 +33,7 @@ final class SeckillApp {
         SeckillService seckill = new SeckillService(clock,
                 new SeckillLock(new SeckillLock.InMemoryBackend(clock), 30_000),
                 1_000, 0);
-        seckill.createSeckill("SKU-A", "Tenet 限量车模", 199, 30, 0); // 立即开抢
+        seckill.createSeckill("SKU-A", "Tenet 限量模型", 199, 30, 0); // 立即开抢
 
         System.out.println("场景一：300 并发抢 30 件 —— 分层防御链路（缓存→限流→幂等→锁→扣减）");
         int users = 300;

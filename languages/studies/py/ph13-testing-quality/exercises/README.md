@@ -34,7 +34,7 @@
 
 - **目标**：用 `unittest.mock` 隔离网络依赖，让测试离线、快、可复现（对应 roadmap「mock 外部接口」）
 - **要求**：
-  - 实现 `TelemetryFetcher`：`fetch_speed(vehicle_id)` 调 `requests.get(..., timeout=2)` 并 `raise_for_status()`；`fetch_batch(ids)` 逐条调用 `fetch_speed`
+  - 实现 `TelemetryFetcher`：`fetch_speed(device_id)` 调 `requests.get(..., timeout=2)` 并 `raise_for_status()`；`fetch_batch(ids)` 逐条调用 `fetch_speed`
   - 测试：成功路径断言返回值与**调用参数**（`assert_called_once_with` 含 timeout）；HTTPError 与 ConnectTimeout 路径；`patch.object` 替换实例方法验证 `fetch_batch` 复用了单条逻辑；响应缺 `speed` 字段应抛 KeyError
   - 全程不许真的发网络请求（mock 后测试进程内完成）
 - **验收**：`python3 -m pytest sol-03-telemetry-fetcher.py -q` 全过（参考实现 7 个用例）；能说清 `patch` 上下文管理器与装饰器两种写法等价
@@ -43,7 +43,7 @@
 
 - **目标**：用参数化覆盖边界值，用标准库 `trace` 实测覆盖率（对应「数据处理测试」+「覆盖率」）
 - **要求**：
-  - 实现三个车辆遥测处理函数：`categorize_speed`（invalid/low/normal/high 四档边界）、`parse_reading`（"42.5 km/h" → 42.5，非法输入抛 ValueError）、`estimate_range(battery, consumption)`（能耗 ≤ 0 抛 ValueError）
+  - 实现三个设备遥测处理函数：`categorize_speed`（invalid/low/normal/high 四档边界）、`parse_reading`（"42.5 km/h" → 42.5，非法输入抛 ValueError）、`estimate_range(component, consumption)`（能耗 ≤ 0 抛 ValueError）
   - 参数化覆盖全部边界：速度的 0/30/120 三个分界点两侧、非法读数的 4 组、续航计算的 3 组 + 1 组异常
   - 用上面的 trace 命令测覆盖率，**把实测行数与百分比写进 sol 文件头验证块**
 - **验收**：参考实现 18 个用例全过、覆盖率 100%（36 行全命中）；能说清「覆盖率 100% 不等于没有 bug」（只证明测过的行都跑过）

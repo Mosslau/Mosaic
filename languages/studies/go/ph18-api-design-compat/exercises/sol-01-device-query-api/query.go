@@ -30,15 +30,15 @@ type Query struct {
 
 // Page 分页响应 envelope：items 是本页数据，total 是过滤后的总数。
 type Page struct {
-	Items  []Vehicle `json:"items"`
+	Items  []Device `json:"items"`
 	Total  int       `json:"total"`
 	Offset int       `json:"offset"`
 	Limit  int       `json:"limit"`
 }
 
 // Apply 过滤 → 排序 → 切片。返回 Items 是底层数组的副本。
-func Apply(fleet []Vehicle, q Query) Page {
-	filtered := make([]Vehicle, 0, len(fleet))
+func Apply(fleet []Device, q Query) Page {
+	filtered := make([]Device, 0, len(fleet))
 	for _, v := range fleet {
 		if q.Status != "" && v.Status != q.Status {
 			continue
@@ -77,7 +77,7 @@ func Apply(fleet []Vehicle, q Query) Page {
 		end = len(filtered)
 	}
 	return Page{
-		Items:  append([]Vehicle(nil), filtered[start:end]...),
+		Items:  append([]Device(nil), filtered[start:end]...),
 		Total:  len(filtered),
 		Offset: start,
 		Limit:  q.Limit,

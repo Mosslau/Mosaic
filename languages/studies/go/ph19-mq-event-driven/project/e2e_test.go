@@ -1,5 +1,5 @@
 // 来源：ph19-mq-event-driven project（根目录端到端验收）
-// 一句话说明：e2e 把"车辆遥测消费服务"完整跑一遍并对账：数据集里有什么输入、
+// 一句话说明：e2e 把"设备遥测消费服务"完整跑一遍并对账：数据集里有什么输入、
 // 服务就该输出什么（无重复副作用、毒消息进死信、抖动重试成功、积压归零）。
 // 验收方式：go test ./... 全绿 = 消费链路符合设计。
 // 验证环境：go1.25.6（darwin/arm64），依赖：零第三方（标准库）
@@ -22,7 +22,7 @@ func telemetryConsumer(t *broker.Topic) (*consumer.Consumer, *store.SnapshotStor
 	snap := store.NewSnapshotStore()
 	dedup := store.NewSeenWindow(10_000)
 	dlog := store.NewDeadLog()
-	proc := process.New(snap, dataset.FlakyVehicle, 1) // 抖动车前 1 次处理失败
+	proc := process.New(snap, dataset.FlakyDevice, 1) // 抖动设备前 1 次处理失败
 	c := consumer.New(t, dedup, proc, dlog, consumer.Config{MaxAttempts: 3})
 	return c, snap, dlog, c.RunOnce()
 }
@@ -49,8 +49,8 @@ func scanExpected(t *broker.Topic) (unique, duplicates, poison, total int) {
 	return unique, duplicates, poison, total
 }
 
-// TestEndToEndVehicleTelemetry 全链路验收。
-func TestEndToEndVehicleTelemetry(t *testing.T) {
+// TestEndToEndDeviceTelemetry 全链路验收。
+func TestEndToEndDeviceTelemetry(t *testing.T) {
 	topic := broker.NewTopic(4)
 	published, err := dataset.Build(topic)
 	if err != nil {
@@ -78,19 +78,19 @@ func TestEndToEndVehicleTelemetry(t *testing.T) {
 			rep.Poisoned+rep.Exhausted, rep.Poisoned, rep.Exhausted, expPoison)
 	}
 
-	// 2. 重试确实发生过（抖动车辆），且最终成功生效一次。
+	// 2. 重试确实发生过（抖动设备），且最终成功生效一次。
 	if rep.Retried < 1 {
-		t.Fatalf("retried=%d, want >=1（抖动车辆必须走上重试路径）", rep.Retried)
+		t.Fatalf("retried=%d, want >=1（抖动设备必须走上重试路径）", rep.Retried)
 	}
-	if v, ok := snap.State(dataset.FlakyVehicle); !ok || v.Samples != 1 {
-		t.Fatalf("flaky vehicle snapshot=%+v ok=%v, want samples=1", v, ok)
+	if v, ok := snap.State(dataset.FlakyDevice); !ok || v.Samples != 1 {
+		t.Fatalf("flaky device snapshot=%+v ok=%v, want samples=1", v, ok)
 	}
 
-	// 3. 幂等落地：5 辆正常车各 samples=6、overspeed=1（重复投递没造成重复计数）。
+	// 3. 幂等落地：5 辆正常设备各 samples=6、overspeed=1（重复投递没造成重复计数）。
 	for _, want := range []string{"car-001", "car-002", "car-003", "car-004", "car-005"} {
 		v, ok := snap.State(want)
 		if !ok {
-			t.Fatalf("vehicle %s missing", want)
+			t.Fatalf("device %s missing", want)
 		}
 		if v.Samples != 6 {
 			t.Fatalf("%s samples=%d, want 6", want, v.Samples)
@@ -119,8 +119,8 @@ func TestEndToEndVehicleTelemetry(t *testing.T) {
 		t.Fatalf("MaxLag=%d, want >0（过程中应出现过积压水位）", c.MaxLag())
 	}
 
-	// 6. 快照车辆数：5 正常 + 1 抖动 = 6（毒消息的 car-999 不应落库）。
-	if got := len(snap.Vehicles()); got != 6 {
-		t.Fatalf("snapshot vehicles=%d, want 6", got)
+	// 6. 快照设备数：5 正常 + 1 抖动 = 6（毒消息的 car-999 不应落库）。
+	if got := len(snap.Devices()); got != 6 {
+		t.Fatalf("snapshot devices=%d, want 6", got)
 	}
 }

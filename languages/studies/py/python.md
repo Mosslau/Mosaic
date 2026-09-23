@@ -187,7 +187,7 @@ class Motor:
 ### 练习
 
 - 学生类
-- 车辆类
+- 设备类
 - 传感器类
 - 配置管理类
 
@@ -542,7 +542,7 @@ cur.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT
 
 - 用户 CRUD
 - 设备信息管理
-- 车辆状态表
+- 设备状态表
 - Redis 缓存查询结果
 
 ### 阶段验收
@@ -554,7 +554,7 @@ cur.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT
 ### 推荐项目
 
 - 设备管理后端
-- 车辆状态存储服务
+- 设备状态存储服务
 
 ## 12. 自动化脚本阶段
 
@@ -594,7 +594,7 @@ for p in Path("logs").glob("*.log"):
 - 批量整理日志
 - 生成 Excel 报表
 - 定时拉取接口
-- 解析 CAN 日志
+- 解析 BUS 日志
 
 ### 阶段验收
 
@@ -605,7 +605,7 @@ for p in Path("logs").glob("*.log"):
 ### 推荐项目
 
 - 自动报表生成器
-- CAN 日志批处理工具
+- BUS 日志批处理工具
 
 ## 13. 测试与工程质量阶段
 
@@ -759,7 +759,7 @@ from sklearn.ensemble import RandomForestClassifier
 
 ### 推荐项目
 
-- 电池健康预测
+- 部件健康预测
 - 日志异常检测
 
 ## 16. 部署与 DevOps 阶段

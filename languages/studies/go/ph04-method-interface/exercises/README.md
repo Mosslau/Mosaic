@@ -38,13 +38,13 @@
 
 **验收**：`go run sol-03-logger.go` 注入 `ConsoleLogger` 时打印日志、注入 `NilLogger` 时无输出。
 
-## 练习 4：用接口模拟 CAN/UART 数据读取（★★★）
+## 练习 4：用接口模拟 BUS/UART 数据读取（★★★）
 
 **目标**：用接口组合模拟一条完整的数据采集链路：`Reader` 接口 + 两个链路实现 + 采集器统计。
 
 **要求**：
 - 定义消费侧的 `Reader` 接口（`Read() (Frame, error)`），`Frame` 含来源与数值字段
-- `CANReader` / `UARTReader` 各自模拟连续读取，读到一定帧数后返回哨兵错误 `ErrLinkDown`（模拟链路中断）
+- `BUSReader` / `UARTReader` 各自模拟连续读取，读到一定帧数后返回哨兵错误 `ErrLinkDown`（模拟链路中断）
 - 采集器 `collect(r Reader)` 循环读取，遇到错误用 `errors.Is` 判断后正常结束并返回统计（帧数、均值），**不 panic**
 - main 中同时驱动两路采集并打印各自统计
 

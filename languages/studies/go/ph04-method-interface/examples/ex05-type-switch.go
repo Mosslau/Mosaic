@@ -7,19 +7,19 @@ package main
 
 import "fmt"
 
-type CANFrame struct {
+type BUSFrame struct {
 	ID   uint32
 	Data [8]byte
 }
 
-func (c CANFrame) String() string {
-	return fmt.Sprintf("CANFrame{ID=0x%X}", c.ID)
+func (c BUSFrame) String() string {
+	return fmt.Sprintf("BUSFrame{ID=0x%X}", c.ID)
 }
 
 func processData(data interface{}) {
 	switch v := data.(type) {
-	case CANFrame:
-		fmt.Printf("CAN 帧  : ID=0x%X Data=%v\n", v.ID, v.Data[:4])
+	case BUSFrame:
+		fmt.Printf("BUS 帧  : ID=0x%X Data=%v\n", v.ID, v.Data[:4])
 	case float64:
 		fmt.Printf("传感器值: %.2f\n", v)
 	case string:
@@ -32,16 +32,16 @@ func processData(data interface{}) {
 }
 
 func main() {
-	var val interface{} = CANFrame{ID: 0x7E8, Data: [8]byte{0x41, 0x0D, 0x00, 0x00}}
-	if frame, ok := val.(CANFrame); ok {
+	var val interface{} = BUSFrame{ID: 0x7E8, Data: [8]byte{0x41, 0x0D, 0x00, 0x00}}
+	if frame, ok := val.(BUSFrame); ok {
 		fmt.Println("断言成功:", frame.String())
 	}
 	if _, ok := val.(int); !ok {
 		fmt.Println("val 不是 int 类型——断言失败不 panic")
 	}
 	fmt.Println("\n=== type switch 分发 ===")
-	processData(CANFrame{ID: 0x18F, Data: [8]byte{0x00, 0xFA, 0x20}})
+	processData(BUSFrame{ID: 0x18F, Data: [8]byte{0x00, 0xFA, 0x20}})
 	processData(36.5)
-	processData("车速传感器离线")
+	processData("运行速度传感器离线")
 	processData([]string{"turn_left", "brake"})
 }

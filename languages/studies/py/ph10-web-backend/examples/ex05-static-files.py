@@ -24,7 +24,7 @@ def download_report():
     """动态生成一份 CSV 报表并作为附件返回（产物写临时目录，防仓库污染）。"""
     buf = io.StringIO()
     writer = csv.writer(buf)
-    writer.writerow(["vehicle_id", "avg_speed", "avg_soc"])
+    writer.writerow(["device_id", "avg_speed", "avg_soc"])
     writer.writerow(["V001", 59.44, 78.5])
     writer.writerow(["V002", 62.87, 76.1])
 

@@ -13,7 +13,7 @@ TEMPLATE_DIR = Path(__file__).resolve().parent / "templates"
 app = FastAPI(title="模板渲染 Demo")
 templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 
-# 内存「数据库」：vin -> (车型, 是否在线)；readings 为最近遥测（真实场景来自 SQLAlchemy，ph11 深入）
+# 内存「数据库」：device_id -> (设备型号, 是否在线)；readings 为最近遥测（真实场景来自 SQLAlchemy，ph11 深入）
 DEVICES = {
     "V001": {"model": "EV-A", "online": True},
     "V002": {"model": "EV-B", "online": False},
@@ -28,15 +28,15 @@ READINGS = {
 }
 
 
-@app.get("/device/{vin}")
-def device_page(request: Request, vin: str):
-    device = DEVICES.get(vin)
+@app.get("/device/{device_id}")
+def device_page(request: Request, device_id: str):
+    device = DEVICES.get(device_id)
     if device is None:
         raise HTTPException(status_code=404, detail="设备不存在")
     return templates.TemplateResponse(
         request,                       # Starlette 0.29+ 要求把 request 显式传入（主文档 3.11 的坑）
         "device.html",
-        {"device": {"vin": vin, **device}, "readings": READINGS.get(vin, [])},
+        {"device": {"device_id": device_id, **device}, "readings": READINGS.get(device_id, [])},
     )
 
 
@@ -47,7 +47,7 @@ def main() -> None:
         text = r.text
         for expected in ("设备 V001", "EV-A", "在线 ✅", "59.4", "78", "共 3 条记录"):
             assert expected in text, f"缺少渲染片段: {expected}"
-        print("  V001 渲染片段: 标题/车型/在线/速度保留 1 位小数/共 3 条记录 —— 全部命中")
+        print("  V001 渲染片段: 标题/设备型号/在线/速度保留 1 位小数/共 3 条记录 —— 全部命中")
 
         r2 = client.get("/device/V002")
         print("GET /device/V002  ->", r2.status_code,

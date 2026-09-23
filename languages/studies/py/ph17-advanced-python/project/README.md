@@ -73,4 +73,4 @@ printf 'INFO boot ok\nERROR disk full\nWARN retry\nERROR oom\n' | \
 - **加 `async for` 版本**：接 ph14/主文档 3.9——数据源换成异步流（如 MQTT/WebSocket 日志推送）时，把管线各环改造成异步生成器（`async def` + `yield`），骨架不变（衔接 roadmap 第 18 节数据平台分析方向：MQTT 数据采集服务即此形态）
 - **Cython 加速解析热环**：主文档 3.10 的四代形态——`parse_line` 的正则解析是热环，量级不够时先测 profile，真到瓶颈再用 Cython 加类型（`project/` 的 parser 是理想的渐进改造对象）
 - **加 `--json` 输出 / 结构化 sink**：LogRecord 已有 dataclass 形态，序列化到 JSON/按级别分文件（旋转）作为新 sink 接入 `ExitStack`
-- **复用进 ph18 场景**：CAN 日志按 ID 流式统计（roadmap 第 18 节）——把 `by_level` 换成 `by_can_id`、`LogRecord` 换成 CAN 帧记录，管线骨架原样复用
+- **复用进 ph18 场景**：BUS 日志按 ID 流式统计（roadmap 第 18 节）——把 `by_level` 换成 `by_bus_id`、`LogRecord` 换成 BUS 帧记录，管线骨架原样复用

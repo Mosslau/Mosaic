@@ -5,7 +5,7 @@
 # 生产启动：python3 -m uvicorn sol-01-deploy-fastapi:app --host 0.0.0.0 --port 8000
 #   （文件名含连字符不能 import，仅示意——真实项目用包路径，如 project/ 的 app.main:app）
 # 验证状态：已验证 —— TestClient 实测 /health 200、/ready 200（依赖断开后 503）、
-#           /predict 输入校验 422、正常预测 soh=80.5
+#           /predict 输入校验 422、正常预测 health=80.5
 """练习 1 参考实现：写一个「能上线」的 FastAPI 服务。
 
 与玩具 demo 的差别就在三件事（对应题目验收标准）：
@@ -25,7 +25,7 @@ from pydantic import BaseModel, Field
 
 
 class Condition(BaseModel):
-    """电池工况（与主文档/ph15 的特征口径一致）。"""
+    """部件工况（与主文档/ph15 的特征口径一致）。"""
 
     cycles: float = Field(ge=0)
     avg_temp: float = Field()
@@ -67,14 +67,14 @@ def ready(response: Response) -> dict[str, str]:
 
 @app.post("/predict")
 def predict(cond: Condition) -> dict[str, float]:
-    """规则模型占位：SOH = 100 − cycles × 分段老化率（与 ex01 同公式）。"""
+    """规则模型占位：HEALTH = 100 − cycles × 分段老化率（与 ex01 同公式）。"""
     loss = (
         0.008
         + 0.00025 * max(cond.avg_temp - 25, 0)
         + 0.0005 * max(cond.depth - 70, 0)
         + 0.0015 * max(cond.c_rate - 1.5, 0)
     )
-    return {"soh": round(min(100.0, max(40.0, 100.0 - cond.cycles * loss)), 1)}
+    return {"health": round(min(100.0, max(40.0, 100.0 - cond.cycles * loss)), 1)}
 
 
 def main() -> None:
@@ -90,7 +90,7 @@ def main() -> None:
 
         cond = {"cycles": 1500, "avg_temp": 25, "depth": 80, "c_rate": 1.0}
         r = client.post("/predict", json=cond)
-        assert r.status_code == 200 and r.json() == {"soh": 80.5}
+        assert r.status_code == 200 and r.json() == {"health": 80.5}
         print(f"POST /predict -> {r.status_code} {r.json()}")
 
         # 输入校验：cycles 为负 → 422（校验失败，业务逻辑根本没被调用）

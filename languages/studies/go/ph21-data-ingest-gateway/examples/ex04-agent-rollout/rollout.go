@@ -119,9 +119,9 @@ func (r *Rollout) OnAgentReport(sourceID string, ok bool) Decision {
 	}
 	bi, found := r.sourceBatch[sourceID]
 	if !found {
-		return DecisionHold // 不在本场灰度的车：忽略
+		return DecisionHold // 不在本场灰度的设备：忽略
 	}
-	// 车按批推进：晚到的旧批报告不再改动统计（回滚检查只看当前批）。
+	// 设备按批推进：晚到的旧批报告不再改动统计（回滚检查只看当前批）。
 	st := r.stat[bi]
 	if ok {
 		st.ok++

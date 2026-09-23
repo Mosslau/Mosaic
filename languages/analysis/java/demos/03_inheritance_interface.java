@@ -9,18 +9,18 @@ class InheritanceInterfaceDemo {
 
     // ---- 辅助类型全部嵌套于此（单文件模式要求 main 在第一个顶层类）----
 
-    static class Vehicle {
+    static class Device {
         private final String name;
-        Vehicle(String name) { this.name = name; }
-        String describe() { return name + "（车辆）"; }   // 子类可覆写（动态分派）
+        Device(String name) { this.name = name; }
+        String describe() { return name + "（设备）"; }   // 子类可覆写（动态分派）
     }
 
-    interface Electric { void charge(); }                 // 契约：能充电
+    interface Electric { void charge(); }                 // 契约：能补能
     interface Navigable { void navigate(); }              // 契约：能导航
 
-    static class Car extends Vehicle implements Electric, Navigable {
-        Car() { super("小轿车"); }
-        @Override public void charge()   { System.out.println("   充电中……"); }
+    static class Car extends Device implements Electric, Navigable {
+        Car() { super("设备"); }
+        @Override public void charge()   { System.out.println("   补能中……"); }
         @Override public void navigate() { System.out.println("   导航中……"); }
         @Override public String describe() { return super.describe() + " · Car"; }
     }
@@ -29,15 +29,15 @@ class InheritanceInterfaceDemo {
     interface Alarm {
         default void alarm() { System.out.println("   （默认告警声）哔——"); }
     }
-    static class Car2 extends Vehicle implements Electric, Navigable, Alarm {
-        Car2() { super("越野车"); }
+    static class Car2 extends Device implements Electric, Navigable, Alarm {
+        Car2() { super("设备"); }
         @Override public void charge()   { System.out.println("   快充中……"); }
         @Override public void navigate() { System.out.println("   越野导航中……"); }
         // alarm() 不实现也能用——default 兜底
     }
 
     // 面向契约编程：函数只认接口，不关心具体类
-    static void goCharge(Electric e) { System.out.println("   [按 Electric 契约充电]"); e.charge(); }
+    static void goCharge(Electric e) { System.out.println("   [按 Electric 契约补能]"); e.charge(); }
     static void goNav(Navigable n)   { System.out.println("   [按 Navigable 契约导航]"); n.navigate(); }
 
     // ---- main ----
@@ -49,7 +49,7 @@ class InheritanceInterfaceDemo {
         goNav(car);      // Car 是 Navigable
 
         System.out.println("\n== 2. 动态分派：父类引用调子类实现 ==");
-        Vehicle v = new Car();        // 引用类型是 Vehicle，实际对象是 Car
+        Device v = new Car();        // 引用类型是 Device，实际对象是 Car
         System.out.println("   v.describe() = " + v.describe() + "   ← 运行期查 vtable，调的是 Car 的覆写");
 
         System.out.println("\n== 3. default 方法：接口演进不破坏实现者 ==");

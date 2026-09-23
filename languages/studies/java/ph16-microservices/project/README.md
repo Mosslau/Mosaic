@@ -52,7 +52,7 @@ $ curl -s http://localhost:18313/api/orders/1001 -H "Authorization: Bearer $TOKE
 
 # 4) 全链路聚合：gateway(验签+注入 alice) → order-service → user-service 取回用户名 alice
 $ curl -s http://localhost:18313/api/orders/1001 -H "Authorization: Bearer $TOKEN"
-{"code":0,"message":"ok","data":{"orderId":1001,"item":"电动车充电器","userName":"alice","degraded":false,"userServiceTraceId":"a53e123d-..."}}   [HTTP 200]
+{"code":0,"message":"ok","data":{"orderId":1001,"item":"电动补能电器","userName":"alice","degraded":false,"userServiceTraceId":"a53e123d-..."}}   [HTTP 200]
 
 # 5) X-Trace-Id 透传：响应头与聚合结果里的 userServiceTraceId 都是 curl-demo-trace-1
 $ curl -s -i http://localhost:18313/api/orders/1001 \
@@ -72,14 +72,14 @@ $ curl -s -X POST http://localhost:18313/api/auth/login \
 
 # 8) 降级：停掉 user-service 后仍可查订单详情（degraded=true 占位，HTTP 200）
 $ curl -s http://localhost:18312/api/orders/1001 -H 'X-Auth-User: alice'
-{"code":0,"message":"ok","data":{"orderId":1001,"item":"电动车充电器","userName":"（用户服务暂不可用，降级展示）","degraded":true,"userServiceTraceId":null}}   [HTTP 200]
+{"code":0,"message":"ok","data":{"orderId":1001,"item":"电动补能电器","userName":"（用户服务暂不可用，降级展示）","degraded":true,"userServiceTraceId":null}}   [HTTP 200]
 ```
 
 - 能画出链路并说出每跳在做什么：client → gateway（验签一次，注入身份头）→ order-service（聚合，身份头 + traceId 透传）→ user-service（按网关注入的身份头放行，返回用户名）；并说明与真实 Spring Cloud Gateway + 认证过滤器、OpenFeign、Nacos 的对应关系（主文档 3.2，见下）。
 
 ## 扩展方向
 
-- **接真实 Spring Cloud Gateway / OpenFeign / Nacos**（未在本环境验证，原因如实标注）：离线缓存里 Spring Cloud 2021.0.8 的 **jar 齐备**（starter-gateway/starter-openfeign、gateway-server、openfeign-core 为 3.1.8，commons 为 3.1.7——同列车组件版本不统一、均属 3.1.x；2026-09-02 复核），但 2021.x 对应 Boot 2.x（javax），与本项目 Boot 3.3.0 基线二进制不兼容——所以真实 Gateway/OpenFeign 只能讲机制（主文档 3.2 有完整路由/谓词/过滤器与声明式客户端对照），本项目用「手写 mini 网关 + RestClient」同构实测了同一套语义；换到真实组件时：网关路由表换成 `spring.cloud.gateway.routes` 配置（`Path=/api/orders/**` 谓词 + `StripPrefix` 过滤器）、下游调用换成 `@FeignClient` 接口 + 注册中心服务名、`user-service.base-url` 硬编码换成 Nacos 服务发现，鉴权过滤器与 X-Trace-Id 拦截器逻辑原样保留
+- **接真实 Spring Cloud Gateway / OpenFeign / Nacos**（未在本环境验证，原因如实标注）：离线缓存里 Spring Cloud 2021.0.8 的 **jar 齐备**（starter-gateway/starter-openfeign、gateway-server、openfeign-core 为 3.1.8，commons 为 3.1.7——同设备组件版本不统一、均属 3.1.x；2026-09-02 复核），但 2021.x 对应 Boot 2.x（javax），与本项目 Boot 3.3.0 基线二进制不兼容——所以真实 Gateway/OpenFeign 只能讲机制（主文档 3.2 有完整路由/谓词/过滤器与声明式客户端对照），本项目用「手写 mini 网关 + RestClient」同构实测了同一套语义；换到真实组件时：网关路由表换成 `spring.cloud.gateway.routes` 配置（`Path=/api/orders/**` 谓词 + `StripPrefix` 过滤器）、下游调用换成 `@FeignClient` 接口 + 注册中心服务名、`user-service.base-url` 硬编码换成 Nacos 服务发现，鉴权过滤器与 X-Trace-Id 拦截器逻辑原样保留
 - **幂等下单**：主文档阶段项目愿景里的「订单服务幂等下单」本骨架未做（当前只有 GET 聚合读）；加 `POST /api/orders` 时把 `examples/ex04` 的 Idempotency-Key 占位去重机制搬进来，下单前经 user-service 校验用户（其 `findById` 已带调用计数供白盒断言）
 - **韧性补全**：order-service 的 UserClient 目前是「超时一次即降级」；把 `examples/ex02` 的「瞬时故障重试一次 + 熔断」接上，注意只有幂等 GET 才敢重试
 - **身份与安全**：内网信任边界当前靠 `X-Auth-User`/`X-Auth-Role` 注入头，生产应加网络隔离/mTLS 或服务级凭证；JWT 密钥三处配置写死相同值仅为演示，生产走配置中心/环境变量注入

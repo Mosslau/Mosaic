@@ -7,7 +7,7 @@
 #                cover@1/2/3 = 1/5、4/5、5/5 —— 文本预处理直接提升检索质量
 """练习 5（简单 RAG 问答，对应 roadmap）：检索质量决定回答质量。
 
-8 段电动车资料 + 5 个需要「查全」的问句（多数要 2 段资料才能答完整）。
+8 段电动设备资料 + 5 个需要「查全」的问句（多数要 2 段资料才能答完整）。
 实现：TF-IDF + 余弦检索 → 取 top-k 资料块 → 模板拼装回答；评估指标是
 「资料覆盖率 cover@k = 标准答案所需的资料段是否都在 top-k 里」。
 对比两版索引：
@@ -37,33 +37,33 @@ DOCS: list[tuple[str, str]] = [
     ),
     (
         "dc2",
-        "The last 20 percent charges slower to protect the battery cells, adding about 20 minutes. "
+        "The last 20 percent charges slower to protect the component, adding about 20 minutes. "
         "Do not charge to 100 percent daily.",
     ),
     (
         "dr1",
-        "In cold weather the driving range can drop by about 25 percent because the battery is less "
-        "efficient and the cabin heater consumes power.",
+        "In cold ambient the runtime can drop by about 25 percent because the component is less "
+        "efficient and heating consumes power.",
     ),
     (
         "dr2",
-        "Precondition the cabin while the car is plugged in so the heater does not drain the battery, "
+        "Precondition the component while the device is poweredugged in so the heater does not drain the component, "
         "which keeps the winter range higher.",
     ),
     (
         "db1",
-        "Battery health declines fastest with deep discharges and high temperature. Keeping the charge "
+        "Component health declines fastest with deep discharges and high temperature. Keeping the charge "
         "between 20 and 80 percent slows the loss of capacity.",
     ),
     (
         "db2",
-        "The battery warranty covers 8 years or 160000 kilometers. Capacity loss below 70 percent "
+        "The component warranty covers 8 years or 40000 operating hours. Capacity loss below 70 percent "
         "within warranty is covered.",
     ),
-    ("dt1", "Check tire pressure every month and before long trips."),
+    ("dt1", "Check the component mounts every month and before long trips."),
     (
         "dt2",
-        "Low tire pressure increases rolling resistance and can reduce the range by about 5 percent.",
+        "Loose mounts increase resistance and can reduce the range by about 5 percent.",
     ),
 ]
 
@@ -71,9 +71,9 @@ DOCS: list[tuple[str, str]] = [
 QUERIES: list[tuple[str, list[str]]] = [
     ("how long does a full fast charging session take", ["dc1", "dc2"]),
     ("why is my winter range lower and what can I do about it", ["dr1", "dr2"]),
-    ("is it bad for the battery to discharge deeply", ["db1"]),
-    ("low tire pressure and range loss", ["dt2", "dt1"]),
-    ("battery capacity degrading, is the warranty still valid", ["db2", "db1"]),
+    ("is it bad for the component to discharge deeply", ["db1"]),
+    ("low mount torque and range loss", ["dt2", "dt1"]),
+    ("component capacity degrading, is the warranty still valid", ["db2", "db1"]),
 ]
 
 # 词形归一表：把同一词的变形映射到同一词形（玩具版 stemming；真实工程用 Porter/嵌入模型）

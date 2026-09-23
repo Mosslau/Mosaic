@@ -1,8 +1,8 @@
-# project/pyproject.toml —— 电池健康预测服务部署模板：依赖 + ruff / pytest 配置
+# project/pyproject.toml —— 部件健康预测服务部署模板：依赖 + ruff / pytest 配置
 [project]
-name = "bhealth-api"
+name = "health-api"
 version = "0.1.0"
-description = "ph16 阶段项目：电池健康预测服务的部署模板（健康检查 + 指标端点 + 模型产物加载）"
+description = "ph16 阶段项目：部件健康预测服务的部署模板（健康检查 + 指标端点 + 模型产物加载）"
 requires-python = ">=3.11"
 # 运行期依赖；scikit-learn 只有加载 joblib 产物/训练时才需要（规则兜底模式不需要）
 dependencies = [

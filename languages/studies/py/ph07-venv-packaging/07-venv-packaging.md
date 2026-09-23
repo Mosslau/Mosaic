@@ -343,7 +343,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "can-toolkit"
 version = "0.1.0"
-description = "CAN 报文分析小工具"
+description = "BUS 报文分析小工具"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

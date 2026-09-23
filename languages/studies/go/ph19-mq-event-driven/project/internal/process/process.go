@@ -23,19 +23,19 @@ var (
 )
 
 // Processor 处理一条原始消息：解码 + schema 校验 + 落快照。
-// flaky 非 nil 时模拟"下游短暂抖动"：对该车辆的前 n 次处理返回可重试错误，
+// flaky 非 nil 时模拟"下游短暂抖动"：对该设备的前 n 次处理返回可重试错误，
 // 让消费端的重试路径在数据集里可见（离线可复现，不靠随机）。
 type Processor struct {
 	snap *store.SnapshotStore
-	// flake 记录"哪个车辆的前 N 次处理会抖动"。
+	// flake 记录"哪个设备的前 N 次处理会抖动"。
 	flake  string
 	remain int
 }
 
 // New 构造 processor：snap 是副作用落库目标。
-// flakyVehicle/flakyTimes 为 0 时禁用抖动模拟。
-func New(snap *store.SnapshotStore, flakyVehicle string, flakyTimes int) *Processor {
-	return &Processor{snap: snap, flake: flakyVehicle, remain: flakyTimes}
+// flakyDevice/flakyTimes 为 0 时禁用抖动模拟。
+func New(snap *store.SnapshotStore, flakyDevice string, flakyTimes int) *Processor {
+	return &Processor{snap: snap, flake: flakyDevice, remain: flakyTimes}
 }
 
 // Process 处理一条消息。返回 nil 表示成功；返回的 error 由 consumer 分类：
@@ -51,9 +51,9 @@ func (p *Processor) Process(m model.Message) error {
 		return fmt.Errorf("%w: got v%d, want v%d", ErrSchema, e.SchemaVersion, model.SchemaV1)
 	}
 	// 3. 模拟下游抖动（真实工程这里是 DB/分析服务超时等瞬时故障）。
-	if p.flake != "" && p.remain > 0 && e.VehicleID == p.flake {
+	if p.flake != "" && p.remain > 0 && e.DeviceID == p.flake {
 		p.remain--
-		return fmt.Errorf("模拟下游抖动：%s 的这次处理超时", e.VehicleID)
+		return fmt.Errorf("模拟下游抖动：%s 的这次处理超时", e.DeviceID)
 	}
 	// 3. 落快照（副作用；已通过幂等检查的键才会走到这里）。
 	p.snap.Apply(e)

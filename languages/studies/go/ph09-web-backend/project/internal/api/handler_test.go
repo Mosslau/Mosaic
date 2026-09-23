@@ -1,4 +1,4 @@
-// 来源：ph09-web-backend 阶段项目 —— 车辆数据上报 API（internal/api 包）
+// 来源：ph09-web-backend 阶段项目 —— 设备数据上报 API（internal/api 包）
 // 一句话说明：接口层 httptest 测试——认证换 token、列表/详情、上报全链路
 // （鉴权/归属/校验/限流/404）、健康检查；错误结构断言。
 // 验证环境：go1.25.6（darwin/arm64）
@@ -18,16 +18,16 @@ import (
 	"testing"
 	"time"
 
-	"tenetlang/go/ph09-web-backend/project/internal/vehicle"
+	"tenetlang/go/ph09-web-backend/project/internal/device"
 )
 
 const testSecret = "project-test-secret"
 
-// newTestHandler 限流放开（1 分钟 100 次，测试不影响），种子 2 台车
+// newTestHandler 限流放开（1 分钟 100 次，测试不影响），种子 2 台设备
 func newTestHandler() http.Handler {
-	store := vehicle.NewMemoryStore(
-		vehicle.Vehicle{ID: "car-001", Status: "online", Speed: 60.5, Secret: "sec-1"},
-		vehicle.Vehicle{ID: "car-002", Status: "offline", Speed: 0, Secret: "sec-2"},
+	store := device.NewMemoryStore(
+		device.Device{ID: "car-001", Status: "online", Speed: 60.5, Secret: "sec-1"},
+		device.Device{ID: "car-002", Status: "offline", Speed: 0, Secret: "sec-2"},
 	)
 	return NewHandler(store, []byte(testSecret), 100, time.Minute)
 }
@@ -126,24 +126,24 @@ func TestReportFlow(t *testing.T) {
 	if rec := do(t, h, "POST", "/api/devices/car-001/report", `{"speed":80,"lat":91,"lng":121.5}`, token); rec.Code != http.StatusBadRequest {
 		t.Errorf("非法纬度状态码 = %d, 期望 400", rec.Code)
 	}
-	// 正常上报 → 200，车辆状态更新为 online、速度更新
+	// 正常上报 → 200，设备状态更新为 online、速度更新
 	rec := do(t, h, "POST", "/api/devices/car-001/report", `{"speed":88.5,"lat":31.2,"lng":121.5}`, token)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("正常上报状态码 = %d, 期望 200, 响应: %s", rec.Code, rec.Body.String())
 	}
-	var v vehicle.Vehicle
+	var v device.Device
 	if err := json.Unmarshal(rec.Body.Bytes(), &v); err != nil {
 		t.Fatalf("上报响应解析失败: %v", err)
 	}
 	if v.Speed != 88.5 || v.Status != "online" {
-		t.Errorf("上报后车辆 = %+v, 期望 speed=88.5 status=online", v)
+		t.Errorf("上报后设备 = %+v, 期望 speed=88.5 status=online", v)
 	}
 }
 
 // TestReportRateLimit 每设备限流：窗口内超过 N 次返回 429（用极小 limit 验证）
 func TestReportRateLimit(t *testing.T) {
-	store := vehicle.NewMemoryStore(
-		vehicle.Vehicle{ID: "car-001", Status: "online", Secret: "sec-1"},
+	store := device.NewMemoryStore(
+		device.Device{ID: "car-001", Status: "online", Secret: "sec-1"},
 	)
 	h := NewHandler(store, []byte(testSecret), 3, time.Minute) // 每设备每分钟 3 次
 	token := deviceToken(t, h, "car-001", "sec-1")

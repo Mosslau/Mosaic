@@ -107,7 +107,7 @@ class Component:
     def info(self):
         return f"{self.name} [SN:{self.sn}]"
 
-class Battery(Component):
+class Component(Component):
     def __init__(self, name, sn, capacity_kwh, soc=100):
         super().__init__(name, sn)          # 必须调用父类 __init__
         self.capacity = capacity_kwh
@@ -118,12 +118,12 @@ class Battery(Component):
     def discharge(self, amount):
         self.soc = max(0, self.soc - amount)
 
-b = Battery("高压电池", "BAT-001", 70.0)
-print(b.info())                        # 高压电池 [SN:BAT-001] 容量=70.0kWh SOC=100%
+b = Component("高压部件", "BAT-001", 70.0)
+print(b.info())                        # 高压部件 [SN:BAT-001] 容量=70.0kWh SOC=100%
 b.discharge(15)
 print(f"SOC: {b.soc}%")               # SOC: 85%
 print(isinstance(b, Component))       # True
-print(issubclass(Battery, Component)) # True
+print(issubclass(Component, Component)) # True
 ```
 
 **关键**：子类必须在 `__init__` 中调用 `super().__init__()`，否则父类实例变量不初始化。
@@ -184,9 +184,9 @@ print(cfg._Config__api_key)      # sk-abc12345 —— 仍可强制访问
 `@property` 让方法像属性一样访问，适合需校验/只读/计算的属性。不需要校验直接用实例变量。
 
 ```python
-class Vehicle:
-    def __init__(self, vin, speed=0):
-        self.vin = vin
+class Device:
+    def __init__(self, device_id, speed=0):
+        self.device_id = device_id
         self._speed = speed
 
     @property
@@ -201,7 +201,7 @@ class Vehicle:
             raise ValueError(f"速度不能超过 240: {value}")
         self._speed = value         # setter：像赋值
 
-v = Vehicle("VIN12345")
+v = Device("DEVICE_ID12345")
 v.speed = 120          # 调用 setter
 print(v.speed)         # 120 —— 调用 getter
 try:
@@ -220,12 +220,12 @@ except ValueError as e:
 | 典型用途 | 操作具体对象 | 归类于此的工具函数 | 工厂方法 |
 
 ```python
-class BatteryPack:
+class ComponentPack:
     nominal_voltage = 400.0
     def __init__(self, capacity, module_count):
         self.capacity = capacity; self.module_count = module_count
     def energy(self):                      # 实例方法
-        return self.capacity * BatteryPack.nominal_voltage / 1000.0
+        return self.capacity * ComponentPack.nominal_voltage / 1000.0
     @staticmethod
     def kwh_to_ah(kwh, voltage=400.0):     # 工具函数
         return kwh * 1000.0 / voltage
@@ -233,10 +233,10 @@ class BatteryPack:
     def from_energy(cls, kwh, module_count):  # 工厂方法
         return cls(kwh * 1000.0 / cls.nominal_voltage, module_count)
 
-pack = BatteryPack(200.0, 8)
+pack = ComponentPack(200.0, 8)
 print(f"能量: {pack.energy():.1f}kWh")             # 能量: 80.0kWh
-print(f"60kWh={BatteryPack.kwh_to_ah(60):.0f}Ah")  # 60kWh=150Ah
-p2 = BatteryPack.from_energy(100.0, 12)
+print(f"60kWh={ComponentPack.kwh_to_ah(60):.0f}Ah")  # 60kWh=150Ah
+p2 = ComponentPack.from_energy(100.0, 12)
 print(f"容量: {p2.capacity:.0f}Ah, 模组: {p2.module_count}")  # 容量: 250Ah, 模组: 12
 ```
 
@@ -245,29 +245,29 @@ print(f"容量: {p2.capacity:.0f}Ah, 模组: {p2.module_count}")  # 容量: 250A
 魔术方法（dunder methods）让对象融入语言协议——可打印、可比较、可作容器使用。
 
 ```python
-class Battery:
+class Component:
     def __init__(self, name, cap, soc):
         self.name = name; self.cap = cap; self.soc = soc
     def __str__(self):       # print()/str() —— 给用户看
-        return f"Battery({self.name}, {self.cap}kWh, SOC={self.soc}%)"
+        return f"Component({self.name}, {self.cap}kWh, SOC={self.soc}%)"
     def __repr__(self):      # repr()/调试 —— 给开发者看
-        return f"Battery({self.name!r}, {self.cap!r}, {self.soc!r})"
+        return f"Component({self.name!r}, {self.cap!r}, {self.soc!r})"
     def __eq__(self, other): # == 比较
-        if not isinstance(other, Battery): return NotImplemented
+        if not isinstance(other, Component): return NotImplemented
         return self.name == other.name
     def __hash__(self):      # 放入 set/dict key 的前提
         return hash(self.name)
     def __lt__(self, other): # < 比较，按 SOC 排序
-        if not isinstance(other, Battery): return NotImplemented
+        if not isinstance(other, Component): return NotImplemented
         return self.soc < other.soc
 
-b1 = Battery("BT-001", 70.0, 85)
-b2 = Battery("BT-001", 70.0, 85)
-b3 = Battery("BT-002", 50.0, 60)
-print(b1)                       # Battery(BT-001, 70.0kWh, SOC=85%)  —— __str__
-print(repr(b1))                 # Battery('BT-001', 70.0, 85)       —— __repr__
+b1 = Component("BT-001", 70.0, 85)
+b2 = Component("BT-001", 70.0, 85)
+b3 = Component("BT-002", 50.0, 60)
+print(b1)                       # Component(BT-001, 70.0kWh, SOC=85%)  —— __str__
+print(repr(b1))                 # Component('BT-001', 70.0, 85)       —— __repr__
 print(b1 == b2, len({b1, b2, b3}))  # True 2 —— __eq__/__hash__：同名即重复
-print(sorted([b1, b3])[0])      # Battery(BT-002, ...) —— __lt__ 按 SOC
+print(sorted([b1, b3])[0])      # Component(BT-002, ...) —— __lt__ 按 SOC
 ```
 
 六种最常用魔术方法速查：
@@ -368,10 +368,10 @@ print(isinstance(StepperMotor("x", 100), Motor))  # True
 
 完整文件：`examples/ex02-inherit-polymorphism.py`
 
-### 示例 3：@property —— 电池 SOC 边界保护
+### 示例 3：@property —— 部件 SOC 边界保护
 
 ```python
-class Battery:
+class Component:
     def __init__(self, cap):
         self.cap = cap; self._soc = 100.0
     @property
@@ -387,7 +387,7 @@ class Battery:
         if n < 0: raise ValueError(f"过放: 当前{self._soc}%")
         self._soc = n
 
-b = Battery(70.0)
+b = Component(70.0)
 print(f"SOC={b.soc}% 可用={b.available:.1f}kWh")  # SOC=100.0% 可用=70.0kWh
 b.discharge(30); print(f"SOC={b.soc}%")            # SOC=70.0%
 b.charge(15);    print(f"SOC={b.soc}%")            # SOC=85.0%
@@ -395,7 +395,7 @@ try: b.discharge(200)
 except ValueError as e: print(f"失败: {e}")
 ```
 
-完整文件：`examples/ex03-property-battery.py`
+完整文件：`examples/ex03-property-component.py`
 
 ### 示例 4：魔术方法 —— 设备容器支持 len/索引/比较
 
@@ -511,7 +511,7 @@ mgr.online_all(); mgr.comps[2].control(60); mgr.report()
 
 ### 动手练习
 
-本阶段练习见 [exercises/](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）：学生类、车辆类、传感器类、配置管理类共 4 题。完成 4 题后继续。
+本阶段练习见 [exercises/](./exercises/)（题目在 exercises/README.md，参考实现 sol-* 先别看）：学生类、设备类、传感器类、配置管理类共 4 题。完成 4 题后继续。
 
 ### 阶段项目
 

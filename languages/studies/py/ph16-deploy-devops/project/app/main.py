@@ -24,12 +24,12 @@ from app.predictor import FEATURES, Predictor, load_predictor
 
 
 class Condition(BaseModel):
-    """电池工况输入（特征顺序与 train.py 训练时一致）。"""
+    """部件工况输入（特征顺序与 train.py 训练时一致）。"""
 
     cycles: float = Field(ge=0, description="累计充放电循环次数")
     avg_temp: float = Field(description="平均工作温度 °C")
     depth: float = Field(ge=0, le=100, description="平均放电深度 %")
-    c_rate: float = Field(gt=0, description="平均充电倍率 C")
+    c_rate: float = Field(gt=0, description="平均补能倍率 C")
 
     def features(self) -> list[float]:
         return [self.cycles, self.avg_temp, self.depth, self.c_rate]
@@ -49,7 +49,7 @@ def create_app() -> FastAPI:
         yield
         state["predictor"] = None
 
-    app = FastAPI(title="bhealth-api", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="health-api", version="0.1.0", lifespan=lifespan)
 
     @app.middleware("http")
     async def count_requests(request: Request, call_next):  # type: ignore[no-untyped-def]
@@ -72,17 +72,17 @@ def create_app() -> FastAPI:
 
     @app.post("/predict")
     def predict(cond: Condition, response: Response) -> dict[str, object]:
-        """SOH 推理；未就绪时 503（宁缺毋滥，不拿没加载好的模型骗人）。"""
+        """HEALTH 推理；未就绪时 503（宁缺毋滥，不拿没加载好的模型骗人）。"""
         predictor = state["predictor"]
         if predictor is None:
             response.status_code = 503
             return {"error": "model not ready"}
         t0 = time.perf_counter()
-        soh = predictor.predict_soh(cond.features())
+        health = predictor.predict_health(cond.features())
         metrics.record_predict(time.perf_counter() - t0)
         return {
-            "soh": round(soh, 1),
-            "grade": "健康" if soh >= 90 else ("退化" if soh >= 80 else "临界"),
+            "health": round(health, 1),
+            "grade": "健康" if health >= 90 else ("退化" if health >= 80 else "临界"),
             "model_type": predictor.model_type,
             "features": FEATURES,
         }

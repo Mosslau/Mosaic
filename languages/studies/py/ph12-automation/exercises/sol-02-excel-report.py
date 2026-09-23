@@ -3,7 +3,7 @@
 # 验证环境：Python 3.13.9，openpyxl 3.1.5（pip install openpyxl）
 # 运行：python3 sol-02-excel-report.py（离线可跑，已验证；xlsx 写入系统临时目录）
 # 验证状态：已验证 —— 实测输出（本机 Python 3.13.9 + openpyxl 3.1.5 实际运行）：
-#   CSV 输入 -> 12 行遥测数据（3 车 × 4 条）
+#   CSV 输入 -> 12 行遥测数据（3 台设备 × 4 条）
 #   工作簿 -> 2 个 Sheet：原始数据（13 行 × 4 列）、汇总（4 行 × 4 列）
 #   汇总 -> EV-001: 4 条 平均速度 56.25 平均电量 85.0
 #           EV-002: 4 条 平均速度 49.75 平均电量 89.5
@@ -38,21 +38,21 @@ def make_csv(work: Path) -> Path:
     csv_path = work / "telemetry.csv"
     with csv_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(["时间", "车辆", "速度", "电量"])
+        writer.writerow(["时间", "设备", "速度", "电量"])
         writer.writerows(TELEMETRY)
     return csv_path
 
 
 def summarize(rows: list[tuple]) -> list[tuple]:
-    """按车辆分组求 记录数 / 平均速度 / 平均电量。"""
+    """按设备分组求 记录数 / 平均速度 / 平均电量。"""
     groups: dict[str, list[tuple[int, int]]] = defaultdict(list)
-    for _ts, vehicle, speed, soc in rows:
-        groups[vehicle].append((speed, soc))
+    for _ts, device, speed, soc in rows:
+        groups[device].append((speed, soc))
     result = []
-    for vehicle in sorted(groups):
-        speeds = [s for s, _ in groups[vehicle]]
-        socs = [c for _, c in groups[vehicle]]
-        result.append((vehicle, len(groups[vehicle]),
+    for device in sorted(groups):
+        speeds = [s for s, _ in groups[device]]
+        socs = [c for _, c in groups[device]]
+        result.append((device, len(groups[device]),
                        round(sum(speeds) / len(speeds), 2),
                        round(sum(socs) / len(socs), 2)))
     return result
@@ -62,12 +62,12 @@ def build_workbook(rows: list[tuple], summary: list[tuple], out: Path) -> None:
     wb = Workbook()
     ws_raw = wb.active
     ws_raw.title = "原始数据"
-    ws_raw.append(["时间", "车辆", "速度", "电量"])
+    ws_raw.append(["时间", "设备", "速度", "电量"])
     for r in rows:
         ws_raw.append(r)
 
     ws_sum = wb.create_sheet("汇总")
-    ws_sum.append(["车辆", "记录数", "平均速度", "平均电量"])
+    ws_sum.append(["设备", "记录数", "平均速度", "平均电量"])
     for s in summary:
         ws_sum.append(s)
     for sheet in (ws_raw, ws_sum):
@@ -80,14 +80,14 @@ def build_workbook(rows: list[tuple], summary: list[tuple], out: Path) -> None:
 def main() -> None:
     work = Path(tempfile.mkdtemp(prefix="ph12-sol02-"))
     make_csv(work)  # 造 CSV 输入（模拟系统导出的原始数据）
-    print("CSV 输入 ->", len(TELEMETRY), "行遥测数据（3 车 × 4 条）")
+    print("CSV 输入 ->", len(TELEMETRY), "行遥测数据（3 台设备 × 4 条）")
 
     summary = summarize(TELEMETRY)
     out = work / "telemetry-report.xlsx"
     build_workbook(TELEMETRY, summary, out)
     print("工作簿 -> 2 个 Sheet：原始数据（13 行 × 4 列）、汇总（4 行 × 4 列）")
-    for vehicle, n, avg_speed, avg_soc in summary:
-        print("汇总 ->", vehicle, ":", n, "条 平均速度", avg_speed, "平均电量", avg_soc)
+    for device, n, avg_speed, avg_soc in summary:
+        print("汇总 ->", device, ":", n, "条 平均速度", avg_speed, "平均电量", avg_soc)
 
     wb2 = load_workbook(out)  # 重新打开核对：数字可审计
     ws_sum = wb2["汇总"]

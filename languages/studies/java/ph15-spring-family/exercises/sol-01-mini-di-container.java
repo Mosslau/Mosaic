@@ -78,12 +78,12 @@ final class MiniDiContainer {
         // 场景 1：构造器注入 —— Car 需要 Engine，容器递归创建并注入
         MiniDiContainer container = new MiniDiContainer();
         Car car = container.get(Car.class);
-        expect(asserts, "car.drive() 用的是注入的引擎", "driving with engine #1".equals(car.drive()));
+        expect(asserts, "device.run() 用的是注入的引擎", "running with engine #1".equals(device.run()));
 
         // 场景 2：单例共享 —— 两次 get 同一实例，且引擎也只有一个
         Car again = container.get(Car.class);
         expect(asserts, "两次 get(Car) 是同一单例", car == again);
-        expect(asserts, "两辆车的引擎是同一个单例", car.engine() == again.engine());
+        expect(asserts, "两台设备的引擎是同一个单例", car.engine() == again.engine());
 
         // 场景 3：循环依赖检测 —— A 要 B、B 要 A，启动即报错而不是死循环
         MiniDiContainer bad = new MiniDiContainer();
@@ -124,7 +124,7 @@ final class MiniDiContainer {
         }
 
         String drive() {
-            return "driving with engine #" + engine.serial();
+            return "running with engine #" + engine.serial();
         }
 
         Engine engine() {

@@ -21,7 +21,7 @@
 
 - `ex01`：`create_user -> id: 1`；批量后总行数 `3`；重复 email 抛 `IntegrityError`（UNIQUE constraint failed: users.email）；`update_user` rowcount `1`；`delete_user` rowcount `1`、剩余 `2`
 - `ex02`：初始 `[('A', 1000.0), ('B', 0.0)]`；转账 2000 失败回滚后余额不变；转账 300 成功后 `[('A', 700.0), ('B', 300.0)]`；SAVEPOINT 回滚只撤销 savepoint 之后的操作
-- `ex03`：两万行按 vin 查询——无索引执行计划 `SCAN devices`、耗时 `0.34 ms`；加索引后 `SEARCH devices USING INDEX idx_devices_vin (vin=?)`、耗时 `0.02 ms`（约 17 倍差距）
+- `ex03`：两万行按 device_id 查询——无索引执行计划 `SCAN devices`、耗时 `0.34 ms`；加索引后 `SEARCH devices USING INDEX idx_devices_device_id (device_id=?)`、耗时 `0.02 ms`（约 17 倍差距）
 - `ex04`：Core `text()` 查询 `[('Alice',)]`；ORM `echo=True` 打印生成的 `INSERT`/`SELECT`；池状态从「Connections in pool: 0」到「借出 1 条后 Checked out: 1」再到「归还后 pool: 1」
 - `ex05`：v1~v4 按序应用、当前版本 `4`；再次执行跳过全部（幂等）；含 v2/v4 列的数据插入成功
 - `ex06`：`SET + GET` 返回 JSON；TTL `60` 秒、`EXPIRE` 调为 `120`；缓存旁路——首次 `miss 302 ms` → 第二次 `hit 0.1 ms`（快约 3000 倍量级）→ TTL 过期后重新 `miss 305 ms`；脚本结束打印「redis-server 已关闭，临时目录已回收」

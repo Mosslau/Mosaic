@@ -21,8 +21,8 @@
 **要求**：定义 `Device` struct（ID、Type、Status、CPU、Mem）；实现添加设备、更新状态/指标（回写）、按 Status 筛选（返回 `[]Device`，结果按 ID 排序保证稳定）、统计在线设备数与总数。
 **验收**：`filterByStatus(devices, "online")` 只返回 Status 为 online 的设备且按 ID 有序；更新某设备后查询显示新值。
 
-## 练习 4：map + struct 管理车辆数据（★★★）
+## 练习 4：map + struct 管理设备数据（★★★）
 
-**目标**：用 struct 组合表达车辆，map 做 VIN 快速索引。
-**要求**：定义 `Motor`、`Battery`、`Vehicle`（Vehicle 匿名嵌入前两者）；用 `map[string]Vehicle` 以 VIN 为键管理车队；实现增、查（直接访问提升字段）、改（回写）、删；实现 `fleetStats` 统计平均电量与运行中（`Enabled` 为 true）车辆数；按 VIN 排序列出全部车辆。
-**验收**：能按 VIN 查询并直接读 `v.Speed`、`v.Level` 等提升字段；`fleetStats` 返回的平均电量与运行中数量正确；删除后列表规模减一。
+**目标**：用 struct 组合表达设备，map 做 DEVICE_ID 快速索引。
+**要求**：定义 `Motor`、`Component`、`Device`（Device 匿名嵌入前两者）；用 `map[string]Device` 以 DEVICE_ID 为键管理设备组；实现增、查（直接访问提升字段）、改（回写）、删；实现 `fleetStats` 统计平均电量与运行中（`Enabled` 为 true）设备数；按 DEVICE_ID 排序列出全部设备。
+**验收**：能按 DEVICE_ID 查询并直接读 `v.Speed`、`v.Level` 等提升字段；`fleetStats` 返回的平均电量与运行中数量正确；删除后列表规模减一。

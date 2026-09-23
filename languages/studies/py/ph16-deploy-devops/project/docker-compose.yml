@@ -4,12 +4,12 @@
 # 验证状态：语法已验证（`docker compose config` 离线解析通过，本机实测）；
 #           未实际构建/启动（daemon 未启动）——在 daemon 可用的机器上：
 #   # 1. 先在本机训出产物（或从发布物里拿）
-#   python3 train.py   # 默认写 /tmp/bhealth-api-model/model.joblib
+#   python3 train.py   # 默认写 /tmp/health-api-model/model.joblib
 #   # 2. 启动（把产物目录挂进容器）
 #   docker compose up -d --build
 #   # 3. 验证：服务健康 + Prometheus 抓到了指标
 #   curl http://127.0.0.1:8000/ready
-#   open http://127.0.0.1:9090  # Prometheus 的 Status → Targets 应看到 bhealth-api UP
+#   open http://127.0.0.1:9090  # Prometheus 的 Status → Targets 应看到 health-api UP
 
 services:
   web:
@@ -19,7 +19,7 @@ services:
     environment:
       MODEL_PATH: /models/model.joblib
     volumes:
-      - /tmp/bhealth-api-model:/models:ro # 产物只读挂载（教学环境从 /tmp 拿；生产走制品库）
+      - /tmp/health-api-model:/models:ro # 产物只读挂载（教学环境从 /tmp 拿；生产走制品库）
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/health')"]
       interval: 10s

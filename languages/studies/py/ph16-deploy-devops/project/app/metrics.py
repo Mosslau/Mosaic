@@ -40,23 +40,23 @@ class MetricsRegistry:
         """导出 Prometheus 文本格式（Gauge/Counter/Histogram 的最小骨架）。"""
         with self._lock:
             lines = [
-                "# HELP bhealth_requests_total HTTP 请求总数（按端点与状态码）",
-                "# TYPE bhealth_requests_total counter",
+                "# HELP health_requests_total HTTP 请求总数（按端点与状态码）",
+                "# TYPE health_requests_total counter",
             ]
             for (endpoint, status), count in sorted(self._requests.items()):
                 labels = f'endpoint="{endpoint}",status="{status}"'
-                lines.append(f"bhealth_requests_total{{{labels}}} {count}")
+                lines.append(f"health_requests_total{{{labels}}} {count}")
             lines += [
-                "# HELP bhealth_predict_seconds 预测耗时（histogram，count/sum 骨架）",
-                "# TYPE bhealth_predict_seconds histogram",
-                f"bhealth_predict_seconds_count {self._predict_count}",
-                f"bhealth_predict_seconds_sum {self._predict_sum:.6f}",
-                "# HELP bhealth_model_info 当前推理后端（1 = 生效；label 是类型）",
-                "# TYPE bhealth_model_info gauge",
-                f'bhealth_model_info{{model_type="{self.model_type}"}} 1',
-                "# HELP bhealth_uptime_seconds 进程运行秒数",
-                "# TYPE bhealth_uptime_seconds gauge",
-                f"bhealth_uptime_seconds {time.monotonic() - self._started_at:.1f}",
+                "# HELP health_predict_seconds 预测耗时（histogram，count/sum 骨架）",
+                "# TYPE health_predict_seconds histogram",
+                f"health_predict_seconds_count {self._predict_count}",
+                f"health_predict_seconds_sum {self._predict_sum:.6f}",
+                "# HELP health_model_info 当前推理后端（1 = 生效；label 是类型）",
+                "# TYPE health_model_info gauge",
+                f'health_model_info{{model_type="{self.model_type}"}} 1',
+                "# HELP health_uptime_seconds 进程运行秒数",
+                "# TYPE health_uptime_seconds gauge",
+                f"health_uptime_seconds {time.monotonic() - self._started_at:.1f}",
                 "",
             ]
         return "\n".join(lines)

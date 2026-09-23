@@ -9,7 +9,7 @@
 | `ex02-docker-multistage/` | 多阶段构建 Dockerfile（builder/runtime 分离、缓存顺序、非 root）+ 最小 app + .dockerignore（主文档 3.2/4.3） | 未在本环境验证（daemon 未启动）；daemon 可用时 `docker build -t ex02-demo .` |
 | `ex03-docker-compose/docker-compose.yml` | web + postgres 编排：健康依赖、数据卷、restart（主文档 3.3） | 语法已验证（`docker compose config` 离线解析通过）；未实际启动 |
 | `ex04-nginx/nginx.conf` | Nginx 反代完整配置：upstream 池、静态分流、真实 IP 透传（主文档 3.4） | 语法已验证（本机 `nginx -t` 通过，mime.types 需在 conf 同目录）；未起真实链路 |
-| `ex05-systemd-metrics/bhealth-api.service` | systemd unit：开机自启、崩溃拉起、日志进 journald（主文档 3.5） | 未在本环境验证（macOS 无 systemd） |
+| `ex05-systemd-metrics/health-api.service` | systemd unit：开机自启、崩溃拉起、日志进 journald（主文档 3.5） | 未在本环境验证（macOS 无 systemd） |
 | `ex05-supervisord/supervisord.conf` | Supervisor 等价守护配置（INI；supervisorctl 命令表见文件头，主文档 3.5） | 未在本环境验证（本机未装 Supervisor） |
 | `ex05-systemd-metrics/service.py` + `check_metrics.py` | 手写最小 Prometheus /metrics 端点（Counter/Histogram/Gauge）+ 实测验证（主文档 3.7） | `python3 check_metrics.py`（离线，已验证） |
 | `ex06-ci-cd.yml` | GitHub Actions 流水线：触发过滤 + concurrency + matrix + quality/image 门禁 → lint → test → 镜像构建（主文档 3.6） | YAML 语法已验证（本机 yaml.safe_load 解析通过）；未推到 GitHub 实际运行 |
@@ -23,7 +23,7 @@
 
 验证状态（本机实测输出）：
 
-- `ex01`：`GET /health → 200 {"status": "ok"}`；`GET /ready → 200`；`POST /predict`（1500 次循环/25°C/DoD 80%/1C）→ `{"soh": 80.5}`；故障注入后 `/ready → 503` 而 `/health` 仍 200；SIGTERM 后退出码 -15（shell 143），脚本从捕获的 stderr 断言优雅关停日志（`INFO: Shutting down` / `INFO: Finished server process`）
+- `ex01`：`GET /health → 200 {"status": "ok"}`；`GET /ready → 200`；`POST /predict`（1500 次循环/25°C/DoD 80%/1C）→ `{"health": 80.5}`；故障注入后 `/ready → 503` 而 `/health` 仍 200；SIGTERM 后退出码 -15（shell 143），脚本从捕获的 stderr 断言优雅关停日志（`INFO: Shutting down` / `INFO: Finished server process`）
 - `ex03`：`docker compose config` 离线解析通过（daemon 未启动，未实际 `up`）
 - `ex04`：`nginx -t` → `syntax is ok` / `test is successful`（Homebrew nginx 1.31.2）
 - `ex05`：打 3 次 /predict 后 `/metrics` 实测输出 `demo_requests_total{endpoint="predict"} 3`、`demo_predict_seconds_count 3`、`demo_uptime_seconds` Gauge 正常

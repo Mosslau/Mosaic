@@ -58,7 +58,7 @@ public final class DeviceEmitter {
                         type,
                         severity,
                         switch (type) {
-                            case "alarm" -> "battery low / overheat on " + sn;
+                            case "alarm" -> "component low / overheat on " + sn;
                             case "heartbeat" -> "heartbeat ok from " + sn;
                             default -> "location report from " + sn;
                         },

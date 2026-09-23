@@ -15,8 +15,8 @@ import (
 	"time"
 )
 
-// VehicleEvent 车辆事件（MsgID 是幂等键，producer 保证唯一、重投不变）。
-type VehicleEvent struct {
+// DeviceEvent 设备事件（MsgID 是幂等键，producer 保证唯一、重投不变）。
+type DeviceEvent struct {
 	MsgID string
 	CarID string
 	Kind  string // e.g. telemetry / alarm
@@ -84,7 +84,7 @@ func (d *DedupeWindow) purgeLocked(now time.Time) {
 
 // Sink 副作用出口：真实工程是 DB/下游，这里只要求"对一个事件生效一次"。
 type Sink interface {
-	Apply(e VehicleEvent) error
+	Apply(e DeviceEvent) error
 }
 
 // IdempotentConsumer 幂等消费循环：去重层包在业务外层，业务自身不再关心重复。
@@ -103,7 +103,7 @@ func NewIdempotentConsumer(dedup *DedupeWindow, sink Sink) *IdempotentConsumer {
 // 顺序：先 CheckAndMark（预约）再 Apply；Apply 失败回滚预约（Forget），
 // 让重投有机会重试。诚实边界：预约与生效之间进程崩溃仍可能丢消息或重放，
 // 真正的 exactly-once 需要 outbox/事务把"记账与副作用"做成原子（主文档 3.9）。
-func (c *IdempotentConsumer) Consume(e VehicleEvent) (applied bool, err error) {
+func (c *IdempotentConsumer) Consume(e DeviceEvent) (applied bool, err error) {
 	now := c.now()
 	if c.dedup.CheckAndMark(e.MsgID, now) {
 		return false, nil // 窗口内重复投递：跳过副作用
@@ -118,11 +118,11 @@ func (c *IdempotentConsumer) Consume(e VehicleEvent) (applied bool, err error) {
 // DuplicateCounterSink 演示用副作用 sink：只统计首次生效的事件。
 type DuplicateCounterSink struct {
 	mu      sync.Mutex
-	applied []VehicleEvent
+	applied []DeviceEvent
 }
 
 // Apply 记录事件（演示副作用：append 到列表）。
-func (s *DuplicateCounterSink) Apply(e VehicleEvent) error {
+func (s *DuplicateCounterSink) Apply(e DeviceEvent) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.applied = append(s.applied, e)

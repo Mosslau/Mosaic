@@ -2,7 +2,7 @@
 # examples/ex01-fastapi-health/check_service.py —— 真实 uvicorn 子进程 + httpx 打健康检查端点
 # 验证环境：Python 3.13.9（macOS arm64）+ fastapi 0.139.1 + uvicorn 0.50.0 + httpx 0.28.1
 # 运行：python3 check_service.py（在本目录执行；离线可跑，已验证）
-# 验证状态：已验证 —— 实测起真实 uvicorn 服务，/health 200、/ready 200、/predict soh=80.5，
+# 验证状态：已验证 —— 实测起真实 uvicorn 服务，/health 200、/ready 200、/predict health=80.5，
 #           故障注入后 /ready 变 503 而 /health 仍 200；SIGTERM 后退出码 -15（shell 143），
 #           并从捕获的 stderr 断言优雅关停日志 "Shutting down" 与 "Finished server process"
 #           2026-09 复跑实测：uvicorn 0.50.0（Python 3.13.9, macOS arm64）优雅关停日志齐备后
@@ -69,7 +69,7 @@ def main() -> None:
 
             payload = {"cycles": 1500, "avg_temp": 25, "depth": 80, "c_rate": 1.0}
             r = client.post(f"{BASE}/predict", json=payload)
-            assert r.status_code == 200 and r.json() == {"soh": 80.5}, r.text
+            assert r.status_code == 200 and r.json() == {"health": 80.5}, r.text
             print(f"POST /predict      -> {r.status_code} {r.json()}（规则模型占位）")
 
             # 故障注入（子进程内的状态，只能通过 HTTP 翻转）：readiness 应变 503，

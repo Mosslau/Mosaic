@@ -23,7 +23,7 @@ func main() {
 	// 1. 发布-订阅：两个消费者订阅不同粒度的模式，各收各的。
 	fleetWide, _ := b.Subscribe("fleet.>", "")           // 收全部
 	carOnly, _ := b.Subscribe("fleet.car-001.>", "")     // 只收 car-001
-	telemetry, _ := b.Subscribe("fleet.*.telemetry", "") // 所有车的遥测
+	telemetry, _ := b.Subscribe("fleet.*.telemetry", "") // 所有设备的遥测
 
 	fmt.Println("== 发布-订阅（subject 通配）==")
 	pub("fleet.car-001.telemetry", []byte("speed=50"))
@@ -42,17 +42,17 @@ func main() {
 	fmt.Printf("   w1 接 %d 个任务，w2 接 %d 个任务（共 4 个，轮询分摊）\n",
 		drainCount(w1), drainCount(w2))
 
-	// 3. 请求-应答：客户端向 "device.battery" 请求，服务端回执。
-	srv, _ := b.Subscribe("device.battery", "")
+	// 3. 请求-应答：客户端向 "device.component" 请求，服务端回执。
+	srv, _ := b.Subscribe("device.component", "")
 	go func() {
 		for m := range srv.Ch {
-			_ = b.PublishReply(m.Reply, "", []byte("battery=83%"))
+			_ = b.PublishReply(m.Reply, "", []byte("component=83%"))
 		}
 	}()
 	fmt.Println("== 请求-应答 ==")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	resp, err := b.Request(ctx, "device.battery", []byte("who-am-i"))
+	resp, err := b.Request(ctx, "device.component", []byte("who-am-i"))
 	if err != nil {
 		fmt.Println("   request failed:", err)
 		return

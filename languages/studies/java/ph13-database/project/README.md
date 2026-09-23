@@ -58,4 +58,4 @@ src/test/java/com/example/students/
 - 给批量导入补「部分成功」的业务选项：可回滚点（`Savepoint`，JDBC 3.0）让失败行之前的数据保留——对比「全部或全不」与「尽力而为」两种事务策略
 - 加 Redis 缓存：`findByEmail` 高频查询先查缓存（Cache-Aside，见 examples/ex05），提升读吞吐
 - 引入 MyBatis 接管数据访问（examples/ex06 思路），对比「手写 JDBC vs 半 ORM」的代码量
-- Web 化（[ph14 Web 后端开发阶段](../../ph14-web-backend/14-web-backend.md)）：把 `StudentService` 包成 REST API，连接池/事务/校验全部复用——本项目的存储层直接成为 ph14 服务（project/ 的 `VehicleStore`）的数据层
+- Web 化（[ph14 Web 后端开发阶段](../../ph14-web-backend/14-web-backend.md)）：把 `StudentService` 包成 REST API，连接池/事务/校验全部复用——本项目的存储层直接成为 ph14 服务（project/ 的 `DeviceStore`）的数据层

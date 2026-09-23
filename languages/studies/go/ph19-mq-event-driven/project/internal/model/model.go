@@ -18,7 +18,7 @@ const SchemaV1 = 1
 type Message struct {
 	Partition int
 	Offset    int
-	Key       string // = vehicleID，稳定散列决定分区 → 同车事件分区内有序
+	Key       string // = deviceID，稳定散列决定分区 → 同设备事件分区内有序
 	Payload   []byte
 }
 
@@ -27,10 +27,10 @@ type Message struct {
 type TelemetryEvent struct {
 	MsgID         string  `json:"mid"`
 	SchemaVersion int     `json:"schemaVersion"`
-	VehicleID     string  `json:"vehicleId"`
+	DeviceID     string  `json:"deviceId"`
 	TS            int64   `json:"ts"`    // unix 秒
 	Speed         float64 `json:"speed"` // km/h
-	Battery       int     `json:"battery"`
+	Component       int     `json:"component"`
 }
 
 // Encode 序列化为消息载荷（producer 侧）。

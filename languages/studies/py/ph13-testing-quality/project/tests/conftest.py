@@ -24,7 +24,7 @@ def sample_csv(tmp_path: Path) -> Path:
     """CSV 样本：4 有效行 + 2 无效行（"bad,line" 字段数错、负速度越界）。"""
     f = tmp_path / "telemetry.csv"
     f.write_text(
-        "ts,vehicle,speed,battery\n"
+        "ts,device,speed,component\n"
         "2026-09-01 10:00:00,EV-001,42.0,88.0\n"
         "2026-09-01 10:01:00,EV-001,55.0,86.5\n"
         "bad,line\n"

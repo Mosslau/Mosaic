@@ -6,7 +6,7 @@ import json
 
 import numpy as np
 
-from bhealth.model import BatteryHealthPipeline
+from health.model import ComponentHealthPipeline
 from cli import main
 
 
@@ -43,16 +43,16 @@ def test_predict_uses_saved_model(tmp_path, capsys):
     main(["--n", "400", "--seed", "42", "--out", str(out)])
     main(["--predict", "1500", "25", "80", "1.0", "--out", str(out)])
     captured = capsys.readouterr().out
-    assert "预测 SOH" in captured and "健康等级" in captured
+    assert "预测 HEALTH" in captured and "健康等级" in captured
 
     # 与直接加载产物推理的结果一致（同一模型、同一输入）
-    pipeline = BatteryHealthPipeline.load(out / "model.joblib")
+    pipeline = ComponentHealthPipeline.load(out / "model.joblib")
     x = np.array([[1500.0, 25.0, 80.0, 1.0]])
-    soh = float(pipeline.predict_soh(x)[0])
+    health = float(pipeline.predict_health(x)[0])
     grade = int(pipeline.predict_grade(x)[0])
-    assert 40.0 <= soh <= 100.0
+    assert 40.0 <= health <= 100.0
     assert grade in (0, 1, 2)
-    assert f"{soh:.1f}%" in captured
+    assert f"{health:.1f}%" in captured
 
 
 def test_predict_without_model_fails(tmp_path, capsys):

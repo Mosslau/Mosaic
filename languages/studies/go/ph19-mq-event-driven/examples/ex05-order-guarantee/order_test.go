@@ -36,7 +36,7 @@ func TestSameKeySamePartition(t *testing.T) {
 	b := NewBroker(5)
 	first := -1
 	for i := 0; i < 10; i++ {
-		p := StablePartition("vehicle-9", b.NumPartitions())
+		p := StablePartition("device-9", b.NumPartitions())
 		if first == -1 {
 			first = p
 		}
@@ -81,7 +81,7 @@ func TestInterleavingAcrossPartitionsIsNormal(t *testing.T) {
 func TestKeysSpreadAcrossPartitions(t *testing.T) {
 	b := NewBroker(4)
 	for i := 0; i < 40; i++ {
-		b.ProduceStable(fmt.Sprintf("vehicle-%03d", i), "sample")
+		b.ProduceStable(fmt.Sprintf("device-%03d", i), "sample")
 	}
 	nonEmpty := 0
 	for i := 0; i < b.NumPartitions(); i++ {

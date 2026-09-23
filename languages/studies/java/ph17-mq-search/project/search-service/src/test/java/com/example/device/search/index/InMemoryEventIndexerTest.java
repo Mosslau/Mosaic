@@ -22,7 +22,7 @@ class InMemoryEventIndexerTest {
     void setUp() {
         indexer = new InMemoryEventIndexer();
         indexer.clear();
-        indexer.index(event("e1", "sn-001", 1, "alarm", "HIGH", "battery low on sn-001", 3000));
+        indexer.index(event("e1", "sn-001", 1, "alarm", "HIGH", "component low on sn-001", 3000));
         indexer.index(event("e2", "sn-002", 1, "heartbeat", "LOW", "heartbeat ok from sn-002", 2000));
         indexer.index(event("e3", "sn-003", 1, "alarm", "CRITICAL", "overheat detected", 1000));
     }

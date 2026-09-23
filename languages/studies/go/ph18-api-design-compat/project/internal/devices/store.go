@@ -23,8 +23,8 @@ type Store struct {
 // NewStore 构造存储。
 func NewStore() *Store {
 	return &Store{next: 2, byID: map[string]Device{
-		"dev-001": {ID: "dev-001", Name: "1号车", Online: true, Model: "M300", LastSeen: 1700000000},
-		"dev-002": {ID: "dev-002", Name: "2号车", Online: false, Model: "M200", LastSeen: 0},
+		"dev-001": {ID: "dev-001", Name: "1号设备", Online: true, Model: "M300", LastSeen: 1700000000},
+		"dev-002": {ID: "dev-002", Name: "2号设备", Online: false, Model: "M200", LastSeen: 0},
 	}}
 }
 

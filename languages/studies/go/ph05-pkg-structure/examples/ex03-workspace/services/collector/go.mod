@@ -1,7 +1,7 @@
-module example.com/vehicle-platform/collector
+module example.com/device-platform/collector
 
 go 1.22
 
-require example.com/vehicle-platform/shared v0.0.0
+require example.com/device-platform/shared v0.0.0
 
-replace example.com/vehicle-platform/shared => ../../lib/shared
+replace example.com/device-platform/shared => ../../lib/shared

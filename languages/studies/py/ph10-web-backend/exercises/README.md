@@ -43,10 +43,10 @@
 
 - **目标**：SQLAlchemy 2.0（`Mapped` 风格）+ SQLite + `response_model` 的数据库版 CRUD
 - **要求**：
-  - `Device` 模型：`id` 主键、`vin` 唯一 + 索引、`model`、`online`（默认 False）；`create_engine("sqlite:///<临时目录>/devices.db")`
+  - `Device` 模型：`id` 主键、`device_id` 唯一 + 索引、`model`、`online`（默认 False）；`create_engine("sqlite:///<临时目录>/devices.db")`
   - **Session 用依赖注入管理**：`def get_session()` 里 `with Session(engine) as session: yield session`——用完自动关闭，防连接泄漏（主文档 4.4）
-  - 输入模型 `DeviceIn`（`vin` 限长 17、`model`），输出模型 `DeviceOut`（含 `id`/`online`，`model_config = {"from_attributes": True}`）；`POST` 201、`GET` 列表/单个、`PUT`、`DELETE` 204，不存在 404，重复 `vin` 捕获 `IntegrityError` 返回 409
-  - 用 `TestClient` 断言全链路 + 重复 vin 409 + 不存在 404
-- **验收**：CRUD 全通；重复 vin 409；数据库文件在临时目录（`sqlite:///...` 路径用 `Path(tempfile.mkdtemp(...))` 拼）；说清"依赖注入 `yield` Session"为什么能防连接池泄漏
+  - 输入模型 `DeviceIn`（`device_id` 限长 17、`model`），输出模型 `DeviceOut`（含 `id`/`online`，`model_config = {"from_attributes": True}`）；`POST` 201、`GET` 列表/单个、`PUT`、`DELETE` 204，不存在 404，重复 `device_id` 捕获 `IntegrityError` 返回 409
+  - 用 `TestClient` 断言全链路 + 重复 device_id 409 + 不存在 404
+- **验收**：CRUD 全通；重复 device_id 409；数据库文件在临时目录（`sqlite:///...` 路径用 `Path(tempfile.mkdtemp(...))` 拼）；说清"依赖注入 `yield` Session"为什么能防连接池泄漏
 
 > **提示**：练习 1~4 与主文档 3.x 小节一一对应（3.2/3.3/3.4/3.5 路由与模型、3.6 认证鉴权、3.9 错误处理、3.7 数据库）；做完后对照 `sol-*` 参考实现复盘——先独立完成，再看答案。

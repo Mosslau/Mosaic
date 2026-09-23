@@ -28,7 +28,7 @@ run-platform:
 # 本地演练第二步：起网关跑一轮确定性演示（终端 B）
 run-gateway:
 	$(GO) run ./cmd/gateway -once -cloud http://127.0.0.1:8080 \
-		-gateway-id edge-001 -secret dev-secret-1 -vehicles 3 -samples 6
+		-gateway-id edge-001 -secret dev-secret-1 -devices 3 -samples 6
 
 clean:
 	rm -f edge-platform edge-gateway

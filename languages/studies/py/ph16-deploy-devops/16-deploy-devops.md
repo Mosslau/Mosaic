@@ -4,7 +4,7 @@
 
 ## 1. 概述
 
-Python 部署与 DevOps 阶段的目标是：**把 Python 项目部署到真实环境**（roadmap 第 16 节目标）。它是学习路线从「写对代码」转向「养好服务」的一站：承接 ph10 Web 后端开发阶段（FastAPI 应用怎么写，这里不重讲）与 ph15 AI / 机器学习阶段（joblib 模型产物 + cli.py 命令行推理——本阶段的 project/ 把它升级为带健康检查与指标端点的部署模板；`JoblibPredictor` 对 ph15 落盘的 `BatteryHealthPipeline` 产物形态做分派兼容，**但该兼容只到「形态」一级（stub 级验证，test_api.py 的 `Ph15LikePipeline`），真实 ph15 joblib 产物要在服务端加载，还需其 `bhealth` 包可被 import——project 镜像不含 bhealth，边界与解法见 project/README 扩展方向**），补上「代码写完到用户能用」之间的工程链路。
+Python 部署与 DevOps 阶段的目标是：**把 Python 项目部署到真实环境**（roadmap 第 16 节目标）。它是学习路线从「写对代码」转向「养好服务」的一站：承接 ph10 Web 后端开发阶段（FastAPI 应用怎么写，这里不重讲）与 ph15 AI / 机器学习阶段（joblib 模型产物 + cli.py 命令行推理——本阶段的 project/ 把它升级为带健康检查与指标端点的部署模板；`JoblibPredictor` 对 ph15 落盘的 `ComponentHealthPipeline` 产物形态做分派兼容，**但该兼容只到「形态」一级（stub 级验证，test_api.py 的 `Ph15LikePipeline`），真实 ph15 joblib 产物要在服务端加载，还需其 `health` 包可被 import——project 镜像不含 health，边界与解法见 project/README 扩展方向**），补上「代码写完到用户能用」之间的工程链路。
 
 | 核心维度 | 覆盖内容 |
 |----------|---------|
@@ -15,7 +15,7 @@ Python 部署与 DevOps 阶段的目标是：**把 Python 项目部署到真实�
 | CI/CD | 流水线阶段（lint → test → build → deploy）、GitHub Actions 示例、部署策略概念——3.6 |
 | 可观测性 | 日志采集（stdout → journald/容器）、Prometheus 四种指标、/metrics 端点、Grafana 看板、liveness vs readiness——3.7 |
 | 底层原理 | WSGI vs ASGI 协议、多进程 worker 模型（pre-fork + GIL）、容器镜像分层与构建缓存——第 4 章 |
-| 代码层 | 6 个示例（examples/）+ 4 个练习（exercises/）+ 综合项目（project/：电池健康预测服务部署模板） |
+| 代码层 | 6 个示例（examples/）+ 4 个练习（exercises/）+ 综合项目（project/：部件健康预测服务部署模板） |
 
 这个阶段只涉及**把 Python 服务部署起来并看护好的工程链路**——Linux 部署基础、Docker/Docker Compose、Nginx/Gunicorn/Uvicorn 服务栈、Supervisor/systemd 进程守护、CI/CD 流水线、日志采集与 Prometheus/Grafana 监控，**不涉及 Web 框架与接口设计本身（FastAPI 路由/Pydantic/中间件——那是 ph10 Web 后端开发阶段的内容，本阶段直接消费它的应用）、数据库与缓存的使用细节（ph11 数据库阶段，本阶段的 compose 只把 PostgreSQL 当「一个需要健康检查的依赖服务」演示）、并发与异步机制本身（asyncio/事件循环——ph14 并发、并行与异步阶段）和 Kubernetes 编排实战（K8s 是独立专题，本阶段只讲「为什么单机编排不够用」的概念地图，roadmap 第 16 节之外）**。本阶段四层交付物已就位：主文档 + [`examples/`](./examples/) + [`exercises/`](./exercises/) + [`project/`](./project/)，入口见第 6、7 章。
 
@@ -152,12 +152,12 @@ services:
 
 ```nginx
 # examples/ex04-nginx/nginx.conf —— 语法已验证（本机 nginx -t 通过）
-upstream bhealth_api {
+upstream health_api {
     server 127.0.0.1:8000 max_fails=2 fail_timeout=10s;  # 后端池：挂掉的自动摘除
     keepalive 32;                                        # 到后端的长连接池
 }
 location / {
-    proxy_pass http://bhealth_api;
+    proxy_pass http://health_api;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;  # 透传真实客户端 IP
 }
 ```
@@ -178,11 +178,11 @@ location / {
 systemd unit 的三段结构（examples/ex05 与 exercises/sol-04，**macOS 无 systemd，未在本环境验证**）：
 
 ```ini
-# examples/ex05-systemd-metrics/bhealth-api.service —— 未在本环境验证（macOS 无 systemd）
+# examples/ex05-systemd-metrics/health-api.service —— 未在本环境验证（macOS 无 systemd）
 [Unit]
 After=network-online.target          # 网络就绪后再启动
 [Service]
-ExecStart=/opt/bhealth-api/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2
+ExecStart=/opt/health-api/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2
 Restart=on-failure                   # 异常退出才拉起（正常停止不拉）
 RestartSec=3
 StandardOutput=journal               # 日志进 journald
@@ -196,14 +196,14 @@ Supervisor 的等价配置（examples/ex05-supervisord/supervisord.conf，INI �
 
 ```ini
 ; examples/ex05-supervisord/supervisord.conf —— 未在本环境验证（本机未装 Supervisor）
-[program:bhealth-api]
-command=/opt/bhealth-api/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
-directory=/opt/bhealth-api
-user=bhealth
+[program:health-api]
+command=/opt/health-api/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+directory=/opt/health-api
+user=health
 autostart=true                 ; supervisord 启动时拉起（对应 systemd enable）
 autorestart=unexpected         ; 异常退出才拉起（对应 Restart=on-failure）
 startretries=3                 ; 连续拉起失败 3 次后标 FATAL（对应 StartLimitBurst 防爆拉）
-stdout_logfile=/var/log/bhealth-api.log   ; Supervisor 自管日志（不进 journald）
+stdout_logfile=/var/log/health-api.log   ; Supervisor 自管日志（不进 journald）
 environment=MODEL_PATH="/models/model.joblib"
 ```
 
@@ -236,7 +236,7 @@ jobs:
     needs: quality              # ④ 依赖门禁：quality 全绿 image job 才启动
     environment: production     # ⑤ 发布门禁：environment 可配人工审批/环境级 secrets
     steps:
-      - run: docker build -t bhealth-api:${{ github.sha }} .
+      - run: docker build -t health-api:${{ github.sha }} .
       # ⑥ 推送/部署的凭据只经 ${{ secrets.XXX }} 引用——secrets 存在仓库
       #    Settings → Secrets，绝不写进 YAML/代码（配置分离在 CI 层的体现）
 ```
@@ -258,9 +258,9 @@ jobs:
 
 | 类型 | 语义 | 例子 |
 |------|------|------|
-| Counter | 单调递增计数 | `bhealth_requests_total`（请求总数） |
-| Gauge | 可升可降的瞬时值 | `bhealth_uptime_seconds`、当前连接数 |
-| Histogram | 分布采样（分桶/count/sum） | `bhealth_predict_seconds`（预测耗时） |
+| Counter | 单调递增计数 | `health_requests_total`（请求总数） |
+| Gauge | 可升可降的瞬时值 | `health_uptime_seconds`、当前连接数 |
+| Histogram | 分布采样（分桶/count/sum） | `health_predict_seconds`（预测耗时） |
 | Summary | 客户端算分位数 | 同上目的，聚合性差，少用 |
 
 `/metrics` 端点手写最小实现（examples/ex05，已验证——起真实 uvicorn + httpx 断言）：打 3 次 `/predict` 后实测输出 `demo_requests_total{endpoint="predict"} 3`、`demo_predict_seconds_count 3`。生产用 `prometheus_client` 库，格式完全一致。
@@ -273,11 +273,11 @@ jobs:
 
 ```promql
 # 面板 1：请求速率（QPS）——Counter 必须先 rate() 才有意义，裸的单调计数只会画一条永不回落的线
-rate(bhealth_requests_total[1m])
+rate(health_requests_total[1m])
 # 面板 2：预测耗时 P95（Histogram 的桶 → histogram_quantile）
-histogram_quantile(0.95, sum(rate(bhealth_predict_seconds_bucket[5m])) by (le))
+histogram_quantile(0.95, sum(rate(health_predict_seconds_bucket[5m])) by (le))
 # 面板 3：当前推理后端（Gauge，label 是 joblib/rule/missing）
-bhealth_model_info
+health_model_info
 ```
 
 最小说明：`rate(...[1m])` 是「过去 1 分钟的平均增速」，秒级 QPS 的标准写法；`histogram_quantile` 需要 Histogram 的 `_bucket` 序列（手写版只有 count/sum，要 P95 得先换 `prometheus_client`，见 examples/ex05 文件头）。看板图只是第一步——**阈值 + 告警**（如 QPS 掉零持续 5 分钟）属告警前端（Alertmanager），本阶段概念到「看图」为止。
@@ -398,7 +398,7 @@ def ready(response: Response) -> dict[str, str]:
     return {"status": "ready"}
 ```
 
-实测输出：`GET /health → 200 {"status": "ok"}`；`GET /ready → 200`；`POST /predict`（1500 次循环/25°C/DoD 80%/1C）→ `{"soh": 80.5}`；故障注入后 `/ready → 503` 而 `/health` 仍 200；SIGTERM 后 `check_service.py` 断言退出码 -15（shell 143）并从捕获的 stderr 验证优雅关停日志 `INFO: Shutting down` 与 `INFO: Finished server process`（2026-09 复跑实测：uvicorn 0.50.0 优雅关停日志齐备后进程仍以 -15 被信号终止，断言按实测保留，与 ex05 unit 注释「systemd 视 SIGTERM 为正常停止」互相印证）。
+实测输出：`GET /health → 200 {"status": "ok"}`；`GET /ready → 200`；`POST /predict`（1500 次循环/25°C/DoD 80%/1C）→ `{"health": 80.5}`；故障注入后 `/ready → 503` 而 `/health` 仍 200；SIGTERM 后 `check_service.py` 断言退出码 -15（shell 143）并从捕获的 stderr 验证优雅关停日志 `INFO: Shutting down` 与 `INFO: Finished server process`（2026-09 复跑实测：uvicorn 0.50.0 优雅关停日志齐备后进程仍以 -15 被信号终止，断言按实测保留，与 ex05 unit 注释「systemd 视 SIGTERM 为正常停止」互相印证）。
 
 ### 示例 2：Dockerfile 多阶段构建（呼应 3.2/4.3，未在本环境验证）
 
@@ -490,10 +490,10 @@ lines += [
 
 ### 阶段项目
 
-本阶段综合项目见 [`project/`](./project/)：**电池健康预测服务部署模板（bhealth-api）**——把 ph15 的「joblib 产物 + cli.py 命令行推理」升级为带 `/health`、`/ready`、`/predict`、`/metrics` 四端点的 FastAPI 服务，配多阶段 Dockerfile、Compose（服务 + Prometheus 抓取）编排；7 个 pytest 用例 + ruff 全绿 + 真实 uvicorn 链路实测（对应 roadmap「推荐项目」第一个「FastAPI 部署模板」；第二个「数据服务 Docker Compose」由 examples/ex03 与 project 的 compose 覆盖）。建议完成练习后再动手，练习 1（可部署服务形态）是它的缩小版。
+本阶段综合项目见 [`project/`](./project/)：**部件健康预测服务部署模板（health-api）**——把 ph15 的「joblib 产物 + cli.py 命令行推理」升级为带 `/health`、`/ready`、`/predict`、`/metrics` 四端点的 FastAPI 服务，配多阶段 Dockerfile、Compose（服务 + Prometheus 抓取）编排；7 个 pytest 用例 + ruff 全绿 + 真实 uvicorn 链路实测（对应 roadmap「推荐项目」第一个「FastAPI 部署模板」；第二个「数据服务 Docker Compose」由 examples/ex03 与 project 的 compose 覆盖）。建议完成练习后再动手，练习 1（可部署服务形态）是它的缩小版。
 
 - [ ] 完成 exercises/ 全部 4 题并对照参考实现复盘
-- [ ] 独立完成 project/ 并通过其验收标准（`python3 -m pytest` → 7 passed；`ruff check .` 全绿；`python3 train.py` 产出物并自检；uvicorn 起服务实测 `/ready` 报 `model_type: joblib`、`/predict` 返回合理 SOH；ph15 的 `BatteryHealthPipeline` 产物**形态**兼容通过 project 测试 `test_ph15_pipeline_artifact_compat`——stub 级验证，真实 ph15 产物需其 `bhealth` 包可导入，见 project/README 扩展方向）
+- [ ] 独立完成 project/ 并通过其验收标准（`python3 -m pytest` → 7 passed；`ruff check .` 全绿；`python3 train.py` 产出物并自检；uvicorn 起服务实测 `/ready` 报 `model_type: joblib`、`/predict` 返回合理 HEALTH；ph15 的 `ComponentHealthPipeline` 产物**形态**兼容通过 project 测试 `test_ph15_pipeline_artifact_compat`——stub 级验证，真实 ph15 产物需其 `health` 包可导入，见 project/README 扩展方向）
 
 ### 下一阶段
 

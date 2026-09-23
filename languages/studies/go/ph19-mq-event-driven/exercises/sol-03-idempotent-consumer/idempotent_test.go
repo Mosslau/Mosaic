@@ -21,8 +21,8 @@ func newTestConsumer(sink Sink, now *time.Time) *IdempotentConsumer {
 	return c
 }
 
-func ev(id string) VehicleEvent {
-	return VehicleEvent{MsgID: id, CarID: "car-001", Kind: "telemetry", Data: "x"}
+func ev(id string) DeviceEvent {
+	return DeviceEvent{MsgID: id, CarID: "car-001", Kind: "telemetry", Data: "x"}
 }
 
 // TestDedupWithinWindow 窗口内重复键被拦截，副作用只一次。
@@ -86,10 +86,10 @@ func TestConcurrentDuplicateAppliesOnce(t *testing.T) {
 // flakyOnceSink 第一次 Apply 失败（模拟下游抖动），之后成功并记录。
 type flakyOnceSink struct {
 	fail    bool
-	applied []VehicleEvent
+	applied []DeviceEvent
 }
 
-func (s *flakyOnceSink) Apply(e VehicleEvent) error {
+func (s *flakyOnceSink) Apply(e DeviceEvent) error {
 	if s.fail {
 		s.fail = false
 		return errors.New("downstream down")

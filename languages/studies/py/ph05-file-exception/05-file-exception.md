@@ -102,10 +102,10 @@ with open("legacy.csv", "r", encoding="utf-8", errors="replace") as f:
 import csv
 
 # DictReader：按列名访问，推荐用于有表头的数据
-with open("can_log.csv", "r", encoding="utf-8", newline="") as f:
+with open("bus_log.csv", "r", encoding="utf-8", newline="") as f:
     reader = csv.DictReader(f)                       # 第一行自动作为列名
     for row in reader:
-        print(f"{row['timestamp']} {row['can_id']}: {row['data']}")
+        print(f"{row['timestamp']} {row['bus_id']}: {row['data']}")
 
 # DictWriter：用 dict 写入，结构清晰
 with open("output.csv", "w", encoding="utf-8", newline="") as f:
@@ -123,12 +123,12 @@ with open("output.csv", "w", encoding="utf-8", newline="") as f:
 ```python
 import json
 
-with open("vehicle_config.json", "r", encoding="utf-8") as f:
+with open("device_config.json", "r", encoding="utf-8") as f:
     config = json.load(f)
-print(config["vehicle"]["vin"])
+print(config["device"]["device_id"])
 
 # indent + ensure_ascii=False 写入可读 JSON
-data = {"vehicle": {"vin": "LSVAU2A28N2100001", "品牌": "特斯拉"}}
+data = {"device": {"device_id": "LSVAU2A28N2100001", "品牌": "特斯拉"}}
 json_str = json.dumps(data, indent=2, ensure_ascii=False)
 print(json_str)
 ```
@@ -139,14 +139,14 @@ print(json_str)
 import json
 from datetime import datetime
 
-class VehicleEncoder(json.JSONEncoder):
+class DeviceEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, datetime):
             return obj.isoformat()
         return super().default(obj)
 
 log = {"event": "charge_start", "ts": datetime(2024, 6, 1, 8, 0, 0)}
-print(json.dumps(log, cls=VehicleEncoder, ensure_ascii=False))
+print(json.dumps(log, cls=DeviceEncoder, ensure_ascii=False))
 ```
 
 ### 3.6 其他常见格式
@@ -163,7 +163,7 @@ print(json.dumps(log, cls=VehicleEncoder, ensure_ascii=False))
 核心规则：**`except` 按书写顺序匹配**（子类须在父类前）；**不裸写 `except:`**；**`else` 只在无异常时执行**；**`finally` 必定执行**（即使 `return` 也先执行）。
 
 ```python
-def read_vehicle_config(path):
+def read_device_config(path):
     """标准四段式：try → except → else → finally"""
     f = None
     try:
@@ -258,7 +258,7 @@ f.close()                  # 自动 flush 后关闭
 | 场景 | 推荐方式 | 原因 |
 |------|---------|------|
 | 读取文本配置文件 | `with open(... encoding="utf-8")` + 手动解析 | 最可控，适合 `.cfg`/`.ini` 等自定格式 |
-| 解析 CAN 日志 CSV | `csv.DictReader` + 列名访问 | 表头自解释，不受列顺序变化影响 |
+| 解析 BUS 日志 CSV | `csv.DictReader` + 列名访问 | 表头自解释，不受列顺序变化影响 |
 | 读写 JSON 配置/API 数据 | `json.load`/`json.dump` + `indent`/`ensure_ascii` | 结构化、人类可读、跨语言 |
 | 解析诊断日志 | `re` 逐行匹配 + `try/except` 容错 | 非结构化文本，逐行处理避免大内存 |
 | 异常转换 | `raise BusinessError(...) from e` | 保留根因同时转成上层可理解的异常 |
@@ -268,7 +268,7 @@ f.close()                  # 自动 flush 后关闭
 
 > 本节每个示例的完整可运行文件在 [`examples/`](./examples/) 目录，验证环境 Python 3.13.12，运行命令统一 `python3 ex0X-*.py`（各示例说明与运行命令见 examples/README.md）。
 
-### 示例 1：读取车辆配置文件
+### 示例 1：读取设备配置文件
 
 ```python
 import os, tempfile
@@ -276,8 +276,8 @@ import os, tempfile
 with tempfile.TemporaryDirectory() as d:
     path = os.path.join(d, "app.cfg")
     with open(path, "w", encoding="utf-8") as f:
-        f.write("# 车辆平台配置\n[server]\nhost = 0.0.0.0\nport = 8080\n")
-        f.write("[battery]\nchemistry = LFP\ncapacity_kwh = 70.0\n")
+        f.write("# 设备平台配置\n[server]\nhost = 0.0.0.0\nport = 8080\n")
+        f.write("[component]\nchemistry = LFP\ncapacity_kwh = 70.0\n")
 
     config, section = {}, None
     try:
@@ -301,16 +301,16 @@ with tempfile.TemporaryDirectory() as d:
 
 完整文件：`examples/ex01-read-config.py`
 
-### 示例 2：CAN 日志 CSV 解析
+### 示例 2：BUS 日志 CSV 解析
 
 ```python
 import csv, os, tempfile
 
 with tempfile.TemporaryDirectory() as d:
-    path = os.path.join(d, "can_log.csv")
+    path = os.path.join(d, "bus_log.csv")
     with open(path, "w", encoding="utf-8", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["timestamp", "can_id", "dlc", "data"])
+        w.writerow(["timestamp", "bus_id", "dlc", "data"])
         w.writerow(["2024-06-01 08:00:01", "0x123", "8", "A1B2C3D4E5F6A7B8"])
         w.writerow(["2024-06-01 08:00:02", "0x18F", "4", "11223344"])
         w.writerow(["2024-06-01 08:00:03", "0x123", "8", "FFEEDDCCBBAA9988"])
@@ -318,10 +318,10 @@ with tempfile.TemporaryDirectory() as d:
     try:
         with open(path, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
-            msgs = [{"ts": r["timestamp"], "id": r["can_id"],
+            msgs = [{"ts": r["timestamp"], "id": r["bus_id"],
                       "data": r["data"]} for r in reader]
         matches = [m for m in msgs if m["id"] == "0x123"]
-        print(f"共 {len(msgs)} 条 CAN 消息, 0x123 出现 {len(matches)} 次")
+        print(f"共 {len(msgs)} 条 BUS 消息, 0x123 出现 {len(matches)} 次")
         for m in matches:
             print(f"  {m['ts']} -> data={m['data']}")
     except FileNotFoundError:
@@ -330,33 +330,33 @@ with tempfile.TemporaryDirectory() as d:
         print(f"CSV 解析错误: {e}")
 ```
 
-完整文件：`examples/ex02-can-log-csv.py`
+完整文件：`examples/ex02-bus-log-csv.py`
 
-### 示例 3：车辆配置 JSON 读写
+### 示例 3：设备配置 JSON 读写
 
 ```python
 import json, os, tempfile
 
 with tempfile.TemporaryDirectory() as d:
-    path = os.path.join(d, "vehicle.json")
-    vehicle = {
-        "vin": "LSVAU2A28N2100001", "model": "Model-Y",
-        "battery": {"capacity_kwh": 70.0, "nominal_voltage_v": 400}
+    path = os.path.join(d, "device.json")
+    device = {
+        "device_id": "LSVAU2A28N2100001", "model": "Model-Y",
+        "component": {"capacity_kwh": 70.0, "nominal_voltage_v": 400}
     }
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(vehicle, f, indent=2, ensure_ascii=False)
+        json.dump(device, f, indent=2, ensure_ascii=False)
 
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
-        print(f"VIN={data['vin']} 容量={data['battery']['capacity_kwh']}kWh")
-        data["battery"]["soc_pct"] = 85.0
-        out_path = os.path.join(d, "vehicle_updated.json")
+        print(f"DEVICE_ID={data['device_id']} 容量={data['component']['capacity_kwh']}kWh")
+        data["component"]["soc_pct"] = 85.0
+        out_path = os.path.join(d, "device_updated.json")
         with open(out_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
         with open(out_path, "r", encoding="utf-8") as f:
             reloaded = json.load(f)
-        print(f"round-trip 成功: soc={reloaded['battery']['soc_pct']}%")
+        print(f"round-trip 成功: soc={reloaded['component']['soc_pct']}%")
     except FileNotFoundError:
         print("JSON 文件不存在")
     except json.JSONDecodeError as e:
@@ -365,7 +365,7 @@ with tempfile.TemporaryDirectory() as d:
         print(f"缺少字段: {e}")
 ```
 
-完整文件：`examples/ex03-vehicle-json.py`
+完整文件：`examples/ex03-device-json.py`
 
 ### 示例 4：诊断日志分析
 

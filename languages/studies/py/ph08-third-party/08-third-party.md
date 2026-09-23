@@ -186,7 +186,7 @@ s = pd.Series([10, 20, 30], index=["a", "b", "c"])
 print(s["b"])                              # 20
 
 df = pd.DataFrame({
-    "vehicle_id": ["V001", "V001", "V002", "V002"],
+    "device_id": ["V001", "V001", "V002", "V002"],
     "speed": [80, 95, 60, 72],
     "soc": [78.5, 76.0, 90.1, 88.4],
 })
@@ -196,7 +196,7 @@ print(df["speed"].mean())                  # 76.75
 df2 = pd.read_csv("data.csv")              # 读 CSV（练习核心）
 fast = df[df["speed"] > 70]                # 布尔筛选
 print(fast)
-print(df.groupby("vehicle_id")["speed"].mean())   # 分组统计
+print(df.groupby("device_id")["speed"].mean())   # 分组统计
 df.to_csv("out.csv", index=False)          # 写回，别带行号列
 ```
 
@@ -213,7 +213,7 @@ import openpyxl
 
 wb = openpyxl.Workbook()
 ws = wb.active
-ws.append(["vehicle_id", "speed", "soc"])
+ws.append(["device_id", "speed", "soc"])
 ws.append(["V001", 80, 78.5])
 wb.save("report.xlsx")                     # 生成 Excel
 
@@ -223,7 +223,7 @@ print([c.value for c in wb2.active[1]])    # 读表头
 import polars as pl
 
 df = pl.read_csv("data.csv")
-print(df.group_by("vehicle_id").agg(pl.col("speed").mean()))
+print(df.group_by("device_id").agg(pl.col("speed").mean()))
 ```
 
 | 库 | 定位 | 何时用 |
@@ -266,7 +266,7 @@ from pydantic import BaseModel
 app = FastAPI(title="Demo API")
 
 class Car(BaseModel):                      # Pydantic：声明 + 校验 + 文档
-    vehicle_id: str
+    device_id: str
     speed: float
 
 cars: list[Car] = []
@@ -480,30 +480,30 @@ matplotlib.use("Agg")            # 无显示环境也能 savefig
 import matplotlib.pyplot as plt
 import pandas as pd
 
-# 1. 生成模拟车辆数据 CSV（真实场景换成 pd.read_csv("你的文件.csv")）
+# 1. 生成模拟设备数据 CSV（真实场景换成 pd.read_csv("你的文件.csv")）
 data = pd.DataFrame({
-    "vehicle_id": ["V001"] * 4 + ["V002"] * 4,
+    "device_id": ["V001"] * 4 + ["V002"] * 4,
     "time": [1, 2, 3, 4] * 2,
     "speed": [80, 95, 60, 72, 55, 63, 70, 68],
     "soc":   [78.5, 76.0, 74.2, 72.8, 90.1, 88.4, 86.0, 85.2],
 })
-data.to_csv("vehicle.csv", index=False)
+data.to_csv("device.csv", index=False)
 
 # 2. pandas 读取 + 分组统计（对应"分析 CSV"练习）
-df = pd.read_csv("vehicle.csv")
+df = pd.read_csv("device.csv")
 print(df.info())
-avg = df.groupby("vehicle_id")[["speed", "soc"]].mean()
+avg = df.groupby("device_id")[["speed", "soc"]].mean()
 print(avg)
 
 # 3. matplotlib 出图（对应"画图"练习）
 fig, ax = plt.subplots(1, 2, figsize=(9, 3))
-for vid, g in df.groupby("vehicle_id"):
+for vid, g in df.groupby("device_id"):
     ax[0].plot(g["time"], g["speed"], marker="o", label=vid)   # 折线图
 avg.plot.bar(ax=ax[1])                                          # 柱状图
 ax[0].set_title("Speed Trend"); ax[0].set_xlabel("time"); ax[0].legend()
 plt.tight_layout()
-plt.savefig("vehicle_analysis.png", dpi=150)
-print("已保存 vehicle_analysis.png")
+plt.savefig("device_analysis.png", dpi=150)
+print("已保存 device_analysis.png")
 ```
 
 ### 示例 4：FastAPI 接口（Pydantic 模型 + 一个 CRUD 路由）
@@ -519,7 +519,7 @@ from pydantic import BaseModel
 app = FastAPI(title="Car API")
 
 class Car(BaseModel):
-    vehicle_id: str
+    device_id: str
     speed: float
 
 cars: list[Car] = []
@@ -552,8 +552,8 @@ if __name__ == "__main__":       # 免启动服务，用 TestClient 自测
     from fastapi.testclient import TestClient
     client = TestClient(app)
     print("GET 空列表:", client.get("/cars/0").status_code)      # 404：越界守卫
-    print("POST 合法:", client.post("/cars", json={"vehicle_id": "V001", "speed": 80}).status_code)    # 201
-    print("POST 非法:", client.post("/cars", json={"vehicle_id": "V001", "speed": "很快"}).status_code) # 422
+    print("POST 合法:", client.post("/cars", json={"device_id": "V001", "speed": 80}).status_code)    # 201
+    print("POST 非法:", client.post("/cars", json={"device_id": "V001", "speed": "很快"}).status_code) # 422
     print("GET:", client.get("/cars").json())
     print("DELETE:", client.delete("/cars/0").status_code)   # 200
 ```

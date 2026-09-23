@@ -106,7 +106,7 @@ func TestQueryParamsAlign(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	declared := spec.Paths["/api/v1/vehicles"].Get.QueryParameters()
+	declared := spec.Paths["/api/v1/devices"].Get.QueryParameters()
 	implemented := QueryKeys()
 	for k := range declared {
 		if !implemented[k] {

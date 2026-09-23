@@ -225,10 +225,10 @@ ph13 测试与工程质量阶段承诺「怎么测并发与异步代码」留到
 # project/tests/test_fetcher.py —— 标准 pytest + asyncio.run 包装（project 落地，本机已验证）
 def test_collect_all_success():
     async def _t() -> None:
-        sim = TelemetrySimulator(n_vehicles=10, fail_rate=0.0, seed=1)
+        sim = TelemetrySimulator(n_devices=10, fail_rate=0.0, seed=1)
         await sim.start()
         try:
-            results = await collect(sim.base_url, sim.vehicle_ids, max_concurrency=5)
+            results = await collect(sim.base_url, sim.device_ids, max_concurrency=5)
             assert len(results) == 10
             assert all(r.ok for r in results)          # 断言的是「结果」而非「并发过程」
             assert all(r.attempts == 1 for r in results)
@@ -494,7 +494,7 @@ async def slow(n: int) -> dict:
 本阶段综合项目见 [`project/`](./project/)：**异步遥测采集服务（async-telemetry-collector）**——进程内模拟遥测服务器（aiohttp web，延迟/失败率可注入、seed 可复现）→ aiohttp 并发采集（Semaphore 限速 + 指数退避重试）→ 汇总统计 → CSV 报表；16 个 pytest 用例覆盖模拟服务器/采集/统计/报表，`ruff` 全绿，`cli.py --demo` 离线自检（对应 roadmap「推荐项目」第一个「异步采集服务」；另一个「并发日志处理器」作为扩展方向）。建议完成练习后再动手，尤其练习 5（限速 + 重试的缩小版）。
 
 - [ ] 完成 exercises/ 全部 5 题并对照参考实现复盘
-- [ ] 独立完成 project/ 并通过其验收标准（`python3 -m pytest` → 16 passed；`ruff check .` 全绿；`python3 cli.py --demo` 自检通过；`python3 cli.py` 默认 20 辆车 ≈ 0.12s 采完）
+- [ ] 独立完成 project/ 并通过其验收标准（`python3 -m pytest` → 16 passed；`ruff check .` 全绿；`python3 cli.py --demo` 自检通过；`python3 cli.py` 默认 20 台设备 ≈ 0.12s 采完）
 
 ### 下一阶段
 

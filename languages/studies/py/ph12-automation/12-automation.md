@@ -1,6 +1,6 @@
 # Python 自动化脚本阶段
 
-> 面向日常工作效率提升，本阶段用 Python 把重复劳动固化成脚本——文件批处理、Excel 自动化、日志分析、接口测试、报表生成、邮件通知、定时任务与 CAN 日志解析，同时把「日志 + 错误处理、参数化、可安全重跑、输出可审计」四个工程习惯内化为脚本本能。
+> 面向日常工作效率提升，本阶段用 Python 把重复劳动固化成脚本——文件批处理、Excel 自动化、日志分析、接口测试、报表生成、邮件通知、定时任务与 BUS 日志解析，同时把「日志 + 错误处理、参数化、可安全重跑、输出可审计」四个工程习惯内化为脚本本能。
 
 ## 1. 概述
 
@@ -16,10 +16,10 @@ Python 自动化脚本阶段的目标是：**用 Python 提升日常工作效率
 | 邮件通知 | smtplib + EmailMessage、附件、本地 SMTP 调试服务器 |
 | 定时任务 | schedule 注册任务与调度循环 |
 | 远程操作 | paramiko/fabric 概念（SSH 客户端、SFTP 传输） |
-| CAN 日志解析 | candump 格式解析、按 ID 统计信号值（格式规约解析的入门样本） |
+| BUS 日志解析 | candump 格式解析、按 ID 统计信号值（格式规约解析的入门样本） |
 | 脚本工程化 | logging + 错误处理、argparse 参数化、安全重跑、可审计（四个必会概念） |
 
-这个阶段只涉及**单机日常自动化的完整闭环**——文件批处理、Excel 自动化、日志分析、接口测试、报表生成、邮件发送、定时任务、CAN 日志解析与脚本工程化四要素，**不涉及并发与异步深入（asyncio/aiohttp 大规模并发抓取）、测试工程体系（pytest/fixture/mock/覆盖率/CI）、生产部署运维（Docker、CI/CD、监控告警）和数据分析深入（pandas 透视表与可视化）** — 那些是 [ph14 并发、并行与异步阶段](../ph14-concurrency-async/14-concurrency-async.md)（roadmap 第 14 节）、ph13 测试与工程质量阶段、[ph16 部署与 DevOps 阶段](../ph16-deploy-devops/16-deploy-devops.md)（roadmap 第 16 节）和 ph09 数据分析阶段的内容；带格式规约的深度日志解析、反爬与规模化抓取属 [ph18 数据平台分析 / 自动化方向阶段](../ph18-data-platform-automation/18-data-platform-automation.md)（roadmap 第 18 节，目录已建）。爬虫在本阶段只取其起点（requests 拉取 + 解析响应），深入不涉及。本阶段承接 ph11 数据库与缓存阶段——脚本能安全地读写数据、批量入库、从库取数生成报表，爬虫抓取的数据也有了落库与去重的去处。本阶段四层交付物已就位：主文档 + [`examples/`](./examples/) + [`exercises/`](./exercises/) + [`project/`](./project/)，入口见第 6、7 章。
+这个阶段只涉及**单机日常自动化的完整闭环**——文件批处理、Excel 自动化、日志分析、接口测试、报表生成、邮件发送、定时任务、BUS 日志解析与脚本工程化四要素，**不涉及并发与异步深入（asyncio/aiohttp 大规模并发抓取）、测试工程体系（pytest/fixture/mock/覆盖率/CI）、生产部署运维（Docker、CI/CD、监控告警）和数据分析深入（pandas 透视表与可视化）** — 那些是 [ph14 并发、并行与异步阶段](../ph14-concurrency-async/14-concurrency-async.md)（roadmap 第 14 节）、ph13 测试与工程质量阶段、[ph16 部署与 DevOps 阶段](../ph16-deploy-devops/16-deploy-devops.md)（roadmap 第 16 节）和 ph09 数据分析阶段的内容；带格式规约的深度日志解析、反爬与规模化抓取属 [ph18 数据平台分析 / 自动化方向阶段](../ph18-data-platform-automation/18-data-platform-automation.md)（roadmap 第 18 节，目录已建）。爬虫在本阶段只取其起点（requests 拉取 + 解析响应），深入不涉及。本阶段承接 ph11 数据库与缓存阶段——脚本能安全地读写数据、批量入库、从库取数生成报表，爬虫抓取的数据也有了落库与去重的去处。本阶段四层交付物已就位：主文档 + [`examples/`](./examples/) + [`exercises/`](./exercises/) + [`project/`](./project/)，入口见第 6、7 章。
 
 ## 2. 来源与演变
 
@@ -76,12 +76,12 @@ for p in sorted(src.iterdir()):                             # iterdir 遍历全�
 **Excel 自动化**把「手工填表」变成「脚本生成报表」：`Workbook` 建簿、`active` 取默认工作表、`append` 按行追加、`cell` 精确读写、样式对象控制格式（ph08 第三方库阶段已认识 openpyxl 的读与写，本阶段升级到「报表工程」——样式、合计、冻结、重开核对）。
 
 ```python
-# 关键片段：examples/ex02-excel-report.py —— 车辆状态周报（完整版见示例 2，本机已验证）
+# 关键片段：examples/ex02-excel-report.py —— 设备状态周报（完整版见示例 2，本机已验证）
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 
 ws = wb.active
-ws.title = "车辆状态周报"
+ws.title = "设备状态周报"
 ws.append(HEADERS)                                  # 按行追加：表头
 for cell in ws[1]:                                  # 表头样式：加粗白字 + 蓝底
     cell.font = Font(bold=True, color="FFFFFF")
@@ -138,7 +138,7 @@ print(status.most_common(1))                              # 最高频
 # 关键片段：examples/ex04-api-test.py —— requests 测本地服务（完整版见示例 4，本机已验证）
 r = requests.get(f"{base}/health", timeout=2)      # 超时是铁律：别让脚本挂死
 print(r.status_code, r.json())                    # 200 {'status': 'ok'}
-r = requests.post(f"{base}/vehicles", json={"vin": "V004"}, timeout=2)
+r = requests.post(f"{base}/devices", json={"device_id": "V004"}, timeout=2)
 print(r.status_code, r.json())                    # 201 {'created': 'EV-004'}
 try:
     r = requests.get(f"{base}/nope", timeout=2)
@@ -197,8 +197,8 @@ import smtplib
 msg = EmailMessage()
 msg["From"] = "ops@example.com"
 msg["To"] = "admin@example.com"
-msg["Subject"] = "车辆状态日报"
-msg.set_content("今日车辆状态汇总见附件，请查收。")
+msg["Subject"] = "设备状态日报"
+msg.set_content("今日设备状态汇总见附件，请查收。")
 msg.add_attachment(report.read_bytes(), maintype="text",
                    subtype="csv", filename=report.name)   # CSV 附件
 with smtplib.SMTP("127.0.0.1", port, timeout=5) as smtp:  # with 结束自动 quit()
@@ -286,11 +286,11 @@ with Connection("ops@10.0.0.8") as c:
 argparse 与 logging 是两件标准库工具，值得单独认一认（ph06 标准库阶段只点到，这里到「工程级」）：
 
 ```python
-# project/can_log_tool.py 的 CLI（argparse）与日志（logging）骨架
+# project/bus_log_tool.py 的 CLI（argparse）与日志（logging）骨架
 import argparse, logging, sys
 
-parser = argparse.ArgumentParser(description="CAN 日志批处理工具")
-parser.add_argument("--input", help="CAN 日志文件路径")           # 必填（--demo 除外）
+parser = argparse.ArgumentParser(description="BUS 日志批处理工具")
+parser.add_argument("--input", help="BUS 日志文件路径")           # 必填（--demo 除外）
 parser.add_argument("--output-dir", default=".", help="报表输出目录")
 parser.add_argument("--filter-id", help="只统计指定 ID（如 0x123）")
 parser.add_argument("--log-level", default="INFO",
@@ -312,15 +312,15 @@ logging.basicConfig(level=args.log_level.upper(),
 - **logging 三级用法**：`basicConfig` 一键配置（级别 + 格式 + 输出流）、`logger.info/error` 打点、多 Handler 分流（stderr + 文件双写，见 project）——日志是「可审计」的第一载体。
 - **「能安全重跑」= 确定性**：同样的输入永远产出同样的报表（时间戳这类运行时信息只进 summary 不进 CSV），重复执行只是覆盖写、不留垃圾文件——project 测试里专门有一条幂等用例。
 
-### 3.10 CAN 日志解析（格式规约解析样本）
+### 3.10 BUS 日志解析（格式规约解析样本）
 
-**CAN 日志**是设备总线数据的第一手来源：控制器局域网（CAN 总线）上的报文被 `candump` 工具导出为文本，一行一帧。roadmap 练习 4 与 project 都是围绕它——解析格式、按 ID 统计、出报表，正好把 3.1/3.3/3.5 的批处理 + 正则 + 报表三件套合体。
+**BUS 日志**是设备总线数据的第一手来源：控制器局域网（BUS 总线）上的报文被 `candump` 工具导出为文本，一行一帧。roadmap 练习 4 与 project 都是围绕它——解析格式、按 ID 统计、出报表，正好把 3.1/3.3/3.5 的批处理 + 正则 + 报表三件套合体。
 
 ```python
-# 关键片段：project/can_log_tool.py —— candump 格式解析（完整版见 project，本机已验证）
+# 关键片段：project/bus_log_tool.py —— candump 格式解析（完整版见 project，本机已验证）
 FRAME_RE = re.compile(r"^\((\d+\.\d+)\) (\S+) ([0-9A-Fa-f]+)#([0-9A-Fa-f]*)$")
 m = FRAME_RE.match(line.strip())
-can_id = int(m.group(3), 16)                    # ID 十六进制转 int
+bus_id = int(m.group(3), 16)                    # ID 十六进制转 int
 data = bytes.fromhex(m.group(4))                # 负载 HEX 字符串转字节
 # 按 ID 分组统计首字节 min/max/avg（简化约定：首字节即信号值）
 ```
@@ -328,7 +328,7 @@ data = bytes.fromhex(m.group(4))                # 负载 HEX 字符串转字节
 要点：
 
 - **candump 格式一行 = 时间戳 + 接口 + ID + 负载**：`(1629946800.123456) can0 123#1E00000000000000`——时间戳是「秒.微秒」浮点，ID 是十六进制（candump 输出不带 0x 前缀，如 `123`；`--filter-id` 参数才支持 `0x123` 写法），负载是 HEX 字符串（2 字符 = 1 字节）。
-- **信号值的简化约定**：本阶段「负载首字节即信号值」（车速 30 → 0x1E）；真实场景信号跨字节、有缩放因子与字节序，需要 DBC 文件描述——**带格式规约的深度日志解析属 [ph18 数据平台分析 / 自动化方向阶段](../ph18-data-platform-automation/18-data-platform-automation.md)（roadmap 第 18 节，目录已建）**，这里用简化约定把「解析 → 统计 → 报表」链路打通。
+- **信号值的简化约定**：本阶段「负载首字节即信号值」（运行速度 30 → 0x1E）；真实场景信号跨字节、有缩放因子与字节序，需要 DBC 文件描述——**带格式规约的深度日志解析属 [ph18 数据平台分析 / 自动化方向阶段](../ph18-data-platform-automation/18-data-platform-automation.md)（roadmap 第 18 节，目录已建）**，这里用简化约定把「解析 → 统计 → 报表」链路打通。
 - **无效行容错是必须的**：抓包日志里夹杂乱行、空行、注释行，解析器要计数跳过而不是崩溃（project 的 `invalid` 计数 + 测试用例）。
 
 ## 4. 底层原理
@@ -362,13 +362,13 @@ SSH（Secure Shell）是**加密的远程登录协议**，paramiko 是它的 Pyt
 | 场景 | 涉及知识点 |
 |------|-----------|
 | 日常文件整理（下载目录/日志归档/批量改名） | pathlib + shutil + 幂等模式（ex01、练习 1） |
-| 报表自动化（周报/月报、车辆状态汇总） | openpyxl + csv + 重开核对（ex02、练习 2） |
+| 报表自动化（周报/月报、设备状态汇总） | openpyxl + csv + 重开核对（ex02、练习 2） |
 | 日志监控与统计（错误率、Top IP、繁忙时段） | 正则 + Counter + CSV（ex03） |
 | 接口冒烟/巡检（健康检查、定时拉数据） | requests + 超时 + 重试 + 错误日志（ex04、练习 3） |
 | 结果通知（报表发邮件、告警通知） | smtplib + EmailMessage + 附件（ex05） |
 | 定时任务（到点跑报表/抓数/巡检） | schedule + 调度循环（ex06） |
 | 远程运维（批量执行命令、拉取采集文件） | paramiko/fabric（概念层，3.8） |
-| 总线日志处理（CAN 日志统计） | 正则解析 + 按 ID 统计 + 报表（练习 4、project） |
+| 总线日志处理（BUS 日志统计） | 正则解析 + 按 ID 统计 + 报表（练习 4、project） |
 
 **不适合此阶段的事项**：
 
@@ -400,7 +400,7 @@ for p in sorted(src.iterdir()):
 
 实测输出：样本 4 个文件（3 日志 + 1 txt）；第一次运行移动 `3`、非日志跳过 `1`；第二次运行（同样文件重现）移动 `0`、已存在跳过 `3`——**安全重跑不重复**；归档到 `archive/2026-09/` 与 `archive/2026-10/`；审计日志 `8` 行（每个动作一条）。
 
-### 示例 2：Excel 自动化（openpyxl 车辆状态周报）
+### 示例 2：Excel 自动化（openpyxl 设备状态周报）
 
 呼应 3.2/3.5：表头样式 + 数据行 + 合计行 + 冻结窗格，存盘后用 `load_workbook` 重新打开核对。完整文件 `examples/ex02-excel-report.py`。
 
@@ -415,7 +415,7 @@ ws.freeze_panes = "A2"
 wb.save(out)
 ```
 
-实测输出：工作表「车辆状态周报」`11 行 × 6 列`（表头 + 9 数据 + 合计）；合计行 里程 `908.5`、能耗 `138.6`、平均速度 `49.82`；重开核对单元格 `B2 = EV-001`、冻结窗格 `A2`；文件约 `5.6 KB`（.xlsx 是 ZIP + XML，见 4.2）。
+实测输出：工作表「设备状态周报」`11 行 × 6 列`（表头 + 9 数据 + 合计）；合计行 累计运行量 `908.5`、能耗 `138.6`、平均速度 `49.82`；重开核对单元格 `B2 = EV-001`、冻结窗格 `A2`；文件约 `5.6 KB`（.xlsx 是 ZIP + XML，见 4.2）。
 
 ### 示例 3：日志分析（正则 + Counter → CSV 报表）
 
@@ -448,7 +448,7 @@ except requests.exceptions.HTTPError as e:
     print(type(e).__name__)             # HTTPError（404）
 ```
 
-实测输出：`GET /health` → `200 {'status': 'ok'}` + `Content-Type: application/json`；`POST /vehicles` → `201 {'created': 'EV-004'}`；`GET /nope` → `404` 且 `raise_for_status` 抛 `HTTPError`；`GET /slow`（服务端睡 1.5s）→ `timeout=0.3` 抛 `ReadTimeout`；结束打印「临时 HTTP 服务已关闭」。
+实测输出：`GET /health` → `200 {'status': 'ok'}` + `Content-Type: application/json`；`POST /devices` → `201 {'created': 'EV-004'}`；`GET /nope` → `404` 且 `raise_for_status` 抛 `HTTPError`；`GET /slow`（服务端睡 1.5s）→ `timeout=0.3` 抛 `ReadTimeout`；结束打印「临时 HTTP 服务已关闭」。
 
 ### 示例 5：邮件通知（smtplib + 最小 SMTP 调试服务器）
 
@@ -459,14 +459,14 @@ except requests.exceptions.HTTPError as e:
 msg = EmailMessage()
 msg["From"] = "ops@example.com"
 msg["To"] = "admin@example.com"
-msg["Subject"] = "车辆状态日报"
+msg["Subject"] = "设备状态日报"
 msg.add_attachment(report.read_bytes(), maintype="text",
                    subtype="csv", filename=report.name)
 with smtplib.SMTP("127.0.0.1", port, timeout=5) as smtp:
     smtp.send_message(msg)
 ```
 
-实测输出：SMTP 调试服务器收信 `1` 封；From `ops@example.com`、收件人 `admin@example.com`、主题「车辆状态日报」；附件 `1` 个（`vehicle-report.csv`）；结束打印「SMTP 调试服务器已关闭」。
+实测输出：SMTP 调试服务器收信 `1` 封；From `ops@example.com`、收件人 `admin@example.com`、主题「设备状态日报」；附件 `1` 个（`device-report.csv`）；结束打印「SMTP 调试服务器已关闭」。
 
 ### 示例 6：定时任务（schedule 调度循环）
 
@@ -523,13 +523,13 @@ while len(executed) < 3 and rounds < 10:
 本阶段练习见 [`exercises/`](./exercises/)（题目在 [exercises/README.md](./exercises/README.md)，参考实现 sol-* 先别看）。与 roadmap「练习」小节一一对应，完成 4 题后继续：
 
 - 批量整理日志（★）：pathlib 归档旧日志 + 清理临时文件，幂等 + 审计日志（提示：正则从文件名取日期；动作前检查目标已存在）
-- 生成 Excel 报表（★★）：CSV → 多 Sheet xlsx，汇总 sheet 按车辆分组（提示：`round(..., 2)`；`load_workbook` 重开核对）
+- 生成 Excel 报表（★★）：CSV → 多 Sheet xlsx，汇总 sheet 按设备分组（提示：`round(..., 2)`；`load_workbook` 重开核对）
 - 定时拉取接口（★★）：轮询循环拉本地接口，超时 + 重试 + 错误日志（提示：`raise_for_status()`；重试 1 次失败记 `errors.log`；`time.sleep(1)` 就是最小「定时」）
-- 解析 CAN 日志（★★★）：candump 格式正则解析 + 按 ID 统计 + CSV 报表（提示：`int(id, 16)` + `bytes.fromhex`；首字节即信号值；无效行计数）
+- 解析 BUS 日志（★★★）：candump 格式正则解析 + 按 ID 统计 + CSV 报表（提示：`int(id, 16)` + `bytes.fromhex`；首字节即信号值；无效行计数）
 
 ### 阶段项目
 
-本阶段综合项目见 [`project/`](./project/)：**CAN 日志批处理工具**——解析 candump 格式日志 → 按 ID 统计信号值 → 生成 CSV 报表 + 文本汇总，argparse 参数化、logging 审计、可安全重跑、输出可审计四个必会概念一个工具全部落地（对应 roadmap「推荐项目」第二个「CAN 日志批处理工具」；roadmap 的另一个「自动报表生成器」可作为扩展方向——把示例 2/5/6 合体成「定时生成 Excel 报表并发邮件」）。建议完成练习后再动手，尤其练习 4（同一主题的缩小版）。
+本阶段综合项目见 [`project/`](./project/)：**BUS 日志批处理工具**——解析 candump 格式日志 → 按 ID 统计信号值 → 生成 CSV 报表 + 文本汇总，argparse 参数化、logging 审计、可安全重跑、输出可审计四个必会概念一个工具全部落地（对应 roadmap「推荐项目」第二个「BUS 日志批处理工具」；roadmap 的另一个「自动报表生成器」可作为扩展方向——把示例 2/5/6 合体成「定时生成 Excel 报表并发邮件」）。建议完成练习后再动手，尤其练习 4（同一主题的缩小版）。
 
 - [ ] 完成 exercises/ 全部 4 题并对照参考实现复盘
 - [ ] 独立完成 project/ 并通过其验收标准
