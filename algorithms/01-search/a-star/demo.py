@@ -1,8 +1,9 @@
-"""A* demo：同一张地图，手写 A* vs Dijkstra 双跑对比 + 两个变参实验。
+"""A* demo：同一张地图，手写 A*（insertion / large_g）vs Dijkstra 三跑对比 + 两个变参实验。
 
 搜索算法的"对照"是基线算法而非 sklearn。三个实验：
-1. 主对照：同一张随机障碍地图（固定种子，保证连通），A* vs Dijkstra，
-   对比 路径代价 / 扩展节点数 / 耗时 —— 启发式 h 的收益由此量化
+1. 主对照：同一张随机障碍地图（固定种子，保证连通），A*（insertion / large_g
+   两种平局策略）vs Dijkstra，对比 路径代价 / 扩展节点数 / 耗时 ——
+   启发式 h 的收益由此量化
 2. 平局策略 × 障碍率：无障碍 / 30% 障碍两张图，各跑 insertion 与 large_g
    两种平局破解 —— 展示"平局策略是网格 A* 效率的一阶因素"
 3. 加权 A* 扫描：w ∈ {1.0, 2.0, 3.0, 5.0}，f = g + w·h ——
@@ -111,34 +112,45 @@ def draw(grid, path_a: list, path_d: list, closed_a: set, closed_d: set) -> None
 
 
 def experiment_main() -> None:
-    """实验一：A* vs Dijkstra 主对照（30% 障碍，seed=42）。"""
+    """实验一：A* vs Dijkstra 主对照（30% 障碍，seed=42；A* 含两种平局策略）。"""
     print("== 实验一：A* vs Dijkstra（21×21，30% 障碍，seed=42）==")
     grid, start, goal = make_grid()
 
     t0 = time.perf_counter()
-    r_a = solve(grid, start, goal)
-    t_a = time.perf_counter() - t0
+    r_ins = solve(grid, start, goal)  # 默认 insertion 平局
+    t_ins = time.perf_counter() - t0
+
+    t0 = time.perf_counter()
+    r_lg = solve(grid, start, goal, tie_break="large_g")
+    t_lg = time.perf_counter() - t0
 
     t0 = time.perf_counter()
     r_d = dijkstra(grid, start, goal)
     t_d = time.perf_counter() - t0
 
-    # 断言：同一张图，两算法必须找到相同代价的最短路径
-    assert r_a.path_cost == r_d.path_cost, (
-        f"最优性破坏：A* 代价 {r_a.path_cost} ≠ Dijkstra 代价 {r_d.path_cost}"
+    # 断言：同一张图，三种跑法必须找到相同代价的最短路径
+    assert r_ins.path_cost == r_lg.path_cost == r_d.path_cost, (
+        f"最优性破坏：A* insertion 代价 {r_ins.path_cost}、"
+        f"large_g 代价 {r_lg.path_cost} ≠ Dijkstra 代价 {r_d.path_cost}"
     )
 
-    print(f"{'':16} | {'A*':>10} | {'Dijkstra':>10}")
-    print("-" * 44)
-    print(f"{'path_len(节点数)':16} | {len(r_a.path) if r_a.path else 0:>10} | {len(r_d.path) if r_d.path else 0:>10}")
-    print(f"{'path_cost(代价)':16} | {r_a.path_cost:>10.0f} | {r_d.path_cost:>10.0f}")
-    print(f"{'nodes_expanded':16} | {r_a.nodes_expanded:>10} | {r_d.nodes_expanded:>10}")
-    print(f"{'time_ms':16} | {t_a*1000:>10.3f} | {t_d*1000:>10.3f}")
+    len_ins = len(r_ins.path) if r_ins.path else 0
+    len_lg = len(r_lg.path) if r_lg.path else 0
+    len_d = len(r_d.path) if r_d.path else 0
+    print(f"{'':16} | {'A*(ins)':>9} | {'A*(large_g)':>11} | {'Dijkstra':>9}")
+    print("-" * 54)
+    print(f"{'path_len(节点数)':16} | {len_ins:>9} | {len_lg:>11} | {len_d:>9}")
+    print(f"{'path_cost(代价)':16} | {r_ins.path_cost:>9.0f} | {r_lg.path_cost:>11.0f} | {r_d.path_cost:>9.0f}")
+    print(f"{'nodes_expanded':16} | {r_ins.nodes_expanded:>9} | {r_lg.nodes_expanded:>11} | {r_d.nodes_expanded:>9}")
+    print(f"{'time_ms':16} | {t_ins*1000:>9.3f} | {t_lg*1000:>11.3f} | {t_d*1000:>9.3f}")
 
-    saved = r_d.nodes_expanded - r_a.nodes_expanded
-    print(f"\n启发式收益：少扩展 {saved} 个节点（{saved/r_d.nodes_expanded:.1%}）")
+    print()
+    for name, r in (("insertion", r_ins), ("large_g", r_lg)):
+        saved = r_d.nodes_expanded - r.nodes_expanded
+        print(f"启发式收益（{name} 平局）：少扩展 {saved} 个节点"
+              f"（{saved / r_d.nodes_expanded:.1%}）")
 
-    draw(grid, r_a.path, r_d.path, r_a.closed, r_d.closed)
+    draw(grid, r_ins.path, r_d.path, r_ins.closed, r_d.closed)
 
 
 def experiment_tiebreak() -> None:

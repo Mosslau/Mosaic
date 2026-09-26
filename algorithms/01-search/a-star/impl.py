@@ -2,8 +2,10 @@
 
 A* 是"带估计的图搜索"：
 - open 集：按 f(n) = g(n) + w·h(n) 排序的待扩展节点（g 为实际代价，h 为启发式估计）
-- closed 集：已扩展节点
-- 当 h 可采纳（admissible，不高估真实代价）且 w = 1 时，A* 保证找到最优解
+- closed 集：已扩展节点（本实现不重开节点）
+- 当 h 一致（consistent）且 w = 1 时保证最优；仅"可采纳（admissible）"不足以保证最优——
+  closed 不重开的图搜索会把"可采纳但不一致"的 h 变成静默次优解（回归用例见 test_impl.py）
+- w 必须 ≥ 1：w = 1 为标准 A*；w > 1 为加权 A*（只保证 w-次优界，不保证最优）
 
 本目录的形态由"寻路"决定，不是 sklearn 估计器，没有 fit/predict：
 - impl.py     手写 A*
@@ -15,6 +17,7 @@ A* 是"带估计的图搜索"：
 
 import heapq
 import itertools
+import math
 from dataclasses import dataclass, field
 from typing import Callable, Literal, Optional
 
@@ -68,17 +71,29 @@ def solve(
     参数：
         grid: 二维地图，0=可通行，1=障碍
         start / goal: (row, col)，须在界内且可通行
-        heuristic: h(n)，默认曼哈顿距离
+        heuristic: h(n)，默认曼哈顿距离；必须非负且一致（consistent，满足
+            h(n) ≤ c(n, n') + h(n')）。本实现不重开节点：仅可采纳但不一致的 h
+            可能静默返回次优解（已知局限回归见 test_impl.py）
         tie_break: f 值相同时的平局破解策略——
             "insertion" 按入堆先后（近似广度优先，网格上易退化为全图扩展）；
-            "large_g" 优先扩展 g 更大者（即更靠近终点的节点，网格寻路的经典优化）
-        weight: 启发式权重 w，f = g + w·h；w=1 为标准 A*，w>1 为加权 A*
-            （更快但只保证 w-次优，最优性断言不适用于 w>1）
+            "large_g" 优先扩展 g 更大者（即更靠近终点的节点，网格寻路的经典优化）。
+            当 f 与 g 都相同时，堆项退化为按节点 (row, col) 字典序比较：结果确定，
+            但方向偏置取决于坐标编码；要消除该偏置可给堆项追加单调递增序号
+        weight: 启发式权重 w，f = g + w·h；要求是 ≥ 1 的有限数：
+            w=1 为标准 A*，w>1 为加权 A*（更快但只保证 w-次优，最优性断言不适用）
     返回：
         SearchResult（path 无解时为 None）
     """
     if tie_break not in ("insertion", "large_g"):
         raise ValueError(f"未知 tie_break={tie_break!r}，可选 'insertion' / 'large_g'")
+    try:
+        weight_ok = math.isfinite(weight) and weight >= 1
+    except TypeError:
+        weight_ok = False
+    if not weight_ok:
+        raise ValueError(
+            f"weight 必须是 ≥ 1 的有限数（w=1 标准 A*，w>1 加权 A*），得到 {weight!r}"
+        )
     _check_passable(grid, start, "start")
     _check_passable(grid, goal, "goal")
 
