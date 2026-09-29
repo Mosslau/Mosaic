@@ -1,29 +1,32 @@
-# 教学素材规范（图 / 流程图 / GIF）
+# 表现层规范（教学素材：图 / 流程图 / GIF）
 
-> 用于 `algorithms/<pNN-族>/<算法名>/images/` 与 `make_teaching_assets.py`（纪律④）。
-> 核心原则：**抽象概念优先用图讲；图必须能重生成、必须与代码数字一致。**
+> 用途：规定 `images/` 的素材类型、生成方式与引用格式（纪律④）。
+> 权威关系：结构与章节归属见 `readme-structure.md`；基础篇 / 进阶篇写法见另两份模板。
+> 读者：要为本实验生成素材的人。
 
 ---
 
-## 一、四类素材的分工
+## 四类素材分工
 
 | 素材 | 讲什么 | 放哪 | 生成方式 |
 |---|---|---|---|
 | 概念图 | 核心量的含义与组合（如 `f = g + h` 的色条） | 基础篇 1–2 节 | matplotlib / SVG 脚本 |
-| 流程图 | 主循环、判定分支、数据流 | 基础篇 3 节 | matplotlib 方框箭头或 Mermaid（Mermaid 直接写进 README 也行） |
-| 对比图 | 手写 vs 对照、策略/参数差异、搜索范围 | 基础篇 6 节、进阶篇对照段 | 脚本生成多面板图 |
+| 流程图 | 主循环、判定分支、数据流 | 基础篇 3 节 | 优先 Mermaid（直接写进 README），复杂时出 PNG |
+| 对比图 | 手写 vs 对照、策略 / 参数差异、搜索范围 | 基础篇 6 节、进阶篇「对照」段 | 脚本生成多面板图 |
 | 动画 / GIF | 过程与顺序（时间维度：扩展顺序、收敛过程） | 基础篇 4 或 6 节 | matplotlib `FuncAnimation` → `PillowWriter` |
 
 选型口诀：**讲"是什么"用图，讲"怎么走"用流程图，讲"差别"用对比图，讲"过程"用动画。** 能用一张静态图讲清的，不要上动画（GIF 体积与维护成本都高）。
 
-## 二、硬约束（可被检查）
+## 硬约束
 
 1. **脚本生成**：`images/` 下每个文件都必须能由 `make_teaching_assets.py` 重跑生成；手绘、截图、外部下载一律不收
 2. **数字对账**：脚本内断言素材中的数字与 `impl.py` / `demo.py` 输出一致，不一致即报错——这是"文档不漂移"的机器保险
 3. **引用存在**：README 引用的素材路径必须存在（`validate.py` 检查；缺失记硬伤）
 4. **命名**：`NN-用途.{png,gif}`（如 `03-四种策略对比.png`），编号与 README 出现顺序一致
 
-## 三、生成器骨架（对账断言是重点）
+起手式（脚手架）：`python3 .dsh/skills/mindspring-lab/scripts/scaffold_assets.py algorithms/<族>/<算法名>` 生成骨架与 `images/`；`--check` 检查已有生成器是否具备断言 / 缓存 / 字体 / images 四项底线。
+
+## 生成器骨架
 
 ```python
 """<算法名> 图文素材生成器。
@@ -56,36 +59,34 @@ FONT_CANDIDATES = [
     "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
     "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
 ]
-for _f in FONT_CANDIDATES:
-    if Path(_f).exists():
-        font_manager.fontManager.addfont(_f)
-        plt.rcParams["font.family"] = font_manager.FontProperties(fname=_f).get_name()
-        break
+FONT = next((f for f in FONT_CANDIDATES if Path(f).exists()), None)
+if FONT is None:
+    raise SystemExit("找不到中文字体（Noto / 文泉驿），装一个再跑")
+font_manager.fontManager.addfont(FONT)
+plt.rcParams["font.family"] = font_manager.FontProperties(fname=FONT).get_name()
 
-from impl import solve  # noqa: E402  素材数字的唯一来源
-from demo import make_case  # noqa: E402
+# TODO: 导入本实验的实现入口（素材数字的唯一来源）
+# from impl import <主函数>
 
 
 def verify() -> None:
-    """素材与 impl/demo 对账：不一致直接报错、不出图。"""
-    case = make_case(seed=42)
-    ref = solve(case.grid, case.start, case.goal)
-    drawn = trace(case)          # 教学脚本自己的复算
-    assert drawn.expanded == ref.nodes_expanded, "扩展数与 impl 不一致"
-    assert drawn.cost == ref.path_cost, "路径代价与 impl 不一致"
+    """素材与实现对账：不一致直接报错、不出图。"""
+    # ref = <主函数>(...)
+    # assert <素材里的数> == ref.<对应字段>, "扩展数与 impl 不一致"
+    raise NotImplementedError("先写 verify()：素材数字必须与实现对账")
 
 
 def make_compare() -> None:
     fig, ax = plt.subplots(figsize=(8, 5))
-    ...
+    # TODO: 画对比图
     fig.savefig(IMAGES / "03-对比图.png", dpi=120)
     plt.close(fig)
 
 
 def make_animation() -> None:
     fig, ax = plt.subplots(figsize=(6, 6))
-    anim = animation.FuncAnimation(fig, update, frames=range(0, 200, 5))
-    anim.save(IMAGES / "04-动画.gif", writer=animation.PillowWriter(fps=8))
+    # anim = animation.FuncAnimation(fig, update, frames=range(0, 200, 5))
+    # anim.save(IMAGES / "04-动画.gif", writer=animation.PillowWriter(fps=8))
     plt.close(fig)
 
 
@@ -100,11 +101,11 @@ if __name__ == "__main__":
 
 | 失效 | 症状 | 对策 |
 |---|---|---|
-| 数字漂移 | 图里的扩展数与实测表不符 | `verify()` 断言；改算法后重跑脚本 |
+| 数字漂移 | 图里的数字与实测表不符 | `verify()` 断言；改算法后重跑脚本 |
 | 中文变方块 | 图里出现「豆腐块」 | 脚本内注册中文字体；找不到字体直接报错 |
 | 缓存写不进去 | matplotlib 报只读目录 | `os.environ.setdefault("MPLCONFIGDIR", "/tmp/mplcfg")` |
 
-## 四、README 里怎么引用
+## README 引用规范
 
 ```markdown
 ![四种策略的搜索范围对比：Dijkstra 全向扩散，A* 朝终点收窄](images/03-四种策略对比.png)
@@ -114,7 +115,7 @@ if __name__ == "__main__":
 - 图片前后各留空行；同一节不要超过 2 张图（信息密度过高等于没讲）
 - GIF 体积控制在 2 MB 以内：超了就抽帧（`frames=range(0, n, 6)`）、降 dpi 或缩小画布
 
-## 五、Mermaid 的用法（能写文本就别出图）
+## Mermaid 优先
 
 流程图若能用 Mermaid 表达，直接写进 README，不生成 PNG——文本可 diff、可搜索、零体积：
 
@@ -129,4 +130,12 @@ flowchart TD
 ```
 ````
 
-图（概念/对比/动画）用脚本生成；**流程图优先 Mermaid**，只有 Mermaid 表达不了（如带计算的示意）才出 PNG。
+图（概念 / 对比 / 动画）用脚本生成；**流程图优先 Mermaid**，只有 Mermaid 表达不了（如带计算的示意）才出 PNG。
+
+## 自查清单
+
+- [ ] `images/` 下每个文件都能由 `make_teaching_assets.py` 重跑生成
+- [ ] 生成器里有 `verify()` 对账断言，且实跑通过
+- [ ] README 引用的素材路径全部存在、有 alt 文本、编号与出现顺序一致
+- [ ] GIF ≤ 2 MB；能用 Mermaid 的流程图没有出 PNG
+- [ ] 中文字体已注册（图中无方块），只读环境下 `MPLCONFIGDIR` 有兜底
