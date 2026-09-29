@@ -1,37 +1,109 @@
 # engineering —— 工程系统部分
 
-Mosaic 的第 ③ 部分。两个**并列**域：把「AI 平台」与「数据平台」做成真实可运行的系统，与 `algorithms/`（学原理）一样，目标是交付**跑起来的系统与实测数字**——但**当前两域都还没有实现**，状态见下表。
+> 定位：Mosaic 第 ③ 部分的两个**并列平台**——`ai-platform/`（AI 平台：模型与智能侧）与 `data-platform/`（通用数据平台：数据供给侧）。两者都以「成熟开源集成 + 薄自研胶水」构建，文档都按四层模型组织（平台索引 / 方案设计 + 实施设计 / 单元定义，见 [`.dsh/skills/engineering-docs/`](../.dsh/skills/engineering-docs/)）。
+> 当前状态：**两平台均未实现**。`ai-platform/` 设计定稿 **v7**（P5 单元进行中，其余未开工）；`data-platform/` 设计定稿 **v39**（P0 未开工）。**未实现的不按"已跑通"叙述。**
 
-| 域 | 目录 | 内容 | 规模 | 状态 |
-|---|---|---|---|---|
-| AI 平台 | `ai-platform/` | 语料流水线、RAG 知识库、湖仓+向量、GPU 调度、推理服务、Agent 平台、端到端整合 | 7 个项目 | 规划中（仅 `P5-agent-nest` 进行中，见其 README） |
-| 数据平台 | `data-platform/` | 通用数据平台架构设计：选型、自研边界、契约规范、P0–P6 路线、V1–V48 验证清单、风险取舍与历史修订 | 1 套设计 | 设计文档 v39（未实现） |
+## 两个平台一览
 
-## ai-platform 的依赖关系与开工顺序
+| 平台 | 定位 | 编号族 | 单元与形态 | 验收编号 | 文档入口 |
+|---|---|---|---|---|---|
+| [`ai-platform/`](ai-platform/) | 模型与智能侧：数据（语料 / 向量 / 湖仓）+ 算力（K8s / GPU）+ 模型（微调 / 推理）+ 应用（RAG / Agent）共栈 | `P0`–`P6`（与 roadmap 阶段一~七一一对应） | 7 个：5 纵切 + 1 能力层（算力）+ 1 收口（集成） | **A1–A54** | [索引](ai-platform/README.md) · [平台路线文档](ai-platform/AI平台建设路线.md) |
+| [`data-platform/`](data-platform/) | 数据供给侧：湖仓为真相源 + 控制面 12 中心 + 语义层唯一口径，对标 DataWorks / WeData 的能力集 | `P0`–`P6`（`P0` 为前置探针） | 7 个：1 探针 + 4 纵切 + 1 能力层（治理）+ 1 收口（生产化） | **V1–V48** | [索引](data-platform/README.md) · [平台路线文档](data-platform/通用数据平台建设路线.md) |
 
-每个项目的**项目定义**（各自 README 的六段）已给出「复用的算法实验」；开工顺序建议：**先纵切两端（01 数据入口 + 05 推理出口）**，再补中间（03 存储版本、02 检索），最后做受硬件约束的 04 与集成层 07。
+> **共享与分工**（v2 / v36 定稿）：两平台共用同一套 K8s 集群、对象存储 + Iceberg 湖与 **Vault**（唯一凭据源，按平台分 path/policy，K8s Secret 仅作注入通道）；**湖仓 / 对象存储 / 数据任务调度（DolphinScheduler）归 data-platform**，**模型网关（LLM Gateway）/ MCP 网关 / 沙箱 / GPU 与训练推理队列 / 模型与集成任务调度（Airflow）归 ai-platform**；data-platform 的 P5 作为模型网关的**调用方**。
 
-| 阶段 | 项目 | 前置算法实验（`algorithms/`） | 前置项目 | 受什么约束 |
-|---|---|---|---|---|
-| 一 | P0-text-corpus-pipeline | `05-generative/mini-rag`（向量化口径）、`02-statistical-ml/kmeans`、`02-statistical-ml/pca`；**去重算法需新增手写实验** | — | 数据规模（10GB 需流式/Spark） |
-| 二 | P1-rag-knowledge-base | `05-generative/mini-rag`（内核）、`04-transformer/attention`（Rerank 原理）、`kmeans`、`pca` | 01（语料与向量） | 向量库与 LLM 外部依赖 |
-| 三 | P2-lakehouse-vector | `mini-rag`（索引口径）、`kmeans`（布局/聚簇）、`pca`（压缩分析） | 01 | 表格式与对象存储 |
-| 四 | P3-gpu-scheduler-demo | 无直接复用（基础设施编排）；`01-search/a-star` 的"可解释评估"思想可类比 | — | **真实 GPU + K8s（最大约束）** |
-| 五 | P4-inference-server | `04-transformer/mini-gpt`、`mini-transformer`、`attention`（prefill/decode 与 KV Cache） | 04（算力与部署）可选 | GPU / 量化工具链 |
-| 六 | P5-agent-nest | 自身在 Part 1 沉淀，编码期再回访相关实验 | 02/05（作为工具与模型来源） | 沙箱与运行时依赖 |
-| 七 | P6-ai-platform | 集成层：复用前六个项目，不直接依赖单个算法实验 | 一~六全部 | 单机资源（Compose 起步） |
+---
 
-> 交叉约束：**04 是唯一受硬件门槛限制的项目**（无 GPU 时只能做逻辑层验证，其 README 已把验收拆成"逻辑层/真实层"两层）；**07 可增量推进**（骨架先行，每完成一个阶段接入一个组件），因此不必等前面全部完成。
+## ai-platform（AI 平台）
 
-## 与 languages/ 的分工
+### 总体架构
 
-[`languages/`](../languages/) 承载**语言学习与工程纪律的语义层**（如 AI 平台控制面的任务/配额/模型/发布语义、湖仓与编排的口径语义，已实跑验证）；本域的目标是**真实系统的实现与真实指标**（真调度、真推理、真压测、真成本）——但两域当前都没有实现，**未实现的不按"已跑通"叙述**。**languages/ 讲"应该怎么做、为什么"，engineering/ 交付"跑起来的系统与实测数字"——两者不重复。**
+`AI平台建设路线.md` §2 的六个小节：
 
-## 校验
+- **2.1 结构视图**：**5 层**——系统入口（自研控制台 + 开放 API，P6）→ 控制面（统一编排 / 接口契约 / 链路追踪 / 监控告警 / 成本归集 / 治理台账，P6）→ 数据面（P0 语料 · P2 湖仓 · P1 检索 · P4 训练·推理 · P5 Agent）→ **算力层**（K8s + Volcano + GPU Operator，P3）→ 存储（对象存储 · Iceberg · 向量库 · PG · Redis）；横切：契约 · 可观测性 · 权限与审计 · 成本 · 多租户
+- **2.2 数据流视图**：**6 跳**——语料 + 问题 → ①加工(P0) → ②入库(P2，语料表与向量表同一次提交) → ③检索(P1，混合检索 + Rerank + 引用) → ④微调(P4① → MLflow) → ⑤推理(P4②，vLLM + OpenAI 兼容) → ⑥Agent(P5，RuntimePort + 底座) → 出口（答案 + 引用 + 成本账 + 台账）
+- **2.3 控制面 / 数据面**：控制面 **6 中心**（编排 / 契约 / 可观测 / 成本 / 治理 / 评测）；数据面 **6 组件**（P0–P5 + P3 算力层）
+- **2.4 隔离与多租户（五层对齐）**：K8s namespace + 调度队列 = Iceberg namespace = 向量库 collection = MLflow experiment + 模型注册 = 贯穿的租户 ID
+- **2.5 可用性与容灾口径**：建立在组件原生能力上、不自研容灾；自研件一律无状态；**额外一条"无 GPU 降级口径"**——组件能力不变，降级的是"真实数字"（逻辑层验证 + 如实标注）
+- **2.6 规模假设（三档）**：逻辑层（无 GPU）/ 单机集成（当前目标）/ 生产——语料 ≤1GB → 10GB → TB 级，算力 mock → kind + 单卡 → 多节点多卡，推理并发 1 → 1/4/8/16 → 64+
 
-工程文档（两个平台）由 skill [`.dsh/skills/engineering-docs/`](../.dsh/skills/engineering-docs/) 规范——四层文档模型（平台索引 / 方案设计 / 实施设计 / 单元定义）+ 场景 D 完成度清单（人工核对；当前无自动化脚本）。
+**核心契约**：**共享底座 + 可插拔运行时（RuntimePort）**；算力是一等公民（独立一层 + 账本）。
 
-```bash
-# 算法线的校验与本域无关，供交叉参考
-python3 .dsh/skills/mindspring-lab/scripts/validate.py
-```
+### 能力域（八域 + 横切）
+
+| 域 | 内容与选型要点 |
+|---|---|
+| ① 数据与语料 | 解析 / 清洗 / 去重（手写 MinHash + LSH）/ 分片 / embedding；加工报告与元数据表逐项对账 |
+| ② 存储与版本 | **Iceberg** + 对象存储；语料表与向量表**同一次提交**，向量索引记录 `snapshotId` 并与表同版本 |
+| ③ 算力与调度 | K8s（kind → 生产集群）+ **Volcano**（队列 / 优先级 / gang）+ GPU Operator / DCGM；资源账本与 GPU·秒计量 |
+| ④ 训练与微调 | LoRA / QLoRA（PEFT）+ **MLflow** 实验与产物登记；一次微调可复现 |
+| ⑤ 推理与服务 | **vLLM**（OpenAI 兼容子集）+ LoRA Serving + 量化（GPTQ/AWQ/bitsandbytes）+ locust/k6 并发梯度压测 |
+| ⑥ 检索与知识库 | **LangChain**（仅检索链）+ **Milvus**（兜底 faiss）+ 混合检索（稠密 + BM25）+ Rerank + 引用溯源 + 评测集 |
+| ⑦ Agent 与运行时 | 底座（PG / Redis / Milvus / MinIO / Vault / 沙箱 E2B·OCI）+ **RuntimePort 契约** + 四框架适配 + 自研 **agent-core**（Rust） |
+| ⑧ 平台控制面与运营 | **Airflow** 编排 + 接口契约层 + OTel/Prometheus/Grafana/Loki + 三类成本归集（存储 / GPU·秒 / tokens）+ 治理台账 + 统一控制台 |
+| 横切 | 契约 · 可观测性 · 权限与审计 · 成本 · 多租户 |
+| 明确不选 | 自研向量库 / 推理引擎内核 / K8s 调度器 / 湖表格式 / Agent 框架全家桶；服务网格；第二套算力编排 |
+
+**自研件**（不作单元，挂在承载单元上）：1 入口（统一控制台）+ 6 胶水（统一编排 / 接口契约 / 链路追踪 / 监控告警 / 成本归集 / 治理台账）+ 1 内核（RuntimePort + agent-core）+ 底座（模型网关 / MCP 网关 / 沙箱 / Vault / 可观测）。
+
+### 实施路线（P0–P6）
+
+| 编号 | 单元 | 周期 | 形态 | 验收 | 状态 |
+|---|---|---|---|---|---|
+| P0 | AI 数据基础 | 3–4 周 | 纵切 | A1–A7 | ⬜ |
+| P1 | RAG 数据平台 | 3–4 周 | 纵切 | A8–A14 | ⬜ |
+| P2 | 向量化数据湖 | 2–3 周 | 纵切 | A15–A22 | ⬜ |
+| P3 | Kubernetes + GPU 调度 | 4–6 周 | 能力层 | A23–A30 | ⬜ |
+| P4 | 训练与推理平台 | 4–6 周 | 纵切 | A31–A37 | ⬜ |
+| P5 | Agent 平台 | 6–8 周 | 纵切 | A38–A46 | 🚧（Part 1 已完成） |
+| P6 | AI 数据中心平台整合 | 4–8 周 | 收口 | A47–A54 | ⬜ |
+
+**合计 26–39 周（约 6–9 个月）**，净剩余约 **24–36 周**（1 主线 + 0.5 数据工程 + 0.5 平台运维）；开工顺序见 [ai-platform/README.md](ai-platform/README.md) 的「依赖与开工顺序」。
+
+---
+
+## data-platform（通用数据平台）
+
+### 总体架构
+
+`通用数据平台建设路线.md` §2 的六个小节：
+
+- **2.1 结构视图**：**4 层**——系统入口（自研门户 + 开放 API）→ 控制面（编排 / 元数据 / 质量 / 语义 / 查询网关 / 契约）→ 数据面（SeaTunnel Zeta · DS Worker · Flink·Spark 长驻）→ 存储（Kafka · Iceberg+MinIO · Doris · PG · Redis · Milvus）；横切：Prometheus + Grafana + OTel · DataHub
+- **2.2 数据流视图**：**5 跳**——数据源 → ①统一信封（双时间 + 幂等键）→ Kafka 总线 → ②a Flink 实时加工 / ②b SeaTunnel 集成入湖 → **Iceberg ODS→DWD→DWS（真相源）** → ③物化 Doris（serving 加速层）→ ④语义层 MQL→SQL → 查询网关 API / Superset BI → ⑤AI 问数
+- **2.3 控制面 / 数据面**：控制面 **12 中心**（权限 / 配置 / 元数据 / 指标 / 任务调度 / 数据质量 / 血缘 / 审计 / 告警 / 资源 / 模型 / 成本）；数据面 **3 组件**（SeaTunnel / DS Worker / Flink·Spark 长驻作业）
+- **2.4 多租户模型（四层对齐）**：DS 租户 / 项目 = DataHub domain = Iceberg namespace = Doris database
+- **2.5 可用性与容灾口径**：建立在组件原生能力上、不自研容灾；自研件一律无状态；统一备份策略与恢复演练后置到 P6
+- **2.6 规模假设（三档）**：PoC(P0) / 试点(P1–P3) / 生产(P4–P6)——源表 1 → 10 → 50，日增 ≤10MB/s → 500GB → 5TB，API — → 50 → 500 QPS，集群 8C32G → 3×16C64G → 6+×32C128G
+
+**核心契约**：**湖为真相源、Doris 只做 serving**（任何一张服务层表都能从湖重建）；**语义层是口径的唯一来源**（BI 视图与 API SQL 同源同版本）。
+
+### 能力域（八域 + 横切）
+
+| 域 | 内容与选型要点 |
+|---|---|
+| ① 数据集成 | **SeaTunnel（Zeta）** 批 / 流 / CDC 统一入口（~200 连接器）；DLQ 按原因枚举；断点续传 |
+| ② 存储底座 | **Iceberg 1.6+** + MinIO（真相源，JdbcCatalog 起步、REST 为升级方向）；**Doris 2.x** 作 serving；Trino 可选 |
+| ③ 计算引擎 | Flink 1.20（流）/ Spark 3.5（批）/ Doris（OLAP）/ Ray（P5 批量推理） |
+| ④ 统一目录 | **DataHub**（技术 / 业务 / 运行时元数据 + 血缘 + 统一授权）；Gravitino 持续跟踪 |
+| ⑤ 开发工作台 | **DolphinScheduler**（唯一编排器 + 补数）+ **StreamPark**（实时作业托管）；三种工作流模板（A 离线 / B 实时首启 / C 实时守护） |
+| ⑥ 数据治理 | SQL 质量规则（**阻断下游**）+ DataHub/OpenLineage 血缘 + 权限 / 脱敏 / 审计 + 成本归因 + 多租户与配额 |
+| ⑦ 语义与服务 | 自研 `metric_def` + **MQL→SQL（Calcite）** + Spring Boot 查询网关（三种查询模式）+ Superset（BI 通道） |
+| ⑧ AI 工程化 | NL→MQL 问数（LLM 只产 MQL）+ 评测集（≥100 题）+ 诊断助手；**模型网关由 AI 平台提供**，本域为调用方 |
+| 横切 | 可观测性 · 多租户与权限 · 开放 API · 部署运维（K8s） |
+| 明确不选 | 自研调度 / 集成 / 语义引擎（Cube.js 因 Node 生态不选）；Griffin / Sqoop / Flume / NiFi |
+
+**自研件**（不作单元，挂在承载单元上）：1 入口（门户 + 开放 API）+ 5 胶水（契约 / 配置生成与接入作业管控 / 元数据上报器 / 指标语义层 / 查询网关）+ 4 个后置件（推式接入网关 / 文件接收 / 成本归因 / 标签层）。
+
+### 实施路线（P0–P6）
+
+| 编号 | 单元 | 周期 | 形态 | 验收 | 状态 |
+|---|---|---|---|---|---|
+| P0 | 选型验证（PoC） | 2–3 周 | 探针 | V1–V8 | ⬜ |
+| P1 | 最小闭环 | 6–8 周 | 纵切 | V6, V9–V17 | ⬜ |
+| P2 | 建模与指标 | 8–12 周 | 纵切 | V18–V26 | ⬜ |
+| P3 | 元数据与治理 | 6–8 周 | 能力层 | V27–V32 | ⬜ |
+| P4 | 服务化 | 4–6 周 | 纵切 | V33–V37 | ⬜ |
+| P5 | AI 增强 | 6–8 周 | 纵切 | V38–V44 | ⬜ |
+| P6 | 生产化 | 8–12 周 | 收口 | V45–V48 | ⬜ |
+
+**合计 40–57 周（约 10–13 个月）**（1 后端 + 1 数据开发 + 0.5 前端 + 0.5 运维）；P1 分 P1a 接入闭环 / P1b 链路与发布两个里程碑，P6 是对外承诺生产可用的分界线。
