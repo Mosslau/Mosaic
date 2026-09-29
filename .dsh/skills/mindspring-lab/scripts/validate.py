@@ -11,7 +11,8 @@
 
 覆盖：索引表 ↔ 目录双向核对、状态/日期一致性、README 六段齐全、
 占位段检测（✅ 状态下升级为硬伤）、章节锚点有效性、impl.py 违禁 import 与属性调用扫描、
-README 本地素材/相对链接存在性（图片缺失记硬伤，素材无生成脚本记警告）。
+README 本地素材/相对链接存在性（图片缺失记硬伤，素材无生成脚本记警告）、
+掌握层交付物结构（exercises/ 题解分离、project/ 有 README）。
 不管：推导质量、结果分析深度等教学判断——那些按场景 C 第 3 步人工深检。
 
 管辖范围：仅 `algorithms/`。`engineering/` 两个平台的文档规范已迁出本 skill，归
@@ -225,6 +226,20 @@ def check_assets(unit: Path, readme: str, rel: str, rep: Report) -> None:
             rep.warn(f"{rel}：相对链接指向的文件不存在「{target}」")
 
 
+def check_practice(unit: Path, rel: str, rep: Report) -> None:
+    """掌握层交付物（纪律⑤）：exercises/ 题解分离、project/ 有 README。"""
+    exercises = unit / "exercises"
+    if exercises.is_dir():
+        if not (exercises / "README.md").exists():
+            rep.err(f"{rel}/exercises：缺少 README.md——练习必须先出题（不附答案）")
+        solutions = sorted(exercises.glob("sol-*"))
+        if not solutions:
+            rep.warn(f"{rel}/exercises：只有题目没有参考解——参考解命名 `sol-NN-*`")
+    project = unit / "project"
+    if project.is_dir() and not (project / "README.md").exists():
+        rep.err(f"{rel}/project：缺少 README.md——需求 / 验收标准 / 运行方式写在里面")
+
+
 def check_algo_unit(unit: Path, idx: dict | None, chapters: set[str], rep: Report,
                     deep: bool) -> None:
     rel = unit.relative_to(ROOT).as_posix()
@@ -237,6 +252,7 @@ def check_algo_unit(unit: Path, idx: dict | None, chapters: set[str], rep: Repor
     symbol, date = check_status_block(readme, rel, rep)
     check_sections(readme, rel, rep, symbol)
     check_assets(unit, readme, rel, rep)
+    check_practice(unit, rel, rep)
 
     # 章节锚定：有效性（只在 blockquote 行中找）
     anchor = find_anchor_line(readme, ANCHOR_RE)
@@ -296,6 +312,10 @@ def check_algo_unit(unit: Path, idx: dict | None, chapters: set[str], rep: Repor
                          f"（若对照内嵌于其他文件，请在 README「目录形态」段说明）")
             if "# 基础篇" not in readme:
                 rep.hint(f"{rel}：✅ 但没有「基础篇」——零基础读者能否只靠 README 走通？")
+            if not (unit / "exercises").is_dir():
+                rep.hint(f"{rel}：✅ 但没有 exercises/——「会做」这一层没有检验（纪律⑤）")
+            if not (unit / "project").is_dir():
+                rep.hint(f"{rel}：✅ 但没有 project/——五级能力清单最多只能打到 4 级（迁移缺证据）")
             for m in re.finditer(r"\w+\.py:\d+", readme):
                 rep.hint(f"{rel}：行号引用「{m.group(0)}」易漂移，改为引用符号/片段内容")
         check_verification_claims(readme, rel, rep)

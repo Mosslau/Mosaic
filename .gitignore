@@ -21,6 +21,8 @@ debug
 /build/
 /dist/
 /site
+# 算法实验的运行产物（由 demo.py / 生成脚本重建，不入库）
+algorithms/**/project/out/
 *.o
 *.a
 *.so
