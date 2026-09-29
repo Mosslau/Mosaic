@@ -319,7 +319,7 @@ def check_algo_unit(unit: Path, idx: dict | None, chapters: set[str], rep: Repor
                 rep.hint(f"{rel}：✅ 但「数学推导」过短——是否存在推导真空？")
             if not (unit / "demo.py").exists():
                 rep.hint(f"{rel}：✅ 但缺少 demo.py——双跑对照的入口在哪？"
-                         f"（若对照内嵌于其他文件，请在 README「目录形态」段说明）")
+                         f"（若对照内嵌于其他文件，请在 README 说明，例如「目录形态」段）")
             if "# 基础篇" not in readme:
                 rep.hint(f"{rel}：✅ 但没有「基础篇」——零基础读者能否只靠 README 走通？")
             if not (unit / "exercises").is_dir():
