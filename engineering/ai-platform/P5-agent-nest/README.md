@@ -1,7 +1,7 @@
 # agent-nest（Agent 工程平台）
 
 > 状态：🚧 进行中
-> 所属平台与单元：ai-platform · P6 Agent 平台（类别：系统）
+> 所属平台与单元：ai-platform · P5 Agent 平台（类别：系统）
 > 对应文档：../AI平台建设路线.md（工程路线）；../../roadmap/大模型数据中心平台工程师.md（职业路线）
 
 ## 目标

@@ -1,7 +1,7 @@
 # GPU 调度平台 Demo
 
 > 状态：⬜ 未开始
-> 所属平台与单元：ai-platform · P4 Kubernetes + GPU 调度（类别：系统）
+> 所属平台与单元：ai-platform · P3 Kubernetes + GPU 调度（类别：系统）
 > 对应文档：../AI平台建设路线.md（工程路线）；../../roadmap/大模型数据中心平台工程师.md（职业路线）
 
 ## 目标
@@ -15,7 +15,7 @@
 ## 范围与不做
 
 - 范围：单机 K8s（kind/minikube）作业提交与队列、配额与优先级策略、GPU 抽象与资源账本、作业状态机与事件、GPU·秒成本归集、三块 Grafana 面板与分步命令清单。
-- 不做：不做多集群联邦调度、不做训练框架本身（P5）、不做商业计费系统（只做 showback / chargeback 之一）。
+- 不做：不做多集群联邦调度、不做训练框架本身（P4）、不做商业计费系统（只做 showback / chargeback 之一）。
 
 ## 技术栈
 
