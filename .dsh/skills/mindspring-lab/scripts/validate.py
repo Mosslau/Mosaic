@@ -32,7 +32,7 @@ ROOT = Path(__file__).resolve().parents[4]  # .dsh/skills/mindspring-lab/scripts
 assert (ROOT / "algorithms").is_dir(), f"仓库根定位失败：{ROOT}"
 
 ALGO_INDEX = ROOT / "algorithms" / "README.md"
-ALGO_ROADMAP = ROOT / "roadmap" / "人工智能代表算法演进路线.md"
+ALGO_ROADMAP = ROOT / "algorithms" / "docs" / "人工智能代表算法演进路线.md"
 
 # 六段式权威结构（与 references/algorithm-readme-template.md 一致；"对照"段名按族二选一）
 ALGO_SECTIONS_FIXED = ["设计原理", "数学推导", "手写实现要点", "实验结果", "局限与延伸"]
@@ -208,8 +208,12 @@ def check_algo_unit(unit: Path, idx: dict | None, chapters: set[str], rep: Repor
     anchor = find_anchor_line(readme, ANCHOR_RE)
     if not anchor:
         rep.err(f"{rel}：缺少章节锚点（> 对应文档章节：… 第 X.Y.Z 章）")
+    elif not chapters:
+        # 路线文档缺失或解析不出章节号：锚点检查此时没有判据，不能据此报硬伤。
+        # 文档缺失本身已由 main() 的 warn 提示；这里只跳过，避免"说跳过、实则全杀"。
+        pass
     elif anchor.group(1) not in chapters:
-        rep.err(f"{rel}：锚定章节 {anchor.group(1)} 在 roadmap 文档中不存在")
+        rep.err(f"{rel}：锚定章节 {anchor.group(1)} 在路线文档中不存在")
 
     # 索引一致性
     if idx is not None:

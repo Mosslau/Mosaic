@@ -1,17 +1,29 @@
-"""自编码器 AutoEncoder — 框架对照调用
+"""自编码器 AutoEncoder — 框架对照调用（深度模型 · 无监督）
 
-用手写实现同样的数据和指标，调 sklearn / PyTorch 现成接口跑一遍。
+用手写实现同样的数据与指标，调 **PyTorch** 跑一遍（本族对照对象是 PyTorch，不是 sklearn）。
 目的：
-1. 验证手写实现的正确性（指标应对齐）
+1. 验证手写实现的正确性（指标/损失应对齐）
 2. 感受框架封装的便利与隐藏的细节
 3. 记录框架内部额外做的优化（写回 README「框架对照」一节）
+
+**对照对象**：torch 的对称 MLP（另可与 sklearn 的 PCA 对比线性降维）
+
+手写纪律：本文件是对照版，**不受手写纪律约束**（可用现成层与优化器）；
+纪律只约束 impl.py。
 """
 
 
 def run_framework(X_train, X_test, y_train, y_test):
-    """用框架接口完成训练 + 预测，返回与手写版对齐的指标字典。"""
-    # TODO: 例：from sklearn.linear_model import LinearRegression
-    raise NotImplementedError("TODO: 调框架接口，返回 {'metric': ..., 'time_sec': ...}")
+    """用框架接口完成训练 + 预测，返回与手写版对齐的指标字典。
+
+    返回示例：{"loss": ..., "metric": ..., "time_sec": ...}
+    """
+    # TODO: 用上面「对照对象」里的现成接口实现同一算法。
+    #   README「框架对照」段要回答的是**差异原因**，至少覆盖：
+    #     - 框架多做了什么（向量化、融合算子、数值稳定的实现、自动混合精度）
+    #     - 框架的训练细节与手写版不同处（初始化、优化器默认值、梯度裁剪）
+    #     - 同一随机种子下两边指标是否真能对齐；对不齐要解释为什么
+    raise NotImplementedError("TODO: 调框架接口，返回 {'loss': ..., 'time_sec': ...}")
 
 
 if __name__ == "__main__":

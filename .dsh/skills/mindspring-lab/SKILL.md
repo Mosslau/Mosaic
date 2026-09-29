@@ -65,7 +65,7 @@ algorithms/<pNN-族>/<算法名>/          # p01-search/a-star, p04-transformer/
 每个 README 开头声明理论锚点：
 
 ```
-> 对应文档章节：`roadmap/人工智能代表算法演进路线.md` 第 X.Y.Z 章
+> 对应文档章节：`algorithms/docs/人工智能代表算法演进路线.md` 第 X.Y.Z 章
 ```
 
 锚定的章节必须真实存在（`validate.py` 自动核对）。
@@ -105,7 +105,7 @@ algorithms/<pNN-族>/<算法名>/          # p01-search/a-star, p04-transformer/
 
 ### 场景 A：新增一个算法实验
 
-1. 确定理论锚点：读 `roadmap/人工智能代表算法演进路线.md`，确定该实验对应的章节号 X.Y.Z
+1. 确定理论锚点：读 `algorithms/docs/人工智能代表算法演进路线.md`，确定该实验对应的章节号 X.Y.Z
 2. 确定所属算法族与对照对象（查 `references/algorithm-families.md`）：这决定文件形态（framework.py 还是 baseline.py）与自然接口
 3. 创建 `algorithms/<pNN-族>/<算法名>/`，写 README 骨架：按 `references/algorithm-readme-template.md` 的六段式，状态 ⬜，章节锚点填真实章节号
 4. 在 `algorithms/README.md` 对应族的索引表登记一行：实验链接、章节号、状态 ⬜、日期留空
