@@ -123,44 +123,23 @@ README 必须写出该实验的**五级能力清单**（见「使命」），且
 
 **✅ 的门槛**：双跑对照有真实数字与复现命令、README 无占位段落、六段齐全、状态与索引一致（`validate.py` 对 ✅ 的占位/空段记硬伤）。pytest 全绿不是门槛，是可选执行项。基础篇与练习/项目为推荐项，缺失在 `--deep` 中列为待升级。
 
-## 学习文档：README 两篇式
+## 学习文档：README 两篇式（结构要求）
 
-README 是**一份文档、两个大块**：`# 基础篇`（零基础读者）与 `# 进阶篇`（实验档案，六段式硬契约所在），标题区用一行「阅读路线」说明分流。
+README 是**一份文档、两个大块**，目的是让两类读者**各自有一条能独立走完的路**：
 
-```markdown
-# <算法名>
+| 读者 | 只读哪一部分 | 读完后能做到 |
+|---|---|---|
+| 零基础学习者 | 基础篇 | **能懂**（复述规则）· **能算**（手算小例子）· **能自测**（对照能力清单） |
+| 复现 / 审查者 | 进阶篇 | **能推导**（跟着公式走）· **能跑**（按命令复现）· **能验证**（核对验证声明） |
 
-> 状态：⬜ 未开始 | 🚧 进行中 | ✅ 已完成（YYYY-MM-DD）
-> 对应文档章节：`algorithms/docs/人工智能代表算法演进路线.md` 第 <X.Y.Z> 章
-> 阅读路线：零基础读者读「基础篇」；要看推导与复现实验读「进阶篇」
+四条结构要求（**唯一权威骨架、章节归属判定、自查清单见 `references/readme-structure.md`**）：
 
-# 基础篇 · 先搞懂它
+1. 标题区三行：状态 / 章节锚点 / 阅读路线
+2. 六段式是硬契约，位置固定在「进阶篇」内、以 `##` 出现——`validate.py` 按 `##` 匹配，与篇标题层级无关
+3. **数字单源**：实验数字（指标、耗时、扩展数…）只在「实验结果」段维护一次；其余位置只给结论或指向
+4. 章节归属用「**边界三测试**」判定（前置测试 / 目的测试 / 可判决性测试），任一条命中即归进阶篇
 
-## 1. <生活类比：它解决什么问题>      ← 概念图
-## 2. <三个核心量 / 一句话规则>        ← 概念图
-## 3. <主循环>                        ← 流程图
-## 4. <小地图手算示例>                 ← 分步图 + 逐步表
-## 5. <白话版：为什么它是对的>          ← 可无图
-## 6. <常见误区>                      ← 对比图（如有）
-## 7. <能力清单 + 自测关卡>            ← 五级清单的本题版本
-
-# 进阶篇 · 实验档案
-
-## 设计原理
-## 数学推导
-## 目录形态（本算法的"类型"）（可选但推荐）
-## 手写实现要点
-## 基线对照 | 框架对照（段名按算法族二选一）
-## 实验结果
-## 局限与延伸
-```
-
-规则：
-
-- **六段式是硬契约，位置固定在「进阶篇」内、以 `##` 出现**——`validate.py` 按 `##` 匹配，与篇标题层级无关
-- **数字单源**：实验数字（指标、耗时、扩展数…）只在「实验结果」段维护一次；基础篇与其它段只给结论或指向，不复制表格
-- **基础篇必须自足**：零基础读者只读基础篇就能走通（含手算示例与自测清单）；但基础篇不得引入进阶篇没有的新结论
-- 各节写法与素材对应关系见 `references/learning-path-template.md`；进阶篇模板见 `references/algorithm-readme-template.md`
+各层写法：基础篇 → `references/learning-path-template.md`；进阶篇 → `references/advanced-track-template.md`；素材 → `references/visual-assets.md`。
 
 ## 工作流
 
@@ -168,7 +147,7 @@ README 是**一份文档、两个大块**：`# 基础篇`（零基础读者）�
 
 1. 确定理论锚点：读 `algorithms/docs/人工智能代表算法演进路线.md`，确定该实验对应的章节号 X.Y.Z
 2. 确定所属算法族与对照对象（查 `references/algorithm-families.md`）：这决定文件形态（framework.py 还是 baseline.py）与自然接口
-3. 创建 `algorithms/<pNN-族>/<算法名>/`，按 `references/algorithm-readme-template.md` 写 README 骨架：标题区（状态 / 锚点 / 阅读路线）+ `# 基础篇`（可先只留七节标题）+ `# 进阶篇` 六段，状态 ⬜
+3. 创建 `algorithms/<pNN-族>/<算法名>/`，按 `references/readme-structure.md` 的骨架写 README：标题区（状态 / 锚点 / 阅读路线）+ `# 基础篇`（可先只留七节标题）+ `# 进阶篇` 六段，状态 ⬜
 4. 在 `algorithms/README.md` 对应族的索引表登记一行：实验链接、章节号、状态 ⬜、日期留空
 5. 跑 `python3 .dsh/skills/mindspring-lab/scripts/validate.py` 确认索引 ↔ 目录双向对齐
 
@@ -252,12 +231,14 @@ README 是**一份文档、两个大块**：`# 基础篇`（零基础读者）�
 ### scripts/
 
 - `scripts/validate.py` — 场景 C 的存在性与纪律自动检查。覆盖：索引表 ↔ 目录双向核对（含 ✅ 日期一致性）、状态一致性、六段齐全、占位段检测（✅ 下为硬伤）、章节锚点有效性、`impl.py` 违禁 import 与属性调用扫描、README 本地素材/相对链接存在性（图片缺失记硬伤）、`exercises/` 与 `project/` 结构（有目录必须有 README、练习必须题解分离）；`--pytest` 实跑测试，`--git` 核对变更集，`--deep` 列出需人工核对的漂移项（含「✅ 却无基础篇 / 练习 / 项目」，并打印 git 基线供记忆落盘引用）。退出码 0 = 无问题，1 = 存在问题（可作提交前门禁）。**管辖范围仅 `algorithms/`**——engineering/ 的文档完成度检查见 `engineering-docs` 的场景 C 清单。
+- `scripts/scaffold_assets.py` — 纪律④的起手式：`python3 .dsh/skills/mindspring-lab/scripts/scaffold_assets.py algorithms/<族>/<算法名>` 生成 `make_teaching_assets.py` 骨架（缓存/中文字体初始化 + `verify()` 对账断言空壳 + 四类素材空壳）与 `images/`；`--check` 检查已有生成器的底线要素（断言 / 缓存 / 字体 / images），`--force` 覆盖。只生成"可重跑 + 可对账"的骨架，画什么图由实验作者填。
 
 ### references/
 
-- `references/algorithm-readme-template.md` — 算法实验 README 权威模板：两篇结构 + 进阶篇六段式（含自含填充示例）
-- `references/learning-path-template.md` — 基础篇七节模板、五级能力清单写法、练习（题解分离）与迁移项目的模板与验收标准
-- `references/visual-assets.md` — 教学素材规范：四类素材的选型、`make_teaching_assets.py` 的对账断言写法、命名与体积约定
+- `references/readme-structure.md` — **结构层唯一权威**：两篇骨架、两条独立读者路径、章节归属「边界三测试」、数字单源规则与自查清单
+- `references/learning-path-template.md` — 学习层：基础篇七节模板（含完成判据）、五级能力清单写法、练习（题解分离）与迁移项目模板
+- `references/advanced-track-template.md` — 档案层：进阶篇六段骨架与写作要点（面对复现 / 审查者）
+- `references/visual-assets.md` — 表现层：四类素材选型、`make_teaching_assets.py` 的对账断言写法、命名与体积约定
 - `references/algorithm-families.md` — 算法族接口约定（四族的自然接口与对照对象，新增实验时先查）
 - `references/index-format.md` — `algorithms/README.md` 索引表的列序契约（validate.py 按此解析，调整前先读）
 

@@ -36,7 +36,7 @@ assert (ROOT / "algorithms").is_dir(), f"仓库根定位失败：{ROOT}"
 ALGO_INDEX = ROOT / "algorithms" / "README.md"
 ALGO_ROADMAP = ROOT / "algorithms" / "docs" / "人工智能代表算法演进路线.md"
 
-# 六段式权威结构（与 references/algorithm-readme-template.md 一致；"对照"段名按族二选一）
+# 六段式权威结构（与 references/readme-structure.md 一致；"对照"段名按族二选一）
 ALGO_SECTIONS_FIXED = ["设计原理", "数学推导", "手写实现要点", "实验结果", "局限与延伸"]
 ALGO_SECTIONS_CONTRAST = ["框架对照", "基线对照"]
 
@@ -217,6 +217,11 @@ def check_assets(unit: Path, readme: str, rel: str, rep: Report) -> None:
     elif (unit / "images").is_dir() and not has_generator:
         rep.warn(f"{rel}：存在 images/ 但缺少 make_teaching_assets.py"
                  f"——素材无法重生成（纪律⑥）")
+    if has_generator:
+        src = read_text(unit / "make_teaching_assets.py")
+        if "assert" not in src:
+            rep.warn(f"{rel}/make_teaching_assets.py：没有对账断言（assert）"
+                     f"——素材数字与实现无法互证（纪律④）")
 
     for m in re.finditer(r"(?<!!)\[[^\]]*\]\(([^)\s]+)", readme):
         target = m.group(1).split("#")[0].strip()

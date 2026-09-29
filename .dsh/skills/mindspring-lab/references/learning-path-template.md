@@ -2,11 +2,13 @@
 
 > 用于 `algorithms/<pNN-族>/<算法名>/README.md` 的「基础篇」、`exercises/` 与 `project/`。
 > 本模板回答一个问题：**怎样算"这个读者真的精通了这个算法"**——把答案写成可检验的关卡，而不是感觉。
-> 进阶篇（设计原理 / 数学推导 / 实现 / 对照 / 实测）的模板见 `algorithm-readme-template.md`；素材规范见 `visual-assets.md`。
+> 结构骨架与章节归属判定见 `readme-structure.md`；进阶篇（档案层）模板见 `advanced-track-template.md`；素材规范见 `visual-assets.md`。
 
 ---
 
 ## 一、基础篇（README 前七节）
+
+前置要求：**基础篇自足**——零基础读者只读基础篇就能**能懂**（复述规则）、**能算**（手算小例子）、**能自测**（对照能力清单判定过没过）；不依赖进阶篇的术语、公式与数字（见 `readme-structure.md` 的两条独立读者路径）。
 
 每节都有"完成判据"——写完自查，达不到就是没写完。
 
