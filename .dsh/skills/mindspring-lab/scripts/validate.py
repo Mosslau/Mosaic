@@ -68,6 +68,8 @@ STATUS_RE = re.compile(r"^>\s*状态：([⬜🚧✅])\s*(未开始|进行中|已
 ANCHOR_RE = re.compile(r"第\s*(\d+(?:\.\d+)+)\s*章")
 LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)]+?/?)\)")
 IMAGE_RE = re.compile(r"!\[[^\]]*\]\(([^)\s]+)")
+# 标题编号前缀：`1. 设计原理` / `3.1 手写要点` → 匹配六段名时先剥掉，兼容编号与不编号两种写法
+NUMBERING_RE = re.compile(r"^\s*\d+(?:\.\d+)*\s*[.、．)）]\s*")
 # 占位段：整段只有一行模板提示语。兼容全角括号（...）与尖括号 <...> 两种模板占位风格
 PLACEHOLDER_RE = re.compile(r"[（<][^\n]{4,}[）>]")
 
@@ -152,7 +154,10 @@ def check_sections(readme: str, rel: str, rep: Report, symbol: str) -> None:
     力度按状态分级：⬜ 骨架不查占位（本该是空的）；🚧 占位/空段记 🟡；
     ✅ 占位/空段记 ❌——「无占位段落」是 ✅ 门槛，不能软放行。
     """
-    headings = set(re.findall(r"^##\s+(.+?)\s*$", readme, re.M))
+    headings = {
+        NUMBERING_RE.sub("", h).strip()
+        for h in re.findall(r"^##\s+(.+?)\s*$", readme, re.M)
+    }
     for sec in ALGO_SECTIONS_FIXED:
         if not any(h.startswith(sec) for h in headings):
             rep.err(f"{rel}：缺少章节「## {sec}」")
