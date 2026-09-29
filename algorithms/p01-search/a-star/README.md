@@ -169,22 +169,6 @@ cd ../../..                    # 回到仓库根
 
 # 进阶篇 · 实验档案
 
-## 目录形态（本算法的"类型"）（可选，不计入编号）
-
-| 文件 | 角色 | 接口 |
-|---|---|---|
-| `impl.py` | 手写 A* | `solve(grid, start, goal, heuristic=manhattan, *, tie_break, weight) -> SearchResult` |
-| `baseline.py` | Dijkstra 对照 | `dijkstra(grid, start, goal) -> SearchResult`（h ≡ 0 的 A*） |
-| `demo.py` | 三跑对比入口 | 实验一主对照（A* 两种平局 + Dijkstra）+ 实验二平局策略 + 实验三加权扫描 |
-| `test_impl.py` | 性质测试 | 多 seed 最优性 / 起点即终点 / 无解判定 / 输入校验 / 已知局限回归（pytest，17 例） |
-| `make_teaching_assets.py` | 教学素材生成器 | 生成 `images/` 下全部图片与 GIF；断言素材数字与 `impl.solve()` 一致（不一致即报错） |
-| `exercises/` | 练习（题解分离） | 5 题按五级能力分级；`sol-NN-*` 参考解可独立运行 |
-| `project/` | 迁移项目 | 地形代价地图寻路：与 Dijkstra 代价一致、扩展更少；产出 `out/terrain.png` |
-
-素材复现：本目录内执行 `../../../.venv/bin/python make_teaching_assets.py`——重新生成 `images/`，并打印「基础篇 · 手算示例」节的手算步骤表。
-
-掌握层复现：`exercises/sol-04-八邻域.py`、`exercises/sol-05-八数码.py`、`project/terrain_astar.py` 均可独立运行（2026-09-29 实跑通过，见各自 README 的运行记录）。
-
 ## 1. 设计原理
 
 A* 要解决的是**"最优性"与"方向感"不可兼得**的问题。在它之前的无信息搜索各占一头：BFS / 一致代价搜索（UCS，即 Dijkstra）保证最优，但对终点一无所知，只能以起点为圆心向四周全向膨胀——大量扩展节点浪费在背离终点的方向；贪心最佳优先搜索有方向感（只朝终点冲），却会一头撞进死胡同，不保证最优。
@@ -294,6 +278,8 @@ w ≤ 2 时仍命中最优代价（扩展数已降 29%）；w = 3 起为代价�
 **验证声明（已验证）**：输入为 21×21 网格、30% 障碍率、`seed=42`（拒绝采样 + BFS 洪泛保证起点 (1,1) 与终点 (19,19) 连通）。2026-09-14 基线：Python 3.13.12（仓库 `.venv`，`.python-version` 锁定 3.13），本目录内执行 `../../../.venv/bin/python demo.py`（或任何 ≥3.10 的 `python3 demo.py`——`demo.py` 类型标注用了 `list | None` 语法，≤3.9 会在导入时报 `TypeError: unsupported operand type(s) for |`）→ 实验一 `path_cost` 46、`nodes_expanded` 214 vs 239（当时仅 A\*(insertion) 与 Dijkstra 两列）；实验二两地图 × 两平局策略断言全部最优，输出上表四个扩展数；实验三 w=1.0/2.0/3.0/5.0 对应代价 46/46/48/58。2026-09-27 复跑（Python 3.12.3，无 `.venv`）：实验一三跑法代价全为 46、扩展数 214/199/239、耗时 0.61/0.74/0.61 ms（单次值，随环境波动），实验二/三数字与上表一致；测试用例集共 17 例（10 个 seed 的最优性参数化、无障碍下界、起点即终点、无解判定、输入校验（含 `weight ≥ 1`）、w=1 一致性、加权有解性、可采纳但不一致的已知局限回归）。本环境无 pytest，已用等价 harness 逐例执行 17/17 通过；恢复仓库 `.venv` 后建议以 `python3 -m pytest algorithms/p01-search/a-star/ -v` 再复跑一次确认耗时基线。2026-09-29 复跑（Python 3.12.3 + pytest 9.1.1，仓库 `.venv` 已恢复）：`pytest` 17 例全绿；`make_teaching_assets.py` 对账通过——实验一 239/199/46、实验三 w=3 131/48、贪心 145/50（次优）。
 
 **可视化结论**：ASCII 渲染中 Dijkstra 的 closed 集向四周铺开，A* 的 closed 集朝终点方向明显拉伸——**启发式把搜索从"全向膨胀"拉成"定向收缩"**。同一现象在 `images/03-四种策略对比.png`（四策略搜索范围）与 `images/04-搜索动画.gif`（Dijkstra vs A* 逐步扩展）中可直接看到。
+
+**素材与掌握层复现**：素材——本目录内执行 `../../../.venv/bin/python make_teaching_assets.py`（重新生成 `images/`，并打印「基础篇 · 手算示例」节的手算步骤表）；掌握层——`exercises/sol-04-八邻域.py`、`exercises/sol-05-八数码.py`、`project/terrain_astar.py` 均可独立运行（2026-09-29 实跑通过，见各自 README 的运行记录）。
 
 ## 6. 局限与延伸
 
