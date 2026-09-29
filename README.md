@@ -16,13 +16,18 @@
 
 | 路径 | 用途 |
 |---|---|
-| [`roadmap/`](roadmap/) | 路线图：算法演进路线 + 两条职业路线 + 语言学习路线 |
+| [`roadmap/`](roadmap/) | 路线图：两条职业路线（AI 平台 / 数据平台） |
 | [`roadmap/books/`](roadmap/books/) | 计算机书单 |
+| [`algorithms/docs/`](algorithms/docs/) | 算法演进路线（理论总纲，各算法实验的章节锚点来源） |
+| [`languages/studies/`](languages/studies/) | 六门语言的学习路线（`<语言>/<语言>.md`，126 阶段索引） |
 | [`.dsh/skills/`](.dsh/skills/) | 写作与验证规范（16 个 skill + `_design` 设计笔记） |
 
 ## 校验
 
 ```bash
+# 前置：Python ≥ 3.11（algorithms/pyproject.toml 的 requires-python；默认 python3 可能是 3.9）
+# 需要跑 pytest 时先建环境：python3 -m venv .venv && .venv/bin/pip install -e algorithms[dev]
+
 # ① 语言域：章节契约 + 悬空链接 + 构建产物纪律
 python3 .dsh/skills/tenetlang-notes/scripts/validate.py --links
 
@@ -30,9 +35,12 @@ python3 .dsh/skills/tenetlang-notes/scripts/validate.py --links
 python3 .dsh/skills/mindspring-lab/scripts/validate.py
 python3 -m pytest -q
 
-# ③ 语言域文档站
-(cd languages/website && npm run build)
+# ③ 语言域文档站（首次或依赖变更后先 npm install）
+(cd languages/website && npm install && npm run build)
 ```
+
+`engineering/` 两平台**当前无自动化脚本**（规范自述「不带校验脚本」），按
+[`.dsh/skills/engineering-docs/`](.dsh/skills/engineering-docs/) 的场景 D 完成度清单人工核对。
 
 ## 边界
 
