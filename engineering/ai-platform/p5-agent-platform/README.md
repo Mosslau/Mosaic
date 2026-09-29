@@ -65,9 +65,9 @@ Part 1（沉淀）──门禁──▶ Part 2（实证）──门禁──▶ 
 
 无直接代码复用——本项目当前处于 Part 1（知识与方案沉淀），尚未进入编码阶段。原理层面的关联（供 Part 2 编码时回访）：
 
-- [../../../algorithms/04-transformer/attention/](../../../algorithms/04-transformer/attention/)：Agent 智能来源（模型侧）的注意力机制原理
-- [../../../algorithms/05-generative/mini-rag/](../../../algorithms/05-generative/mini-rag/)：检索增强生成的最小闭环，对应 Agent 的知识 / 记忆供给
-- [../../../algorithms/01-search/mcts/](../../../algorithms/01-search/mcts/)：搜索与规划思想，对应 Agent 的规划（todo）与任务分解机制
+- [../../../algorithms/p04-transformer/attention/](../../../algorithms/p04-transformer/attention/)：Agent 智能来源（模型侧）的注意力机制原理
+- [../../../algorithms/p05-generative/mini-rag/](../../../algorithms/p05-generative/mini-rag/)：检索增强生成的最小闭环，对应 Agent 的知识 / 记忆供给
+- [../../../algorithms/p01-search/mcts/](../../../algorithms/p01-search/mcts/)：搜索与规划思想，对应 Agent 的规划（todo）与任务分解机制
 
 ## 验收标准
 

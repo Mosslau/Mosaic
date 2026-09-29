@@ -119,8 +119,8 @@ def parse_algo_index(rep: Report) -> dict[str, dict]:
                      f"（列序契约见 references/index-format.md）")
             continue
         link = m.group(2).rstrip("/")
-        if not re.match(r"^\d{2}-[\w-]+/[\w-]+$", link):
-            rep.warn(f"algorithms/README.md 第 {lineno} 行：链接 {link} 不符合 <NN-族>/<算法名> 形态")
+        if not re.match(r"^p\d{2}-[\w-]+/[\w-]+$", link):
+            rep.warn(f"algorithms/README.md 第 {lineno} 行：链接 {link} 不符合 <pNN-族>/<算法名> 形态")
             continue
         entries[link] = {"chapter": cells[1], "status": cells[2], "date": cells[3]}
     return entries
@@ -316,11 +316,11 @@ def main() -> int:
     # --- algorithms 线 ---
     algo_idx = parse_algo_index(rep)
     algo_dirs = sorted(
-        p for p in ROOT.glob("algorithms/[0-9][0-9]-*/*") if p.is_dir()
+        p for p in ROOT.glob("algorithms/p[0-9][0-9]-*/*") if p.is_dir()
     )
     for unit in algo_dirs:
         rel = unit.relative_to(ROOT).as_posix()
-        # 索引表链接相对 algorithms/ 目录书写（如 01-search/a-star），pop 时去掉线名前缀
+        # 索引表链接相对 algorithms/ 目录书写（如 p01-search/a-star），pop 时去掉线名前缀
         idx = algo_idx.pop(rel.split("/", 1)[1], None)
         if idx is None:
             rep.err(f"{rel}：目录存在但未在 algorithms/README.md 索引表登记")

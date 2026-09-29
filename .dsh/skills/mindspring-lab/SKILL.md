@@ -35,7 +35,7 @@ agent_created: true
 ## 目录结构
 
 ```
-algorithms/<NN-族>/<算法名>/          # 01-search/a-star, 04-transformer/attention
+algorithms/<pNN-族>/<算法名>/          # p01-search/a-star, p04-transformer/attention
 ├── README.md                        # 实验主文档（六段式，必含）
 ├── impl.py                          # 手写实现（核心纪律管的就是它）
 ├── framework.py 或 baseline.py      # 对照版：框架 或 基线算法（按算法族二选一）
@@ -44,7 +44,7 @@ algorithms/<NN-族>/<算法名>/          # 01-search/a-star, 04-transformer/att
 
 规则：
 
-- 实验目录命名：`algorithms/` 下族目录用 `NN-<kebab-case 族名>`（编号即学习顺序，与索引表分组一致），实验目录用 kebab-case 算法名
+- 实验目录命名：`algorithms/` 下族目录用 `p<NN>-<kebab-case 族名>`（编号即学习顺序，与索引表分组一致），实验目录用 kebab-case 算法名
 - **文件名按算法族而定，不强制三件套齐全**：搜索族是 `impl.py + baseline.py + demo.py`，监督估计器族是 `impl.py + framework.py + demo.py`，也可能对照逻辑内嵌在 demo.py 里。族的接口约定见 `references/algorithm-families.md`——**本 skill 规范 README 结构与实验纪律，不统一代码接口形态**
 - 每个源码文件附可复现的运行方式：README 写明验证环境（Python/依赖版本）、运行命令、预期输出要点。验证声明规范见下节
 
@@ -107,7 +107,7 @@ algorithms/<NN-族>/<算法名>/          # 01-search/a-star, 04-transformer/att
 
 1. 确定理论锚点：读 `roadmap/人工智能代表算法演进路线.md`，确定该实验对应的章节号 X.Y.Z
 2. 确定所属算法族与对照对象（查 `references/algorithm-families.md`）：这决定文件形态（framework.py 还是 baseline.py）与自然接口
-3. 创建 `algorithms/<NN-族>/<算法名>/`，写 README 骨架：按 `references/algorithm-readme-template.md` 的六段式，状态 ⬜，章节锚点填真实章节号
+3. 创建 `algorithms/<pNN-族>/<算法名>/`，写 README 骨架：按 `references/algorithm-readme-template.md` 的六段式，状态 ⬜，章节锚点填真实章节号
 4. 在 `algorithms/README.md` 对应族的索引表登记一行：实验链接、章节号、状态 ⬜、日期留空
 5. 跑 `python3 .dsh/skills/mindspring-lab/scripts/validate.py` 确认索引 ↔ 目录双向对齐
 
@@ -142,7 +142,7 @@ algorithms/<NN-族>/<算法名>/          # 01-search/a-star, 04-transformer/att
 
    | 线 | 单元 | README 六段 | 对照双跑 | 验证声明 | 索引同步 | 备注 |
    |----|------|------------|---------|---------|---------|------|
-   | algorithms/02-statistical-ml | linear-regression | 🟡 有占位段 | ❌ | ❌ | ✅ | |
+   | algorithms/p02-statistical-ml | linear-regression | 🟡 有占位段 | ❌ | ❌ | ✅ | |
    ```
 3. **内容质量深检**（存在性全绿不代表合格，逐项核对）：
    - **推导真空**：「数学推导」段是否真的推出了关键公式，还是只有名词罗列

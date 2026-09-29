@@ -71,10 +71,10 @@
 
 阶段七是集成层，**复用的是前六个项目，而非单个算法实验**；但平台链路里仍然跑着这些算法实验的原理：
 
-- [迷你 RAG 检索增强生成](../../../algorithms/05-generative/mini-rag/) —— p1 的检索链内核，平台闭环中最常被调用的一环
-- [迷你 GPT](../../../algorithms/04-transformer/mini-gpt/) 与 [注意力机制](../../../algorithms/04-transformer/attention/) —— p4 推理服务的生成底座，成本归集的口径（tokens）来自它
-- [K-Means](../../../algorithms/02-statistical-ml/kmeans/) / [PCA](../../../algorithms/02-statistical-ml/pca/) —— p0/p2 的语料与向量质量抽检
-- [A* 启发式搜索](../../../algorithms/01-search/a-star/) —— p3 调度决策的"可解释评估"思想来源
+- [迷你 RAG 检索增强生成](../../../algorithms/p05-generative/mini-rag/) —— p1 的检索链内核，平台闭环中最常被调用的一环
+- [迷你 GPT](../../../algorithms/p04-transformer/mini-gpt/) 与 [注意力机制](../../../algorithms/p04-transformer/attention/) —— p4 推理服务的生成底座，成本归集的口径（tokens）来自它
+- [K-Means](../../../algorithms/p02-statistical-ml/kmeans/) / [PCA](../../../algorithms/p02-statistical-ml/pca/) —— p0/p2 的语料与向量质量抽检
+- [A* 启发式搜索](../../../algorithms/p01-search/a-star/) —— p3 调度决策的"可解释评估"思想来源
 
 > 完整的「项目 → 前置实验」映射见 [`engineering/ai-platform/README.md`](../README.md) 的依赖表。
 

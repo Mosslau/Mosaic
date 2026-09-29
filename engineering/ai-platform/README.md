@@ -1,7 +1,7 @@
 # AI 平台（ai-platform）
 
 > 定位：Mosaic 第 ③ 部分的 AI 平台——数据（语料 / 向量 / 湖仓）+ 算力（K8s / GPU）+ 模型（微调 / 推理）+ 应用（RAG / Agent）共栈，以「成熟开源集成 + 薄自研胶水」构建企业级 AI 数据中心。
-> 当前状态：**设计阶段（平台路线文档 v9 · 待评审）**；7 个单元中 `p5-agent-platform` 进行中（Part 1 沉淀已完成，A38–A40 达成），其余 6 个未开工。
+> 当前状态：**设计阶段（平台路线文档 v10 · 待评审）**；7 个单元中 `p5-agent-platform` 进行中（Part 1 沉淀已完成，A38–A40 达成），其余 6 个未开工。
 
 ## 定位与状态
 
@@ -39,11 +39,11 @@
 
 | 编号 | 单元 | 前置算法实验（`algorithms/`） | 前置单元 | 受什么约束 |
 |---|---|---|---|---|
-| p0 | AI 数据基础 | `05-generative/mini-rag`（向量化口径）、`02-statistical-ml/kmeans`、`pca`；**去重算法需新增手写实验** | —— | 数据规模（10GB 需流式 / Spark） |
-| p1 | RAG 数据平台 | `mini-rag`（内核）、`04-transformer/attention`（Rerank 原理）、`kmeans`、`pca` | p0 | 向量库与 LLM 外部依赖 |
+| p0 | AI 数据基础 | `p05-generative/mini-rag`（向量化口径）、`p02-statistical-ml/kmeans`、`pca`；**去重算法需新增手写实验** | —— | 数据规模（10GB 需流式 / Spark） |
+| p1 | RAG 数据平台 | `mini-rag`（内核）、`p04-transformer/attention`（Rerank 原理）、`kmeans`、`pca` | p0 | 向量库与 LLM 外部依赖 |
 | p2 | 向量化数据湖 | `mini-rag`（索引口径）、`kmeans`（布局 / 聚簇）、`pca`（压缩分析） | p0 | 表格式与对象存储 |
-| p3 | Kubernetes + GPU 调度 | 无直接复用（基础设施编排）；`01-search/a-star` 的"可解释评估"思想可类比 | —— | **真实 GPU + K8s（最大约束）** |
-| p4 | 训练与推理平台 | `04-transformer/mini-gpt`、`mini-transformer`、`attention`（prefill/decode 与 KV Cache） | p3（算力，可选） | GPU / 量化工具链 |
+| p3 | Kubernetes + GPU 调度 | 无直接复用（基础设施编排）；`p01-search/a-star` 的"可解释评估"思想可类比 | —— | **真实 GPU + K8s（最大约束）** |
+| p4 | 训练与推理平台 | `p04-transformer/mini-gpt`、`mini-transformer`、`attention`（prefill/decode 与 KV Cache） | p3（算力，可选） | GPU / 量化工具链 |
 | p5 | Agent 平台 | 自身在 Part 1 沉淀，编码期再回访相关实验 | p1 / p4（作为工具与模型来源） | 沙箱与运行时依赖 |
 | p6 | AI 数据中心平台整合 | 复用前六个单元，不直接依赖单个算法实验 | p0–p5 全部 | 单机资源（Compose 起步） |
 

@@ -1,7 +1,7 @@
 # 算法实验总索引
 
 > 理论总纲：[`./docs/人工智能代表算法演进路线.md`](./docs/人工智能代表算法演进路线.md)
-> 目录按演进阶段分组，编号即学习顺序。
+> 目录按演进阶段分组，编号即学习顺序；族目录用 **`p` + 两位编号**（`p01-search` … `p05-generative`），实验目录用 kebab-case 算法名。
 > 原则：**手写核心逻辑（numpy / 纯 Python），禁止调 sklearn/torch 现成算法接口**；数据加载和可视化可以用现成工具。
 > 每完成一个实验，把索引表状态从 ⬜ 改为 ✅ 并记录日期。
 
@@ -23,58 +23,58 @@
 **手写 vs 对照原则**：每个实验必须同时跑手写版和对照版（框架或基线），对比指标与耗时，
 分析差异原因——手写理解原理，对照理解工程。
 
-## 01-search · 符号主义与搜索
+## p01-search · 符号主义与搜索
 
 | 实验 | 章节 | 状态 | 完成日期 |
 |---|---|---|---|
-| [A* 启发式搜索](01-search/a-star/) | 2.2.1 | ✅ | 2026-09-14 |
-| [Minimax 与 Alpha-Beta 剪枝](01-search/minimax-alphabeta/) | 2.2.1 | ⬜ | |
-| [蒙特卡洛树搜索 MCTS](01-search/mcts/) | 2.2.1 | ⬜ | |
+| [A* 启发式搜索](p01-search/a-star/) | 2.2.1 | ✅ | 2026-09-14 |
+| [Minimax 与 Alpha-Beta 剪枝](p01-search/minimax-alphabeta/) | 2.2.1 | ⬜ | |
+| [蒙特卡洛树搜索 MCTS](p01-search/mcts/) | 2.2.1 | ⬜ | |
 
-## 02-statistical-ml · 统计机器学习
-
-| 实验 | 章节 | 状态 | 完成日期 |
-|---|---|---|---|
-| [线性回归与梯度下降](02-statistical-ml/linear-regression/) | 3.2.1 | ⬜ | |
-| [逻辑回归](02-statistical-ml/logistic-regression/) | 3.2.1 | ⬜ | |
-| [支持向量机 SVM](02-statistical-ml/svm/) | 3.2.2 | ⬜ | |
-| [决策树 ID3/CART](02-statistical-ml/decision-tree/) | 3.2.3 | ⬜ | |
-| [随机森林](02-statistical-ml/random-forest/) | 3.3.1 | ⬜ | |
-| [K-Means 聚类](02-statistical-ml/kmeans/) | 3.4.1 | ⬜ | |
-| [PCA 主成分分析](02-statistical-ml/pca/) | 3.4.2 | ⬜ | |
-| [朴素贝叶斯](02-statistical-ml/naive-bayes/) | 3.5 | ⬜ | |
-
-## 03-deep-learning · 深度学习
+## p02-statistical-ml · 统计机器学习
 
 | 实验 | 章节 | 状态 | 完成日期 |
 |---|---|---|---|
-| [感知机](03-deep-learning/perceptron/) | 4.2 | ⬜ | |
-| [MLP 与手写反向传播](03-deep-learning/mlp-backprop/) | 4.2 | ⬜ | |
-| [卷积神经网络 LeNet](03-deep-learning/cnn-lenet/) | 4.3.1 | ⬜ | |
-| [RNN 与 LSTM](03-deep-learning/rnn-lstm/) | 4.4 | ⬜ | |
-| [自编码器 AutoEncoder](03-deep-learning/autoencoder/) | 4.5 | ⬜ | |
-| [生成对抗网络 GAN](03-deep-learning/gan/) | 4.6 | ⬜ | |
+| [线性回归与梯度下降](p02-statistical-ml/linear-regression/) | 3.2.1 | ⬜ | |
+| [逻辑回归](p02-statistical-ml/logistic-regression/) | 3.2.1 | ⬜ | |
+| [支持向量机 SVM](p02-statistical-ml/svm/) | 3.2.2 | ⬜ | |
+| [决策树 ID3/CART](p02-statistical-ml/decision-tree/) | 3.2.3 | ⬜ | |
+| [随机森林](p02-statistical-ml/random-forest/) | 3.3.1 | ⬜ | |
+| [K-Means 聚类](p02-statistical-ml/kmeans/) | 3.4.1 | ⬜ | |
+| [PCA 主成分分析](p02-statistical-ml/pca/) | 3.4.2 | ⬜ | |
+| [朴素贝叶斯](p02-statistical-ml/naive-bayes/) | 3.5 | ⬜ | |
 
-## 04-transformer · Transformer 时代
-
-| 实验 | 章节 | 状态 | 完成日期 |
-|---|---|---|---|
-| [注意力机制](04-transformer/attention/) | 5.2 | ⬜ | |
-| [迷你 Transformer Block](04-transformer/mini-transformer/) | 5.1 | ⬜ | |
-| [迷你 GPT 字符级语言模型](04-transformer/mini-gpt/) | 5.3.4 | ⬜ | |
-
-## 05-generative · 生成式 AI
+## p03-deep-learning · 深度学习
 
 | 实验 | 章节 | 状态 | 完成日期 |
 |---|---|---|---|
-| [变分自编码器 VAE](05-generative/vae/) | 4.5 | ⬜ | |
-| [迷你扩散模型 DDPM](05-generative/mini-diffusion/) | 6.3 | ⬜ | |
-| [迷你 RAG 检索增强生成](05-generative/mini-rag/) | 8.1 | ⬜ | |
+| [感知机](p03-deep-learning/perceptron/) | 4.2 | ⬜ | |
+| [MLP 与手写反向传播](p03-deep-learning/mlp-backprop/) | 4.2 | ⬜ | |
+| [卷积神经网络 LeNet](p03-deep-learning/cnn-lenet/) | 4.3.1 | ⬜ | |
+| [RNN 与 LSTM](p03-deep-learning/rnn-lstm/) | 4.4 | ⬜ | |
+| [自编码器 AutoEncoder](p03-deep-learning/autoencoder/) | 4.5 | ⬜ | |
+| [生成对抗网络 GAN](p03-deep-learning/gan/) | 4.6 | ⬜ | |
+
+## p04-transformer · Transformer 时代
+
+| 实验 | 章节 | 状态 | 完成日期 |
+|---|---|---|---|
+| [注意力机制](p04-transformer/attention/) | 5.2 | ⬜ | |
+| [迷你 Transformer Block](p04-transformer/mini-transformer/) | 5.1 | ⬜ | |
+| [迷你 GPT 字符级语言模型](p04-transformer/mini-gpt/) | 5.3.4 | ⬜ | |
+
+## p05-generative · 生成式 AI
+
+| 实验 | 章节 | 状态 | 完成日期 |
+|---|---|---|---|
+| [变分自编码器 VAE](p05-generative/vae/) | 4.5 | ⬜ | |
+| [迷你扩散模型 DDPM](p05-generative/mini-diffusion/) | 6.3 | ⬜ | |
+| [迷你 RAG 检索增强生成](p05-generative/mini-rag/) | 8.1 | ⬜ | |
 
 ## 推荐起步顺序（前 5 个）
 
-1. [线性回归与梯度下降](02-statistical-ml/linear-regression/) —— 一切优化的起点
-2. [感知机](03-deep-learning/perceptron/) → [MLP 手写反向传播](03-deep-learning/mlp-backprop/) —— 深度学习的 Hello World
-3. [决策树 ID3/CART](02-statistical-ml/decision-tree/) —— 理解"划分"思想，集成学习的地基
-4. [A* 启发式搜索](01-search/a-star/) —— 符号主义代表，呼应 Agent 规划
-5. [K-Means 聚类](02-statistical-ml/kmeans/) —— 无监督入门
+1. [线性回归与梯度下降](p02-statistical-ml/linear-regression/) —— 一切优化的起点
+2. [感知机](p03-deep-learning/perceptron/) → [MLP 手写反向传播](p03-deep-learning/mlp-backprop/) —— 深度学习的 Hello World
+3. [决策树 ID3/CART](p02-statistical-ml/decision-tree/) —— 理解"划分"思想，集成学习的地基
+4. [A* 启发式搜索](p01-search/a-star/) —— 符号主义代表，呼应 Agent 规划
+5. [K-Means 聚类](p02-statistical-ml/kmeans/) —— 无监督入门

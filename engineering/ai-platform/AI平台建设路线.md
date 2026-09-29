@@ -1,6 +1,6 @@
 # AI 平台架构设计
 
-> 版本：v9 · 待评审
+> 版本：v10 · 待评审
 > 结构：**合体形态**（`engineering-docs` 四层文档模型）——上篇 · 方案设计 = §1–§5；下篇 · 实施设计 = §6–§9 + 附录。模板节与本文章节的对应见 [`README.md`](README.md) 的「文档地图」。
 > 定位：AI 平台的**当前架构设计**——能力域怎么划分、每个能力选什么、自研边界在哪、分几个单元建成、每个单元怎么验证。业务与职业路线见 [`roadmap/大模型数据中心平台工程师.md`](../../roadmap/大模型数据中心平台工程师.md)（本文档是它的**工程落地设计**，不重复路线内容）。
 
@@ -766,6 +766,7 @@ p0 进得来 ──▶ p1 答得上 ──▶ p2 存得住 ──▶ p3 跑得�
 
 | 版本 | 变更 |
 |---|---|
+| v10 | **算法线族目录改名同步**：七份单元定义「复用的算法实验」里的路径改为新族目录名（`p01-search` / `p02-statistical-ml` / `p03-deep-learning` / `p04-transformer` / `p05-generative`），与 `mindspring-lab` skill 的新命名规则一致。**A1–A54 与全部技术结论不变。** |
 | v9 | **单元目录名对齐单元名（英译）**：七个目录由**项目名**改为**单元名的英文**——`p0-ai-data-foundation`（AI 数据基础）、`p1-rag-data-platform`（RAG 数据平台）、`p2-vectorized-lakehouse`（向量化数据湖）、`p3-k8s-gpu-scheduling`（Kubernetes + GPU 调度）、`p4-training-inference-platform`（训练与推理平台）、`p5-agent-platform`（Agent 平台）、`p6-ai-data-center-integration`（AI 数据中心平台整合）；同时把 7 份单元定义的 **H1 统一为 `# <单元名>（p<n>）`**（原为项目标题，不符 L4 模板）。**项目名（agent-nest / 语料加工流水线 / 知识库问答系统等）保留为单元内部的交付物名出现在正文，不再占用目录名**。**A1–A54 与全部技术结论不变。** |
 | v8 | **单元目录与编号全小写**：七个单元目录由 `P0-…` 改为 `p0-text-corpus-pipeline/` … `p6-ai-platform/`，编号 `p0`–`p6`（与 data-platform 完全一致）；`engineering-docs` 规范同步为“单元目录全小写 ASCII kebab-case”。**A1–A54、八域与全部技术结论不变。** |
 | v7 | **编号起点统一为 `p0`**：本平台单元编号由 `p1`–`P7` 下移为 **`p0`–`p6`**（与 data-platform 的 `p0`–`p6` 完全对齐），7 个单元目录同步改名（`p0-text-corpus-pipeline/` … `p6-ai-platform/`）；编号与 roadmap 阶段一~七的对应改为 **p0=阶段一 … p6=阶段七**。**A1–A54 验收编号、八域与全部技术结论不变**；本附录 v6 及更早条目中的编号均为当时写法（`01`–`07` / `p1`–`P7`）。 |

@@ -1,6 +1,6 @@
 """A* 手写实现的性质测试（pytest）。
 
-用法（仓库根）：.venv/bin/python -m pytest algorithms/01-search/a-star/ -v
+用法（仓库根）：.venv/bin/python -m pytest algorithms/p01-search/a-star/ -v
 覆盖：
 - 多 seed 最优性：10 张随机图上 A*（两种平局策略）与 Dijkstra 的 path_cost 全相等
 - 无解判定：终点被围死时返回 path=None、path_cost=inf
