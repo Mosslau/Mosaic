@@ -57,7 +57,7 @@ agent_created: true
 
 ## 五条硬约定
 
-1. **命名**——平台目录用 kebab-case ASCII（`ai-platform`、`data-platform`）；**平台级文档用中文文件名**（`方案设计.md`、`实施设计.md`），索引页固定 `README.md`（渲染入口，不译）；单元目录 = **可排序编号前缀 + 短名**：系统类用 `NN-<短名>`（`01-text-corpus-pipeline`），期类用 `P<N>-<短名>`（`P0-选型验证`）；单元内不放无编号目录。
+1. **命名**——平台目录用 kebab-case ASCII（`ai-platform`、`data-platform`）；**平台级文档用中文文件名**（`方案设计.md`、`实施设计.md`），索引页固定 `README.md`（渲染入口，不译）；单元目录 = **可排序编号前缀 + 短名**：**期类**用 `P<N>-<短名>`（`P0-选型验证`），**系统类与自研件类**用 `NN-<短名>`（`01-text-corpus-pipeline`、`01-门户`，编号即建设顺序）；单元内不放无编号目录。
 2. **元信息头**——单元 README 首 3 行固定：
    ```markdown
    > 状态：⬜ 未开始 | 🚧 进行中 | ✅ 已完成（YYYY-MM-DD）

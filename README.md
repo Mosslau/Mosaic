@@ -38,7 +38,7 @@ python3 -m pytest -q
 
 `languages/` 承载**语义与教学**（"应该怎么做、为什么"），`engineering/` 的目标是**真实系统与真实指标**（"跑起来是什么样"）。同一个概念在两处出现时，前者讲清纪律，后者交付可运行的实现与实测数字——不重复造文档。
 
-当前 `engineering/` 两域都还没到"跑起来"：`ai-platform/` 是待做清单（除 `06-agent-nest` 外未开工），`data-platform/` 是设计文档（v34，未实现）。**状态以各域 README / 设计文档头部标注为准；未实现的不按"已跑通"叙述。**
+当前 `engineering/` 两域都还没到"跑起来"：`ai-platform/` 是待做清单（除 `06-agent-nest` 外未开工），`data-platform/` 是设计文档（v35，未实现）。**状态以各域 README / 设计文档头部标注为准；未实现的不按"已跑通"叙述。**
 
 ## 为什么叫 Mosaic
 
