@@ -8,5 +8,5 @@
 | [智能通用大数据平台工程师.md](智能通用大数据平台工程师.md) | 工程部分 · 数据平台 | 通用数据平台 / 数据智能方向的工程师成长路径 |
 | [books/books.md](books/books.md) | 全域 | 计算机书单：基础 / 网络 / 数据结构与算法 / 操作系统 / 编译原理等 |
 
-> 工程侧的落地：数据平台 → [`../engineering/data-platform/`](../engineering/data-platform/)（设计文档 v38，未实现）；AI 平台 → [`../engineering/ai-platform/`](../engineering/ai-platform/)（规划中，未开工）。
+> 工程侧的落地：数据平台 → [`../engineering/data-platform/`](../engineering/data-platform/)（设计文档 v39，未实现）；AI 平台 → [`../engineering/ai-platform/`](../engineering/ai-platform/)（规划中，未开工）。
 
