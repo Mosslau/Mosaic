@@ -10,7 +10,8 @@
 退出码：0 = 无问题，1 = 存在问题（可作提交前门禁）。
 
 覆盖：索引表 ↔ 目录双向核对、状态/日期一致性、README 六段齐全、
-占位段检测（✅ 状态下升级为硬伤）、章节锚点有效性、impl.py 违禁 import 与属性调用扫描。
+占位段检测（✅ 状态下升级为硬伤）、章节锚点有效性、impl.py 违禁 import 与属性调用扫描、
+README 本地素材/相对链接存在性（图片缺失记硬伤，素材无生成脚本记警告）。
 不管：推导质量、结果分析深度等教学判断——那些按场景 C 第 3 步人工深检。
 
 管辖范围：仅 `algorithms/`。`engineering/` 两个平台的文档规范已迁出本 skill，归
@@ -65,6 +66,7 @@ STATUS_RE = re.compile(r"^>\s*状态：([⬜🚧✅])\s*(未开始|进行中|已
                        re.M)
 ANCHOR_RE = re.compile(r"第\s*(\d+(?:\.\d+)+)\s*章")
 LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)]+?/?)\)")
+IMAGE_RE = re.compile(r"!\[[^\]]*\]\(([^)\s]+)")
 # 占位段：整段只有一行模板提示语。兼容全角括号（...）与尖括号 <...> 两种模板占位风格
 PLACEHOLDER_RE = re.compile(r"[（<][^\n]{4,}[）>]")
 
@@ -192,6 +194,37 @@ def check_verification_claims(readme: str, rel: str, rep: Report) -> None:
                  f"（纪律⑤要求命令+输入+观察结果三要素）")
 
 
+def check_assets(unit: Path, readme: str, rel: str, rep: Report) -> None:
+    """教学素材与本地链接存在性（纪律⑥）。
+
+    图片引用缺失记硬伤（读者看到坏图）；引用了图片却没有生成脚本记警告；
+    其它相对链接指向不存在的文件记警告（可能是重构后的残留引用）。
+    """
+    image_targets: set[str] = set()
+    for m in IMAGE_RE.finditer(readme):
+        target = m.group(1).split("#")[0].strip()
+        if not target or target.startswith(("http://", "https://", "data:")):
+            continue
+        image_targets.add(target)
+        if not (unit / target).exists():
+            rep.err(f"{rel}：README 引用的素材不存在「{target}」"
+                    f"——先跑 make_teaching_assets.py 生成，再提交")
+    has_generator = (unit / "make_teaching_assets.py").exists()
+    if image_targets and not has_generator:
+        rep.warn(f"{rel}：README 引用了图片但没有 make_teaching_assets.py"
+                 f"——素材无法重生成（纪律⑥）")
+    elif (unit / "images").is_dir() and not has_generator:
+        rep.warn(f"{rel}：存在 images/ 但缺少 make_teaching_assets.py"
+                 f"——素材无法重生成（纪律⑥）")
+
+    for m in re.finditer(r"(?<!!)\[[^\]]*\]\(([^)\s]+)", readme):
+        target = m.group(1).split("#")[0].strip()
+        if not target or target.startswith(("http://", "https://", "mailto:", "data:", "#")):
+            continue
+        if not (unit / target).exists():
+            rep.warn(f"{rel}：相对链接指向的文件不存在「{target}」")
+
+
 def check_algo_unit(unit: Path, idx: dict | None, chapters: set[str], rep: Report,
                     deep: bool) -> None:
     rel = unit.relative_to(ROOT).as_posix()
@@ -203,6 +236,7 @@ def check_algo_unit(unit: Path, idx: dict | None, chapters: set[str], rep: Repor
 
     symbol, date = check_status_block(readme, rel, rep)
     check_sections(readme, rel, rep, symbol)
+    check_assets(unit, readme, rel, rep)
 
     # 章节锚定：有效性（只在 blockquote 行中找）
     anchor = find_anchor_line(readme, ANCHOR_RE)
@@ -260,6 +294,8 @@ def check_algo_unit(unit: Path, idx: dict | None, chapters: set[str], rep: Repor
             if not (unit / "demo.py").exists():
                 rep.hint(f"{rel}：✅ 但缺少 demo.py——双跑对照的入口在哪？"
                          f"（若对照内嵌于其他文件，请在 README「目录形态」段说明）")
+            if "# 基础篇" not in readme:
+                rep.hint(f"{rel}：✅ 但没有「基础篇」——零基础读者能否只靠 README 走通？")
             for m in re.finditer(r"\w+\.py:\d+", readme):
                 rep.hint(f"{rel}：行号引用「{m.group(0)}」易漂移，改为引用符号/片段内容")
         check_verification_claims(readme, rel, rep)

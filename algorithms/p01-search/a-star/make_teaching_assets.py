@@ -1,17 +1,18 @@
-"""A* 零基础导读的图文素材生成器。
+"""A* 图文素材生成器（供 README「基础篇」引用）。
 
-用途：为 `README-零基础版.md` 生成图片、流程图与 GIF，并打印手算示例的完整步骤表。
+用途：为 `README.md` 生成图片、流程图与 GIF，并打印手算示例的完整步骤表。
 
 原则：**素材不是手画的，全部由本脚本生成，且与 impl.py 的数字逐项对账**
 ——真实地图（`demo.make_grid(seed=42)`）上每种策略的扩展数/路径代价，
 断言必须与 `impl.solve()` 完全一致，不一致直接报错、不出图。
+贪心策略 impl.py 没有对应模式（只按 h 排序），单独断言其教学性质：路径必须次优。
 
 产出（`images/` 目录）：
     01-三个量.png        g（已走）、h（估计剩余）、f = g + h
     02-主循环.png        A* 主循环流程图
     03-四种策略对比.png   真实 21×21 地图上的四种策略搜索范围
     04-搜索动画.gif       Dijkstra vs A* 的逐步扩展过程
-    05-手算-四步.png      4×4 小地图的手算示例（四个关键时刻）
+    05-手算-四步.png      5×5 小地图的手算示例（四个关键时刻）
 
 运行：
     cd algorithms/p01-search/a-star
@@ -280,6 +281,15 @@ def verify_real_map() -> None:
         assert len(got["path"]) - 1 == ref.path_cost, (
             f"面板 {i}: 代价 {len(got['path']) - 1} != impl {ref.path_cost}"
         )
+    # 贪心（面板 1）：impl.py 无该模式，断言教学前提——扩展更少但路径次优
+    greedy_path, greedy_expanded = REAL_RESULTS[1]["path"], REAL_RESULTS[1]["expanded"]
+    optimal = solve(REAL_GRID, REAL_START, REAL_GOAL, heuristic=lambda a, b: 0).path_cost
+    assert len(greedy_path) - 1 > optimal, (
+        f"贪心在本图应次优（教学前提）：代价 {len(greedy_path) - 1} 应 > 最优 {optimal}"
+    )
+    assert len(greedy_expanded) < len(REAL_RESULTS[0]["expanded"]), (
+        "贪心在本图应比 Dijkstra 少扩展（教学前提）"
+    )
 
 
 def paint_real(ax, index: int, reveal: int | None = None) -> None:
