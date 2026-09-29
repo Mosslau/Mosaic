@@ -4,7 +4,7 @@ Mosaic 的第 ③ 部分。两个**并列**域：把「AI 平台」与「数据�
 
 | 域 | 目录 | 内容 | 规模 | 状态 |
 |---|---|---|---|---|
-| AI 平台 | `ai-platform/` | 语料流水线、RAG 知识库、湖仓+向量、GPU 调度、推理服务、Agent 平台、端到端整合 | 7 个项目 | 规划中（仅 `06-agent-nest` 进行中，见其 README） |
+| AI 平台 | `ai-platform/` | 语料流水线、RAG 知识库、湖仓+向量、GPU 调度、推理服务、Agent 平台、端到端整合 | 7 个项目 | 规划中（仅 `P6-agent-nest` 进行中，见其 README） |
 | 数据平台 | `data-platform/` | 通用数据平台架构设计：选型、自研边界、契约规范、P0–P6 路线、V1–V48 验证清单、风险取舍与历史修订 | 1 套设计 | 设计文档 v39（未实现） |
 
 ## ai-platform 的依赖关系与开工顺序
@@ -13,13 +13,13 @@ Mosaic 的第 ③ 部分。两个**并列**域：把「AI 平台」与「数据�
 
 | 阶段 | 项目 | 前置算法实验（`algorithms/`） | 前置项目 | 受什么约束 |
 |---|---|---|---|---|
-| 一 | 01-text-corpus-pipeline | `05-generative/mini-rag`（向量化口径）、`02-statistical-ml/kmeans`、`02-statistical-ml/pca`；**去重算法需新增手写实验** | — | 数据规模（10GB 需流式/Spark） |
-| 二 | 02-rag-knowledge-base | `05-generative/mini-rag`（内核）、`04-transformer/attention`（Rerank 原理）、`kmeans`、`pca` | 01（语料与向量） | 向量库与 LLM 外部依赖 |
-| 三 | 03-lakehouse-vector | `mini-rag`（索引口径）、`kmeans`（布局/聚簇）、`pca`（压缩分析） | 01 | 表格式与对象存储 |
-| 四 | 04-gpu-scheduler-demo | 无直接复用（基础设施编排）；`01-search/a-star` 的"可解释评估"思想可类比 | — | **真实 GPU + K8s（最大约束）** |
-| 五 | 05-inference-server | `04-transformer/mini-gpt`、`mini-transformer`、`attention`（prefill/decode 与 KV Cache） | 04（算力与部署）可选 | GPU / 量化工具链 |
-| 六 | 06-agent-nest | 自身在 Part 1 沉淀，编码期再回访相关实验 | 02/05（作为工具与模型来源） | 沙箱与运行时依赖 |
-| 七 | 07-ai-platform | 集成层：复用前六个项目，不直接依赖单个算法实验 | 一~六全部 | 单机资源（Compose 起步） |
+| 一 | P1-text-corpus-pipeline | `05-generative/mini-rag`（向量化口径）、`02-statistical-ml/kmeans`、`02-statistical-ml/pca`；**去重算法需新增手写实验** | — | 数据规模（10GB 需流式/Spark） |
+| 二 | P2-rag-knowledge-base | `05-generative/mini-rag`（内核）、`04-transformer/attention`（Rerank 原理）、`kmeans`、`pca` | 01（语料与向量） | 向量库与 LLM 外部依赖 |
+| 三 | P3-lakehouse-vector | `mini-rag`（索引口径）、`kmeans`（布局/聚簇）、`pca`（压缩分析） | 01 | 表格式与对象存储 |
+| 四 | P4-gpu-scheduler-demo | 无直接复用（基础设施编排）；`01-search/a-star` 的"可解释评估"思想可类比 | — | **真实 GPU + K8s（最大约束）** |
+| 五 | P5-inference-server | `04-transformer/mini-gpt`、`mini-transformer`、`attention`（prefill/decode 与 KV Cache） | 04（算力与部署）可选 | GPU / 量化工具链 |
+| 六 | P6-agent-nest | 自身在 Part 1 沉淀，编码期再回访相关实验 | 02/05（作为工具与模型来源） | 沙箱与运行时依赖 |
+| 七 | P7-ai-platform | 集成层：复用前六个项目，不直接依赖单个算法实验 | 一~六全部 | 单机资源（Compose 起步） |
 
 > 交叉约束：**04 是唯一受硬件门槛限制的项目**（无 GPU 时只能做逻辑层验证，其 README 已把验收拆成"逻辑层/真实层"两层）；**07 可增量推进**（骨架先行，每完成一个阶段接入一个组件），因此不必等前面全部完成。
 
