@@ -18,7 +18,7 @@
 |---|---|
 | [`roadmap/`](roadmap/) | 路线图：算法演进路线 + 两条职业路线 + 语言学习路线 |
 | [`roadmap/books/`](roadmap/books/) | 计算机书单 |
-| [`.dsh/skills/`](.dsh/skills/) | 写作与验证规范（15 个 skill + `_design` 设计笔记） |
+| [`.dsh/skills/`](.dsh/skills/) | 写作与验证规范（16 个 skill + `_design` 设计笔记） |
 
 ## 校验
 
@@ -26,7 +26,7 @@
 # ① 语言域：章节契约 + 悬空链接 + 构建产物纪律
 python3 .dsh/skills/tenetlang-notes/scripts/validate.py --links
 
-# ② 算法域 + AI 平台域：索引/状态/章节锚定/模板结构/违禁 import，以及单元测试
+# ② 算法域：索引/状态/章节锚定/模板结构/违禁 import，以及单元测试
 python3 .dsh/skills/mindspring-lab/scripts/validate.py
 python3 -m pytest -q
 

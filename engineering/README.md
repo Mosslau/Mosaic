@@ -29,8 +29,9 @@ Mosaic 的第 ③ 部分。两个**并列**域：把「AI 平台」与「数据�
 
 ## 校验
 
+工程文档（两个平台）由 skill [`.dsh/skills/engineering-docs/`](../.dsh/skills/engineering-docs/) 规范——四层文档模型（平台索引 / 方案设计 / 实施设计 / 单元定义）+ 场景 D 完成度清单（人工核对；当前无自动化脚本）。
+
 ```bash
+# 算法线的校验与本域无关，供交叉参考
 python3 .dsh/skills/mindspring-lab/scripts/validate.py
 ```
-
-> 数据平台域当前只有一份设计文档（含历史修订记录），暂无自动化校验项。
