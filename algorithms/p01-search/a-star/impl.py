@@ -48,6 +48,21 @@ def _neighbors(grid: list[list[int]], node: tuple[int, int]) -> list[tuple[int, 
     return out
 
 
+def _check_grid(grid: list[list[int]]) -> None:
+    """地图形状校验：须是非空矩形。
+
+    不校验的话，后续按 `grid[0]` 取列宽会抛 IndexError——与"越界 start 抛
+    ValueError"口径不一致（空网格 / 空行 / 锯齿数组都属入参非法，应统一为 ValueError）。
+    """
+    if not grid:
+        raise ValueError("grid 为空：至少要有一行（例如 [[0]]）")
+    if any(len(row) == 0 for row in grid):
+        raise ValueError("grid 有空行：每一行至少要有一列")
+    widths = {len(row) for row in grid}
+    if len(widths) > 1:
+        raise ValueError(f"grid 不是矩形：各行长度不一致 {sorted(widths)}")
+
+
 def _check_passable(grid: list[list[int]], node: tuple[int, int], name: str) -> None:
     """起终点合法性校验：须在界内且可通行。"""
     r, c = node
@@ -69,7 +84,8 @@ def solve(
     """A* 寻路。
 
     参数：
-        grid: 二维地图，0=可通行，1=障碍
+        grid: 二维地图，0=可通行，1=障碍；须为**非空矩形**（空网格、空行、
+            锯齿数组一律抛 ValueError，与起终点校验同一口径）
         start / goal: (row, col)，须在界内且可通行
         heuristic: h(n)，默认曼哈顿距离；必须非负且一致（consistent，满足
             h(n) ≤ c(n, n') + h(n')）。本实现不重开节点：仅可采纳但不一致的 h
@@ -94,6 +110,7 @@ def solve(
         raise ValueError(
             f"weight 必须是 ≥ 1 的有限数（w=1 标准 A*，w>1 加权 A*），得到 {weight!r}"
         )
+    _check_grid(grid)
     _check_passable(grid, start, "start")
     _check_passable(grid, goal, "goal")
 

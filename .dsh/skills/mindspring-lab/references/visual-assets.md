@@ -54,16 +54,46 @@ sys.path.insert(0, str(HERE))
 IMAGES = HERE / "images"
 IMAGES.mkdir(exist_ok=True)
 
-# 中文字体：优先 Noto，其次文泉驿；都没有就让脚本报错而不是画出方块
-FONT_CANDIDATES = [
-    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-    "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
-]
-FONT = next((f for f in FONT_CANDIDATES if Path(f).exists()), None)
-if FONT is None:
-    raise SystemExit("找不到中文字体（Noto / 文泉驿），装一个再跑")
-font_manager.fontManager.addfont(FONT)
-plt.rcParams["font.family"] = font_manager.FontProperties(fname=FONT).get_name()
+# 中文字体：按字体名查 + FreeType 字形校验，找不到就报错，绝不画方块。
+#
+# 为什么不用「硬编码 Linux 字体路径 + exists() 判断」：那个写法在 macOS / Windows
+# 上一个候选都命不中，循环静默跳过 → font.family 保持默认 DejaVu Sans（无中文字形）
+# → 整张图中文变方框；而 matplotlib 只在 stderr 发 UserWarning、退出码仍是 0，
+# 于是"重跑生成器 + git add"会把好素材静默换成方块版（git status 只显示图片有变更）。
+def setup_cjk_font() -> str:
+    cjk_names = (
+        "Noto Sans CJK SC", "Noto Sans CJK JP", "Source Han Sans SC", "Source Han Sans CN",
+        "WenQuanYi Zen Hei", "WenQuanYi Micro Hei",           # Linux
+        "Hiragino Sans GB", "PingFang SC", "Heiti TC",
+        "STHeiti", "Songti SC", "Arial Unicode MS",           # macOS
+        "Microsoft YaHei", "SimHei",                          # Windows
+    )
+    for path in ("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+                 "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc"):
+        if Path(path).exists():
+            font_manager.fontManager.addfont(path)
+
+    available = {f.name for f in font_manager.fontManager.ttflist}
+    chosen = next((n for n in cjk_names if n in available), None)
+    if chosen is None:
+        raise SystemExit(
+            "找不到含中文字形的字体，拒绝生成方块版素材。\n"
+            f"fontManager 已扫描到 {len(available)} 个字体族，但无候选命中。\n"
+            "请安装任一中文字体（如 Noto Sans CJK / 文泉驿）后重跑。"
+        )
+
+    font_path = font_manager.findfont(font_manager.FontProperties(family=chosen))
+    from matplotlib import ft2font
+
+    if ft2font.FT2Font(font_path).get_char_index(ord("中")) == 0:
+        raise SystemExit(f"字体 {chosen}（{font_path}）不含中文字形，拒绝生成方块版素材")
+
+    plt.rcParams["font.family"] = chosen
+    plt.rcParams["axes.unicode_minus"] = False  # 负号走 ASCII，避免 U+2212 缺字形
+    return chosen
+
+
+FONT_USED = setup_cjk_font()
 
 # TODO: 导入本实验的实现入口（素材数字的唯一来源）
 # from impl import <主函数>
@@ -102,8 +132,14 @@ if __name__ == "__main__":
 | 失效 | 症状 | 对策 |
 |---|---|---|
 | 数字漂移 | 图里的数字与实测表不符 | `verify()` 断言；改算法后重跑脚本 |
-| 中文变方块 | 图里出现「豆腐块」 | 脚本内注册中文字体；找不到字体直接报错 |
+| 中文变方块 | 图里出现「豆腐块」 | `setup_cjk_font()`：按字体名查 + FreeType 字形校验，找不到直接报错 |
 | 缓存写不进去 | matplotlib 报只读目录 | `os.environ.setdefault("MPLCONFIGDIR", "/tmp/mplcfg")` |
+
+**为什么字体这一项不能只靠"脚本里写了 font_manager"来判断**：脚本 import 了
+`font_manager` 却一个中文字体都没注册成功时，图里照样全是方块，退出码还是 0——
+`scaffold_assets.py --check` 早期版本就是 grep 关键字，于是"检查通过 + 图已坏"
+同时成立。现在 `--check` 会**真的把 `setup_cjk_font()` 跑一遍**（子进程 + AST 抽取，
+不触发生成器其它副作用），拿不到含「中」字形的字体名就报错。
 
 ## README 引用规范
 
@@ -138,4 +174,5 @@ flowchart TD
 - [ ] 生成器里有 `verify()` 对账断言，且实跑通过
 - [ ] README 引用的素材路径全部存在、有 alt 文本、编号与出现顺序一致
 - [ ] GIF ≤ 2 MB；能用 Mermaid 的流程图没有出 PNG
-- [ ] 中文字体已注册（图中无方块），只读环境下 `MPLCONFIGDIR` 有兜底
+- [ ] 中文字体已注册（图中无方块，`--check` 的运行时探测通过），只读环境下 `MPLCONFIGDIR` 有兜底
+- [ ] `axes.unicode_minus = False`（否则带负值的图里负号是方块）

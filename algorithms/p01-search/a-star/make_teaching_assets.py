@@ -46,16 +46,52 @@ from impl import manhattan, solve  # noqa: E402
 IMAGES = HERE / "images"
 IMAGES.mkdir(exist_ok=True)
 
-FONT_CANDIDATES = [
-    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-    "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
-]
-for _f in FONT_CANDIDATES:
-    if Path(_f).exists():
-        font_manager.fontManager.addfont(_f)
-        plt.rcParams["font.family"] = font_manager.FontProperties(fname=_f).get_name()
-        break
-plt.rcParams["axes.unicode_minus"] = False
+def setup_cjk_font() -> str:
+    """注册一个**确实含中文字形**的字体，返回字体名；找不到就报错，绝不画方块。
+
+    为什么不用「硬编码 Linux 字体路径 + exists() 判断」：那条路在 macOS / Windows 上
+    一个候选都命不中，循环静默跳过、font.family 保持默认 DejaVu Sans（无中文字形），
+    于是**整张图的中文变成方框**——matplotlib 只在 stderr 发 UserWarning，退出码仍是 0，
+    素材会被静默替换成方块版。本机 macOS 实测就是这个症状。
+
+    改为「按字体名查 fontManager + FreeType 字形校验」：
+    - 跨平台：matplotlib 会把系统字体扫进 fontManager，按名查无需知道安装路径
+    - 可证伪：直接问 FreeType 有没有「中」的字形，查不到就 SystemExit
+    """
+    cjk_names = (
+        "Noto Sans CJK SC", "Noto Sans CJK JP", "Source Han Sans SC", "Source Han Sans CN",
+        "WenQuanYi Zen Hei", "WenQuanYi Micro Hei",           # Linux
+        "Hiragino Sans GB", "PingFang SC", "Heiti TC",
+        "STHeiti", "Songti SC", "Arial Unicode MS",           # macOS
+        "Microsoft YaHei", "SimHei",                          # Windows
+    )
+    # 也保留显式路径候选（部分环境不把字体交给 fontManager 扫描）
+    for path in ("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+                 "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc"):
+        if Path(path).exists():
+            font_manager.fontManager.addfont(path)
+
+    available = {f.name for f in font_manager.fontManager.ttflist}
+    chosen = next((n for n in cjk_names if n in available), None)
+    if chosen is None:
+        raise SystemExit(
+            "找不到含中文字形的字体，拒绝生成方块版素材。\n"
+            f"fontManager 已扫描到 {len(available)} 个字体族，但无候选命中。\n"
+            "请安装任一中文字体（如 Noto Sans CJK / 文泉驿）后重跑。"
+        )
+
+    font_path = font_manager.findfont(font_manager.FontProperties(family=chosen))
+    from matplotlib import ft2font
+
+    if ft2font.FT2Font(font_path).get_char_index(ord("中")) == 0:
+        raise SystemExit(f"字体 {chosen}（{font_path}）不含中文字形，拒绝生成方块版素材")
+
+    plt.rcParams["font.family"] = chosen
+    plt.rcParams["axes.unicode_minus"] = False  # 负号走 ASCII，避免 U+2212 缺字形
+    return chosen
+
+
+FONT_USED = setup_cjk_font()
 
 Color = dict(
     wall="#4a4a4a",
@@ -256,8 +292,10 @@ REAL_GRID, REAL_START, REAL_GOAL = make_grid(seed=42)
 REAL_PANELS = [
     ("dijkstra", 1.0, False, "① Dijkstra（h≡0）\n只认已走距离：全向扩散"),
     ("greedy", 1.0, False, "② 贪心（只看 h）\n朝终点冲：快，但不保证最优"),
-    ("astar", 1.0, True, "③ A*（f = g + h）\n同样的最优解，扩展更少"),
-    ("astar", 3.0, True, "④ 加权 A*（w=3）\n更快，但代价让位于速度"),
+    # 面板③④标出 large_g：A* 的扩展数依赖平局策略（insertion 214 / large_g 199），
+    # 不标的话读者拿这张图（199）对进阶篇实验一表格的 A*(insertion) 列（214）会以为对不上。
+    ("astar", 1.0, True, "③ A*（f = g + h，large_g 平局）\n同样的最优解，扩展更少"),
+    ("astar", 3.0, True, "④ 加权 A*（w=3，large_g 平局）\n更快，但代价让位于速度"),
 ]
 
 REAL_RESULTS = {

@@ -50,17 +50,44 @@ sys.path.insert(0, str(HERE))
 IMAGES = HERE / "images"
 IMAGES.mkdir(exist_ok=True)
 
-# 中文字体：找不到就直接报错，避免图里出现"方块"
-FONT_CANDIDATES = [
-    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-    "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
-]
-FONT = next((f for f in FONT_CANDIDATES if Path(f).exists()), None)
-if FONT is None:
-    raise SystemExit("找不到中文字体（Noto / 文泉驿），装一个再跑")
-font_manager.fontManager.addfont(FONT)
-plt.rcParams["font.family"] = font_manager.FontProperties(fname=FONT).get_name()
-plt.rcParams["axes.unicode_minus"] = False
+# 中文字体：按字体名查 + FreeType 字形校验，找不到就直接报错，避免图里出现"方块"。
+# 为什么不用「硬编码 Linux 字体路径 + exists()」：那个写法在 macOS / Windows 上一个
+# 候选都命不中，循环静默跳过 → font.family 保持默认 DejaVu Sans（无中文字形）→
+# 整张图中文变方框，而 matplotlib 只在 stderr 发 UserWarning、退出码仍是 0。
+def setup_cjk_font() -> str:
+    cjk_names = (
+        "Noto Sans CJK SC", "Noto Sans CJK JP", "Source Han Sans SC", "Source Han Sans CN",
+        "WenQuanYi Zen Hei", "WenQuanYi Micro Hei",           # Linux
+        "Hiragino Sans GB", "PingFang SC", "Heiti TC",
+        "STHeiti", "Songti SC", "Arial Unicode MS",           # macOS
+        "Microsoft YaHei", "SimHei",                          # Windows
+    )
+    for path in ("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+                 "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc"):
+        if Path(path).exists():
+            font_manager.fontManager.addfont(path)
+
+    available = {f.name for f in font_manager.fontManager.ttflist}
+    chosen = next((n for n in cjk_names if n in available), None)
+    if chosen is None:
+        raise SystemExit(
+            "找不到含中文字形的字体，拒绝生成方块版素材。\\n"
+            f"fontManager 已扫描到 {len(available)} 个字体族，但无候选命中。\\n"
+            "请安装任一中文字体（如 Noto Sans CJK / 文泉驿）后重跑。"
+        )
+
+    font_path = font_manager.findfont(font_manager.FontProperties(family=chosen))
+    from matplotlib import ft2font
+
+    if ft2font.FT2Font(font_path).get_char_index(ord("中")) == 0:
+        raise SystemExit(f"字体 {chosen}（{font_path}）不含中文字形，拒绝生成方块版素材")
+
+    plt.rcParams["font.family"] = chosen
+    plt.rcParams["axes.unicode_minus"] = False  # 负号走 ASCII，避免 U+2212 缺字形
+    return chosen
+
+
+FONT_USED = setup_cjk_font()
 
 # TODO: 导入本实验的实现与对照入口（函数名按 impl.py / baseline.py 实际改）
 # from impl import <主函数>
@@ -115,8 +142,72 @@ def rel_to_root(unit: Path) -> str:
     return unit.relative_to(ROOT).as_posix()
 
 
+CHILD_PROBE = r'''
+import ast, sys
+from pathlib import Path
+
+src = Path(sys.argv[1]).read_text(encoding="utf-8")
+tree = ast.parse(src)
+fn = next((n for n in tree.body
+           if isinstance(n, ast.FunctionDef) and n.name == "setup_cjk_font"), None)
+if fn is None:
+    print("NOCALL 生成器里没有 setup_cjk_font()——无法确认中文字体是否真的注册成功")
+    sys.exit(0)
+
+import os
+os.environ.setdefault("MPLCONFIGDIR", "/tmp/mplcfg")
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+from matplotlib import font_manager
+
+# 只执行字体解析函数本身，不跑生成器的其它副作用（不写图、不建目录）
+ns = {"Path": Path, "font_manager": font_manager, "plt": plt, "__name__": "_probe"}
+try:
+    exec(compile(ast.Module(body=[fn], type_ignores=[]), "<probe>", "exec"), ns)
+    print("OK", ns["setup_cjk_font"]())
+except SystemExit as e:
+    print("FAIL", e)
+'''
+
+
+def runtime_font_probe(path: Path) -> tuple[str, str]:
+    """真的把生成器的字体解析跑一遍，返回 (状态, 详情)。
+
+    为什么不能只 grep 关键字：`if "font_manager" in src` 在脚本 import 了
+    font_manager、却一个中文字体都没注册成功时照样通过——图里全是方块，检查
+    却报"✓ 通过"。本函数用 AST 抽出 setup_cjk_font()（或调用它的语句）实际执行，
+    并把结果与真实的 fontManager 对照，只有拿到含「中」字形的字体名才算通过。
+    """
+    import subprocess
+
+    try:
+        proc = subprocess.run(
+            [sys.executable, "-c", CHILD_PROBE, str(path)],
+            capture_output=True, text=True, timeout=120,
+        )
+    except subprocess.TimeoutExpired:
+        return "FAIL", "字体探测超时（>120s）"
+
+    out = (proc.stdout or "").strip().splitlines()
+    verdict = out[-1] if out else ""
+    if verdict.startswith("OK "):
+        name = verdict[3:].strip()
+        if not name:
+            return "FAIL", "setup_cjk_font() 返回空字体名"
+        return "OK", name
+    if verdict.startswith("FAIL "):
+        return "FAIL", verdict[5:].strip().replace("\n", " ")
+    if verdict.startswith("NOCALL"):
+        return "NOCALL", verdict[7:].strip()
+    return "FAIL", (proc.stderr or "").strip().splitlines()[-1] if proc.stderr else "探测无输出"
+
+
 def check(unit: Path, rel: str) -> list[str]:
-    """检查已存在的生成器是否具备底线要素。"""
+    """检查已存在的生成器是否具备底线要素。
+
+    字体一项按**运行时结果**判定，不按关键字：见 runtime_font_probe。
+    """
     path = unit / GENERATOR
     if not path.exists():
         return [f"{rel}：缺少 {GENERATOR}（先跑脚手架生成，或手写一个）"]
@@ -128,6 +219,21 @@ def check(unit: Path, rel: str) -> list[str]:
         problems.append(f"{rel}/{GENERATOR}：缺少 MPLCONFIGDIR 兜底——只读环境下会报缓存错误")
     if "font_manager" not in src:
         problems.append(f"{rel}/{GENERATOR}：缺少中文字体注册——图里会出现方块")
+    else:
+        status, detail = runtime_font_probe(path)
+        if status == "FAIL":
+            problems.append(
+                f"{rel}/{GENERATOR}：中文字体解析失败——图里会出现方块（{detail}）"
+            )
+        elif status == "NOCALL":
+            problems.append(
+                f"{rel}/{GENERATOR}：有 font_manager 但没有 setup_cjk_font()，"
+                "无法确认真实注册了中文字体——建议改用脚手架模板的写法"
+            )
+    if "unicode_minus" not in src:
+        problems.append(
+            f"{rel}/{GENERATOR}：未设 axes.unicode_minus=False——带负值的图里负号会变方块"
+        )
     if not (unit / "images").is_dir():
         problems.append(f"{rel}：缺少 images/ 目录（生成器应创建它）")
     return problems

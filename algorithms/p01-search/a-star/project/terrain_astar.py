@@ -35,15 +35,47 @@ HERE = Path(__file__).resolve().parent
 OUT = HERE / "out"
 OUT.mkdir(exist_ok=True)
 
-FONT_CANDIDATES = [
-    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-    "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
-]
-for _f in FONT_CANDIDATES:
-    if Path(_f).exists():
-        font_manager.fontManager.addfont(_f)
-        plt.rcParams["font.family"] = font_manager.FontProperties(fname=_f).get_name()
-        break
+def setup_cjk_font() -> str:
+    """注册一个**确实含中文字形**的字体，返回字体名；找不到就报错，绝不画方块。
+
+    与 `../make_teaching_assets.py` 同款实现（本目录内的脚本保持自包含，
+    不跨目录 import）。硬编码 Linux 字体路径在 macOS / Windows 上一个都命不中：
+    循环静默跳过 → font.family 保持 DejaVu Sans（无中文字形）→ 整张图中文变方框，
+    而 matplotlib 只在 stderr 发 UserWarning、退出码仍为 0。
+    """
+    cjk_names = (
+        "Noto Sans CJK SC", "Noto Sans CJK JP", "Source Han Sans SC", "Source Han Sans CN",
+        "WenQuanYi Zen Hei", "WenQuanYi Micro Hei",           # Linux
+        "Hiragino Sans GB", "PingFang SC", "Heiti TC",
+        "STHeiti", "Songti SC", "Arial Unicode MS",           # macOS
+        "Microsoft YaHei", "SimHei",                          # Windows
+    )
+    for path in ("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+                 "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc"):
+        if Path(path).exists():
+            font_manager.fontManager.addfont(path)
+
+    available = {f.name for f in font_manager.fontManager.ttflist}
+    chosen = next((n for n in cjk_names if n in available), None)
+    if chosen is None:
+        raise SystemExit(
+            "找不到含中文字形的字体，拒绝生成方块版对比图。\n"
+            f"fontManager 已扫描到 {len(available)} 个字体族，但无候选命中。\n"
+            "请安装任一中文字体（如 Noto Sans CJK / 文泉驿）后重跑。"
+        )
+
+    font_path = font_manager.findfont(font_manager.FontProperties(family=chosen))
+    from matplotlib import ft2font
+
+    if ft2font.FT2Font(font_path).get_char_index(ord("中")) == 0:
+        raise SystemExit(f"字体 {chosen}（{font_path}）不含中文字形，拒绝生成方块版对比图")
+
+    plt.rcParams["font.family"] = chosen
+    plt.rcParams["axes.unicode_minus"] = False  # 负号走 ASCII，避免 U+2212 缺字形
+    return chosen
+
+
+FONT_USED = setup_cjk_font()
 
 ROWS, COLS = 20, 20
 START, GOAL = (0, 0), (ROWS - 1, COLS - 1)
