@@ -99,6 +99,16 @@ SIG_RE = re.compile(
 )
 
 
+# 反引号里的相对路径：`../xxx/impl.py`、`./sol-01-概念.md` 这种"告诉读者去哪找"的写法。
+# 为什么单独查它：本规范大量这样引用对照实现与交付物，而**反引号路径不是 markdown 链接**，
+# 上面那套 IMAGE_RE / 链接检查都扫不到——实测漏过 5 处（含"照抄同族写法但目录层级不同"造成的）。
+BACKTICK_PATH_RE = re.compile(r"`(\.{1,2}/[^`\n]+)`")
+# 只把这些扩展名 / 目录形式视为"路径"；其余（脚本名、示例）不算，
+# 避免误伤 `./scripts/check.sh` 这类"仓库里未必存在、但文档有意保留"的写法。
+PATH_SUFFIXES = ("/", ".py", ".md", ".png", ".gif", ".json", ".toml", ".txt",
+                 ".yaml", ".yml", ".ipynb")
+
+
 def read_text(path: Path) -> str:
     try:
         return path.read_text(encoding="utf-8")
@@ -263,6 +273,39 @@ def check_assets(unit: Path, readme: str, rel: str, rep: Report) -> None:
             rep.warn(f"{rel}：相对链接指向的文件不存在「{target}」")
 
 
+def check_doc_paths(unit: Path, rel: str, rep: Report) -> None:
+    """扫单元内所有 md（README / 练习 / 项目）里**反引号写的相对路径**是否真实存在。
+
+    与 markdown 链接检查的区别：`` `../minimax-alphabeta/impl.py` `` 不是链接，
+    早期版本扫不到它；而"去哪找实现"恰恰最常用这种写法，写错就会把读者引到不存在的位置。
+
+    判定口径（都为了压低误报）：
+      1. 只认以 `./` 或 `../` 开头、且以目录斜杠或已知扩展名结尾的反引号片段；
+      2. 含空格 / 通配符 / `<>` 的一律跳过（那是命令或模板占位符）；
+      3. 末尾 `/` 的按目录解析；带 `#锚点` 的只取锚点前的路径部分。
+    """
+    for md in sorted(unit.rglob("*.md")):
+        if "__pycache__" in md.parts:
+            continue
+        text = read_text(md)
+        if not text:
+            continue
+        for m in BACKTICK_PATH_RE.finditer(text):
+            target = m.group(1).split("#")[0].strip()
+            if not target.startswith(("./", "../")):
+                continue
+            if any(ch in target for ch in "*?{}<>|&$'\"") or " " in target:
+                continue
+            if not target.endswith(PATH_SUFFIXES):
+                continue
+            # 末尾斜杠或结尾是已知文件类型 → 按"文件或目录"解析（resolve 对两者都成立）
+            if (md.parent / target.rstrip("/")).resolve().exists():
+                continue
+            line = text[:m.start()].count("\n") + 1
+            rep.warn(f"{rel}/{md.relative_to(unit).as_posix()}:{line}："
+                     f"反引号里的相对路径不存在「{target}」——会把读者引到不存在的位置")
+
+
 def check_family_declaration(readme: str, rel: str, rep: Report) -> None:
     """标题区那句「算法族 + 接口」的成色（可选槽位，写了才查）。
 
@@ -311,6 +354,7 @@ def check_algo_unit(unit: Path, idx: dict | None, chapters: set[str], rep: Repor
     check_sections(readme, rel, rep, symbol)
     check_assets(unit, readme, rel, rep)
     check_practice(unit, rel, rep)
+    check_doc_paths(unit, rel, rep)
     check_family_declaration(readme, rel, rep)
 
     # 章节锚定：有效性（只在 blockquote 行中找）
