@@ -13,6 +13,9 @@
     apply(state, move) -> state       走子后的新状态
     evaluate(state) -> float          局面评分，正数对我方有利
     is_terminal(state) -> bool        是否终局
+
+两个版本刻意不共用递归主体：`alphabeta` 是独立的一份实现（多出 alpha/beta 窗口），
+两者的结果必须逐点相同——这正是 demo 与 test 要断言的东西。
 """
 
 from typing import Any, Callable, Optional
@@ -36,10 +39,33 @@ def minimax(
         depth: 剩余搜索深度
         maximizing: 当前层是否我方（取 max）
         get_moves / apply / evaluate / is_terminal: 对弈接口（见模块 docstring）
+
+    返回值第一项在"叶子/终局"处是 None——那一层不做决策，只回报评分；
+    调用方（上一层）负责记录是哪个招法走到了这个评分。
     """
-    # TODO: 手写：终局或 depth=0 返回 (None, evaluate(state))；
-    #   否则遍历 get_moves，对每个招法 apply 后递归，轮转 max/min 取极值
-    raise NotImplementedError("TODO: 手写朴素 minimax")
+    if depth == 0 or is_terminal(state):
+        return None, evaluate(state)
+
+    moves = get_moves(state)
+    if not moves:                      # 防御：无招可走（正常井字棋不会出现）
+        return None, evaluate(state)
+
+    best_move: Optional[Move] = None
+    if maximizing:
+        best_score = float("-inf")
+        for move in moves:
+            _, score = minimax(apply(state, move), depth - 1, False,
+                               get_moves, apply, evaluate, is_terminal)
+            if score > best_score:     # 严格大于：平手时保留先找到的招法（确定性的来源）
+                best_score, best_move = score, move
+    else:
+        best_score = float("inf")
+        for move in moves:
+            _, score = minimax(apply(state, move), depth - 1, True,
+                               get_moves, apply, evaluate, is_terminal)
+            if score < best_score:
+                best_score, best_move = score, move
+    return best_move, best_score
 
 
 def alphabeta(
@@ -53,9 +79,43 @@ def alphabeta(
     evaluate: Callable,
     is_terminal: Callable,
 ) -> tuple[Optional[Move], float]:
-    """带 Alpha-Beta 剪枝的极小极大：接口与 minimax 对齐，多出 (alpha, beta) 剪枝窗口。"""
-    # TODO: 手写：在 minimax 基础上维护窗口，beta <= alpha 时剪掉剩余分支
-    raise NotImplementedError("TODO: 手写 alpha-beta 剪枝")
+    """带 Alpha-Beta 剪枝的极小极大：接口与 minimax 对齐，多出 (alpha, beta) 剪枝窗口。
+
+    - `alpha`：max 这一层**已经能拿到**的最好分数（下界）
+    - `beta` ：min 这一层**已经能保证**的最好分数（上界）
+    - 一旦 `beta <= alpha`，当前分支的结果不可能改变祖先层的选择，剩余招法直接剪掉
+
+    剪枝只影响"算了多少"，不影响"选出哪个"——返回值与 `minimax` 逐点相同（demo/test 断言）。
+    """
+    if depth == 0 or is_terminal(state):
+        return None, evaluate(state)
+
+    moves = get_moves(state)
+    if not moves:
+        return None, evaluate(state)
+
+    best_move: Optional[Move] = None
+    if maximizing:
+        best_score = float("-inf")
+        for move in moves:
+            _, score = alphabeta(apply(state, move), depth - 1, alpha, beta, False,
+                                 get_moves, apply, evaluate, is_terminal)
+            if score > best_score:
+                best_score, best_move = score, move
+            alpha = max(alpha, best_score)
+            if beta <= alpha:          # 剪枝：对方不会让我们走到这里
+                break
+    else:
+        best_score = float("inf")
+        for move in moves:
+            _, score = alphabeta(apply(state, move), depth - 1, alpha, beta, True,
+                                 get_moves, apply, evaluate, is_terminal)
+            if score < best_score:
+                best_score, best_move = score, move
+            beta = min(beta, best_score)
+            if beta <= alpha:
+                break
+    return best_move, best_score
 
 
 def best_move(state: Any, depth: int, **game: Callable) -> tuple[Optional[Move], float]:
@@ -68,4 +128,4 @@ def best_move(state: Any, depth: int, **game: Callable) -> tuple[Optional[Move],
 
 
 if __name__ == "__main__":
-    raise SystemExit("请先完成 minimax/alphabeta，再到 demo.py 跑实验")
+    raise SystemExit("本文件是博弈搜索库，跑实验请执行：python3 demo.py")
