@@ -236,7 +236,7 @@ README 是**一份文档、两个大块**，目的是让两类读者**各自有�
 
 ### scripts/
 
-- `scripts/validate.py` — 场景 C 的存在性与纪律自动检查。覆盖：索引表 ↔ 目录双向核对（含 ✅ 日期一致性）、状态一致性、六段齐全、占位段检测（✅ 下为硬伤）、章节锚点有效性、`impl.py` 违禁 import 与属性调用扫描、README 本地素材/相对链接存在性（图片缺失记硬伤）、`exercises/` 与 `project/` 结构（有目录必须有 README、练习必须题解分离）、标题区「算法族 + 接口」声明的成色（写了族名却给不出入口记 🟡；未声明只进 `--deep` 提示，槽位本身可选）；`--pytest` 实跑测试，`--git` 核对变更集，`--deep` 列出需人工核对的漂移项（含「✅ 却无基础篇 / 练习 / 项目」，并打印 git 基线供记忆落盘引用）。退出码 0 = 无问题，1 = 存在问题（可作提交前门禁）。**管辖范围仅 `algorithms/`**——engineering/ 的文档完成度检查见 `engineering-docs` 的场景 C 清单。
+- `scripts/validate.py` — 场景 C 的存在性与纪律自动检查。覆盖：索引表 ↔ 目录双向核对（含 ✅ 日期一致性）、状态一致性、六段齐全、占位段检测（✅ 下为硬伤）、章节锚点有效性、`impl.py` 违禁 import 与属性调用扫描、README 本地素材/相对链接存在性（图片缺失记硬伤）、**反引号里写的相对路径是否存在**（如 `../xxx/impl.py`；这类路径不是 markdown 链接，早期扫不到，实测漏过 5 处）、`exercises/` 与 `project/` 结构（有目录必须有 README、练习必须题解分离）、标题区「算法族 + 接口」声明的成色（写了族名却给不出入口记 🟡；未声明只进 `--deep` 提示，槽位本身可选）；`--pytest` 实跑测试，`--git` 核对变更集，`--deep` 列出需人工核对的漂移项（含「✅ 却无基础篇 / 练习 / 项目」，并打印 git 基线供记忆落盘引用）。退出码 0 = 无问题，1 = 存在问题（可作提交前门禁）。**管辖范围仅 `algorithms/`**——engineering/ 的文档完成度检查见 `engineering-docs` 的场景 C 清单。
 - `scripts/scaffold_assets.py` — 纪律④的起手式：`python3 .dsh/skills/mindspring-lab/scripts/scaffold_assets.py algorithms/<族>/<算法名>` 生成 `make_teaching_assets.py` 骨架（缓存/中文字体初始化 + `verify()` 对账断言空壳 + 概念图 / 对比图 / 动画三类空壳；流程图默认走 Mermaid，`make_flow()` 只作可选出 PNG 用）与 `images/`；`--check` 检查已有生成器的底线要素（断言 / 缓存 / 字体 / images），`--force` 覆盖。只生成"可重跑 + 可对账"的骨架，画什么图由实验作者填。
 
 ### references/
