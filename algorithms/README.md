@@ -31,6 +31,7 @@
 | [A* 启发式搜索](p01-search/a-star/) | 2.2.1 | ✅ | 2026-09-14 |
 | [Minimax 与 Alpha-Beta 剪枝](p01-search/minimax-alphabeta/) | 2.2.1 | ✅ | 2026-10-09 |
 | [蒙特卡洛树搜索 MCTS](p01-search/mcts/) | 2.2.1 | ✅ | 2026-10-09 |
+| [反事实遗憾最小化 CFR](p01-search/cfr/) | 2.2.1 | ✅ | 2026-10-09 |
 
 ## p02-statistical-ml · 统计机器学习
 
