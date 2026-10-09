@@ -11,7 +11,7 @@
 | 5 | 迁移 | `sol-05-迁移.md`（要动手改 `impl.py`，无独立脚本） |
 
 需要的材料：本目录的 [impl.py](../impl.py)、[demo.py](../demo.py)、[baseline.py](../baseline.py)，
-以及 `../minimax-alphabeta/impl.py`（精确搜索对手）。
+以及 `../../minimax-alphabeta/impl.py`（精确搜索对手）。
 
 ---
 
@@ -73,7 +73,7 @@ def _backpropagate(self, node, reward_for_mover):
 
 1. 这个写法错在哪？用一句话说清"每个节点的 value 应该表示什么"。
 2. **实测后果**：写个小脚本，把错误版本与 `impl.MCTS` 分别在井字棋上**对精确搜索**
-   （`../minimax-alphabeta/impl.py` 的 `alphabeta(depth=9)`）各下 40 局，
+   （`../../minimax-alphabeta/impl.py` 的 `alphabeta(depth=9)`）各下 40 局，
    报告两者的"和棋 / 负"数字。**这个 bug 不会报错**——请说明它会以什么现象暴露出来。
 3. 另外给一个**更小的**验证方法：构造一个"赢家一定是某一方"的小局面，
    直接检查根与子节点的 `value` 符号关系（不必对局）。
