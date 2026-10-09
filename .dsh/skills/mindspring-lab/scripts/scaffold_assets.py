@@ -8,7 +8,9 @@
 
 做三件事：
 1. 校验目标目录（必须在 algorithms/ 下，且已有 impl.py 或 demo.py——素材必须与实现对账）
-2. 生成 make_teaching_assets.py：缓存/字体初始化 + 对账断言 verify() 空壳 + 四类素材的空壳
+2. 生成 make_teaching_assets.py：缓存/字体初始化 + 对账断言 verify() 空壳 + 三类素材的空壳
+   （概念图 / 对比图 / 动画）。**流程图不在这里**：优先用 Mermaid 写进 README 正文，
+   只有 Mermaid 表达不了才在本脚本里出 PNG（见 visual-assets.md「Mermaid 优先」）。
 3. 创建 images/ 目录
 
 不做什么：具体画什么图、断言哪些数字由实验作者填——脚手架只保证"可重跑 + 可对账"这条底线。
@@ -25,11 +27,13 @@ assert (ROOT / "algorithms").is_dir(), f"仓库根定位失败：{ROOT}"
 
 GENERATOR = "make_teaching_assets.py"
 
-TEMPLATE = '''"""{name} 图文素材生成器（供 README 基础篇 / 进阶篇引用）。
+TEMPLATE = '''"""@NAME@ 图文素材生成器（供 README 基础篇 / 进阶篇引用）。
 
 原则：素材全部由本脚本生成，且与实现逐项对账（纪律④）——对不上直接报错、不出图。
-产出（images/）：01-概念图.png / 02-主循环.png / 03-对比图.png / 04-动画.gif
-运行：cd {rel} && ../../../.venv/bin/python {gen}
+产出（images/）：01-概念图.png / 03-对比图.png / 04-动画.gif
+流程图默认不在这里生成——优先 Mermaid 写进 README「算法主循环」节（见 visual-assets.md）。
+只有 Mermaid 表达不了的流程图，才实现下面的 make_flow() 出 PNG，并按 02-主循环.png 命名。
+运行：cd @REL@ && ../../../.venv/bin/python @GEN@
 """
 
 import os
@@ -111,7 +115,14 @@ def make_concept() -> None:
 
 
 def make_flow() -> None:
-    """02 流程图：主循环（基础篇 3 节）。能用 Mermaid 写的，不必出 PNG（见 visual-assets.md）。"""
+    """【可选】02 流程图：主循环（基础篇 3 节）。
+
+    默认**不要**实现它：流程图优先用 Mermaid 直接写进 README「算法主循环」节——
+    文本可 diff、可搜索、零体积，也不用维护字体与版式（见 visual-assets.md「Mermaid 优先」）。
+
+    只有 Mermaid 表达不了（带计算的示意、需要像素级排版）时才实现本函数出 PNG，
+    并在 README 里改成引用图片；出图后请按 visual-assets.md 的「PNG 流程图检查表」自查。
+    """
     raise NotImplementedError
 
 
@@ -129,7 +140,8 @@ def make_animation() -> None:
 
 if __name__ == "__main__":
     verify()
-    for step in (make_concept, make_flow, make_compare, make_animation):
+    # 注意没有 make_flow：流程图默认走 Mermaid（见上面的说明），要出 PNG 自己加进来。
+    for step in (make_concept, make_compare, make_animation):
         try:
             step()
         except NotImplementedError:
@@ -257,11 +269,15 @@ def scaffold(unit: Path, rel: str, force: bool) -> int:
         return 0
 
     path.write_text(
-        TEMPLATE.format(name=unit.name, rel=rel, gen=GENERATOR), encoding="utf-8"
+        # 用占位符替换而不是 str.format()：模板正文里有 f-string 的**字面花括号**
+        # （`{f.name for f in …}`、`{len(available)}`…），走 format() 会被当成字段名
+        # 而抛 KeyError: 'f'——脚手架此前就是这样一跑就崩、从没产出过骨架。
+        TEMPLATE.replace("@NAME@", unit.name).replace("@REL@", rel)
+        .replace("@GEN@", GENERATOR), encoding="utf-8"
     )
     (unit / "images").mkdir(exist_ok=True)
     print(f"✓ 已生成 {rel}/{GENERATOR}（检测到：{', '.join(sources)}）")
-    print("  下一步：写 verify() 的对账断言 → 再填四类素材 → 运行脚本")
+    print("  下一步：写 verify() 的对账断言 → 再填其余几类素材 → 运行脚本")
     return 0
 
 

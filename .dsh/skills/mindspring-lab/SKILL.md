@@ -13,7 +13,7 @@ agent_created: true
 | 产物 | 载体 | 服务谁 | 对应能力 |
 |---|---|---|---|
 | 学习文档 | `README.md`：基础篇 + 进阶篇 | 零基础读者 / 复现者 | 说清 · 走通 · 判断 |
-| 可视化素材 | `images/`（图 / 流程图 / GIF）+ 生成脚本 | 建立直觉、看清过程 | 走通 · 判断 |
+| 可视化素材 | `images/`（概念图 / 对比图 / GIF）+ 生成脚本；**流程图用 Mermaid 写进 README** | 建立直觉、看清过程 | 走通 · 判断 |
 | 练习 | `exercises/`（题目与参考解分离） | 从"看懂"到"会做" | 说清 → 迁移，逐级覆盖 |
 | 迁移项目 | `project/`（可运行的小系统） | 从"会做"到"会用" | 迁移 |
 
@@ -60,7 +60,8 @@ algorithms/<pNN-族>/<算法名>/          # p01-search/a-star, p04-transformer/
 ├── demo.py                          # 同数据双跑对比入口
 ├── test_impl.py                     # 性质测试（推荐）
 ├── make_teaching_assets.py          # 素材生成器（纪律④；有素材即必需）
-├── images/                          # 图 / 流程图 / GIF（由上面的脚本生成，禁止手绘入库）
+├── images/                          # 概念图 / 对比图 / GIF（由上面的脚本生成，禁止手绘入库）
+│                                    # 流程图不在这里：优先 Mermaid 直接写进 README
 ├── exercises/                       # 练习：README 出题（不附答案）+ sol-NN-* 参考解
 └── project/                         # 迁移项目：README（需求/验收/扩展）+ 源码
 ```
@@ -92,14 +93,14 @@ README 必须写出该实验的**五级能力清单**（见「使命」），且
 
 抽象概念**优先用图讲**，而不是堆文字。四类素材各司其职：
 
-| 素材 | 讲什么 | 位置 |
-|---|---|---|
-| 概念图 | 核心量的含义与组合（如 f = g + h） | 基础篇 1–2 节 |
-| 流程图 | 主循环 / 判定 / 数据流 | 基础篇 3 节 |
-| 对比图 | 手写 vs 对照、不同参数/策略的差异 | 基础篇 6 节、进阶篇对照段 |
-| 动画 / GIF | 过程与顺序（时间维度） | 基础篇 4 或 6 节 |
+| 素材 | 讲什么 | 位置 | 生成方式 |
+|---|---|---|---|
+| 概念图 | 核心量的含义与组合（如 f = g + h） | 基础篇 1–2 节 | 脚本出 PNG |
+| 流程图 | 主循环 / 判定 / 数据流 | 基础篇 3 节 | **Mermaid 写进 README**（不进 `images/`） |
+| 对比图 | 手写 vs 对照、不同参数/策略的差异 | 基础篇 6 节、进阶篇对照段 | 脚本出 PNG |
+| 动画 / GIF | 过程与顺序（时间维度） | 基础篇 4 或 6 节 | 脚本出 GIF |
 
-硬约束：`images/` 下的素材**必须由实验目录内的脚本生成**（约定 `make_teaching_assets.py`），脚本内**断言素材数字与 `impl.py` / `demo.py` 的输出一致**，不一致即报错；不接收手绘、截图或无法复现的素材。素材文件本身是工具产物，受管辖的是生成脚本。
+硬约束：`images/` 下的素材**必须由实验目录内的脚本生成**（约定 `make_teaching_assets.py`），脚本内**断言素材数字与 `impl.py` / `demo.py` 的输出一致**，不一致即报错；不接收手绘、截图或无法复现的素材。素材文件本身是工具产物，受管辖的是生成脚本。**流程图是例外**：优先 Mermaid 直接写进 README（同样可重跑、可 diff），只有 Mermaid 表达不了才出 PNG，判定与检查表见 `references/visual-assets.md`。
 
 ### ⑤ 练习与迁移
 
@@ -161,7 +162,7 @@ README 是**一份文档、两个大块**，目的是让两类读者**各自有�
 3. 写 `impl.py`（守纪律①）、对照版 `framework.py`/`baseline.py` 与 `demo.py`（同数据、同指标双跑）
 4. 实跑 demo，把真实数字填进「实验结果」段：指标对比表 + 耗时 + 复现命令 + 按纪律⑥ 写验证声明
 5. 写基础篇：生活类比 → 核心量 → 主循环 → 手算示例 → 白话正确性 → 常见误区（数字只给结论）
-6. 生成教学素材：写 `make_teaching_assets.py` 产出 `images/` 下的图 / 流程图 / GIF，脚本内断言素材数字与 `impl.py` 一致（纪律④）
+6. 生成教学素材：**流程图先用 Mermaid 写进 README 正文**（Mermaid 表达不了才出 PNG）；其余图 / GIF 由 `make_teaching_assets.py` 产出到 `images/`，脚本内断言素材数字与 `impl.py` 一致（纪律④）
 7. 出练习：写 `exercises/README.md`（五级分级、不附答案）与 `sol-NN-*` 参考解，实际跑通参考解
 8. 做迁移项目：写 `project/`（需求 / 验收 / 扩展 + 可运行源码），把算法用到新场景（纪律⑤）
 9. 用基础篇「能力清单」节的清单自查：1–4 级全部有证据，5 级由项目兑现
@@ -199,6 +200,7 @@ README 是**一份文档、两个大块**，目的是让两类读者**各自有�
    - **验证声明**：逐条对照纪律⑥，证据三要素是否齐全
    - **基础篇自足性**：零基础读者只读「基础篇」能否走通（手算示例、自测清单是否齐全）；是否复制了「实验结果」的数字（复制即漂移风险）
    - **素材同源**：`images/` 里的图与「实验结果」的数字是否一致（重跑生成脚本核对）；README 引用的素材是否存在（`validate.py` 自动查）
+   - **流程图形态**：主循环是否用 Mermaid 写进正文（能用 Mermaid 却出了 PNG 记为待升级）；Mermaid 语法是否实跑校验过
    - **手算可复现**：手算示例的每一步能否用 `impl.py` 或其他脚本复算出来（数字不是编的）
    - **练习分级**：`exercises/README.md` 是否覆盖五级能力、是否真的没附答案；`sol-NN-*` 是否跑过
    - **项目可运行**：`project/` 的源码能否按 README 命令跑出结果；验收标准是否可判定
@@ -212,7 +214,7 @@ README 是**一份文档、两个大块**，目的是让两类读者**各自有�
 
 1. 补基础篇必需七项（最重要的收益：没有它，零基础读者进不来）
 2. 补五级能力清单（决定后续练习与项目写什么）
-3. 补素材生成脚本与 `images/`（纪律④）
+3. 补素材：流程图优先补 Mermaid（写进 README），其余图 / GIF 补生成脚本与 `images/`（纪律④）
 4. 补 `exercises/`（题解分离、五级分级）
 5. 补 `project/`（迁移项目）
 
@@ -232,14 +234,14 @@ README 是**一份文档、两个大块**，目的是让两类读者**各自有�
 ### scripts/
 
 - `scripts/validate.py` — 场景 C 的存在性与纪律自动检查。覆盖：索引表 ↔ 目录双向核对（含 ✅ 日期一致性）、状态一致性、六段齐全、占位段检测（✅ 下为硬伤）、章节锚点有效性、`impl.py` 违禁 import 与属性调用扫描、README 本地素材/相对链接存在性（图片缺失记硬伤）、`exercises/` 与 `project/` 结构（有目录必须有 README、练习必须题解分离）；`--pytest` 实跑测试，`--git` 核对变更集，`--deep` 列出需人工核对的漂移项（含「✅ 却无基础篇 / 练习 / 项目」，并打印 git 基线供记忆落盘引用）。退出码 0 = 无问题，1 = 存在问题（可作提交前门禁）。**管辖范围仅 `algorithms/`**——engineering/ 的文档完成度检查见 `engineering-docs` 的场景 C 清单。
-- `scripts/scaffold_assets.py` — 纪律④的起手式：`python3 .dsh/skills/mindspring-lab/scripts/scaffold_assets.py algorithms/<族>/<算法名>` 生成 `make_teaching_assets.py` 骨架（缓存/中文字体初始化 + `verify()` 对账断言空壳 + 四类素材空壳）与 `images/`；`--check` 检查已有生成器的底线要素（断言 / 缓存 / 字体 / images），`--force` 覆盖。只生成"可重跑 + 可对账"的骨架，画什么图由实验作者填。
+- `scripts/scaffold_assets.py` — 纪律④的起手式：`python3 .dsh/skills/mindspring-lab/scripts/scaffold_assets.py algorithms/<族>/<算法名>` 生成 `make_teaching_assets.py` 骨架（缓存/中文字体初始化 + `verify()` 对账断言空壳 + 概念图 / 对比图 / 动画三类空壳；流程图默认走 Mermaid，`make_flow()` 只作可选出 PNG 用）与 `images/`；`--check` 检查已有生成器的底线要素（断言 / 缓存 / 字体 / images），`--force` 覆盖。只生成"可重跑 + 可对账"的骨架，画什么图由实验作者填。
 
 ### references/
 
 - `references/readme-structure.md` — **结构层唯一权威**：两篇骨架、两条独立读者路径、章节归属「边界三测试」、数字单源规则与自查清单
 - `references/learning-path-template.md` — 学习层：基础篇模板（必需七项 + 逐节完成判据）、五级能力清单写法、练习（题解分离）与迁移项目模板
 - `references/advanced-track-template.md` — 档案层：进阶篇六段骨架与写作要点（面对复现 / 审查者）
-- `references/visual-assets.md` — 表现层：四类素材选型、`make_teaching_assets.py` 的对账断言写法、命名与体积约定
+- `references/visual-assets.md` — 表现层：四类素材选型与「Mermaid 优先」判定、`make_teaching_assets.py` 的对账断言写法、命名与体积约定、非 Mermaid 流程图的版式检查表
 - `references/algorithm-families.md` — 算法族接口约定（四族的自然接口与对照对象，新增实验时先查）
 - `references/index-format.md` — `algorithms/README.md` 索引表的列序契约（validate.py 按此解析，调整前先读）
 
