@@ -357,4 +357,5 @@ w ≤ 2 时仍命中最优代价（扩展数已降 29%）；w = 3 起为代价�
 - **牺牲最优换速度**：加权 A* 已内建为 `weight` 参数（实验三：w=2 省 29% 扩展仍最优，w=3 起付出代价）→ 有界次优的进一步形式：ARA\*、Focal Search
 - **验证方法**：`dijkstra` 复用 `impl.solve`，只能证明自洽；独立 BFS 参考补上了外部依据，但它同样只覆盖**单位权**网格——若要支持非单位权 / 浮点代价，需要再加一个独立实现的带权 Dijkstra 参考（本次未做，因为本实验单步代价恒为 1）
 - **网格专用加速**：JPS（Jump Point Search，利用对称性剪枝）
-- **Agent 语境**：A* 是"符号规划"经典代表，与 LLM Agent 的搜索规划（Tree of Thoughts、MCTS）一脉相承 → 本目录下一实验：`../minimax-alphabeta/`、`../mcts/`
+- **Agent 语境**：A* 是"符号规划"经典代表，与 LLM Agent 的搜索规划（Tree of Thoughts、MCTS）一脉相承 → 本目录下一实验：`../minimax-alphabeta/`、`../mcts/`；
+  **若问题从"找一条路"变成"一堆约束同时满足"**（排班、排课、数独），图搜索不再适用 → [../csp/](../csp/)
