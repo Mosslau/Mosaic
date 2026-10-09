@@ -3,7 +3,7 @@
 > 状态：⬜ 未开始
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 2.2.1 章
 
-搜索求解器：本目录不是 sklearn 估计器，接口由"模拟搜索"自身的形态决定。
+搜索求解器（搜索族）：直接调 [impl.py](impl.py) 的 `MCTS(get_moves, apply, is_terminal, winner).search(state, iterations) -> action`——通过注入棋类规则避开搜索树的穷举；对照是 [baseline.py](baseline.py) 的随机走子（`random_move`）。**没有 `fit` / `predict`**（无参数可训练，也没有标签 y）。各文件的具体接口见下面「目录形态」节。
 
 ## 设计原理
 
