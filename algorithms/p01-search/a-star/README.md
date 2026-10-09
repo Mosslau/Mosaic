@@ -45,8 +45,6 @@
 
 ## 3. 算法主循环：重复四步
 
-![主循环](images/02-主循环.png)
-
 **开场只做一次**（不在循环里）：把起点放进**待办清单**（open 集），
 `g(起点) = 0`，它的总分是 `f = 0 + h(起点)`；"已处理完"的集合（closed）一开始是空的。
 
@@ -64,6 +62,34 @@
 取出来时再跳过"。它不影响结果，只避免重复扩展——进阶篇「手写实现要点」会再讲一次。
 
 三个出口：**取出终点**（成功）· **待办清单空了**（无解）· **取到过期堆项**（跳过，不算工作量）。
+
+```mermaid
+flowchart TD
+    INIT["初始化：起点入 open 集<br/>g(起点) = 0，closed 为空"]
+    POP["① 从 open 集取出 f 最小的点"]
+    EMPTY["open 集空<br/>返回 path = None、path_cost = inf"]
+    SEEN{"② 取出的点在 closed 里吗？<br/>（过期堆项）"}
+    GOAL{"③ 取出的就是终点？"}
+    EXPAND["④ 移入 closed，扩展它的邻居：<br/>邻居已在 closed → 跳过<br/>算出 g 更小 → 松弛并记父指针"]
+    NEXT["换下一个 f 最小的点"]
+    DONE["沿父指针回溯得到路径<br/>返回最优解"]
+
+    INIT --> POP
+    POP -->|取出失败| EMPTY
+    POP --> SEEN
+    SEEN -->|是：跳过这个过期堆项| NEXT
+    SEEN -->|否| GOAL
+    GOAL -->|是| DONE
+    GOAL -->|否| EXPAND
+    EXPAND --> NEXT
+    NEXT --> POP
+```
+
+**逐条对应 `impl.py` 的主循环**：`初始化` 在环外只执行一次；循环体是四步；
+`②` 的「是」与 `④` 的收尾汇到同一个节点「换下一个 f 最小的点」——两者都只是
+**回到第 1 步**重新取点，不必画成两条并排的回环。三个出口都挂在取点这一处：
+**取出终点**（③ 是 → 回溯）· **`open` 集空**（① 取出失败 → 无解）·
+**取到过期堆项**（② 是 → 跳过，不算工作量）。
 
 ## 4. 亲手算一遍（5×5 小地图）
 
@@ -307,7 +333,9 @@ w ≤ 2 时仍命中最优代价（扩展数已降 29%）；w = 3 起为代价�
 - **2026-09-14 基线**：Python 3.13.12（仓库 `.venv`，`.python-version` 锁定 3.13），本目录内执行 `.venv/bin/python demo.py` → 实验一 `path_cost` 46、`nodes_expanded` 214 vs 239（当时仅 A\*(insertion) 与 Dijkstra 两列）；实验二两地图的最优代价断言通过；实验三代价 46/46/48/58。
 - **2026-09-27 复跑**（Python 3.12.3，无 `.venv`）：实验一代价全 46、扩展数 214/199/239；实验二/三与上表一致；测试 17 例，本环境无 pytest，用等价 harness 逐例执行 17/17 通过。
 - **2026-09-29 复跑**（Python 3.12.3 + pytest 9.1.1，仓库 `.venv` 已恢复）：`pytest` 17 例全绿；`make_teaching_assets.py` 对账通过——实验一 239/199/46、实验三 w=3 131/48、贪心 145/50（次优）。
-- **2026-10-08 本次修订**（Python 3.13.9 / matplotlib 3.10.6；`python3 demo.py` + `python3 -m pytest algorithms/p01-search/a-star/ -v` + `python3 make_teaching_assets.py`）：① 实验一扩为四跑，扩展数 **214 / 199 / 239 / 239**（新增 `h≡0+large_g`），代价四路全 46，并与独立 BFS 参考的 46 一致；② 新增独立参考 `baseline.bfs_shortest_cost`（不复用 `impl.py`）与差分测试（seed 10–17 × 两种平局策略），测试用例集 **17 → 28 例**，`28 passed`；③ 耗时改为 20 次重复的中位数 [min–max]——本机 A\*(insertion) 0.197 [0.189–0.320] / A\*(large_g) 0.197 [0.195–0.258] / Dijkstra 0.195 [0.189–0.285] ms，**旧值 0.61/0.74/0.61 ms 是单次采样，已作废**；④ 实验二新增独立 BFS 参考列（36 / 46）；⑤ 畸形网格（空 / 空行 / 锯齿）校验由 `IndexError` 统一为 `ValueError`；⑥ **修正素材生成器的中文字体解析**——原实现只查 Linux 字体路径，在 macOS 上一个候选都不命中，`font.family` 退回无中文字形的 DejaVu Sans，**整张图中文变方块**且退出码仍为 0。现改为按字体名查 + FreeType 字形校验，找不到直接报错；本机解析到 `Hiragino Sans GB`，五张素材重跑后中文正常（字形与本机字体相关，因此重跑后的图片字节与提交版不同——内容一致，只是字体不同）。
+- **2026-10-08 修订**（Python 3.13.9 / matplotlib 3.10.6；`python3 demo.py` + `python3 -m pytest algorithms/p01-search/a-star/ -v` + `python3 make_teaching_assets.py`）：① 实验一扩为四跑，扩展数 **214 / 199 / 239 / 239**（新增 `h≡0+large_g`），代价四路全 46，并与独立 BFS 参考的 46 一致；② 新增独立参考 `baseline.bfs_shortest_cost`（不复用 `impl.py`）与差分测试（seed 10–17 × 两种平局策略），测试用例集 **17 → 28 例**，`28 passed`；③ 耗时改为 20 次重复的中位数 [min–max]——本机 A\*(insertion) 0.197 [0.189–0.320] / A\*(large_g) 0.197 [0.195–0.258] / Dijkstra 0.195 [0.189–0.285] ms，**旧值 0.61/0.74/0.61 ms 是单次采样，已作废**；④ 实验二新增独立 BFS 参考列（36 / 46）；⑤ 畸形网格（空 / 空行 / 锯齿）校验由 `IndexError` 统一为 `ValueError`；⑥ **修正素材生成器的中文字体解析**——原实现只查 Linux 字体路径，在 macOS 上一个候选都不命中，`font.family` 退回无中文字形的 DejaVu Sans，**整张图中文变方块**且退出码仍为 0。现改为按字体名查 + FreeType 字形校验，找不到直接报错；本机解析到 `Hiragino Sans GB`，五张素材（当时含流程图的 PNG 版）重跑后中文正常（字形与本机字体相关，因此重跑后的图片字节与提交版不同——内容一致，只是字体不同）。
+
+- **2026-10-09 主循环改为 Mermaid，流程图 PNG 退役**（Python 3.10.6 / matplotlib 3.10.6 + mermaid 11；`python3 make_teaching_assets.py` + `python3 -m pytest algorithms/p01-search/a-star/ -q` + mermaid 解析器校验）：① 流程图从 `images/02-主循环.png` 改为**直接写在「算法主循环」节里的 mermaid 代码块**（mindspring-lab 规范「Mermaid 优先」：文本可 diff、可搜索、零体积），图与 `impl.py` 的主循环逐条对齐——初始化在环外、循环四步、三个出口（取出终点 / `open` 集空 / 过期堆项跳过），两条回环收在同一个「换下一个 f 最小的点」节点上；② 该 PNG 及其生成代码一并退役：删掉 `images/02-主循环.png`，并从 `make_teaching_assets.py` 移除 `make_flow()` 与 `audit_flow_layout()`（生成器 816 → 432 行，同时不再需要 numpy 与 FlowChart 专用 patch 导入），剩下四张图 / GIF 的重跑字节与上一版完全一致（md5 未变）；③ mermaid 语法用 mermaid 11 的解析器实跑校验：`mermaid.parse()` 返回 `{"diagramType":"flowchart-v2"}`，无告警；**图形渲染未在本环境验证**——本机 mermaid-cli（依赖 headless Chrome）渲染超时，未拿到渲染图，读者可在 GitHub / VS Code 预览里核对成图。
 
 **验证链的独立性说明**：`dijkstra` 复用 `impl.solve`（h ≡ 0），与 A\* 共享全部堆逻辑，二者相等只能证明**自洽性**；`bfs_shortest_cost` 不共享 `impl.py` 任何代码，才构成最优性的**外部依据**。本实验的最优性断言同时依赖两者，但只有后者能证伪 `solve` 的最优性缺陷。
 
