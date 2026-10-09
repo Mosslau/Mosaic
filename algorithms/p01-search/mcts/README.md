@@ -97,7 +97,7 @@ flowchart TD
 | 2 走通 | 纸上手算 | 用 4 次模拟手算一个局面，写出各招法的访问次数与结论 | 本节第 4 条 |
 | 3 判断 | 说清正确性条件 | 解释 UCB1 两项各自的作用，并说出 C 太大/太小的后果 | 本节第 5 条 + 实验三 |
 | 4 实现 | 手写并与对照比对 | 跑通 `demo.py`，解释三条曲线差异的来源 | 进阶篇「实验结果」 |
-| 5 迁移 | 用到新问题 | 换 rollout 策略并重新扫探索常数 C（体会「组件改动会改变最优超参数」） | [exercises/](exercises/README.md) 第 5 题 ✅ |
+| 5 迁移 | 用到新问题 | 同一盘棋上与**另一种范式**对打：MCTS vs Alpha-Beta 的胜率与成本比 | [project/](project/README.md) ✅（练习第 5 题另有「换 rollout 重扫 C」的加练） |
 
 # 进阶篇 · 给复现与审查者
 
@@ -111,6 +111,7 @@ flowchart TD
 | [test_impl.py](test_impl.py) | 性质测试（含回传符号与独立参考） | `python3 -m pytest test_impl.py -q` |
 | [make_teaching_assets.py](make_teaching_assets.py) | 素材生成 + 与 demo 对账 | `python3 make_teaching_assets.py` → `images/01-收敛曲线.png`、`images/02-探索常数.png` |
 | [exercises/](exercises/README.md) | 练习 5 题（分级、题解分离） | 参考解 `sol-01`…`sol-05`；`sol-03` / `sol-04` 可运行 |
+| [project/](project/README.md) | 迁移项目：MCTS vs Alpha-Beta 同盘对打 | `python3 project/mcts_vs_alphabeta.py`（复用 minimax 项目的棋类与两个搜索器） |
 
 > 本目录没有单独的 `framework.py`：对照就是 `baseline.py` 里的两个策略（搜索族的惯例）。
 
@@ -249,7 +250,7 @@ $$
 2026-10-09 实跑（Python 3.13.9，系统 `python3`）：`python3 demo.py` 四组实验数字见上表；
 `python3 -m pytest test_impl.py -q` → **12 passed**（含回传符号的手工小树验证、
 必胜/必挡、对随机 20 局不输、对精确搜索 2000 次全和棋、C=0 边界）；
-`python3 make_teaching_assets.py` 对账通过并产出两张图；`exercises/` 两个可运行参考解实跑通过——`sol-03`（回传符号 bug：正确实现 39 平 1 负、bug 实现 4 平 36 负）、`sol-04`（PUCT vs UCB1 三档合计不输率 88% vs 83%）。
+`python3 make_teaching_assets.py` 对账通过并产出两张图；`exercises/` 两个可运行参考解实跑通过——`sol-03`（回传符号 bug：正确实现 39 平 1 负、bug 实现 4 平 36 负）、`sol-04`（PUCT vs UCB1 三档合计不输率 88% vs 83%）；`project/mcts_vs_alphabeta.py` 三组实验通过——4×4 同预算 MCTS 6:2 胜 depth=4 的 AB，但同强度下 AB 快 4 倍；5×5 四连上 MCTS 要到 1000 次模拟才追平（50 次时 2:4 落败）。
 
 **可视化结论**：`images/01-收敛曲线.png`（对数横轴上两条曲线：对贪心对手 5→20 次就从 48% 到 100%，
 对精确搜索要到 100 次以上才打满）与 `images/02-探索常数.png`（C=0 在不给次数时最高）共同说明：
@@ -257,6 +258,7 @@ $$
 
 ## 6. 局限与延伸
 
+- **什么时候该用 AB 而不是 MCTS**：见 [project/](project/README.md) 的实测——树能算动时（井字棋、4×4/5×5 四连）AB 同强度下快一个量级，且 MCTS 存在「给不够模拟次数就不如浅层精确搜索」的门槛；树算不动时（围棋、6×7 四连）MCTS 才是唯一选择。
 - **单次决策方差大**：MCTS 靠采样，同一局面不同随机种子可能给出不同招法（本实验固定种子才可复现）。
   工程上会用"确定性 tie-break + 树复用（把上一手的子树接过来接着用）"来稳住。
 - **裸 UCB1 不是最强的选择规则**：实验三已经暴露了它的问题（探索项与总次数强耦合）。
