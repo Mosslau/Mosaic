@@ -90,6 +90,15 @@ class Report:
         self.deep_hints.append(msg)
 
 
+FAMILY_RE = re.compile(r"搜索求解器|监督估计器|无监督估计器|深度模型|流水线|组件形态|模块形态")
+# 接口"长什么样"：行内代码里带函数调用 / 箭头 / 文件路径，或裸签名（foo(...) -> / foo(...) →）
+SIG_RE = re.compile(
+    r"`[^`\n]*(?:\([^`\n]*\)|->|\.py|\.md)[^`\n]*`"
+    r"|`[^`\n]*\.(?:py|md)`"
+    r"|\([^)\n]*\)\s*(?:->|→)"
+)
+
+
 def read_text(path: Path) -> str:
     try:
         return path.read_text(encoding="utf-8")
@@ -236,6 +245,27 @@ def check_assets(unit: Path, readme: str, rel: str, rep: Report) -> None:
             rep.warn(f"{rel}：相对链接指向的文件不存在「{target}」")
 
 
+def check_family_declaration(readme: str, rel: str, rep: Report) -> None:
+    """标题区那句「算法族 + 接口」的成色（可选槽位，写了才查）。
+
+    为什么查：三个搜索族实验都写过同一句"不是 sklearn 估计器，接口由 X 自身的形态决定"——
+    形状合规、信息量为零（没说入口叫什么、吃什么吐什么、对照在哪个文件）。判据见
+    `references/readme-structure.md`「标题区那句接口声明」：四样要素里至少写到两样。
+    未声明只进 --deep 提示：槽位本身可选，不能当违规。
+    """
+    head = "\n".join(readme.splitlines()[:30])
+    fam = FAMILY_RE.search(head)
+    if not fam:
+        rep.hint(f"{rel}：标题区未声明算法族与接口（可选槽位；写了能让读者知道去哪找入口，"
+                 f"判据见 readme-structure.md「标题区那句接口声明」）")
+        return
+    line = next((l for l in head.splitlines() if FAMILY_RE.search(l)), "")
+    if not SIG_RE.search(line):
+        rep.warn(f"{rel}：标题区声明了算法族「{fam.group(0)}」但没给接口——"
+                 f"补上入口签名与文件形态（如 `solve(...) -> X`、对照在 `baseline.py`），"
+                 f"判据见 readme-structure.md「标题区那句接口声明」")
+
+
 def check_practice(unit: Path, rel: str, rep: Report) -> None:
     """掌握层交付物（纪律⑤）：exercises/ 题解分离、project/ 有 README。"""
     exercises = unit / "exercises"
@@ -263,6 +293,7 @@ def check_algo_unit(unit: Path, idx: dict | None, chapters: set[str], rep: Repor
     check_sections(readme, rel, rep, symbol)
     check_assets(unit, readme, rel, rep)
     check_practice(unit, rel, rep)
+    check_family_declaration(readme, rel, rep)
 
     # 章节锚定：有效性（只在 blockquote 行中找）
     anchor = find_anchor_line(readme, ANCHOR_RE)
