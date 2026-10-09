@@ -7,7 +7,7 @@
 
 运行：
     cd algorithms/p01-search/a-star/exercises
-    ../../../../.venv/bin/python sol-04-八邻域.py
+    python3 sol-04-八邻域.py
 """
 
 from __future__ import annotations

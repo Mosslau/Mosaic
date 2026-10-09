@@ -1,7 +1,7 @@
 # 迁移项目：地形代价地图寻路
 
 > 这是「五级能力清单」第 5 级（迁移）的证据：把 A* 从"每步代价恒为 1 的教学网格"搬到**每格代价不同**的地形图上。
-> 运行（本目录内）：`../../../../.venv/bin/python terrain_astar.py`
+> 运行（本目录内）：`python3 terrain_astar.py`（需 numpy + matplotlib）
 
 ## 需求
 
@@ -40,7 +40,7 @@
   代价一致 ✓；A* 少扩展 3%
 ```
 
-环境：Python 3.12.3 + numpy + matplotlib（仓库 `.venv`）；命令：`../../../../.venv/bin/python terrain_astar.py`。
+环境：Python 3.13.9 + numpy 2.3.5 + matplotlib 3.10.6（系统 `python3`，**不依赖仓库 `.venv`**）；命令：`python3 terrain_astar.py`。上面的数字于 2026-10-09 复跑确认（与 2026-09-29 用 Python 3.12.3 + 仓库 `.venv` 跑出的一致）。
 
 ## 一个诚实发现：启发式弱，收益就小
 

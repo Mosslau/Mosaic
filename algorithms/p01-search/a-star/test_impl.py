@@ -1,6 +1,6 @@
 """A* 手写实现的性质测试（pytest）。
 
-用法（仓库根）：.venv/bin/python -m pytest algorithms/p01-search/a-star/ -v
+用法（仓库根）：python3 -m pytest algorithms/p01-search/a-star/ -v（仅需 pytest）
 覆盖：
 - 多 seed 自洽性：10 张随机图上 A*（两种平局策略）与 Dijkstra 的 path_cost 全相等
   （**注意**：该基线复用 impl.solve，只能证明自洽；独立性由下一项保证）

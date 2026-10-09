@@ -6,7 +6,7 @@
 
 运行：
     cd algorithms/p01-search/a-star/exercises
-    ../../../../.venv/bin/python sol-05-八数码.py
+    python3 sol-05-八数码.py
 """
 
 from __future__ import annotations

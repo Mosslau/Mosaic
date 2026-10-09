@@ -18,7 +18,7 @@
 
 运行：
     cd algorithms/p01-search/a-star
-    ../../../.venv/bin/python make_teaching_assets.py
+    python3 make_teaching_assets.py     # 需 matplotlib（不依赖仓库 .venv）
 """
 
 from __future__ import annotations
