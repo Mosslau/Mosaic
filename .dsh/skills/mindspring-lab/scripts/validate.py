@@ -199,14 +199,32 @@ def find_anchor_line(readme: str, pattern: re.Pattern) -> re.Match | None:
 
 
 def check_verification_claims(readme: str, rel: str, rep: Report) -> None:
-    """纪律⑤启发式：出现「已验证」但无任何命令样式——疑似裸写声明。"""
-    claims = [
-        line for line in readme.splitlines()
-        if "已验证" in line and "未在本环境验证" not in line
-    ]
-    if claims and not any("python" in line or "`" in line for line in claims):
-        rep.hint(f"{rel}：出现「已验证」但未见命令/代码样式——是否裸写声明？"
+    """纪律⑤启发式：出现「已验证」但整段都没有命令样式——疑似裸写声明。
+
+    **按段落判、不按单行判**：验证声明通常写成一段（第一行只有"已验证"，
+    命令与结果在续行里）。早期版本只看含"已验证"的那一行，于是任何
+    **折行书写**的合规声明都会被误报——mcts 实验就撞过这个假阳性。
+    """
+    blocks: list[list[str]] = []
+    current: list[str] = []
+    for line in readme.splitlines():
+        if line.strip():
+            current.append(line)
+        elif current:
+            blocks.append(current)
+            current = []
+    if current:
+        blocks.append(current)
+
+    for block in blocks:
+        text = "\n".join(block)
+        if "已验证" not in text or "未在本环境验证" in text:
+            continue
+        if "python" in text or "`" in text:
+            continue
+        rep.hint(f"{rel}：出现「已验证」但整段未见命令/代码样式——是否裸写声明？"
                  f"（纪律⑤要求命令+输入+观察结果三要素）")
+        return
 
 
 def check_assets(unit: Path, readme: str, rel: str, rep: Report) -> None:
