@@ -11,7 +11,10 @@
 
 # --- 系统 / 编辑器 ---
 .DS_Store
+# AI 助手 / agent 插件的本地工作目录（此前只在 .git/info/exclude 里，本机有效，
+# 换机器就失效；提为正式规则以保证各机一致）
 .workbuddy/
+.superpowers/
 .idea/
 .vscode/
 
