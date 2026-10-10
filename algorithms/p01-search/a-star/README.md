@@ -3,6 +3,7 @@
 > 状态：✅ 已完成（2026-09-14）
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 2.2.1 章
 > 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话证明 → 自测）；要看推导、实现与复现实验读「进阶篇」
+> 本族共六个实验，它们的演进关系与选读建议见 [族级导读](../README.md)。
 
 搜索求解器（搜索族）：入口是 [impl.py](impl.py) 的 `solve(grid, start, goal) -> SearchResult`——吃一张地图（0 可走 / 1 障碍）与起终点，吐路径、代价、扩展节点数；`baseline.py` 里放对照（Dijkstra）与独立 BFS 参考。**没有 `fit` / `predict`**（A* 没有可训练参数，也没有标签 y），所以本目录没有 `framework.py`。练习见 [exercises/](exercises/README.md)，迁移项目见 [project/](project/README.md)。
 

@@ -3,6 +3,7 @@
 > 状态：✅ 已完成（2026-10-09）
 > 对应文档章节：`algorithms/docs/人工智能代表算法演进路线.md` 第 2.2.1 章
 > 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话证明 → 自测）；要看推导与复现实验读「进阶篇」
+> 本族共六个实验，它们的演进关系与选读建议见 [族级导读](../README.md)。
 
 搜索求解器（搜索族）：直接调 [impl.py](impl.py) 的 `dfs(grid, start, goal) / bfs(...) / ucs(grid, start, goal, cost_of=None)`，三者都返回同一个 [SearchResult](impl.py)（`path / cost / expanded / peak_frontier`）；对照是 [baseline.py](baseline.py) 的 A\* 参考（`astar_reference(...)`）。**没有 `fit` / `predict`**（无参数可训练，也没有标签 y）。各文件的具体接口见下面「目录形态」节。
 

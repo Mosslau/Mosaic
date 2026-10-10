@@ -3,6 +3,7 @@
 > 状态：✅ 已完成（2026-10-09）
 > 对应文档章节：`algorithms/docs/人工智能代表算法演进路线.md` 第 2.2.1 章
 > 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话证明 → 自测）；要看推导与复现实验读「进阶篇」
+> 本族共六个实验，它们的演进关系与选读建议见 [族级导读](../README.md)。
 
 搜索求解器（搜索族）：直接调 [impl.py](impl.py) 的 `CFR(terminal, payoff_p1, actions, infoset).train(deals, iterations) → 自身`，再用 `.average_strategy() → dict` 取策略——把博弈规则注入进来，靠**自我博弈**学出纳什均衡；对照是 [baseline.py](baseline.py) 的均匀随机策略与三个固定对手策略。**没有 `fit` / `predict`**（学的是策略而非参数化模型，也没有标签 y）。各文件的具体接口见下面「目录形态」节。
 
