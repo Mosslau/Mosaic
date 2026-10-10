@@ -6,6 +6,7 @@
 #   languages/.gitignore                     （语言域构建产物）
 #   languages/website/.gitignore             （站点 node_modules/ 与 docs/）
 #   engineering/data-platform/.gitignore     （数据平台 bin/ 与 .tmp-*）
+#   .dsh/.gitignore                          （agent 工具链的 node_modules/）
 # ============================================================
 
 # --- 系统 / 编辑器 ---
