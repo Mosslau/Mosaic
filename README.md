@@ -9,7 +9,7 @@
 | 部分 | 目录 | 内容 | 规模 | 状态 |
 |---|---|---|---|---|
 | ① 开发语言部分 | [`languages/`](languages/) | 学（多语言阶段式学习路线）/ 析（语言设计解剖）/ 合（Tenet 语言与编译器） | 6 语言 × 126 阶段 | 已建成（正文 + 示例 + 文档站） |
-| ② 算法部分 | [`algorithms/`](algorithms/) | 手写算法 vs 框架对照实验，五个学科族 | 23 个实验 | 进行中（1/23 完成，以 [`algorithms/README.md`](algorithms/README.md) 索引表为准） |
+| ② 算法部分 | [`algorithms/`](algorithms/) | 手写算法 vs 框架对照实验，五个学科族 | 26 个实验 | 进行中（6/26 完成，p01-search 全族 ✅，以 [`algorithms/README.md`](algorithms/README.md) 索引表为准） |
 | ③ 工程系统部分 | [`engineering/`](engineering/) | [`ai-platform/`](engineering/ai-platform/)（AI 平台，7 个项目）+ [`data-platform/`](engineering/data-platform/)（通用数据平台，1 套设计） | 7 个项目 + 1 套设计 | 设计阶段：ai-platform 进行中（`p5-agent-platform` 🚧，其余 6 个单元未开工）；data-platform 仅设计文档（未实现） |
 
 ## 跨域支撑
