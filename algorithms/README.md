@@ -73,7 +73,7 @@ uv run pytest p01-search/a-star/ -q
 | [线性回归与梯度下降](p02-statistical-ml/linear-regression/) | 3.2.1 | ✅ | 2026-10-21 |
 | [逻辑回归](p02-statistical-ml/logistic-regression/) | 3.2.1 | ✅ | 2026-10-21 |
 | [正则化与模型选择](p02-statistical-ml/regularization/) | 3.2.1 | ✅ | 2026-10-21 |
-| [支持向量机 SVM](p02-statistical-ml/svm/) | 3.2.2 | ⬜ | |
+| [支持向量机 SVM](p02-statistical-ml/svm/) | 3.2.2 | ✅ | 2026-10-21 |
 | [决策树 ID3/CART](p02-statistical-ml/decision-tree/) | 3.2.3 | ⬜ | |
 | [随机森林](p02-statistical-ml/random-forest/) | 3.3.1 | ⬜ | |
 | [Boosting 与 GBDT](p02-statistical-ml/boosting/) | 3.3.2 | ⬜ | |
