@@ -185,3 +185,43 @@ def test_training_is_deterministic() -> None:
     la = Lasso(lam=0.1).fit(X, y)
     lb = Lasso(lam=0.1).fit(X, y)
     np.testing.assert_array_equal(la.coef, lb.coef)
+
+def test_lasso_kkt_with_correlated_features() -> None:
+    """强相关特征下坐标下降仍应满足 KKT（收敛到同一子问题解）。"""
+    rng = np.random.default_rng(5)
+    x1 = rng.normal(size=150)
+    x2 = x1 + 0.05 * rng.normal(size=150)
+    X = np.column_stack([x1, x2])
+    y = 2.0 * x1 + 2.0 * x2 + rng.normal(0.0, 0.2, 150)
+    model = Lasso(lam=0.05, max_iter=20000, tol=1e-12).fit(X, y)
+
+    xm = X.mean(0)
+    Xc = X - xm
+    r = Xc @ model.coef + model.intercept - y
+    grad = Xc.T @ r / len(y)
+    for j, w in enumerate(model.coef):
+        if abs(w) > 1e-7:
+            assert abs(grad[j] + 0.05 * np.sign(w)) < 1e-4
+        else:
+            assert abs(grad[j]) <= 0.05 + 1e-4
+
+
+class _FoldSpy:
+    """记录训练集样本；若在预测时看到训练样本就报错——用来抓 CV 泄漏。"""
+
+    def fit(self, X, y):
+        self.seen = {tuple(np.round(row, 12)) for row in X}
+        return self
+
+    def predict(self, X):
+        for row in X:
+            assert tuple(np.round(row, 12)) not in self.seen, "验证折样本出现在训练集中"
+        return np.zeros(len(X))
+
+
+def test_cv_never_predicts_on_training_rows() -> None:
+    X, y = make_data()
+    _, folds = cross_val_mse(_FoldSpy, X, y, k=5, seed=0)
+    assert len(folds) == 5
+    assert all(np.isfinite(f) for f in folds)
+

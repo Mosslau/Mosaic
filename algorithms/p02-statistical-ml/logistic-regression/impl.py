@@ -126,6 +126,8 @@ class Model:
             raise ValueError(f"threshold 必须在 (0,1) 内，实际 {threshold}")
         if class_weight not in (None, "balanced") and not isinstance(class_weight, dict):
             raise ValueError("class_weight 只支持 None / 'balanced' / dict")
+        if isinstance(class_weight, dict) and not ({0, 1} <= set(class_weight)):
+            raise ValueError("class_weight 字典必须同时给出 0 和 1 的权重")
         self.lr = float(lr)
         self.epochs = int(epochs)
         self.tol = float(tol)

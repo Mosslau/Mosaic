@@ -210,3 +210,17 @@ def test_training_is_deterministic() -> None:
     np.testing.assert_array_equal(a.w, b.w)
     assert a.b == b.b
     assert a.loss_history == b.loss_history
+
+def test_class_weight_dict_boosts_recall() -> None:
+    """字典形式的重加权：给少数类更高权重应提升召回。"""
+    rng = np.random.default_rng(11)
+    X = np.vstack([rng.normal([-1, 0], 1, size=(500, 2)),
+                   rng.normal([1.2, 0], 1, size=(50, 2))])
+    y = np.array([0.0] * 500 + [1.0] * 50)
+    plain = Model(lr=0.5, epochs=3000, tol=1e-10).fit(X, y)
+    weighted = Model(lr=0.5, epochs=3000, tol=1e-10,
+                     class_weight={0: 1.0, 1: 10.0}).fit(X, y)
+    assert recall(y, weighted.predict(X)) > recall(y, plain.predict(X))
+    with pytest.raises(ValueError):
+        Model(class_weight={0: 1.0})          # 缺 1 类权重
+

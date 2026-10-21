@@ -284,7 +284,7 @@ sklearn `KFold` 复算同一 λ 的 CV MSE 也是 **9.6099**（逐折对齐）�
 （10.5），这就是过拟合。**只看训练误差会选 9 次，正好是最差的选择之一。**
 
 **验证声明（已验证）**：输入为上述合成数据与种子；2026-10-21 在 uv 环境实跑，
-`uv run python demo.py` 输出上表；`uv run pytest test_impl.py -q` → **17 passed**；
+`uv run python demo.py` 输出上表；`uv run pytest test_impl.py -q` → **19 passed**；
 `uv run python make_teaching_assets.py` 对账通过（Ridge/Lasso 与 sklearn 一致、Lasso 非零数
 10→3、CV 选中 λ=0.0464、偏差-方差最优次数 5）。
 

@@ -204,8 +204,8 @@ $$\nabla_w L = \frac{1}{n}X^\top(p-y),\qquad \frac{\partial L}{\partial b} = \fr
 本实验把 `C` 设为 `1e6` 近似"无正则"，并传入标准化后的数据，才与手写版同口径。
 
 结果（数字见「实验结果」）：**指标与系数逐位一致**——说明手写实现没有写错。
-差异只在耗时：手写 GD 用 723 轮矩阵乘法，lbfgs 每步更贵但几十步就收敛，
-所以 sklearn 快一个数量级。**这不是"框架更好"，而是"二阶方法在中小规模上更省步数"**；
+差异只在耗时：手写 GD 用 723 轮矩阵乘法，lbfgs 每步更贵，但本数据 **11 次迭代**就收敛，
+所以本机同次测量下 sklearn 约快 14×（≈0.8 ms vs ≈11.5 ms，仅同机对比、随环境变化）。**这不是"框架更好"，而是"二阶方法在中小规模上更省步数"**；
 数据大到装不下 Hessian 时，一阶方法（SGD/Adam）才是唯一选择。
 
 另外两点框架行为值得知道：
@@ -226,7 +226,7 @@ $$\nabla_w L = \frac{1}{n}X^\top(p-y),\qquad \frac{\partial L}{\partial b} = \fr
 | 方法 | accuracy | precision | recall | F1 | AUC | 轮数 |
 |---|---|---|---|---|---|---|
 | 手写 GD（lr=0.5） | 0.8933 | 0.8831 | 0.9067 | 0.8947 | 0.9618 | 723 |
-| sklearn lbfgs | 0.8933 | 0.8831 | 0.9067 | 0.8947 | 0.9618 | — |
+| sklearn lbfgs | 0.8933 | 0.8831 | 0.9067 | 0.8947 | 0.9618 | 11（lbfgs 迭代） |
 
 系数：手写 `w=[2.0624, 0.7977]`、`b=0.1493`；sklearn 完全相同。
 
@@ -266,7 +266,7 @@ $$\nabla_w L = \frac{1}{n}X^\top(p-y),\qquad \frac{\partial L}{\partial b} = \fr
 **accuracy 最高的是默认阈值，但它的少数类召回只有 0.33**——这就是"准确率陷阱"。
 重加权或调低阈值都能把召回拉上来，代价是精确率下降。
 
-**实验四：耗时（7 次中位数；毫秒级数字随环境波动 `[随环境/版本变化]`）**
+**实验四：耗时（7 次中位数；毫秒级数字随环境波动 `[随环境/版本变化]`，仅同机对比）**
 
 | 方法 | accuracy | 中位耗时（ms） |
 |---|---|---|
@@ -274,7 +274,7 @@ $$\nabla_w L = \frac{1}{n}X^\top(p-y),\qquad \frac{\partial L}{\partial b} = \fr
 | sklearn lbfgs | 0.8933 | ≈0.8 |
 
 **验证声明（已验证）**：输入为上述合成数据与种子；2026-10-21 在 uv 环境实跑，
-`uv run python demo.py` 输出上表；`uv run pytest test_impl.py -q` → **15 passed**；
+`uv run python demo.py` 输出上表；`uv run pytest test_impl.py -q` → **16 passed**；
 `uv run python make_teaching_assets.py` 对账通过。耗时数字随机器浮动。
 
 **可视化结论**：
