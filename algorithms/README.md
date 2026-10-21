@@ -75,7 +75,7 @@ uv run pytest p01-search/a-star/ -q
 | [正则化与模型选择](p02-statistical-ml/regularization/) | 3.2.1 | ✅ | 2026-10-21 |
 | [支持向量机 SVM](p02-statistical-ml/svm/) | 3.2.2 | ✅ | 2026-10-21 |
 | [决策树 ID3/CART](p02-statistical-ml/decision-tree/) | 3.2.3 | ✅ | 2026-10-21 |
-| [随机森林](p02-statistical-ml/random-forest/) | 3.3.1 | ⬜ | |
+| [随机森林](p02-statistical-ml/random-forest/) | 3.3.1 | ✅ | 2026-10-21 |
 | [Boosting 与 GBDT](p02-statistical-ml/boosting/) | 3.3.2 | ⬜ | |
 | [K-Means 聚类](p02-statistical-ml/kmeans/) | 3.4.1 | ⬜ | |
 | [PCA 主成分分析](p02-statistical-ml/pca/) | 3.4.2 | ⬜ | |
