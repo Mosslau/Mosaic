@@ -284,6 +284,21 @@ $$\nabla_w L = \frac{1}{n}X^\top(p-y),\qquad \frac{\partial L}{\partial b} = \fr
 - `images/02-不平衡与阈值.png`：阈值升高时精确率上升、召回下降——曲线交叉点就是"业务选择点"；
 - `images/03-决策边界动画.gif`：边界从初始位置逐步转到两类之间。
 
+## 附录：概率校准（breast cancer）
+
+用真实数据（569×30）做 train/calib/test = 60/20/20：手写逻辑回归在 train 上拟合，
+Platt 在 calib 上对 logit 再拟合一个一维逻辑回归，test 上比较：
+
+| 版本 | Brier | ECE | 准确率 |
+|---|---|---|---|
+| 原始 | 0.0145 | 0.0199 | 0.9737 |
+| Platt | **0.0132** | **0.0193** | **0.9912** |
+
+逻辑回归本身的概率已较接近校准（ECE≈0.02）；Platt 只带来小幅改善。
+结论：**校准是"概率是否可信"的问题，不是"分类准不准"**；类别不平衡/分布漂移时更值得做。
+
+复现：`cd algorithms/p02-statistical-ml/logistic-regression && uv run python calibration.py`
+
 ## 6. 局限与延伸
 
 - **边界是线性的**：非线性可分数据要靠特征扩展或换模型——见 [决策树](../decision-tree/)、[SVM](../svm/)。
