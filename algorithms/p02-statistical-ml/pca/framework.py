@@ -1,24 +1,22 @@
-"""PCA 主成分分析 — 框架对照调用
+"""PCA 主成分分析 — 框架对照（无监督估计器）
 
-用手写实现同样的数据和指标，调 sklearn 跑一遍。目的：
-1. 验证手写实现的正确性（explained_variance_ratio_ 应对齐）
-2. 感受框架封装的便利与隐藏的细节
-3. 记录框架内部额外做的优化（写回 README「框架对照」一节）
+对照对象：sklearn `PCA`。
+sklearn 默认用 **SVD**（对中心化矩阵做奇异值分解），手写版用**协方差矩阵
+特征分解**；两者在数学上等价，数值稳定性与复杂度不同。
 
-注意：**无监督，签名没有 y**。
+口径：同一份数据、同一 `n_components`，比较 explained_variance_ratio_、
+投影坐标与重建误差。sklearn 还会做符号翻转（svd_flip），手写版用
+"绝对值最大分量为正"的约定。
 """
 
+from __future__ import annotations
 
-def run_framework(X_train, n_components: int = 2):
-    """用框架接口完成降维，返回与手写版对齐的指标字典。
+from sklearn.decomposition import PCA
 
-    返回示例：{"explained_variance_ratio": [...], "time_sec": ...}
-    """
-    # TODO: 例：from sklearn.decomposition import PCA -> PCA(n_components).fit_transform(X)
-    #   README「框架对照」要回答：sklearn 默认用 SVD 而不是协方差特征分解——
-    #   两者在数值稳定性与复杂度上差在哪（这是本章最有价值的对照结论）
-    raise NotImplementedError("TODO: 调框架接口，返回 {'explained_variance_ratio': ..., 'time_sec': ...}")
+
+def fit_pca(X, n_components: int | None = None, whiten: bool = False):
+    return PCA(n_components=n_components, whiten=whiten).fit(X)
 
 
 if __name__ == "__main__":
-    raise SystemExit("请先完成 run_framework，由 demo.py 统一调用对比")
+    raise SystemExit("本文件是对照库，由 demo.py 统一调用：uv run python demo.py")
