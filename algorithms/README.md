@@ -66,10 +66,11 @@ uv run pytest p01-search/a-star/ -q
 > → Boosting/GBDT → K-Means → PCA → 朴素贝叶斯 → 异常检测。
 > 前六个建立「损失 / 分类 / 划分 / 集成」的主线，正则化补上「泛化」，
 > Boosting 补齐集成里 bagging 之外的另一半，最后三个走向无监督与概率视角。
+> 族级导读（11 个实验什么关系、该读哪个）：[p02-statistical-ml/README.md](p02-statistical-ml/README.md)。
 
 | 实验 | 章节 | 状态 | 完成日期 |
 |---|---|---|---|
-| [线性回归与梯度下降](p02-statistical-ml/linear-regression/) | 3.2.1 | ⬜ | |
+| [线性回归与梯度下降](p02-statistical-ml/linear-regression/) | 3.2.1 | ✅ | 2026-10-21 |
 | [逻辑回归](p02-statistical-ml/logistic-regression/) | 3.2.1 | ⬜ | |
 | [正则化与模型选择](p02-statistical-ml/regularization/) | 3.2.1 | ⬜ | |
 | [支持向量机 SVM](p02-statistical-ml/svm/) | 3.2.2 | ⬜ | |
