@@ -1,24 +1,20 @@
-"""K-Means 聚类 — 框架对照调用
+"""K-Means 聚类 — 框架对照（无监督估计器）
 
-用手写实现同样的数据和指标，调 sklearn 跑一遍。目的：
-1. 验证手写实现的正确性（inertia 应对齐）
-2. 感受框架封装的便利与隐藏的细节
-3. 记录框架内部额外做的优化（写回 README「框架对照」一节）
-
-注意：**无监督，签名没有 y**。
+对照对象：sklearn `KMeans`。
+口径：同一份数据、同一 `n_clusters` / `n_init` / `random_state`，比较 inertia、
+迭代次数与耗时。sklearn 默认 `init="k-means++"`、`n_init="auto"`，
+并用 Elkan 三角不等式 / 并行加速；数学目标一致。
 """
 
+from __future__ import annotations
 
-def run_framework(X_train, n_clusters: int = 3, random_state: int | None = None):
-    """用框架接口完成聚类，返回与手写版对齐的指标字典。
+from sklearn.cluster import KMeans
 
-    返回示例：{"inertia": ..., "n_iter": ..., "time_sec": ...}
-    """
-    # TODO: 例：from sklearn.cluster import KMeans -> KMeans(n_clusters, n_init=...).fit(X)
-    #   README「框架对照」要回答：sklearn 的 n_init / init 策略默认值与手写版差在哪、
-    #   它为什么比手写的快（Elkan 三角不等式加速 / 并行）
-    raise NotImplementedError("TODO: 调框架接口，返回 {'inertia': ..., 'time_sec': ...}")
+
+def fit_kmeans(X, n_clusters: int = 3, random_state: int = 0, n_init: int = 10):
+    return KMeans(n_clusters=n_clusters, n_init=n_init, init="k-means++",
+                  random_state=random_state).fit(X)
 
 
 if __name__ == "__main__":
-    raise SystemExit("请先完成 run_framework，由 demo.py 统一调用对比")
+    raise SystemExit("本文件是对照库，由 demo.py 统一调用：uv run python demo.py")
