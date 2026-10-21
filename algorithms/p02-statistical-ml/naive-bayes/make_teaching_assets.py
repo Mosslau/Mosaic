@@ -17,6 +17,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 
+import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import font_manager
@@ -176,6 +177,31 @@ def make_confidence() -> None:
     plt.close(fig)
 
 
+
+def make_animation() -> None:
+    X_tr, _, y_tr, _ = D.make_blobs_data()
+    xx, yy = np.meshgrid(np.linspace(X_tr[:, 0].min() - 1, X_tr[:, 0].max() + 1, 160),
+                         np.linspace(X_tr[:, 1].min() - 1, X_tr[:, 1].max() + 1, 160))
+    grid = np.c_[xx.ravel(), yy.ravel()]
+    frames = [10, 20, 40, 80, 140, len(X_tr)]
+    fig, ax = plt.subplots(figsize=(7.2, 6.0))
+
+    def draw(n: int) -> None:
+        ax.clear()
+        model = impl.GaussianNB().fit(X_tr[:n], y_tr[:n])
+        z = model.predict(grid).reshape(xx.shape)
+        ax.contourf(xx, yy, z, levels=[-0.5, 0.5, 1.5], colors=["#dbe4ff", "#ffe3e3"], alpha=0.85)
+        ax.scatter(X_tr[:n, 0], X_tr[:n, 1], s=10,
+                   c=[COLOR["neg"] if v == 0 else COLOR["pos"] for v in y_tr[:n]], alpha=0.7)
+        ax.set_title(f"训练样本 n={n}", fontsize=12)
+        ax.set_xlabel("x0")
+        ax.set_ylabel("x1")
+
+    anim = animation.FuncAnimation(fig, draw, frames=frames, interval=800)
+    anim.save(IMAGES / "04-高斯NB生长.gif", writer=animation.PillowWriter(fps=1.3))
+    plt.close(fig)
+
+
 def main() -> None:
     print("对账 …")
     verify()
@@ -187,9 +213,11 @@ def main() -> None:
     make_smoothing()
     print("④ 画过度自信 …")
     make_confidence()
+    print("⑤ 画高斯边界生长 …")
+    make_animation()
     print("\n产出：")
     for name in ("00-高斯NB边界.png", "01-文本与alpha.png", "02-平滑与零概率.png",
-                 "03-过度自信.png"):
+                 "03-过度自信.png", "04-高斯NB生长.gif"):
         print(f"  {name}  {(IMAGES / name).stat().st_size / 1024:.0f} KB")
 
 

@@ -16,6 +16,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 
+import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import font_manager
@@ -137,6 +138,32 @@ def make_scores() -> None:
     plt.close(fig)
 
 
+
+def make_animation() -> None:
+    X_tr, X_te, y = D.make_data()
+    xx, yy = np.meshgrid(np.linspace(-6, 6, 140), np.linspace(-6, 6, 140))
+    grid = np.c_[xx.ravel(), yy.ravel()]
+    frames = [1, 5, 10, 25, 50, 100]
+    fig, ax = plt.subplots(figsize=(7.0, 6.0))
+
+    def draw(k: int) -> None:
+        ax.clear()
+        model = impl.IsolationForest(n_trees=k, random_state=0).fit(X_tr)
+        z = model.score_samples(grid).reshape(xx.shape)
+        ax.contourf(xx, yy, z, levels=15, cmap="viridis", alpha=0.85)
+        ax.contour(xx, yy, z, levels=[model.threshold_], colors=[COLOR["hl"]], linewidths=1.6)
+        ax.scatter(X_te[y == 0, 0], X_te[y == 0, 1], s=8, color=COLOR["normal"], alpha=0.6)
+        ax.scatter(X_te[y == 1, 0], X_te[y == 1, 1], s=20, color=COLOR["anomaly"],
+                   marker="x", alpha=0.9)
+        ax.set_title(f"孤立森林：{k} 棵树", fontsize=12)
+        ax.set_xlabel("x0")
+        ax.set_ylabel("x1")
+
+    anim = animation.FuncAnimation(fig, draw, frames=frames, interval=800)
+    anim.save(IMAGES / "03-森林分数生长.gif", writer=animation.PillowWriter(fps=1.3))
+    plt.close(fig)
+
+
 def main() -> None:
     print("对账 …")
     verify()
@@ -146,8 +173,11 @@ def main() -> None:
     make_threshold()
     print("③ 画三种方法分数 …")
     make_scores()
+    print("④ 画森林分数生长 …")
+    make_animation()
     print("\n产出：")
-    for name in ("00-孤立森林分数.png", "01-阈值扫描.png", "02-三种方法分数.png"):
+    for name in ("00-孤立森林分数.png", "01-阈值扫描.png", "02-三种方法分数.png",
+                 "03-森林分数生长.gif"):
         print(f"  {name}  {(IMAGES / name).stat().st_size / 1024:.0f} KB")
 
 
