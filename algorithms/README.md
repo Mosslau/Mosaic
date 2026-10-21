@@ -80,7 +80,7 @@ uv run pytest p01-search/a-star/ -q
 | [K-Means 聚类](p02-statistical-ml/kmeans/) | 3.4.1 | ✅ | 2026-10-21 |
 | [PCA 主成分分析](p02-statistical-ml/pca/) | 3.4.2 | ✅ | 2026-10-21 |
 | [朴素贝叶斯](p02-statistical-ml/naive-bayes/) | 3.5 | ✅ | 2026-10-21 |
-| [异常检测](p02-statistical-ml/anomaly-detection/) | 3.9 | ⬜ | |
+| [异常检测](p02-statistical-ml/anomaly-detection/) | 3.9 | ✅ | 2026-10-21 |
 
 ## p03-deep-learning · 深度学习
 
