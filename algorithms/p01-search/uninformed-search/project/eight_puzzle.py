@@ -15,7 +15,7 @@
   2. **效率**：同一批局面上 IDA* 比 IDS 少展开多少节点（h 的收益）
   3. **内存对照**：与 BFS 比——三者都最优，但 BFS 的边界峰值会随深度爆炸
 
-运行：cd algorithms/p01-search/uninformed-search/project && python3 eight_puzzle.py
+运行：cd algorithms/p01-search/uninformed-search/project && uv run python eight_puzzle.py
 依赖：只用标准库
 """
 

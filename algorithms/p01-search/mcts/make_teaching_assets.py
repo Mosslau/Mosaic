@@ -3,12 +3,14 @@
 原则：素材全部由本脚本生成，且与 `demo.py` 的数字逐项对账——不一致直接报错、不出图（纪律④）。
 
 产出（`images/` 目录）：
+    00-访问次数.png    概念图：300 次模拟后每格被走了多少次，最终选哪一格
     01-收敛曲线.png    迭代次数 → 对精确搜索的和棋率 / 对贪心对手的胜率（对数横轴）
     02-探索常数.png    探索常数 C 的影响（迭代很少时，纯利用反而更好）
+    03-模拟增长.gif   模拟次数从 5 涨到 600，访问次数怎么重新分配
 
 流程图不在这里——优先 Mermaid 直接写进 README（见 visual-assets.md）。
 
-运行：cd algorithms/p01-search/mcts && python3 make_teaching_assets.py
+运行：cd algorithms/p01-search/mcts && uv run python make_teaching_assets.py
 """
 
 import os
@@ -22,6 +24,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 
+import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 from matplotlib import font_manager
 
@@ -68,6 +71,7 @@ def setup_cjk_font() -> str:
 FONT_USED = setup_cjk_font()
 
 import demo as D  # noqa: E402
+import impl as I  # noqa: E402
 
 COLOR = dict(greedy="#c92a2a", exact="#2b8a3e", grid="#dee2e6", text="#343a40",
              hl="#f6c344", loss="#868e96")
@@ -192,18 +196,123 @@ def make_exploration(expl: list) -> None:
     plt.close(fig)
 
 
+def concept_data() -> dict:
+    """空棋盘上跑 300 次模拟，看根节点的访问次数分布与最终选择。"""
+    game = D.GAME
+    mcts = I.MCTS(game["get_moves"], game["apply"], game["is_terminal"], game["winner"],
+                  rng=random.Random(7))
+    action = mcts.search(D.TicTacToe(), iterations=300)
+    return {"action": action, "visits": dict(mcts.last_stats["visits"])}
+
+
+def verify_concept(d: dict) -> None:
+    visits = d["visits"]
+    assert sum(visits.values()) == 300, f"访问次数之和应等于模拟次数，实际 {sum(visits.values())}"
+    best = max(visits, key=visits.get)
+    assert best == d["action"], f"最终选择应为访问最多的招法：{best} vs {d['action']}"
+    assert visits[best] == 65, f"中心格的访问次数应为 65，实际 {visits[best]}"
+    print(f"  ✓ 对账通过：300 次模拟，选第 {d['action']} 格（访问 {visits[best]} 次）")
+
+
+def make_concept_figure(d: dict) -> None:
+    visits = d["visits"]
+    vmax = max(visits.values())
+    fig, ax = plt.subplots(figsize=(7.4, 7.0))
+    for i in range(9):
+        r, c = divmod(i, 3)
+        v = visits.get(i, 0)
+        ax.add_patch(plt.Rectangle((c, 2 - r), 1, 1,
+                                   fc=plt.cm.Blues(0.12 + 0.55 * v / vmax), ec="#adb5bd", lw=1.3))
+        ax.text(c + 0.5, 2 - r + 0.5, str(v), ha="center", va="center",
+                fontsize=20, color="#1c1c1c", weight="bold" if i == d["action"] else "normal")
+        if i == d["action"]:
+            ax.add_patch(plt.Rectangle((c + 0.04, 2 - r + 0.04), 0.92, 0.92, fill=False,
+                                       ec=COLOR["hl"], lw=4))
+    ax.set_xlim(-0.1, 3.1); ax.set_ylim(-0.1, 3.1); ax.axis("off")
+    ax.set_title("空棋盘跑 300 次模拟：每格被「走」了多少次", fontsize=13.5, pad=14)
+    ax.text(0.5, -0.03,
+            "数字 = 这格在 300 次模拟中被选为下一步的次数；黄框 = 最终选择（访问最多的一格）。\n"
+            "只试过 1～2 次的格，胜率再高也不可信——MCTS 信「被反复试过」，不信「一次全胜」。",
+            transform=ax.transAxes, ha="center", va="top", fontsize=10.8, linespacing=1.6,
+            color=COLOR["text"])
+    fig.tight_layout()
+    fig.savefig(IMAGES / "00-访问次数.png", dpi=130, bbox_inches="tight")
+    plt.close(fig)
+
+
+def budget_frames(budgets=(5, 10, 20, 50, 100, 300, 600)) -> list:
+    """同一局面、同一随机种子，只改模拟预算：看访问次数如何重新分配。"""
+    rows = []
+    for it in budgets:
+        mcts = I.MCTS(D.GAME["get_moves"], D.GAME["apply"], D.GAME["is_terminal"],
+                      D.GAME["winner"], rng=random.Random(7))
+        action = mcts.search(D.TicTacToe(), iterations=it)
+        rows.append({"iters": it, "visits": dict(mcts.last_stats["visits"]), "action": action})
+    return rows
+
+
+def verify_budget_frames(rows: list) -> None:
+    for r in rows:
+        assert sum(r["visits"].values()) == r["iters"], "访问次数之和应等于模拟次数"
+    last = rows[-1]
+    best = max(last["visits"], key=last["visits"].get)
+    assert best == last["action"], "最终选择应为访问最多的招法"
+    print(f"  ✓ 对账通过：{last['iters']} 次模拟选第 {last['action']} 格"
+          f"（访问 {last['visits'][best]} 次）")
+
+
+def make_budget_animation(rows: list) -> None:
+    frame_rows = []
+    for r in rows:
+        frame_rows.extend([r] * 4)
+
+    fig, ax = plt.subplots(figsize=(6.8, 6.6))
+
+    def draw(i: int) -> None:
+        r = frame_rows[i]
+        visits = r["visits"]
+        vmax = max(visits.values())
+        ax.clear()
+        for cell in range(9):
+            rr, cc = divmod(cell, 3)
+            v = visits.get(cell, 0)
+            ax.add_patch(plt.Rectangle((cc, 2 - rr), 1, 1,
+                                       fc=plt.cm.Blues(0.12 + 0.55 * v / vmax),
+                                       ec="#adb5bd", lw=1.2))
+            ax.text(cc + 0.5, 2 - rr + 0.5, str(v), ha="center", va="center", fontsize=18)
+            if cell == r["action"]:
+                ax.add_patch(plt.Rectangle((cc + 0.04, 2 - rr + 0.04), 0.92, 0.92,
+                                           fill=False, ec=COLOR["hl"], lw=3.5))
+        ax.set_xlim(-0.05, 3.05); ax.set_ylim(-0.05, 3.05); ax.axis("off")
+        ax.set_title(f"预算 {r['iters']} 次模拟：访问次数怎么分配", fontsize=13)
+
+    anim = animation.FuncAnimation(fig, draw, frames=len(frame_rows), interval=350)
+    anim.save(IMAGES / "03-模拟增长.gif", writer=animation.PillowWriter(fps=3))
+    plt.close(fig)
+
+
 def main() -> None:
     print("取数：收敛曲线 …")
     conv = convergence_rows()
     print("取数：探索常数 …")
     expl = exploration_rows()
     verify(conv, expl)
+    print("取数：访问次数概念图 …")
+    concept = concept_data()
+    verify_concept(concept)
     print("① 画收敛曲线 …")
     make_convergence(conv)
     print("② 画探索常数 …")
     make_exploration(expl)
+    print("取数：预算增长动画 …")
+    budgets = budget_frames()
+    verify_budget_frames(budgets)
+    print("③ 画预算增长动画 …")
+    make_budget_animation(budgets)
+    print("④ 画概念图：访问次数怎么决定选择 …")
+    make_concept_figure(concept)
     print("\n产出：")
-    for name in ("01-收敛曲线.png", "02-探索常数.png"):
+    for name in ("00-访问次数.png", "01-收敛曲线.png", "02-探索常数.png", "03-模拟增长.gif"):
         print(f"  {name}  {(IMAGES / name).stat().st_size / 1024:.0f} KB")
     print("\n可粘贴进 README 的收敛表：")
     print("| iterations | 对贪心挡招胜率 | 对精确搜索不输率 |")

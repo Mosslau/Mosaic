@@ -11,7 +11,7 @@
 - MCTS 固定执先手（井字棋先手优势明显，混先后手会把"先手赢"误读成"算法强"）
 - 全部固定随机种子，结果可复现
 
-运行：cd algorithms/p01-search/mcts && python3 demo.py
+运行：cd algorithms/p01-search/mcts && uv run python demo.py
 """
 
 import copy

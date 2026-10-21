@@ -1,6 +1,6 @@
 """CSP 的性质测试。
 
-用法（本目录内）：python3 -m pytest test_impl.py -q
+用法（本目录内）：uv run pytest test_impl.py -q
 
 覆盖：
 - **解的正确性**：八皇后（独立验证：任意两皇后不同行/列/斜线）、数独（独立验证行/列/宫）

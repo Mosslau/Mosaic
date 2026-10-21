@@ -282,4 +282,4 @@ def describe() -> dict:
 
 
 if __name__ == "__main__":
-    raise SystemExit("本文件是求解库，跑实验请执行：python3 demo.py")
+    raise SystemExit("本文件是求解库，跑实验请执行：uv run python demo.py")

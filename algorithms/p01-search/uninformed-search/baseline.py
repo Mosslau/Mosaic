@@ -77,4 +77,4 @@ def to_astar_grid(grid: list) -> list:
 
 
 if __name__ == "__main__":
-    raise SystemExit("本文件是对照库，跑对比请执行：python3 demo.py")
+    raise SystemExit("本文件是对照库，跑对比请执行：uv run python demo.py")

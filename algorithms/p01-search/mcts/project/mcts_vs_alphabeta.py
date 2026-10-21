@@ -14,7 +14,7 @@ MCTS 靠**模拟次数**换质量（见 `../README.md`）。本项目把它们�
   2. **成本对照**：每步的节点访问数 / 耗时——这是 AB 的强项，差距会有几个数量级
   3. **MCTS 的追赶**：在 5×5 四连上，MCTS 要加多少模拟才追得上 AB(depth=4)
 
-运行：cd algorithms/p01-search/mcts/project && python3 mcts_vs_alphabeta.py
+运行：cd algorithms/p01-search/mcts/project && uv run python mcts_vs_alphabeta.py
 依赖：只用标准库（不需要 numpy / matplotlib）
 """
 

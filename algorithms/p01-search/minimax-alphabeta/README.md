@@ -105,13 +105,17 @@ O . .        → 走 (0,2) 立刻三连，赢
 
 ![剪枝示意](images/01-剪枝示意.png)
 
+![深度增加时剪枝收益的变化](images/03-深化动画.gif)
+
+深度从 1 加到 9：两版的访问节点数越拉越开——**剪枝省下的比例随深度累积**，但结论（根值）始终不变。
+
 图里每一步都可以核对：a 分支让 `α = 2`；b 分支里对手先给 1、再给 0（`0 ≤ α`），说明 b 注定不如 a，剩下的应对不必看；c 分支第一个应对就给 0，整支剪掉。**根值仍是 2**，与"全部展开再取极值"完全相同。
 
 ## 6. 常见误区
 
 - **❌ "剪枝是近似算法"** —— 不是。剪掉的都是**确定不会影响结论**的分支，结果与朴素版完全一致。
 - **❌ "评分函数只用来判终局就够了"** —— 在井字棋（能搜到终局）确实够；但棋盘一大就必须"深度限制 + 评估函数"，此时评估函数的**质量**决定棋力。
-- **❌ "剪枝越多说明算法越好"** —— 剪枝量取决于**招法遍历顺序**（见「实验结果」实验三：同一局面不同顺序差 32%）。所以真实引擎里一半的工程量花在"排序"上。
+- **❌ "剪枝越多说明算法越好"** —— 剪枝量取决于**招法遍历顺序**（同一局面换一种顺序，访问量能差三成以上，见「实验结果」实验三）。所以真实引擎里一半的工程量花在"排序"上。
 - **❌ "可以就地修改棋盘"** —— 搜索会同时探索几百个分支，`apply` 必须返回**新状态**，否则兄弟分支互相污染。
 
 ## 7. 自己动手：三个小实验
@@ -139,7 +143,7 @@ O . .        → 走 (0,2) 立刻三连，赢
 | [impl.py](impl.py) | 手写两版：朴素 minimax + Alpha-Beta | `minimax(...) -> (move, score)`、`alphabeta(..., alpha, beta, ...) -> (move, score)`、`best_move(...)`（默认走剪枝版） |
 | [demo.py](demo.py) | 井字棋规则 + 三个实验 | `TicTacToe`（`get_moves` / `apply` / `evaluate` / `is_terminal`）、`run_with_counter`、`bench` |
 | [test_impl.py](test_impl.py) | 性质测试（含独立参考对拍） | `uv run pytest test_impl.py -q` |
-| [make_teaching_assets.py](make_teaching_assets.py) | 教学素材生成 + 与 demo 数字对账 | `uv run python make_teaching_assets.py` → `images/01-剪枝示意.png`、`images/02-剪枝随深度.png` |
+| [make_teaching_assets.py](make_teaching_assets.py) | 教学素材生成 + 与 demo 数字对账 | `uv run python make_teaching_assets.py` → `images/01-剪枝示意.png`、`images/02-剪枝随深度.png`、`images/03-深化动画.gif` |
 | [project/](project/README.md) | 迁移项目：四子连珠 + 深度限制 + 自对弈评测 | `uv run python project/connect4_search.py` |
 
 > 本目录没有 `baseline.py`：对照就是 impl 里的朴素 minimax（剪枝版 vs 不剪枝版）。
@@ -263,7 +267,7 @@ min 层对称（维护 $\beta \leftarrow \min(\beta, v)$，同样在 $\beta \le 
 - **2026-10-09 首次完成**（Python 3.13.9 / matplotlib 3.10.6；`python3 demo.py` + `python3 -m pytest test_impl.py -q` + `python3 make_teaching_assets.py` + `python3 project/connect4_search.py` + `exercises/` 四个脚本）：
   - `demo.py` 三组实验：实验一 访问 422,074 vs 15,021、中位耗时 789 ms vs 27.9 ms、两版 `move=0`/`score=0.0` 一致；实验二 九档深度收益 0% → 96.4%；实验三 三种顺序结论一致、主搜索访问 15,021 / 10,150 / 10,591。
   - 测试 **18 passed**（含与**独立参考实现**对拍、剪枝不多访问节点、必胜/必堵局面、终局与 depth=0 边界）。
-  - `make_teaching_assets.py` 对账通过（depth 1–9 计数与 `demo.bench` 逐档一致），产出 `images/01-剪枝示意.png`、`images/02-剪枝随深度.png`。
+  - `make_teaching_assets.py` 对账通过（depth 1–9 计数与 `demo.bench` 逐档一致），产出 `images/01-剪枝示意.png`、`images/02-剪枝随深度.png`、`images/03-深化动画.gif`。
   - `project/connect4_search.py`：深度的代价 1→6 层 1 → 204,760 节点；评估质量（4×4 三连）坏/弱/好 = 0:6 / 0:6 / 3:3；深度效应（6×6 四连）深度 3 两战全败（**深度奇偶**：偶数深度看得见对手的下一个应对）。
   - `exercises/` 四个脚本实跑：`sol-02` 9→7 叶子；`sol-03` 错误写法结论未坏、剪枝全丢；`sol-04` 迭代加深累计 3,089 vs 单次 1,886、置换表预热后 1 次进入；`sol-05` 同深度镜像 18:6。
   - Mermaid 主循环图：语法用 mermaid 11 解析器实跑校验通过（`flowchart-v2`）；**成图未在本环境验证**（mermaid-cli 依赖 headless Chrome，本机渲染超时）。

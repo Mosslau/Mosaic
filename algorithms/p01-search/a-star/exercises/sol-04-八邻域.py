@@ -7,7 +7,7 @@
 
 运行：
     cd algorithms/p01-search/a-star/exercises
-    python3 sol-04-八邻域.py
+    uv run python sol-04-八邻域.py
 """
 
 from __future__ import annotations

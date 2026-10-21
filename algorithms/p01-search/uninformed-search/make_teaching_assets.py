@@ -5,10 +5,11 @@
 产出（`images/` 目录）：
     01-扩展顺序.png    同一张 5×5 小图上，DFS / BFS / UCS 的扩展顺序（第几步取出）
     02-代价与内存.png  带权图上 BFS 的次优程度 + 三个算法的边界峰值对比 + UCS vs A*
+    03-扩展动画.gif    DFS 在 5×5 小图上的逐步扩展（看清"一条路插到底"）
 
 流程图不在这里——优先 Mermaid 直接写进 README（见 visual-assets.md）。
 
-运行：cd algorithms/p01-search/uninformed-search && python3 make_teaching_assets.py
+运行：cd algorithms/p01-search/uninformed-search && uv run python make_teaching_assets.py
 """
 
 import os
@@ -21,6 +22,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 
+import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import font_manager
@@ -221,6 +223,49 @@ def make_cost_memory_figure(weighted: list, ucs_astar: dict, per_algo: dict) -> 
     plt.close(fig)
 
 
+def make_animation(order: dict) -> None:
+    """DFS 在小图上的扩展顺序动画：同一套取出规则，换结构就换形状。"""
+    grid, start, goal = order["grid"], order["start"], order["goal"]
+    nrows, ncols = len(grid), len(grid[0])
+    result = order["dfs"]["result"]
+    seq = result.order
+    ranks = order["dfs"]["rank"]
+    path = set(result.path)
+    step = max(1, len(seq) // 16)
+    frames = list(range(1, len(seq) + 1, step))
+    if frames[-1] != len(seq):
+        frames.append(len(seq))
+
+    fig, ax = plt.subplots(figsize=(6.6, 6.6))
+
+    def draw(k: int) -> None:
+        ax.clear()
+        for r in range(nrows):
+            for c in range(ncols):
+                if grid[r][c] == -1:
+                    fc = "#4a4a4a"
+                elif ranks.get((r, c), 10 ** 9) <= k:
+                    fc = "#d3f9d8" if (r, c) in path else "#d0ebff"
+                else:
+                    fc = "#ffffff"
+                ax.add_patch(plt.Rectangle((c, nrows - 1 - r), 1, 1,
+                                           fc=fc, ec="#adb5bd", lw=0.9))
+        cur = seq[k - 1]
+        ax.add_patch(plt.Rectangle((cur[1] + 0.06, nrows - 1 - cur[0] + 0.06), 0.88, 0.88,
+                                   fill=False, ec=COLOR["hl"], lw=3.5))
+        ax.text(start[1] + 0.5, nrows - 1 - start[0] + 0.5, "S", ha="center",
+                va="center", fontsize=15, weight="bold", color=COLOR["dfs"])
+        ax.text(goal[1] + 0.5, nrows - 1 - goal[0] + 0.5, "G", ha="center",
+                va="center", fontsize=15, weight="bold", color=COLOR["ucs"])
+        ax.set_xlim(-0.05, ncols + 0.05); ax.set_ylim(-0.05, nrows + 0.05)
+        ax.set_aspect("equal"); ax.axis("off")
+        ax.set_title(f"DFS 的扩展顺序：第 {k}/{len(seq)} 步（橙框 = 当前取出）", fontsize=12.5)
+
+    anim = animation.FuncAnimation(fig, draw, frames=frames, interval=320)
+    anim.save(IMAGES / "03-扩展动画.gif", writer=animation.PillowWriter(fps=3))
+    plt.close(fig)
+
+
 def main() -> None:
     print("取数：小图扩展顺序 …")
     order = order_data()
@@ -233,10 +278,12 @@ def main() -> None:
     verify(order, weighted, ucs_astar, per_algo)
     print("① 画扩展顺序 …")
     make_order_figure(order)
-    print("② 画代价与内存 …")
+    print("② 画扩展顺序动画 …")
+    make_animation(order)
+    print("③ 画代价与内存 …")
     make_cost_memory_figure(weighted, ucs_astar, per_algo)
     print("\n产出：")
-    for name in ("01-扩展顺序.png", "02-代价与内存.png"):
+    for name in ("01-扩展顺序.png", "02-代价与内存.png", "03-扩展动画.gif"):
         print(f"  {name}  {(IMAGES / name).stat().st_size / 1024:.0f} KB")
     print("\n可粘贴进 README 的对照表（带权图）:")
     print("| 图 | BFS 步数 | BFS 代价 | UCS 代价 | BFS 相对最优 |")

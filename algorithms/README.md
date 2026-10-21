@@ -40,6 +40,9 @@ uv run pytest p01-search/a-star/ -q
 （uv 会向上找到 `algorithms/pyproject.toml`）。历史验证记录里保留的 `python3` / `.venv/bin/python`
 是当时的复现痕迹，不代表现在的推荐用法。
 
+**度量口径**：各实验的耗时数字都是「本机某次运行」的观测值，随机器、Python/matplotlib 版本浮动——
+只用于同机、同次对比（节点数、胜率、代价这类确定性指标才可跨机复现）。
+
 ## p01-search · 符号主义与搜索
 
 > 族内学习顺序：无信息搜索 → A* → Minimax/Alpha-Beta → MCTS → CFR → CSP。

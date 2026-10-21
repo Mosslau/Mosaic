@@ -1,6 +1,6 @@
 """CFR 的性质测试。
 
-用法（本目录内）：python3 -m pytest test_impl.py -q
+用法（本目录内）：uv run pytest test_impl.py -q
 
 覆盖：
 - **评估工具自校验**：用能手算的纯策略对验证期望收益（这是所有断言的基准）

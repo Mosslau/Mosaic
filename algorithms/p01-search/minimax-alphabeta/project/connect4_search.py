@@ -11,7 +11,7 @@
 搜索本体**不在这里重写**——直接调用教学目录的 `impl.alphabeta`（同一份代码，
 本项目只换棋类与评估函数），这也是"迁移"该有的样子：算法不动，接口换一个。
 
-运行：cd algorithms/p01-search/minimax-alphabeta/project && python3 connect4_search.py
+运行：cd algorithms/p01-search/minimax-alphabeta/project && uv run python connect4_search.py
 依赖：只用标准库（不需要 numpy / matplotlib）
 """
 

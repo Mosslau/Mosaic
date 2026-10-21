@@ -154,4 +154,4 @@ def solve(
 
 
 if __name__ == "__main__":
-    raise SystemExit("本文件是手写实现库，实验入口是 demo.py：python3 demo.py（需 Python ≥ 3.10）")
+    raise SystemExit("本文件是手写实现库，实验入口是 demo.py：uv run python demo.py（需 Python ≥ 3.10）")

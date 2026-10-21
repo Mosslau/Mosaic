@@ -187,4 +187,4 @@ def make_mcts(game: dict, rng: Optional[random.Random] = None,
 
 
 if __name__ == "__main__":
-    raise SystemExit("本文件是搜索库，跑实验请执行：python3 demo.py")
+    raise SystemExit("本文件是搜索库，跑实验请执行：uv run python demo.py")

@@ -1,6 +1,6 @@
 """Minimax / Alpha-Beta 的性质测试。
 
-用法（本目录内）：python3 -m pytest test_impl.py -v
+用法（本目录内）：uv run pytest test_impl.py -v
 
 覆盖：
 - 两版**逐点等价**：同一局面、同一深度，alphabeta 与 minimax 的 (move, score) 必须完全相同

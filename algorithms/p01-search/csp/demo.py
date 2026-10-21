@@ -6,7 +6,7 @@
   3. **现实规模**（数独）：三种策略在一个"世界最难"级别的题目上的表现
   4. **"不回溯"能走多远**：随机重启 vs 穷举 vs 回溯（说明为什么搜索必须有结构）
 
-运行：cd algorithms/p01-search/csp && python3 demo.py
+运行：cd algorithms/p01-search/csp && uv run python demo.py
 依赖：只用标准库
 """
 

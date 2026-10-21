@@ -1,6 +1,6 @@
 """参考解 3：把三种 alpha-beta 写法放在同一批树上对照，看"错在哪一步"的后果。
 
-用法：python3 sol-03-诊断.py
+用法：uv run python sol-03-诊断.py
 
 三种写法：
   correct      正确写法（与 impl.alphabeta 等价）

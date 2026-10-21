@@ -10,7 +10,7 @@
   1. 用 `../impl.py` 的回溯 + 前向检查求**硬约束可行解**；
   2. 在可行解空间里用**贪心 + 局部改进**优化软约束代价（这是 CSP → COP 的迁移）。
 
-运行：cd algorithms/p01-search/csp/project && python3 shift_scheduling.py
+运行：cd algorithms/p01-search/csp/project && uv run python shift_scheduling.py
 依赖：只用标准库
 """
 

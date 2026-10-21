@@ -13,7 +13,7 @@
 - `peak_frontier`：边界规模的最大值（栈 / 队列 / 堆峰值，内存的代理指标）
 - 起点即终点、无解、越界等边界一并处理
 
-运行：cd algorithms/p01-search/uninformed-search && python3 demo.py
+运行：cd algorithms/p01-search/uninformed-search && uv run python demo.py
 依赖：只用标准库
 """
 

@@ -53,4 +53,4 @@ def greedy_move(
 
 
 if __name__ == "__main__":
-    raise SystemExit("本文件是对照库，由 demo.py 统一调用对比：python3 demo.py")
+    raise SystemExit("本文件是对照库，由 demo.py 统一调用对比：uv run python demo.py")

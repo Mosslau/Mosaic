@@ -12,7 +12,7 @@
 约定：**一个"访问节点" = 一次 `is_terminal()`**（每次进入递归的第一件事就是判终局）。
 不计"进入状态数"而计这个，是因为它同时被朴素版与剪枝版调用，口径可比。
 
-运行：cd algorithms/p01-search/minimax-alphabeta && python3 demo.py
+运行：cd algorithms/p01-search/minimax-alphabeta && uv run python demo.py
 """
 
 import copy

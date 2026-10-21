@@ -1,6 +1,6 @@
 """MCTS 的性质测试。
 
-用法（本目录内）：python3 -m pytest test_impl.py -v
+用法（本目录内）：uv run pytest test_impl.py -v
 
 覆盖：
 - **回传符号**：这是 MCTS 最容易写反的地方——用一棵手工小树直接验"父方收益"的口径

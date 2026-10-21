@@ -3,10 +3,12 @@
 原则：素材全部由本脚本生成，且与 `demo.py` 的数字逐项对账——不一致直接报错、不出图（纪律④）。
 
 产出（`images/` 目录）：
+    00-后悔匹配.png   概念图：一个信息集里有什么，后悔如何变成策略
     01-收敛曲线.png   训练量 → 博弈值（对照理论值 −1/18）+ 可被利用度
     02-策略对照.png   p1/p2 各信息集的学习结果 vs 理论均衡
+    03-策略收敛.gif   训练量增大时，各信息集的动作频率如何收敛
 
-运行：cd algorithms/p01-search/cfr && python3 make_teaching_assets.py
+运行：cd algorithms/p01-search/cfr && uv run python make_teaching_assets.py
 """
 
 import os
@@ -19,6 +21,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 
+import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import font_manager
@@ -172,6 +175,123 @@ def make_strategy_figure(strat: dict) -> None:
     plt.close(fig)
 
 
+def concept_data() -> dict:
+    """一个真实的混合策略信息集：p2 拿到 Q、面对对手下注。"""
+    cfr = D.make_cfr().train(D.all_deals(), iterations=20000)
+    key = ("b", 1, 1)
+    acts = D.kuhn_actions(key[0])
+    regrets = {a: cfr.regret[key][a] for a in acts}
+    strategy = cfr._current_strategy(key, acts)
+    return {"key": key, "acts": acts, "regrets": regrets, "strategy": strategy}
+
+
+def verify_concept(d: dict) -> None:
+    pos = [max(d["regrets"][a], 0.0) for a in d["acts"]]
+    total = sum(pos)
+    expected = [p / total for p in pos] if total > 0 else [1 / len(pos)] * len(pos)
+    assert all(abs(x - y) < 1e-9 for x, y in zip(expected, d["strategy"])), "后悔匹配结果与 impl 不一致"
+    assert abs(sum(d["strategy"]) - 1.0) < 1e-9, "策略概率之和应为 1"
+    assert min(d["regrets"].values()) > 0, "选取的信息集应当是混合策略（两个后悔都为正）"
+    print(f"  ✓ 对账通过：信息集 {d['key']}，后悔 "
+          f"c={d['regrets']['c']:.1f} / f={d['regrets']['f']:.1f} → 策略 "
+          f"c={d['strategy'][0]:.2f} / f={d['strategy'][1]:.2f}")
+
+
+def make_concept_figure(d: dict) -> None:
+    label = {"k": "过牌", "b": "下注", "c": "跟注", "f": "弃牌"}
+    acts = d["acts"]
+    fig = plt.figure(figsize=(13.6, 5.1))
+    gs = fig.add_gridspec(1, 3, width_ratios=[1.15, 1.0, 1.0], wspace=0.4)
+
+    ax0 = fig.add_subplot(gs[0]); ax0.axis("off")
+    ax0.text(0.0, 1.02, "一个信息集里有什么", fontsize=13.5, weight="bold", va="top")
+    ax0.text(0.0, 0.88,
+             "历史：对手已下注（b）\n"
+             "我的牌：Q\n"
+             "我是：p2（后手）\n\n"
+             "对手的牌：？\n"
+             "↑ 不在信息集里",
+             fontsize=12.5, va="top", linespacing=1.75,
+             bbox=dict(boxstyle="round,pad=0.65", fc="#f1f3f5", ec="#adb5bd"))
+    ax0.text(0.0, 0.14,
+             "信息集 =（动作历史，我的牌，我是谁）。\n"
+             "同一个信息集里的决定必须相同——\n"
+             "所以策略只能依赖「我已知的」，不能偷看对手的牌。",
+             fontsize=11, va="top", color=COLOR["text"], linespacing=1.7)
+
+    ax = fig.add_subplot(gs[1])
+    vals = [d["regrets"][a] for a in acts]
+    ax.bar([0, 1], vals, color=["#3b5bdb", "#e8590c"], width=0.55)
+    for x, v in zip((0, 1), vals):
+        ax.text(x, v + max(vals) * 0.03, f"{v:.1f}", ha="center", fontsize=11)
+    ax.set_xticks([0, 1]); ax.set_xticklabels([label[a] for a in acts], fontsize=12)
+    ax.set_ylabel("累计后悔", fontsize=12); ax.set_ylim(0, max(vals) * 1.22)
+    ax.grid(True, axis="y", color=COLOR["grid"], lw=0.8); ax.set_axisbelow(True)
+    ax.set_title("① 每个动作攒下的后悔", fontsize=12.5)
+
+    ax = fig.add_subplot(gs[2])
+    probs = d["strategy"]
+    ax.bar([0, 1], probs, color=["#3b5bdb", "#e8590c"], width=0.55)
+    for x, p in zip((0, 1), probs):
+        ax.text(x, p + 0.03, f"{p:.2f}", ha="center", fontsize=11)
+    ax.set_xticks([0, 1]); ax.set_xticklabels([label[a] for a in acts], fontsize=12)
+    ax.set_ylabel("动作概率", fontsize=12); ax.set_ylim(0, 1.15)
+    ax.grid(True, axis="y", color=COLOR["grid"], lw=0.8); ax.set_axisbelow(True)
+    ax.set_title("② 只保留正后悔、归一化 → 策略", fontsize=12.5)
+    ax.text(0.5, 0.80, "p = max(r, 0) / Σ max(r, 0)", transform=ax.transAxes,
+            ha="center", fontsize=11.5, color=COLOR["text"],
+            bbox=dict(boxstyle="round,pad=0.35", fc="#fff9db", ec="#f6c344"))
+
+    fig.suptitle("后悔匹配：后悔不是「情绪」，是下一轮该怎么调整的概率", fontsize=13.5, y=1.0)
+    fig.tight_layout()
+    fig.savefig(IMAGES / "00-后悔匹配.png", dpi=130)
+    plt.close(fig)
+
+
+def strategy_frames(grid=(10, 100, 1000, 10000, 50000)) -> list:
+    """不同训练量下的策略频率（与 demo 同源），用于收敛动画。"""
+    rows = []
+    for iters in grid:
+        avg = D.make_cfr().train(D.all_deals(), iterations=iters).average_strategy()
+        rows.append({"iters": iters, "freq": D.key_frequencies(avg)})
+    return rows
+
+
+def verify_frames(rows: list) -> None:
+    last = rows[-1]["freq"]
+    assert 0.0 <= last["J_bet"] <= 1 / 3 + 1e-9, f"J 下注率应落在均衡族内：{last['J_bet']}"
+    assert last["Q_bet"] < 0.02, f"Q 不该下注：{last['Q_bet']}"
+    assert 2.0 < last["K_bet"] / last["J_bet"] < 4.5, "K:J 下注率应接近 3:1"
+    print(f"  ✓ 对账通过：50000 轮时 J/Q/K 下注率 "
+          f"{last['J_bet']:.2f}/{last['Q_bet']:.2f}/{last['K_bet']:.2f}")
+
+
+def make_strategy_animation(rows: list) -> None:
+    labels = ["J 下注", "Q 下注", "K 下注", "J 跟注", "Q 跟注", "K 跟注", "p2 Q 跟注"]
+    keys = ["J_bet", "Q_bet", "K_bet", "J_call", "Q_call", "K_call", "p2_Q_call"]
+    fig, ax = plt.subplots(figsize=(9.4, 5.6))
+    xs = list(range(len(labels)))
+    frame_rows = []
+    for r in rows:
+        frame_rows.extend([r] * 3)          # 每个训练量停 3 帧，便于看清
+
+    def draw(i: int) -> None:
+        r = frame_rows[i]
+        ax.clear()
+        vals = [r["freq"][k] for k in keys]
+        ax.bar(xs, vals, color=["#3b5bdb"] * 3 + ["#e8590c"] * 3 + ["#2b8a3e"], width=0.62)
+        for x, v in zip(xs, vals):
+            ax.text(x, v + 0.025, f"{v:.2f}", ha="center", fontsize=9.5)
+        ax.set_xticks(xs); ax.set_xticklabels(labels, fontsize=10.5)
+        ax.set_ylim(0, 1.12); ax.set_ylabel("动作概率", fontsize=12)
+        ax.grid(True, axis="y", color=COLOR["grid"], lw=0.8); ax.set_axisbelow(True)
+        ax.set_title(f"训练 {r['iters']:,} 轮后的平均策略", fontsize=13)
+
+    anim = animation.FuncAnimation(fig, draw, frames=len(frame_rows), interval=350)
+    anim.save(IMAGES / "03-策略收敛.gif", writer=animation.PillowWriter(fps=3))
+    plt.close(fig)
+
+
 def main() -> None:
     print("取数：收敛曲线 …")
     conv = convergence_data()
@@ -180,12 +300,22 @@ def main() -> None:
     print("取数：策略对照 …")
     strat = strategy_data()
     verify(conv, expl, strat)
+    print("取数：后悔匹配概念图 …")
+    concept = concept_data()
+    verify_concept(concept)
     print("① 画收敛曲线 …")
     make_convergence(conv, expl)
     print("② 画策略对照 …")
     make_strategy_figure(strat)
+    print("取数：策略收敛动画 …")
+    frames = strategy_frames()
+    verify_frames(frames)
+    print("③ 画策略收敛动画 …")
+    make_strategy_animation(frames)
+    print("④ 画概念图：信息集 → 后悔 → 策略 …")
+    make_concept_figure(concept)
     print("\n产出：")
-    for name in ("01-收敛曲线.png", "02-策略对照.png"):
+    for name in ("00-后悔匹配.png", "01-收敛曲线.png", "02-策略对照.png", "03-策略收敛.gif"):
         print(f"  {name}  {(IMAGES / name).stat().st_size / 1024:.0f} KB")
     print("\n可粘贴进 README 的收敛表：")
     print("| 训练量 | 博弈值 | 平均后悔 |")

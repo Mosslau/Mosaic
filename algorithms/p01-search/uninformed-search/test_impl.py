@@ -1,6 +1,6 @@
 """DFS / BFS / UCS 的性质测试。
 
-用法（本目录内）：python3 -m pytest test_impl.py -v
+用法（本目录内）：uv run pytest test_impl.py -v
 
 覆盖：
 - **BFS 最优**：无权图上 BFS 的步数 = 独立 BFS 参考（复用 a-star 实验的 `bfs_shortest_cost`，不共享本目录代码）

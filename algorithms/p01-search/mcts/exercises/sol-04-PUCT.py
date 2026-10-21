@@ -1,6 +1,6 @@
 """参考解 4：把 UCB1 换成 PUCT（AlphaZero 用的选择规则）。
 
-用法：python3 sol-04-PUCT.py
+用法：uv run python sol-04-PUCT.py
 
 PUCT：选择时用      Q(s,a) + C · P(s,a) · √N / (1 + n)
   Q = 该招法的平均收益（利用）        P = 先验概率（这个招法"看起来"有多好）

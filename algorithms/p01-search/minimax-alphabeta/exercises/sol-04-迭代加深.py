@@ -1,6 +1,6 @@
 """参考解 4：迭代加深 + 置换表（只用标准库）。
 
-用法：python3 sol-04-迭代加深.py
+用法：uv run python sol-04-迭代加深.py
 
 做三件事：
 1. `search_with_budget`：从 depth=1 逐层加深到 max_depth，每层记录最好招法；

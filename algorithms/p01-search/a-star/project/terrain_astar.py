@@ -7,7 +7,7 @@
 
 运行：
     cd algorithms/p01-search/a-star/project
-    python3 terrain_astar.py        # 需 numpy + matplotlib（不依赖仓库 .venv）
+    uv run python terrain_astar.py        # 需 numpy + matplotlib（uv sync --extra dev 已包含）
 
 产出：out/terrain.png（地形 + A*/Dijkstra 路径对比图）
 """

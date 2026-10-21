@@ -6,10 +6,11 @@
 产出（`images/` 目录）：
     01-剪枝示意.png     一棵小博弈树：哪些分支被 α/β 剪掉（教学示意）
     02-剪枝随深度.png   朴素 vs 剪枝的访问节点数曲线（对数纵轴）+ 省下比例
+    03-深化动画.gif     深度从 1 加到 9，剪枝省下的比例怎么扩大
 
 流程图不在这里——优先 Mermaid 直接写进 README（见 visual-assets.md）。
 
-运行：cd algorithms/p01-search/minimax-alphabeta && python3 make_teaching_assets.py
+运行：cd algorithms/p01-search/minimax-alphabeta && uv run python make_teaching_assets.py
 """
 
 import os
@@ -22,6 +23,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 
+import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 from matplotlib import font_manager
 
@@ -301,6 +303,35 @@ def make_depth_chart(rows: list) -> None:
     plt.close(fig)
 
 
+def make_depth_animation(rows: list) -> None:
+    """深度逐层加深的动画：两版访问节点数（对数轴）与省下比例怎么变。"""
+    depths = [r[0] for r in rows]
+    plain = [r[1] for r in rows]
+    ab = [r[2] for r in rows]
+    saved = [1 - a / p for _, p, a in rows]
+
+    fig, ax = plt.subplots(figsize=(10.2, 5.8))
+
+    def draw(i: int) -> None:
+        d = depths[:i + 1]
+        ax.clear()
+        ax.bar([x - 0.2 for x in d], plain[:i + 1], width=0.4,
+               color=COLOR["plain"], label="朴素 minimax")
+        ax.bar([x + 0.2 for x in d], ab[:i + 1], width=0.4,
+               color=COLOR["ab"], label="Alpha-Beta")
+        ax.set_yscale("log")
+        ax.set_xticks(depths)
+        ax.set_xlabel("搜索深度", fontsize=12)
+        ax.set_ylabel("访问节点数（对数轴）", fontsize=12)
+        ax.grid(True, axis="y", color=COLOR["grid"], lw=0.8); ax.set_axisbelow(True)
+        ax.legend(fontsize=11, loc="upper left")
+        ax.set_title(f"深度 1–{d[-1]}：剪枝省下 {saved[i]:.1%}", fontsize=13)
+
+    anim = animation.FuncAnimation(fig, draw, frames=len(rows), interval=550)
+    anim.save(IMAGES / "03-深化动画.gif", writer=animation.PillowWriter(fps=2))
+    plt.close(fig)
+
+
 def main() -> None:
     print("① 剪枝示意图 …")
     make_pruning_sketch()
@@ -308,8 +339,10 @@ def main() -> None:
     rows = depth_profile()
     verify_depth_profile(rows)
     make_depth_chart(rows)
+    print("③ 深度增长动画 …")
+    make_depth_animation(rows)
     print("\n产出：")
-    for name in ("01-剪枝示意.png", "02-剪枝随深度.png"):
+    for name in ("01-剪枝示意.png", "02-剪枝随深度.png", "03-深化动画.gif"):
         path = IMAGES / name
         print(f"  {name}  {path.stat().st_size / 1024:.0f} KB")
     print("\ndepth 1–9 两版访问节点数（可粘贴进 README）：")

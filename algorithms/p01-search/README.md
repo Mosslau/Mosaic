@@ -318,5 +318,9 @@ CSP          依赖：约束传播（没有"走法"，只有"允许的组合"）
 | 迁移项目 | `<实验>/project/` | 把算法用到非教学场景，README 写需求 / 验收 / 实测结果 |
 | 实现与测试 | `impl.py` / `baseline.py` 或 `framework.py` / `demo.py` / `test_impl.py` | 手写实现 + 对照版 + 性质测试 |
 
+**流程图与素材**：六张流程图都用 Mermaid 写进各实验 README，2026-10-21 统一用 mermaid 11
+解析器校验通过（`flowchart-v2`）；**渲染成图未在本环境验证**，以 GitHub / VS Code 预览为准。
+概念图、对比图与动画全部由各目录的 `make_teaching_assets.py` 生成，并与 `impl.py` / `demo.py` 的数字对账。
+
 **状态**：六个实验全部 ✅（见 [`algorithms/README.md`](../README.md) 的索引表——
 那是唯一的现状快照，本页不重复维护状态）。

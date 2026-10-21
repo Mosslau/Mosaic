@@ -1,7 +1,7 @@
 # 反事实遗憾最小化 CFR
 
 > 状态：✅ 已完成（2026-10-09）
-> 对应文档章节：`algorithms/docs/人工智能代表算法演进路线.md` 第 2.2.1 章
+> 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 2.2.1 章
 > 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话证明 → 自测）；要看推导与复现实验读「进阶篇」
 > 本族共六个实验，它们的演进关系与选读建议见 [族级导读](../README.md)。
 
@@ -61,6 +61,15 @@ flowchart TD
 1. **终局收益的符号要按「轮到谁」定**——漏掉它，策略会「看起来在收敛」但仍然可被利用；
 2. **回传时每一步都要换算视角**——用「唯一 player1 视角」的写法最不容易错；
 3. **最后要取平均策略**，不是最后一轮策略——CFR 的当前策略一直在震荡。
+
+![信息集与后悔匹配](images/00-后悔匹配.png)
+
+一个信息集里只有「我已知的」；右边是真实训练出的后悔 → 策略。注意信息集里**没有对手的牌**——
+这是与 minimax 最根本的区别。
+
+![策略随训练量收敛](images/03-策略收敛.gif)
+
+训练量从 10 涨到 50000，各信息集的动作频率逐步稳定下来——**收敛的是平均策略**，不是某一轮。
 
 ## 4. 亲手算一个小例子
 
@@ -155,7 +164,7 @@ flowchart TD
 | [baseline.py](baseline.py) | 对照版：均匀随机 + 三个固定对手 | `uniform_strategy()`、`FIXED_OPPONENTS` |
 | [demo.py](demo.py) | 库恩扑克 + 四组实验 | `make_cfr`、`ev_average`、`best_response_p2`、四个 `experiment_*` |
 | [test_impl.py](test_impl.py) | 性质测试（含符号回归） | `uv run pytest test_impl.py -q` |
-| [make_teaching_assets.py](make_teaching_assets.py) | 素材生成 + 与 demo 对账 | `uv run python make_teaching_assets.py` → `images/01-收敛曲线.png`、`images/02-策略对照.png` |
+| [make_teaching_assets.py](make_teaching_assets.py) | 素材生成 + 与 demo 对账 | `uv run python make_teaching_assets.py` → `images/00-后悔匹配.png`、`images/01-收敛曲线.png`、`images/02-策略对照.png`、`images/03-策略收敛.gif` |
 | [project/](project/README.md) | 迁移项目：Leduc 扑克（6 张牌 + 公共牌） | `uv run python project/leduc.py` |
 
 ## 1. 设计原理
@@ -342,7 +351,7 @@ Q 从不下注；p1 面对下注时 Q 跟注 1/3；p2 面对下注时 Q 跟注 1
 2026-10-09 实跑（Python 3.13.9，系统 `python3`）：`python3 demo.py` 四组实验数字见上表；2026-10-21 在 uv 环境（Python 3.13.15）复跑通过——确定性指标与上表一致，耗时随机器浮动（`uv run python demo.py`）；
 `uv run pytest test_impl.py -q` → **17 passed**（含期望收益工具的手算校验、
 终局符号写错的回归测试、CFR+ 后悔非负、信息集不含对手牌）；
-`uv run python make_teaching_assets.py` 对账通过并产出两张图。
+`uv run python make_teaching_assets.py` 对账通过并产出三张图 + 一段收敛动画（概念图 `00-后悔匹配.png`、动画 `03-策略收敛.gif`）。
 
 **可视化结论**：`images/01-收敛曲线.png` 把博弈值随训练量的收敛画在对数横轴上；
 `images/02-策略对照.png` 把 p1/p2 各信息集的学习结果与理论均衡并排，

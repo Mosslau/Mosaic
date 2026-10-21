@@ -123,3 +123,22 @@ def _backpropagate(self, node, reward_for_mover):
 
 **提示**：先跑一遍 `../project` 之外的实验三（`uv run python make_teaching_assets.py` 里有同样的取数函数），
 拿到"纯随机 rollout 下 C=0 最好"的基线，再换成新 rollout 对比。
+
+---
+
+## 参考解运行记录
+
+代码类参考解只用标准库；环境由 uv 管理（在 `algorithms/` 跑一次 `uv sync --extra dev`）：
+
+```bash
+cd algorithms/p01-search/mcts/exercises
+uv run python sol-03-诊断.py
+uv run python sol-04-PUCT.py
+```
+
+**2026-10-21 复跑（uv 环境，Python 3.13.15）观察结果**：
+
+- `sol-03`（回传符号 bug）：40 局制下，正确实现 **39 平 1 负**；把回传符号写反后变成 **4 平 36 负**。
+  两种实现都**不报错、不崩溃**，只能靠「父子符号相反」的不变式测试与固定种子的战绩回归来守。
+- `sol-04`（PUCT vs UCB1，对精确搜索各 40 局）：三档模拟次数合计不输率 **PUCT 88% vs UCB1 83%**；
+  10 次模拟那一档差距最大（68% vs 52%），50/100 次两档都接近 100%——先验把预算用在了该用的分支上。

@@ -17,7 +17,7 @@
   3. **对固定对手**：训练后的策略对"永远弃牌/永远跟注/均匀"能赚多少
   4. **CFR vs CFR+**：同样的训练量，后悔截断（CFR+）带来多少加速
 
-运行：cd algorithms/p01-search/cfr && python3 demo.py
+运行：cd algorithms/p01-search/cfr && uv run python demo.py
 依赖：只用标准库
 """
 

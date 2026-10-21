@@ -10,7 +10,7 @@
 可复用点：`LeducCFR` 演示了**如何给 impl.CFR 接上机会节点**——
 任何带随机事件的博弈都可以照这个模式扩展（覆写 `_walk` 处理转移）。
 
-运行：cd algorithms/p01-search/cfr/project && python3 leduc.py
+运行：cd algorithms/p01-search/cfr/project && uv run python leduc.py
 依赖：只用标准库
 """
 

@@ -18,7 +18,7 @@
 
 运行：
     cd algorithms/p01-search/a-star
-    python3 make_teaching_assets.py     # 需 matplotlib（不依赖仓库 .venv）
+    uv run python make_teaching_assets.py     # 需 matplotlib（uv sync --extra dev 已包含）
 """
 
 from __future__ import annotations
