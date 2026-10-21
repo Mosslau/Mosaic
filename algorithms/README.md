@@ -62,16 +62,24 @@ uv run pytest p01-search/a-star/ -q
 
 ## p02-statistical-ml · 统计机器学习
 
+> 族内学习顺序：线性回归 → 逻辑回归 → 正则化与模型选择 → SVM → 决策树 → 随机森林
+> → Boosting/GBDT → K-Means → PCA → 朴素贝叶斯 → 异常检测。
+> 前六个建立「损失 / 分类 / 划分 / 集成」的主线，正则化补上「泛化」，
+> Boosting 补齐集成里 bagging 之外的另一半，最后三个走向无监督与概率视角。
+
 | 实验 | 章节 | 状态 | 完成日期 |
 |---|---|---|---|
 | [线性回归与梯度下降](p02-statistical-ml/linear-regression/) | 3.2.1 | ⬜ | |
 | [逻辑回归](p02-statistical-ml/logistic-regression/) | 3.2.1 | ⬜ | |
+| [正则化与模型选择](p02-statistical-ml/regularization/) | 3.2.1 | ⬜ | |
 | [支持向量机 SVM](p02-statistical-ml/svm/) | 3.2.2 | ⬜ | |
 | [决策树 ID3/CART](p02-statistical-ml/decision-tree/) | 3.2.3 | ⬜ | |
 | [随机森林](p02-statistical-ml/random-forest/) | 3.3.1 | ⬜ | |
+| [Boosting 与 GBDT](p02-statistical-ml/boosting/) | 3.3.2 | ⬜ | |
 | [K-Means 聚类](p02-statistical-ml/kmeans/) | 3.4.1 | ⬜ | |
 | [PCA 主成分分析](p02-statistical-ml/pca/) | 3.4.2 | ⬜ | |
 | [朴素贝叶斯](p02-statistical-ml/naive-bayes/) | 3.5 | ⬜ | |
+| [异常检测](p02-statistical-ml/anomaly-detection/) | 3.9 | ⬜ | |
 
 ## p03-deep-learning · 深度学习
 
