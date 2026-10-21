@@ -36,7 +36,7 @@
 原则：素材全部由本脚本生成，且与 impl.py 的数字逐项对账。
 产出（images/）：01-概念图.png / 03-对比图.png / 04-动画.gif
 流程图不在这里——优先 Mermaid 直接写进 README（见「Mermaid 优先」）。
-运行：cd algorithms/<族>/<算法名> && ../../../.venv/bin/python make_teaching_assets.py
+运行：cd algorithms/<族>/<算法名> && uv run python make_teaching_assets.py
 """
 
 import os

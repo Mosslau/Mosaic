@@ -152,9 +152,9 @@ flowchart TD
 | [impl.py](impl.py) | 三种求解器 | `CSP(variables, domains, constraints)`；`solve(csp, strategy, var_heuristic, value_heuristic) -> SolveResult` |
 | [baseline.py](baseline.py) | 对照版：穷举 + 随机重启 | `enumerate_all(csp, limit)`、`random_restart(csp, max_tries)` |
 | [demo.py](demo.py) | 八皇后 + 数独，四组实验 | `n_queens(n)`、`sudoku(puzzle)`、四个 `experiment_*` |
-| [test_impl.py](test_impl.py) | 性质测试（含独立合法性验证） | `python3 -m pytest test_impl.py -q` |
-| [make_teaching_assets.py](make_teaching_assets.py) | 素材生成 + 与 demo 对账 | `python3 make_teaching_assets.py` → `images/01-传播的收益.png`、`images/02-启发式对比.png` |
-| [project/](project/README.md) | 迁移项目：真实排班（软硬约束） | `python3 project/shift_scheduling.py` |
+| [test_impl.py](test_impl.py) | 性质测试（含独立合法性验证） | `uv run pytest test_impl.py -q` |
+| [make_teaching_assets.py](make_teaching_assets.py) | 素材生成 + 与 demo 对账 | `uv run python make_teaching_assets.py` → `images/01-传播的收益.png`、`images/02-启发式对比.png` |
+| [project/](project/README.md) | 迁移项目：真实排班（软硬约束） | `uv run python project/shift_scheduling.py` |
 
 ## 1. 设计原理
 
@@ -260,7 +260,7 @@ while 队列非空:
 
 ## 5. 实验结果
 
-**环境**：Python 3.13.9（系统 `python3`），只用标准库；本目录内执行 `python3 demo.py`。
+**环境**：uv 管理的 Python 3.13（先在 `algorithms/` 执行 `uv sync --extra dev`），只用标准库；本目录内执行 `uv run python demo.py`。
 
 ### 实验一：三种策略对比（n 皇后）
 
@@ -326,10 +326,10 @@ while 队列非空:
 **验证声明（已验证）**：输入为 n 皇后（n=8/9/10/11/12，域为 0..n-1）与一个
 21 个已知格的数独；三种策略的记账口径一致（`nodes` = 尝试赋值次数、
 `backtracks` = 回退次数、`propagations` = 传播删值次数）。
-2026-10-09 实跑（Python 3.13.9，系统 `python3`）：`python3 demo.py` 四组实验数字见上表；
-`python3 -m pytest test_impl.py -q` → **30 passed**（含八皇后与数独解的**独立合法性验证**、
+2026-10-09 实跑（Python 3.13.9，系统 `python3`）：`python3 demo.py` 四组实验数字见上表；2026-10-21 在 uv 环境（Python 3.13.15）复跑通过——确定性指标与上表一致，耗时随机器浮动（`uv run python demo.py`）；
+`uv run pytest test_impl.py -q` → **30 passed**（含八皇后与数独解的**独立合法性验证**、
 三种策略的强弱断言、前向检查回滚、AC-3 弧一致、启发式在两个问题上的差异）；
-`python3 make_teaching_assets.py` 对账通过并产出两张图。
+`uv run python make_teaching_assets.py` 对账通过并产出两张图。
 
 **可视化结论**：`images/01-传播的收益.png` 用**对数纵轴**画三种策略的节点数——
 传播每强一档、柱子矮一截，数量级差异一眼可见；

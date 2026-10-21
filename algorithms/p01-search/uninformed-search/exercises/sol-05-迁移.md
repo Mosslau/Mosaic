@@ -18,7 +18,7 @@
 
 所以状态写成 **`(位置, 已花代价)`**，代价是整数 1–9，状态空间 = 位置 × 代价取值。
 
-## 3. 实测（手工对照图，`python3 sol-05-迁移.py`）
+## 3. 实测（手工对照图，`uv run python sol-05-迁移.py`）
 
 ```
     列 0    1    2    3
@@ -61,5 +61,5 @@
 
 ```bash
 cd algorithms/p01-search/uninformed-search/exercises
-python3 sol-05-迁移.py
+uv run python sol-05-迁移.py
 ```

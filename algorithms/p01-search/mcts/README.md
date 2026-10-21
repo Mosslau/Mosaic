@@ -109,10 +109,10 @@ flowchart TD
 | [impl.py](impl.py) | 手写 MCTS（UCB1 + 随机 rollout） | `MCTS(get_moves, apply, is_terminal, winner, rng, exploration)`；`search(state, iterations, root_player) -> action` |
 | [baseline.py](baseline.py) | 两个对照策略 | `random_move(...)`（纯随机）、`greedy_move(...)`（能赢就赢 / 能挡就挡） |
 | [demo.py](demo.py) | 井字棋 + 四组实验 | `TicTacToe`、`play_vs_policy`、四个 `experiment_*` |
-| [test_impl.py](test_impl.py) | 性质测试（含回传符号与独立参考） | `python3 -m pytest test_impl.py -q` |
-| [make_teaching_assets.py](make_teaching_assets.py) | 素材生成 + 与 demo 对账 | `python3 make_teaching_assets.py` → `images/01-收敛曲线.png`、`images/02-探索常数.png` |
+| [test_impl.py](test_impl.py) | 性质测试（含回传符号与独立参考） | `uv run pytest test_impl.py -q` |
+| [make_teaching_assets.py](make_teaching_assets.py) | 素材生成 + 与 demo 对账 | `uv run python make_teaching_assets.py` → `images/01-收敛曲线.png`、`images/02-探索常数.png` |
 | [exercises/](exercises/README.md) | 练习 5 题（分级、题解分离） | 参考解 `sol-01`…`sol-05`；`sol-03` / `sol-04` 可运行 |
-| [project/](project/README.md) | 迁移项目：MCTS vs Alpha-Beta 同盘对打 | `python3 project/mcts_vs_alphabeta.py`（复用 minimax 项目的棋类与两个搜索器） |
+| [project/](project/README.md) | 迁移项目：MCTS vs Alpha-Beta 同盘对打 | `uv run python project/mcts_vs_alphabeta.py`（复用 minimax 项目的棋类与两个搜索器） |
 
 > 本目录没有单独的 `framework.py`：对照就是 `baseline.py` 里的两个策略（搜索族的惯例）。
 
@@ -191,7 +191,7 @@ $$
 
 ## 5. 实验结果
 
-**环境**：Python 3.13.9（系统 `python3`），只用标准库；本目录内执行 `python3 demo.py`。
+**环境**：uv 管理的 Python 3.13（先在 `algorithms/` 执行 `uv sync --extra dev`），只用标准库；本目录内执行 `uv run python demo.py`。
 
 ### 实验一 · 二：对两个基线，迭代次数 → 胜率（MCTS 固定执先手，各 50 局）
 
@@ -248,10 +248,10 @@ $$
 
 **验证声明（已验证）**：输入为 3×3 井字棋，MCTS 固定执先手；对手分别为纯随机、贪心挡招、
 以及 minimax 目录的 `alphabeta(depth=9)`；全部固定随机种子（每局用不同子种子）。
-2026-10-09 实跑（Python 3.13.9，系统 `python3`）：`python3 demo.py` 四组实验数字见上表；
-`python3 -m pytest test_impl.py -q` → **12 passed**（含回传符号的手工小树验证、
+2026-10-09 实跑（Python 3.13.9，系统 `python3`）：`python3 demo.py` 四组实验数字见上表；2026-10-21 在 uv 环境（Python 3.13.15）复跑通过——确定性指标与上表一致，耗时随机器浮动（`uv run python demo.py`）；
+`uv run pytest test_impl.py -q` → **12 passed**（含回传符号的手工小树验证、
 必胜/必挡、对随机 20 局不输、对精确搜索 2000 次全和棋、C=0 边界）；
-`python3 make_teaching_assets.py` 对账通过并产出两张图；`exercises/` 两个可运行参考解实跑通过——`sol-03`（回传符号 bug：正确实现 39 平 1 负、bug 实现 4 平 36 负）、`sol-04`（PUCT vs UCB1 三档合计不输率 88% vs 83%）；`project/mcts_vs_alphabeta.py` 三组实验通过——4×4 同预算 MCTS 6:2 胜 depth=4 的 AB，但同强度下 AB 快 4 倍；5×5 四连上 MCTS 要到 1000 次模拟才追平（50 次时 2:4 落败）。
+`uv run python make_teaching_assets.py` 对账通过并产出两张图；`exercises/` 两个可运行参考解实跑通过——`sol-03`（回传符号 bug：正确实现 39 平 1 负、bug 实现 4 平 36 负）、`sol-04`（PUCT vs UCB1 三档合计不输率 88% vs 83%）；`project/mcts_vs_alphabeta.py` 三组实验通过——4×4 同预算 MCTS 6:2 胜 depth=4 的 AB，但同强度下 AB 快 4 倍；5×5 四连上 MCTS 要到 1000 次模拟才追平（50 次时 2:4 落败）。
 
 **可视化结论**：`images/01-收敛曲线.png`（对数横轴上两条曲线：对贪心对手 5→20 次就从 48% 到 100%，
 对精确搜索要到 100 次以上才打满）与 `images/02-探索常数.png`（C=0 在不给次数时最高）共同说明：

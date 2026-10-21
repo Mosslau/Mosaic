@@ -48,5 +48,5 @@ PUCT(s,a) = Q(s,a) + C · P(s,a) · √N / (1 + n)
 
 ```bash
 cd algorithms/p01-search/mcts/exercises
-python3 sol-04-PUCT.py
+uv run python sol-04-PUCT.py
 ```

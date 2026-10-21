@@ -2,7 +2,7 @@
 
 > 这是「五级能力清单」第 5 级（迁移）的证据。教学目录指出了 BFS/UCS 的**内存瓶颈**
 > （边界要装下整整一层），本项目就是把那条线走完：**当内存扛不住时怎么办。**
-> 运行（本目录内）：`python3 eight_puzzle.py`（只用标准库）
+> 运行（本目录内）：`uv run python eight_puzzle.py`（只用标准库）
 
 ## 需求
 
@@ -38,7 +38,7 @@
 
 ## 实测结果（已验证）
 
-**环境**：Python 3.13.9（系统 `python3`），只用标准库；本目录内执行 `python3 eight_puzzle.py`。
+**环境**：uv 管理的 Python 3.13（先在 `algorithms/` 执行 `uv sync --extra dev`），只用标准库；本目录内执行 `uv run python eight_puzzle.py`。
 
 ### 实验一：可解性与最优性（深度必须一致）
 

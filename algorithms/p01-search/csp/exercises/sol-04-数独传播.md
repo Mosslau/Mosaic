@@ -40,5 +40,5 @@
 
 ```bash
 cd algorithms/p01-search/csp/exercises
-python3 sol-04-数独传播.py
+uv run python sol-04-数独传播.py
 ```

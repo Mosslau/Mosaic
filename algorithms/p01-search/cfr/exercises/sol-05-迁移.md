@@ -14,7 +14,7 @@
 
 实测规模：**信息集 12 → 144（12 倍）、发牌 6 → 120（20 倍）**。
 
-## 实测（`python3 sol-05-迁移.py`）
+## 实测（`uv run python sol-05-迁移.py`）
 
 | 训练量 | 对均匀随机的收益 | 耗时（秒） |
 |---|---|---|
@@ -46,5 +46,5 @@
 
 ```bash
 cd algorithms/p01-search/cfr/exercises
-python3 sol-05-迁移.py
+uv run python sol-05-迁移.py
 ```

@@ -2,7 +2,7 @@
 
 > 这是「五级能力清单」第 5 级（迁移）的证据：教学目录用的是 3×3 井字棋——**最多 9 手、能搜到终局**，
 > 所以 `evaluate()` 只要判胜负就够。本项目换一个**搜不到终局**的棋类，补上"深度限制 + 启发式评估"。
-> 运行（本目录内）：`python3 connect4_search.py`（只用标准库，不需要 numpy / matplotlib）
+> 运行（本目录内）：`uv run python connect4_search.py`（只用标准库，不需要 numpy / matplotlib）
 
 ## 需求
 
@@ -37,7 +37,7 @@
 
 ## 实测结果（已验证）
 
-**环境**：Python 3.13.9（系统 `python3`），只用标准库；本目录内执行 `python3 connect4_search.py`。
+**环境**：uv 管理的 Python 3.13（先在 `algorithms/` 执行 `uv sync --extra dev`），只用标准库；本目录内执行 `uv run python connect4_search.py`。
 
 ### 实验一：深度的代价（5×5 四连，空棋盘）
 

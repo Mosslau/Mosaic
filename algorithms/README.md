@@ -23,6 +23,23 @@
 **手写 vs 对照原则**：每个实验必须同时跑手写版和对照版（框架或基线），对比指标与耗时，
 分析差异原因——手写理解原理，对照理解工程。
 
+## 运行环境（uv）
+
+本目录用 [uv](https://docs.astral.sh/uv/) 管理 Python 与依赖：依赖声明在 [`pyproject.toml`](pyproject.toml)，
+解释器版本锁在 [`.python-version`](.python-version)（3.13），精确版本锁在 [`uv.lock`](uv.lock)。
+`.venv/` 由 uv 生成、不入库（见仓库根 `.gitignore`）。
+
+```bash
+cd algorithms
+uv sync --extra dev                          # 首次：建 .venv，装 numpy / matplotlib / scikit-learn + pytest / ruff
+uv run python p01-search/a-star/demo.py      # 在项目环境里跑，无需 activate
+uv run pytest p01-search/a-star/ -q
+```
+
+各实验 README 的命令一律带 `uv run` 前缀；在 `algorithms/` 或该实验目录下执行均可
+（uv 会向上找到 `algorithms/pyproject.toml`）。历史验证记录里保留的 `python3` / `.venv/bin/python`
+是当时的复现痕迹，不代表现在的推荐用法。
+
 ## p01-search · 符号主义与搜索
 
 > 族内学习顺序：无信息搜索 → A* → Minimax/Alpha-Beta → MCTS → CFR → CSP。

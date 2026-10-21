@@ -42,5 +42,5 @@
 
 ```bash
 cd algorithms/p01-search/minimax-alphabeta/exercises
-python3 sol-04-迭代加深.py
+uv run python sol-04-迭代加深.py
 ```

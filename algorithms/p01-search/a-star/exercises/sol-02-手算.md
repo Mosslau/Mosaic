@@ -33,7 +33,7 @@ S . .
 复算方式（本目录内执行，`impl` 是 `../impl.py` 的手写 A*；只用标准库）：
 
 ```bash
-python3 -c "
+uv run python -c "
 import sys; sys.path.insert(0, '..')
 from impl import solve
 grid = [[0,0,0],[0,1,0],[0,0,0]]

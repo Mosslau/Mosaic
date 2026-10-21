@@ -99,7 +99,7 @@ def _backpropagate(self, node, reward_for_mover):
    - 与 `impl.MCTS`（同迭代数）相比，**不输率不低于它**；
 4. 打印一张对照表：`UCB1` vs `PUCT` 在 `iterations ∈ {10, 50, 100}` 上的和棋 / 负。
 
-**验收标准**：脚本能独立运行（`python3 sol-04-PUCT.py`），断言全部通过，并打印对照表。
+**验收标准**：脚本能独立运行（`uv run python sol-04-PUCT.py`），断言全部通过，并打印对照表。
 
 **提示**：UCB1 的问题在实验三里已经暴露（探索项与总次数强耦合）。PUCT 把"均匀探索"换成
 "按先验探索"，这就是 AlphaZero 的选择规则。先验不必很强，**有方向就行**。
@@ -121,5 +121,5 @@ def _backpropagate(self, node, reward_for_mover):
 
 **验收标准**：给出实测表格与解释；结论要落到"组件改动会改变最优超参数"这一点上。
 
-**提示**：先跑一遍 `../project` 之外的实验三（`python3 make_teaching_assets.py` 里有同样的取数函数），
+**提示**：先跑一遍 `../project` 之外的实验三（`uv run python make_teaching_assets.py` 里有同样的取数函数），
 拿到"纯随机 rollout 下 C=0 最好"的基线，再换成新 rollout 对比。

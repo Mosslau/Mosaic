@@ -71,7 +71,7 @@
 
 ```bash
 cd algorithms/p01-search/minimax-alphabeta/exercises
-python3 sol-02-手算.py
+uv run python sol-02-手算.py
 ```
 
 程序会打印：两版的 (招法, 分数)、展开的叶子列表、被剪掉的分支，以及逐招法的取值。

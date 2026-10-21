@@ -102,7 +102,7 @@ for move in moves:
    - 每层选出的招法分数与 `impl.alphabeta` 在**该深度**下的结果一致；
    - 加置换表之后，总访问节点数**不多于**不加的情况。
 
-**验收标准**：脚本能独立运行（`python3 sol-04-迭代加深.py`），自检断言全部通过，并打印逐层表格。
+**验收标准**：脚本能独立运行（`uv run python sol-04-迭代加深.py`），自检断言全部通过，并打印逐层表格。
 
 **提示**：置换表的键用 `(tuple(board), player, depth, maximizing)`——只缓存"完整搜完"的层；`demo.TicTacToe` 可以直接复用。
 
@@ -131,10 +131,10 @@ for move in moves:
 
 ```bash
 cd algorithms/p01-search/minimax-alphabeta/exercises
-python3 sol-02-手算.py
-python3 sol-03-诊断.py
-python3 sol-04-迭代加深.py
-python3 sol-05-威胁评估.py
+uv run python sol-02-手算.py
+uv run python sol-03-诊断.py
+uv run python sol-04-迭代加深.py
+uv run python sol-05-威胁评估.py
 ```
 
 **2026-10-09 实跑（Python 3.13.9，系统 `python3`）观察结果**：

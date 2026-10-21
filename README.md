@@ -26,7 +26,7 @@
 
 ```bash
 # 前置：Python ≥ 3.11（algorithms/pyproject.toml 的 requires-python；默认 python3 可能是 3.9）
-# 需要跑 pytest 时先建环境：python3 -m venv .venv && .venv/bin/pip install -e algorithms[dev]
+# 算法环境用 uv 管理：cd algorithms && uv sync --extra dev（详见 algorithms/README.md「运行环境」）
 
 # ① 语言域：章节契约 + 悬空链接 + 构建产物纪律
 python3 .dsh/skills/tenetlang-notes/scripts/validate.py --links

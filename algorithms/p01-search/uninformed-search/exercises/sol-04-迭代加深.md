@@ -19,7 +19,7 @@ for limit in range(1, max_depth + 1):
 2. **不回走**：排除掉路径上的父节点，否则会立刻原地打转（`nb in path` 已覆盖）。
 3. **每轮都从头开始**：这就是"重复搜索浅层"的来源，也是它比 BFS 扩展更多节点的原因。
 
-## 实测（`python3 sol-04-迭代加深.py`）
+## 实测（`uv run python sol-04-迭代加深.py`）
 
 | 图 | 算法 | 步数 | 扩展 | 内存量 | 耗时(ms) |
 |---|---|---|---|---|---|
@@ -62,5 +62,5 @@ for limit in range(1, max_depth + 1):
 
 ```bash
 cd algorithms/p01-search/uninformed-search/exercises
-python3 sol-04-迭代加深.py
+uv run python sol-04-迭代加深.py
 ```

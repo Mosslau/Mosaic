@@ -45,5 +45,5 @@
 
 ```bash
 cd algorithms/p01-search/csp/exercises
-python3 sol-05-迁移.py
+uv run python sol-05-迁移.py
 ```

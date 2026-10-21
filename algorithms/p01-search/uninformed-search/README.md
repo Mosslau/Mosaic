@@ -168,9 +168,9 @@ flowchart TD
 | [impl.py](impl.py) | 三个算法的手写实现（共用一套骨架） | `dfs / bfs / ucs(grid, start, goal, [cost_of]) -> SearchResult` |
 | [baseline.py](baseline.py) | 对照版：A\* 参考 | `astar_reference(grid01, start, goal, tie_break) -> AstarResult`、`to_astar_grid(grid)` |
 | [demo.py](demo.py) | 同图对比入口 | `make_grid / make_terrain`、五个 `experiment_*` |
-| [test_impl.py](test_impl.py) | 性质测试（含独立参考对拍） | `python3 -m pytest test_impl.py -q` |
-| [make_teaching_assets.py](make_teaching_assets.py) | 素材生成 + 与 demo 对账 | `python3 make_teaching_assets.py` → `images/01-扩展顺序.png`、`images/02-代价与内存.png` |
-| [project/](project/README.md) | 迁移项目：迭代加深 + IDA\* 解 8 数码 | `python3 project/eight_puzzle.py` |
+| [test_impl.py](test_impl.py) | 性质测试（含独立参考对拍） | `uv run pytest test_impl.py -q` |
+| [make_teaching_assets.py](make_teaching_assets.py) | 素材生成 + 与 demo 对账 | `uv run python make_teaching_assets.py` → `images/01-扩展顺序.png`、`images/02-代价与内存.png` |
+| [project/](project/README.md) | 迁移项目：迭代加深 + IDA\* 解 8 数码 | `uv run python project/eight_puzzle.py` |
 
 > 本目录里 `baseline.py` 的角色是"**对照 A\***"——因为这个实验本身是 A\* 的基线。
 
@@ -296,7 +296,7 @@ h 一致时 IDA\* 既最优又线性内存（实测收益见 [project/](project/
 
 ## 5. 实验结果
 
-**环境**：Python 3.13.9（系统 `python3`），只用标准库；本目录内执行 `python3 demo.py`。
+**环境**：uv 管理的 Python 3.13（先在 `algorithms/` 执行 `uv sync --extra dev`），只用标准库；本目录内执行 `uv run python demo.py`。
 
 ### 实验一：5×5 小图上的取出顺序（教学示例）
 
@@ -319,7 +319,7 @@ BFS 与 UCS 的扩展数完全相同（无权图上等价），且都给出最�
 | BFS | 267 | 17 | **38.4** | 0.17 |
 | UCS | 267 | **16** | **38.4** | 0.24 |
 
-逐图数字（节选，完整见 `python3 demo.py` 输出）：
+逐图数字（节选，完整见 `uv run python demo.py` 输出）：
 
 | 地图 | 算法 | 步数 | 扩展 | 内存尖峰 |
 |---|---|---|---|---|
@@ -383,11 +383,11 @@ BFS 与 UCS 的扩展数完全相同（无权图上等价），且都给出最�
 拒绝采样 + 连通性洪泛保证起点 (1,1) 与终点 (19,19) 之间必有路）、
 5×5 教学小图（`seed=3`）、以及带权地形图（进入代价 1–9，`seed=200..204`）；
 三个算法的记账口径一致（`expanded` = 取出次数、`peak_frontier` = 边界规模峰值）。
-2026-10-09 实跑（Python 3.13.9，系统 `python3`）：`python3 demo.py` 五组实验数字见上表；
-`python3 -m pytest test_impl.py -q` → **21 passed**（含 BFS 对 A\* 实验独立参考
+2026-10-09 实跑（Python 3.13.9，系统 `python3`）：`python3 demo.py` 五组实验数字见上表；2026-10-21 在 uv 环境（Python 3.13.15）复跑通过——确定性指标与上表一致，耗时随机器浮动（`uv run python demo.py`）；
+`uv run pytest test_impl.py -q` → **21 passed**（含 BFS 对 A\* 实验独立参考
 `bfs_shortest_cost` 的差分验证、UCS 对 Bellman-Ford 式独立松弛的验证、
 DFS 顺序依赖、起点即终点 / 无解 / 非法入参）；
-`python3 make_teaching_assets.py` 对账通过并产出两张图。
+`uv run python make_teaching_assets.py` 对账通过并产出两张图。
 
 **可视化结论**：`images/01-扩展顺序.png` 把同一张 5×5 图上三个算法的**逐步取出顺序**
 画成热力图——DFS 是一条插到底的线，BFS/UCS 是一圈圈的水波（且在无权图上两者完全重合）；

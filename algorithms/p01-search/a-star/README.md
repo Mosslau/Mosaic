@@ -165,10 +165,10 @@ S . . . .        S = 起点 (0,0)
 
 ## 8. 自己动手：三个小实验
 
-命令（在 `algorithms/p01-search/a-star/` 目录下执行；本实验只用标准库，系统 `python3` ≥ 3.10 即可）：
+命令（首次先 `cd algorithms && uv sync --extra dev` 建环境；本实验只用标准库。下面各命令在 `algorithms/p01-search/a-star/` 目录内执行）：
 
 ```bash
-python3 demo.py    # 跑进阶篇的三个实验，直接看输出
+uv run python demo.py    # 跑进阶篇的三个实验，直接看输出
 ```
 
 | 实验 | 怎么改 | 预期观察 |
@@ -182,8 +182,8 @@ python3 demo.py    # 跑进阶篇的三个实验，直接看输出
 改完代码跑一次测试确认没改坏（28 个用例）：
 
 ```bash
-cd ../../..                    # 回到仓库根
-python3 -m pytest algorithms/p01-search/a-star/ -q
+cd ../..                       # 回到 algorithms/
+uv run pytest p01-search/a-star/ -q
 ```
 
 ## 9. 掌握清单：五级能力与自测
@@ -333,7 +333,7 @@ w ≤ 2 时仍命中最优代价（扩展数已降 29%）；w = 3 起为代价�
 
 **验证声明（已验证）**：输入为 21×21 网格、30% 障碍率、`seed=42`（拒绝采样 + BFS 洪泛保证起点 (1,1) 与终点 (19,19) 连通）。
 
-> 环境说明：实验本体（`demo.py` / `test_impl.py` / 练习参考解）只用标准库，系统 `python3`（≥ 3.10）即可；`make_teaching_assets.py` 与 `project/terrain_astar.py` 额外需要 matplotlib（后者另需 numpy）。仓库**不随附** `.venv`（`.venv/` 在 `.gitignore` 内，非仓库内容），下列历史记录里的 `.venv/bin/python` 是当时本机存在的虚拟环境，与今天的 `python3` 同义。
+> 环境说明：本仓库用 **uv** 管理环境——`algorithms/` 下有 `pyproject.toml` + `.python-version`（3.13）+ `uv.lock`；首次执行 `cd algorithms && uv sync --extra dev` 会按 lock 建出 `.venv/` 并装好依赖（`.venv/` 已被 `.gitignore` 忽略，不随仓库分发）。此后命令统一写成 `uv run ...`，无需事先 activate。实验本体（`demo.py` / `test_impl.py` / 练习参考解）只用标准库；`make_teaching_assets.py` 与 `project/terrain_astar.py` 额外需要 matplotlib（后者另需 numpy），都已在 `uv sync --extra dev` 装好。下列历史记录保留当时的 `.venv/bin/python` / `python3` 写法，是复现痕迹，不随本次口径改写。
 
 - **2026-09-14 基线**：Python 3.13.12（仓库 `.venv`，`.python-version` 锁定 3.13），本目录内执行 `.venv/bin/python demo.py` → 实验一 `path_cost` 46、`nodes_expanded` 214 vs 239（当时仅 A\*(insertion) 与 Dijkstra 两列）；实验二两地图的最优代价断言通过；实验三代价 46/46/48/58。
 - **2026-09-27 复跑**（Python 3.12.3，无 `.venv`）：实验一代价全 46、扩展数 214/199/239；实验二/三与上表一致；测试 17 例，本环境无 pytest，用等价 harness 逐例执行 17/17 通过。
@@ -348,7 +348,7 @@ w ≤ 2 时仍命中最优代价（扩展数已降 29%）；w = 3 起为代价�
 
 **可视化结论**：ASCII 渲染中 Dijkstra 的 closed 集向四周铺开，A* 的 closed 集朝终点方向明显拉伸——**启发式把搜索从"全向膨胀"拉成"定向收缩"**。同一现象在 `images/03-四种策略对比.png`（四策略搜索范围）与 `images/04-搜索动画.gif`（Dijkstra vs A* 逐步扩展）中可直接看到。
 
-**素材与掌握层复现**：素材——本目录内执行 `python3 make_teaching_assets.py`（需 matplotlib；重新生成 `images/`，并打印「基础篇 · 手算示例」节的手算步骤表）；掌握层——`exercises/sol-04-八邻域.py`、`exercises/sol-05-八数码.py`、`project/terrain_astar.py` 均可独立运行（2026-10-09 复跑通过，见各自 README 的运行记录）。
+**素材与掌握层复现**：素材——本目录内执行 `uv run python make_teaching_assets.py`（需 matplotlib；重新生成 `images/`，并打印「基础篇 · 手算示例」节的手算步骤表）；掌握层——`exercises/sol-04-八邻域.py`、`exercises/sol-05-八数码.py`、`project/terrain_astar.py` 均可独立运行（2026-10-09 复跑通过，见各自 README 的运行记录）。
 
 ## 6. 局限与延伸
 

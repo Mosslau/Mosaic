@@ -2,7 +2,7 @@
 
 > 这是「五级能力清单」第 5 级（迁移）的证据。教学目录解的是**纯硬约束、有唯一解**的
 > 玩具问题（八皇后、数独）；真实排班不一样：约束更多、常常无解、而且**要的是"最不坏"而不是"可行"**。
-> 运行（本目录内）：`python3 shift_scheduling.py`（只用标准库，复用 `../impl.py`）
+> 运行（本目录内）：`uv run python shift_scheduling.py`（只用标准库，复用 `../impl.py`）
 
 ## 需求
 
@@ -42,7 +42,7 @@
 
 ## 实测结果（已验证）
 
-**环境**：Python 3.13.9（系统 `python3`），只用标准库；本目录内执行 `python3 shift_scheduling.py`。
+**环境**：uv 管理的 Python 3.13（先在 `algorithms/` 执行 `uv sync --extra dev`），只用标准库；本目录内执行 `uv run python shift_scheduling.py`。
 
 ### 第一步：硬约束可行解
 

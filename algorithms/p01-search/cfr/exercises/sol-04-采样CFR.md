@@ -48,5 +48,5 @@ class SampledCFR(CFR):
 
 ```bash
 cd algorithms/p01-search/cfr/exercises
-python3 sol-04-采样CFR.py
+uv run python sol-04-采样CFR.py
 ```

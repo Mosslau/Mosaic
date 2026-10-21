@@ -138,9 +138,9 @@ O . .        → 走 (0,2) 立刻三连，赢
 |---|---|---|
 | [impl.py](impl.py) | 手写两版：朴素 minimax + Alpha-Beta | `minimax(...) -> (move, score)`、`alphabeta(..., alpha, beta, ...) -> (move, score)`、`best_move(...)`（默认走剪枝版） |
 | [demo.py](demo.py) | 井字棋规则 + 三个实验 | `TicTacToe`（`get_moves` / `apply` / `evaluate` / `is_terminal`）、`run_with_counter`、`bench` |
-| [test_impl.py](test_impl.py) | 性质测试（含独立参考对拍） | `python3 -m pytest test_impl.py -q` |
-| [make_teaching_assets.py](make_teaching_assets.py) | 教学素材生成 + 与 demo 数字对账 | `python3 make_teaching_assets.py` → `images/01-剪枝示意.png`、`images/02-剪枝随深度.png` |
-| [project/](project/README.md) | 迁移项目：四子连珠 + 深度限制 + 自对弈评测 | `python3 project/connect4_search.py` |
+| [test_impl.py](test_impl.py) | 性质测试（含独立参考对拍） | `uv run pytest test_impl.py -q` |
+| [make_teaching_assets.py](make_teaching_assets.py) | 教学素材生成 + 与 demo 数字对账 | `uv run python make_teaching_assets.py` → `images/01-剪枝示意.png`、`images/02-剪枝随深度.png` |
+| [project/](project/README.md) | 迁移项目：四子连珠 + 深度限制 + 自对弈评测 | `uv run python project/connect4_search.py` |
 
 > 本目录没有 `baseline.py`：对照就是 impl 里的朴素 minimax（剪枝版 vs 不剪枝版）。
 
@@ -210,7 +210,7 @@ min 层对称（维护 $\beta \leftarrow \min(\beta, v)$，同样在 $\beta \le 
 
 ## 5. 实验结果
 
-**环境**：Python 3.13.9（系统 `python3`）。实验本体（`demo.py` / `test_impl.py`）只用标准库；素材生成需要 matplotlib。复现：`python3 demo.py`（三张实验表）与 `python3 make_teaching_assets.py`（重生成 `images/`，脚本内与 `demo.bench` 逐档对账）。
+**环境**：uv 管理的 Python 3.13（先在 `algorithms/` 执行 `uv sync --extra dev`，含 matplotlib）。实验本体（`demo.py` / `test_impl.py`）只用标准库。复现：`uv run python demo.py`（三张实验表）与 `uv run python make_teaching_assets.py`（重生成 `images/`，脚本内与 `demo.bench` 逐档对账）。
 
 ### 实验一：空棋盘主对照（depth=9，搜到终局）
 

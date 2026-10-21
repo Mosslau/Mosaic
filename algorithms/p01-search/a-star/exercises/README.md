@@ -90,12 +90,12 @@ S . .
 
 ## 参考解运行记录
 
-代码类参考解只用标准库，**不依赖仓库 `.venv`**（`.venv/` 在 `.gitignore` 内、不随仓库分发）：
+代码类参考解只用标准库；环境由 uv 管理（在 `algorithms/` 跑一次 `uv sync --extra dev`，`.venv/` 本身不入库）：
 
 ```bash
 cd algorithms/p01-search/a-star/exercises
-python3 sol-04-八邻域.py
-python3 sol-05-八数码.py
+uv run python sol-04-八邻域.py
+uv run python sol-05-八数码.py
 ```
 
 **2026-10-09 复跑（Python 3.13.9，系统 `python3`）观察结果**：

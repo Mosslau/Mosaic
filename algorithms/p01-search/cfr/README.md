@@ -154,9 +154,9 @@ flowchart TD
 | [impl.py](impl.py) | 手写 CFR（含 CFR+ 开关） | `CFR(terminal, payoff_p1, actions, infoset, plus=False)`；`train(deals, iterations)`；`average_strategy()` |
 | [baseline.py](baseline.py) | 对照版：均匀随机 + 三个固定对手 | `uniform_strategy()`、`FIXED_OPPONENTS` |
 | [demo.py](demo.py) | 库恩扑克 + 四组实验 | `make_cfr`、`ev_average`、`best_response_p2`、四个 `experiment_*` |
-| [test_impl.py](test_impl.py) | 性质测试（含符号回归） | `python3 -m pytest test_impl.py -q` |
-| [make_teaching_assets.py](make_teaching_assets.py) | 素材生成 + 与 demo 对账 | `python3 make_teaching_assets.py` → `images/01-收敛曲线.png`、`images/02-策略对照.png` |
-| [project/](project/README.md) | 迁移项目：Leduc 扑克（6 张牌 + 公共牌） | `python3 project/leduc.py` |
+| [test_impl.py](test_impl.py) | 性质测试（含符号回归） | `uv run pytest test_impl.py -q` |
+| [make_teaching_assets.py](make_teaching_assets.py) | 素材生成 + 与 demo 对账 | `uv run python make_teaching_assets.py` → `images/01-收敛曲线.png`、`images/02-策略对照.png` |
+| [project/](project/README.md) | 迁移项目：Leduc 扑克（6 张牌 + 公共牌） | `uv run python project/leduc.py` |
 
 ## 1. 设计原理
 
@@ -255,7 +255,7 @@ $$
 
 ## 5. 实验结果
 
-**环境**：Python 3.13.9（系统 `python3`），只用标准库；本目录内执行 `python3 demo.py`。
+**环境**：uv 管理的 Python 3.13（先在 `algorithms/` 执行 `uv sync --extra dev`），只用标准库；本目录内执行 `uv run python demo.py`。
 
 ### 实验一：训练量 → 博弈值 / 关键频率
 
@@ -339,10 +339,10 @@ Q 从不下注；p1 面对下注时 Q 跟注 1/3；p2 面对下注时 Q 跟注 1
 
 **验证声明（已验证）**：输入为库恩扑克（3 张牌 J/Q/K、一轮下注、各下 1 注底池），
 遍历全部 6 种发牌作为一次训练轮；对照是教科书解析解（博弈值 −1/18）。
-2026-10-09 实跑（Python 3.13.9，系统 `python3`）：`python3 demo.py` 四组实验数字见上表；
-`python3 -m pytest test_impl.py -q` → **17 passed**（含期望收益工具的手算校验、
+2026-10-09 实跑（Python 3.13.9，系统 `python3`）：`python3 demo.py` 四组实验数字见上表；2026-10-21 在 uv 环境（Python 3.13.15）复跑通过——确定性指标与上表一致，耗时随机器浮动（`uv run python demo.py`）；
+`uv run pytest test_impl.py -q` → **17 passed**（含期望收益工具的手算校验、
 终局符号写错的回归测试、CFR+ 后悔非负、信息集不含对手牌）；
-`python3 make_teaching_assets.py` 对账通过并产出两张图。
+`uv run python make_teaching_assets.py` 对账通过并产出两张图。
 
 **可视化结论**：`images/01-收敛曲线.png` 把博弈值随训练量的收敛画在对数横轴上；
 `images/02-策略对照.png` 把 p1/p2 各信息集的学习结果与理论均衡并排，

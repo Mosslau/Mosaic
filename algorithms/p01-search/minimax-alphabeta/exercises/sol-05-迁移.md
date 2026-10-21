@@ -41,7 +41,7 @@
 
 ```bash
 cd algorithms/p01-search/minimax-alphabeta/exercises
-python3 sol-05-威胁评估.py
+uv run python sol-05-威胁评估.py
 ```
 
 结果对随机种子敏感（脚本内固定 `Random(11)`），换种子应观察到**同一方向**的结论，

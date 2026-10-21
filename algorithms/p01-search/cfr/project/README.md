@@ -2,7 +2,7 @@
 
 > 这是「五级能力清单」第 5 级（迁移）的证据：教学目录在**库恩扑克**上把 CFR 讲透了，
 > 本项目把它迁移到**牌有重复 + 有公共牌 + 两轮下注**的 Leduc 扑克上。
-> 运行（本目录内）：`python3 leduc.py`（只用标准库，复用 `../impl.py` 的 CFR）
+> 运行（本目录内）：`uv run python leduc.py`（只用标准库，复用 `../impl.py` 的 CFR）
 
 ## 需求
 
@@ -40,7 +40,7 @@ Leduc 规则：牌堆 6 张（J/Q/K 各 2 张）；两人各 1 张私有牌；�
 
 ## 实测结果（已验证）
 
-**环境**：Python 3.13.9（系统 `python3`），只用标准库；本目录内执行 `python3 leduc.py`。
+**环境**：uv 管理的 Python 3.13（先在 `algorithms/` 执行 `uv sync --extra dev`），只用标准库；本目录内执行 `uv run python leduc.py`。
 
 ### 实验一：训练成本
 

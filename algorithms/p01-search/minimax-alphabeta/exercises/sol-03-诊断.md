@@ -73,5 +73,5 @@ for move in moves:
 
 ```bash
 cd algorithms/p01-search/minimax-alphabeta/exercises
-python3 sol-03-诊断.py
+uv run python sol-03-诊断.py
 ```
