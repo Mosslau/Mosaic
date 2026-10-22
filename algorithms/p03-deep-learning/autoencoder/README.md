@@ -1,6 +1,8 @@
 # 自编码器 AutoEncoder
 
 > 状态：⬜ 未开始
+> 计划与补强范围见 [族级导读](../README.md)
+> 深度模型（无监督）：入口 `AutoEncoder(latent_dim).fit(X)` / `encode(X)` / `reconstruct(X)`，实现在 [impl.py](impl.py)；对照是 [framework.py](framework.py) 的 PyTorch 对称 MLP。
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 4.5 章
 
 ## 设计原理
@@ -28,3 +30,9 @@
 ## 局限与延伸
 
 （这个算法的边界在哪里？它引出了哪个后续算法？）
+
+## 计划补强（P1）
+
+- digits 8×8 上把瓶颈压到 2 维，与 PCA 的二维投影并排比较；
+- 可选 **denoising AE**（加噪→重建），检验表示是否抓到结构；
+- 重构误差 + 表示可视化，不追求生成质量。

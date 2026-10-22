@@ -84,6 +84,12 @@ uv run pytest p01-search/a-star/ -q
 
 ## p03-deep-learning · 深度学习
 
+> 族内学习顺序：感知机 → MLP/反向传播 → CNN → RNN/LSTM → AutoEncoder → GAN。
+> 前两个建立「可学习非线性 + 反向传播」的主线，CNN/RNN 补上空间与时间结构，
+> AutoEncoder/GAN 走向无监督表示与生成。
+> 与 p02 的对照：人工特征 → 表示学习；与 p04 的接力：RNN → 注意力。
+> 族级导读（6 个实验什么关系、该读哪个、开工前的补强计划）：[p03-deep-learning/README.md](p03-deep-learning/README.md)。
+
 | 实验 | 章节 | 状态 | 完成日期 |
 |---|---|---|---|
 | [感知机](p03-deep-learning/perceptron/) | 4.2 | ⬜ | |

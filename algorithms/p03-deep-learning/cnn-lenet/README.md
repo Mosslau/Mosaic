@@ -1,6 +1,8 @@
 # 卷积神经网络 LeNet
 
 > 状态：⬜ 未开始
+> 计划与补强范围见 [族级导读](../README.md)
+> 深度模型（判别式）：入口 `LeNet(n_classes, lr, epochs).fit(X, y)` / `predict(X)`，实现在 [impl.py](impl.py)；对照是 [framework.py](framework.py) 的 PyTorch LeNet。
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 4.3.1 章
 
 ## 设计原理
@@ -28,3 +30,9 @@
 ## 局限与延伸
 
 （这个算法的边界在哪里？它引出了哪个后续算法？）
+
+## 计划补强（P1）
+
+- 实验五：LeNet vs +BatchNorm vs +残差，比较收敛速度与测试准确率；
+- 可选小项：**1×1 卷积 / 深度可分离卷积**，看参数效率（不碰检测/分割）；
+- 默认用 sklearn digits（8×8），不依赖 MNIST 下载。
