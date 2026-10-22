@@ -1,6 +1,6 @@
 # p03-deep-learning · 深度学习族
 
-> 状态：**2/6 完成（感知机、MLP ✅，其余为骨架）**
+> 状态：**3/6 完成（感知机、MLP、LeNet ✅，其余为骨架）**
 > 对应路线：`../docs/人工智能代表算法演进路线.md` 第四章（4.2–4.6）
 > 族内顺序：感知机 → MLP/反向传播 → CNN → RNN/LSTM → AutoEncoder → GAN
 > 本族 6 个实验，占全仓库 29 个实验中的 6 个；逐实验入口见 [`algorithms/README.md`](../README.md)。
@@ -22,7 +22,7 @@
 |---|---|---|---|---|---|---|
 | 1 | [感知机](perceptron/) | 4.2 | 合成二维 | 在线错误驱动更新、收敛定理 | 线性可分/不可分对照 | ✅ |
 | 2 | [MLP 与手写反向传播](mlp-backprop/) | 4.2 | digits / 小表格 | 链式法则、softmax/CE | **优化器、初始化、正则、LR schedule、batch size** | ✅ |
-| 3 | [LeNet](cnn-lenet/) | 4.3.1 | digits 8×8 | im2col、池化路由 | **BatchNorm、残差（可选 1×1/深度可分离）** | ⬜ |
+| 3 | [LeNet](cnn-lenet/) | 4.3.1 | digits 8×8 | im2col、池化路由 | **BN/残差；范围=CNN 原理，不含现代 backbone** | ✅ |
 | 4 | [RNN 与 LSTM](rnn-lstm/) | 4.4 | 合成序列 | BPTT、门控 | **梯度裁剪、长序列对照、梯度范数-T 曲线** | ⬜ |
 | 5 | [AutoEncoder](autoencoder/) | 4.5 | digits 8×8 | 重构、瓶颈表示 | **与 PCA 的二维对照（可选 denoising）** | ⬜ |
 | 6 | [GAN](gan/) | 4.6 | 2D 高斯 + digits | 交替对抗、非饱和损失 | **模式崩塌/多样性评估** | ⬜ |
@@ -185,15 +185,20 @@ uv run python p03-deep-learning/perceptron/demo.py
 ## 11. 不在本族范围
 
 - **4.3.2–4.3.4**：轻量 CNN、目标检测、图像分割——工程分支，不塞进原理族；
+- **4.3.1 的现代分类网络**（AlexNet/VGG/ResNet/EfficientNet）不在 LeNet 实验：
+  LeNet 只讲 CNN 的卷积/池化/反传机制；现代 backbone、数据增强、迁移学习需要
+  28×28/CIFAR-10 级数据与更长训练，另开视觉专题；
 - **4.7 图神经网络 GNN**、**4.8 深度强化学习**：单独的能力层，后续按需开族；
 - **Transformer/注意力**：属于 [p04-transformer](../p04-transformer/)，本族不重复。
 
 ## 12. 状态与后续
 
-- 当前 **2/6**（感知机、MLP 完成）；下一步 CNN；
+- 当前 **3/6**（感知机、MLP、LeNet 完成）；下一步 RNN/LSTM；
 - 每个实验完成后同步：本表状态、[`algorithms/README.md`](../README.md) 索引、根 README 计数；
 - 遗留项统一记在本文件"补强"表和 `.dsh/memory/`，不散落在各实验。
 - **感知机遗留**：torch 版只验证“线性可分”一致性；XOR/重叠/项目仍用 sklearn；
   `TorchPerceptron` 输入校验比手写版少；`margin` 只在同一原始空间内可比。
 - **MLP 遗留**：dropout/L2 的反向没有有限差分测试；`TorchMLP` 早停不恢复最优权重；
   `y`/torch 输入校验不完整；只验证 8×8 digits。
+- **LeNet 遗留**：手写 vs torch 仍有 0.05–0.07 差距，未逐层对账；BN/残差反传无有限差分；
+  输入固定 8×8（fc=64）；torch 版校验更少；**LeNet 只覆盖 CNN 原理，不含现代 backbone**。
