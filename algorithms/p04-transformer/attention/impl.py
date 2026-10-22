@@ -1,71 +1,166 @@
 """注意力机制 — 手写实现（深度模型 · 组件）
 
-**本目录不是一个可独立训练的模型，而是一个组件**——所以它既没有
-fit(X, y)，也没有 train(data)/sample()，而是**前向 + 反向的模块形态**。
-这一点必须写在最前面，否则读者会拿它和 mlp-backprop 比接口。
+**本目录不是一个可独立训练的模型，而是一个组件**：没有 fit(X,y)，也没有 train(data)。
+接口是前向 + 反向：
 
-    attn = ScaledDotProductAttention()
-    out, weights = attn.forward(Q, K, V, mask=None)     # 顺带返回注意力权重
+    attn = ScaledDotProductAttention(causal=True)
+    out, weights = attn.forward(Q, K, V)       # (N,Tq,d), (N,Tk,d)
     dQ, dK, dV = attn.backward(d_out)
 
-手写纪律：本实现用 numpy；若用 torch 仅允许 `torch.Tensor` / `torch.autograd`，
-**禁止 PyTorch 的现成多头注意力与现成注意力函数**——那正是本章要手写的原理。
-
-三个必须自己推出的点（README「数学推导」段）：
-    1. 为什么要除以 sqrt(d_k)：点积方差随 d_k 增长，softmax 会被推向饱和区
-    2. softmax 的雅可比矩阵（反向传播的推导核心）
-    3. mask 的两种用法：padding mask（屏蔽填充位）与 causal mask（自回归防偷看）
+多头版本 `MultiHeadAttention` 额外有 Wq/Wk/Wv/Wo，供 Block/GPT/BERT/T5 复用。
 """
+
+from __future__ import annotations
 
 import numpy as np
 
 
+def softmax(z: np.ndarray, axis: int = -1) -> np.ndarray:
+    z = np.asarray(z, dtype=float)
+    z = z - z.max(axis=axis, keepdims=True)
+    e = np.exp(z)
+    return e / e.sum(axis=axis, keepdims=True)
+
+
+def _prepare(Q, K, V, mask=None, causal=False):
+    Q = np.asarray(Q, dtype=float)
+    K = np.asarray(K, dtype=float)
+    V = np.asarray(V, dtype=float)
+    if Q.ndim == 2:
+        Q, K, V = Q[None], K[None], V[None]
+    if Q.ndim != 3 or K.ndim != 3 or V.ndim != 3:
+        raise ValueError("Q/K/V 应为 (T,d) 或 (N,T,d)")
+    if Q.shape[-1] != K.shape[-1]:
+        raise ValueError("Q 与 K 的 d_k 必须一致")
+    if K.shape[1] != V.shape[1]:
+        raise ValueError("K 与 V 的 T 必须一致")
+    Tq, Tk = Q.shape[1], K.shape[1]
+    mask_arr = None
+    if mask is not None:
+        mask_arr = np.asarray(mask, dtype=bool)
+        if mask_arr.shape != (Tq, Tk):
+            raise ValueError(f"mask 形状应为 ({Tq},{Tk})，实际 {mask_arr.shape}")
+    if causal:
+        cm = np.tril(np.ones((Tq, Tk), dtype=bool))
+        mask_arr = cm if mask_arr is None else (mask_arr & cm)
+    return Q, K, V, mask_arr
+
+
 class ScaledDotProductAttention:
-    """Attention(Q,K,V) = softmax(Q K^T / sqrt(d_k)) V。"""
+    """Attention(Q,K,V) = softmax(Q K^T / sqrt(d_k)) V。无参数。"""
 
     def __init__(self, causal: bool = False) -> None:
         self.causal = causal
         self.cache: dict = {}
 
-    def forward(self, Q: np.ndarray, K: np.ndarray, V: np.ndarray,
-                mask: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
-        """返回 (输出, 注意力权重矩阵)——权重是可视化的对象，必须能拿到。"""
-        # TODO: 手写
-        #   1. scores = Q @ K.swapaxes(-1, -2) / sqrt(d_k)
-        #   2. causal 时构造上三角掩码（**用 -1e9 而不是 -inf，避免 softmax 出 nan**）
-        #   3. weights = softmax(scores)；输出 = weights @ V
-        #   4. 缓存 scores / weights / Q / K / V 供反向使用
-        raise NotImplementedError("TODO: 手写缩放点积注意力前向")
+    def forward(self, Q, K, V, mask=None):
+        Q, K, V, mask = _prepare(Q, K, V, mask, self.causal)
+        dk = Q.shape[-1]
+        scores = Q @ K.swapaxes(-1, -2) / np.sqrt(dk)
+        if mask is not None:
+            scores = np.where(mask[None], scores, -1e9)
+        weights = softmax(scores, axis=-1)
+        if mask is not None:
+            # 整行都被 mask 时 softmax 会变成均匀分布；显式输出 0，避免聚合到填充位
+            valid = mask.any(axis=-1, keepdims=True)
+            weights = np.where(valid[None], weights, 0.0)
+        out = weights @ V
+        self.cache = {"Q": Q, "K": K, "V": V, "weights": weights,
+                      "mask": mask, "dk": dk}
+        return out, weights
 
-    def backward(self, d_out: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """返回 (dQ, dK, dV)；softmax 的反向是本章推导的核心，不能跳过。"""
-        # TODO: 手写
-        #   dV = weights.T @ d_out
-        #   d_weights = d_out @ V.T
-        #   softmax 反向：d_scores = weights * (d_weights - (d_weights * weights).sum(-1, keepdims=True))
-        #   dQ = d_scores @ K / sqrt(d_k)；dK = d_scores.T @ Q / sqrt(d_k)
-        raise NotImplementedError("TODO: 手写注意力反向传播")
+    def backward(self, d_out):
+        c = self.cache
+        if not c:
+            raise RuntimeError("请先调用 forward")
+        Q, K, V, W, dk = c["Q"], c["K"], c["V"], c["weights"], c["dk"]
+        dV = W.swapaxes(-1, -2) @ d_out
+        dW = d_out @ V.swapaxes(-1, -2)
+        # softmax 雅可比：dS = W * (dW - sum(dW*W))
+        dS = W * (dW - np.sum(dW * W, axis=-1, keepdims=True))
+        if c["mask"] is not None:
+            dS = np.where(c["mask"][None], dS, 0.0)
+        dQ = dS @ K / np.sqrt(dk)
+        dK = dS.swapaxes(-1, -2) @ Q / np.sqrt(dk)
+        return dQ, dK, dV
 
 
 class MultiHeadAttention:
-    """多头：把 d_model 切成 n_heads 份并行做注意力，再拼接后过输出投影。"""
+    """多头注意力：Wq/Wk/Wv/Wo，拆头 → scaled dot-product → 拼头。"""
 
-    def __init__(self, d_model: int = 64, n_heads: int = 4, causal: bool = False) -> None:
+    def __init__(self, d_model: int = 32, n_heads: int = 4, causal: bool = False,
+                 random_state: int | None = 0) -> None:
+        if d_model % n_heads:
+            raise ValueError("d_model 必须能被 n_heads 整除")
         self.d_model = d_model
         self.n_heads = n_heads
-        self.d_k = d_model // n_heads
+        self.d_head = d_model // n_heads
         self.causal = causal
-        self.params: dict = {}
+        rng = np.random.default_rng(random_state)
+        scale = np.sqrt(2.0 / d_model)
+        self.Wq = rng.normal(0, scale, (d_model, d_model))
+        self.Wk = rng.normal(0, scale, (d_model, d_model))
+        self.Wv = rng.normal(0, scale, (d_model, d_model))
+        self.Wo = rng.normal(0, scale, (d_model, d_model))
 
-    def forward(self, X: np.ndarray, mask: np.ndarray | None = None) -> np.ndarray:
-        # TODO: 手写——线性投影出 Q/K/V → 分头（reshape + transpose）→ 各头注意力 → 拼接 → 输出投影
-        #   分头/合头的 transpose 顺序最容易写错，README「手写实现要点」要写清形状变化
-        raise NotImplementedError("TODO: 手写多头注意力前向")
+    def _split(self, X):
+        N, T, _ = X.shape
+        return X.reshape(N, T, self.n_heads, self.d_head).transpose(0, 2, 1, 3)
 
-    def backward(self, d_out: np.ndarray) -> dict:
-        # TODO: 手写——输出投影反向 → 拆头 → 各头反向 → 合并 dQ/dK/dV → 输入投影反向
-        raise NotImplementedError("TODO: 手写多头注意力反向")
+    def _merge(self, X):
+        N, H, T, D = X.shape
+        return X.transpose(0, 2, 1, 3).reshape(N, T, H * D)
+
+    def forward(self, X, mask=None):
+        X = np.asarray(X, dtype=float)
+        if X.ndim == 2:
+            X = X[None]
+        self.X = X
+        self.mask = mask
+        self.Q = self._split(X @ self.Wq)
+        self.K = self._split(X @ self.Wk)
+        self.V = self._split(X @ self.Wv)
+        outs, weights = [], []
+        for h in range(self.n_heads):
+            o, w = ScaledDotProductAttention(self.causal).forward(
+                self.Q[:, h], self.K[:, h], self.V[:, h], mask)
+            outs.append(o)
+            weights.append(w)
+        self.head_out = np.stack(outs, axis=1)          # (N,H,T,dh)
+        merged = self._merge(self.head_out)
+        self.merged = merged
+        self.weights = np.stack(weights, axis=1)        # (N,H,T,T)
+        return merged @ self.Wo, self.weights
+
+    def backward(self, d_out):
+        d_out = np.asarray(d_out, dtype=float)
+        if d_out.ndim == 2:
+            d_out = d_out[None]
+        dW_o = self.merged.reshape(-1, self.d_model).T @ d_out.reshape(-1, self.d_model)
+        d_merged = d_out @ self.Wo.T
+        d_heads = d_merged.reshape(d_out.shape[0], -1, self.n_heads, self.d_head)\
+            .transpose(0, 2, 1, 3)
+        dQ = np.zeros_like(self.Q)
+        dK = np.zeros_like(self.K)
+        dV = np.zeros_like(self.V)
+        for h in range(self.n_heads):
+            att = ScaledDotProductAttention(self.causal)
+            att.forward(self.Q[:, h], self.K[:, h], self.V[:, h], self.mask)
+            dQ_h, dK_h, dV_h = att.backward(d_heads[:, h])
+            dQ[:, h], dK[:, h], dV[:, h] = dQ_h, dK_h, dV_h
+        dQf = self._merge(dQ) @ self.Wq.T
+        dKf = self._merge(dK) @ self.Wk.T
+        dVf = self._merge(dV) @ self.Wv.T
+        dX = dQf + dKf + dVf
+        Xf = self.X.reshape(-1, self.d_model)
+        grads = {
+            "Wq": Xf.T @ self._merge(dQ).reshape(-1, self.d_model),
+            "Wk": Xf.T @ self._merge(dK).reshape(-1, self.d_model),
+            "Wv": Xf.T @ self._merge(dV).reshape(-1, self.d_model),
+            "Wo": dW_o,
+        }
+        return grads, dX
 
 
 if __name__ == "__main__":
-    raise SystemExit("请先完成 forward/backward，再到 demo.py 跑实验")
+    raise SystemExit("本文件是手写实现库，实验入口是 demo.py：uv run python demo.py")
