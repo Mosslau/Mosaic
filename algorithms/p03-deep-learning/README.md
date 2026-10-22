@@ -1,6 +1,6 @@
 # p03-deep-learning · 深度学习族
 
-> 状态：**1/6 完成（感知机 ✅，其余为骨架）**
+> 状态：**2/6 完成（感知机、MLP ✅，其余为骨架）**
 > 对应路线：`../docs/人工智能代表算法演进路线.md` 第四章（4.2–4.6）
 > 族内顺序：感知机 → MLP/反向传播 → CNN → RNN/LSTM → AutoEncoder → GAN
 > 本族 6 个实验，占全仓库 29 个实验中的 6 个；逐实验入口见 [`algorithms/README.md`](../README.md)。
@@ -21,7 +21,7 @@
 | # | 实验 | 章节 | 默认数据 | 核心 | 本次补强 | 状态 |
 |---|---|---|---|---|---|---|
 | 1 | [感知机](perceptron/) | 4.2 | 合成二维 | 在线错误驱动更新、收敛定理 | 线性可分/不可分对照 | ✅ |
-| 2 | [MLP 与手写反向传播](mlp-backprop/) | 4.2 | digits / 小表格 | 链式法则、softmax/CE | **优化器、初始化、正则、LR schedule、batch size** | ⬜ |
+| 2 | [MLP 与手写反向传播](mlp-backprop/) | 4.2 | digits / 小表格 | 链式法则、softmax/CE | **优化器、初始化、正则、LR schedule、batch size** | ✅ |
 | 3 | [LeNet](cnn-lenet/) | 4.3.1 | digits 8×8 | im2col、池化路由 | **BatchNorm、残差（可选 1×1/深度可分离）** | ⬜ |
 | 4 | [RNN 与 LSTM](rnn-lstm/) | 4.4 | 合成序列 | BPTT、门控 | **梯度裁剪、长序列对照、梯度范数-T 曲线** | ⬜ |
 | 5 | [AutoEncoder](autoencoder/) | 4.5 | digits 8×8 | 重构、瓶颈表示 | **与 PCA 的二维对照（可选 denoising）** | ⬜ |
@@ -190,8 +190,10 @@ uv run python p03-deep-learning/perceptron/demo.py
 
 ## 12. 状态与后续
 
-- 当前 **1/6**（感知机完成）；下一步 MLP；
+- 当前 **2/6**（感知机、MLP 完成）；下一步 CNN；
 - 每个实验完成后同步：本表状态、[`algorithms/README.md`](../README.md) 索引、根 README 计数；
 - 遗留项统一记在本文件"补强"表和 `.dsh/memory/`，不散落在各实验。
 - **感知机遗留**：torch 版只验证“线性可分”一致性；XOR/重叠/项目仍用 sklearn；
   `TorchPerceptron` 输入校验比手写版少；`margin` 只在同一原始空间内可比。
+- **MLP 遗留**：dropout/L2 的反向没有有限差分测试；`TorchMLP` 早停不恢复最优权重；
+  `y`/torch 输入校验不完整；只验证 8×8 digits。
