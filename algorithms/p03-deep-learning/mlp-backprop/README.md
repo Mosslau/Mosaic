@@ -7,6 +7,32 @@
 
 深度模型（判别式）：入口 `MLP(hidden_sizes, lr, epochs, ...).fit(X, y)` / `predict_proba(X)`，实现在 [impl.py](impl.py)；对照是 [framework.py](framework.py) 的 PyTorch `nn.Linear + ReLU + CrossEntropyLoss`。
 
+## 读之前：MLP、反向传播与深度学习
+
+三个概念容易混：
+
+| 概念 | 是什么 | 本实验的位置 |
+|---|---|---|
+| **MLP** | 多层全连接前馈网络，一种**具体架构** | 手写实现 `MLP` |
+| **反向传播** | 用链式法则算梯度的**训练方法** | 手写每一层的前向缓存与反向 |
+| **autograd** | 框架自动求导（PyTorch） | `framework.py` 对照 |
+| **深度学习** | 用多层网络学习表示的**范式** | MLP 是入口，不是全部 |
+
+**和 LeNet / Transformer 的关系**：
+
+- 反向传播是**同一套链式法则**；MLP、LeNet、RNN、Transformer 都用它训练；
+- 区别在**结构**：MLP 把输入拉平，忽略空间/顺序；LeNet 加卷积/池化，RNN 加时间共享，
+  Transformer 加注意力；
+- 所以学会 MLP 的反向，不等于学会 CNN/RNN 的反向——还要学 `im2col`、BPTT、注意力等结构算子。
+
+**范围边界**：
+
+- **够用**：全连接、softmax+CE、反向传播、优化器/初始化/正则/调度；
+- **不够**：空间结构（LeNet）、时间结构（RNN）、注意力（p04）、大规模 GPU 训练；
+- 本实验只验证 8×8 digits / 小表格，不追求 SOTA。
+
+> 一句话：**MLP 是深度学习的 Hello World，反向传播是它的通用发动机；结构不同，发动机相同。**
+
 # 基础篇 · 先搞懂它
 
 ## 1. 生活类比：一条会自我修正的流水线

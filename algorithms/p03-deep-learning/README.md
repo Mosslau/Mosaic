@@ -199,6 +199,6 @@ uv run python p03-deep-learning/perceptron/demo.py
 - **感知机遗留**：torch 版只验证“线性可分”一致性；XOR/重叠/项目仍用 sklearn；
   `TorchPerceptron` 输入校验比手写版少；`margin` 只在同一原始空间内可比。
 - **MLP 遗留**：dropout/L2 的反向没有有限差分测试；`TorchMLP` 早停不恢复最优权重；
-  `y`/torch 输入校验不完整；只验证 8×8 digits。
+  `y`/torch 输入校验不完整；只验证 8×8 digits；**MLP 只覆盖全连接/反传，不含空间/序列结构**。
 - **LeNet 遗留**：手写 vs torch 仍有 0.05–0.07 差距，未逐层对账；BN/残差反传无有限差分；
   输入固定 8×8（fc=64）；torch 版校验更少；**LeNet 只覆盖 CNN 原理，不含现代 backbone**。
