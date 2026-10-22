@@ -102,10 +102,15 @@ uv run pytest p01-search/a-star/ -q
 
 ## p04-transformer · Transformer 时代
 
+> 族内学习顺序：注意力机制 → 迷你 Transformer Block → 迷你 GPT。
+> 先做“组件”（attention），再做“可堆叠 Block”，最后才做“生成模型 GPT”；
+> 不先手写 attention 直接写 GPT，等于把最难的反传藏在黑盒里。
+> 族级导读（3 个实验什么关系、接口边界、数据/范围/Phase 0–4 计划）：[p04-transformer/README.md](p04-transformer/README.md)。
+
 | 实验 | 章节 | 状态 | 完成日期 |
 |---|---|---|---|
 | [注意力机制](p04-transformer/attention/) | 5.2 | ⬜ | |
-| [迷你 Transformer Block](p04-transformer/mini-transformer/) | 5.1 | ⬜ | |
+| [迷你 Transformer Block](p04-transformer/mini-transformer/) | 5.2 | ⬜ | |
 | [迷你 GPT 字符级语言模型](p04-transformer/mini-gpt/) | 5.3.4 | ⬜ | |
 
 ## p05-generative · 生成式 AI
