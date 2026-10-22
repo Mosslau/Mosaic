@@ -1,30 +1,70 @@
-"""迷你 Transformer Block — 框架对照调用（深度模型 · 生成式）
+"""迷你 Transformer Block — PyTorch 对照。
 
-用手写实现同样的数据与指标，调 **PyTorch** 跑一遍（本族对照对象是 PyTorch，不是 sklearn）。
-目的：
-1. 验证手写实现的正确性（指标/损失应对齐）
-2. 感受框架封装的便利与隐藏的细节
-3. 记录框架内部额外做的优化（写回 README「框架对照」一节）
-
-**对照对象**：torch 的现成编码器层
-
-手写纪律：本文件是对照版，**不受手写纪律约束**（可用现成层与优化器）；
-纪律只约束 impl.py。
+用 `nn.TransformerEncoderLayer(norm_first=True)`（pre-LN）搭同样的 Block，
+与手写版同语料、同 context、同轮数；只比较量级/趋势，不要求逐位一致。
 """
 
+from __future__ import annotations
 
-def run_framework(X_train, X_test, y_train, y_test):
-    """用框架接口完成训练 + 预测，返回与手写版对齐的指标字典。
+import time
 
-    返回示例：{"loss": ..., "metric": ..., "time_sec": ...}
-    """
-    # TODO: 用上面「对照对象」里的现成接口实现同一算法。
-    #   README「框架对照」段要回答的是**差异原因**，至少覆盖：
-    #     - 框架多做了什么（向量化、融合算子、数值稳定的实现、自动混合精度）
-    #     - 框架的训练细节与手写版不同处（初始化、优化器默认值、梯度裁剪）
-    #     - 同一随机种子下两边指标是否真能对齐；对不齐要解释为什么
-    raise NotImplementedError("TODO: 调框架接口，返回 {'loss': ..., 'time_sec': ...}")
+import numpy as np
+import torch
+import torch.nn as nn
+
+
+def _windows(tokens, T, stride):
+    xs, ys = [], []
+    for i in range(0, len(tokens) - T, stride):
+        xs.append(tokens[i:i + T])
+        ys.append(tokens[i + 1:i + T + 1])
+    return np.array(xs), np.array(ys)
+
+
+class TorchBlock(nn.Module):
+    def __init__(self, vocab_size, d_model=32, n_heads=4, d_ff=64, context=16):
+        super().__init__()
+        self.E = nn.Embedding(vocab_size, d_model)
+        self.P = nn.Parameter(torch.zeros(context, d_model))
+        layer = nn.TransformerEncoderLayer(d_model, n_heads, d_ff, dropout=0.0,
+                                           batch_first=True, norm_first=True)
+        self.block = layer
+        self.lm = nn.Linear(d_model, vocab_size)
+
+    def forward(self, tokens):
+        T = tokens.shape[1]
+        x = self.E(tokens) + self.P[:T]
+        mask = torch.triu(torch.ones(T, T, dtype=torch.bool), diagonal=1)
+        return self.lm(self.block(x, src_mask=mask))
+
+
+def run_framework(tr, te, vocab_size, context=16, epochs=40):
+    torch.manual_seed(0)
+    X, Y = _windows(tr, context, max(1, context // 2))
+    Xte, Yte = _windows(te, context, max(1, context // 2))
+    Xt, Yt = torch.as_tensor(X), torch.as_tensor(Y)
+    model = TorchBlock(vocab_size, context=context)
+    opt = torch.optim.Adam(model.parameters(), lr=3e-3)
+    lossf = nn.CrossEntropyLoss()
+    t0 = time.perf_counter()
+    for _ in range(epochs):
+        order = torch.randperm(len(Xt))
+        for s in range(0, len(Xt), 32):
+            idx = order[s:s + 32]
+            opt.zero_grad()
+            loss = lossf(model(Xt[idx]).reshape(-1, vocab_size), Yt[idx].reshape(-1))
+            loss.backward()
+            opt.step()
+    train_time = time.perf_counter() - t0
+    with torch.no_grad():
+        logits = model(Xt).reshape(-1, vocab_size)
+        train_loss = float(lossf(logits, Yt.reshape(-1)))
+        logits_te = model(torch.as_tensor(Xte)).reshape(-1, vocab_size)
+        test_loss = float(lossf(logits_te, torch.as_tensor(Yte).reshape(-1)))
+        test_acc = float((logits_te.argmax(-1) == torch.as_tensor(Yte).reshape(-1)).float().mean())
+    return {"train_loss": train_loss, "test_loss": test_loss, "test_acc": test_acc,
+            "time_sec": train_time}
 
 
 if __name__ == "__main__":
-    raise SystemExit("请先完成 run_framework，由 demo.py 统一调用对比")
+    raise SystemExit("本文件是对照库，由 demo.py 调用")
