@@ -1,6 +1,6 @@
 # p03-deep-learning · 深度学习族
 
-> 状态：**3/6 完成（感知机、MLP、LeNet ✅，其余为骨架）**
+> 状态：**4/6 完成（感知机、MLP、LeNet、RNN/LSTM ✅，其余为骨架）**
 > 对应路线：`../docs/人工智能代表算法演进路线.md` 第四章（4.2–4.6）
 > 族内顺序：感知机 → MLP/反向传播 → CNN → RNN/LSTM → AutoEncoder → GAN
 > 本族 6 个实验，占全仓库 29 个实验中的 6 个；逐实验入口见 [`algorithms/README.md`](../README.md)。
@@ -23,7 +23,7 @@
 | 1 | [感知机](perceptron/) | 4.2 | 合成二维 | 在线错误驱动更新、收敛定理 | 线性可分/不可分对照 | ✅ |
 | 2 | [MLP 与手写反向传播](mlp-backprop/) | 4.2 | digits / 小表格 | 链式法则、softmax/CE | **优化器、初始化、正则、LR schedule、batch size** | ✅ |
 | 3 | [LeNet](cnn-lenet/) | 4.3.1 | digits 8×8 | im2col、池化路由 | **BN/残差；范围=CNN 原理，不含现代 backbone** | ✅ |
-| 4 | [RNN 与 LSTM](rnn-lstm/) | 4.4 | 合成序列 | BPTT、门控 | **梯度裁剪、长序列对照、梯度范数-T 曲线** | ⬜ |
+| 4 | [RNN 与 LSTM](rnn-lstm/) | 4.4 | 合成序列 | BPTT、门控 | **梯度裁剪、长序列对照、梯度范数-T 曲线** | ✅ |
 | 5 | [AutoEncoder](autoencoder/) | 4.5 | digits 8×8 | 重构、瓶颈表示 | **与 PCA 的二维对照（可选 denoising）** | ⬜ |
 | 6 | [GAN](gan/) | 4.6 | 2D 高斯 + digits | 交替对抗、非饱和损失 | **模式崩塌/多样性评估** | ⬜ |
 
@@ -193,7 +193,7 @@ uv run python p03-deep-learning/perceptron/demo.py
 
 ## 12. 状态与后续
 
-- 当前 **3/6**（感知机、MLP、LeNet 完成）；下一步 RNN/LSTM；
+- 当前 **4/6**（感知机、MLP、LeNet、RNN/LSTM 完成）；下一步 AutoEncoder；
 - 每个实验完成后同步：本表状态、[`algorithms/README.md`](../README.md) 索引、根 README 计数；
 - 遗留项统一记在本文件"补强"表和 `.dsh/memory/`，不散落在各实验。
 - **感知机遗留**：torch 版只验证“线性可分”一致性；XOR/重叠/项目仍用 sklearn；
@@ -202,3 +202,5 @@ uv run python p03-deep-learning/perceptron/demo.py
   `y`/torch 输入校验不完整；只验证 8×8 digits；**MLP 只覆盖全连接/反传，不含空间/序列结构**。
 - **LeNet 遗留**：手写 vs torch 仍有 0.05–0.07 差距，未逐层对账；BN/残差反传无有限差分；
   输入固定 8×8（fc=64）；torch 版校验更少；**LeNet 只覆盖 CNN 原理，不含现代 backbone**。
+- **RNN/LSTM 遗留**：只做分类，未实现 `generate`；合成任务/digits 行序列，无真实语料；
+  单层单向，无 GRU/双向/堆叠/embedding；`h0` 梯度曲线有噪声；输入校验不完整。
