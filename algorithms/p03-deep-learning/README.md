@@ -1,6 +1,6 @@
 # p03-deep-learning · 深度学习族
 
-> 状态：**0/6 完成（全部为骨架）**
+> 状态：**1/6 完成（感知机 ✅，其余为骨架）**
 > 对应路线：`../docs/人工智能代表算法演进路线.md` 第四章（4.2–4.6）
 > 族内顺序：感知机 → MLP/反向传播 → CNN → RNN/LSTM → AutoEncoder → GAN
 > 本族 6 个实验，占全仓库 29 个实验中的 6 个；逐实验入口见 [`algorithms/README.md`](../README.md)。
@@ -20,7 +20,7 @@
 
 | # | 实验 | 章节 | 默认数据 | 核心 | 本次补强 | 状态 |
 |---|---|---|---|---|---|---|
-| 1 | [感知机](perceptron/) | 4.2 | 合成二维 | 在线错误驱动更新、收敛定理 | 线性可分/不可分对照 | ⬜ |
+| 1 | [感知机](perceptron/) | 4.2 | 合成二维 | 在线错误驱动更新、收敛定理 | 线性可分/不可分对照 | ✅ |
 | 2 | [MLP 与手写反向传播](mlp-backprop/) | 4.2 | digits / 小表格 | 链式法则、softmax/CE | **优化器、初始化、正则、LR schedule、batch size** | ⬜ |
 | 3 | [LeNet](cnn-lenet/) | 4.3.1 | digits 8×8 | im2col、池化路由 | **BatchNorm、残差（可选 1×1/深度可分离）** | ⬜ |
 | 4 | [RNN 与 LSTM](rnn-lstm/) | 4.4 | 合成序列 | BPTT、门控 | **梯度裁剪、长序列对照、梯度范数-T 曲线** | ⬜ |
@@ -119,6 +119,8 @@ uv run python p03-deep-learning/perceptron/demo.py
 ```
 
 - 手写实现优先用 **numpy**；`torch` 只用于 `framework.py` 对照；
+- 本机已验证 **torch 2.14.1**（`uv.lock` 同版本）：MPS 可用、CUDA 不可用、14 线程；
+  p03 默认跑 CPU，MPS 作为可选加速；
 - 不要求 GPU；CPU 上每个 demo 控制在 **2–3 分钟**；
 - **不依赖 torchvision**：默认数据走 sklearn / numpy，离线可跑；MNIST 只作为可选扩展。
 
@@ -143,7 +145,11 @@ uv run python p03-deep-learning/perceptron/demo.py
 
 ### 框架对照
 
-- 对照对象是 **PyTorch**（`torch.nn` + 现成优化器），不是 sklearn；
+- **主对照是 PyTorch**（`torch.nn` + 现成优化器）：MLP / CNN / RNN / AE / GAN 全部用它；
+- **sklearn 不禁用，但只做配角**：数据加载（digits）、切分、指标、标准化，以及
+  经典基线（逻辑回归、PCA）；不用它替代深度模型对照；
+- **感知机是唯一例外**：以 sklearn `Perceptron` 为主对照（同算法 1:1），
+  另补一个 `TorchPerceptron` 验证同一更新规则；从 MLP 起统一改用 PyTorch；
 - 同一数据、同一随机种子、同一初始化策略下比较 loss/指标；
 - 对不齐时在 README 里解释（初始化、优化器默认值、数值精度），不要强行调参对齐。
 
@@ -184,6 +190,8 @@ uv run python p03-deep-learning/perceptron/demo.py
 
 ## 12. 状态与后续
 
-- 当前 **0/6**；按 1 → 2 → 3 → 4 → 5 → 6 推进；
+- 当前 **1/6**（感知机完成）；下一步 MLP；
 - 每个实验完成后同步：本表状态、[`algorithms/README.md`](../README.md) 索引、根 README 计数；
 - 遗留项统一记在本文件"补强"表和 `.dsh/memory/`，不散落在各实验。
+- **感知机遗留**：torch 版只验证“线性可分”一致性；XOR/重叠/项目仍用 sklearn；
+  `TorchPerceptron` 输入校验比手写版少；`margin` 只在同一原始空间内可比。

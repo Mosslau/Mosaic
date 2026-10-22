@@ -92,7 +92,7 @@ uv run pytest p01-search/a-star/ -q
 
 | 实验 | 章节 | 状态 | 完成日期 |
 |---|---|---|---|
-| [感知机](p03-deep-learning/perceptron/) | 4.2 | ⬜ | |
+| [感知机](p03-deep-learning/perceptron/) | 4.2 | ✅ | 2026-10-22 |
 | [MLP 与手写反向传播](p03-deep-learning/mlp-backprop/) | 4.2 | ⬜ | |
 | [卷积神经网络 LeNet](p03-deep-learning/cnn-lenet/) | 4.3.1 | ⬜ | |
 | [RNN 与 LSTM](p03-deep-learning/rnn-lstm/) | 4.4 | ⬜ | |
