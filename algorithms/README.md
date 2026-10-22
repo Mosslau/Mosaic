@@ -107,6 +107,7 @@ uv run pytest p01-search/a-star/ -q
 > BERT（双向 encoder）、GPT（因果 decoder）、T5（encoder-decoder + cross-attention）。
 > 不先手写 attention 直接写 GPT，等于把最难的反传藏在黑盒里。
 > 族级导读（5 个实验什么关系、接口边界、数据/范围/Phase 0–5 计划）：[p04-transformer/README.md](p04-transformer/README.md)。
+> 阶段横向对照与完成度：[stage_benchmark.py](p04-transformer/stage_benchmark.py)。
 
 | 实验 | 章节 | 状态 | 完成日期 |
 |---|---|---|---|

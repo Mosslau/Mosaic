@@ -140,3 +140,50 @@ uv run python p04-transformer/attention/demo.py
 - 下一步：p05 生成式 AI（VAE/GAN/Diffusion）或 p04 阶段质量轮；
 - 每个实验完成后同步：本表状态、[`algorithms/README.md`](../README.md) 索引、根 README 计数；
 - 遗留项统一记在本文件"范围边界"和 `.dsh/memory/`。
+
+## 10. 阶段横向对照（架构级）
+
+**口径**：这不是“同一任务排名”。BERT/GPT/T5 的训练目标不同，硬把 accuracy/exact 放一张表会误导；
+这一节在同一 `d_model=32 / heads=4 / context=16` 下比较**参数量、前向延迟、结构位置**。
+复现：`uv run python p04-transformer/stage_benchmark.py`。
+
+| 模型 | 参数量 | 前向 ms | 任务位置 |
+|---|---|---|---|
+| attention(MHA) | 4096 | 0.06 | 位置混合组件 |
+| Block(1 层) | 11008 | 0.10 | 可堆叠层 |
+| BERT(1 层) | 10683 | 0.11 | 双向 encoder |
+| Mini-GPT(2 层) | 19099 | 0.21 | causal decoder |
+| T5(enc+dec) | 22027 | 0.22 | encoder-decoder |
+
+attention 前向随 T：16→0.05ms、32→0.07ms、64→0.12ms、128→0.31ms（O(T²) 趋势）。
+
+**四条结论**：
+
+1. **参数量不是“模型越新越大”**：T5 最高（enc+dec + cross-attn），BERT/Block 相近，GPT 2 层居中。
+2. **T5 成本最高**：两栈 + cross-attn；换来的能力是 seq2seq（copy/reverse exact 0.980）。
+3. **BERT/GPT 是同一套 Block 的两种 mask/目标**：双向理解 vs 因果生成，不能只看参数量选型。
+4. **attention 是组件**：4096 参数只是 4 个投影；真正的容量在堆叠与 embedding/LM head。
+
+## 11. p04 完成度与质量项
+
+| 项 | 数量 / 状态 |
+|---|---|
+| 实验 | **5/5 ✅** |
+| 测试 | **45 个**（10+9+8+9+9） |
+| 素材 | **20 个**（每实验 3 PNG + 1 GIF） |
+| 练习 | **25 题**（每实验 5 题，题解分离） |
+| 项目 | **5 个**，验收全过 |
+| 质量轮 | 架构级对照 + 各实验遗留汇总 |
+
+**已记录的 p04 遗留（不阻塞）**：
+
+| 实验 | 问题 |
+|---|---|
+| attention | mask 只支持共享 `(Tq,Tk)`；无 bias/dropout；无 per-sample mask |
+| Block | 单层；无 post-LN 对照；残差消融在这个小配置下出现负面结果 |
+| BERT | 单层；torch 指标偏低；无 BPE/WordPiece；无留出 MLM 验证集 |
+| GPT | 字符级/2 层；无 KV cache；greedy/T/top-k 只做样例；无 BPE |
+| T5 | toy copy/reverse；单层；固定长度；greedy only；无 beam search |
+| 全族 | 无全量预训练/微调/RLHF；无真实大语料；不是 SOTA 复现 |
+
+> 结论：**p04 可以作为“Transformer 原理族”收口**；BERT/T5 只到 toy 规模，真实预训练/大模型工程不在本族硬塞。
