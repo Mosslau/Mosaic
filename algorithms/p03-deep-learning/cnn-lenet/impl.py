@@ -318,3 +318,7 @@ class LeNet:
 
     def predict(self, X):
         return self.classes_[np.argmax(self.predict_proba(X), axis=1)]
+
+
+if __name__ == "__main__":
+    raise SystemExit("本文件是手写实现库，实验入口是 demo.py：uv run python demo.py")
