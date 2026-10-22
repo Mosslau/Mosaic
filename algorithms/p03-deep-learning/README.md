@@ -1,6 +1,6 @@
 # p03-deep-learning · 深度学习族
 
-> 状态：**5/6 完成（感知机、MLP、LeNet、RNN/LSTM、AutoEncoder ✅，只剩 GAN）**
+> 状态：**6/6 完成（全族 ✅）**
 > 对应路线：`../docs/人工智能代表算法演进路线.md` 第四章（4.2–4.6）
 > 族内顺序：感知机 → MLP/反向传播 → CNN → RNN/LSTM → AutoEncoder → GAN
 > 本族 6 个实验，占全仓库 29 个实验中的 6 个；逐实验入口见 [`algorithms/README.md`](../README.md)。
@@ -25,7 +25,7 @@
 | 3 | [LeNet](cnn-lenet/) | 4.3.1 | digits 8×8 | im2col、池化路由 | **BN/残差；范围=CNN 原理，不含现代 backbone** | ✅ |
 | 4 | [RNN 与 LSTM](rnn-lstm/) | 4.4 | 合成序列 | BPTT、门控 | **梯度裁剪、长序列对照、梯度范数-T 曲线** | ✅ |
 | 5 | [AutoEncoder](autoencoder/) | 4.5 | digits 8×8 | 重构、瓶颈表示 | **与 PCA 的二维对照（可选 denoising）** | ✅ |
-| 6 | [GAN](gan/) | 4.6 | 2D 高斯 + digits | 交替对抗、非饱和损失 | **模式崩塌/多样性评估** | ⬜ |
+| 6 | [GAN](gan/) | 4.6 | 2D 高斯 + digits | 交替对抗、非饱和损失 | **模式崩塌/多样性评估** | ✅ |
 
 ## 3. 依赖链
 
@@ -193,7 +193,7 @@ uv run python p03-deep-learning/perceptron/demo.py
 
 ## 12. 状态与后续
 
-- 当前 **5/6**（感知机、MLP、LeNet、RNN/LSTM、AutoEncoder 完成）；下一步 GAN；
+- 当前 **6/6**（p03 全族完成）；下一步 p04 Transformer；
 - 每个实验完成后同步：本表状态、[`algorithms/README.md`](../README.md) 索引、根 README 计数；
 - 遗留项统一记在本文件"补强"表和 `.dsh/memory/`，不散落在各实验。
 - **感知机遗留**：torch 版只验证“线性可分”一致性；XOR/重叠/项目仍用 sklearn；
@@ -206,3 +206,5 @@ uv run python p03-deep-learning/perceptron/demo.py
   单层单向，无 GRU/双向/堆叠/embedding；`h0` 梯度曲线有噪声；输入校验不完整。
 - **AutoEncoder 遗留**：denoising 只做高斯噪声；固定 100 轮/无早停（32 维输给 PCA）；
   `encode/decode` 无形状/NaN 校验；下游只做线性探针；无卷积 AE/生成采样。
+- **GAN 遗留**：2D 样本有辐条；饱和/torch 结果是单种子未调参；8×8 只覆盖 4/10 类；
+  评估无 FID/IS；测试只 smoke；`sample()` 重复调用样本相同，`train()` 会重置参数。

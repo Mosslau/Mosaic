@@ -97,7 +97,7 @@ uv run pytest p01-search/a-star/ -q
 | [卷积神经网络 LeNet](p03-deep-learning/cnn-lenet/) | 4.3.1 | ✅ | 2026-10-22 |
 | [RNN 与 LSTM](p03-deep-learning/rnn-lstm/) | 4.4 | ✅ | 2026-10-22 |
 | [自编码器 AutoEncoder](p03-deep-learning/autoencoder/) | 4.5 | ✅ | 2026-10-22 |
-| [生成对抗网络 GAN](p03-deep-learning/gan/) | 4.6 | ⬜ | |
+| [生成对抗网络 GAN](p03-deep-learning/gan/) | 4.6 | ✅ | 2026-10-22 |
 
 ## p04-transformer · Transformer 时代
 
