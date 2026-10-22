@@ -89,6 +89,7 @@ uv run pytest p01-search/a-star/ -q
 > AutoEncoder/GAN 走向无监督表示与生成。
 > 与 p02 的对照：人工特征 → 表示学习；与 p04 的接力：RNN → 注意力。
 > 族级导读（6 个实验什么关系、该读哪个、开工前的补强计划）：[p03-deep-learning/README.md](p03-deep-learning/README.md)。
+> 阶段横向对照与质量项：[/p03-deep-learning/stage_benchmark.py](p03-deep-learning/stage_benchmark.py)。
 
 | 实验 | 章节 | 状态 | 完成日期 |
 |---|---|---|---|
