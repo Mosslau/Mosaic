@@ -113,7 +113,7 @@ uv run pytest p01-search/a-star/ -q
 | [注意力机制](p04-transformer/attention/) | 5.2 | ✅ | 2026-10-22 |
 | [迷你 Transformer Block](p04-transformer/mini-transformer/) | 5.2 | ✅ | 2026-10-22 |
 | [BERT / 掩码语言模型](p04-transformer/bert/) | 5.3.2 | ✅ | 2026-10-22 |
-| [迷你 GPT 字符级语言模型](p04-transformer/mini-gpt/) | 5.3.4 | ⬜ | |
+| [迷你 GPT 字符级语言模型](p04-transformer/mini-gpt/) | 5.3.4 | ✅ | 2026-10-22 |
 | [T5 / 编码器-解码器](p04-transformer/t5/) | 5.3.3 | ⬜ | |
 
 ## p05-generative · 生成式 AI

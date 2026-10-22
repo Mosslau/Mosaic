@@ -1,6 +1,6 @@
 # p04-transformer · Transformer 与预训练时代
 
-> 状态：**3/5 完成（attention、block、BERT ✅，GPT/T5 为 ⬜）**
+> 状态：**4/5 完成（attention、block、BERT、GPT ✅，T5 为 ⬜）**
 > 对应路线：`../docs/人工智能代表算法演进路线.md` 第五章（5.1–5.3.4）
 > 族内顺序：注意力 → 迷你 Transformer Block → BERT → 迷你 GPT → T5/编码器-解码器
 > 本族 5 个实验，占全仓库 31 个实验中的 5 个；逐实验入口见 [`algorithms/README.md`](../README.md)。
@@ -24,7 +24,7 @@ p03 的 RNN 沿时间递推，长序列只能串行、长依赖会衰减。Trans
 | 1 | [注意力机制](attention/) | 5.2 | 合成 Q/K/V / 小序列 | scaled dot-product、mask、softmax 反传、多头 | **组件**：`forward/backward` | ✅ 2026-10-22 |
 | 2 | [迷你 Transformer Block](mini-transformer/) | 5.2 | 小字符序列 | LayerNorm、FFN、残差、pre-LN、多头 | **Block**：`forward/backward` + `train` | ✅ 2026-10-22 |
 | 3 | [BERT / 掩码语言模型](bert/) | 5.3.2 | 离线小文本 | 双向注意力、MLM、`[CLS]` 分类探针 | **模型**：`train(tokens)` / `encode` | ✅ 2026-10-22 |
-| 4 | [迷你 GPT](mini-gpt/) | 5.3.4 | 离线小文本（Zen/合成 grammar） | tokenizer、embedding、N 个 Block、采样 | **模型**：`train(text)` / `generate` | ⬜ |
+| 4 | [迷你 GPT](mini-gpt/) | 5.3.4 | 离线小文本（Zen/合成 grammar） | tokenizer、embedding、N 个 Block、采样 | **模型**：`train(text)` / `generate` | ✅ 2026-10-22 |
 | 5 | [T5 / 编码器-解码器](t5/) | 5.3.3 | 合成 seq2seq 对 | encoder-decoder、cross-attention、生成 | **模型**：`train(pairs)` / `generate(src)` | ⬜ |
 
 > 章节说明：5.1 是“Transformer 的意义”背景；Block 属于 5.2 的组件装配，因此
@@ -110,7 +110,7 @@ uv run python p04-transformer/attention/demo.py
 | Phase 1 | attention：scaled dot-product、mask、softmax 反传、多头 | 实现 + 测试 + 热图 + 练习/项目 | ✅ 2026-10-22 |
 | Phase 2 | Block：LayerNorm、FFN、残差、pre-LN、多头 | 实现 + 梯度检查 + 小语料训练 + torch 对照 | ✅ 2026-10-22 |
 | Phase 3 | BERT：双向 encoder、MLM、`[CLS]` 分类探针 | 实现 + 测试 + 表示/分类项目 | ✅ 2026-10-22 |
-| Phase 4 | mini-GPT：tokenizer、embedding、N 个 Block、采样 | 训练/生成 + 温度/top-k + 项目 | ⬜ |
+| Phase 4 | mini-GPT：tokenizer、embedding、N 个 Block、采样 | 训练/生成 + 温度/top-k + 项目 | ✅ 2026-10-22 |
 | Phase 5 | T5：encoder-decoder、cross-attention、toy seq2seq + 阶段质量轮 | 实现 + 生成 + 对照 + 质量项 | ⬜ |
 
 ## 7. 每个实验的交付标准
@@ -136,7 +136,7 @@ uv run python p04-transformer/attention/demo.py
 
 ## 9. 状态与后续
 
-- 当前 **3/5**，attention/block/BERT 已完成；GPT/T5 仍是骨架；
-- 下一步：Phase 4 mini-GPT（tokenizer/生成）；
+- 当前 **4/5**，attention/block/BERT/GPT 已完成；T5 仍是骨架；
+- 下一步：Phase 5 T5（encoder-decoder + cross-attention）；
 - 每个实验完成后同步：本表状态、[`algorithms/README.md`](../README.md) 索引、根 README 计数；
 - 遗留项统一记在本文件"范围边界"和 `.dsh/memory/`。

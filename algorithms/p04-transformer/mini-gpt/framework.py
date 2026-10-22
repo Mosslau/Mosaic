@@ -1,30 +1,88 @@
-"""迷你 GPT 字符级语言模型 — 框架对照调用（深度模型 · 生成式）
+"""Mini-GPT — PyTorch 对照。
 
-用手写实现同样的数据与指标，调 **PyTorch** 跑一遍（本族对照对象是 PyTorch，不是 sklearn）。
-目的：
-1. 验证手写实现的正确性（指标/损失应对齐）
-2. 感受框架封装的便利与隐藏的细节
-3. 记录框架内部额外做的优化（写回 README「框架对照」一节）
-
-**对照对象**：torch 的现成解码器层 + 语言模型头
-
-手写纪律：本文件是对照版，**不受手写纪律约束**（可用现成层与优化器）；
-纪律只约束 impl.py。
+用 `nn.TransformerEncoderLayer(norm_first=True)` + causal mask 堆 N 层；
+同语料/同 context/同轮数，比较 loss/acc 与生成。
 """
 
+from __future__ import annotations
 
-def run_framework(X_train, X_test, y_train, y_test):
-    """用框架接口完成训练 + 预测，返回与手写版对齐的指标字典。
+import time
 
-    返回示例：{"loss": ..., "metric": ..., "time_sec": ...}
-    """
-    # TODO: 用上面「对照对象」里的现成接口实现同一算法。
-    #   README「框架对照」段要回答的是**差异原因**，至少覆盖：
-    #     - 框架多做了什么（向量化、融合算子、数值稳定的实现、自动混合精度）
-    #     - 框架的训练细节与手写版不同处（初始化、优化器默认值、梯度裁剪）
-    #     - 同一随机种子下两边指标是否真能对齐；对不齐要解释为什么
-    raise NotImplementedError("TODO: 调框架接口，返回 {'loss': ..., 'time_sec': ...}")
+import numpy as np
+import torch
+import torch.nn as nn
+
+
+def _windows(tokens, T, stride):
+    xs, ys = [], []
+    for i in range(0, len(tokens) - T, stride):
+        xs.append(tokens[i:i + T])
+        ys.append(tokens[i + 1:i + T + 1])
+    return np.array(xs), np.array(ys)
+
+
+class TorchGPT(nn.Module):
+    def __init__(self, vocab_size, context=16, d_model=32, n_heads=4, n_layers=2, d_ff=64):
+        super().__init__()
+        self.E = nn.Embedding(vocab_size, d_model)
+        self.P = nn.Parameter(torch.zeros(context, d_model))
+        layer = nn.TransformerEncoderLayer(d_model, n_heads, d_ff, dropout=0.0,
+                                           batch_first=True, norm_first=True)
+        self.blocks = nn.TransformerEncoder(layer, num_layers=n_layers, enable_nested_tensor=False)
+        self.lm = nn.Linear(d_model, vocab_size)
+
+    def forward(self, tokens):
+        T = tokens.shape[1]
+        x = self.E(tokens) + self.P[:T]
+        mask = torch.triu(torch.ones(T, T, dtype=torch.bool), diagonal=1)
+        return self.lm(self.blocks(x, mask=mask))
+
+    @torch.no_grad()
+    def generate(self, prompt, tokenizer, n_steps=20, temperature=1.0, top_k=None):
+        ids = list(tokenizer.encode(prompt))
+        for _ in range(n_steps):
+            ctx = torch.as_tensor(ids[-self.P.shape[0]:])[None]
+            probs = torch.softmax(self(ctx)[0, -1], dim=-1)
+            if temperature <= 0:
+                nxt = int(probs.argmax())
+            else:
+                logits = torch.log(probs.clamp_min(1e-12)) / temperature
+                if top_k is not None:
+                    k = min(top_k, logits.numel())
+                    vals, _ = torch.topk(logits, k)
+                    logits[logits < vals[-1]] = -1e9
+                nxt = int(torch.multinomial(torch.softmax(logits, -1), 1))
+            ids.append(nxt)
+        return tokenizer.decode(ids)
+
+
+def run_framework(tr, te, vocab_size, context=16, n_layers=2, epochs=80):
+    torch.manual_seed(0)
+    T = context
+    X, Y = _windows(tr, T, T // 2)
+    Xte, Yte = _windows(te, T, T // 2)
+    Xt, Yt = torch.as_tensor(X), torch.as_tensor(Y)
+    model = TorchGPT(vocab_size, context=T, n_layers=n_layers)
+    opt = torch.optim.Adam(model.parameters(), lr=3e-3)
+    lossf = nn.CrossEntropyLoss()
+    t0 = time.perf_counter()
+    for _ in range(epochs):
+        order = torch.randperm(len(Xt))
+        for s in range(0, len(Xt), 32):
+            idx = order[s:s + 32]
+            opt.zero_grad()
+            loss = lossf(model(Xt[idx]).reshape(-1, vocab_size), Yt[idx].reshape(-1))
+            loss.backward()
+            opt.step()
+    train_time = time.perf_counter() - t0
+    with torch.no_grad():
+        train_loss = float(lossf(model(Xt).reshape(-1, vocab_size), Yt.reshape(-1)))
+        logits = model(torch.as_tensor(Xte)).reshape(-1, vocab_size)
+        test_loss = float(lossf(logits, torch.as_tensor(Yte).reshape(-1)))
+        test_acc = float((logits.argmax(-1) == torch.as_tensor(Yte).reshape(-1)).float().mean())
+    return {"train_loss": train_loss, "test_loss": test_loss, "test_acc": test_acc,
+            "time_sec": train_time}
 
 
 if __name__ == "__main__":
-    raise SystemExit("请先完成 run_framework，由 demo.py 统一调用对比")
+    raise SystemExit("本文件是对照库，由 demo.py 调用")
