@@ -120,6 +120,11 @@ uv run pytest p01-search/a-star/ -q
 
 ## p05-generative · 生成式 AI
 
+> 族内学习顺序：VAE → DDPM（含条件生成/CFG 子实验）→ RAG。
+> VAE 是概率 latent，DDPM 是去噪生成，RAG 是检索增强的生成应用；
+> DDPM 的条件生成/CFG 作为该实验的子实验，不单开第 4 个目录。
+> 族级导读：[p05-generative/README.md](p05-generative/README.md)。
+
 | 实验 | 章节 | 状态 | 完成日期 |
 |---|---|---|---|
 | [变分自编码器 VAE](p05-generative/vae/) | 4.5 | ⬜ | |

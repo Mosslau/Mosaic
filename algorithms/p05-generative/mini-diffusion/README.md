@@ -2,6 +2,13 @@
 
 > 状态：⬜ 未开始
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 6.3 章
+> 族级导读：[p05-generative/README.md](../README.md)
+
+**本实验包含两个层次**：
+
+1. 无条件 DDPM 主线：前向加噪、反向去噪、采样；
+2. **条件生成 / CFG 子实验**：class-conditional DDPM + classifier-free guidance，
+   对照 `w ∈ {0,1,3,7}` 的类别一致性与多样性。不单开第 4 个目录。
 
 ## 设计原理
 
