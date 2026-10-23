@@ -1,6 +1,6 @@
 # p05-generative · 生成式 AI
 
-> 状态：**0/3 完成（骨架）**
+> 状态：**1/3 完成（VAE ✅，DDPM/RAG 仍为 ⬜）**
 > 对应路线：`../docs/人工智能代表算法演进路线.md`（4.5 / 6.3 / 8.1）
 > 族内顺序：VAE → DDPM（含条件生成/CFG 子实验）→ RAG
 > 本族 3 个实验，占全仓库 31 个实验中的 3 个；逐实验入口见 [`algorithms/README.md`](../README.md)。
@@ -20,7 +20,7 @@ p05 补三条不同的生成路线：
 
 | # | 实验 | 章节 | 默认数据 | 核心 | 接口形态 | 状态 |
 |---|---|---|---|---|---|---|
-| 1 | [VAE](vae/) | 4.5 | digits 8×8 / 2D latent | 重参数化、ELBO、KL、采样/插值 | **模型**：`train(X)` / `sample` / `reconstruct` | ⬜ |
+| 1 | [VAE](vae/) | 4.5 | digits 8×8 / 2D latent | 重参数化、ELBO、KL、采样/插值 | **模型**：`fit(X)` / `sample` / `reconstruct` | ✅ 2026-10-23 |
 | 2 | [DDPM](mini-diffusion/) | 6.3 | digits 8×8 | 前向加噪、反向去噪、采样 | **模型**：`train(X)` / `sample` | ⬜ |
 | 3 | [RAG](mini-rag/) | 8.1 | 小型文档/问答 | 检索 → 上下文 → 生成 | **流水线**：`index(docs)` / `query(q)` | ⬜ |
 
@@ -86,7 +86,7 @@ flowchart LR
 | 阶段 | 内容 | 交付 | 状态 |
 |---|---|---|---|
 | **Phase 0** | 族级导读、VAE/AE 边界、DDPM 条件子实验、RAG 定位 | 本文件 + 三个骨架 | ✅ 本版完成 |
-| Phase 1 | VAE：重参数化、ELBO、KL、2D latent、采样/插值 | 实现 + 测试 + 素材 + 练习/项目 | ⬜ |
+| Phase 1 | VAE：重参数化、ELBO、KL、2D latent、采样/插值 | 实现 + 测试 + 素材 + 练习/项目 | ✅ 2026-10-23 |
 | Phase 2 | DDPM：前向/反向、去噪、采样；条件生成/CFG 子实验 | 实现 + 测试 + 条件对照 + 素材 | ⬜ |
 | Phase 3 | RAG：索引、检索、上下文、生成、引用 | 流水线 + 测试 + 评估 + 项目 | ⬜ |
 | Phase 4 | p05 阶段成熟度评估 | 成本/质量/边界/遗留 | ⬜ |
@@ -113,6 +113,6 @@ flowchart LR
 
 ## 9. 状态与后续
 
-- 当前 **0/3**，三个实验仍是骨架；本版只完成 Phase 0；
-- 下一步：Phase 1 VAE（先做概率 latent，再讲采样/插值）；
+- 当前 **1/3**，VAE 已完成；DDPM/RAG 仍是骨架；
+- 下一步：Phase 2 DDPM（含条件生成/CFG 子实验）；
 - 每完成一个实验，同步本表、[`algorithms/README.md`](../README.md) 索引与根 README 计数。

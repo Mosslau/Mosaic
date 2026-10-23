@@ -1,70 +1,180 @@
 """变分自编码器 VAE — 手写实现（深度模型 · 生成式）
 
-与同族的 AutoEncoder 关键差别：**中间是分布而不是点**。所以除了重构，
-还多一项 KL 散度损失——这正是接口里出现 sample() 的原因（能采样才叫生成模型）。
+    vae = VAE(latent_dim=2, beta=1.0).fit(X)
+    mu, logvar = vae.encode(X)
+    samples = vae.sample(16)
+    z = vae.interpolate(mu[0], mu[1], 10)
 
-    vae = VAE(latent_dim=16, lr=1e-3, epochs=50)
-    vae.fit(X_train)                       # 无监督：目标是 X 自己 + KL 正则
-    mu, logvar = vae.encode(X_test)        # 返回分布参数，不是点
-    X_hat = vae.reconstruct(X_test)
-    samples = vae.sample(n=16)             # 从先验 N(0, I) 采样再解码
-
-三个必须手推的点（README「数学推导」段）：
-    1. 证据下界 ELBO 的推导：重构项 + KL 项从何而来
-    2. **重参数化技巧** z = mu + sigma * eps —— 没有它采样不可导，整个模型训不了
-    3. KL 项对 mu / logvar 的闭式解（不必采样估计，README 要给出公式）
+编码器输出分布参数 (mu, logvar)，重参数化采样 z，解码器重建。
+损失 = MSE 重构 + beta * KL(q(z|x) || N(0,I))。
 """
+
+from __future__ import annotations
 
 import numpy as np
 
 
-class VAE:
-    """编码器输出 (mu, logvar)；重参数化采样 z；解码器重建。"""
+def sigmoid(z):
+    z = np.asarray(z, dtype=float)
+    out = np.empty_like(z)
+    pos = z >= 0
+    out[pos] = 1.0 / (1.0 + np.exp(-z[pos]))
+    ez = np.exp(z[~pos])
+    out[~pos] = ez / (1.0 + ez)
+    return out
 
-    def __init__(self, latent_dim: int = 16, lr: float = 1e-3, epochs: int = 50,
-                 beta: float = 1.0, random_state: int | None = None) -> None:
+
+class VAE:
+    def __init__(self, latent_dim: int = 2, lr: float = 1e-3, epochs: int = 100,
+                 beta: float = 1.0, hidden: int = 32, random_state: int | None = 0) -> None:
+        if latent_dim < 1 or hidden < 1:
+            raise ValueError("latent_dim/hidden 必须 >=1")
+        if beta < 0:
+            raise ValueError("beta 不能为负")
+        if epochs < 1:
+            raise ValueError("epochs 必须 >=1")
         self.latent_dim = latent_dim
         self.lr = lr
         self.epochs = epochs
-        self.beta = beta              # beta-VAE 的权重，demo 可扫它看解耦效果
+        self.beta = beta
+        self.hidden = hidden
         self.random_state = random_state
-        self.params: dict = {}
+        rng = np.random.default_rng(random_state)
+        self.params = {
+            "W1": rng.normal(0, np.sqrt(2 / 64), (64, hidden)),
+            "b1": np.zeros(hidden),
+            "Wmu": rng.normal(0, np.sqrt(2 / hidden), (hidden, latent_dim)),
+            "bmu": np.zeros(latent_dim),
+            "Wlv": rng.normal(0, np.sqrt(2 / hidden), (hidden, latent_dim)),
+            "blv": np.zeros(latent_dim),
+            "W2": rng.normal(0, np.sqrt(2 / latent_dim), (latent_dim, hidden)),
+            "b2": np.zeros(hidden),
+            "W3": rng.normal(0, np.sqrt(2 / hidden), (hidden, 64)),
+            "b3": np.zeros(64),
+        }
         self.loss_history: list[float] = []
         self.recon_history: list[float] = []
         self.kl_history: list[float] = []
+        self._adam: dict[str, dict] = {}
+        self._t = 0
+        self.cache: dict = {}
 
-    def encode(self, X: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """返回 (mu, logvar)——**用 logvar 而不是 sigma**，为了让 KL 项数值稳定（README 说明）。"""
-        # TODO: 手写——共享隐层后接两个输出头
-        raise NotImplementedError("TODO: 手写编码器（双头输出）")
+    def _check_X(self, X):
+        X = np.asarray(X, dtype=float)
+        if X.ndim != 2 or X.shape[1] != 64 or len(X) == 0:
+            raise ValueError("X 应为非空 (N,64)")
+        return X
 
-    def reparameterize(self, mu: np.ndarray, logvar: np.ndarray,
-                       rng: np.random.Generator) -> np.ndarray:
-        """z = mu + exp(0.5 * logvar) * eps，eps ~ N(0, I)。"""
-        # TODO: 手写——这一行是整个 VAE 可训练的关键，注释里要写清"为什么不能直接采样"
-        raise NotImplementedError("TODO: 手写重参数化采样")
+    def _encode(self, X):
+        h = np.maximum(X @ self.params["W1"] + self.params["b1"], 0)
+        mu = h @ self.params["Wmu"] + self.params["bmu"]
+        lv = h @ self.params["Wlv"] + self.params["blv"]
+        return h, mu, lv
 
-    def decode(self, Z: np.ndarray) -> np.ndarray:
-        # TODO: 手写解码器前向
-        raise NotImplementedError("TODO: 手写解码器前向")
+    def encode(self, X):
+        X = self._check_X(X)
+        _, mu, lv = self._encode(X)
+        return mu, lv
 
-    def reconstruct(self, X: np.ndarray) -> np.ndarray:
-        """用分布均值重构（推理期不采样，保证输出可复现）。"""
-        # TODO: 手写——encode 取 mu → decode
-        raise NotImplementedError("TODO: 手写重构")
+    def reparameterize(self, mu, logvar, rng):
+        eps = rng.normal(size=mu.shape)
+        return mu + np.exp(0.5 * logvar) * eps
 
-    def fit(self, X: np.ndarray) -> "VAE":
-        """最小化 -ELBO = 重构误差 + beta * KL(q(z|x) || N(0,I))，两项分别记录。"""
-        # TODO: 手写
-        #   重构项：MSE 或 Bernoulli 交叉熵（二值图像用它，README 说明选哪个及理由）
-        #   KL 项闭式：-0.5 * Σ(1 + logvar - mu^2 - exp(logvar))
-        #   反向时 **KL 的梯度也要经 mu / logvar 回传到编码器**，别只反传重构项
-        raise NotImplementedError("TODO: 手写 ELBO 训练循环")
+    def _decode(self, Z):
+        h = np.maximum(Z @ self.params["W2"] + self.params["b2"], 0)
+        return sigmoid(h @ self.params["W3"] + self.params["b3"]), h
 
-    def sample(self, n: int = 16) -> np.ndarray:
-        # TODO: 手写——从先验 N(0, I) 采样 Z，再 decode
-        raise NotImplementedError("TODO: 手写先验采样")
+    def decode(self, Z):
+        Z = np.asarray(Z, dtype=float)
+        if Z.ndim != 2 or Z.shape[1] != self.latent_dim:
+            raise ValueError(f"Z 应为 (N,{self.latent_dim})")
+        return self._decode(Z)[0]
+
+    def reconstruct(self, X):
+        X = self._check_X(X)
+        _, mu, _ = self._encode(X)
+        return self._decode(mu)[0]
+
+    def _forward(self, X, rng):
+        h, mu, lv = self._encode(X)
+        eps = rng.normal(size=mu.shape)
+        z = mu + np.exp(0.5 * lv) * eps
+        xhat, h2 = self._decode(z)
+        self.cache = {"X": X, "h": h, "mu": mu, "lv": lv, "eps": eps,
+                      "z": z, "xhat": xhat, "h2": h2}
+        return xhat
+
+    def _backward(self):
+        c = self.cache
+        N, D = c["X"].shape
+        # 重构项按“每个样本对像素求和、再对 batch 平均”，与 KL 的量级匹配
+        dxhat = 2 * (c["xhat"] - c["X"]) / N
+        dlogits = dxhat * c["xhat"] * (1 - c["xhat"])
+        g = {}
+        g["W3"] = c["h2"].T @ dlogits
+        g["b3"] = dlogits.sum(0)
+        dh2 = (dlogits @ self.params["W3"].T) * (c["h2"] > 0)
+        g["W2"] = c["z"].T @ dh2
+        g["b2"] = dh2.sum(0)
+        dz = dh2 @ self.params["W2"].T
+        # KL 的解析梯度（按 batch 平均）
+        dmu = dz + self.beta * c["mu"] / N
+        dlv = dz * 0.5 * np.exp(0.5 * c["lv"]) * c["eps"] \
+            + self.beta * 0.5 * (np.exp(c["lv"]) - 1) / N
+        g["Wmu"] = c["h"].T @ dmu
+        g["bmu"] = dmu.sum(0)
+        g["Wlv"] = c["h"].T @ dlv
+        g["blv"] = dlv.sum(0)
+        dh = (dmu @ self.params["Wmu"].T + dlv @ self.params["Wlv"].T) * (c["h"] > 0)
+        g["W1"] = c["X"].T @ dh
+        g["b1"] = dh.sum(0)
+        return g
+
+    def _step(self, grads):
+        self._t += 1
+        for k, p in self.params.items():
+            g = grads[k]
+            st = self._adam.setdefault(k, {"m": np.zeros_like(p), "v": np.zeros_like(p)})
+            st["m"] = 0.9 * st["m"] + 0.1 * g
+            st["v"] = 0.999 * st["v"] + 0.001 * g * g
+            p -= self.lr * (st["m"] / (1 - 0.9 ** self._t)) / (
+                np.sqrt(st["v"] / (1 - 0.999 ** self._t)) + 1e-8)
+
+    def fit(self, X):
+        X = self._check_X(X)
+        rng = np.random.default_rng(self.random_state)
+        self.loss_history, self.recon_history, self.kl_history = [], [], []
+        for _ in range(self.epochs):
+            order = rng.permutation(len(X))
+            for s in range(0, len(X), 64):
+                xb = X[order[s:s + 64]]
+                self._forward(xb, rng)
+                self._step(self._backward())
+            # full-data 指标（不采样，使用 mu 重构；KL 用分布）
+            mu, lv = self.encode(X)
+            rec = float(np.mean(np.sum((self.decode(mu) - X) ** 2, axis=1)))
+            kl = float(np.mean(-0.5 * np.sum(1 + lv - mu ** 2 - np.exp(lv), axis=1)))
+            self.recon_history.append(rec)
+            self.kl_history.append(kl)
+            self.loss_history.append(rec + self.beta * kl)
+        return self
+
+    def sample(self, n=16):
+        if n < 1:
+            raise ValueError("n 必须 >=1")
+        rng = np.random.default_rng(self.random_state)
+        z = rng.normal(size=(n, self.latent_dim))
+        return self._decode(z)[0]
+
+    def interpolate(self, z1, z2, n=10):
+        if n < 1:
+            raise ValueError("n 必须 >=1")
+        z1, z2 = np.asarray(z1, dtype=float), np.asarray(z2, dtype=float)
+        if z1.shape != (self.latent_dim,) or z2.shape != (self.latent_dim,):
+            raise ValueError(f"z1/z2 形状应为 ({self.latent_dim},)")
+        alphas = np.linspace(0, 1, n)[:, None]
+        return self.decode(z1 + alphas * (z2 - z1))
 
 
 if __name__ == "__main__":
-    raise SystemExit("请先完成 fit/sample，再到 demo.py 跑实验")
+    raise SystemExit("本文件是手写实现库，实验入口是 demo.py：uv run python demo.py")

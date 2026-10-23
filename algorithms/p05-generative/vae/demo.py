@@ -1,53 +1,71 @@
-"""变分自编码器 VAE — demo：同数据双跑 + 可视化对比
+"""VAE — demo：ELBO、2D latent、采样/插值、与 p03 AE 对照
 
-要求：
-1. 用一个小而经典的数据集（能几分钟内跑完）
-2. 同一份 train/test 切分，分别跑手写版（impl.py）和框架版（framework.py）
-3. 输出两套关键指标并排对比
-4. 至少一张可视化图（matplotlib），含手写 vs 框架的对比
-5. 结论写回本目录 README.md 的「实验结果」一节
+    uv run python demo.py
 """
 
+from __future__ import annotations
+
+import importlib.util
 import time
+from pathlib import Path
 
-from impl import Model
-from framework import run_framework
+import framework
+import numpy as np
+from impl import VAE
+from sklearn.datasets import load_digits
+from sklearn.model_selection import train_test_split
+
+BASE = Path(__file__).resolve().parent
 
 
-def load_data():
-    """TODO: 加载数据集，返回 X_train, X_test, y_train, y_test（固定随机种子保证可复现）。"""
-    raise NotImplementedError
-
-
-def evaluate(y_true, y_pred) -> dict:
-    """TODO: 返回本任务的关键指标，如 {'mse': ..., 'mae': ...}"""
-    raise NotImplementedError
+def load_ae():
+    path = BASE.parent.parent / "p03-deep-learning" / "autoencoder" / "impl.py"
+    spec = importlib.util.spec_from_file_location("p03_ae", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.AutoEncoder
 
 
 def main() -> None:
-    X_train, X_test, y_train, y_test = load_data()
+    X, y = load_digits(return_X_y=True)
+    X = X / 16.0
+    Xtr, Xte, ytr, yte = train_test_split(X, y, train_size=1200, random_state=0,
+                                          stratify=y)
 
-    # --- 手写实现 ---
+    print("== 实验一：VAE vs p03 AutoEncoder（latent=2，100 轮） ==")
     t0 = time.perf_counter()
-    model = Model()
-    model.fit(X_train, y_train)
-    pred_manual = model.predict(X_test)
-    t_manual = time.perf_counter() - t0
-    metrics_manual = evaluate(y_test, pred_manual)
+    vae = VAE(latent_dim=2, beta=1.0, epochs=100, random_state=0).fit(Xtr)
+    t_vae = time.perf_counter() - t0
+    vae_mse = float(np.mean((vae.reconstruct(Xte) - Xte) ** 2))
 
-    # --- 框架对照 ---
-    t0 = time.perf_counter()
-    metrics_framework = run_framework(X_train, X_test, y_train, y_test)
-    t_framework = time.perf_counter() - t0
+    AutoEncoder = load_ae()
+    ae = AutoEncoder(latent_dim=2, epochs=100, random_state=0).fit(Xtr)
+    ae_mse = ae.reconstruction_error(Xte)
+    print(f"VAE : test MSE {vae_mse:.4f}，KL {vae.kl_history[-1]:.3f}，{t_vae:.1f}s")
+    print(f"AE  : test MSE {ae_mse:.4f}")
+    print("VAE 能 sample()；AE 只能 reconstruct()，不能从先验采样。\n")
 
-    # --- 并排对比 ---
-    print(f"{'':12} | {'手写实现':>12} | {'框架调用':>12}")
-    print("-" * 44)
-    for k, v in metrics_manual.items():
-        print(f"{k:12} | {v:>12.4f} | {metrics_framework.get(k, float('nan')):>12.4f}")
-    print(f"{'time_sec':12} | {t_manual:>12.4f} | {t_framework:>12.4f}")
+    print("== 实验二：beta 权衡（recon / KL） ==")
+    print(f"{'beta':>5} | {'test MSE':>8} | {'KL':>6}")
+    print("-" * 26)
+    for beta in (0.1, 1.0, 4.0):
+        v = VAE(latent_dim=2, beta=beta, epochs=100, random_state=0).fit(Xtr)
+        mse = float(np.mean((v.reconstruct(Xte) - Xte) ** 2))
+        print(f"{beta:5.1f} | {mse:8.4f} | {v.kl_history[-1]:6.3f}")
+    print()
 
-    # TODO: 可视化对比（matplotlib），保存图片到本目录
+    print("== 实验三：先验采样 + 插值 ==")
+    s = vae.sample(8)
+    print(f"sample(8) 形状 {s.shape}，范围 [{s.min():.3f}, {s.max():.3f}]")
+    mu, _ = vae.encode(Xte[:2])
+    interp = vae.interpolate(mu[0], mu[1], 5)
+    print(f"interpolate(2→5) 形状 {interp.shape}；相邻 L2 变化 "
+          f"{np.mean(np.linalg.norm(np.diff(interp, axis=0), axis=1)):.3f}\n")
+
+    print("== 实验四：手写 vs torch ==")
+    fm = framework.run_framework(Xtr, Xte, latent_dim=2, beta=1.0, epochs=100)
+    print(f"VAE 手写 test MSE {vae_mse:.4f} / {t_vae:.1f}s")
+    print(f"VAE torch  test MSE {fm['mse']:.4f} / {fm['time_sec']:.1f}s")
 
 
 if __name__ == "__main__":

@@ -1,30 +1,63 @@
-"""变分自编码器 VAE — 框架对照调用（深度模型 · 生成式）
+"""VAE — PyTorch 对照。
 
-用手写实现同样的数据与指标，调 **PyTorch** 跑一遍（本族对照对象是 PyTorch，不是 sklearn）。
-目的：
-1. 验证手写实现的正确性（指标/损失应对齐）
-2. 感受框架封装的便利与隐藏的细节
-3. 记录框架内部额外做的优化（写回 README「框架对照」一节）
-
-**对照对象**：torch 的现成层实现同一 VAE
-
-手写纪律：本文件是对照版，**不受手写纪律约束**（可用现成层与优化器）；
-纪律只约束 impl.py。
+同结构：64→32→(mu,logvar)→2→32→64；损失 = 重构（像素和）+ KL。
 """
 
+from __future__ import annotations
 
-def run_framework(X_train, X_test, y_train, y_test):
-    """用框架接口完成训练 + 预测，返回与手写版对齐的指标字典。
+import time
 
-    返回示例：{"loss": ..., "metric": ..., "time_sec": ...}
-    """
-    # TODO: 用上面「对照对象」里的现成接口实现同一算法。
-    #   README「框架对照」段要回答的是**差异原因**，至少覆盖：
-    #     - 框架多做了什么（向量化、融合算子、数值稳定的实现、自动混合精度）
-    #     - 框架的训练细节与手写版不同处（初始化、优化器默认值、梯度裁剪）
-    #     - 同一随机种子下两边指标是否真能对齐；对不齐要解释为什么
-    raise NotImplementedError("TODO: 调框架接口，返回 {'loss': ..., 'time_sec': ...}")
+import numpy as np
+import torch
+import torch.nn as nn
+
+
+class TorchVAE(nn.Module):
+    def __init__(self, latent_dim=2, hidden=32):
+        super().__init__()
+        self.enc = nn.Sequential(nn.Linear(64, hidden), nn.ReLU())
+        self.mu = nn.Linear(hidden, latent_dim)
+        self.lv = nn.Linear(hidden, latent_dim)
+        self.dec = nn.Sequential(nn.Linear(latent_dim, hidden), nn.ReLU(),
+                                 nn.Linear(hidden, 64), nn.Sigmoid())
+
+    def encode(self, x):
+        h = self.enc(x)
+        return self.mu(h), self.lv(h)
+
+    def forward(self, x):
+        mu, lv = self.encode(x)
+        z = mu + torch.exp(0.5 * lv) * torch.randn_like(mu)
+        return self.dec(z), mu, lv
+
+
+def run_framework(X_train, X_test, latent_dim=2, beta=1.0, epochs=100):
+    torch.manual_seed(0)
+    X = torch.as_tensor(X_train, dtype=torch.float32)
+    model = TorchVAE(latent_dim)
+    opt = torch.optim.Adam(model.parameters(), lr=1e-3)
+    t0 = time.perf_counter()
+    for _ in range(epochs):
+        perm = torch.randperm(len(X))
+        for s in range(0, len(X), 64):
+            xb = X[perm[s:s + 64]]
+            xhat, mu, lv = model(xb)
+            recon = ((xhat - xb) ** 2).sum(1).mean()
+            kl = (-0.5 * (1 + lv - mu ** 2 - lv.exp()).sum(1)).mean()
+            loss = recon + beta * kl
+            opt.zero_grad()
+            loss.backward()
+            opt.step()
+    t = time.perf_counter() - t0
+    with torch.no_grad():
+        mu, _ = model.encode(torch.as_tensor(X_test, dtype=torch.float32))
+        rec = model.dec(mu).numpy()
+        mse = float(np.mean((rec - X_test) ** 2))
+        z = torch.randn(16, latent_dim)
+        samples = model.dec(z).numpy()
+    return {"mse": mse, "loss": float(loss.detach()), "time_sec": t,
+            "samples": samples, "recon": rec}
 
 
 if __name__ == "__main__":
-    raise SystemExit("请先完成 run_framework，由 demo.py 统一调用对比")
+    raise SystemExit("本文件是对照库，由 demo.py 调用")
