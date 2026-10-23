@@ -124,6 +124,7 @@ uv run pytest p01-search/a-star/ -q
 > VAE 是概率 latent，DDPM 是去噪生成，RAG 是检索增强的生成应用；
 > DDPM 的条件生成/CFG 作为该实验的子实验，不单开第 4 个目录。
 > 族级导读：[p05-generative/README.md](p05-generative/README.md)。
+> 阶段横向对照：[stage_benchmark.py](p05-generative/stage_benchmark.py)。
 
 | 实验 | 章节 | 状态 | 完成日期 |
 |---|---|---|---|
