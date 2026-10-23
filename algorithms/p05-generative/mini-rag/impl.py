@@ -1,40 +1,29 @@
-"""迷你 RAG 检索增强生成 — 手写实现（流水线）
+"""迷你 RAG — 手写实现（流水线）
 
-**流水线族没有单一的 Model 接口**：RAG 是一条链路，按环节组织而不是 fit(X, y)。
-本目录的形态由链路决定，三个环节各自是独立可测的单元：
-
-    index = Index()                      # ① 建索引
-    index.build(docs)
-    hits  = index.search(query, top_k=3) # ② 检索
-    pipe  = Pipeline(index, generator)   # ③ 检索 → 生成
-    answer = pipe.query("...")
-
-  环节          类 / 函数           接口
-  ----------    ----------------    --------------------------------------
-  ① 向量化+索引  Index.build         build(docs) -> None
-  ① 检索         Index.search        search(query, top_k) -> list[Hit]
-  ③ 生成         Generator.generate  generate(query, contexts) -> str
-  ③ 端到端       Pipeline.query      query(text) -> Answer（含引用）
-
-手写纪律（按族细化）：本环节允许复用**本仓库其他实验已完成的手写算法**
-（如用 p04 的 attention 做 Rerank），但**禁止直接调 LangChain 等框架的现成链**。
-embedding 若用现成模型需在 README 标注出处；否则用词袋 / n-gram 哈希手写降级版。
+    idx = Index().build(docs)
+    hits = idx.search("...", top_k=3)
+    pipe = Pipeline(idx, Generator())
+    ans = pipe.query("...")       # Answer(text, citations)
 """
 
+from __future__ import annotations
+
+import hashlib
+import re
+from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Protocol
+from typing import Any, Protocol
+
+import numpy as np
 
 
 class Embedder(Protocol):
-    """向量化端口：把文本转成稠密向量。手写降级版或现成模型都实现这个协议。"""
-
     def encode(self, texts: list[str]) -> Any: ...
 
 
 @dataclass
 class Hit:
-    """一条检索结果：原文 + 相似度分数 + 在原文中的位置（引用溯源要用）。"""
-
     text: str
     score: float
     doc_id: int = -1
@@ -42,61 +31,130 @@ class Hit:
 
 @dataclass
 class Answer:
-    """端到端产物：答案 + 引用的原文片段（**引用溯源是 RAG 的验收项之一**）。"""
-
     text: str
     citations: list[Hit] = field(default_factory=list)
 
 
+STOPWORDS = {
+    "a", "an", "the", "and", "or", "of", "to", "in", "on", "for", "with",
+    "is", "are", "was", "were", "be", "by", "as", "at", "from", "that",
+    "this", "it", "its", "which", "what", "when", "how", "does", "do",
+    "use", "uses", "using", "can", "will", "into", "than", "then",
+}
+
+
+def tokenize(text: str) -> list[str]:
+    return [w for w in re.findall(r"[a-z0-9]+", text.lower())
+            if w not in STOPWORDS]
+
+
+def _stable_hash(token: str, dim: int) -> int:
+    h = hashlib.blake2b(token.encode("utf-8"), digest_size=8).digest()
+    return int.from_bytes(h, "little") % dim
+
+
+class HashingEmbedder:
+    """手写 TF-IDF + 哈希向量；无需外部 embedding 模型。"""
+
+    def __init__(self, dim: int = 512) -> None:
+        self.dim = dim
+        self.idf: dict[str, float] = {}
+        self.n_docs = 0
+
+    def fit(self, texts: list[str]) -> HashingEmbedder:
+        df = Counter()
+        for t in texts:
+            df.update(set(tokenize(t)))
+        self.n_docs = len(texts)
+        self.idf = {w: np.log((self.n_docs + 1) / (c + 1)) + 1 for w, c in df.items()}
+        return self
+
+    def encode(self, texts: list[str]) -> np.ndarray:
+        out = np.zeros((len(texts), self.dim))
+        for i, text in enumerate(texts):
+            tf = Counter(tokenize(text))
+            for w, c in tf.items():
+                weight = (1 + np.log(c)) * self.idf.get(w, 1.0)
+                out[i, _stable_hash(w, self.dim)] += weight
+        norm = np.linalg.norm(out, axis=1, keepdims=True)
+        return out / np.maximum(norm, 1e-12)
+
+
 class Index:
-    """① 向量化并建索引 + ② 检索。两个环节耦合在索引结构里，但接口分开。"""
-
-    def __init__(self, embedder: Embedder | None = None, chunk_size: int = 200) -> None:
-        self.embedder = embedder
+    def __init__(self, embedder: Embedder | None = None, chunk_size: int = 200,
+                 overlap: int = 40) -> None:
+        if chunk_size < 1 or not (0 <= overlap < chunk_size):
+            raise ValueError("需要 chunk_size>=1 且 0<=overlap<chunk_size")
+        self.embedder = embedder or HashingEmbedder()
         self.chunk_size = chunk_size
+        self.overlap = overlap
         self.chunks: list[str] = []
-        self.vectors: Any = None
+        self.doc_ids: list[int] = []
+        self.vectors: np.ndarray | None = None
 
-    def build(self, docs: list[str]) -> None:
-        """切块 → 向量化 → 存成矩阵（同时保留 chunk 原文，供引用回填）。"""
-        # TODO: 手写
-        #   1. 按 chunk_size 切块（重叠多少自己定，README 说明它对召回的影响）
-        #   2. 逐块 encode；堆成 (n_chunks, dim) 矩阵
-        #   3. 归一化后存起来（这样内积就等于余弦相似度，检索更快）
-        raise NotImplementedError("TODO: 手写切块 + 向量化 + 索引")
+    def _split(self, doc: str) -> list[str]:
+        doc = doc.strip()
+        if len(doc) <= self.chunk_size:
+            return [doc] if doc else []
+        out, start = [], 0
+        while start < len(doc):
+            out.append(doc[start:start + self.chunk_size])
+            if start + self.chunk_size >= len(doc):
+                break
+            start += self.chunk_size - self.overlap
+        return out
+
+    def build(self, docs: list[str]) -> Index:
+        self.chunks, self.doc_ids = [], []
+        for i, doc in enumerate(docs):
+            for chunk in self._split(doc):
+                self.chunks.append(chunk)
+                self.doc_ids.append(i)
+        if not self.chunks:
+            raise ValueError("docs 不能为空")
+        if hasattr(self.embedder, "fit"):
+            self.embedder.fit(self.chunks)
+        self.vectors = np.asarray(self.embedder.encode(self.chunks), dtype=float)
+        return self
 
     def search(self, query: str, top_k: int = 3) -> list[Hit]:
-        # TODO: 手写——query 向量化后与索引做内积，取 top_k（对照基线：关键词/BM25 检索）
-        raise NotImplementedError("TODO: 手写向量检索")
+        if self.vectors is None:
+            raise RuntimeError("请先 build")
+        if not isinstance(query, str) or not query.strip():
+            raise ValueError("query 不能为空")
+        if top_k < 1:
+            raise ValueError("top_k 必须 >=1")
+        q = np.asarray(self.embedder.encode([query])[0], dtype=float)
+        scores = self.vectors @ q
+        order = np.argsort(scores)[::-1][:top_k]
+        return [Hit(self.chunks[i], float(scores[i]), self.doc_ids[i]) for i in order]
 
 
 class Generator:
-    """③ 生成环节：把手写版与对照版都收在同一个 generate 接口下。"""
-
     def __init__(self, llm: Callable[[str], str] | None = None) -> None:
         self.llm = llm
 
     def generate(self, query: str, contexts: list[Hit]) -> str:
-        """把 contexts 拼进提示词后交给 llm；无 llm 时用可复现的降级实现。"""
-        # TODO: 手写
-        #   1. 组装提示词：要求"仅依据给定上下文回答，并标注来源"
-        #   2. self.llm 为 None 时退化成"抽取式"回答（直接返回最相关片段），
-        #      这样 demo 无需 API key 也能跑通端到端——README 要标注这是降级口径
-        raise NotImplementedError("TODO: 手写提示词组装与生成")
+        if not contexts:
+            return "未找到相关上下文。"
+        if self.llm is not None:
+            prompt = ("仅依据以下上下文回答问题，并标注来源。\n"
+                      + "\n".join(f"[doc {c.doc_id}] {c.text}" for c in contexts)
+                      + f"\n问题：{query}\n答案：")
+            return self.llm(prompt)
+        # 无 LLM 的抽取式降级：直接返回最相关片段并标注 doc id
+        return f"{contexts[0].text} [doc {contexts[0].doc_id}]"
 
 
 class Pipeline:
-    """端到端：query → 检索 → 生成 → 带引用的 Answer。"""
-
     def __init__(self, index: Index, generator: Generator) -> None:
         self.index = index
         self.generator = generator
 
     def query(self, text: str, top_k: int = 3) -> Answer:
-        # TODO: 手写——index.search 拿 contexts，generator.generate 出答案，
-        #   把用到的 Hit 作为 citations 回填（引用溯源是验收项，不能只返回字符串）
-        raise NotImplementedError("TODO: 手写端到端链路")
+        hits = self.index.search(text, top_k)
+        return Answer(self.generator.generate(text, hits), hits)
 
 
 if __name__ == "__main__":
-    raise SystemExit("请先完成 Index.build / search 与 Pipeline.query，再到 demo.py 跑实验")
+    raise SystemExit("本文件是手写实现库，实验入口是 demo.py：uv run python demo.py")

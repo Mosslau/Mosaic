@@ -15,7 +15,6 @@
 
 import itertools
 import random
-from typing import Optional
 
 from impl import CSP, SolveResult
 
@@ -37,14 +36,15 @@ def enumerate_all(csp: CSP, limit: int = 5_000_000) -> SolveResult:
     for combo in itertools.product(*(csp.domains[v] for v in vars_)):
         res.nodes += 1
         assign = dict(zip(vars_, combo))
-        if all(ok(assign[a], assign[b]) for a, b, ok in csp.all_constraints()):
+        if all(ok(assign[a], assign[b])
+               for a, b, ok in csp.all_constraints()):
             res.assignment = assign
             return res
     return res
 
 
 def random_restart(csp: CSP, max_tries: int = 20000,
-                   rng: Optional[random.Random] = None) -> SolveResult:
+                   rng: random.Random | None = None) -> SolveResult:
     """随机重启：每次给所有变量随机赋值，全满足就成功，否则整体重来。
 
     完全不用回溯/传播——这是"局部搜索"路线最朴素的形态。
@@ -55,13 +55,14 @@ def random_restart(csp: CSP, max_tries: int = 20000,
     for _ in range(max_tries):
         res.nodes += 1
         assign = {v: rng.choice(csp.domains[v]) for v in csp.variables}
-        if all(ok(assign[a], assign[b]) for a, b, ok in csp.all_constraints()):
+        if all(ok(assign[a], assign[b])
+               for a, b, ok in csp.all_constraints()):
             res.assignment = assign
             return res
     return res
 
 
-# ---------------------------------------------------------------- 问题构造（供 demo / baseline 共用）
+# ------------------------------------------------------ 问题构造（demo / baseline 共用）
 
 def n_queens(n: int) -> CSP:
     """n 皇后：每行一个变量，取值是列号；两两不同列、不同斜线。"""
@@ -101,3 +102,6 @@ def sudoku(puzzle: list) -> CSP:
                 constraints.append((f"c{i}", f"c{j}",
                                     (lambda a, b: a != b)))
     return CSP(variables, domains, constraints)
+
+if __name__ == "__main__":
+    raise SystemExit("本文件是 CSP 基线库，由 demo.py 统一调用")
