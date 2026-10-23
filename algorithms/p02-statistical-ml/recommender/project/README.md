@@ -8,4 +8,4 @@
 
 运行：`uv run python recommend.py`
 
-实测：Recall@10 0.516；NDCG@10 0.252。
+实测：Recall@10 0.422；NDCG@10 0.252。

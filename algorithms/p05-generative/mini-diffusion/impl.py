@@ -83,7 +83,7 @@ class Denoiser:
 
 class DDPM:
     def __init__(self, n_steps=100, lr=1e-3, epochs=100, beta_start=1e-4,
-                 beta_end=0.02, num_classes=10, hidden=128, random_state=0):
+                 beta_end=0.1, num_classes=10, hidden=128, random_state=0):
         if n_steps < 2:
             raise ValueError("n_steps 必须 >=2")
         if epochs < 1 or hidden < 1:

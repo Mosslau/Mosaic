@@ -3,7 +3,7 @@
 > 状态：✅ 已完成（2026-10-23）
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 3.3.2 章（集成学习 · Boosting 系列）
 > 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现实验读「进阶篇」
-> 本族共 11 个实验，学习顺序与选读建议见 [族级导读](../README.md)。
+> 本族共 14 个实验，学习顺序与选读建议见 [族级导读](../README.md)。
 
 监督估计器（统计机器学习族）：入口是 `GradientBoostingRegressor(n_estimators, learning_rate, max_depth, subsample).fit(X, y, eval_set=..., early_stopping_rounds=...)`，实现在 [impl.py](impl.py)；对照是 [framework.py](framework.py) 的 sklearn `GradientBoostingRegressor`。它是 [决策树](../decision-tree/) 的**串行**集成：每棵新树只拟合当前模型的残差。
 

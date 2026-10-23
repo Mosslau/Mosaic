@@ -11,10 +11,10 @@ def data(n=64, seed=0):
 
 
 def test_schedule() -> None:
-    d = DDPM(n_steps=20)
-    assert d.betas.shape == (20,)
+    d = DDPM(n_steps=100)
+    assert d.betas.shape == (100,)
     assert np.all(np.diff(d.alphas_bar) < 0)
-    assert d.alphas_bar[-1] > 0
+    assert 0 < d.alphas_bar[-1] < 0.05
 
 
 def test_q_sample_closed_form() -> None:

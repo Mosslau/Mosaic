@@ -1,4 +1,4 @@
-"""迷你 RAG — demo：检索命中、答案/引用、BM25 对照
+"""迷你 RAG — demo：检索命中、答案/引用、TF-IDF 基线对照
 
     uv run python demo.py
 """
@@ -69,7 +69,7 @@ def main() -> None:
     base = framework.run_retrieval_baseline(idx, [q for q, _, _ in QUERIES], k)
     t_base = time.perf_counter() - t0
     brecall, bmrr = retrieval_metrics(base, k)
-    print(f"BM25/TF-IDF 基线：Recall@{k} {brecall:.3f}；MRR {bmrr:.3f}；"
+    print(f"TF-IDF 基线：Recall@{k} {brecall:.3f}；MRR {bmrr:.3f}；"
           f"{t_base * 1000:.1f}ms")
 
     print("\n== 端到端（抽取式降级，无 LLM） ==")

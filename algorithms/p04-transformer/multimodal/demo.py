@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 
 import numpy as np
+from baseline import random_retrieval
 from impl import CLIP, make_pairs
 
 
@@ -17,6 +18,7 @@ def main() -> None:
     print(f"loss {m.loss_history[0]:.3f} → {m.loss_history[-1]:.3f}；{dt:.2f}s")
     print(f"图像→文本 identity acc {m.retrieval_accuracy(Xi, Xt):.3f}")
     print(f"类别检索 acc {m.retrieval_accuracy(Xi, Xt, y):.3f}")
+    print(f"随机双塔基线 class acc {random_retrieval(Xi, Xt, y):.3f}")
     S = m.similarity(Xi[:5], Xt[:5])
     print("前 5 对相似度对角线：", np.round(np.diag(S), 2).tolist())
     assert m.retrieval_accuracy(Xi, Xt, y) >= 0.9

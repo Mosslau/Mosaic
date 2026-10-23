@@ -1,8 +1,8 @@
-# 迁移项目：自定义语料 RAG QA + 引用
+# 迁移项目：同源语料 RAG QA + 引用
 
 ## 需求
 
-把 RAG 链路用到自定义语料：
+把 RAG 链路用到同源语料：
 
 1. 建索引（切块 + TF-IDF 哈希 + 归一化）；
 2. 对 12 个问题检索 top-3；
@@ -32,7 +32,7 @@ uv run python qa.py
 
 - Recall@3 **1.000**；
 - citation **1.000**；
-- answer match 0.917（抽取式）。
+- 抽取式 answer match 0.917（来自 demo，不是 qa.py 的指标）。
 
 ## 结论
 

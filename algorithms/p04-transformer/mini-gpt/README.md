@@ -3,7 +3,7 @@
 > 状态：✅ 已完成（2026-10-22）
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 5.3.4 章
 > 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现实验读「进阶篇」
-> 本族共 5 个实验，学习顺序与计划见 [族级导读](../README.md)。
+> 本族共 7 个实验，学习顺序与计划见 [族级导读](../README.md)。
 
 生成模型（深度模型 · 生成式）：入口 `MiniGPT(vocab_size, context, n_layers).train(tokens)` / `generate(prompt, tokenizer, temperature, top_k)`，实现在 [impl.py](impl.py)，对照是 [framework.py](framework.py) 的 PyTorch causal GPT。**没有 `fit(X,y)`**：输入/目标是同一段文本的错位切分。
 

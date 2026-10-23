@@ -3,7 +3,7 @@
 > 状态：✅ 已完成（2026-10-21）
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 3.3.1 章（集成学习 · Bagging 系列）
 > 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现实验读「进阶篇」
-> 本族共 11 个实验，学习顺序与选读建议见 [族级导读](../README.md)。
+> 本族共 14 个实验，学习顺序与选读建议见 [族级导读](../README.md)。
 
 监督估计器（统计机器学习族）：入口是 `RandomForest(n_trees, max_features, max_depth, random_state).fit(X, y) / predict(X) / predict_proba(X)`，实现在 [impl.py](impl.py)；对照是 [framework.py](framework.py) 的 sklearn `RandomForestClassifier`。它是 [决策树](../decision-tree/) 的 bagging 集成：**不新学划分准则，而是用随机性把很多棵树"平均"稳**。
 

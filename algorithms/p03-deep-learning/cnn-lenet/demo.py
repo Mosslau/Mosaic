@@ -64,8 +64,8 @@ def experiment_baseline() -> None:
               f"{acc(y_te, m.predict(X_te)):8.4f} | {m.loss_history[-1]:9.4f} | {t:7.2f}")
     assert acc(y_te, hand.predict(X_te)) > 0.85
     assert acc(y_te, torch_model.predict(X_te)) > 0.9
-    print("\n→ 8×8 小图上手写 LeNet 约 0.90，torch 约 0.97；")
-    print("  差异来自优化器/初始化/算子顺序，以及手写版的容量/训练细节。\n")
+    print("\n→ 修复 Conv2D.dW 轴序后，手写与 torch 已基本对齐；")
+    print("  剩余差异来自训练随机性/优化器细节。\n")
 
 
 # ---------------------------------------------------------------- 实验二

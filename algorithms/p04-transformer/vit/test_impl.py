@@ -19,6 +19,10 @@ def test_forward_shape() -> None:
     p = m.predict_proba(Xtr[:7])
     assert p.shape == (7, 10)
     np.testing.assert_allclose(p.sum(1), 1.0)
+    # 注意力每行必须归一化（key 维）
+    m.patches = Xtr[:7].reshape(7, 2, 4, 2, 4).transpose(0, 1, 3, 2, 4).reshape(7, 4, 16)
+    m.forward()
+    np.testing.assert_allclose(m.P.sum(-1), 1.0)
 
 
 def test_loss_decreases() -> None:
@@ -37,6 +41,7 @@ def test_patch_count() -> None:
     Xtr, _, ytr, _ = data()
     m = ViT(d=8, epochs=1).fit(Xtr[:50], ytr[:50])
     assert m.patches.shape[1:] == (4, 16)
+    np.testing.assert_allclose(m.patches[0, 0], Xtr[0, 0, :4, :4].reshape(-1))
 
 
 def test_invalid() -> None:

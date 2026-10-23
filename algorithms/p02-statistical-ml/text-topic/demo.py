@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import framework
 import numpy as np
 from impl import NMF, Tfidf
 
@@ -44,6 +45,9 @@ def main() -> None:
             mapping[k] = -1
     acc = float(np.mean([mapping[p] == y for p, y in zip(pred, labels)]))
     print(f"loss {m.loss_history[0]:.3f} → {m.loss_history[-1]:.3f}；主题纯度 {acc:.3f}")
+    sk = framework.fit_nmf(X, 3)
+    print(f"sklearn NMF 重构误差 {sk.reconstruction_err_:.3f}；"
+          f"手写重构误差 {m.loss_history[-1]:.3f}")
     assert acc >= 0.9
 
 

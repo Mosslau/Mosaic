@@ -133,7 +133,7 @@ def recall_ndcg(model, R, train, test, k=10, threshold=4.0):
             continue
         recs = list(model.recommend(u, k))
         hits = [1 if i in rel else 0 for i in recs]
-        rec.append(1.0 if sum(hits) else 0.0)
+        rec.append(len(set(recs) & rel) / len(rel))
         dcg = sum(h / np.log2(j + 2) for j, h in enumerate(hits))
         ideal = sum(1 / np.log2(j + 2) for j in range(min(len(rel), k)))
         ndcg.append(dcg / ideal if ideal else 0.0)

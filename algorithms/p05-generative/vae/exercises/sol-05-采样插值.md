@@ -2,6 +2,6 @@
 
 训练 2D VAE（beta=0.1），先验采样 8 张；取两张测试图的 μ，插值 8 帧。
 
-**实测**：test MSE 0.0424；sample (8,64)；interpolate (8,64)，相邻 L2 平均 0.076。
+**实测**：test MSE 0.0424；sample (8,64)；interpolate (8,64)，相邻 L2 平均 0.0915。
 
 结论：latent 连续、插值平滑；2D 容量小导致生成模糊。

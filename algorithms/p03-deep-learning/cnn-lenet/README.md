@@ -1,9 +1,9 @@
 # 卷积神经网络 LeNet：im2col、池化反传、BatchNorm 与残差
 
-> 状态：✅ 已完成（2026-10-22）
+> 状态：✅ 已完成（2026-10-23）
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 4.3.1 章
 > 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现实验读「进阶篇」
-> 本族共 6 个实验，学习顺序与补强计划见 [族级导读](../README.md)。
+> 本族共 8 个实验，学习顺序与补强计划见 [族级导读](../README.md)。
 
 深度模型（判别式）：入口 `LeNet(use_bn, use_residual).fit(X, y)` / `predict(X)`，输入 `(N,1,8,8)`；实现在 [impl.py](impl.py)，对照是 [framework.py](framework.py) 的 PyTorch `Conv2d + BatchNorm2d + MaxPool2d`。
 
@@ -220,8 +220,8 @@ $$dx=\frac{\gamma}{\sqrt{\sigma^2+\epsilon}}\left(d\hat x-\overline{d\hat x}-\ha
 ## 4. 框架对照
 
 torch 的 `Conv2d + BatchNorm2d + MaxPool2d + Linear` 与手写版同数据、同结构：
-测试 acc **0.9698 vs 0.8967**（baseline），BN+残差 **0.9874 vs 0.9370**。
-手写版更低，原因：
+测试 acc 手写 **0.9748** vs torch **0.9698**（baseline），BN+残差 **0.9874 vs 0.9874**。
+修复 `Conv2D.dW` 轴序后，手写版不再系统性更低；实现细节差异仍在：
 
 | 维度 | 手写 | torch |
 |---|---|---|
@@ -231,7 +231,7 @@ torch 的 `Conv2d + BatchNorm2d + MaxPool2d + Linear` 与手写版同数据、�
 | 数值 | float64 | float32 |
 | BN | 手写 running stats | 融合 BN |
 
-**不是“算法不同”，而是实现/优化细节**；算子伴随检查证明反向的数学是对的。
+**不是“算法不同”，而是实现/优化细节**；修复 `Conv2D.dW` 轴序后，两边已基本对齐。
 
 ## 5. 实验结果
 
@@ -252,9 +252,9 @@ numpy 2.5.4 / scikit-learn 1.9.1 / torch 2.14.1；CPU。
 
 | 配置 | 测试 acc | 末轮 loss |
 |---|---|---|
-| baseline | 0.8967 | 0.1989 |
-| +BatchNorm | 0.9118 | 0.1642 |
-| +Residual | 0.8967 | 0.1359 |
+| baseline | 0.9748 | 0.0017 |
+| +BatchNorm | 0.9748 | 0.0003 |
+| +Residual | 0.9824 | 0.0007 |
 | +BN+Residual | **0.9874** | **0.0003** |
 
 **实验三：算子伴随检查**
@@ -290,7 +290,7 @@ numpy 2.5.4 / scikit-learn 1.9.1 / torch 2.14.1；CPU。
 
 ## 6. 局限与延伸
 
-- **8×8 太小**：CNN 的收益在 28×28/更大图像上更明显；本实验手写版不如 torch，也不如 MLP 基线。
+- **8×8 太小**：CNN 的收益在 28×28/更大图像上更明显；本实验手写版已与 torch 对齐；是否胜过 MLP 取决于训练预算。
 - **手写实现慢**：Python 循环 + im2col，无 MKL；只适合教学规模。
 - **没有现代 CNN**：无 VGG/ResNet/Inception；残差只做 1×1 skip。
 - **BN 的数值细节**：running stats 的 momentum、eval 模式要分清；本实验只做基础版。

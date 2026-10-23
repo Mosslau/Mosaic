@@ -30,8 +30,8 @@ uv run python conditional.py
 
 ## 实测结果（已验证）
 
-- train loss **0.295**；
-- CFG w=3 class acc **0.995**（200 个样本）。
+- train loss **0.174**；
+- CFG w=3 class acc **0.910**（200 个样本）。
 
 ## 结论
 

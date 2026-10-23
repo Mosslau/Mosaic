@@ -78,7 +78,8 @@ def patches():
 
 def attention():
     Xtr, _, _, _, m = setup()
-    m.patches = Xtr[:1].reshape(1, 4, 16)
+    m.patches = (Xtr[:1].reshape(1, 2, 4, 2, 4)
+                 .transpose(0, 1, 3, 2, 4).reshape(1, 4, 16))
     m.forward()
     P = m.P[0]
     fig, ax = plt.subplots(figsize=(5.2, 4.4))

@@ -113,8 +113,9 @@ sklearn `NMF` 同 `n_components=3`，比较主题词与重构误差。
 | 重构误差 | 4.326 → **3.252** |
 | 主题纯度 | **1.000** |
 | 主题词 | space/rocket；food/pizza；sport/tennis |
+| sklearn NMF 重构误差 | 3.252（与手写一致） |
 
-**验证**：2026-10-23 实跑；`pytest test_impl.py -q` → **8 passed**；素材对账通过。
+**验证**：2026-10-23 实跑；`pytest test_impl.py -q` → **9 passed**；素材对账通过。
 
 ## 6. 局限与延伸
 

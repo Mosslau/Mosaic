@@ -6,9 +6,9 @@ import numpy as np
 
 
 def softmax(z):
-    z = z - z.max(1, keepdims=True)
+    z = z - z.max(-1, keepdims=True)
     e = np.exp(z)
-    return e / e.sum(1, keepdims=True)
+    return e / e.sum(-1, keepdims=True)
 
 
 class ViT:
@@ -24,9 +24,13 @@ class ViT:
             raise ValueError("X 应为 (N,1,8,8)")
         rng = np.random.default_rng(self.seed)
         self.classes_ = np.unique(y)
+        self.n_classes = len(self.classes_)
         n = len(X)
         # 4 个 4x4 patch
-        self.patches = X.reshape(n, 4, 16)
+        # 8×8 → 2×2 个 4×4 patch（不是连续 16 像素的 2×8 横条）
+        self.patches = (X.reshape(n, 2, 4, 2, 4)
+                        .transpose(0, 1, 3, 2, 4)
+                        .reshape(n, 4, 16))
         self.cls = rng.normal(0, .1, (1, 1, self.d))
         self.E = rng.normal(0, np.sqrt(2 / 16), (16, self.d))
         self.pos = rng.normal(0, .05, (1, 5, self.d))
@@ -38,8 +42,8 @@ class ViT:
         self.b1 = np.zeros(self.d * 2)
         self.W2 = rng.normal(0, np.sqrt(2 / (self.d * 2)), (self.d * 2, self.d))
         self.b2 = np.zeros(self.d)
-        self.Wc = rng.normal(0, np.sqrt(2 / self.d), (self.d, len(self.classes_)))
-        self.bc = np.zeros(len(self.classes_))
+        self.Wc = rng.normal(0, np.sqrt(2 / self.d), (self.d, self.n_classes))
+        self.bc = np.zeros(self.n_classes)
         self.loss_history = []
         Y = np.eye(len(self.classes_))[np.searchsorted(self.classes_, y)]
         for _ in range(self.epochs):
@@ -112,10 +116,9 @@ class ViT:
     def predict_proba(self, X):
         if not hasattr(self, "patches"):
             raise RuntimeError("模型尚未训练")
-        self.patches = np.asarray(X, float).reshape(len(X), 4, 16)
-        p = self.forward()
-        self.patches = None
-        return p
+        self.patches = (np.asarray(X, float).reshape(len(X), 2, 4, 2, 4)
+                        .transpose(0, 1, 3, 2, 4).reshape(len(X), 4, 16))
+        return self.forward()
 
     def predict(self, X):
         p = self.predict_proba(X)

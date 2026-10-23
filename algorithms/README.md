@@ -99,10 +99,10 @@ uv run pytest p01-search/a-star/ -q
 |---|---|---|---|
 | [感知机](p03-deep-learning/perceptron/) | 4.2 | ✅ | 2026-10-22 |
 | [MLP 与手写反向传播](p03-deep-learning/mlp-backprop/) | 4.2 | ✅ | 2026-10-22 |
-| [卷积神经网络 LeNet](p03-deep-learning/cnn-lenet/) | 4.3.1 | ✅ | 2026-10-22 |
+| [卷积神经网络 LeNet](p03-deep-learning/cnn-lenet/) | 4.3.1 | ✅ | 2026-10-23 |
 | [RNN 与 LSTM](p03-deep-learning/rnn-lstm/) | 4.4 | ✅ | 2026-10-22 |
 | [自编码器 AutoEncoder](p03-deep-learning/autoencoder/) | 4.5 | ✅ | 2026-10-22 |
-| [生成对抗网络 GAN](p03-deep-learning/gan/) | 4.6 | ✅ | 2026-10-22 |
+| [生成对抗网络 GAN](p03-deep-learning/gan/) | 4.6 | ✅ | 2026-10-23 |
 | [图神经网络 GCN](p03-deep-learning/gnn/) | 4.7 | ✅ | 2026-10-23 |
 | [深度强化学习 DQN](p03-deep-learning/deep-rl/) | 4.8 | ✅ | 2026-10-23 |
 

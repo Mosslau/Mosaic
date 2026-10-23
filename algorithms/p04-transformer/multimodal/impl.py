@@ -74,6 +74,8 @@ class CLIP:
 
 def make_pairs(n_per=20, dim_i=12, dim_t=200, seed=0):
     """每个类有固定的图像中心与文本 one-hot 词袋。"""
+    if dim_t < 10 * n_per:
+        raise ValueError("dim_t 必须 >= 10*n_per（每个样本一个唯一 token）")
     rng = np.random.default_rng(seed)
     centers = rng.normal(0, 1, (10, dim_i))
     Xi, Xt, y = [], [], []

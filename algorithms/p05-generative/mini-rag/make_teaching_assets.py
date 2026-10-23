@@ -95,7 +95,7 @@ def make_metrics() -> None:
     ax.set_xticklabels(["Recall@3", "MRR"])
     ax.set_ylim(0, 1.05)
     ax.set_ylabel("score")
-    ax.set_title("检索指标：两者同分，手写版更快（0.2ms vs 5.8ms）", fontsize=12)
+    ax.set_title("检索指标：两者同分，手写版更快（约 0.2ms vs 6ms）", fontsize=12)
     ax.legend()
     fig.tight_layout()
     fig.savefig(IMAGES / "00-检索指标.png", dpi=130)

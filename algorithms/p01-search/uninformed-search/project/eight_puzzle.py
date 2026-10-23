@@ -98,7 +98,7 @@ def solve_ids(start: tuple, max_depth: int = 31) -> tuple:
     """
     expanded = 0
 
-    def dfs(state: tuple, g: int, limit: int, path: list) -> Optional[list]:
+    def dfs(state: tuple, g: int, limit: int, path: list, best: dict) -> Optional[list]:
         nonlocal expanded
         expanded += 1
         if state == GOAL:
@@ -106,17 +106,18 @@ def solve_ids(start: tuple, max_depth: int = 31) -> tuple:
         if g == limit:
             return None
         for nxt in neighbors(state):
-            if path and nxt == path[-1]:
+            if best.get(nxt, 10 ** 9) <= g + 1:
                 continue
+            best[nxt] = g + 1
             path.append(nxt)
-            found = dfs(nxt, g + 1, limit, path)
+            found = dfs(nxt, g + 1, limit, path, best)
             if found is not None:
                 return found
             path.pop()
         return None
 
     for limit in range(max_depth + 1):
-        found = dfs(start, 0, limit, [start])
+        found = dfs(start, 0, limit, [start], {start: 0})
         if found is not None:
             return found, len(found) - 1, expanded
     return None, None, expanded

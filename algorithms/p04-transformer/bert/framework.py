@@ -35,7 +35,7 @@ class TorchBERT(nn.Module):
         return self.lm(out), out
 
 
-def _eval_mask(tokens, seed=123):
+def _eval_mask(tokens, seed=123, vocab_size=None):
     rng = np.random.default_rng(seed)
     inp = tokens.copy()
     target = tokens.copy()
@@ -53,7 +53,7 @@ def _eval_mask(tokens, seed=123):
             if r < 0.8:
                 inp[n, j] = MASK
             elif r < 0.9:
-                inp[n, j] = int(rng.integers(5, len(np.unique(tokens)) + 5))
+                inp[n, j] = int(rng.integers(5, vocab_size or (int(tokens.max()) + 1)))
     return inp, target, mask_pos
 
 
@@ -61,7 +61,7 @@ def run_framework(tokens, labels, tok, context=16, epochs=120):
     torch.manual_seed(0)
     V = len(tok.itos)
     model = TorchBERT(V, context=context)
-    opt = torch.optim.Adam(model.parameters(), lr=3e-3)
+    opt = torch.optim.Adam(model.parameters(), lr=1e-3)
     lossf = nn.CrossEntropyLoss()
     rng = np.random.default_rng(0)
     t0 = time.perf_counter()
@@ -84,19 +84,20 @@ def run_framework(tokens, labels, tok, context=16, epochs=120):
                 elif r < 0.9:
                     inp[n, j] = int(rng.integers(5, V))
         logits, _ = model(torch.as_tensor(inp))
-        loss = lossf(logits.reshape(-1, V), torch.as_tensor(target).reshape(-1))
+        loss = lossf(logits[mask_pos], torch.as_tensor(target)[mask_pos])
         opt.zero_grad()
         loss.backward()
         opt.step()
     t = time.perf_counter() - t0
-    eval_inp, eval_target, eval_mask = _eval_mask(tokens, seed=123)
+    eval_inp, eval_target, eval_mask = _eval_mask(tokens, seed=123, vocab_size=V)
     with torch.no_grad():
         logits, hidden = model(torch.as_tensor(eval_inp))
         pred = logits.argmax(-1).numpy()
-        eval_loss = float(lossf(logits.reshape(-1, V),
-                                torch.as_tensor(eval_target).reshape(-1)))
+        eval_loss = float(lossf(logits[eval_mask],
+                                torch.as_tensor(eval_target)[eval_mask]))
         acc = float((pred[eval_mask] == eval_target[eval_mask]).mean())
-        cls = hidden[:, 0].numpy()
+        _, clean_hidden = model(torch.as_tensor(tokens))
+        cls = clean_hidden[:, 0].numpy()
     Xtr, Xte, ytr, yte = train_test_split(cls, labels, test_size=0.3, random_state=0,
                                           stratify=labels)
     probe = LogisticRegression(max_iter=2000).fit(Xtr, ytr).score(Xte, yte)

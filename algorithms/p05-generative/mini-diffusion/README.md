@@ -93,11 +93,11 @@ flowchart TD
 
 ![训练曲线](images/01-训练曲线.png)
 
-eps MSE 从 1.276 降到 0.295。
+eps MSE 从 1.483 降到 0.174。
 
 ![条件生成](images/02-条件生成.png)
 
-class-conditional + CFG(w=3)；分类器 acc 1.00，但视觉仍是模糊块。
+class-conditional + CFG(w=3)；分类器 acc 0.91，但视觉仍是模糊块。
 
 ![去噪生长](images/03-去噪生长.gif)
 
@@ -173,7 +173,7 @@ torch 版同结构 MLP（64+16+8→128→128→64），同训练/采样逻辑。
 
 **环境**：uv（`uv sync --extra deep-learning --extra dev`），Python 3.13.15 /
 numpy 2.5.4 / scikit-learn 1.9.1 / torch 2.14.1；CPU。
-**数据**：digits 8×8，1200 训练；100 步线性调度；100 轮；MLP hidden=128。
+**数据**：digits 8×8，1200 训练；100 步线性调度（beta 1e-4→0.1）；100 轮；MLP hidden=128。
 **复现**：本目录内 `uv run python demo.py`、`uv run pytest test_impl.py -q`、
 `uv run python make_teaching_assets.py`。
 
@@ -181,7 +181,7 @@ numpy 2.5.4 / scikit-learn 1.9.1 / torch 2.14.1；CPU。
 
 | 项 | 值 |
 |---|---|
-| train loss | 1.276 → **0.295** |
+| train loss | 1.483 → **0.174** |
 | 训练耗时 | ≈0.6s |
 | sample(16) | 形状 `(16,64)`，范围 `[0,1]`，<0.01s |
 
@@ -189,10 +189,10 @@ numpy 2.5.4 / scikit-learn 1.9.1 / torch 2.14.1；CPU。
 
 | w | class acc | diversity |
 |---|---|---|
-| 0.0 | 0.080 | 2.30 |
-| 1.0 | 0.790 | 2.49 |
-| 3.0 | 0.995 | 3.20 |
-| 7.0 | **1.000** | 3.85 |
+| 0.0 | 0.085 | 2.69 |
+| 1.0 | 0.535 | 2.77 |
+| 3.0 | 0.910 | 3.15 |
+| 7.0 | **0.950** | 3.72 |
 
 **torch 对照（w=3）**：loss 0.363；class acc 1.000；训练 ≈1.1s，采样 ≈0.03s。
 
@@ -210,7 +210,7 @@ numpy 2.5.4 / scikit-learn 1.9.1 / torch 2.14.1；CPU。
 ## 6. 局限与延伸
 
 - **MLP 去噪器**：不是 U-Net；8×8 小图，视觉质量有限。
-- **100 步线性调度**：没有 cosine/DDIM；采样慢、步数多。
+- **100 步线性调度（beta 1e-4→0.1）**：没有 cosine/DDIM；采样慢、步数多。
 - **w=7 接近饱和**：class acc 高但多样性/自然度未必最好。
 - **classifier acc 是代理指标**：没有 FID/人工评估。
 - **只做类别条件**：没有文本条件/ControlNet。
@@ -235,5 +235,5 @@ numpy 2.5.4 / scikit-learn 1.9.1 / torch 2.14.1；CPU。
 - **视觉模糊**：MLP + 8×8 + 100 步；不是 U-Net/大模型，classifier acc 高不代表视觉好。
 - **w=7 接近饱和**：条件强度高，但多样性/自然度未必最佳。
 - **CFG 指标是代理**：分类器 acc 只测类别一致性，没有 FID/人工评估。
-- **只有 100 步线性调度**：没有 cosine/DDIM/少步采样。
+- **只有 100 步线性调度（beta 1e-4→0.1）**：没有 cosine/DDIM/少步采样。
 - **只做类别条件**：没有文本条件/ControlNet；没有 latent diffusion。

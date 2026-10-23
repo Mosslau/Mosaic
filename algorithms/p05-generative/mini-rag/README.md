@@ -79,7 +79,7 @@ flowchart TD
 
 ![检索指标](images/00-检索指标.png)
 
-手写 TF-IDF 哈希与 sklearn TF-IDF 同分；手写版更快（0.2ms vs 5.8ms）。
+手写 TF-IDF 哈希与 sklearn TF-IDF 同分；手写版更快（0.2ms vs ≈6.0ms）。
 
 ![相似度热图](images/01-相似度热图.png)
 
@@ -101,7 +101,7 @@ query × chunk 余弦相似度。
 | 2 走通 | 纸上手算 | 余弦相似度、Recall@k/MRR | 基础篇「手算示例」节 |
 | 3 判断 | 说清正确性条件 | 解释切块、top-k、引用、词法基线 | 基础篇「白话版」+ 实验一 |
 | 4 实现 | 手写并与对照比对 | 跑通 `demo.py`，检索/引用指标 | 进阶篇「实验结果」 |
-| 5 迁移 | 用到新问题 | 自定义语料 + 查询 + 引用 | [project/](project/README.md) |
+| 5 迁移 | 用到新问题 | 同源语料 + 查询 + 引用 | [project/](project/README.md) |
 
 **自测关卡（先预测，再跑代码验证）**：
 
@@ -122,7 +122,7 @@ query × chunk 余弦相似度。
 | [test_impl.py](test_impl.py) | 性质测试 | 切块、检索、引用、生成、基线、契约 |
 | [make_teaching_assets.py](make_teaching_assets.py) | 素材生成 + 对账 | 指标 / 热图 / 案例 / GIF |
 | [exercises/](exercises/README.md) | 练习（5 题，题解分离） | 概念、手算、诊断、实现、迁移 |
-| [project/](project/README.md) | 迁移项目 | 自定义语料 QA + 引用 |
+| [project/](project/README.md) | 迁移项目 | 同源语料 QA + 引用 |
 
 ## 1. 设计原理
 
@@ -155,7 +155,7 @@ RAG 把“知识”放在外部索引：检索负责召回，生成负责组织�
 | embedding | TF-IDF + 稳定哈希 | sklearn `TfidfVectorizer` |
 | 检索 | 余弦 top-k | 余弦 top-k |
 | 生成 | 抽取式降级 | LLM 基线未验证（无 API key） |
-| 速度 | 0.2ms | 5.8ms |
+| 速度 | 0.2ms | ≈6.0ms |
 
 **生成基线未在本环境验证**：缺 LLM 服务/API key；读者可接任意 OpenAI 兼容服务复现。
 
@@ -172,7 +172,7 @@ numpy 2.5.4 / scikit-learn 1.9.1；CPU。
 | 方法 | Recall@3 | MRR | 耗时 |
 |---|---|---|---|
 | 手写 TF-IDF 哈希 | **1.000** | **0.958** | 0.2ms |
-| sklearn TF-IDF | 1.000 | 0.958 | 5.8ms |
+| sklearn TF-IDF | 1.000 | 0.958 | ≈6.0ms |
 
 **端到端（抽取式降级）**
 

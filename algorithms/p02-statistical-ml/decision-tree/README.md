@@ -3,7 +3,7 @@
 > 状态：✅ 已完成（2026-10-21）
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 3.2.3 章
 > 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现实验读「进阶篇」
-> 本族共 11 个实验，学习顺序与选读建议见 [族级导读](../README.md)。
+> 本族共 14 个实验，学习顺序与选读建议见 [族级导读](../README.md)。
 
 监督估计器（统计机器学习族）：入口是 `DecisionTree(criterion, max_depth, min_samples_leaf, ccp_alpha).fit(X, y) / predict(X)`，实现在 [impl.py](impl.py)；对照是 [framework.py](framework.py) 的 sklearn `DecisionTreeClassifier`。**没有梯度下降**：树的生长是递归划分，这是与前面四个实验最本质的区别。
 

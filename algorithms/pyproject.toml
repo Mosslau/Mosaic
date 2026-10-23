@@ -34,3 +34,4 @@ select = ["E", "F", "I", "UP"]
 # 本文件的 rootdir 就是 algorithms/，故这里指向自身即可（收集本目录下的实验测试）。
 # 「从仓库根执行」时的收集范围由仓库根的 pytest.ini 负责（会同时覆盖 engineering/ai-platform）。
 testpaths = ["."]
+addopts = ["--import-mode=importlib"]

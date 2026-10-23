@@ -3,9 +3,9 @@
 > 状态：✅ 已完成（2026-10-23）
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 5.5 章
 > 阅读路线：基础篇 → 进阶篇
-> 本族共 6 个实验，见 [族级导读](../README.md)。
+> 本族共 7 个实验，见 [族级导读](../README.md)。
 
-深度模型（多模态）：入口是 `CLIP().fit(Xi, Xt)` / `retrieval_accuracy(Xi, Xt, y)` / `similarity`，实现在 [impl.py](impl.py)；对照是无对齐的随机基线。
+深度模型（多模态）：入口是 `CLIP().fit(Xi, Xt)` / `retrieval_accuracy(Xi, Xt, y)` / `similarity`，实现在 [impl.py](impl.py)；对照是随机线性双塔（`baseline.py`）。
 
 # 基础篇
 
@@ -114,7 +114,7 @@ flowchart TD
 |---|---|
 | loss | 6.564 → **1.879** |
 | identity 检索 | **0.945** |
-| 类别检索 | **1.000** |
+| 类别检索 | **1.000**（随机双塔基线 0.000） |
 | 训练 | 0.07s |
 
 **验证**：2026-10-23 实跑；`pytest` → **8 passed**；素材对账通过。

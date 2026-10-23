@@ -3,7 +3,7 @@
 > 状态：✅ 已完成（2026-10-22）
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 5.3.2 章
 > 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现实验读「进阶篇」
-> 本族共 5 个实验，学习顺序与计划见 [族级导读](../README.md)。
+> 本族共 7 个实验，学习顺序与计划见 [族级导读](../README.md)。
 
 Encoder-only 模型（深度模型 · 预训练/表示）：入口 `BertMLM(vocab_size, context).train(tokens)` / `encode(tokens)` / `predict_masked(tokens)`，实现在 [impl.py](impl.py)，对照是 [framework.py](framework.py) 的 PyTorch encoder + MLM。**没有 `fit(X,y)`，也没有 `generate`**：目标是恢复被 mask 的 token，不是自回归生成。
 
@@ -169,7 +169,7 @@ $$L=-\frac{1}{|\mathcal M|}\sum_{i\in\mathcal M}\log p_\theta(x_i\mid \tilde x)$
 
 ## 4. 框架对照
 
-torch 用 `nn.TransformerEncoderLayer(norm_first=True)` + `src_key_padding_mask`；
+torch 用 `nn.TransformerEncoderLayer(norm_first=True)` + `src_key_padding_mask`；两边的 MLM loss 都只算 masked 位置。
 手写版自己实现双向 MHA/LN/FFN/MLM。
 
 | 维度 | 手写 | torch |
@@ -193,8 +193,8 @@ numpy 2.5.4 / scikit-learn 1.9.1 / torch 2.14.1；CPU。
 
 | 实现 | MLM loss | masked acc | `[CLS]` 探针 | 耗时 |
 |---|---|---|---|---|
-| 手写 BERT | 0.130 | 0.958 | **0.933** | ≈0.4s |
-| torch BERT | 0.154 | 0.708 | 0.733 | ≈0.5s |
+| 手写 BERT | 0.180 | 0.958 | **0.933** | ≈0.5s |
+| torch BERT | 1.549 | 0.542 | 0.533 | ≈0.6s |
 
 **mask 示例**：`the cat is happy .` 中 `p`、`h` 被 mask；模型可恢复。
 
@@ -213,8 +213,8 @@ numpy 2.5.4 / scikit-learn 1.9.1 / torch 2.14.1；CPU。
 
 - **合成小语料**：48 句、词表 27；不能代表真实语料/全量 BERT。
 - **单层 encoder**：`BertMLM` 只实现一层，没有 `n_layers` 堆叠；深层表示未验证。
-- **`[CLS]` 探针/MLM 差异**：torch（固定 mask）masked acc 0.708、探针 0.733；
-  手写 0.958 / 0.933。受初始化、优化路径、单层容量影响，保留负面结果，不强行对齐。
+- **`[CLS]` 探针/MLM 差异**：torch masked acc 0.542、探针 0.533；手写 0.958 / 0.933。
+  两者已统一为“只算 masked loss + lr=1e-3 + 干净 tokens 探针”，但 toy 单层/初始化/优化仍会分叉；保留负面结果，不强行对齐。
 - **没有 BERT 全量预训练/微调**：只做小规模 MLM + 线性探针。
 - **没有 BPE/WordPiece**：字符级；真实 BERT 用 WordPiece。
 - **没有下游多任务**：只做情感分类探针。

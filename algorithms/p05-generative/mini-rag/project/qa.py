@@ -1,8 +1,8 @@
-"""迁移项目：自定义语料 RAG QA + 引用
+"""迁移项目：同源语料 RAG QA + 引用
 
     uv run python qa.py
 
-构建小索引，对 4 个问题返回答案与引用；验收 Recall@3 ≥0.9、citation ≥0.9。
+构建小索引，对 12 个问题返回答案与引用；验收 Recall@3 ≥0.9、citation ≥0.9。
 """
 
 import sys

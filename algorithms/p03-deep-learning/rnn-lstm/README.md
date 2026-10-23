@@ -3,7 +3,7 @@
 > 状态：✅ 已完成（2026-10-22）
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 4.4 章
 > 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现实验读「进阶篇」
-> 本族共 6 个实验，学习顺序与补强计划见 [族级导读](../README.md)。
+> 本族共 8 个实验，学习顺序与补强计划见 [族级导读](../README.md)。
 
 深度模型（判别式，序列）：入口 `RNN / LSTM(input_size, hidden_size, n_classes).fit(X, y)`，`X` 为 `(N,T,input_size)`；实现在 [impl.py](impl.py)，对照是 [framework.py](framework.py) 的 PyTorch `nn.RNN / nn.LSTM`。
 

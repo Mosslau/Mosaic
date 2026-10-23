@@ -49,6 +49,8 @@ def test_invalid() -> None:
     Xi, Xt, _ = data()
     with pytest.raises(RuntimeError):
         CLIP().embed(Xi, Xt)
+    with pytest.raises(ValueError):
+        make_pairs(8, 12, 40, 0)
 
 
 def test_deterministic() -> None:

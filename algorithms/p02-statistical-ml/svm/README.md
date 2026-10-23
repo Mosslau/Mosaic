@@ -3,7 +3,7 @@
 > 状态：✅ 已完成（2026-10-21）
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 3.2.2 章
 > 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现实验读「进阶篇」
-> 本族共 11 个实验，学习顺序与选读建议见 [族级导读](../README.md)。
+> 本族共 14 个实验，学习顺序与选读建议见 [族级导读](../README.md)。
 
 监督估计器（统计机器学习族）：入口是 [impl.py](impl.py) 的 `LinearSVM(C).fit(X, y) / predict(X)`（原始问题）
 与 `KernelSVM(C, kernel).fit(X, y) / decision_function / predict`（对偶 + SMO）；对照是 [framework.py](framework.py)

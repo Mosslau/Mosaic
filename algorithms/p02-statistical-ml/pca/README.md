@@ -3,7 +3,7 @@
 > 状态：✅ 已完成（2026-10-21）
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 3.4.2 章
 > 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现实验读「进阶篇」
-> 本族共 11 个实验，学习顺序与选读建议见 [族级导读](../README.md)。
+> 本族共 14 个实验，学习顺序与选读建议见 [族级导读](../README.md)。
 
 无监督估计器（统计机器学习族）：入口是 `PCA(n_components, standardize, whiten).fit(X) / transform(X) / inverse_transform(Z)`，实现在 [impl.py](impl.py)；对照是 [framework.py](framework.py) 的 sklearn `PCA`。**没有 y**，也不做分派：它做的是**坐标变换**。
 

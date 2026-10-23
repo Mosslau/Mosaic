@@ -71,3 +71,10 @@ def test_top_words_contract() -> None:
     m = NMF(3, 30, 0).fit(X)
     words = m.top_words(tf.vocab, 4)
     assert all(len(w) == 4 for w in words)
+
+
+def test_sklearn_baseline() -> None:
+    import framework
+    *_, X = data()
+    m = framework.fit_nmf(X, 3)
+    assert m.reconstruction_err_ < 4.0
