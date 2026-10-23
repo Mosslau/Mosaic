@@ -111,7 +111,7 @@ class Conv2D:
     def backward(self, dout):
         N, C, H, W = self.X_shape
         d2 = dout.transpose(0, 2, 3, 1).reshape(-1, self.W.shape[0])
-        self.dW = (self.cols.T @ d2).reshape(self.W.shape)
+        self.dW = (d2.T @ self.cols).reshape(self.W.shape)
         self.db = d2.sum(axis=0)
         dcols = d2 @ self.W.reshape(self.W.shape[0], -1)
         dX = col2im(dcols, self.X_shape, self.W.shape[2], self.W.shape[3],

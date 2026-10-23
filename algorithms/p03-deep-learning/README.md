@@ -1,9 +1,9 @@
 # p03-deep-learning · 深度学习族
 
-> 状态：**6/6 完成（全族 ✅）**
+> 状态：**8/8 完成（全族 ✅）**
 > 对应路线：`../docs/人工智能代表算法演进路线.md` 第四章（4.2–4.6）
 > 族内顺序：感知机 → MLP/反向传播 → CNN → RNN/LSTM → AutoEncoder → GAN
-> 本族 6 个实验，占全仓库 29 个实验中的 6 个；逐实验入口见 [`algorithms/README.md`](../README.md)。
+> 本族 8 个实验；逐实验入口见 [`algorithms/README.md`](../README.md)。
 
 ## 1. 这个族在讲什么
 
@@ -26,6 +26,8 @@
 | 4 | [RNN 与 LSTM](rnn-lstm/) | 4.4 | 合成序列 | BPTT、门控 | **梯度裁剪、长序列对照、梯度范数-T 曲线** | ✅ |
 | 5 | [AutoEncoder](autoencoder/) | 4.5 | digits 8×8 | 重构、瓶颈表示 | **与 PCA 的二维对照（可选 denoising）** | ✅ |
 | 6 | [GAN](gan/) | 4.6 | 2D 高斯 + digits | 交替对抗、非饱和损失 | **模式崩塌/多样性评估** | ✅ |
+| 7 | [GCN](gnn/) | 4.7 | 合成随机块图 | 消息传递、半监督节点分类 | **图结构收益** | ✅ |
+| 8 | [DQN](deep-rl/) | 4.8 | 4×4 网格世界 | Q 网络、replay、target | **稀疏奖励** | ✅ |
 
 ## 3. 依赖链
 
@@ -180,7 +182,7 @@ uv run python p03-deep-learning/perceptron/demo.py
 | 梯度范数随 T 的曲线 | RNN | ✅ | 把"梯度消失"变成可观测量 |
 | denoising AE（可选） | AutoEncoder | ✅ | 检验表示是否抓到结构 |
 
-> 这些是**范围补强**，不新增第 7 个实验目录；仍保持 6 个实验、29 个总盘。
+> 这些是**范围补强**；GNN/DQN 第 7/8 个实验已新增，全仓库总盘 38。
 
 ## 11. 不在本族范围
 
@@ -193,7 +195,7 @@ uv run python p03-deep-learning/perceptron/demo.py
 
 ## 12. 状态与后续
 
-- 当前 **6/6**（p03 全族完成）；下一步 p04 Transformer；
+- 当前 **8/8**（p03 全族完成）；下一步 p04 Transformer；
 - 每个实验完成后同步：本表状态、[`algorithms/README.md`](../README.md) 索引、根 README 计数；
 - 遗留项统一记在本文件"补强"表和 `.dsh/memory/`，不散落在各实验。
 - **感知机遗留**：torch 版只验证“线性可分”一致性；XOR/重叠/项目仍用 sklearn；
@@ -267,7 +269,7 @@ uv run python p03-deep-learning/perceptron/demo.py
 
 | 项 | 数量 / 状态 |
 |---|---|
-| 实验 | **6/6 ✅** |
+| 实验 | **8/8 ✅** |
 | 测试 | **51 个**（11+10+8+8+7+7），全部通过 |
 | 素材 | **24 个**（每实验 3 PNG + 1 GIF） |
 | 练习 | **30 题**（每实验 5 题，题解分离） |

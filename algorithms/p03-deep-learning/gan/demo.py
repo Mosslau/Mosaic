@@ -13,6 +13,8 @@ import time
 
 import framework
 import numpy as np
+from conditional import ConditionalGAN
+from evaluate import digit_metrics
 from impl import GAN, mode_coverage
 from sklearn.datasets import load_digits
 from sklearn.linear_model import LogisticRegression
@@ -77,6 +79,9 @@ def experiment_digits() -> None:
     print(f"生成 256 张：预测类别 {int(np.sum(counts > 0))}/10，"
           f"类别熵 {entropy(counts):.2f}，耗时 {t:.1f}s，D acc {gan.d_acc_history[-1]:.2f}")
     print("各类计数：" + "、".join(str(int(c)) for c in counts))
+    met = digit_metrics(s, clf)
+    print(f"固定协议：覆盖 {met['coverage']}/10，熵 {met['entropy']:.2f}，"
+          f"unique {met['unique']:.2f}，NN {met['nn_distance']:.2f}")
     assert np.sum(counts > 0) >= 3
     print("\n→ 8×8 像素的 MLP GAN 只能生成“像数字的模糊块”，类别多样性有限；")
     print("  这也是 DCGAN/条件 GAN 出现的动机。\n")
@@ -99,10 +104,25 @@ def experiment_torch() -> None:
     print()
 
 
+def experiment_conditional() -> None:
+    X_tr, X_te, y_tr, y_te = digits_data()
+    clf = LogisticRegression(max_iter=5000).fit(X_tr, y_tr)
+    c = ConditionalGAN().train(X_tr, y_tr)
+    labels = np.tile(np.arange(10), 26)[:260]
+    s = c.sample(260, labels=labels)
+    counts = np.bincount(clf.predict(s), minlength=10)
+    met = digit_metrics(s, clf)
+    print("== 实验四：条件 GAN（300 轮，按标签采样） ==")
+    print(f"覆盖 {met['coverage']}/10，熵 {met['entropy']:.2f}，"
+          f"各类计数：" + "、".join(str(int(x)) for x in counts))
+    assert met["coverage"] >= 8
+
+
 def main() -> None:
     experiment_2d()
     experiment_digits()
     experiment_torch()
+    experiment_conditional()
 
 
 if __name__ == "__main__":

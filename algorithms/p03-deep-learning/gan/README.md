@@ -151,6 +151,8 @@ full 4/4（H=1.32）；saturating 0/4；collapsed latent=1 0/4。
 | [framework.py](framework.py) | PyTorch 对照 | `TorchGAN` |
 | [demo.py](demo.py) | 同数据双跑 | 2D 4-Gaussians / 8×8 digits / torch |
 | [test_impl.py](test_impl.py) | 性质测试 | LeakyReLU、覆盖指标、训练 smoke、输出域、契约 |
+| [evaluate.py](evaluate.py) | 固定评估 | 类别覆盖/熵/unique/NN 距离 |
+| [conditional.py](conditional.py) | 条件 GAN | 类别 one-hot 条件化 G/D |
 | [make_teaching_assets.py](make_teaching_assets.py) | 素材生成 + 对账 | 真假 / 覆盖 / 8×8 / GIF |
 | [exercises/](exercises/README.md) | 练习（5 题，题解分离） | 概念、手算、诊断、实现、迁移 |
 | [project/](project/README.md) | 迁移项目 | latent 容量的覆盖/熵扫描 |
@@ -219,8 +221,14 @@ numpy 2.5.4 / scikit-learn 1.9.1 / torch 2.14.1；CPU。
 手写 4/4、熵 1.34；torch 1/4、熵 0.00，耗时 ≈41s。
 
 **验证声明（已验证）**：输入为上述数据与种子；2026-10-22 在 uv 环境实跑，
-`uv run python demo.py` 输出上表；`uv run pytest test_impl.py -q` → **7 passed**；
+`uv run python demo.py` 输出上表；`uv run pytest test_impl.py test_evaluate.py test_conditional.py -q` → **13 passed**；
 `uv run python make_teaching_assets.py` 对账通过（2D 覆盖 ≥3、样本有限）。
+
+**条件 GAN（2026-10-23）**：G/D 同时接类别 one-hot，300 轮，按标签采样 260 张；
+固定协议覆盖 **10/10**，熵 2.30（无条件 MLP 约 4/10）。条件化显著改善类别覆盖，
+但样本仍是模糊块，不等于视觉质量提升。
+
+![条件生成](images/04-条件生成.png)
 
 **可视化结论**：
 
@@ -235,7 +243,7 @@ numpy 2.5.4 / scikit-learn 1.9.1 / torch 2.14.1；CPU。
 - **8×8 digits 很弱**：MLP GAN 只生成模糊块；清晰图要 DCGAN/条件 GAN/WGAN-GP。
 - **饱和损失在同样预算下崩塌**：不能据此说“饱和永远差”，但说明调参敏感。
 - **torch 版未调好**：同轮数 1/4；保留负面结果，提醒框架不自动解决 GAN 稳定性。
-- **评估不完整**：只有覆盖/熵/NN；没有 FID/IS/人工评估。
+- **评估协议已固定**：覆盖/熵/unique/NN；仍没有 FID/IS/人工评估。
 - **下游**：DCGAN → WGAN-GP → StyleGAN → Diffusion（p05）。
 
 **已记录、不阻塞**：

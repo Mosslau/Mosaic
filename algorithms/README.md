@@ -67,7 +67,7 @@ uv run pytest p01-search/a-star/ -q
 > → Boosting/GBDT → K-Means → PCA → 朴素贝叶斯 → 异常检测。
 > 前六个建立「损失 / 分类 / 划分 / 集成」的主线，正则化补上「泛化」，
 > Boosting 补齐集成里 bagging 之外的另一半，最后三个走向无监督与概率视角。
-> 族级导读（11 个实验什么关系、该读哪个）：[p02-statistical-ml/README.md](p02-statistical-ml/README.md)。
+> 族级导读（14 个实验什么关系、该读哪个）：[p02-statistical-ml/README.md](p02-statistical-ml/README.md)。
 
 | 实验 | 章节 | 状态 | 完成日期 |
 |---|---|---|---|
@@ -77,10 +77,13 @@ uv run pytest p01-search/a-star/ -q
 | [支持向量机 SVM](p02-statistical-ml/svm/) | 3.2.2 | ✅ | 2026-10-21 |
 | [决策树 ID3/CART](p02-statistical-ml/decision-tree/) | 3.2.3 | ✅ | 2026-10-21 |
 | [随机森林](p02-statistical-ml/random-forest/) | 3.3.1 | ✅ | 2026-10-21 |
-| [Boosting 与 GBDT](p02-statistical-ml/boosting/) | 3.3.2 | ✅ | 2026-10-21 |
+| [Boosting 与 GBDT](p02-statistical-ml/boosting/) | 3.3.2 | ✅ | 2026-10-23 |
 | [K-Means 聚类](p02-statistical-ml/kmeans/) | 3.4.1 | ✅ | 2026-10-21 |
 | [PCA 主成分分析](p02-statistical-ml/pca/) | 3.4.2 | ✅ | 2026-10-21 |
 | [朴素贝叶斯](p02-statistical-ml/naive-bayes/) | 3.5 | ✅ | 2026-10-21 |
+| [关联规则 Apriori](p02-statistical-ml/association-rules/) | 3.6 | ✅ | 2026-10-23 |
+| [文本主题模型](p02-statistical-ml/text-topic/) | 3.7 | ✅ | 2026-10-23 |
+| [推荐系统](p02-statistical-ml/recommender/) | 3.8 | ✅ | 2026-10-23 |
 | [异常检测](p02-statistical-ml/anomaly-detection/) | 3.9 | ✅ | 2026-10-21 |
 
 ## p03-deep-learning · 深度学习
@@ -89,7 +92,7 @@ uv run pytest p01-search/a-star/ -q
 > 前两个建立「可学习非线性 + 反向传播」的主线，CNN/RNN 补上空间与时间结构，
 > AutoEncoder/GAN 走向无监督表示与生成。
 > 与 p02 的对照：人工特征 → 表示学习；与 p04 的接力：RNN → 注意力。
-> 族级导读（6 个实验什么关系、该读哪个、开工前的补强计划）：[p03-deep-learning/README.md](p03-deep-learning/README.md)。
+> 族级导读（8 个实验什么关系、该读哪个、开工前的补强计划）：[p03-deep-learning/README.md](p03-deep-learning/README.md)。
 > 阶段横向对照与质量项：[/p03-deep-learning/stage_benchmark.py](p03-deep-learning/stage_benchmark.py)。
 
 | 实验 | 章节 | 状态 | 完成日期 |
@@ -100,6 +103,8 @@ uv run pytest p01-search/a-star/ -q
 | [RNN 与 LSTM](p03-deep-learning/rnn-lstm/) | 4.4 | ✅ | 2026-10-22 |
 | [自编码器 AutoEncoder](p03-deep-learning/autoencoder/) | 4.5 | ✅ | 2026-10-22 |
 | [生成对抗网络 GAN](p03-deep-learning/gan/) | 4.6 | ✅ | 2026-10-22 |
+| [图神经网络 GCN](p03-deep-learning/gnn/) | 4.7 | ✅ | 2026-10-23 |
+| [深度强化学习 DQN](p03-deep-learning/deep-rl/) | 4.8 | ✅ | 2026-10-23 |
 
 ## p04-transformer · Transformer 时代
 
@@ -107,7 +112,7 @@ uv run pytest p01-search/a-star/ -q
 > 先做“组件”（attention），再做“可堆叠 Block”，然后换 mask/目标得到三种范式：
 > BERT（双向 encoder）、GPT（因果 decoder）、T5（encoder-decoder + cross-attention）。
 > 不先手写 attention 直接写 GPT，等于把最难的反传藏在黑盒里。
-> 族级导读（5 个实验什么关系、接口边界、数据/范围/Phase 0–5 计划）：[p04-transformer/README.md](p04-transformer/README.md)。
+> 族级导读（7 个实验什么关系、接口边界、数据/范围/Phase 0–5 计划）：[p04-transformer/README.md](p04-transformer/README.md)。
 > 阶段横向对照与完成度：[stage_benchmark.py](p04-transformer/stage_benchmark.py)。
 
 | 实验 | 章节 | 状态 | 完成日期 |
@@ -117,6 +122,8 @@ uv run pytest p01-search/a-star/ -q
 | [BERT / 掩码语言模型](p04-transformer/bert/) | 5.3.2 | ✅ | 2026-10-22 |
 | [迷你 GPT 字符级语言模型](p04-transformer/mini-gpt/) | 5.3.4 | ✅ | 2026-10-22 |
 | [T5 / 编码器-解码器](p04-transformer/t5/) | 5.3.3 | ✅ | 2026-10-22 |
+| [ViT-lite](p04-transformer/vit/) | 5.4 | ✅ | 2026-10-23 |
+| [多模态 CLIP 式](p04-transformer/multimodal/) | 5.5 | ✅ | 2026-10-23 |
 
 ## p05-generative · 生成式 AI
 

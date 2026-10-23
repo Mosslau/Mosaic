@@ -14,7 +14,7 @@
 
 import numpy as np
 import pytest
-from impl import GradientBoostingRegressor
+from impl import AdaBoostClassifier, GradientBoostingClassifier, GradientBoostingRegressor
 
 
 def make_1d(n: int = 160, noise: float = 0.15, seed: int = 0):
@@ -142,3 +142,56 @@ def test_predict_before_fit() -> None:
     X, _ = make_multi()
     with pytest.raises(RuntimeError):
         GradientBoostingRegressor().predict(X)
+
+
+# ---------------------------------------------------------------- 分类扩展
+
+def make_binary():
+    from sklearn.datasets import load_breast_cancer
+    from sklearn.model_selection import train_test_split
+    X, y = load_breast_cancer(return_X_y=True)
+    return train_test_split(X, y, test_size=0.3, random_state=0, stratify=y)
+
+
+def test_adaboost_accuracy() -> None:
+    X_tr, X_te, y_tr, y_te = make_binary()
+    m = AdaBoostClassifier(n_estimators=50, random_state=0).fit(X_tr, y_tr)
+    assert (m.predict(X_te) == y_te).mean() > 0.9
+    assert len(list(m.staged_predict(X_te))) == len(m.estimators_)
+
+
+def test_gbdt_classifier_accuracy() -> None:
+    X_tr, X_te, y_tr, y_te = make_binary()
+    m = GradientBoostingClassifier(n_estimators=50, random_state=0).fit(X_tr, y_tr)
+    assert (m.predict(X_te) == y_te).mean() > 0.9
+    p = m.predict_proba(X_te)
+    np.testing.assert_allclose(p.sum(1), 1.0)
+    assert m.train_score_[-1] < m.train_score_[0]
+
+
+def test_classifier_matches_sklearn() -> None:
+    from sklearn.ensemble import AdaBoostClassifier as SkAda
+    from sklearn.ensemble import GradientBoostingClassifier as SkGB
+    from sklearn.metrics import f1_score
+    X_tr, X_te, y_tr, y_te = make_binary()
+    for hand, sk in ((AdaBoostClassifier(n_estimators=50, random_state=0),
+                      SkAda(n_estimators=50, random_state=0)),
+                     (GradientBoostingClassifier(n_estimators=50, random_state=0),
+                      SkGB(n_estimators=50, random_state=0))):
+        hand.fit(X_tr, y_tr)
+        sk.fit(X_tr, y_tr)
+        f_hand = f1_score(y_te, hand.predict(X_te))
+        f_sk = f1_score(y_te, sk.predict(X_te))
+        assert abs(f_hand - f_sk) <= 0.08
+
+
+def test_classifier_contracts() -> None:
+    X_tr, X_te, _, _ = make_binary()
+    with pytest.raises(ValueError):
+        AdaBoostClassifier().fit(X_tr, np.ones(len(X_tr)))
+    with pytest.raises(ValueError):
+        GradientBoostingClassifier(n_estimators=0)
+    with pytest.raises(RuntimeError):
+        AdaBoostClassifier().predict(X_te)
+    with pytest.raises(RuntimeError):
+        GradientBoostingClassifier().predict_proba(X_te)

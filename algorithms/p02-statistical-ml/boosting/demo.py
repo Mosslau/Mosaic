@@ -137,11 +137,44 @@ def experiment_importance() -> None:
     print("\n→ GBDT 把重要性集中在真特征；与 sklearn 的排序一致。\n")
 
 
+# ---------------------------------------------------------------- 实验五（分类扩展）
+
+def experiment_classification() -> None:
+    from impl import AdaBoostClassifier, GradientBoostingClassifier
+    from sklearn.datasets import load_breast_cancer
+    from sklearn.metrics import f1_score
+    from sklearn.model_selection import train_test_split
+
+    X, y = load_breast_cancer(return_X_y=True)
+    Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.3, random_state=0,
+                                          stratify=y)
+    print("\n== 实验五：AdaBoost / GBDT 分类（breast cancer） ==")
+    print(f"{'模型':12} | {'acc':>6} | {'F1':>6} | {'耗时(ms)':>8}")
+    print("-" * 38)
+    for name, factory, sk_factory in (
+        ("AdaBoost", lambda: AdaBoostClassifier(n_estimators=50, random_state=0),
+         lambda: framework.fit_ada(Xtr, ytr, 50)),
+        ("GBDT", lambda: GradientBoostingClassifier(n_estimators=50, random_state=0),
+         lambda: framework.fit_gbc(Xtr, ytr, 50)),
+    ):
+        for label, make in (("手写", factory), ("sklearn", sk_factory)):
+            t0 = time.perf_counter()
+            model = make()
+            if label == "手写":
+                model.fit(Xtr, ytr)
+            dt = (time.perf_counter() - t0) * 1000
+            pred = model.predict(Xte)
+            print(f"{name + ' ' + label:12} | {(pred == yte).mean():6.3f} | "
+                  f"{f1_score(yte, pred):6.3f} | {dt:8.2f}")
+    print("→ 分类扩展：AdaBoost 用样本重加权，GBDT 用 log loss 负梯度；两者都只做二分类。")
+
+
 def main() -> None:
     experiment_main()
     experiment_lr()
     experiment_early_stopping()
     experiment_importance()
+    experiment_classification()
 
 
 if __name__ == "__main__":

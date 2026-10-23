@@ -8,7 +8,11 @@
 
 from __future__ import annotations
 
-from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.ensemble import (
+    AdaBoostClassifier,
+    GradientBoostingClassifier,
+    GradientBoostingRegressor,
+)
 
 
 def fit_gbr(X, y, n_estimators: int = 100, learning_rate: float = 0.1,
@@ -16,6 +20,14 @@ def fit_gbr(X, y, n_estimators: int = 100, learning_rate: float = 0.1,
     return GradientBoostingRegressor(
         n_estimators=n_estimators, learning_rate=learning_rate, max_depth=max_depth,
         subsample=subsample, random_state=0).fit(X, y)
+
+
+def fit_ada(X, y, n_estimators: int = 50):
+    return AdaBoostClassifier(n_estimators=n_estimators, random_state=0).fit(X, y)
+
+
+def fit_gbc(X, y, n_estimators: int = 50):
+    return GradientBoostingClassifier(n_estimators=n_estimators, random_state=0).fit(X, y)
 
 
 if __name__ == "__main__":

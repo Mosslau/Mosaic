@@ -1,6 +1,6 @@
 # Boosting 与 GBDT：加法模型、残差拟合、学习率与早停
 
-> 状态：✅ 已完成（2026-10-21）
+> 状态：✅ 已完成（2026-10-23）
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 3.3.2 章（集成学习 · Boosting 系列）
 > 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现实验读「进阶篇」
 > 本族共 11 个实验，学习顺序与选读建议见 [族级导读](../README.md)。
@@ -126,10 +126,10 @@ Boosting 每棵树都在补前一轮的**系统性误差**，降的是偏差。�
 
 | 文件 | 角色 | 入口 / 说明 |
 |---|---|---|
-| [impl.py](impl.py) | 手写实现 | `_RegTree`（MSE 回归树）+ `GradientBoostingRegressor`（残差/学习率/早停） |
-| [framework.py](framework.py) | 框架对照 | sklearn `GradientBoostingRegressor` |
-| [demo.py](demo.py) | 同数据双跑 | 四组实验：对照 / 学习率 / 早停 / 重要性 |
-| [test_impl.py](test_impl.py) | 性质测试 | 加法单调、学习率、早停截断、staged、对照、契约 |
+| [impl.py](impl.py) | 手写实现 | `_RegTree` + `GradientBoostingRegressor` + `GradientBoostingClassifier` + `AdaBoostClassifier` |
+| [framework.py](framework.py) | 框架对照 | sklearn `GradientBoostingRegressor` / `GradientBoostingClassifier` / `AdaBoostClassifier` |
+| [demo.py](demo.py) | 同数据双跑 | 五组实验：回归对照 / 学习率 / 早停 / 重要性 / 分类扩展 |
+| [test_impl.py](test_impl.py) | 性质测试 | 回归 + 分类：单调/早停/staged/F1 对照/契约 |
 | [make_teaching_assets.py](make_teaching_assets.py) | 素材生成 + 对账 | 逐轮加法 / 学习率曲线 / 早停 / 残差动画 |
 | [exercises/](exercises/README.md) | 练习（5 题，题解分离） | 概念、手算、诊断、实现、迁移 |
 | [project/](project/README.md) | 迁移项目 | 真实回归（糖尿病）上的早停与模型对照 |
@@ -229,8 +229,19 @@ lr 小拟合不足；lr 大训练误差趋 0、测试变差；本数据最优在
 
 前 4 正好是真特征；手写与 sklearn 的量级有差异（树的随机性/实现细节），排序一致。
 
-**验证声明（已验证）**：输入为上述数据与种子；2026-10-21 在 uv 环境实跑，
-`uv run python demo.py` 输出上表；`uv run pytest test_impl.py -q` → **10 passed**；
+**实验五：AdaBoost / GBDT 分类（breast cancer，50 轮）**
+
+| 模型 | acc | F1 |
+|---|---|---|
+| AdaBoost 手写 | **0.959** | **0.967** |
+| AdaBoost sklearn | 0.942 | 0.953 |
+| GBDT 手写 | 0.930 | 0.944 |
+| GBDT sklearn | 0.936 | 0.949 |
+
+分类扩展保持二分类；AdaBoost 用样本重加权 + 树桩投票，GBDT 用 log loss 负梯度。
+
+**验证声明（已验证）**：输入为上述数据与种子；2026-10-23 在 uv 环境实跑，
+`uv run python demo.py` 输出上表；`uv run pytest test_impl.py -q` → **14 passed**；
 `uv run python make_teaching_assets.py` 对账通过（手写 vs sklearn 测试 MSE 差 0.0000；
 早停 71 轮）。耗时数字随机器浮动 `[随环境/版本变化]`。
 
@@ -247,9 +258,9 @@ lr 小拟合不足；lr 大训练误差趋 0、测试变差；本数据最优在
 - **不能外推**：分段常数之和在训练范围外是平的。
 - **串行训练慢**：树必须一棵棵来；现代实现用直方图/并行/近似分裂（XGBoost、LightGBM）。
 - **超参强耦合**：`(learning_rate, n_estimators, max_depth, subsample)` 要一起用验证集选。
-- **分类要换损失**：二分类用 log loss + Newton 叶子值；多分类用 softmax（本实验未实现）。
-- **AdaBoost 没有实现**：骨架原计划"AdaBoost + GBDT"，本实验按范围聚焦 GBDT；
-  AdaBoost 的样本重加权只在正文作为历史对照，没有可运行代码。
+- **分类只做二分类**：log loss + 回归树拟合负梯度；多分类 softmax 未实现。
+- **GBDT 分类不是 Newton 叶子值**：用回归树拟合负梯度，和 XGBoost 的叶子值不同。
+- **AdaBoost 只做二分类树桩**：没有多分类 SAMME、没有 depth>1 弱学习器。
 - **subsample 未展开**：参数已支持，但主实验没有专门的 subsample 曲线/测试。
 - **重要性的绝对值与 sklearn 不可直接比**：排序一致，但量级有差异（如 x2 手写 0.20、
   sklearn 0.35），原因是树的实现/随机性不同；只比较排序更稳。
