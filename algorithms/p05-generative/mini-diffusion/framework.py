@@ -1,30 +1,94 @@
-"""迷你扩散模型 DDPM — 框架对照调用（深度模型 · 生成式）
+"""DDPM — PyTorch 对照。
 
-用手写实现同样的数据与指标，调 **PyTorch** 跑一遍（本族对照对象是 PyTorch，不是 sklearn）。
-目的：
-1. 验证手写实现的正确性（指标/损失应对齐）
-2. 感受框架封装的便利与隐藏的细节
-3. 记录框架内部额外做的优化（写回 README「框架对照」一节）
-
-**对照对象**：torch 的现成 U-Net 级去噪网络
-
-手写纪律：本文件是对照版，**不受手写纪律约束**（可用现成层与优化器）；
-纪律只约束 impl.py。
+同结构 MLP（时间嵌入 + 类别嵌入），训练预测 eps；支持无条件/条件/CFG 采样。
 """
 
+from __future__ import annotations
 
-def run_framework(X_train, X_test, y_train, y_test):
-    """用框架接口完成训练 + 预测，返回与手写版对齐的指标字典。
+import time
 
-    返回示例：{"loss": ..., "metric": ..., "time_sec": ...}
-    """
-    # TODO: 用上面「对照对象」里的现成接口实现同一算法。
-    #   README「框架对照」段要回答的是**差异原因**，至少覆盖：
-    #     - 框架多做了什么（向量化、融合算子、数值稳定的实现、自动混合精度）
-    #     - 框架的训练细节与手写版不同处（初始化、优化器默认值、梯度裁剪）
-    #     - 同一随机种子下两边指标是否真能对齐；对不齐要解释为什么
-    raise NotImplementedError("TODO: 调框架接口，返回 {'loss': ..., 'time_sec': ...}")
+import torch
+import torch.nn as nn
+
+
+class TorchDenoiser(nn.Module):
+    def __init__(self, num_classes=10, hidden=128):
+        super().__init__()
+        self.null = num_classes
+        self.emb = nn.Embedding(num_classes + 1, 8)
+        self.net = nn.Sequential(nn.Linear(64 + 16 + 8, hidden), nn.ReLU(),
+                                 nn.Linear(hidden, hidden), nn.ReLU(),
+                                 nn.Linear(hidden, 64))
+
+    def te(self, t, n_steps):
+        t = t.float() / n_steps
+        freqs = torch.exp(-torch.log(torch.tensor(10000.0)) *
+                          torch.arange(8).float() / 8)
+        args = t[:, None] * freqs[None, :]
+        return torch.cat([torch.sin(args), torch.cos(args)], 1)
+
+    def forward(self, x, t, y, n_steps):
+        return self.net(torch.cat([x, self.te(t, n_steps), self.emb(y)], 1))
+
+
+def run_framework(Xtr, ytr, labels, n_steps=100, epochs=100, guidance=3.0):
+    torch.manual_seed(0)
+    net = TorchDenoiser()
+    opt = torch.optim.Adam(net.parameters(), lr=1e-3)
+    X = torch.as_tensor(Xtr, dtype=torch.float32)
+    Y = torch.as_tensor(ytr, dtype=torch.long)
+    betas = torch.linspace(1e-4, 0.02, n_steps)
+    ab = torch.cumprod(1 - betas, 0)
+    t0 = time.perf_counter()
+    for _ in range(epochs):
+        perm = torch.randperm(len(X))
+        for s in range(0, len(X), 64):
+            idx = perm[s:s + 64]
+            xb, yb = X[idx], Y[idx].clone()
+            t = torch.randint(0, n_steps, (len(xb),))
+            eps = torch.randn_like(xb)
+            xt = ab[t].sqrt()[:, None] * xb + (1 - ab[t]).sqrt()[:, None] * eps
+            drop = torch.rand(len(xb)) < 0.1
+            yb[drop] = net.null
+            pred = net(xt, t, yb, n_steps)
+            loss = ((pred - eps) ** 2).mean()
+            opt.zero_grad()
+            loss.backward()
+            opt.step()
+    train_time = time.perf_counter() - t0
+
+    @torch.no_grad()
+    def sample(n=200, labels=None, w=1.0):
+        x = torch.randn(n, 64)
+        if labels is None:
+            y = torch.full((n,), net.null, dtype=torch.long)
+        else:
+            y = torch.as_tensor(labels)
+        for t in reversed(range(n_steps)):
+            tt = torch.full((n,), t)
+            cond = net(x, tt, y, n_steps)
+            if labels is None or w == 1.0:
+                eps = cond
+            else:
+                un = net(x, tt, torch.full((n,), net.null), n_steps)
+                eps = un + w * (cond - un)
+            a = ab[t]
+            ap = ab[t - 1] if t > 0 else torch.tensor(1.0)
+            x0 = ((x - (1 - a).sqrt() * eps) / a.sqrt()).clamp(0, 1)
+            if t > 0:
+                mean = (ap.sqrt() * betas[t] / (1 - a) * x0
+                        + (1 - betas[t]).sqrt() * (1 - ap) / (1 - a) * x)
+                x = mean + (betas[t] * (1 - ap) / (1 - a)).sqrt() * torch.randn_like(x)
+            else:
+                x = x0
+        return x.numpy()
+
+    t1 = time.perf_counter()
+    samples = sample(len(labels), labels, guidance)
+    sample_time = time.perf_counter() - t1
+    return {"loss": float(loss.detach()), "samples": samples, "sample_time": sample_time,
+            "time_sec": train_time}
 
 
 if __name__ == "__main__":
-    raise SystemExit("请先完成 run_framework，由 demo.py 统一调用对比")
+    raise SystemExit("本文件是对照库，由 demo.py 调用")

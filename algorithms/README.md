@@ -128,7 +128,7 @@ uv run pytest p01-search/a-star/ -q
 | 实验 | 章节 | 状态 | 完成日期 |
 |---|---|---|---|
 | [变分自编码器 VAE](p05-generative/vae/) | 4.5 | ✅ | 2026-10-23 |
-| [迷你扩散模型 DDPM](p05-generative/mini-diffusion/) | 6.3 | ⬜ | |
+| [迷你扩散模型 DDPM](p05-generative/mini-diffusion/) | 6.3 | ✅ | 2026-10-23 |
 | [迷你 RAG 检索增强生成](p05-generative/mini-rag/) | 8.1 | ⬜ | |
 
 ## 推荐起步顺序（前 5 个）
