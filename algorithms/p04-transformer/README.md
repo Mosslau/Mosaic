@@ -1,9 +1,9 @@
 # p04-transformer · Transformer 与预训练时代
 
-> 状态：**7/7 完成（p04 全族 ✅）**
+> 状态：**8/8 完成（p04 全族 ✅）**
 > 对应路线：`../docs/人工智能代表算法演进路线.md` 第五章（5.1–5.5）
-> 族内顺序：注意力 → 迷你 Transformer Block → BERT → 迷你 GPT → T5/编码器-解码器 → ViT → 多模态
-> 本族 7 个实验；逐实验入口见 [`algorithms/README.md`](../README.md)。
+> 族内顺序：注意力 → 迷你 Transformer Block → 词向量 → BERT → 迷你 GPT → T5/编码器-解码器 → ViT → 多模态
+> 本族 8 个实验；逐实验入口见 [`algorithms/README.md`](../README.md)。
 
 ## 1. 这个族在讲什么
 
@@ -17,17 +17,18 @@ p03 的 RNN 沿时间递推，长序列只能串行、长依赖会衰减。Trans
 
 这个族按“**组件 → Block → 三种预训练范式**”推进，不是一上来就写 GPT。
 
-## 2. 七个实验一览
+## 2. 八个实验一览
 
 | # | 实验 | 章节 | 默认数据 | 核心 | 接口形态 | 状态 |
 |---|---|---|---|---|---|---|
 | 1 | [注意力机制](attention/) | 5.2 | 合成 Q/K/V / 小序列 | scaled dot-product、mask、softmax 反传、多头 | **组件**：`forward/backward` | ✅ 2026-10-22 |
 | 2 | [迷你 Transformer Block](mini-transformer/) | 5.2 | 小字符序列 | LayerNorm、FFN、残差、pre-LN、多头 | **Block**：`forward/backward` + `train` | ✅ 2026-10-22 |
-| 3 | [BERT / 掩码语言模型](bert/) | 5.3.2 | 离线小文本 | 双向注意力、MLM、`[CLS]` 分类探针 | **模型**：`train(tokens)` / `encode` | ✅ 2026-10-22 |
-| 4 | [迷你 GPT](mini-gpt/) | 5.3.4 | 离线小文本（Zen/合成 grammar） | tokenizer、embedding、N 个 Block、采样 | **模型**：`train(text)` / `generate` | ✅ 2026-10-22 |
-| 5 | [T5 / 编码器-解码器](t5/) | 5.3.3 | 合成 seq2seq 对 | encoder-decoder、cross-attention、生成 | **模型**：`train(pairs)` / `generate(src)` | ✅ 2026-10-22 |
-| 6 | [ViT-lite](vit/) | 5.4 | digits 8×8 | patch + 自注意力 | **模型**：`fit(X,y)` / `predict` | ✅ 2026-10-23 |
-| 7 | [多模态 CLIP 式](multimodal/) | 5.5 | 合成图文对 | 双塔、对比学习、检索 | **模型**：`fit(Xi,Xt)` / `similarity` | ✅ 2026-10-23 |
+| 3 | [词向量 SGNS](word-vectors/) | 5.3.1 | 确定性合成语料 | skip-gram、负采样、类比评估、PPMI-SVD 基线 | **表示**：`train(corpus)` / `analogy` | ✅ 2026-10-26 |
+| 4 | [BERT / 掩码语言模型](bert/) | 5.3.2 | 离线小文本 | 双向注意力、MLM、`[CLS]` 分类探针 | **模型**：`train(tokens)` / `encode` | ✅ 2026-10-22 |
+| 5 | [迷你 GPT](mini-gpt/) | 5.3.4 | 离线小文本（Zen/合成 grammar） | tokenizer、embedding、N 个 Block、采样 | **模型**：`train(text)` / `generate` | ✅ 2026-10-22 |
+| 6 | [T5 / 编码器-解码器](t5/) | 5.3.3 | 合成 seq2seq 对 | encoder-decoder、cross-attention、生成 | **模型**：`train(pairs)` / `generate(src)` | ✅ 2026-10-22 |
+| 7 | [ViT-lite](vit/) | 5.4 | digits 8×8 | patch + 自注意力 | **模型**：`fit(X,y)` / `predict` | ✅ 2026-10-23 |
+| 8 | [多模态 CLIP 式](multimodal/) | 5.5 | 合成图文对 | 双塔、对比学习、检索 | **模型**：`fit(Xi,Xt)` / `similarity` | ✅ 2026-10-23 |
 
 > 章节说明：5.1 是“Transformer 的意义”背景；Block 属于 5.2 的组件装配，因此
 > `mini-transformer` 锚 **5.2**，不再使用原来的 5.1。
@@ -37,9 +38,10 @@ p03 的 RNN 沿时间递推，长序列只能串行、长依赖会衰减。Trans
 ```mermaid
 flowchart LR
     A["1 注意力<br/>Q/K/V + mask"] --> B["2 Transformer Block<br/>LN + 多头 + FFN + 残差"]
-    B --> C["3 BERT<br/>双向 encoder + MLM"]
-    B --> D["4 Mini-GPT<br/>因果 decoder + 采样"]
-    B --> E["5 T5<br/>encoder + cross-attention + decoder"]
+    W["3 词向量<br/>SGNS + 负采样"] --> C["4 BERT<br/>双向 encoder + MLM"]
+    B --> C
+    B --> D["5 Mini-GPT<br/>因果 decoder + 采样"]
+    B --> E["6 T5<br/>encoder + cross-attention + decoder"]
     C --> E
     D --> E
 ```
@@ -56,6 +58,7 @@ flowchart LR
 |---|---|---|---|---|
 | attention | ❌ | ❌ | ❌ | 是**组件**，输入 Q/K/V，输出加权和 + 权重 |
 | mini-transformer | ❌ | ✅（tokens） | ❌ | 是**Block**，可在语言建模目标上训练 |
+| word-vectors | ❌ | ✅（corpus） | ❌ | 学**词表示**；`train(corpus)` / `analogy`，不生成 |
 | BERT | ❌ | ✅（tokens） | ❌ | 是**encoder 模型**，学 MLM/表示；生成不是它的目标 |
 | mini-gpt | ❌ | ✅（text） | ✅ | 是**decoder 生成模型**，目标 next-token |
 | T5 | ❌ | ✅（pairs） | ✅ | 是**encoder-decoder**，输入源序列，生成目标序列 |
@@ -136,14 +139,14 @@ uv run python p04-transformer/attention/demo.py
 **不做**（只作延伸，避免把 p04 变成大模型工程课）：
 
 - BERT 全量预训练/多任务微调、T5 全量预训练/翻译刷榜；
-- BPE/SentencePiece 分词、Word2Vec/GloVe 词向量训练（5.3.1）；
+- BPE/SentencePiece 分词；词向量已在 5.3.1 补齐（SGNS + PPMI-SVD），但只做 toy 语料；
 - RLHF、KV cache、长上下文、分布式训练、量化部署；
 - 现代大模型工程（FlashAttention、张量并行、MoE）。
 
 ## 9. 状态与后续
 
-- 当前 **7/7**，p04 全族完成；
-- 下一步：p05 生成式 AI（VAE/GAN/Diffusion）或 p04 阶段质量轮；
+- 当前 **8/8**，p04 全族完成；
+- 下一步：engineering 纵切（本族作为原理底座）；阶段质量轮已收口；
 - 每个实验完成后同步：本表状态、[`algorithms/README.md`](../README.md) 索引、根 README 计数；
 - 遗留项统一记在本文件"范围边界"和 `.dsh/memory/`。
 
@@ -163,6 +166,8 @@ uv run python p04-transformer/attention/demo.py
 
 attention 前向随 T：16→0.05ms、32→0.07ms、64→0.12ms、128→0.31ms（O(T²) 趋势）。
 
+词向量属表示层（查表、无注意力），不列入本表；其维度扫描与基线对比见 [word-vectors](word-vectors/)。
+
 **四条结论**：
 
 1. **参数量不是“模型越新越大”**：T5 最高（enc+dec + cross-attn），BERT/Block 相近，GPT 2 层居中。
@@ -174,11 +179,11 @@ attention 前向随 T：16→0.05ms、32→0.07ms、64→0.12ms、128→0.31ms�
 
 | 项 | 数量 / 状态 |
 |---|---|
-| 实验 | **7/7 ✅** |
-| 测试 | **61 个**（10+9+8+9+9+8+8） |
-| 素材 | **28 个**（每实验 3 PNG + 1 GIF） |
-| 练习 | **35 题**（每实验 5 题，题解分离） |
-| 项目 | **7 个**，验收全过 |
+| 实验 | **8/8 ✅** |
+| 测试 | **73 个**（10+9+8+9+9+8+8+12） |
+| 素材 | **33 个**（25 PNG + 8 GIF；每实验 3–4 图 + 1 GIF） |
+| 练习 | **41 题**（每实验 5–6 题，题解分离） |
+| 项目 | **8 个**，验收全过 |
 | 质量轮 | 架构级对照 + 各实验遗留汇总 |
 
 **已记录的 p04 遗留（不阻塞）**：
@@ -190,6 +195,7 @@ attention 前向随 T：16→0.05ms、32→0.07ms、64→0.12ms、128→0.31ms�
 | BERT | 单层；torch 指标偏低；无 BPE/WordPiece；无留出 MLM 验证集 |
 | GPT | 字符级/2 层；无 KV cache；greedy/T/top-k 只做样例；无 BPE |
 | T5 | toy copy/reverse；单层；固定长度；greedy only；无 beam search |
+| 词向量 | 合成语料/94 词；PPMI-SVD 的最近邻纯度 1.000 是聚类而非类比；3CosAdd 留出 0.833；无 BPE |
 | 全族 | 无全量预训练/微调/RLHF；无真实大语料；不是 SOTA 复现 |
 
 > 结论：**p04 可以作为“Transformer 原理族”收口**；BERT/T5 只到 toy 规模，真实预训练/大模型工程不在本族硬塞。

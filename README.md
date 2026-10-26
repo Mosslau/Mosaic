@@ -9,7 +9,7 @@
 | 部分 | 目录 | 内容 | 规模 | 状态 |
 |---|---|---|---|---|
 | ① 开发语言部分 | [`languages/`](languages/) | 学（多语言阶段式学习路线）/ 析（语言设计解剖）/ 合（Tenet 语言与编译器） | 6 语言 × 126 阶段 | 已建成（正文 + 示例 + 文档站） |
-| ② 算法部分 | [`algorithms/`](algorithms/) | 手写算法 vs 框架对照实验，五个学科族 | 38 个实验 | 已完成（38/38 完成，以 [`algorithms/README.md`](algorithms/README.md) 索引表为准） |
+| ② 算法部分 | [`algorithms/`](algorithms/) | 手写算法 vs 框架对照实验，五个学科族 | 42 个实验 | 已完成（42/42 完成，以 [`algorithms/README.md`](algorithms/README.md) 索引表为准） |
 | ③ 工程系统部分 | [`engineering/`](engineering/) | [`ai-platform/`](engineering/ai-platform/)（AI 平台，7 个项目）+ [`data-platform/`](engineering/data-platform/)（通用数据平台，1 套设计） | 7 个项目 + 1 套设计 | 设计阶段：ai-platform 进行中（`p5-agent-platform` 🚧，其余 6 个单元未开工）；data-platform 仅设计文档（未实现） |
 
 ## 跨域支撑
@@ -19,8 +19,9 @@
 | [`roadmap/`](roadmap/) | 路线图：两条职业路线（AI 平台 / 数据平台） |
 | [`roadmap/books/`](roadmap/books/) | 计算机书单 |
 | [`algorithms/docs/`](algorithms/docs/) | 算法演进路线（理论总纲，各算法实验的章节锚点来源） |
+| [`algorithms/docs/路线覆盖与系统题边界.md`](algorithms/docs/路线覆盖与系统题边界.md) | 覆盖口径：42 个实验 vs 49 个可讲小节，3 个折叠附录、13 个系统题去向 |
 | [`languages/studies/`](languages/studies/) | 六门语言的学习路线（`<语言>/<语言>.md`，126 阶段索引） |
-| [`.dsh/skills/`](.dsh/skills/) | 写作与验证规范（16 个 skill + `_design` 设计笔记） |
+| [`.dsh/skills/`](.dsh/skills/) | 写作与验证规范（21 个 skill + `_design` 设计笔记） |
 
 ## 校验
 

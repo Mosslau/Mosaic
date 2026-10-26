@@ -75,6 +75,7 @@
 - [迷你 GPT](../../../algorithms/p04-transformer/mini-gpt/) 与 [注意力机制](../../../algorithms/p04-transformer/attention/) —— p4 推理服务的生成底座，成本归集的口径（tokens）来自它
 - [K-Means](../../../algorithms/p02-statistical-ml/kmeans/) / [PCA](../../../algorithms/p02-statistical-ml/pca/) —— p0/p2 的语料与向量质量抽检
 - [A* 启发式搜索](../../../algorithms/p01-search/a-star/) —— p3 调度决策的"可解释评估"思想来源
+- 系统面说明：路线图 9.2–9.3（大模型评测 / 风险）由本项目与数据平台 p5 承接；边界见 [路线覆盖与系统题边界](../../../algorithms/docs/路线覆盖与系统题边界.md)
 
 > 完整的「项目 → 前置实验」映射见 [`engineering/ai-platform/README.md`](../README.md) 的依赖表。
 

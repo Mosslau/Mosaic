@@ -74,6 +74,7 @@
 - [迷你 Transformer Block](../../../algorithms/p04-transformer/mini-transformer/) —— 模型结构的最小完整形态；量化与批处理影响的是这些矩阵运算的显存与算力
 - [注意力机制](../../../algorithms/p04-transformer/attention/) —— prefill（全序列注意力）与 decode（单 token 注意力）的算力差异来源，解释 TTFT 与 TPOT 为何是两种延迟
 - 说明：本项目**不重写推理内核**（continuous batching / PagedAttention / kernel 融合属引擎领域），只做服务化与工程度量
+- 系统面说明：路线图 7.1–7.5（预训练 / 指令微调 / 对齐 / PEFT / 压缩）中，本项目只承接**微调与推理服务化**；哪些做、哪些不做见 [路线覆盖与系统题边界](../../../algorithms/docs/路线覆盖与系统题边界.md)
 
 ## 验收标准
 

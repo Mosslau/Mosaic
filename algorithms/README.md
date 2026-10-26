@@ -6,6 +6,7 @@
 > 每完成一个实验，把索引表状态从 ⬜ 改为 ✅ 并记录日期。
 > 阶段成熟度评估（2026-10-22）：[阶段成熟度评估-2026-10-22.md](阶段成熟度评估-2026-10-22.md)
 > 生产系统栈与算法应用（2026-10-23）：[生产系统栈与算法应用.md](生产系统栈与算法应用.md)
+> 路线覆盖与系统题边界（2026-10-26）：[docs/路线覆盖与系统题边界.md](docs/路线覆盖与系统题边界.md)
 
 ## 目录组织原则（不设统一模板）
 
@@ -93,7 +94,7 @@ uv run pytest p01-search/a-star/ -q
 > 前两个建立「可学习非线性 + 反向传播」的主线，CNN/RNN 补上空间与时间结构，
 > AutoEncoder/GAN 走向无监督表示与生成。
 > 与 p02 的对照：人工特征 → 表示学习；与 p04 的接力：RNN → 注意力。
-> 族级导读（8 个实验什么关系、该读哪个、开工前的补强计划）：[p03-deep-learning/README.md](p03-deep-learning/README.md)。
+> 族级导读（11 个实验什么关系、该读哪个、开工前的补强计划）：[p03-deep-learning/README.md](p03-deep-learning/README.md)。
 > 阶段横向对照与质量项：[/p03-deep-learning/stage_benchmark.py](p03-deep-learning/stage_benchmark.py)。
 
 | 实验 | 章节 | 状态 | 完成日期 |
@@ -101,6 +102,9 @@ uv run pytest p01-search/a-star/ -q
 | [感知机](p03-deep-learning/perceptron/) | 4.2 | ✅ | 2026-10-22 |
 | [MLP 与手写反向传播](p03-deep-learning/mlp-backprop/) | 4.2 | ✅ | 2026-10-22 |
 | [卷积神经网络 LeNet](p03-deep-learning/cnn-lenet/) | 4.3.1 | ✅ | 2026-10-23 |
+| [轻量级 CNN（深度可分离）](p03-deep-learning/lightweight-cnn/) | 4.3.2 | ✅ | 2026-10-26 |
+| [目标检测（网格预测 + NMS）](p03-deep-learning/object-detection/) | 4.3.3 | ✅ | 2026-10-26 |
+| [图像分割（encoder-decoder）](p03-deep-learning/image-segmentation/) | 4.3.4 | ✅ | 2026-10-26 |
 | [RNN 与 LSTM](p03-deep-learning/rnn-lstm/) | 4.4 | ✅ | 2026-10-22 |
 | [自编码器 AutoEncoder](p03-deep-learning/autoencoder/) | 4.5 | ✅ | 2026-10-22 |
 | [生成对抗网络 GAN](p03-deep-learning/gan/) | 4.6 | ✅ | 2026-10-23 |
@@ -113,13 +117,14 @@ uv run pytest p01-search/a-star/ -q
 > 先做“组件”（attention），再做“可堆叠 Block”，然后换 mask/目标得到三种范式：
 > BERT（双向 encoder）、GPT（因果 decoder）、T5（encoder-decoder + cross-attention）。
 > 不先手写 attention 直接写 GPT，等于把最难的反传藏在黑盒里。
-> 族级导读（7 个实验什么关系、接口边界、数据/范围/Phase 0–5 计划）：[p04-transformer/README.md](p04-transformer/README.md)。
+> 族级导读（8 个实验什么关系、接口边界、数据/范围/Phase 0–5 计划）：[p04-transformer/README.md](p04-transformer/README.md)。
 > 阶段横向对照与完成度：[stage_benchmark.py](p04-transformer/stage_benchmark.py)。
 
 | 实验 | 章节 | 状态 | 完成日期 |
 |---|---|---|---|
 | [注意力机制](p04-transformer/attention/) | 5.2 | ✅ | 2026-10-22 |
 | [迷你 Transformer Block](p04-transformer/mini-transformer/) | 5.2 | ✅ | 2026-10-22 |
+| [词向量 SGNS（skip-gram + 负采样）](p04-transformer/word-vectors/) | 5.3.1 | ✅ | 2026-10-26 |
 | [BERT / 掩码语言模型](p04-transformer/bert/) | 5.3.2 | ✅ | 2026-10-22 |
 | [迷你 GPT 字符级语言模型](p04-transformer/mini-gpt/) | 5.3.4 | ✅ | 2026-10-22 |
 | [T5 / 编码器-解码器](p04-transformer/t5/) | 5.3.3 | ✅ | 2026-10-22 |

@@ -68,6 +68,7 @@ Part 1（沉淀）──门禁──▶ Part 2（实证）──门禁──▶ 
 - [../../../algorithms/p04-transformer/attention/](../../../algorithms/p04-transformer/attention/)：Agent 智能来源（模型侧）的注意力机制原理
 - [../../../algorithms/p05-generative/mini-rag/](../../../algorithms/p05-generative/mini-rag/)：检索增强生成的最小闭环，对应 Agent 的知识 / 记忆供给
 - [../../../algorithms/p01-search/mcts/](../../../algorithms/p01-search/mcts/)：搜索与规划思想，对应 Agent 的规划（todo）与任务分解机制
+- 系统面说明：路线图 8.2–8.4（工具调用 / Agent / 多智能体）由本项目承接；教学实现见 [tutorials/](tutorials/)，边界见 [路线覆盖与系统题边界](../../../algorithms/docs/路线覆盖与系统题边界.md)
 
 ## 验收标准
 
