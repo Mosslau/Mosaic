@@ -9,6 +9,9 @@
 1. 10 分类：逻辑回归 / MLP / LeNet(BN+残差) / LSTM(行序列)
 2. 无监督：AE(latent=8) vs PCA(8) 的重构 MSE
 3. 序列：parity T=12 的 RNN vs LSTM
+
+4.3.2–4.3.4（轻量 CNN / 检测 / 分割）的任务、数据与指标不同，见族导读 §13
+「任务特定补充」；本脚本只做同一份 digits 口径，不混入。
 """
 
 from __future__ import annotations

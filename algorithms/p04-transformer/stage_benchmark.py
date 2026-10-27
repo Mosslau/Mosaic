@@ -4,6 +4,8 @@
 
 不是“同一任务排名”——BERT/GPT/T5 的目标不同；这里在同一 d_model/heads/context
 下比较**参数量、前向延迟、任务位置**，避免把不同任务的精度硬放在一张表里。
+
+5.3.1 词向量属表示层，见族导读 §10「表示层补充」；本脚本只做 Transformer 架构对照。
 """
 
 from __future__ import annotations
