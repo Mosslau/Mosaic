@@ -22,9 +22,6 @@
 """
 
 import itertools
-import random
-from collections import defaultdict
-from pathlib import Path
 
 from baseline import FIXED_OPPONENTS, uniform_strategy
 from impl import CFR
@@ -44,10 +41,14 @@ def kuhn_terminal(history: str) -> bool:
 def kuhn_payoff_p1(history: str, cards) -> float:
     """终局时 player1 的效用（零和）。"""
     p1, p2 = cards
-    if history == "bf":   return 1.0
-    if history == "kbf":  return -1.0
-    if history == "kk":   return 1.0 if p1 > p2 else -1.0
-    if history in ("bc", "kbc"): return 2.0 if p1 > p2 else -2.0
+    if history == "bf":
+        return 1.0
+    if history == "kbf":
+        return -1.0
+    if history == "kk":
+        return 1.0 if p1 > p2 else -1.0
+    if history in ("bc", "kbc"):
+        return 2.0 if p1 > p2 else -2.0
     raise ValueError(f"不是终局：{history}")
 
 

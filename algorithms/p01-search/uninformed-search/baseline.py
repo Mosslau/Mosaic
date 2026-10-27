@@ -22,7 +22,6 @@ import importlib.util
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 HERE = Path(__file__).resolve().parent
 ASTAR_DIR = HERE.parent / "a-star"
@@ -32,7 +31,7 @@ ASTAR_DIR = HERE.parent / "a-star"
 class AstarResult:
     """A* 结果的瘦身视图（只留对比需要的字段，字段名与本目录 SearchResult 对齐）。"""
 
-    path: Optional[list]
+    path: list | None
     cost: float
     expanded: int
 

@@ -27,7 +27,8 @@ MCTS 是"模拟驱动的决策搜索"，四步循环：
 
 import math
 import random
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any, Optional
 
 Action = Any
 
@@ -39,8 +40,8 @@ class Node:
                  "children", "visits", "value")
 
     def __init__(self, state: Any, parent: Optional["Node"] = None,
-                 action: Optional[Action] = None, mover: int = 1,
-                 untried: Optional[list] = None) -> None:
+                 action: Action | None = None, mover: int = 1,
+                 untried: list | None = None) -> None:
         self.state = state
         self.parent = parent
         self.action = action               # 父节点走到本节点所用的招法
@@ -69,7 +70,7 @@ class MCTS:
         apply: Callable,
         is_terminal: Callable,
         winner: Callable,
-        rng: Optional[random.Random] = None,
+        rng: random.Random | None = None,
         exploration: float = math.sqrt(2.0),
     ) -> None:
         self.get_moves = get_moves
@@ -143,7 +144,7 @@ class MCTS:
         return bool(self.is_terminal(state)) or not self.get_moves(state)
 
     def search(self, state: Any, iterations: int = 1000,
-               root_player: int = 1) -> Optional[Action]:
+               root_player: int = 1) -> Action | None:
         """在给定局面下模拟 `iterations` 次，返回**访问次数最多**的招法。
 
         参数：
@@ -179,7 +180,7 @@ class MCTS:
         return max(root.children, key=lambda a: root.children[a].visits)
 
 
-def make_mcts(game: dict, rng: Optional[random.Random] = None,
+def make_mcts(game: dict, rng: random.Random | None = None,
               exploration: float = math.sqrt(2.0)) -> MCTS:
     """从对弈接口字典构造 MCTS（demo 与 project 都走这里，避免各处重复拼参数）。"""
     return MCTS(game["get_moves"], game["apply"], game["is_terminal"], game["winner"],

@@ -3,7 +3,8 @@
 用法（本目录内）：uv run pytest test_impl.py -v
 
 覆盖：
-- **BFS 最优**：无权图上 BFS 的步数 = 独立 BFS 参考（复用 a-star 实验的 `bfs_shortest_cost`，不共享本目录代码）
+- **BFS 最优**：无权图上 BFS 的步数 = 独立 BFS 参考
+  （复用 a-star 实验的 `bfs_shortest_cost`，不共享本目录代码）
 - **UCS 最优**：带权图上 UCS 的总代价 ≤ 任何其他走法的代价（对小图做穷举校验）
 - **UCS 在无权图上退化为 BFS**：两者代价必须逐个相同
 - **DFS 的定位**：只要求"有解且合法"，**不断言最优**；并断言换邻接顺序会改变结果
@@ -114,7 +115,8 @@ def test_bfs_path_is_contiguous_and_legal() -> None:
 def test_ucs_matches_independent_weighted_reference(seed: int) -> None:
     """带权图上 UCS 的总代价必须等于独立参考（Bellman-Ford 式松弛）。"""
     grid, start, goal = make_terrain(seed=seed)
-    cost_of = lambda n, g=grid: terrain_cost(n, g)
+    def cost_of(n, g=grid):
+        return terrain_cost(n, g)
     r = ucs(grid, start, goal, cost_of=cost_of)
     ref = reference_weighted_cost(grid, start, goal, cost_of)
     assert r.cost == pytest.approx(ref), f"UCS {r.cost} ≠ 独立参考 {ref}（seed={seed}）"
@@ -133,7 +135,8 @@ def test_ucs_equals_bfs_on_unweighted(seed: int) -> None:
 def test_bfs_is_not_optimal_on_weighted() -> None:
     """BFS 只保证步数最少；带权图上它找到的路**总代价可能严格更大**。"""
     grid, start, goal = make_terrain(seed=204)
-    cost_of = lambda n, g=grid: terrain_cost(n, g)
+    def cost_of(n, g=grid):
+        return terrain_cost(n, g)
     r_bfs, r_ucs = bfs(grid, start, goal), ucs(grid, start, goal, cost_of=cost_of)
     bfs_cost = float(sum(cost_of(n) for n in r_bfs.path[1:]))
     assert len(r_bfs.path) <= len(r_ucs.path), "BFS 的步数不该多于 UCS"

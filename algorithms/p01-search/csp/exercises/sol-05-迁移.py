@@ -180,13 +180,16 @@ def main() -> None:
     elif abs(new_cost - best_cost) < 1e-9:
         print("  → 局部搜索已经到达全局最优。")
     else:
-        print(f"  → 局部搜索停在 {new_cost:.2f}，**未达全局最优 {best_cost:.2f}**（陷在局部最优）。")
+        print(
+            f"  → 局部搜索停在 {new_cost:.2f}，"
+            f"**未达全局最优 {best_cost:.2f}**（陷在局部最优）。"
+        )
 
     print("\n→ 回答第 4 问（与 ../project/ 的排班问题对照）：")
     print(f"   本题单点交换接受 {acc1} 次、2-opt 接受 {acc2} 次；"
           f"软代价从 {base:.2f} → {new_cost:.2f}。")
     print("   两个问题的现象**不同**，恰好说明一条更重要的道理：")
-    print(f"   · 排班项目：单点交换接受 0 次、2-opt 77 次（必须换两个人）")
+    print("   · 排班项目：单点交换接受 0 次、2-opt 77 次（必须换两个人）")
     print(f"   · 本题：单点交换动得起来（{acc1} 次），但**无可改进之处**")
     print("   所以「局部搜索没改进」有两种完全不同的原因：")
     print("     ① **邻域太小**（一步都走不动）→ 要换更大的邻域（如 2-opt）；")

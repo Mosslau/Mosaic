@@ -16,8 +16,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 
-from demo import make_grid                      # noqa: E402
-from impl import bfs, neighbors                 # noqa: E402
+from demo import make_grid  # noqa: E402
+from impl import neighbors  # noqa: E402
 
 
 def ids(grid, start, goal, max_depth=None):

@@ -21,8 +21,8 @@
 
 import heapq
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, Optional
 
 Pos = tuple[int, int]
 Grid = list[list[int]]
@@ -35,7 +35,7 @@ DIRECTIONS = ((-1, 0), (1, 0), (0, -1), (0, 1))
 class SearchResult:
     """三个算法共用的返回类型，便于并排对比。"""
 
-    path: Optional[list[Pos]]          # 从起点到终点的路径（含两端）；无解为 None
+    path: list[Pos] | None          # 从起点到终点的路径（含两端）；无解为 None
     cost: float                        # 路径总代价（无权图 = 步数）
     expanded: int                      # 从边界取出的节点数（工作量指标）
     peak_frontier: int                 # 边界峰值（内存代理指标）
@@ -152,7 +152,7 @@ def bfs(grid: Grid, start: Pos, goal: Pos, record_order: bool = False) -> Search
                         peak_frontier=peak, order=order)
 
 
-def ucs(grid: Grid, start: Pos, goal: Pos, cost_of: Optional[Callable[[Pos], float]] = None,
+def ucs(grid: Grid, start: Pos, goal: Pos, cost_of: Callable[[Pos], float] | None = None,
         record_order: bool = False) -> SearchResult:
     """一致代价搜索：用**优先队列**，总取"累计代价最小"的节点。
 

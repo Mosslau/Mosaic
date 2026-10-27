@@ -14,7 +14,6 @@
 """
 
 import importlib.util
-import math
 import random
 import sys
 from pathlib import Path
@@ -22,7 +21,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from demo import EXACT_GAME, GAME, O_PLAYER, TicTacToe, X_PLAYER  # noqa: E402
+from demo import EXACT_GAME, GAME, O_PLAYER, X_PLAYER, TicTacToe  # noqa: E402
 from impl import MCTS, make_mcts  # noqa: E402
 
 

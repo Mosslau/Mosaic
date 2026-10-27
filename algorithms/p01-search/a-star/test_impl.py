@@ -17,7 +17,6 @@
 import math
 
 import pytest
-
 from baseline import bfs_shortest_cost, dijkstra
 from demo import GOAL, START, make_empty_grid, make_grid
 from impl import solve

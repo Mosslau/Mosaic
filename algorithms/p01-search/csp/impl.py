@@ -26,10 +26,8 @@
     三种求解器都返回 SolveResult(assignment, nodes, backtracks, propagations)
 """
 
-import itertools
 from collections import deque
-from dataclasses import dataclass, field
-from typing import Callable, Optional
+from dataclasses import dataclass
 
 Value = object
 
@@ -38,7 +36,7 @@ Value = object
 class SolveResult:
     """三种求解器共用的返回类型，便于并排比较。"""
 
-    assignment: Optional[dict]      # 解（变量 → 取值）；无解为 None
+    assignment: dict | None      # 解（变量 → 取值）；无解为 None
     nodes: int = 0                  # 搜索树里"尝试赋值"的次数
     backtracks: int = 0             # 回退次数
     propagations: int = 0           # 约束传播时"删掉一个值"的次数

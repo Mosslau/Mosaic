@@ -12,14 +12,13 @@
 """
 
 import heapq
-import random
 import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 
-from impl import neighbors                       # noqa: E402
+from impl import neighbors  # noqa: E402
 
 TERRAIN_MIN, TERRAIN_MAX = 1, 6
 

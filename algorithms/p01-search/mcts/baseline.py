@@ -7,14 +7,15 @@
 """
 
 import random
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 
 def random_move(
     state: Any,
     get_moves: Callable,
-    rng: Optional[random.Random] = None,
-) -> Optional[Any]:
+    rng: random.Random | None = None,
+) -> Any | None:
     """从当前局面的可走招法中随机选一个（无招法返回 None）。"""
     moves = get_moves(state)
     if not moves:
@@ -29,8 +30,8 @@ def greedy_move(
     apply: Callable,
     winner: Callable,
     me: int,
-    rng: Optional[random.Random] = None,
-) -> Optional[Any]:
+    rng: random.Random | None = None,
+) -> Any | None:
     """启发式基线：能一步赢就赢、对手下一步能赢就挡，否则随机。
 
     这个对手比随机强得多，是 MCTS"模拟次数→棋力"曲线的合适对手。

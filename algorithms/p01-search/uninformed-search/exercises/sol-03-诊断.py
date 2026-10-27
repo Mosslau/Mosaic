@@ -17,9 +17,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 
-from demo import make_grid, make_terrain, terrain_cost   # noqa: E402
-from impl import bfs, dfs, neighbors, ucs                # noqa: E402
-
+from demo import make_grid, make_terrain, terrain_cost  # noqa: E402
+from impl import dfs, neighbors, ucs  # noqa: E402
 
 # ---------------------------------------------------------------- 片段 A
 
@@ -88,7 +87,8 @@ def ucs_b(grid, start, goal, cost_of):
 def check_b() -> None:
     print("\n== 片段 B：UCS 不判断过期堆项 ==")
     grid, start, goal = make_terrain(seed=200)
-    cost_of = lambda n, g=grid: terrain_cost(n, g)
+    def cost_of(n, g=grid):
+        return terrain_cost(n, g)
     d_b, pops_b = ucs_b(grid, start, goal, cost_of)
     r = ucs(grid, start, goal, cost_of=cost_of)
     print(f"  21×21 带权图：片段 B 代价 {d_b:.0f} / 扩展 {pops_b} | "
@@ -121,7 +121,10 @@ def dfs_c(grid, start, goal):
 
 def check_c() -> None:
     print("\n== 片段 C：DFS 只在取出时判重 ==")
-    print(f"{'seed':>5} | {'片段C 栈峰值':>12} | {'impl 边界峰值':>13} | {'取出':>6} | {'扩展':>6} | {'步数':>5}")
+    print(
+        f"{'seed':>5} | {'片段C 栈峰值':>12} | {'impl 边界峰值':>13} | "
+        f"{'取出':>6} | {'扩展':>6} | {'步数':>5}"
+    )
     print("-" * 66)
     for seed in (42, 1, 2):
         grid, start, goal = make_grid(seed=seed)

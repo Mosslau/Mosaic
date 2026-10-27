@@ -9,7 +9,6 @@
 """
 
 import sys
-import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -17,7 +16,6 @@ ROOT = HERE.parent
 sys.path.insert(0, str(ROOT))
 
 from impl import CSP, SolveResult, backtracking, forward_checking  # noqa: E402
-
 
 # ---------------------------------------------------------------- 片段 A
 
@@ -161,7 +159,7 @@ def main() -> None:
         print(f"{label:<22} | " + " | ".join(f"{c:>10}" for c in cells))
         return cells
 
-    good = run("正确（前向检查）", lambda c: forward_checking(c))
+    run("正确（前向检查）", lambda c: forward_checking(c))
     a = run("片段 A：不回滚", lambda c: fc_no_restore(c))
     b = run("片段 B：单向邻居表", lambda c: backtracking(build_one_way(c)))
     c_ = run("片段 C：AC-3 不入队", lambda c: ac3_no_requeue(c))

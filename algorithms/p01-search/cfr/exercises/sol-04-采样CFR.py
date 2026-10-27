@@ -15,8 +15,15 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(ROOT))
 
-from demo import (GAME_VALUE, all_deals, best_response_p2, kuhn_actions,  # noqa: E402
-                  kuhn_infoset, kuhn_payoff_p1, kuhn_terminal, make_cfr)
+from demo import (  # noqa: E402
+    all_deals,
+    best_response_p2,
+    kuhn_actions,
+    kuhn_infoset,
+    kuhn_payoff_p1,
+    kuhn_terminal,
+    make_cfr,
+)
 from impl import CFR  # noqa: E402
 
 
@@ -43,7 +50,10 @@ def measure(engine_factory, rounds: int) -> dict:
 
 def main() -> None:
     print("== 全遍历 CFR vs 采样版 CFR ==")
-    print(f"{'实现':>14} | {'轮数':>8} | {'可被利用度':>10} | {'耗时(秒)':>9} | {'每单位利用度耗时':>16}")
+    print(
+        f"{'实现':>14} | {'轮数':>8} | {'可被利用度':>10} | "
+        f"{'耗时(秒)':>9} | {'每单位利用度耗时':>16}"
+    )
     print("-" * 72)
     rows = []
     for label, factory, rounds in (
@@ -63,7 +73,7 @@ def main() -> None:
               f"{sec / max(gap, 1e-9):>16.1f}")
 
     full_600, samp_600 = rows[0], rows[1]
-    full_6000, samp_3600 = rows[2], rows[3]
+    _full_6000, samp_3600 = rows[2], rows[3]
 
     # 断言 1：采样版也能收敛（比它自己在 600 轮时更好）
     assert samp_3600[2] < samp_600[2], "采样版应当随训练量收敛"
@@ -71,7 +81,7 @@ def main() -> None:
     assert full_600[2] <= samp_600[2], (
         f"同轮数下全遍历应当更好：{full_600[2]:.4f} vs {samp_600[2]:.4f}")
     # 断言 3：把轮数按成本折算后（采样 6 倍轮数 ≈ 同样成本），采样版能追上来
-    print(f"\n读法：")
+    print("\n读法：")
     print(f"  · 同轮数（600 轮）：全遍历 {full_600[2]:.4f} 优于采样 {samp_600[2]:.4f}"
           f"（每轮更贵，但噪声更低）")
     print(f"  · 折算成同成本（全遍历 600 轮 ≈ 采样 {600 * 6} 轮）：")
@@ -81,7 +91,7 @@ def main() -> None:
     print(f"      → 同成本下 {better} 的可被利用度更低")
     print("  · 结论：**采样版的优势在「每轮便宜」，适合大博弈；"
           "全遍历的优势在「每轮精确」，适合小博弈**。")
-    print(f"    本实验的库恩扑克只有 6 种发牌，全遍历本来就便宜，所以它更划算。")
+    print("    本实验的库恩扑克只有 6 种发牌，全遍历本来就便宜，所以它更划算。")
 
 
 if __name__ == "__main__":

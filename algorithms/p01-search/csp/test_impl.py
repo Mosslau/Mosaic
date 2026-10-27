@@ -26,7 +26,6 @@ from baseline import enumerate_all, n_queens, random_restart, sudoku  # noqa: E4
 from demo import SUDOKU_HARD  # noqa: E402
 from impl import CSP, SOLVERS, solve  # noqa: E402
 
-
 # ---------------------------------------------------------------- 独立验证
 
 def check_queens(assignment: dict, n: int) -> None:

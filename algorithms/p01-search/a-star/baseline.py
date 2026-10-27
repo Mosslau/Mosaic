@@ -12,7 +12,6 @@
 
 from collections import deque
 from dataclasses import dataclass
-from typing import Optional
 
 from impl import SearchResult, solve
 
@@ -37,7 +36,7 @@ def dijkstra(
 class ReferenceResult:
     """独立参考的返回：最短步数（不可达为 None）+ 出队节点数。"""
 
-    path_cost: Optional[int]  # 无权网格上 = 最短步数；不可达为 None
+    path_cost: int | None  # 无权网格上 = 最短步数；不可达为 None
     nodes_expanded: int       # 出队节点数，与 SearchResult 同口径可比
 
 

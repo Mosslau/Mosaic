@@ -88,7 +88,8 @@ def weighted_data(games: int = 8, seed0: int = 200) -> list:
     rows = []
     for i in range(games):
         grid, start, goal = D.make_terrain(seed=seed0 + i)
-        cost_of = lambda n, g=grid: D.terrain_cost(n, g)
+        def cost_of(n, g=grid):
+            return D.terrain_cost(n, g)
         r_bfs = D.bfs(grid, start, goal)
         r_ucs = D.ucs(grid, start, goal, cost_of=cost_of)
         bfs_cost = float(sum(cost_of(n) for n in r_bfs.path[1:]))
@@ -167,8 +168,10 @@ def make_order_figure(order: dict) -> None:
         for (rr, cc), txt in ((start, "S"), (goal, "G")):
             ax.text(cc, rr, txt, ha="center", va="center", fontsize=12, weight="bold",
                     color=COLOR["hl"])
-        ax.set_xticks(range(cols)); ax.set_yticks(range(rows))
-        ax.set_xticklabels([]); ax.set_yticklabels([])
+        ax.set_xticks(range(cols))
+        ax.set_yticks(range(rows))
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
         ax.grid(color=COLOR["grid"], lw=0.8)
         ax.set_title(f"{label}\n扩展 {r.expanded} 个 · 步数 {len(r.path) - 1}",
                      fontsize=12, pad=8)
@@ -195,11 +198,13 @@ def make_cost_memory_figure(weighted: list, ucs_astar: dict, per_algo: dict) -> 
     for i, r in enumerate(weighted):
         ax.text(i + 0.2, r["cost_bfs"] + 4, f"+{r['gap']:.0%}", ha="center",
                 fontsize=9, color=COLOR["bfs"])
-    ax.set_xticks(xs); ax.set_xticklabels([f"图 {i}" for i in xs])
+    ax.set_xticks(xs)
+    ax.set_xticklabels([f"图 {i}" for i in xs])
     ax.set_ylabel("路径总代价", fontsize=12)
     ax.set_title("带权地形（进入代价 1–9）：BFS 的步数最少 ≠ 代价最小", fontsize=12.5, pad=10)
     ax.legend(fontsize=11)
-    ax.grid(axis="y", color=COLOR["grid"], lw=0.8); ax.set_axisbelow(True)
+    ax.grid(axis="y", color=COLOR["grid"], lw=0.8)
+    ax.set_axisbelow(True)
 
     ax = axes[1]
     labels = ["DFS", "BFS", "UCS"]
@@ -211,12 +216,14 @@ def make_cost_memory_figure(weighted: list, ucs_astar: dict, per_algo: dict) -> 
     for i, (e, p) in enumerate(zip(expanded, peaks)):
         ax.text(i - 0.2, e + 4, f"{e:.0f}", ha="center", fontsize=9, color=COLOR["dfs"])
         ax.text(i + 0.2, p + 4, f"{p:.0f}", ha="center", fontsize=9, color="#8a6d1a")
-    ax.set_xticks(xs); ax.set_xticklabels(labels, fontsize=11)
+    ax.set_xticks(xs)
+    ax.set_xticklabels(labels, fontsize=11)
     ax.set_ylabel("节点数（9×9 无权图 × 6 张的均值）", fontsize=12)
     ax.set_title("扩展数 ≠ 内存：DFS 干活少，但边界反而最大（栈里压着一路的岔路）",
                  fontsize=12.5, pad=10)
     ax.legend(fontsize=11)
-    ax.grid(axis="y", color=COLOR["grid"], lw=0.8); ax.set_axisbelow(True)
+    ax.grid(axis="y", color=COLOR["grid"], lw=0.8)
+    ax.set_axisbelow(True)
 
     fig.tight_layout()
     fig.savefig(IMAGES / "02-代价与内存.png", dpi=130)
@@ -257,8 +264,10 @@ def make_animation(order: dict) -> None:
                 va="center", fontsize=15, weight="bold", color=COLOR["dfs"])
         ax.text(goal[1] + 0.5, nrows - 1 - goal[0] + 0.5, "G", ha="center",
                 va="center", fontsize=15, weight="bold", color=COLOR["ucs"])
-        ax.set_xlim(-0.05, ncols + 0.05); ax.set_ylim(-0.05, nrows + 0.05)
-        ax.set_aspect("equal"); ax.axis("off")
+        ax.set_xlim(-0.05, ncols + 0.05)
+        ax.set_ylim(-0.05, nrows + 0.05)
+        ax.set_aspect("equal")
+        ax.axis("off")
         ax.set_title(f"DFS 的扩展顺序：第 {k}/{len(seq)} 步（橙框 = 当前取出）", fontsize=12.5)
 
     anim = animation.FuncAnimation(fig, draw, frames=frames, interval=320)

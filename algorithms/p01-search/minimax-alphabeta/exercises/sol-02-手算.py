@@ -81,7 +81,10 @@ def main() -> None:
 
     print(f"{'':22} | {'选中的招法':>10} | {'分数':>5} | {'展开叶子数':>10}")
     print("-" * 60)
-    print(f"{'不剪枝 minimax':22} | {str(plain_move):>10} | {plain_score:>5.0f} | {len(plain_leaves):>10}")
+    print(
+        f"{'不剪枝 minimax':22} | {str(plain_move):>10} | "
+        f"{plain_score:>5.0f} | {len(plain_leaves):>10}"
+    )
     print(f"{'剪枝 alphabeta':22} | {str(ab_move):>10} | {ab_score:>5.0f} | {len(ab_leaves):>10}")
 
     assert (plain_move, plain_score) == (ab_move, ab_score), \

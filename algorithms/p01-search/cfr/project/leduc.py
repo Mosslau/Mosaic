@@ -84,8 +84,10 @@ def transition(history: str, cards):
 def payoff_p1(history: str, cards) -> float:
     p1, p2 = cards[0], cards[1]
     acts = battle(history)
-    if acts == "bf":  return 1.0
-    if acts == "kbf": return -1.0
+    if acts == "bf":
+        return 1.0
+    if acts == "kbf":
+        return -1.0
     pot = 1.0 if acts == "kk" else 2.0
     b = board_of(history)
     br = {"J": 0, "Q": 1, "K": 2}[b] if b else None

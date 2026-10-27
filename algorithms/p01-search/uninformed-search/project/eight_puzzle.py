@@ -22,7 +22,6 @@
 import random
 import time
 from collections import deque
-from typing import Optional
 
 GOAL = (1, 2, 3, 4, 5, 6, 7, 8, 0)          # 0 表示空格
 MOVE_NAMES = {1: "上", -1: "下", 3: "左", -3: "右"}   # 空格移动方向
@@ -98,7 +97,7 @@ def solve_ids(start: tuple, max_depth: int = 31) -> tuple:
     """
     expanded = 0
 
-    def dfs(state: tuple, g: int, limit: int, path: list, best: dict) -> Optional[list]:
+    def dfs(state: tuple, g: int, limit: int, path: list, best: dict) -> list | None:
         nonlocal expanded
         expanded += 1
         if state == GOAL:
@@ -196,7 +195,10 @@ def solve_bfs(start: tuple) -> tuple:
 def experiment_correctness(cases: list) -> list:
     """两者都要解出来，且**深度相同**（IDS 与 IDA* 都是最优算法）。"""
     print("== 实验一：可解性与最优性（同一批局面，两个算法深度必须相同） ==")
-    print(f"{'局面（随机步数/种子）':>22} | {'深度':>4} | {'IDA* 展开':>10} | {'IDS 展开':>10} | {'加速':>7}")
+    print(
+        f"{'局面（随机步数/种子）':>22} | {'深度':>4} | "
+        f"{'IDA* 展开':>10} | {'IDS 展开':>10} | {'加速':>7}"
+    )
     print("-" * 70)
     rows = []
     for steps, seed in cases:
@@ -228,7 +230,10 @@ def experiment_memory(cases: list) -> list:
         path, depth, exp_bfs, peak_bfs = solve_bfs(start)
         # 迭代加深类算法的"边界"= 递归栈深度 = 当前路径长度，天然线性
         rows.append((start, depth, peak_bfs, depth + 1))
-        print(f"{f'{steps} 步 / seed {seed}':>16} | {depth:>4} | {peak_bfs:>12,} | {depth + 1:>16,}")
+        print(
+            f"{f'{steps} 步 / seed {seed}':>16} | {depth:>4} | "
+            f"{peak_bfs:>12,} | {depth + 1:>16,}"
+        )
     print("\n→ BFS 的边界峰值随深度**指数级**增长；迭代加深类的峰值 = 路径长度（线性）")
     return rows
 

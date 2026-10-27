@@ -18,8 +18,8 @@
 import random
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from impl import alphabeta  # noqa: E402
@@ -54,7 +54,7 @@ class Board:
     win_len = 4
     lines: list = _lines(5, 4)
 
-    def __init__(self, cells: Optional[list] = None, player: int = X_PLAYER) -> None:
+    def __init__(self, cells: list | None = None, player: int = X_PLAYER) -> None:
         self.cells = list(cells) if cells is not None else [0] * (self.size ** 2)
         self.player = player
 
@@ -112,7 +112,7 @@ class Board:
 
 # ---------------------------------------------------------------- 对弈接口与计数
 
-def interface(evaluate: Optional[Callable] = None) -> dict:
+def interface(evaluate: Callable | None = None) -> dict:
     """把棋类接口交给教学目录的 impl（**同一份搜索代码**）。"""
     return {
         "get_moves": lambda s: s.get_moves(),
@@ -157,7 +157,7 @@ CONFIGS = (("坏评估（随机分）", random_eval),
            ("好评估（连线威胁）", None))       # None = Board.evaluate
 
 
-def eval_value(ev: Optional[Callable], state: Board) -> float:
+def eval_value(ev: Callable | None, state: Board) -> float:
     return state.evaluate() if ev is None else ev(state)
 
 

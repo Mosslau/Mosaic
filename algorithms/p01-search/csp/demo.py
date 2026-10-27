@@ -10,12 +10,11 @@
 依赖：只用标准库
 """
 
-import itertools
 import random
 import time
 
 from baseline import enumerate_all, n_queens, random_restart, sudoku
-from impl import SOLVERS, CSP, describe, solve
+from impl import describe, solve
 
 # 一个需要较多回溯的数独（"AI Escargot" 级别附近；0 表示空格）
 SUDOKU_HARD = [
@@ -67,7 +66,7 @@ def experiment_heuristics(n: int = 10) -> dict:
     数独里每个空格的候选数差别很大（1~9 个），MRV 才是主力。
     **启发式的价值跟问题结构强相关**——只在一个问题上试，会得出错误的一般结论。
     """
-    print(f"\n== 实验二：启发式值多少（两个问题对照，全部用前向检查） ==")
+    print("\n== 实验二：启发式值多少（两个问题对照，全部用前向检查） ==")
     problems = {"n 皇后（n=10，各行域相同）": n_queens(n),
                 "数独（各格候选数差别大）": sudoku(SUDOKU_HARD)}
     out = {}

@@ -16,7 +16,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from demo import TicTacToe, game_interface  # noqa: E402
-from impl import alphabeta  # noqa: E402
 
 
 def search_with_budget(state, max_depth: int, table: dict | None = None,
@@ -142,7 +141,10 @@ def main() -> None:
     max_depth = 6
 
     print(f"== 迭代加深 + 置换表（井字棋空棋盘，max_depth={max_depth}） ==")
-    print(f"{'depth':>6} | {'本层招法':>8} | {'分数':>5} | {'本层访问':>9} | {'缓存命中':>8} | {'参考(alphabeta)':>16}")
+    print(
+        f"{'depth':>6} | {'本层招法':>8} | {'分数':>5} | "
+        f"{'本层访问':>9} | {'缓存命中':>8} | {'参考(alphabeta)':>16}"
+    )
     print("-" * 78)
 
     rows, _ = search_with_budget(state, max_depth, **game)

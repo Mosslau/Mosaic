@@ -18,7 +18,8 @@
 两者的结果必须逐点相同——这正是 demo 与 test 要断言的东西。
 """
 
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 Move = Any
 
@@ -31,7 +32,7 @@ def minimax(
     apply: Callable,
     evaluate: Callable,
     is_terminal: Callable,
-) -> tuple[Optional[Move], float]:
+) -> tuple[Move | None, float]:
     """朴素极小极大：返回 (最优招法, 局面评分)。
 
     参数：
@@ -50,7 +51,7 @@ def minimax(
     if not moves:                      # 防御：无招可走（正常井字棋不会出现）
         return None, evaluate(state)
 
-    best_move: Optional[Move] = None
+    best_move: Move | None = None
     if maximizing:
         best_score = float("-inf")
         for move in moves:
@@ -78,7 +79,7 @@ def alphabeta(
     apply: Callable,
     evaluate: Callable,
     is_terminal: Callable,
-) -> tuple[Optional[Move], float]:
+) -> tuple[Move | None, float]:
     """带 Alpha-Beta 剪枝的极小极大：接口与 minimax 对齐，多出 (alpha, beta) 剪枝窗口。
 
     - `alpha`：max 这一层**已经能拿到**的最好分数（下界）
@@ -94,7 +95,7 @@ def alphabeta(
     if not moves:
         return None, evaluate(state)
 
-    best_move: Optional[Move] = None
+    best_move: Move | None = None
     if maximizing:
         best_score = float("-inf")
         for move in moves:
@@ -118,7 +119,7 @@ def alphabeta(
     return best_move, best_score
 
 
-def best_move(state: Any, depth: int, **game: Callable) -> tuple[Optional[Move], float]:
+def best_move(state: Any, depth: int, **game: Callable) -> tuple[Move | None, float]:
     """默认入口：走剪枝版。game 里传 get_moves / apply / evaluate / is_terminal。"""
     return alphabeta(
         state, depth, float("-inf"), float("inf"), True,

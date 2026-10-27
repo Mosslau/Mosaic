@@ -13,10 +13,8 @@
 """
 
 import pytest
-
 from demo import LINES, TicTacToe, game_interface, run_with_counter
 from impl import alphabeta, best_move, minimax
-
 
 # ---------------------------------------------------------------- 独立参考实现
 

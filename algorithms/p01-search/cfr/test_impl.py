@@ -13,7 +13,6 @@
 - **边界**：未提供 deals 抛错、零训练量、单次训练
 """
 
-import itertools
 import sys
 from pathlib import Path
 
@@ -22,12 +21,20 @@ import pytest
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-from baseline import FIXED_OPPONENTS, uniform_strategy  # noqa: E402
-from demo import (GAME_VALUE, all_deals, best_response_p2, ev_average,  # noqa: E402
-                  ev_p1, kuhn_actions, kuhn_infoset, kuhn_payoff_p1, kuhn_terminal,
-                  key_frequencies, make_cfr)
+from baseline import uniform_strategy  # noqa: E402
+from demo import (  # noqa: E402
+    GAME_VALUE,
+    all_deals,
+    best_response_p2,
+    ev_average,
+    key_frequencies,
+    kuhn_actions,
+    kuhn_infoset,
+    kuhn_payoff_p1,
+    kuhn_terminal,
+    make_cfr,
+)
 from impl import CFR  # noqa: E402
-
 
 # ---------------------------------------------------------------- 手算基准
 
@@ -114,7 +121,7 @@ def test_terminal_sign_matters() -> None:
     """
     class WrongSign(CFR):
         def _walk(self, cards, history, p0, p1):
-            player = len(history) % 2
+            len(history) % 2
             if self.terminal(history):
                 return self.payoff_p1(history, cards)      # ← 漏掉取负
             return super()._walk(cards, history, p0, p1)

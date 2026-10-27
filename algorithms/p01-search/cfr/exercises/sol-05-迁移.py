@@ -84,8 +84,10 @@ def advance(history: str, board: int) -> str:
 def leduc_payoff_p1(history: str, cards) -> float:
     p1, p2 = cards[0], cards[1]                      # 私有牌；公共牌在历史里
     acts = battle(history)
-    if acts == "bf":  return 1.0                     # 第一轮对手弃牌
-    if acts == "kbf": return -1.0
+    if acts == "bf":
+        return 1.0                     # 第一轮对手弃牌
+    if acts == "kbf":
+        return -1.0
     pot = 1.0 if acts == "kk" else 2.0               # 摊牌底池
     b = board_of(history)
     br = {"J": 0, "Q": 1, "K": 2}[b] if b else None
@@ -179,7 +181,10 @@ def main() -> None:
         last = (iters, val, sec)
 
     print("\n→ 结论（都由上表数字读出）：")
-    print(f"   · 信息集 12 → {n_info}（{n_info / 12:.0f} 倍）、发牌 6 → {len(deals)}（{len(deals) / 6:.0f} 倍）：")
+    print(
+        f"   · 信息集 12 → {n_info}（{n_info / 12:.0f} 倍）、"
+        f"发牌 6 → {len(deals)}（{len(deals) / 6:.0f} 倍）："
+    )
     print(f"     每轮成本随之上涨，但**绝对值仍然很小**——训练 {last[0]} 轮只要 {last[2]:.2f} 秒。")
     print("   · 所以「Leduc 已经大到不能用 CFR」是**错的**：它是教学规模的不完全信息博弈，")
     print("     CFR 在它上面完全跑得动（真实研究里 Leduc 正是标准测试床）。")

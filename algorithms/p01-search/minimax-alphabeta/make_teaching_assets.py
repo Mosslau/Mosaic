@@ -323,7 +323,8 @@ def make_depth_animation(rows: list) -> None:
         ax.set_xticks(depths)
         ax.set_xlabel("搜索深度", fontsize=12)
         ax.set_ylabel("访问节点数（对数轴）", fontsize=12)
-        ax.grid(True, axis="y", color=COLOR["grid"], lw=0.8); ax.set_axisbelow(True)
+        ax.grid(True, axis="y", color=COLOR["grid"], lw=0.8)
+        ax.set_axisbelow(True)
         ax.legend(fontsize=11, loc="upper left")
         ax.set_title(f"深度 1–{d[-1]}：剪枝省下 {saved[i]:.1%}", fontsize=13)
 

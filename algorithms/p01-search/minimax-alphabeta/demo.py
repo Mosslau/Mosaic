@@ -17,7 +17,7 @@
 
 import copy
 import time
-from typing import Callable
+from collections.abc import Callable
 
 from impl import alphabeta, minimax
 
@@ -165,7 +165,10 @@ def experiment_main() -> tuple:
 def experiment_depth_profile(state: TicTacToe, game: dict) -> list:
     """实验二：剪枝收益随搜索深度变化。"""
     print("\n== 实验二：剪枝收益随搜索深度（同一空棋盘，depth=1..9） ==")
-    print(f"{'depth':>6} | {'minimax 节点':>13} | {'alphabeta 节点':>14} | {'省下':>8} | {'两版一致':>8}")
+    print(
+        f"{'depth':>6} | {'minimax 节点':>13} | "
+        f"{'alphabeta 节点':>14} | {'省下':>8} | {'两版一致':>8}"
+    )
     print("-" * 62)
     rows = []
     for depth in range(1, 10):
@@ -241,7 +244,10 @@ def experiment_move_order(state: TicTacToe) -> list:
     print("  三种顺序的**结论完全相同**（move/score 一致）——顺序只改'算了多少'，不改'选中哪个'")
     best = min(r[3] for r in rows)
     worst = max(r[3] for r in rows)
-    print(f"  但访向量差 {worst - best:,} 个（{best:,} ↔ {worst:,}，相对最差省 {1 - best / worst:.1%}）")
+    print(
+        f"  但访向量差 {worst - best:,} 个"
+        f"（{best:,} ↔ {worst:,}，相对最差省 {1 - best / worst:.1%}）"
+    )
     print("  代价：排序键靠「每个节点都重算一遍浅层搜索」得来（见「排序额外访问」列）——")
     print("  这份开销远大于它省下的主搜索量。**结论：顺序能剪更多，但浅层重算的代价更大**；")
     print("  真实引擎先用置换表 / 迭代加深把这些浅层结果**复用**掉，排序才真正划算。")

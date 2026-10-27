@@ -13,7 +13,6 @@
 
 import os
 import sys
-import time
 from pathlib import Path
 
 os.environ.setdefault("MPLCONFIGDIR", "/tmp/mplcfg")
@@ -116,9 +115,11 @@ def make_propagation_figure(nodes: dict) -> None:
             ax.text(bar.get_x() + bar.get_width() / 2, v * 1.15, f"{v:,}",
                     ha="center", fontsize=8.5)
     ax.set_yscale("log")
-    ax.set_xticks(xs); ax.set_xticklabels(problems, fontsize=11)
+    ax.set_xticks(xs)
+    ax.set_xticklabels(problems, fontsize=11)
     ax.set_ylabel("搜索节点数（对数轴）", fontsize=12)
-    ax.grid(True, axis="y", color=COLOR["grid"], lw=0.8); ax.set_axisbelow(True)
+    ax.grid(True, axis="y", color=COLOR["grid"], lw=0.8)
+    ax.set_axisbelow(True)
     ax.legend(fontsize=11)
     ax.set_ylim(top=max(nodes[p][s] for p in problems for s in ("bt", "fc", "ac3")) * 4)
     ax.set_title("约束传播越强，搜索树越小：节点数(纯回溯) ≥ (前向检查) ≥ (维护弧一致)",
@@ -141,10 +142,12 @@ def make_heuristic_figure(gains: dict) -> None:
         for bar, v in zip(bars, vals):
             ax.text(bar.get_x() + bar.get_width() / 2, v + 0.2, f"{v:.1f}×",
                     ha="center", fontsize=11)
-    ax.set_xticks(xs); ax.set_xticklabels(problems, fontsize=12)
+    ax.set_xticks(xs)
+    ax.set_xticklabels(problems, fontsize=12)
     ax.set_ylabel("相对「声明序 + 原序」的节点数下降倍数", fontsize=12)
     ax.set_ylim(0, max(mrv + lcv) * 1.25)
-    ax.grid(True, axis="y", color=COLOR["grid"], lw=0.8); ax.set_axisbelow(True)
+    ax.grid(True, axis="y", color=COLOR["grid"], lw=0.8)
+    ax.set_axisbelow(True)
     ax.legend(fontsize=11)
     ax.set_title("启发式的价值取决于问题结构：数独上 MRV 最强，皇后上 LCV 更强",
                  fontsize=13, pad=12)
@@ -275,7 +278,9 @@ def make_pruning_animation(d: dict) -> None:
                     ax.text(c + 0.5, n - 1 - r + 0.5, mark, ha="center", va="center",
                             fontsize=13, color=COLOR["text"])
             ax.text(-0.12, n - 1 - r + 0.5, f"q{r}", ha="right", va="center", fontsize=12)
-        ax.set_xlim(-0.9, n + 0.1); ax.set_ylim(-0.1, n + 0.1); ax.axis("off")
+        ax.set_xlim(-0.9, n + 0.1)
+        ax.set_ylim(-0.1, n + 0.1)
+        ax.axis("off")
         ax.set_title(f"前向检查：已删 {len(st)} / {len(removed)} 个冲突候选", fontsize=12.5)
 
     anim = animation.FuncAnimation(fig, draw, frames=len(frame_states), interval=500)

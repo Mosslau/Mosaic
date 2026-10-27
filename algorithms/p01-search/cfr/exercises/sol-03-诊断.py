@@ -15,10 +15,18 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(ROOT))
 
-from demo import (GAME_VALUE, all_deals, best_response_p2, ev_average,  # noqa: E402
-                  kuhn_actions, kuhn_infoset, kuhn_payoff_p1, kuhn_terminal, make_cfr)
+from demo import (  # noqa: E402
+    GAME_VALUE,
+    all_deals,
+    best_response_p2,
+    ev_average,
+    kuhn_actions,
+    kuhn_infoset,
+    kuhn_payoff_p1,
+    kuhn_terminal,
+    make_cfr,
+)
 from impl import CFR  # noqa: E402
-
 
 # ---------------------------------------------------------------- 片段 A：终局符号
 

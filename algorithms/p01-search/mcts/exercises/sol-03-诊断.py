@@ -18,7 +18,7 @@ HERE = Path(__file__).resolve().parent
 MCTS_DIR = HERE.parent
 sys.path.insert(0, str(MCTS_DIR))
 
-from demo import GAME, O_PLAYER, TicTacToe, X_PLAYER  # noqa: E402
+from demo import GAME, O_PLAYER, X_PLAYER, TicTacToe  # noqa: E402
 from impl import MCTS  # noqa: E402
 
 

@@ -20,7 +20,6 @@ MCTS 靠**模拟次数**换质量（见 `../README.md`）。本项目把它们�
 
 import importlib.util
 import random
-import sys
 import time
 from pathlib import Path
 
@@ -72,7 +71,8 @@ def ab_move(state, depth: int):
     计数口径：把 `is_terminal` 包成计数版（与 minimax 项目的 demo 一致）。
     """
     counter = [0]
-    base_term = lambda s: s.is_terminal()
+    def base_term(s):
+        return s.is_terminal()
 
     def counted(s):
         counter[0] += 1
@@ -218,7 +218,7 @@ def experiment_catch_up(size: int = 5, win_len: int = 4, depth: int = 4,
 
 
 def main() -> None:
-    h2h = experiment_head_to_head()
+    experiment_head_to_head()
     cost = experiment_cost()
     catch = experiment_catch_up()
 

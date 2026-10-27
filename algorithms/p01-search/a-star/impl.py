@@ -18,15 +18,16 @@ A* 是"带估计的图搜索"：
 import heapq
 import itertools
 import math
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, Literal, Optional
+from typing import Literal
 
 
 @dataclass
 class SearchResult:
     """一次搜索的结果（A* 与 Dijkstra 共用同一结果类型，便于 demo 并排对比）。"""
 
-    path: Optional[list[tuple[int, int]]]  # 从 start 到 goal 的路径（含两端）；无解为 None
+    path: list[tuple[int, int]] | None  # 从 start 到 goal 的路径（含两端）；无解为 None
     nodes_expanded: int                    # 从 open 集取出的节点数（工作量指标）
     path_cost: float                       # 路径总代价（= len(path) - 1，单步代价恒为 1）
     closed: set = field(default_factory=set)  # 已扩展节点（可视化用）
@@ -154,4 +155,7 @@ def solve(
 
 
 if __name__ == "__main__":
-    raise SystemExit("本文件是手写实现库，实验入口是 demo.py：uv run python demo.py（需 Python ≥ 3.10）")
+    raise SystemExit(
+        "本文件是手写实现库，实验入口是 demo.py：uv run python demo.py"
+        "（需 Python ≥ 3.10）"
+    )

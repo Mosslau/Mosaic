@@ -17,8 +17,8 @@ import random
 import time
 from collections import deque
 
-from impl import solve
 from baseline import bfs_shortest_cost, dijkstra
+from impl import solve
 
 Grid = list[list[int]]
 Pos = tuple[int, int]

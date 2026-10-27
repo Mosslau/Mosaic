@@ -20,11 +20,9 @@
 import random
 import time
 from collections import deque
-from pathlib import Path
-from typing import Callable, Optional
 
 from baseline import astar_reference, to_astar_grid
-from impl import Grid, Pos, SearchResult, bfs, dfs, describe, neighbors, ucs
+from impl import Grid, Pos, bfs, describe, dfs, neighbors, ucs
 
 ROWS = COLS = 21
 OBSTACLE_RATIO = 0.3
@@ -127,7 +125,10 @@ def experiment_order(rows: int = 5, cols: int = 5, seed: int = 3) -> dict:
 def experiment_compare(games: int = 5, rows: int = ROWS, cols: int = COLS) -> list:
     """无权随机图上跑多张地图，比代价 / 扩展数 / 内存尖峰。"""
     print(f"\n== 实验二：{rows}×{cols} 无权地图 × {games} 张（30% 障碍） ==")
-    print(f"{'地图':>4} | {'算法':>4} | {'步数':>5} | {'代价':>5} | {'扩展':>6} | {'内存尖峰':>8} | {'耗时(ms)':>8}")
+    print(
+        f"{'地图':>4} | {'算法':>4} | {'步数':>5} | {'代价':>5} | "
+        f"{'扩展':>6} | {'内存尖峰':>8} | {'耗时(ms)':>8}"
+    )
     print("-" * 62)
     rows_out = []
     for i in range(games):
@@ -155,7 +156,10 @@ def summarize_unweighted(rows_out: list) -> dict:
         a["peak"].append(r.peak_frontier)
         a["cost"].append(r.cost)
         a["ms"].append(ms)
-    print(f"\n{'算法':>4} | {'平均扩展':>8} | {'平均内存尖峰':>12} | {'平均代价':>8} | {'平均耗时(ms)':>12}")
+    print(
+        f"\n{'算法':>4} | {'平均扩展':>8} | {'平均内存尖峰':>12} | "
+        f"{'平均代价':>8} | {'平均耗时(ms)':>12}"
+    )
     print("-" * 62)
     for name, a in agg.items():
         n = len(a["cost"])
@@ -173,12 +177,16 @@ def summarize_unweighted(rows_out: list) -> dict:
 def experiment_weighted(games: int = 5, rows: int = ROWS, cols: int = COLS) -> list:
     """带权地形：BFS 按"步数"最优，UCS 按"代价"最优——两者会给出不同的路。"""
     print(f"\n== 实验三：带权地形（进入代价 1–9）× {games} 张 ==")
-    print(f"{'地图':>4} | {'算法':>4} | {'步数':>5} | {'总代价':>7} | {'扩展':>6} | {'相对最优':>9}")
+    print(
+        f"{'地图':>4} | {'算法':>4} | {'步数':>5} | {'总代价':>7} | "
+        f"{'扩展':>6} | {'相对最优':>9}"
+    )
     print("-" * 56)
     rows_out = []
     for i in range(games):
         grid, start, goal = make_terrain(rows, cols, seed=200 + i)
-        cost_of = lambda n, g=grid: terrain_cost(n, g)
+        def cost_of(n, g=grid):
+            return terrain_cost(n, g)
         r_bfs = bfs(grid, start, goal)
         r_ucs = ucs(grid, start, goal, cost_of=cost_of)
         # BFS 找到的路径在"代价"口径下的真实总代价（它自己只保证步数）
@@ -220,7 +228,10 @@ def experiment_dfs_order(seed: int = 42) -> dict:
             out[label] = r
             print(f"{label:>22} | {len(r.path):>5} | {r.expanded:>6} | {r.peak_frontier:>8}")
         costs = {len(r.path) for r in out.values()}
-        print(f"\n→ 同一个算法、同一张图，只是「先看哪个方向」不同，步数就出现 {sorted(costs)} 等多种结果")
+        print(
+            f"\n→ 同一个算法、同一张图，只是「先看哪个方向」不同，"
+            f"步数就出现 {sorted(costs)} 等多种结果"
+        )
         assert len(costs) > 1, "三种邻接顺序应当给出不同长度的路径——否则这个实验没有说服力"
         return out
     finally:

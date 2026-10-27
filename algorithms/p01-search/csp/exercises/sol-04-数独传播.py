@@ -16,10 +16,9 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(ROOT))
 
-from demo import SUDOKU_HARD  # noqa: E402
 from baseline import sudoku  # noqa: E402
+from demo import SUDOKU_HARD  # noqa: E402
 from impl import ac3, forward_checking  # noqa: E402
-
 
 # ---------------------------------------------------------------- 单元
 
@@ -163,7 +162,10 @@ def main() -> None:
 
     print("\n→ 结论：**隐式唯一**是数独最有效的推理规则——")
     print("   它把'某个数字在这个单元里只能放这里'这种全局信息用上了，")
-    print("   而逐条二元约束传播看不到这种信息。这也是现代 CP 求解器做**全局约束**（AllDifferent）的原因。")
+    print(
+        "   而逐条二元约束传播看不到这种信息。"
+        "这也是现代 CP 求解器做**全局约束**（AllDifferent）的原因。"
+    )
 
 
 if __name__ == "__main__":

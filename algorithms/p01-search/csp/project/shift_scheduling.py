@@ -207,8 +207,11 @@ def main() -> None:
     improved, new_cost, accepted, accepted_2 = improve(
         result.assignment, variables, tries=8000, rng=random.Random(7))
     assert hard_ok(improved), "改进过程不能破坏硬约束"
-    print(f"  改进后软代价：{new_cost:.2f}（比初始 {base_cost:.2f} 低 {base_cost - new_cost:.2f}）；"
-          f"接受 {accepted} 次移动（其中 2-opt {accepted_2} 次）")
+    print(
+        f"  改进后软代价：{new_cost:.2f}"
+        f"（比初始 {base_cost:.2f} 低 {base_cost - new_cost:.2f}）；"
+        f"接受 {accepted} 次移动（其中 2-opt {accepted_2} 次）"
+    )
     print("  （代价可以为负：PREFER 的正分是「想上这个班」，上到了就是收益）")
     assert new_cost <= base_cost, "改进不该让代价变高"
 
@@ -219,7 +222,10 @@ def main() -> None:
     print("   · 教学目录的 CSP 是「找一个可行解」；真实排班要的是「**可行解里最好的那个**」——")
     print("     这就是 CSP 与约束优化（COP）的分界。")
     print("   · 本项目的做法是两段式：**搜索找可行解 + 局部搜索降代价**。")
-    print("   · 局部搜索的邻域必须够大：单点交换在这个问题上接受率为 0（换一个人必然破坏人数约束），")
+    print(
+        "   · 局部搜索的邻域必须够大：单点交换在这个问题上接受率为 0"
+        "（换一个人必然破坏人数约束），"
+    )
     print("     加入 2-opt（两人互顶）之后才动得起来——**邻域太小，局部搜索一步都走不动**。")
     print("     也可以把软约束直接编码进搜索（分支限界），代价是搜索空间变大。")
     print("   · 硬约束的独立复核不能省：求解器「说自己解出来了」和「解真的合法」是两件事。")

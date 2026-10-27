@@ -112,9 +112,13 @@ def make_convergence(conv: list, expl: list) -> None:
         if x in (10, 100, 50000):
             ax.annotate(f"{r['value']:+.4f}", (x, r["value"]),
                         textcoords="offset points", xytext=(0, 9), ha="center", fontsize=9)
-    ax.set_xscale("log"); ax.set_xticks(xs); ax.set_xticklabels([str(x) for x in xs])
-    ax.set_xlabel("训练量（轮）", fontsize=12); ax.set_ylabel("博弈值（player1 期望）", fontsize=12)
-    ax.grid(True, color=COLOR["grid"], lw=0.8); ax.set_axisbelow(True)
+    ax.set_xscale("log")
+    ax.set_xticks(xs)
+    ax.set_xticklabels([str(x) for x in xs])
+    ax.set_xlabel("训练量（轮）", fontsize=12)
+    ax.set_ylabel("博弈值（player1 期望）", fontsize=12)
+    ax.grid(True, color=COLOR["grid"], lw=0.8)
+    ax.set_axisbelow(True)
     ax.legend(fontsize=11, loc="lower right")
     ax.set_title("博弈值精确收敛到理论值：这就是「学对了」", fontsize=12.5, pad=10)
 
@@ -124,11 +128,14 @@ def make_convergence(conv: list, expl: list) -> None:
     for x, r in zip(gx, expl):
         ax.annotate(f"{r['gap']:.4f}", (x, r["gap"]), textcoords="offset points",
                     xytext=(0, 9), ha="center", fontsize=9)
-    ax.set_xscale("log"); ax.set_xticks(gx); ax.set_xticklabels([str(x) for x in gx])
+    ax.set_xscale("log")
+    ax.set_xticks(gx)
+    ax.set_xticklabels([str(x) for x in gx])
     ax.set_yscale("log")
     ax.set_xlabel("训练量（轮）", fontsize=12)
     ax.set_ylabel("可被利用度（对数轴）", fontsize=12)
-    ax.grid(True, color=COLOR["grid"], lw=0.8); ax.set_axisbelow(True)
+    ax.grid(True, color=COLOR["grid"], lw=0.8)
+    ax.set_axisbelow(True)
     ax.set_title("可被利用度下降：策略越来越「无法被针对」", fontsize=12.5, pad=10)
 
     fig.tight_layout()
@@ -159,14 +166,18 @@ def make_strategy_figure(strat: dict) -> None:
             ax.text(i + 0.2, b + 0.02, f"{b:.2f}", ha="center", fontsize=9.5, color="#8a2b2b")
         else:
             ax.text(i + 0.2, 0.04, "不唯一", ha="center", fontsize=9, color="#8a2b2b")
-    ax.set_xticks(xs); ax.set_xticklabels(labels, fontsize=10.5)
-    ax.set_ylabel("动作概率", fontsize=12); ax.set_ylim(0, 1.15)
-    ax.grid(True, axis="y", color=COLOR["grid"], lw=0.8); ax.set_axisbelow(True)
+    ax.set_xticks(xs)
+    ax.set_xticklabels(labels, fontsize=10.5)
+    ax.set_ylabel("动作概率", fontsize=12)
+    ax.set_ylim(0, 1.15)
+    ax.grid(True, axis="y", color=COLOR["grid"], lw=0.8)
+    ax.set_axisbelow(True)
     ax.legend(fontsize=11)
     ax.set_title("学到的策略 vs 理论均衡：J:Q:K 下注率与「面对下注」的跟注率都对准了",
                  fontsize=13, pad=12)
     ax.text(0.5, 0.92,
-            f"理论用 α = {alpha:.2f}（实测 J 的下注率）反推；均衡是一族，α ∈ [0, 1/3] 任意值都成立。\n"
+            f"理论用 α = {alpha:.2f}（实测 J 的下注率）反推；"
+            f"均衡是一族，α ∈ [0, 1/3] 任意值都成立。\n"
             "K 的下注率是 0.66 而不是 1 —— 它必须与 J 保持 3:1；"
             "p1 用 Q 跟注的概率在均衡族里不唯一（被固定的只有 p2 的 1/3）。",
             transform=ax.transAxes, ha="center", va="top", fontsize=10.5, color=COLOR["text"])
@@ -189,7 +200,9 @@ def verify_concept(d: dict) -> None:
     pos = [max(d["regrets"][a], 0.0) for a in d["acts"]]
     total = sum(pos)
     expected = [p / total for p in pos] if total > 0 else [1 / len(pos)] * len(pos)
-    assert all(abs(x - y) < 1e-9 for x, y in zip(expected, d["strategy"])), "后悔匹配结果与 impl 不一致"
+    assert all(abs(x - y) < 1e-9 for x, y in zip(expected, d["strategy"])), (
+        "后悔匹配结果与 impl 不一致"
+    )
     assert abs(sum(d["strategy"]) - 1.0) < 1e-9, "策略概率之和应为 1"
     assert min(d["regrets"].values()) > 0, "选取的信息集应当是混合策略（两个后悔都为正）"
     print(f"  ✓ 对账通过：信息集 {d['key']}，后悔 "
@@ -203,7 +216,8 @@ def make_concept_figure(d: dict) -> None:
     fig = plt.figure(figsize=(13.6, 5.1))
     gs = fig.add_gridspec(1, 3, width_ratios=[1.15, 1.0, 1.0], wspace=0.4)
 
-    ax0 = fig.add_subplot(gs[0]); ax0.axis("off")
+    ax0 = fig.add_subplot(gs[0])
+    ax0.axis("off")
     ax0.text(0.0, 1.02, "一个信息集里有什么", fontsize=13.5, weight="bold", va="top")
     ax0.text(0.0, 0.88,
              "历史：对手已下注（b）\n"
@@ -224,9 +238,12 @@ def make_concept_figure(d: dict) -> None:
     ax.bar([0, 1], vals, color=["#3b5bdb", "#e8590c"], width=0.55)
     for x, v in zip((0, 1), vals):
         ax.text(x, v + max(vals) * 0.03, f"{v:.1f}", ha="center", fontsize=11)
-    ax.set_xticks([0, 1]); ax.set_xticklabels([label[a] for a in acts], fontsize=12)
-    ax.set_ylabel("累计后悔", fontsize=12); ax.set_ylim(0, max(vals) * 1.22)
-    ax.grid(True, axis="y", color=COLOR["grid"], lw=0.8); ax.set_axisbelow(True)
+    ax.set_xticks([0, 1])
+    ax.set_xticklabels([label[a] for a in acts], fontsize=12)
+    ax.set_ylabel("累计后悔", fontsize=12)
+    ax.set_ylim(0, max(vals) * 1.22)
+    ax.grid(True, axis="y", color=COLOR["grid"], lw=0.8)
+    ax.set_axisbelow(True)
     ax.set_title("① 每个动作攒下的后悔", fontsize=12.5)
 
     ax = fig.add_subplot(gs[2])
@@ -234,9 +251,12 @@ def make_concept_figure(d: dict) -> None:
     ax.bar([0, 1], probs, color=["#3b5bdb", "#e8590c"], width=0.55)
     for x, p in zip((0, 1), probs):
         ax.text(x, p + 0.03, f"{p:.2f}", ha="center", fontsize=11)
-    ax.set_xticks([0, 1]); ax.set_xticklabels([label[a] for a in acts], fontsize=12)
-    ax.set_ylabel("动作概率", fontsize=12); ax.set_ylim(0, 1.15)
-    ax.grid(True, axis="y", color=COLOR["grid"], lw=0.8); ax.set_axisbelow(True)
+    ax.set_xticks([0, 1])
+    ax.set_xticklabels([label[a] for a in acts], fontsize=12)
+    ax.set_ylabel("动作概率", fontsize=12)
+    ax.set_ylim(0, 1.15)
+    ax.grid(True, axis="y", color=COLOR["grid"], lw=0.8)
+    ax.set_axisbelow(True)
     ax.set_title("② 只保留正后悔、归一化 → 策略", fontsize=12.5)
     ax.text(0.5, 0.80, "p = max(r, 0) / Σ max(r, 0)", transform=ax.transAxes,
             ha="center", fontsize=11.5, color=COLOR["text"],
@@ -282,9 +302,12 @@ def make_strategy_animation(rows: list) -> None:
         ax.bar(xs, vals, color=["#3b5bdb"] * 3 + ["#e8590c"] * 3 + ["#2b8a3e"], width=0.62)
         for x, v in zip(xs, vals):
             ax.text(x, v + 0.025, f"{v:.2f}", ha="center", fontsize=9.5)
-        ax.set_xticks(xs); ax.set_xticklabels(labels, fontsize=10.5)
-        ax.set_ylim(0, 1.12); ax.set_ylabel("动作概率", fontsize=12)
-        ax.grid(True, axis="y", color=COLOR["grid"], lw=0.8); ax.set_axisbelow(True)
+        ax.set_xticks(xs)
+        ax.set_xticklabels(labels, fontsize=10.5)
+        ax.set_ylim(0, 1.12)
+        ax.set_ylabel("动作概率", fontsize=12)
+        ax.grid(True, axis="y", color=COLOR["grid"], lw=0.8)
+        ax.set_axisbelow(True)
         ax.set_title(f"训练 {r['iters']:,} 轮后的平均策略", fontsize=13)
 
     anim = animation.FuncAnimation(fig, draw, frames=len(frame_rows), interval=350)

@@ -228,7 +228,9 @@ def make_concept_figure(d: dict) -> None:
         if i == d["action"]:
             ax.add_patch(plt.Rectangle((c + 0.04, 2 - r + 0.04), 0.92, 0.92, fill=False,
                                        ec=COLOR["hl"], lw=4))
-    ax.set_xlim(-0.1, 3.1); ax.set_ylim(-0.1, 3.1); ax.axis("off")
+    ax.set_xlim(-0.1, 3.1)
+    ax.set_ylim(-0.1, 3.1)
+    ax.axis("off")
     ax.set_title("空棋盘跑 300 次模拟：每格被「走」了多少次", fontsize=13.5, pad=14)
     ax.text(0.5, -0.03,
             "数字 = 这格在 300 次模拟中被选为下一步的次数；黄框 = 最终选择（访问最多的一格）。\n"
@@ -283,7 +285,9 @@ def make_budget_animation(rows: list) -> None:
             if cell == r["action"]:
                 ax.add_patch(plt.Rectangle((cc + 0.04, 2 - rr + 0.04), 0.92, 0.92,
                                            fill=False, ec=COLOR["hl"], lw=3.5))
-        ax.set_xlim(-0.05, 3.05); ax.set_ylim(-0.05, 3.05); ax.axis("off")
+        ax.set_xlim(-0.05, 3.05)
+        ax.set_ylim(-0.05, 3.05)
+        ax.axis("off")
         ax.set_title(f"预算 {r['iters']} 次模拟：访问次数怎么分配", fontsize=13)
 
     anim = animation.FuncAnimation(fig, draw, frames=len(frame_rows), interval=350)

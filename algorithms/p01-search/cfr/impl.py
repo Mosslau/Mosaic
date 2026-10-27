@@ -26,10 +26,9 @@ CFR 解决的是**不完全信息博弈**：我看不到对手的牌，所以 mi
     infoset(history, card, player) -> key  信息集标识
 """
 
-import itertools
 import random
 from collections import defaultdict
-from typing import Callable, Iterable, Optional
+from collections.abc import Callable, Iterable
 
 
 class CFR:
@@ -116,8 +115,8 @@ class CFR:
             self.strategy_sum[key][a] += own_reach * strategy[i]
         return node_util
 
-    def train(self, deals: Optional[list] = None, iterations: int = 10000,
-              rng: Optional[random.Random] = None) -> "CFR":
+    def train(self, deals: list | None = None, iterations: int = 10000,
+              rng: random.Random | None = None) -> "CFR":
         """训练。
 
         参数 `deals`：所有可能的"发牌"（本实现把每个 deal 当成一次完整遍历）。
@@ -137,7 +136,7 @@ class CFR:
         return sum(max(self.regret[k][a], 0.0)
                    for k in self.regret for a in self.regret[k])
 
-    def best_action(self, key) -> Optional[str]:
+    def best_action(self, key) -> str | None:
         """某个信息集上的平均策略最优动作。"""
         avg = self.average_strategy().get(key)
         if not avg:
