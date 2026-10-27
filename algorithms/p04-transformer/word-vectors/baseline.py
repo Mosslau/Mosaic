@@ -9,9 +9,8 @@
 from __future__ import annotations
 
 import numpy as np
-from sklearn.decomposition import TruncatedSVD
-
 from impl import build_vocab, l2_normalize
+from sklearn.decomposition import TruncatedSVD
 
 
 def build_cooc(sentences, word2id, window=3):

@@ -1,6 +1,7 @@
 """参考解 04：3CosAdd vs 3CosMul（同一模型、同一组留出类比题）。
 
-运行：cd algorithms/p04-transformer/word-vectors && ../../.venv/bin/python exercises/sol-04-3cosmul.py
+运行：cd algorithms/p04-transformer/word-vectors &&
+      ../../.venv/bin/python exercises/sol-04-3cosmul.py
 """
 
 from __future__ import annotations
@@ -12,7 +13,6 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 
 import numpy as np  # noqa: E402
-
 from demo import analogy_items, build_corpus  # noqa: E402
 from impl import SkipGramNS, l2_normalize  # noqa: E402
 

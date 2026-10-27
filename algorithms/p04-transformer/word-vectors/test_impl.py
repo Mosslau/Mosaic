@@ -2,7 +2,6 @@
 
 import numpy as np
 import pytest
-
 from baseline import PPMISVD, build_cooc, ppmi
 from demo import analogy_items, build_corpus
 from impl import SkipGramNS, build_vocab, l2_normalize, noise_cdf, subsample_keep

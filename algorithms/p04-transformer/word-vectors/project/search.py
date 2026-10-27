@@ -17,9 +17,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 
 import numpy as np  # noqa: E402
-
-from demo import (GROUP_OF, PARTNER_OF, RELATION_SETS, analogy_items,  # noqa: E402
-                  build_corpus)
+from demo import GROUP_OF, PARTNER_OF, RELATION_SETS, analogy_items, build_corpus  # noqa: E402
 from impl import SkipGramNS, l2_normalize  # noqa: E402
 
 

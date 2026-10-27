@@ -45,8 +45,7 @@ def setup_cjk_font() -> str:
 
 FONT = setup_cjk_font()
 
-from demo import (COUNTRIES, GENDERS, PLURALS, RELATION_SETS, SIDES,  # noqa: E402
-                  TENSES, run)
+from demo import COUNTRIES, RELATION_SETS, SIDES, run  # noqa: E402
 from impl import l2_normalize  # noqa: E402
 
 # 与 demo.py 输出对账的参考值（3 位小数；改超参/语料后必须同步重跑本脚本）
@@ -119,7 +118,7 @@ def make_space(res):
                                      for a, b in pairs]))
         vals.append(float(np.median((off @ off.T)[np.triu_indices(len(pairs), 1)])))
         names.append(name)
-    bars = ax.bar(range(len(names)), vals, color=[colors[n] for n in names], alpha=.85)
+    ax.bar(range(len(names)), vals, color=[colors[n] for n in names], alpha=.85)
     for i, v in enumerate(vals):
         ax.text(i, v + .02, f"{v:.2f}", ha="center", fontsize=9)
     ax.set_xticks(range(len(names)))

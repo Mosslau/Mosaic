@@ -13,7 +13,6 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 
 import numpy as np  # noqa: E402
-
 from demo import analogy_items, build_corpus  # noqa: E402
 from impl import SkipGramNS, l2_normalize  # noqa: E402
 
@@ -42,7 +41,9 @@ def main() -> None:
         print(f" {neg:7d} | {acc['W_in']:.3f} | {acc['W_out']:.3f} | "
               f"{acc['W_in+W_out']:.3f}      | {dt:.1f}s")
     best = [a["W_in+W_out"] for n, a in rows if n == 5][0]
-    assert abs(best - 0.833) < 0.03, f"negative=5 + W_in+W_out 应与 demo 的 0.833 一致，实际 {best:.3f}"
+    assert abs(best - 0.833) < 0.03, (
+        f"negative=5 + W_in+W_out 应与 demo 的 0.833 一致，实际 {best:.3f}"
+    )
     spread_source = max(a["W_in+W_out"] - a["W_in"] for _, a in rows)
     spread_neg = max(a["W_in+W_out"] for _, a in rows) - min(a["W_in+W_out"] for _, a in rows)
     print(f"\n向量来源造成的最大差 {spread_source:.3f}；负采样个数造成的最大差 {spread_neg:.3f}")

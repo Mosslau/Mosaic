@@ -9,7 +9,6 @@ from __future__ import annotations
 import time
 
 import numpy as np
-
 from baseline import PPMISVD
 from impl import SkipGramNS, l2_normalize
 
