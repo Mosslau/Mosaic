@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Data Agent Studio</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: rgba(18, 27, 49, .88);
+      --panel-2: #151f38;
+      --line: rgba(151, 170, 208, .18);
+      --text: #edf3ff;
+      --muted: #8d9bb8;
+      --primary: #7c8cff;
+      --primary-2: #5b6cf5;
+      --cyan: #54d5e8;
+      --green: #48d597;
+      --yellow: #f8c86a;
+      --danger: #ff7f9e;
+      --shadow: 0 24px 60px rgba(0,0,0,.28);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--text); background: radial-gradient(circle at 10% 0%, #1b2550 0, transparent 34%), radial-gradient(circle at 90% 20%, #173b55 0, transparent 30%), var(--bg); min-height: 100vh; }
+    button, input, textarea, select { font: inherit; }
+    button { cursor: pointer; }
+    .app { display: grid; grid-template-columns: 270px minmax(0, 1fr); min-height: 100vh; }
+    .sidebar { padding: 22px 16px; border-right: 1px solid var(--line); background: rgba(8, 13, 29, .62); backdrop-filter: blur(20px); }
+    .brand { display: flex; gap: 11px; align-items: center; padding: 5px 9px 25px; }
+    .brand-mark { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 12px; background: linear-gradient(135deg, #8995ff, #52d7e6); color: #081127; font-weight: 900; box-shadow: 0 7px 22px rgba(94, 141, 255, .3); }
+    .brand strong { display: block; font-size: 14px; letter-spacing: .04em; }
+    .brand span { display: block; color: var(--muted); font-size: 11px; margin-top: 3px; }
+    .section-label { color: #687594; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; padding: 0 10px 8px; }
+    .agent-list { display: grid; gap: 8px; }
+    .agent-item { width: 100%; text-align: left; border: 1px solid transparent; background: transparent; color: var(--text); border-radius: 13px; padding: 12px; display: flex; gap: 10px; align-items: center; }
+    .agent-item:hover, .agent-item.active { background: linear-gradient(90deg, rgba(124, 140, 255, .2), rgba(84, 213, 232, .06)); border-color: rgba(124, 140, 255, .35); }
+    .agent-avatar { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; background: #243058; color: #aeb9ff; flex: 0 0 auto; }
+    .agent-item strong { font-size: 13px; display: block; }
+    .agent-item small { color: var(--muted); display: block; margin-top: 4px; font-size: 11px; }
+    .status-dot { width: 7px; height: 7px; display: inline-block; border-radius: 50%; background: var(--green); margin-right: 5px; box-shadow: 0 0 0 3px rgba(72,213,151,.12); }
+    .status-dot.gray { background: #63708b; box-shadow: none; }
+    .sidebar-bottom { position: fixed; bottom: 20px; width: 238px; }
+    .runtime-card { border: 1px solid var(--line); background: rgba(21,31,56,.74); border-radius: 14px; padding: 12px; }
+    .runtime-card .label { color: var(--muted); font-size: 11px; }
+    .runtime-card .endpoint { margin-top: 7px; font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; color: #b8c4e4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .main { min-width: 0; display: flex; flex-direction: column; }
+    .topbar { height: 74px; display: flex; align-items: center; justify-content: space-between; padding: 0 30px; border-bottom: 1px solid var(--line); background: rgba(11,16,32,.48); backdrop-filter: blur(18px); }
+    .breadcrumb { color: var(--muted); font-size: 12px; }
+    .breadcrumb b { color: var(--text); font-weight: 600; }
+    .top-actions { display: flex; align-items: center; gap: 10px; }
+    .pill { border: 1px solid var(--line); border-radius: 999px; padding: 7px 11px; color: var(--muted); font-size: 11px; background: rgba(255,255,255,.03); }
+    .pill.online { color: #a5f0cf; border-color: rgba(72,213,151,.3); }
+    .icon-btn { border: 1px solid var(--line); background: rgba(255,255,255,.03); color: var(--muted); border-radius: 10px; width: 34px; height: 34px; }
+    .content { padding: 26px 30px 30px; display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 22px; flex: 1; min-height: 0; }
+    .chat-panel, .info-panel { border: 1px solid var(--line); background: var(--panel); box-shadow: var(--shadow); border-radius: 19px; min-width: 0; }
+    .chat-panel { min-height: calc(100vh - 130px); display: flex; flex-direction: column; overflow: hidden; }
+    .chat-head { padding: 20px 22px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+    .agent-title { display: flex; align-items: center; gap: 12px; }
+    .agent-title .agent-avatar { width: 42px; height: 42px; font-size: 18px; }
+    .agent-title h1 { font-size: 17px; margin: 0; }
+    .agent-title p { color: var(--muted); margin: 5px 0 0; font-size: 12px; }
+    .mode-control { display: flex; gap: 8px; align-items: center; }
+    .mode-control label { color: var(--muted); font-size: 11px; }
+    select, input, textarea { color: var(--text); background: #111a31; border: 1px solid var(--line); border-radius: 9px; outline: none; }
+    select:focus, input:focus, textarea:focus { border-color: rgba(124,140,255,.8); box-shadow: 0 0 0 3px rgba(124,140,255,.12); }
+    select { padding: 8px 10px; font-size: 12px; }
+    .messages { flex: 1; overflow: auto; padding: 24px; display: flex; flex-direction: column; gap: 18px; min-height: 300px; }
+    .welcome { text-align: center; max-width: 520px; margin: auto; color: var(--muted); }
+    .welcome .welcome-icon { width: 56px; height: 56px; display: grid; place-items: center; margin: 0 auto 15px; border-radius: 18px; color: #b7c0ff; background: linear-gradient(135deg, rgba(124,140,255,.28), rgba(84,213,232,.16)); font-size: 25px; }
+    .welcome h2 { color: var(--text); font-size: 19px; margin: 0 0 8px; }
+    .welcome p { font-size: 13px; line-height: 1.7; margin: 0 0 17px; }
+    .suggestions { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; }
+    .suggestion { color: #bec9e7; background: rgba(255,255,255,.04); border: 1px solid var(--line); border-radius: 999px; padding: 8px 11px; font-size: 11px; }
+    .suggestion:hover { border-color: rgba(124,140,255,.55); color: white; }
+    .message { display: flex; gap: 10px; max-width: 84%; animation: rise .18s ease-out; }
+    .message.user { align-self: flex-end; flex-direction: row-reverse; }
+    .message-avatar { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; flex: 0 0 auto; font-size: 12px; background: #27335b; color: #aeb9ff; }
+    .message.user .message-avatar { background: #31506a; color: #9be8f0; }
+    .bubble { border: 1px solid var(--line); background: #141e37; padding: 11px 14px; border-radius: 13px 13px 13px 4px; font-size: 13px; line-height: 1.7; white-space: normal; word-break: break-word; }
+    .bubble p { margin: 0 0 9px; }.bubble p:last-child { margin-bottom: 0; }.bubble h1, .bubble h2, .bubble h3, .bubble h4 { margin: 0 0 8px; line-height: 1.35; }.bubble h1 { font-size: 18px; }.bubble h2 { font-size: 16px; }.bubble h3, .bubble h4 { font-size: 14px; }.bubble ul, .bubble ol { margin: 5px 0 9px; padding-left: 22px; }.bubble li { margin: 3px 0; }.bubble blockquote { margin: 8px 0; padding: 5px 10px; color: #aab8d8; border-left: 3px solid var(--primary); background: rgba(124,140,255,.08); }.bubble code { padding: 2px 5px; border-radius: 5px; color: #9fe8ee; background: rgba(84,213,232,.1); font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }.bubble pre { overflow: auto; margin: 9px 0; padding: 11px 12px; border: 1px solid var(--line); border-radius: 8px; background: #0b1225; }.bubble pre code { padding: 0; color: #d8e6ff; background: transparent; white-space: pre; }.bubble table { width: 100%; border-collapse: collapse; margin: 9px 0; font-size: 12px; }.bubble th, .bubble td { padding: 6px 8px; border: 1px solid var(--line); text-align: left; }.bubble th { color: #d6defb; background: rgba(124,140,255,.12); }.bubble a { color: #91e4ef; text-decoration: underline; }.bubble hr { border: 0; border-top: 1px solid var(--line); margin: 10px 0; }
+    .message.user .bubble { background: linear-gradient(135deg, #4a5bd4, #3c83a5); border-color: transparent; border-radius: 13px 13px 4px 13px; }
+    .message-meta { font-size: 10px; color: #71809e; margin-top: 6px; }
+    .message.user .message-meta { text-align: right; }
+    .typing { display: inline-flex; gap: 4px; padding: 5px 0; }
+    .typing i { width: 5px; height: 5px; border-radius: 50%; background: var(--cyan); animation: blink 1s infinite; }
+    .typing i:nth-child(2) { animation-delay: .15s; }.typing i:nth-child(3) { animation-delay: .3s; }
+    .composer { padding: 14px 18px 17px; border-top: 1px solid var(--line); background: rgba(9,14,30,.38); }
+    .composer-row { display: flex; align-items: flex-end; gap: 10px; }
+    textarea { flex: 1; resize: none; min-height: 45px; max-height: 130px; padding: 12px 13px; line-height: 1.45; font-size: 13px; }
+    .send-btn { border: 0; border-radius: 10px; background: linear-gradient(135deg, var(--primary), var(--primary-2)); color: white; min-width: 82px; height: 45px; font-weight: 650; font-size: 12px; box-shadow: 0 8px 20px rgba(91,108,245,.25); }
+    .send-btn:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
+    .composer-hint { display: flex; justify-content: space-between; gap: 8px; margin-top: 8px; color: #71809e; font-size: 10px; }
+    .info-panel { padding: 18px; height: fit-content; }
+    .info-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .info-head h3 { margin: 0; font-size: 13px; }.tiny { color: var(--muted); font-size: 10px; }
+    .info-section { padding: 15px 0; border-top: 1px solid var(--line); }.info-section:first-of-type { border-top: 0; padding-top: 0; }
+    .info-section h4 { margin: 0 0 11px; font-size: 11px; color: #aeb9d8; letter-spacing: .04em; }
+    .kv { display: grid; grid-template-columns: 72px 1fr; gap: 8px; font-size: 11px; margin: 8px 0; }.kv span:first-child { color: var(--muted); }.kv span:last-child { color: #d8e0f7; word-break: break-word; }
+    .tag-list { display: flex; flex-wrap: wrap; gap: 6px; }.tag { border: 1px solid rgba(84,213,232,.24); color: #8cdeea; background: rgba(84,213,232,.08); border-radius: 6px; padding: 4px 6px; font-size: 10px; }
+    .config-btn { width: 100%; border: 1px solid var(--line); color: #c4cdef; background: rgba(255,255,255,.04); border-radius: 9px; padding: 9px 10px; font-size: 11px; }.config-btn:hover { border-color: rgba(124,140,255,.6); }
+    .overlay { display: none; position: fixed; inset: 0; z-index: 10; background: rgba(3,6,15,.72); backdrop-filter: blur(5px); align-items: center; justify-content: center; padding: 20px; }.overlay.open { display: flex; }
+    .modal { width: min(560px, 100%); background: #111a31; border: 1px solid var(--line); box-shadow: var(--shadow); border-radius: 17px; padding: 20px; }.modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }.modal h3 { margin: 0; font-size: 15px; }.close { border: 0; background: none; color: var(--muted); font-size: 22px; }
+    .form-grid { display: grid; gap: 12px; }.field label { display: block; color: var(--muted); font-size: 11px; margin-bottom: 6px; }.field input, .field select { width: 100%; padding: 9px 10px; font-size: 12px; }.form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 17px; }.secondary, .primary { border-radius: 9px; padding: 9px 13px; font-size: 11px; }.secondary { color: #c4cdef; background: transparent; border: 1px solid var(--line); }.primary { color: white; background: var(--primary-2); border: 1px solid transparent; }
+    .notice { display: none; color: #f7d58a; background: rgba(248,200,106,.08); border: 1px solid rgba(248,200,106,.25); padding: 9px 11px; font-size: 11px; line-height: 1.55; border-radius: 9px; margin-top: 10px; }.notice.show { display: block; }
+    @keyframes rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } } @keyframes blink { 0%, 80%, 100% { opacity: .3; transform: scale(.8); } 40% { opacity: 1; transform: scale(1); } }
+    @media (max-width: 980px) { .content { grid-template-columns: 1fr; }.info-panel { display: none; } }
+    @media (max-width: 720px) { .app { grid-template-columns: 1fr; }.sidebar { display: none; }.topbar { padding: 0 16px; }.content { padding: 14px; }.chat-panel { min-height: calc(100vh - 102px); }.mode-control label { display: none; }.message { max-width: 94%; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><div class="brand-mark">✦</div><div><strong>DATA AGENT STUDIO</strong><span>Agent Runtime Console</span></div></div>
+      <div class="section-label">已发布 Agent</div>
+      <div class="agent-list" id="agentList"></div>
+      <div class="sidebar-bottom">
+        <div class="runtime-card"><div class="label"><span class="status-dot"></span>运行配置</div><div class="endpoint" id="endpointText">Java SSE Gateway</div></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="breadcrumb">工作台 / <b>Agent 对话</b></div>
+        <div class="top-actions"><span class="pill online" id="connectionState">● 未连接</span><button class="icon-btn" id="configOpen" title="连接配置">⚙</button></div>
+      </header>
+
+      <section class="content">
+        <section class="chat-panel">
+          <div class="chat-head">
+            <div class="agent-title"><div class="agent-avatar">⌁</div><div><h1 id="agentName">数据分析助手</h1><p id="agentDesc">面向用户域和车辆域的数据分析</p></div></div>
+            <div class="mode-control"><label>响应模式</label><select id="modeSelect"><option value="stream">Token 流式</option><option value="sync">非流式</option></select></div>
+          </div>
+          <div class="messages" id="messages">
+            <div class="welcome" id="welcome"><div class="welcome-icon">⌁</div><h2>你好，我是数据分析助手</h2><p>我可以帮助你查询元数据、理解指标，并通过受控的数据工具完成只读分析。</p><div class="suggestions"><button class="suggestion">查询最近一个月车辆数量</button><button class="suggestion">NQi GT 平均电池电压</button><button class="suggestion">查看车辆域可用指标</button></div></div>
+          </div>
+          <div class="composer"><div class="composer-row"><textarea id="messageInput" rows="1" placeholder="输入你的数据分析问题…"></textarea><button class="send-btn" id="sendBtn">发送 ↗</button></div><div class="composer-hint"><span>Enter 发送 · Shift + Enter 换行</span><span id="runHint">等待新的对话</span></div><div class="notice" id="notice"></div></div>
+        </section>
+
+        <aside class="info-panel">
+          <div class="info-head"><h3>Agent 信息</h3><span class="tiny" id="agentVersion">v1</span></div>
+          <div class="info-section"><h4>基本配置</h4><div class="kv"><span>状态</span><span><span class="status-dot"></span>已发布</span></div><div class="kv"><span>模型</span><span id="modelName">deepseek-flash</span></div><div class="kv"><span>温度</span><span id="temperature">0.1</span></div><div class="kv"><span>最大步骤</span><span id="maxSteps">20</span></div></div>
+          <div class="info-section"><h4>绑定 Skill</h4><div class="tag-list" id="skillList"><span class="tiny">暂无 Skill</span></div></div>
+          <div class="info-section"><h4>可用工具</h4><div class="tag-list"><span class="tag">元数据查询</span><span class="tag">表结构查询</span><span class="tag">SQL 校验</span><span class="tag">只读执行</span></div></div>
+          <div class="info-section"><h4>会话信息</h4><div class="kv"><span>Session</span><span id="sessionText">session-local</span></div><div class="kv"><span>User</span><span id="userText">u-local</span></div><div class="kv"><span>Tenant</span><span id="tenantText">tenant-local</span></div></div>
+          <button class="config-btn" id="configOpen2">编辑连接与会话配置</button>
+        </aside>
+      </section>
+    </main>
+  </div>
+
+  <div class="overlay" id="configModal"><div class="modal"><div class="modal-head"><h3>连接与会话配置</h3><button class="close" id="configClose">×</button></div><div class="form-grid">
+    <div class="field"><label>通信方式</label><select id="transportSelect"><option value="spring">Java Spring SSE（推荐）</option><option value="runtime">Python Runtime 提交</option><option value="demo">本地演示模式</option></select></div>
+    <div class="field"><label>Java API Base URL</label><input id="springBase" placeholder="http://127.0.0.1:8080" /></div>
+    <div class="field"><label>Python Runtime Base URL</label><input id="runtimeBase" placeholder="http://127.0.0.1:8800" /></div>
+    <div class="field"><label>Python Runtime 认证</label><small>Runtime 只接受多调用方 AK/SK + HMAC-SHA256。浏览器不保存 SK；本地直连请使用 agent-chat-runtime.html，生产请通过 SSE Gateway。</small></div>
+    <div class="field"><label>SSE 事件 URL 模板</label><input id="eventTemplate" placeholder="/api/agent-runs/{runId}/events" /></div>
+    <div class="field"><label>Session ID</label><input id="sessionId" /></div>
+    <div class="field"><label>User ID / Tenant ID</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><input id="userId" /><input id="tenantId" /></div></div>
+  </div><div class="notice show" style="margin-top:14px">生产链路建议使用 Java SSE Gateway。为了本地联调，Python Runtime 额外提供只读 SSE 桥接：/v1/runs/{run_id}/events，它从 Redis Stream 读取事件，不直接暴露 Redis。</div><div class="form-actions"><button class="secondary" id="configCancel">取消</button><button class="primary" id="configSave">保存配置</button></div></div></div>
+
+  <script>
+    // The first version of this prototype defaulted to Java. Reset that one
+    // old preference so the standalone page can work against local Runtime.
+    if (!localStorage.getItem('agent.configVersion')) {
+      localStorage.setItem('agent.configVersion', '2');
+      localStorage.removeItem('agent.transport');
+    }
+    const defaultAgent = {
+      id: 'data-analysis-agent', version: 1, name: '数据分析助手', description: '面向用户域和车辆域的数据分析',
+      system_prompt: '负责用户域和车辆域的数据分析。', model: { provider: 'deepseek', name: 'deepseek-flash', temperature: 0.1 }, skills: [], mcp_servers: [], max_steps: 20
+    };
+    const agents = [defaultAgent, { id: 'metadata-assistant', version: 1, name: '元数据助手', description: '查询数据表、字段、指标和数据血缘', disabled: true }, { id: 'sql-reviewer', version: 1, name: 'SQL 审查助手', description: '检查只读 SQL 的安全性与可执行性', disabled: true }];
+    const state = {
+      agent: defaultAgent,
+      transport: localStorage.getItem('agent.transport') || 'runtime',
+      springBase: localStorage.getItem('agent.springBase') || 'http://127.0.0.1:8080',
+      runtimeBase: localStorage.getItem('agent.runtimeBase') || 'http://127.0.0.1:8800',
+      eventTemplate: localStorage.getItem('agent.eventTemplate') || '/api/agent-runs/{runId}/events',
+      sessionId: localStorage.getItem('agent.sessionId') || `session-${Math.random().toString(36).slice(2, 8)}`,
+      userId: localStorage.getItem('agent.userId') || 'u-local', tenantId: localStorage.getItem('agent.tenantId') || 'tenant-local',
+      busy: false, eventSource: null, assistantMessage: null, assistantRaw: ''
+    };
+    const $ = id => document.getElementById(id);
+    const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const now = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    function renderAgents() { $('agentList').innerHTML = agents.map((agent, i) => `<button class="agent-item ${i === 0 ? 'active' : ''}" data-agent="${agent.id}" ${agent.disabled ? 'disabled' : ''}><div class="agent-avatar">${i === 0 ? '⌁' : '◌'}</div><div><strong>${esc(agent.name)}</strong><small><span class="status-dot ${agent.disabled ? 'gray' : ''}"></span>${agent.disabled ? '规划中' : '已发布'} · v${agent.version}</small></div></button>`).join(''); document.querySelectorAll('.agent-item').forEach(el => el.addEventListener('click', () => { const agent = agents.find(item => item.id === el.dataset.agent); if (agent && !agent.disabled) selectAgent(agent); })); }
+    function selectAgent(agent) { state.agent = agent; $('agentName').textContent = agent.name; $('agentDesc').textContent = agent.description; $('agentVersion').textContent = `v${agent.version}`; $('modelName').textContent = agent.model?.name || '—'; $('temperature').textContent = agent.model?.temperature ?? '—'; $('maxSteps').textContent = agent.max_steps || '—'; $('skillList').innerHTML = agent.skills?.length ? agent.skills.map(skill => `<span class="tag">${esc(skill.id)} · v${skill.version}</span>`).join('') : '<span class="tiny">暂无 Skill</span>'; }
+    function setConnection(text, online = false) { $('connectionState').textContent = online ? '● 已连接' : `● ${text}`; $('connectionState').classList.toggle('online', online); }
+    function showNotice(text) { $('notice').textContent = text; $('notice').classList.add('show'); }
+    function clearNotice() { $('notice').classList.remove('show'); }
+    function scrollBottom() { const box = $('messages'); box.scrollTop = box.scrollHeight; }
+    function inlineMarkdown(value) {
+      let html = esc(value);
+      html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/gi, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+      html = html.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+      html = html.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>').replace(/__([^_\n]+)__/g, '<strong>$1</strong>');
+      html = html.replace(/~~([^~\n]+)~~/g, '<del>$1</del>').replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+      return html;
+    }
+    function tableCells(line) { return line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(cell => inlineMarkdown(cell.trim())); }
+    function isTableSeparator(line) { return /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(line); }
+    function markdownToHtml(source) {
+      const lines = String(source || '').replace(/\r/g, '').split('\n'); const out = []; let i = 0;
+      while (i < lines.length) {
+        const line = lines[i];
+        if (!line.trim()) { i++; continue; }
+        if (/^\s*```/.test(line)) {
+          const language = line.replace(/^\s*```/, '').trim(); const code = []; i++;
+          while (i < lines.length && !/^\s*```/.test(lines[i])) code.push(lines[i++]);
+          if (i < lines.length) i++;
+          out.push(`<pre><code${language ? ` class="language-${esc(language)}"` : ''}>${esc(code.join('\n'))}</code></pre>`); continue;
+        }
+        if (/^#{1,6}\s+/.test(line)) { const match = line.match(/^(#{1,6})\s+(.+)$/); out.push(`<h${match[1].length}>${inlineMarkdown(match[2])}</h${match[1].length}>`); i++; continue; }
+        if (/^\s*>\s?/.test(line)) { const quote = []; while (i < lines.length && /^\s*>\s?/.test(lines[i])) quote.push(lines[i++].replace(/^\s*>\s?/, '')); out.push(`<blockquote>${quote.map(inlineMarkdown).join('<br>')}</blockquote>`); continue; }
+        if (i + 1 < lines.length && line.includes('|') && isTableSeparator(lines[i + 1])) {
+          const header = tableCells(line); i += 2; const rows = []; while (i < lines.length && lines[i].trim() && lines[i].includes('|')) { rows.push(tableCells(lines[i++])); }
+          out.push(`<table><thead><tr>${header.map(cell => `<th>${cell}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${header.map((_, index) => `<td>${row[index] || ''}</td>`).join('')}</tr>`).join('')}</tbody></table>`); continue;
+        }
+        if (/^\s*[-*+]\s+/.test(line)) { const items = []; while (i < lines.length && /^\s*[-*+]\s+/.test(lines[i])) items.push(lines[i++].replace(/^\s*[-*+]\s+/, '')); out.push(`<ul>${items.map(item => `<li>${inlineMarkdown(item)}</li>`).join('')}</ul>`); continue; }
+        if (/^\s*\d+[.)]\s+/.test(line)) { const items = []; while (i < lines.length && /^\s*\d+[.)]\s+/.test(lines[i])) items.push(lines[i++].replace(/^\s*\d+[.)]\s+/, '')); out.push(`<ol>${items.map(item => `<li>${inlineMarkdown(item)}</li>`).join('')}</ol>`); continue; }
+        if (/^\s*(---+|\*\*\*+)\s*$/.test(line)) { out.push('<hr>'); i++; continue; }
+        const paragraph = [line]; i++; while (i < lines.length && lines[i].trim() && !/^\s*```/.test(lines[i]) && !/^#{1,6}\s+/.test(lines[i]) && !/^\s*>\s?/.test(lines[i]) && !/^\s*[-*+]\s+/.test(lines[i]) && !/^\s*\d+[.)]\s+/.test(lines[i])) paragraph.push(lines[i++]);
+        out.push(`<p>${paragraph.map(inlineMarkdown).join('<br>')}</p>`);
+      }
+      return out.join('');
+    }
+    function addMessage(role, content = '', meta = '') { $('welcome')?.remove(); const row = document.createElement('div'); row.className = `message ${role}`; row.innerHTML = `<div class="message-avatar">${role === 'user' ? '你' : '⌁'}</div><div><div class="bubble"></div><div class="message-meta">${esc(meta || now())}</div></div>`; const bubble = row.querySelector('.bubble'); if (role === 'assistant') bubble.innerHTML = markdownToHtml(content); else bubble.textContent = content; $('messages').appendChild(row); scrollBottom(); return bubble; }
+    function appendAssistantDelta(delta) { if (!state.assistantMessage) state.assistantMessage = addMessage('assistant', '', '正在生成…'); state.assistantRaw += delta; state.assistantMessage.innerHTML = markdownToHtml(state.assistantRaw); scrollBottom(); }
+    function finishAssistant(answer) { if (!state.assistantMessage) state.assistantMessage = addMessage('assistant', answer || '', '已完成'); else { state.assistantRaw = answer || state.assistantRaw; state.assistantMessage.innerHTML = markdownToHtml(state.assistantRaw); } const meta = state.assistantMessage.parentElement.querySelector('.message-meta'); if (meta) meta.textContent = `已完成 · ${now()}`; state.assistantMessage = null; state.assistantRaw = ''; }
+    function runId() { return `run-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; }
+    function payload(message) {
+      const id = runId();
+      const stream = $('modeSelect').value === 'stream';
+      const context = { user_id: state.userId, tenant_id: state.tenantId, roles: ['quality-analyst'], scopes: ['domain:vehicle'] };
+      // Python Runtime 使用 snake_case；Java Spring 使用 Jackson 默认的 camelCase record 字段。
+      if (state.transport === 'spring') {
+        return { runId: id, sessionId: state.sessionId, stream, message, agentId: state.agent.id, agent: state.agent,
+          userContext: { userId: state.userId, tenantId: state.tenantId, roles: context.roles, scopes: context.scopes } };
+      }
+      return { run_id: id, session_id: state.sessionId, stream, message, agent: state.agent, user_context: context };
+    }
+    async function sendMessage() {
+      if (state.busy) return; const input = $('messageInput'); const message = input.value.trim(); if (!message) return; clearNotice(); state.busy = true; $('sendBtn').disabled = true; input.value = ''; input.style.height = '45px'; addMessage('user', message); state.assistantMessage = null; state.assistantRaw = ''; const request = payload(message); $('runHint').textContent = request.runId || request.run_id; setConnection('运行中');
+      if (state.transport === 'demo') { await demoResponse(message); return; }
+      try {
+        const base = state.transport === 'spring' ? state.springBase : state.runtimeBase;
+        const submitPath = state.transport === 'spring' ? '/api/agent-runs' : '/v1/runs';
+        const headers = { 'Content-Type': 'application/json' };
+        if (state.transport === 'runtime') throw new Error('Runtime 直连需要 HMAC 签名，请使用 agent-chat-runtime.html 或受保护的 SSE Gateway');
+        const response = await fetch(base.replace(/\/$/, '') + submitPath, { method: 'POST', headers, body: JSON.stringify(request) });
+        const responseText = await response.text();
+        if (!response.ok) {
+          let detail = responseText;
+          try { detail = JSON.parse(responseText).detail || responseText; } catch {}
+          throw new Error(`提交失败（HTTP ${response.status}）：${detail || '服务端没有返回错误详情'}`);
+        }
+        const accepted = responseText ? JSON.parse(responseText) : {}; const acceptedRunId = accepted.runId || accepted.run_id || request.runId || request.run_id; $('runHint').textContent = `运行中 · ${acceptedRunId}`;
+        if (state.transport === 'spring' || state.transport === 'runtime') connectSse(acceptedRunId); else { releaseBusy(false); }
+      } catch (error) { showNotice(error.message || '请求失败'); setConnection('连接失败'); releaseBusy(false); }
+    }
+    function connectSse(id) {
+      if (state.eventSource) state.eventSource.close(); const base = state.transport === 'spring' ? state.springBase : state.runtimeBase;
+      const template = state.transport === 'spring' ? state.eventTemplate : '/v1/runs/{runId}/events';
+      let url = base.replace(/\/$/, '') + template.replace('{runId}', encodeURIComponent(id));
+      if (state.transport === 'runtime') throw new Error('Runtime SSE 需要 HMAC 签名，请使用 agent-chat-runtime.html 或受保护的 SSE Gateway');
+      const source = new EventSource(url); state.eventSource = source;
+      source.onopen = () => setConnection('SSE 已连接', true);
+      source.onmessage = event => handleEvent(event.data);
+      ['agent_message_delta', 'run_completed', 'run_failed', 'run_cancelled'].forEach(type => source.addEventListener(type, event => handleEvent(event.data, type)));
+      source.onerror = () => { if (state.busy) { showNotice('SSE 连接中断，请检查 Java SSE Gateway 和运行任务状态。'); setConnection('SSE 断开'); releaseBusy(false); } source.close(); };
+    }
+    function handleEvent(raw, type) { let event; try { event = JSON.parse(raw); } catch { return; } const eventType = type || event.event_type; const payload = event.payload || event;
+      if (eventType === 'agent_message_delta') appendAssistantDelta(payload.delta || '');
+      if (eventType === 'run_completed') { finishAssistant(payload.answer || '任务已完成，但没有返回文本。'); setConnection('已完成', true); releaseBusy(true); }
+      if (eventType === 'run_failed') { showNotice(payload.message || 'Agent 执行失败'); setConnection('执行失败'); releaseBusy(false); }
+      if (eventType === 'run_cancelled') { showNotice('任务已取消'); setConnection('已取消'); releaseBusy(false); }
+    }
+    async function demoResponse(message) { const answer = `这是本地演示响应。\n\n已收到问题：${message}\n\n接入 Java SSE Gateway 后，这里会显示 DeepAgents 的真实 Token 流。`; for (const chunk of answer.match(/.{1,8}/gs) || []) { await new Promise(r => setTimeout(r, 45)); appendAssistantDelta(chunk); } finishAssistant(answer); setConnection('演示完成', true); releaseBusy(true); }
+    function releaseBusy(done) { state.busy = false; $('sendBtn').disabled = false; if (done) $('runHint').textContent = '等待新的对话'; if (state.eventSource && done) { state.eventSource.close(); state.eventSource = null; } }
+    function openConfig() { ['transportSelect','springBase','runtimeBase','eventTemplate','sessionId','userId','tenantId'].forEach(id => $(id).value = ({ transportSelect: state.transport, springBase: state.springBase, runtimeBase: state.runtimeBase, eventTemplate: state.eventTemplate, sessionId: state.sessionId, userId: state.userId, tenantId: state.tenantId }[id])); $('configModal').classList.add('open'); }
+    function closeConfig() { $('configModal').classList.remove('open'); }
+    function saveConfig() { state.transport = $('transportSelect').value; state.springBase = $('springBase').value.trim().replace(/\/$/, ''); state.runtimeBase = $('runtimeBase').value.trim().replace(/\/$/, ''); state.eventTemplate = $('eventTemplate').value.trim() || '/api/agent-runs/{runId}/events'; state.sessionId = $('sessionId').value.trim() || state.sessionId; state.userId = $('userId').value.trim() || state.userId; state.tenantId = $('tenantId').value.trim() || state.tenantId; Object.entries({ transport: state.transport, springBase: state.springBase, runtimeBase: state.runtimeBase, eventTemplate: state.eventTemplate, sessionId: state.sessionId, userId: state.userId, tenantId: state.tenantId }).forEach(([key, value]) => localStorage.setItem(`agent.${key}`, value)); $('sessionText').textContent = state.sessionId; $('userText').textContent = state.userId; $('tenantText').textContent = state.tenantId; $('endpointText').textContent = state.transport === 'spring' ? `${state.springBase} · SSE` : state.transport === 'demo' ? 'Local Demo' : `${state.runtimeBase} · Redis`; closeConfig(); setConnection(state.transport === 'demo' ? '演示模式' : '未连接'); }
+    $('sendBtn').addEventListener('click', sendMessage); $('messageInput').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }); $('messageInput').addEventListener('input', e => { e.target.style.height = '45px'; e.target.style.height = Math.min(e.target.scrollHeight, 130) + 'px'; }); document.querySelectorAll('.suggestion').forEach(button => button.addEventListener('click', () => { $('messageInput').value = button.textContent; $('messageInput').focus(); })); $('configOpen').addEventListener('click', openConfig); $('configOpen2').addEventListener('click', openConfig); $('configClose').addEventListener('click', closeConfig); $('configCancel').addEventListener('click', closeConfig); $('configSave').addEventListener('click', saveConfig); $('configModal').addEventListener('click', e => { if (e.target === $('configModal')) closeConfig(); });
+    renderAgents(); selectAgent(defaultAgent); $('sessionText').textContent = state.sessionId; $('userText').textContent = state.userId; $('tenantText').textContent = state.tenantId; $('endpointText').textContent = state.transport === 'spring' ? `${state.springBase} · SSE` : state.transport === 'demo' ? 'Local Demo' : `${state.runtimeBase} · Redis`; setConnection(state.transport === 'demo' ? '演示模式' : '未连接');
+  </script>
+</body>
+</html>

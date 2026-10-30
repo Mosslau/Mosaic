@@ -1,0 +1,54 @@
+# ==========================================================================
+# python-agent-runtime：Python 3.12 / uv 工程
+# 说明：uv.lock 和 .python-version 属于版本锁定文件，必须入库，不要加入本文件。
+# ==========================================================================
+
+# ---- 字节码与解释器缓存 ----
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ---- 打包与分发 ----
+build/
+dist/
+wheels/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# ---- 虚拟环境与依赖缓存 ----
+.venv
+venv/
+env/
+.uv-cache/
+
+# ---- 测试 / 静态检查缓存 ----
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyright/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+
+# ---- 运行时本地状态（日志、pid、本地联调栈）----
+.local/
+*.log
+
+# ---- 环境变量与凭证 ----
+.env
+.env.*
+!.env.example
+
+# ---- IDE / 编辑器 ----
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ---- 操作系统 ----
+.DS_Store
+Thumbs.db

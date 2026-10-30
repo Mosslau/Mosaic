@@ -1,0 +1,55 @@
+# ==========================================================================
+# 仓库根级忽略规则（多语言仓库：Java + Python）
+# 构建工具、语言生态专属规则放在各模块自己的 .gitignore 中；
+# 本文件只保留跨模块通用的系统、IDE、密钥、日志和仓库级缓存。
+# ==========================================================================
+
+# ---- 操作系统 ----
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+Desktop.ini
+
+# ---- 编辑器 / IDE ----
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.fleet/
+*.swp
+*.swo
+*~
+
+# ---- 环境变量与凭证 ----
+# .env.prod / .env.local 等本地覆盖配置一律不入库，只保留示例文件
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+
+# ---- 仓库级依赖缓存 / 构建目录 ----
+.m2/
+.gradle/
+.uv-cache/
+.venv/
+__pycache__/
+target/
+node_modules/
+
+# ---- 日志与临时文件 ----
+*.log
+logs/
+tmp/
+.local/
+
+# ---- 大型产品原型 ----
+# docs/index_v3.4.html 是 2.5MB 的单文件原型，已从版本库移除、仅保留在本地。
+# 若以后需要重新纳入版本管理：git add -f docs/index_v3.4.html
+docs/index_v3.4.html

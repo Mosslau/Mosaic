@@ -1,0 +1,42 @@
+# ==========================================================================
+# java-agent-platform：Spring Boot 3.4 / Java 17 / Maven 工程
+# ==========================================================================
+
+# ---- Maven 构建产物 ----
+target/
+*.class
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+
+# ---- 本地配置与凭证 ----
+.env
+.env.*
+!.env.example
+
+# ---- 日志与 JVM 崩溃文件 ----
+logs/
+*.log
+hs_err_pid*
+replay_pid*
+
+# ---- IDE / 编辑器 ----
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+.factorypath
+*.swp
+
+# ---- 操作系统 ----
+.DS_Store
+Thumbs.db

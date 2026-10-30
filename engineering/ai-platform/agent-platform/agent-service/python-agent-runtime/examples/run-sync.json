@@ -1,0 +1,274 @@
+{
+  "run_id": "run-local-sync-001",
+  "session_id": "session-local-001",
+  "stream": false,
+  "message": "查询最近一个月 NQi GT 的平均电池电压，并说明数据口径、过滤条件和结果可信度。",
+  "agent": {
+    "id": "data-analysis-agent",
+    "version": 2,
+    "name": "车辆数据分析助手",
+    "system_prompt": "你是企业级车辆数据分析 Agent。先确认指标口径和数据范围，再查询元数据、生成并校验只读 SQL，最后给出可复核的分析结论。禁止编造字段、指标定义或查询结果；如果工具不可用，要明确说明原因。",
+    "model": {
+      "provider": "deepseek",
+      "name": "deepseek-flash",
+      "temperature": 0.1
+    },
+    "skills": [
+      {
+        "id": "vehicle-analysis",
+        "version": "1.0.0-local",
+        "entry_path": "SKILL.md",
+        "required_tools": [
+          "metadata_search",
+          "search_metric_definition",
+          "sql_validate",
+          "query_readonly"
+        ],
+        "content": "---\nname: vehicle-analysis\ndescription: 车辆域数据分析方法和结果表达规范\n---\n\n# 车辆域数据分析 Skill\n\n## 分析流程\n1. 先识别用户、车辆、时间范围、指标和聚合方式。\n2. 使用元数据工具确认表、字段、单位、枚举值和指标口径。\n3. 使用只读 SQL 工具查询数据，禁止执行写入、删除、更新或 DDL。\n4. 对异常值、缺失值、时间粒度和样本量进行检查。\n5. 输出查询口径、过滤条件、样本量、结果和限制。\n\n## 结果要求\n- 所有数值都要说明单位和时间范围。\n- 不确定的字段或口径必须先调用工具确认。\n- 不要在回答中暴露数据库密码、内部 Token 或原始敏感数据。"
+      },
+      {
+        "id": "metadata-analysis",
+        "version": "1.0.0-local",
+        "entry_path": "SKILL.md",
+        "required_tools": [
+          "metadata_search",
+          "search_metric_definition"
+        ],
+        "content": "---\nname: metadata-analysis\ndescription: 元数据、字段和指标口径查询规范\n---\n\n# 元数据查询 Skill\n\n## 工作范围\n1. 查询表结构、字段定义、单位、枚举值和指标口径。\n2. 使用 metadata_search 和 search_metric_definition 获取可复核的定义。\n3. 不执行 SQL，不生成或修改数据。\n4. 不确定时明确说明缺少的信息，不得猜测。"
+      },
+      {
+        "id": "data-quality-check",
+        "version": "1.0.0-local",
+        "entry_path": "SKILL.md",
+        "required_tools": [
+          "metadata_search",
+          "query_readonly"
+        ],
+        "content": "---\nname: data-quality-check\ndescription: 数据质量、样本量和结果可信度检查规范\n---\n\n# 数据质量检查 Skill\n\n## 检查项目\n- 时间范围是否完整，是否存在未来时间或时区混用。\n- 样本量是否足以支持平均值、趋势和分组比较。\n- 关键字段是否存在空值、重复值和异常极值。\n- 指标单位、精度和聚合粒度是否一致。\n\n## 输出要求\n在分析结论后单独给出“数据质量与可信度”小节，区分已验证事实、合理推断和待确认事项。"
+      }
+    ],
+    "mcp_servers": [
+      {
+        "id": "test-data-tools",
+        "transport": "streamable_http",
+        "url": "http://127.0.0.1:8810/mcp",
+        "headers": {
+          "X-Test-MCP": "true"
+        },
+        "tool_allowlist": [
+          "metadata_search",
+          "search_metric_definition",
+          "sql_validate",
+          "query_readonly",
+          "search_knowledge"
+        ]
+      }
+    ],
+    "tool_allowlist": [
+      "metadata_search",
+      "search_metric_definition",
+      "sql_validate",
+      "query_readonly",
+      "search_knowledge"
+    ],
+    "subagents": [
+      {
+        "name": "metadata-agent",
+        "description": "负责查询数据字典、表结构、字段定义和指标口径，不执行 SQL。",
+        "mode": "isolated",
+        "system_prompt": "你是元数据专家。只确认表、字段、指标定义、单位、枚举和时间粒度；不得猜测不存在的字段，不得执行 SQL。",
+        "model": {
+          "provider": "deepseek",
+          "name": "deepseek-flash",
+          "temperature": 0.0
+        },
+        "skill_ids": [
+          "metadata-analysis"
+        ],
+        "mcp_servers": [
+          {
+            "id": "test-data-tools",
+            "transport": "streamable_http",
+            "url": "http://127.0.0.1:8810/mcp",
+            "headers": {
+              "X-Test-MCP": "true"
+            },
+            "tool_allowlist": [
+              "metadata_search",
+              "search_metric_definition"
+            ]
+          }
+        ],
+        "tool_allowlist": [
+          "metadata_search",
+          "search_metric_definition"
+        ],
+        "subagents": [],
+        "plan": {
+          "enabled": false,
+          "require_approval": false,
+          "max_steps": 8,
+          "allow_replan": false
+        },
+        "compression": {
+          "enabled": true,
+          "trigger_tokens": 16000,
+          "keep_recent_messages": 8,
+          "summary_max_tokens": 2000,
+          "persist_summary": true
+        },
+        "rag": {
+          "enabled": true,
+          "tool_allowlist": [
+            "search_metric_definition"
+          ]
+        },
+        "workspace": {
+          "enabled": true,
+          "workspace_id": "workspace-local-001",
+          "read_only": true,
+          "allowed_paths": [
+            "/skills",
+            "/input"
+          ]
+        },
+        "sandbox": {
+          "enabled": false,
+          "image": "python:3.12-slim",
+          "image_digest": null,
+          "timeout_seconds": 60,
+          "cpu_limit": 1.0,
+          "memory_limit_mb": 512,
+          "disk_limit_mb": 1024,
+          "max_output_bytes": 1048576,
+          "max_processes": 64,
+          "network_mode": "none",
+          "allow_commands": [
+            "python3"
+          ]
+        },
+        "max_steps": 8
+      },
+      {
+        "name": "data-quality-agent",
+        "description": "负责样本量、缺失值、异常值、时间范围和结果可信度检查。",
+        "mode": "isolated",
+        "system_prompt": "你是数据质量专家。基于已授权的只读查询结果检查样本量、空值、重复、异常范围和时间完整性，并输出可解释的可信度判断。",
+        "model": {
+          "provider": "deepseek",
+          "name": "deepseek-flash",
+          "temperature": 0.0
+        },
+        "skill_ids": [
+          "data-quality-check"
+        ],
+        "mcp_servers": [
+          {
+            "id": "test-data-tools",
+            "transport": "streamable_http",
+            "url": "http://127.0.0.1:8810/mcp",
+            "headers": {
+              "X-Test-MCP": "true"
+            },
+            "tool_allowlist": [
+              "metadata_search",
+              "query_readonly"
+            ]
+          }
+        ],
+        "tool_allowlist": [
+          "metadata_search",
+          "query_readonly"
+        ],
+        "subagents": [],
+        "plan": {
+          "enabled": true,
+          "require_approval": false,
+          "max_steps": 6,
+          "allow_replan": true
+        },
+        "compression": {
+          "enabled": true,
+          "trigger_tokens": 16000,
+          "keep_recent_messages": 8,
+          "summary_max_tokens": 2000,
+          "persist_summary": true
+        },
+        "rag": {
+          "enabled": false,
+          "tool_allowlist": []
+        },
+        "workspace": {
+          "enabled": true,
+          "workspace_id": "workspace-local-001",
+          "read_only": true,
+          "allowed_paths": [
+            "/skills",
+            "/input"
+          ]
+        },
+        "sandbox": {
+          "enabled": false,
+          "image": "python:3.12-slim",
+          "image_digest": null,
+          "timeout_seconds": 60,
+          "cpu_limit": 1.0,
+          "memory_limit_mb": 512,
+          "disk_limit_mb": 1024,
+          "max_output_bytes": 1048576,
+          "max_processes": 64,
+          "network_mode": "none",
+          "allow_commands": [
+            "python3"
+          ]
+        },
+        "max_steps": 6
+      }
+    ],
+    "plan": {
+      "enabled": true,
+      "require_approval": false,
+      "max_steps": 10,
+      "allow_replan": true
+    },
+    "compression": {
+      "enabled": true,
+      "trigger_tokens": 24000,
+      "keep_recent_messages": 12,
+      "summary_max_tokens": 3000,
+      "persist_summary": true
+    },
+    "rag": {
+      "enabled": true,
+      "tool_allowlist": [
+        "search_knowledge",
+        "search_metric_definition"
+      ]
+    },
+    "workspace": {
+      "enabled": true,
+      "workspace_id": "workspace-local-001",
+      "read_only": false,
+      "allowed_paths": [
+        "/output",
+        "/artifacts"
+      ]
+    },
+    "sandbox": {
+      "enabled": false,
+      "image": "python:3.12-slim",
+      "image_digest": null,
+      "timeout_seconds": 60,
+      "cpu_limit": 1.0,
+      "memory_limit_mb": 512,
+      "disk_limit_mb": 1024,
+      "max_output_bytes": 1048576,
+      "max_processes": 64,
+      "network_mode": "none",
+      "allow_commands": [
+        "python3"
+      ]
+    },
+    "max_steps": 20
+  }
+}

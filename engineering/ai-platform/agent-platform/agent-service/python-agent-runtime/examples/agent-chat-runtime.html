@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101110">
+  <title>Python Agent Runtime · Codex Console</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --canvas: #101110;
+      --surface: #171917;
+      --surface-2: #1d201d;
+      --surface-3: #242824;
+      --line: #303630;
+      --line-soft: rgba(255, 255, 255, .075);
+      --text: #f2f4ef;
+      --muted: #9ba49a;
+      --subtle: #70796f;
+      --accent: #10a37f;
+      --accent-2: #22c995;
+      --accent-soft: rgba(16, 163, 127, .13);
+      --warning: #eab563;
+      --danger: #f47777;
+      --user: #25352f;
+      --assistant: #1a1d1a;
+      --shadow: 0 18px 60px rgba(0, 0, 0, .22);
+      --radius: 12px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      overflow: hidden;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 78% -12%, rgba(16, 163, 127, .12), transparent 31rem),
+        var(--canvas);
+      font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+      letter-spacing: .005em;
+    }
+    button, input, textarea, select { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+
+    .app-shell { display: grid; grid-template-columns: 250px minmax(0, 1fr); height: 100vh; }
+    .sidebar {
+      display: flex;
+      min-height: 0;
+      flex-direction: column;
+      gap: 18px;
+      padding: 18px 14px;
+      border-right: 1px solid var(--line-soft);
+      background: rgba(15, 17, 15, .88);
+    }
+    .brand { display: flex; align-items: center; gap: 10px; padding: 2px 8px 8px; }
+    .brand-mark {
+      display: grid;
+      width: 32px;
+      height: 32px;
+      place-items: center;
+      border: 1px solid rgba(34, 201, 149, .45);
+      border-radius: 9px;
+      color: #b9f8df;
+      background: linear-gradient(145deg, #0c6f58, #15372e);
+      box-shadow: 0 0 24px rgba(16, 163, 127, .15);
+      font: 700 16px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .brand-copy { min-width: 0; }
+    .brand-title { color: var(--text); font-size: 13px; font-weight: 700; letter-spacing: .02em; }
+    .brand-subtitle { margin-top: 1px; color: var(--subtle); font-size: 11px; }
+    .eyebrow { color: var(--subtle); font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+    .nav { display: grid; gap: 3px; }
+    .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; color: var(--muted); font-size: 13px; }
+    .nav-item.active { color: var(--text); background: var(--surface-3); box-shadow: inset 2px 0 var(--accent); }
+    .nav-icon { width: 17px; color: var(--subtle); text-align: center; font: 14px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .nav-item.active .nav-icon { color: var(--accent-2); }
+    .sidebar-scroll { min-height: 0; overflow: auto; padding: 0 2px; }
+    .sidebar-section { margin-top: 2px; }
+    .sidebar-section + .sidebar-section { margin-top: 18px; }
+    .field { margin-top: 10px; }
+    label { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 5px; color: var(--muted); font-size: 11px; font-weight: 600; }
+    input, textarea, select {
+      width: 100%;
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #111411;
+      padding: 8px 9px;
+      outline: 0;
+      transition: border-color .18s, box-shadow .18s, background .18s;
+    }
+    input::placeholder, textarea::placeholder { color: #5e685e; }
+    input:focus, textarea:focus, select:focus { border-color: rgba(34, 201, 149, .75); background: #141915; box-shadow: 0 0 0 3px var(--accent-soft); }
+    .token-input { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+    .hint { margin: 7px 0 0; color: var(--subtle); font-size: 10px; line-height: 1.45; }
+    .button-row { display: flex; flex-wrap: wrap; gap: 7px; }
+    button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      min-height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 7px 10px;
+      color: var(--text);
+      background: var(--surface-3);
+      transition: transform .16s, border-color .16s, background .16s, color .16s;
+    }
+    button:hover { border-color: #536053; background: #2a302a; transform: translateY(-1px); }
+    button.primary { border-color: transparent; color: #06150f; background: var(--accent-2); font-weight: 750; }
+    button.primary:hover { background: #46ddb0; }
+    button.danger { color: #ffb5b5; border-color: rgba(244, 119, 119, .3); background: rgba(244, 119, 119, .08); }
+    button:disabled { cursor: not-allowed; opacity: .45; transform: none; }
+    .sidebar-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .sidebar-actions button { width: 100%; font-size: 11px; }
+    .sidebar-footer { margin-top: auto; padding: 12px 10px 2px; border-top: 1px solid var(--line-soft); color: var(--subtle); font-size: 10px; }
+    .sidebar-footer code { color: #b1bbb0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+    .workspace { display: flex; min-width: 0; min-height: 0; flex-direction: column; }
+    .topbar {
+      display: flex;
+      min-height: 62px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 12px 24px;
+      border-bottom: 1px solid var(--line-soft);
+      background: rgba(16, 17, 16, .78);
+      backdrop-filter: blur(18px);
+    }
+    .breadcrumbs { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .crumb { color: var(--subtle); font-size: 12px; white-space: nowrap; }
+    .crumb.current { overflow: hidden; color: var(--text); font-weight: 650; text-overflow: ellipsis; }
+    .slash { color: #4b554c; }
+    .run-meta { margin-top: 3px; color: var(--subtle); font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .topbar-actions { display: flex; align-items: center; gap: 9px; }
+    .status { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; white-space: nowrap; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: #687168; box-shadow: 0 0 0 3px rgba(104, 113, 104, .1); }
+    .dot.online { background: var(--accent-2); box-shadow: 0 0 0 3px rgba(34, 201, 149, .13); }
+    .dot.error { background: var(--danger); box-shadow: 0 0 0 3px rgba(244, 119, 119, .12); }
+
+    .content { display: grid; grid-template-columns: minmax(0, 1fr) 280px; min-height: 0; flex: 1; gap: 14px; padding: 14px; }
+    .chat {
+      display: flex;
+      min-width: 0;
+      min-height: 0;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid var(--line-soft);
+      border-radius: var(--radius);
+      background: rgba(23, 25, 23, .78);
+      box-shadow: var(--shadow);
+    }
+    .chat-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 16px 20px 13px; border-bottom: 1px solid var(--line-soft); }
+    .agent-heading { display: flex; min-width: 0; align-items: center; gap: 11px; }
+    .agent-avatar { display: grid; width: 35px; height: 35px; place-items: center; flex: 0 0 auto; border: 1px solid rgba(34, 201, 149, .34); border-radius: 10px; color: #9af2d3; background: var(--accent-soft); font: 700 14px ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .agent-name { overflow: hidden; color: var(--text); font-size: 14px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+    .agent-caption { margin-top: 2px; color: var(--subtle); font-size: 11px; }
+    .mode-pill, .capability { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); border-radius: 999px; padding: 4px 8px; color: var(--muted); background: rgba(255, 255, 255, .025); font-size: 10px; white-space: nowrap; }
+    .mode-pill::before { width: 5px; height: 5px; border-radius: 50%; background: var(--accent-2); content: ""; }
+    #messages { min-height: 0; flex: 1; overflow: auto; padding: 24px clamp(18px, 5vw, 74px); scrollbar-color: #39423a transparent; }
+    .message { max-width: 780px; margin: 0 auto 22px; animation: rise .22s ease-out; }
+    .message.user { max-width: 720px; margin-right: max(0px, calc((100% - 780px) / 2)); margin-left: auto; }
+    .message .meta { display: flex; align-items: center; gap: 8px; margin: 0 0 7px 2px; color: var(--subtle); font-size: 10px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; }
+    .message .meta::before { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); content: ""; }
+    .user .meta { justify-content: flex-end; }
+    .user .meta::before { order: 2; background: #7893ff; }
+    .bubble { overflow-wrap: anywhere; padding: 14px 16px; border: 1px solid var(--line-soft); border-radius: 10px; color: #e7ebe6; background: var(--assistant); }
+    .user .bubble { border-color: rgba(120, 147, 255, .2); background: var(--user); }
+    .bubble p { margin: 0 0 9px; }
+    .bubble p:last-child { margin-bottom: 0; }
+    .bubble pre { overflow: auto; margin: 11px 0; padding: 12px; border: 1px solid var(--line-soft); border-radius: 8px; background: #0d0f0d; }
+    .bubble code { padding: 1px 4px; border-radius: 4px; color: #b5efd9; background: rgba(0, 0, 0, .26); font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .bubble pre code { padding: 0; background: transparent; }
+    .bubble table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+    .bubble th, .bubble td { padding: 6px 8px; border: 1px solid var(--line); text-align: left; }
+    .bubble th { color: var(--muted); background: rgba(255, 255, 255, .025); }
+    .notice { display: none; max-width: 780px; margin: 0 auto 10px; border: 1px solid rgba(244, 119, 119, .28); border-radius: 8px; padding: 9px 11px; color: #ffc5c5; background: rgba(244, 119, 119, .08); font-size: 12px; }
+    .notice.show { display: block; }
+    .composer { padding: 12px max(14px, 5vw) 14px; border-top: 1px solid var(--line-soft); background: rgba(17, 19, 17, .75); }
+    .composer-box { display: flex; align-items: flex-end; gap: 8px; max-width: 780px; margin: 0 auto; padding: 8px; border: 1px solid #3b443c; border-radius: 12px; background: #111411; box-shadow: 0 8px 30px rgba(0, 0, 0, .16); }
+    .composer textarea { min-height: 42px; max-height: 150px; resize: none; border: 0; background: transparent; padding: 8px 9px; line-height: 1.45; }
+    .composer textarea:focus { border: 0; box-shadow: none; }
+    .composer .primary { min-width: 74px; min-height: 40px; }
+    .composer-footer { display: flex; max-width: 780px; align-items: center; justify-content: space-between; gap: 10px; margin: 7px auto 0; color: var(--subtle); font-size: 10px; }
+    #hint { color: var(--muted); }
+
+    .inspector { display: flex; min-width: 0; min-height: 0; flex-direction: column; gap: 12px; overflow: auto; }
+    .inspector-card { border: 1px solid var(--line-soft); border-radius: var(--radius); padding: 14px; background: rgba(23, 25, 23, .72); }
+    .card-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+    .card-title { color: #dce2db; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    .card-action { color: var(--subtle); font-size: 10px; }
+    .snapshot-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .stat { min-width: 0; padding: 9px; border: 1px solid var(--line-soft); border-radius: 8px; background: rgba(255, 255, 255, .018); }
+    .stat-label { color: var(--subtle); font-size: 10px; }
+    .stat-value { overflow: hidden; margin-top: 3px; color: #dfe7de; font: 650 12px ui-monospace, SFMono-Regular, Menlo, monospace; text-overflow: ellipsis; white-space: nowrap; }
+    .capabilities { display: flex; flex-wrap: wrap; gap: 6px; }
+    .capability { color: #aeb9ad; }
+    .capability.on { border-color: rgba(34, 201, 149, .25); color: #a8efd5; background: var(--accent-soft); }
+    .event-log { min-height: 106px; max-height: 210px; overflow: auto; white-space: pre-wrap; color: #9fb0a0; font: 10px/1.65 ui-monospace, SFMono-Regular, Menlo, monospace; scrollbar-color: #39423a transparent; }
+    .empty-state { display: grid; min-height: 100%; place-items: center; padding: 40px 20px; text-align: center; }
+    .empty-state-inner { max-width: 470px; }
+    .empty-glyph { display: grid; width: 50px; height: 50px; place-items: center; margin: 0 auto 16px; border: 1px solid rgba(34, 201, 149, .3); border-radius: 15px; color: #a1f3d7; background: var(--accent-soft); font: 700 20px ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .empty-state h2 { margin: 0 0 7px; color: var(--text); font-size: 18px; }
+    .empty-state p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
+    .kbd { border: 1px solid var(--line); border-bottom-color: #566156; border-radius: 4px; padding: 1px 5px; color: #cbd5ca; background: #242824; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; }
+    @keyframes rise { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+    @media (max-width: 1120px) { .content { grid-template-columns: minmax(0, 1fr) 240px; } .sidebar { width: 220px; } .app-shell { grid-template-columns: 220px minmax(0, 1fr); } }
+    @media (max-width: 900px) { body { overflow: auto; } .app-shell { display: block; height: auto; min-height: 100vh; } .sidebar { display: grid; grid-template-columns: auto 1fr; align-items: start; gap: 12px; width: auto; border-right: 0; border-bottom: 1px solid var(--line-soft); padding: 12px; } .brand { padding: 2px 6px; } .nav, .sidebar-footer { display: none; } .sidebar-scroll { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr); gap: 10px; overflow: visible; } .sidebar-section + .sidebar-section { margin-top: 0; } .workspace { min-height: calc(100vh - 86px); } .content { grid-template-columns: 1fr; } .inspector { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: visible; } .event-card { grid-column: 1 / -1; } .chat { min-height: 72vh; } }
+    @media (max-width: 620px) { .topbar { align-items: flex-start; flex-direction: column; padding: 13px 14px; } .topbar-actions { width: 100%; justify-content: space-between; } .content { padding: 8px; } .inspector { display: none; } #messages { padding: 18px 12px; } .composer { padding: 10px 9px; } .message, .message.user, .notice, .composer-box, .composer-footer { max-width: none; margin-right: 0; margin-left: 0; } .chat-head { padding: 13px; } .mode-pill { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">›_</div>
+        <div class="brand-copy">
+          <div class="brand-title">Agent Runtime</div>
+          <div class="brand-subtitle">Codex-style local console</div>
+        </div>
+      </div>
+
+      <nav class="nav" aria-label="主导航">
+        <div class="nav-item active"><span class="nav-icon">✦</span><span>Agent Playground</span></div>
+        <div class="nav-item"><span class="nav-icon">◇</span><span>运行记录</span></div>
+        <div class="nav-item"><span class="nav-icon">⌘</span><span>Runtime Tools</span></div>
+      </nav>
+
+      <div class="sidebar-scroll">
+        <section class="sidebar-section">
+          <div class="eyebrow">Connection</div>
+          <div class="field"><label for="baseUrl">Runtime Base URL</label><input id="baseUrl" value="http://127.0.0.1:8800" spellcheck="false"></div>
+          <div class="field"><label for="accessKey">Runtime Access Key <span style="color:var(--warning)">local only</span></label><input id="accessKey" autocomplete="off" placeholder="例如 caller-web-local"></div>
+          <div class="field"><label for="secretKey">Runtime Secret Key <span style="color:var(--warning)">local only</span></label><input id="secretKey" class="token-input" type="password" autocomplete="off" placeholder="仅本地联调使用"></div>
+          <p class="hint">本地页面会用 AK/SK 生成 HMAC-SHA256 请求头。生产不要把 SK 放在浏览器，改用后端 Caller/SSE Gateway。</p>
+          <div class="sidebar-actions" style="margin-top:11px"><button id="healthBtn">健康检查</button><button id="loadBtn">加载 Snapshot</button></div>
+        </section>
+
+        <section class="sidebar-section">
+          <div class="eyebrow">Session</div>
+          <div class="field"><label for="sessionId">Session ID</label><input id="sessionId" spellcheck="false"></div>
+          <div class="field" style="display:grid;grid-template-columns:1fr 1fr;gap:7px"><div><label for="userId">User</label><input id="userId" spellcheck="false"></div><div><label for="tenantId">Tenant</label><input id="tenantId" spellcheck="false"></div></div>
+          <div class="field"><label for="mode">Response mode</label><select id="mode"><option value="true">Token streaming</option><option value="false">Non-streaming</option></select></div>
+          <label style="justify-content:flex-start;gap:7px;margin-top:12px"><input id="demoMode" type="checkbox" style="width:auto;accent-color:var(--accent)"> Browser demo only</label>
+        </section>
+      </div>
+
+      <div class="sidebar-footer">Local endpoint · <code>127.0.0.1:8800</code><br>Redis Stream Worker + MCP/RAG</div>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div>
+          <div class="breadcrumbs"><span class="crumb">Workspace</span><span class="slash">/</span><span class="crumb">DeepAgents</span><span class="slash">/</span><span id="title" class="crumb current">数据分析助手</span></div>
+          <div class="run-meta">RUN <span id="runId">未开始</span></div>
+        </div>
+        <div class="topbar-actions">
+          <span class="status"><span id="statusDot" class="dot"></span><span id="statusText">未连接</span></span>
+          <button id="cancelBtn" class="danger" disabled>停止运行</button>
+          <button id="clearBtn">新建对话</button>
+        </div>
+      </header>
+
+      <div class="content">
+        <section class="chat">
+          <div class="chat-head">
+            <div class="agent-heading"><div class="agent-avatar">✦</div><div><div id="agentName" class="agent-name">Python DeepAgents Runtime</div><div class="agent-caption">Streaming analysis workspace</div></div></div>
+            <span class="mode-pill">Redis events · SSE</span>
+          </div>
+          <div id="messages">
+            <div class="empty-state">
+              <div class="empty-state-inner">
+                <div class="empty-glyph">›_</div>
+                <h2>开始一段 Agent 分析</h2>
+                <p>加载 <span class="kbd">run.json</span> 获取完整 Agent Snapshot，或直接输入问题。Runtime 会通过 Worker 调度 DeepAgents、MCP 工具与本地 RAG。</p>
+              </div>
+            </div>
+          </div>
+          <div id="notice" class="notice"></div>
+          <div class="composer">
+            <div class="composer-box"><textarea id="input" placeholder="询问数据、指标或业务口径…"></textarea><button id="sendBtn" class="primary"><span>发送</span><span>↗</span></button></div>
+            <div class="composer-footer"><span><span class="kbd">Enter</span> 发送 · <span class="kbd">Shift + Enter</span> 换行</span><span id="hint">等待输入</span></div>
+          </div>
+        </section>
+
+        <aside class="inspector">
+          <section class="inspector-card">
+            <div class="card-heading"><span class="card-title">Agent Snapshot</span><span class="card-action">v<span id="agentVersion">-</span></span></div>
+            <div class="snapshot-grid">
+              <div class="stat"><div class="stat-label">Agent ID</div><div id="agentId" class="stat-value">-</div></div>
+              <div class="stat"><div class="stat-label">Model</div><div id="modelName" class="stat-value">-</div></div>
+              <div class="stat"><div class="stat-label">Skills</div><div id="skillCount" class="stat-value">-</div></div>
+              <div class="stat"><div class="stat-label">SubAgents</div><div id="subagentCount" class="stat-value">-</div></div>
+            </div>
+          </section>
+          <section class="inspector-card">
+            <div class="card-heading"><span class="card-title">Runtime Capabilities</span></div>
+            <div class="capabilities">
+              <span id="capSkills" class="capability">Skills</span>
+              <span id="capMcp" class="capability">MCP</span>
+              <span id="capRag" class="capability">RAG</span>
+              <span id="capSse" class="capability on">SSE</span>
+              <span id="capMemory" class="capability on">Memory</span>
+              <span id="capSandbox" class="capability">Sandbox</span>
+            </div>
+          </section>
+          <section class="inspector-card event-card">
+            <div class="card-heading"><span class="card-title">Event Stream</span><span class="card-action">live</span></div>
+            <div id="eventLog" class="event-log">尚未提交任务</div>
+          </section>
+        </aside>
+      </div>
+    </main>
+  </div>
+
+<script>
+  'use strict';
+
+  const $ = (id) => document.getElementById(id);
+  const storage = window.localStorage;
+  const state = {
+    snapshot: null,
+    eventSource: null,
+    runId: null,
+    busy: false,
+    assistantNode: null,
+    assistantRaw: '',
+    eventCount: 0,
+  };
+
+  const defaultSnapshot = {
+    id: 'data-analysis-agent',
+    version: 1,
+    name: '数据分析助手',
+    system_prompt: '负责用户域和车辆域的数据分析。',
+    model: { provider: 'deepseek', name: 'deepseek-flash', temperature: 0.1 },
+    skills: [],
+    mcp_servers: [],
+    tool_allowlist: [],
+    subagents: [],
+    plan: { enabled: false, require_approval: false, max_steps: 10, allow_replan: true },
+    compression: { enabled: true, trigger_tokens: 24000, keep_recent_messages: 12, summary_max_tokens: 3000, persist_summary: true },
+    rag: { enabled: false, tool_allowlist: [] },
+    workspace: { enabled: false, workspace_id: null, read_only: true, allowed_paths: [] },
+    sandbox: { enabled: false, image: null, timeout_seconds: 60, cpu_limit: null, memory_limit_mb: null, network_mode: 'none', allow_commands: [] },
+    max_steps: 20,
+  };
+
+  function newId(prefix) { return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; }
+  function runtimeBase() { return ($('baseUrl').value.trim() || 'http://127.0.0.1:8800').replace(/\/$/, ''); }
+  function bytesToBase64Url(bytes) {
+    let binary = '';
+    bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  async function sha256Hex(bytes) {
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+  }
+  async function hmacSignature(secret, canonical) {
+    const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(canonical));
+    return bytesToBase64Url(new Uint8Array(signature));
+  }
+  async function headers(method, path, body = '') {
+    const accessKey = $('accessKey').value.trim();
+    const secretKey = $('secretKey').value;
+    if (!accessKey || !secretKey) throw new Error('请填写 Runtime Access Key 和 Secret Key');
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    const nonce = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+    const bodyBytes = new TextEncoder().encode(body);
+    const bodyHash = await sha256Hex(bodyBytes);
+    const canonical = ['DATA_AGENT-HMAC-SHA256', accessKey, timestamp, nonce, method.toUpperCase(), path, '', bodyHash].join('\n');
+    return {
+      'Content-Type': 'application/json',
+      'X-Access-Key': accessKey,
+      'X-Timestamp': timestamp,
+      'X-Nonce': nonce,
+      'X-Content-SHA256': bodyHash,
+      'X-Signature-Version': 'DATA_AGENT-HMAC-SHA256',
+      'X-Signature': await hmacSignature(secretKey, canonical),
+    };
+  }
+  function setStatus(text, kind = '') { $('statusText').textContent = text; $('statusDot').className = `dot ${kind}`; }
+  function notice(text) { $('notice').textContent = text; $('notice').classList.add('show'); }
+  function clearNotice() { $('notice').textContent = ''; $('notice').classList.remove('show'); }
+  function logEvent(event) {
+    const line = `[${new Date().toLocaleTimeString()}] ${event.event_type || 'message'}${event.sequence ? ` #${event.sequence}` : ''}`;
+    $('eventLog').textContent = `${$('eventLog').textContent === '尚未提交任务' ? '' : `${$('eventLog').textContent}\n`}${line}`.slice(-6000);
+    $('eventLog').scrollTop = $('eventLog').scrollHeight;
+  }
+  function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c])); }
+  function inlineMarkdown(value) {
+    let html = escapeHtml(value);
+    html = html.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+    html = html.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    return html;
+  }
+  function markdown(value) {
+    const lines = String(value || '').replace(/\r/g, '').split('\n');
+    let html = '', inCode = false, code = [], table = false;
+    const flushTable = () => { if (table) { html += '</tbody></table>'; table = false; } };
+    for (let i = 0; i < lines.length; i += 1) {
+      const line = lines[i];
+      if (line.trim().startsWith('```')) {
+        flushTable();
+        if (!inCode) { inCode = true; code = []; } else { html += `<pre><code>${escapeHtml(code.join('\n'))}</code></pre>`; inCode = false; }
+        continue;
+      }
+      if (inCode) { code.push(line); continue; }
+      if (/^\s*\|.*\|\s*$/.test(line) && i + 1 < lines.length && /^\s*\|?\s*:?-{3,}/.test(lines[i + 1])) {
+        flushTable();
+        const cells = line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|');
+        html += `<table><thead><tr>${cells.map((c) => `<th>${inlineMarkdown(c.trim())}</th>`).join('')}</tr></thead><tbody>`;
+        table = true; i += 1; continue;
+      }
+      if (table && /^\s*\|.*\|\s*$/.test(line)) {
+        const cells = line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|');
+        html += `<tr>${cells.map((c) => `<td>${inlineMarkdown(c.trim())}</td>`).join('')}</tr>`; continue;
+      }
+      flushTable();
+      if (!line.trim()) { html += '<br>'; continue; }
+      if (/^###\s+/.test(line)) html += `<h4>${inlineMarkdown(line.replace(/^###\s+/, ''))}</h4>`;
+      else if (/^##\s+/.test(line)) html += `<h3>${inlineMarkdown(line.replace(/^##\s+/, ''))}</h3>`;
+      else if (/^#\s+/.test(line)) html += `<h2>${inlineMarkdown(line.replace(/^#\s+/, ''))}</h2>`;
+      else if (/^[-*]\s+/.test(line)) html += `<div>• ${inlineMarkdown(line.replace(/^[-*]\s+/, ''))}</div>`;
+      else html += `<div>${inlineMarkdown(line)}</div>`;
+    }
+    if (inCode) html += `<pre><code>${escapeHtml(code.join('\n'))}</code></pre>`;
+    flushTable();
+    return html;
+  }
+  function addMessage(role, content) {
+    const emptyState = $('messages').querySelector('.empty-state');
+    if (emptyState) emptyState.remove();
+    const wrap = document.createElement('div'); wrap.className = `message ${role}`;
+    const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = role === 'user' ? '你' : state.snapshot?.name || 'Agent';
+    const bubble = document.createElement('div'); bubble.className = 'bubble'; bubble.innerHTML = role === 'assistant' ? markdown(content) : escapeHtml(content).replace(/\n/g, '<br>');
+    wrap.append(meta, bubble); $('messages').appendChild(wrap); $('messages').scrollTop = $('messages').scrollHeight;
+    if (role === 'assistant') state.assistantNode = bubble;
+    return wrap;
+  }
+  function updateSnapshot(snapshot) {
+    state.snapshot = JSON.parse(JSON.stringify(snapshot || defaultSnapshot));
+    $('agentId').textContent = state.snapshot.id || '-'; $('agentName').textContent = state.snapshot.name || '-'; $('agentVersion').textContent = `v${state.snapshot.version ?? '-'}`;
+    $('modelName').textContent = state.snapshot.model?.name || '-'; $('skillCount').textContent = String(state.snapshot.skills?.length || 0); $('subagentCount').textContent = String(state.snapshot.subagents?.length || 0); $('title').textContent = state.snapshot.name || 'Python Agent Runtime';
+    const setCapability = (id, enabled) => {
+      const node = $(id);
+      if (node) node.classList.toggle('on', Boolean(enabled));
+    };
+    // 能力徽章根据当前加载的 Agent Snapshot 更新，不再使用静态假状态。
+    setCapability('capSkills', (state.snapshot.skills || []).length > 0);
+    setCapability('capMcp', (state.snapshot.mcp_servers || []).length > 0);
+    setCapability('capRag', Boolean(state.snapshot.rag?.enabled));
+    setCapability('capSse', true);
+    setCapability('capMemory', true);
+    setCapability('capSandbox', Boolean(state.snapshot.sandbox?.enabled));
+  }
+  function saveSettings() { ['baseUrl', 'accessKey', 'sessionId', 'userId', 'tenantId'].forEach((id) => storage.setItem(`runtime-chat.${id}`, $(id).value)); sessionStorage.setItem('runtime-chat.secretKey', $('secretKey').value); }
+  function loadSettings() {
+    $('baseUrl').value = storage.getItem('runtime-chat.baseUrl') || 'http://127.0.0.1:8800';
+    $('accessKey').value = storage.getItem('runtime-chat.accessKey') || '';
+    $('secretKey').value = sessionStorage.getItem('runtime-chat.secretKey') || '';
+    $('sessionId').value = storage.getItem('runtime-chat.sessionId') || newId('session');
+    $('userId').value = storage.getItem('runtime-chat.userId') || 'u-local'; $('tenantId').value = storage.getItem('runtime-chat.tenantId') || 'tenant-local';
+  }
+  async function checkHealth() {
+    clearNotice(); setStatus('检查中');
+    try { const response = await fetch(`${runtimeBase()}/v1/health`); const data = await response.json(); if (!response.ok) throw new Error(JSON.stringify(data)); setStatus(`健康 · ${data.service || 'runtime'}`, 'online'); }
+    catch (error) { setStatus('不可用', 'error'); notice(`健康检查失败：${error.message}`); }
+  }
+  async function loadExample() {
+    clearNotice();
+    try {
+      const response = await fetch('./run.json', { cache: 'no-store' }); if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json(); updateSnapshot(data.agent); $('sessionId').value = data.session_id || $('sessionId').value; $('userId').value = data.user_context?.user_id || $('userId').value; $('tenantId').value = data.user_context?.tenant_id || $('tenantId').value; $('mode').value = String(data.stream !== false); $('input').value = data.message || ''; saveSettings(); setStatus('已加载示例');
+    } catch (error) { notice(`加载 run.json 失败：${error.message}。请确认页面由 python3 -m http.server 提供。`); }
+  }
+  function eventPayload(event) { return event?.payload || event || {}; }
+  function handleEvent(event) {
+    if (!event || !event.event_type) return;
+    state.eventCount += 1; logEvent(event);
+    const payload = eventPayload(event);
+    if (event.event_type === 'agent_message_delta') { state.assistantRaw += payload.delta || ''; if (!state.assistantNode) addMessage('assistant', ''); state.assistantNode.innerHTML = markdown(state.assistantRaw); $('messages').scrollTop = $('messages').scrollHeight; }
+    if (event.event_type === 'run_completed') { if (!state.assistantNode || !state.assistantRaw) addMessage('assistant', payload.answer || '任务已完成，但没有返回文本。'); else if (payload.answer && payload.answer !== state.assistantRaw) state.assistantNode.innerHTML = markdown(payload.answer); finish(true, '已完成'); }
+    if (event.event_type === 'run_failed') { notice(payload.message || payload.error || 'Agent 执行失败'); finish(false, '执行失败'); }
+    if (event.event_type === 'run_cancelled') { notice('运行已取消'); finish(false, '已取消'); }
+  }
+  function finish(success, text) { state.busy = false; $('sendBtn').disabled = false; $('cancelBtn').disabled = true; setStatus(text, success ? 'online' : 'error'); $('hint').textContent = '等待新的问题'; if (state.eventSource) { state.eventSource.abort(); state.eventSource = null; } }
+  async function connectEvents(runId) {
+    if (state.eventSource) state.eventSource.abort();
+    const path = `/v1/runs/${encodeURIComponent(runId)}/events`;
+    const controller = new AbortController(); state.eventSource = controller;
+    try {
+      const response = await fetch(`${runtimeBase()}${path}`, { headers: await headers('GET', path, ''), signal: controller.signal });
+      if (!response.ok || !response.body) throw new Error(await response.text());
+      const reader = response.body.getReader(); const decoder = new TextDecoder(); let buffer = '';
+      while (true) {
+        const chunk = await reader.read(); if (chunk.done) break; buffer += decoder.decode(chunk.value, { stream: true });
+        const blocks = buffer.split('\n\n'); buffer = blocks.pop() || '';
+        blocks.forEach((block) => {
+          const data = block.split('\n').filter((line) => line.startsWith('data:')).map((line) => line.slice(5).trimStart()).join('\n');
+          if (data) { try { handleEvent(JSON.parse(data)); } catch (error) { console.warn('Invalid SSE event', error); } }
+        });
+      }
+      if (state.busy) finish(false, 'SSE 已结束');
+    } catch (error) {
+      if (error.name !== 'AbortError' && state.busy) { notice(`SSE 连接中断：${error.message}`); finish(false, 'SSE 断开'); }
+    }
+  }
+  async function cancelRun() {
+    if (!state.runId) return;
+    try { const response = await fetch(`${runtimeBase()}/v1/runs/${encodeURIComponent(state.runId)}/cancel`, { method: 'POST', headers: await headers('POST', `/v1/runs/${encodeURIComponent(state.runId)}/cancel`, '') }); if (!response.ok) throw new Error(await response.text()); $('hint').textContent = '已发出取消请求'; }
+    catch (error) { notice(`取消失败：${error.message}`); }
+  }
+  async function demo(message) {
+    state.assistantRaw = ''; addMessage('assistant', '');
+    const text = `这是浏览器演示模式，未调用 Python Runtime。\n\n已收到：${message}\n\n取消“只在浏览器演示”后，再提交到 ${runtimeBase()}。`;
+    for (const chunk of text.match(/.{1,8}/gs) || []) { await new Promise((resolve) => setTimeout(resolve, 35)); state.assistantRaw += chunk; state.assistantNode.innerHTML = markdown(state.assistantRaw); }
+    finish(true, '演示完成');
+  }
+  async function submit() {
+    if (state.busy) return;
+    const message = $('input').value.trim(); if (!message) return;
+    clearNotice(); saveSettings(); state.busy = true; state.assistantRaw = ''; state.assistantNode = null; state.eventCount = 0; $('sendBtn').disabled = true; $('cancelBtn').disabled = false; $('input').value = ''; addMessage('user', message);
+    state.runId = newId('run'); $('runId').textContent = state.runId; $('hint').textContent = '提交中'; setStatus('提交中'); $('eventLog').textContent = '尚未提交任务';
+    if ($('demoMode').checked) { await demo(message); return; }
+    const request = { run_id: state.runId, session_id: $('sessionId').value.trim() || state.runId, stream: $('mode').value === 'true', message, agent: state.snapshot, user_context: { user_id: $('userId').value.trim() || 'u-local', tenant_id: $('tenantId').value.trim() || 'tenant-local', roles: ['quality-analyst'], scopes: ['domain:vehicle'] } };
+    try {
+      const requestBody = JSON.stringify(request);
+      const response = await fetch(`${runtimeBase()}/v1/runs`, { method: 'POST', headers: await headers('POST', '/v1/runs', requestBody), body: requestBody });
+      const body = await response.text();
+      if (!response.ok) {
+        let detail = body || `HTTP ${response.status}`;
+        try { detail = JSON.parse(body).detail || detail; } catch (_) {}
+                throw new Error(detail);
+      }
+      const accepted = body ? JSON.parse(body) : {}; state.runId = accepted.run_id || state.runId; $('runId').textContent = state.runId; $('hint').textContent = '等待 Worker 执行'; setStatus('运行中', 'online'); connectEvents(state.runId);
+    } catch (error) { notice(`提交失败：${error.message}`); finish(false, '提交失败'); }
+  }
+  $('sendBtn').addEventListener('click', submit); $('cancelBtn').addEventListener('click', cancelRun); $('healthBtn').addEventListener('click', checkHealth); $('loadBtn').addEventListener('click', loadExample);
+  $('clearBtn').addEventListener('click', () => { $('messages').innerHTML = '<div class="empty-state"><div class="empty-state-inner"><div class="empty-glyph">›_</div><h2>开始一段 Agent 分析</h2><p>输入问题，Runtime 将通过 Worker 调度 DeepAgents、MCP 工具与本地 RAG。</p></div></div>'; state.assistantNode = null; state.assistantRaw = ''; state.runId = null; $('runId').textContent = '未开始'; });
+  $('input').addEventListener('keydown', (event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submit(); } });
+  ['baseUrl', 'sessionId', 'userId', 'tenantId'].forEach((id) => $(id).addEventListener('change', saveSettings));
+  loadSettings(); updateSnapshot(defaultSnapshot);
+</script>
+</body>
+</html>

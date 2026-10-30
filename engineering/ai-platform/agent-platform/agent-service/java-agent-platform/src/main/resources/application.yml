@@ -1,0 +1,46 @@
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+
+spring:
+  application:
+    name: data-agent-java-platform
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+      timeout: ${REDIS_TIMEOUT:2s}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+agent:
+  runtime:
+    base-url: ${PYTHON_RUNTIME_BASE_URL:http://127.0.0.1:8800}
+    access-key: ${INTERNAL_SERVICE_ACCESS_KEY:java-runtime-local}
+    secret-key: ${INTERNAL_SERVICE_SECRET_KEY:local-only-secret-change-me}
+    internal-token: ${INTERNAL_SERVICE_TOKEN:}
+    connect-timeout: ${PYTHON_RUNTIME_CONNECT_TIMEOUT:3s}
+    read-timeout: ${PYTHON_RUNTIME_READ_TIMEOUT:30s}
+  gateway:
+    access-key: ${GATEWAY_ACCESS_KEY:}
+    secret-key: ${GATEWAY_SECRET_KEY:}
+    internal-token: ${INTERNAL_SERVICE_TOKEN:}
+    sandbox:
+      access-key: ${SANDBOX_GATEWAY_ACCESS_KEY:}
+      secret-key: ${SANDBOX_GATEWAY_SECRET_KEY:}
+      enabled: ${JAVA_SANDBOX_GATEWAY_ENABLED:false}
+      command-execution-enabled: ${JAVA_SANDBOX_COMMAND_EXECUTION_ENABLED:false}
+
+  persistence:
+    # memory 适合本地快速启动；postgres 是生产推荐模式。
+    mode: ${AGENT_PERSISTENCE_MODE:memory}
+    jdbc-url: ${POSTGRES_JDBC_URL:jdbc:postgresql://127.0.0.1:5432/postgres}
+    username: ${POSTGRES_USERNAME:postgres}
+    password: ${POSTGRES_PASSWORD:}
+    pool-size: ${POSTGRES_POOL_SIZE:10}
