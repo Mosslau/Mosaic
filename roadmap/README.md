@@ -9,7 +9,7 @@
 | [books/books.md](books/books.md) | 全域 | 计算机书单：基础 / 网络 / 数据结构与算法 / 操作系统 / 编译原理等 |
 | [AI能力到企业底座-1-个人AI能力.md](AI能力到企业底座-1-个人AI能力.md) | 系列一 · 个人 | AI 能力 Level 1→10 的分级、判断维度与「AI 高手的一天」8 步作业流 |
 | [AI能力到企业底座-2-FDE岗位与方法.md](AI能力到企业底座-2-FDE岗位与方法.md) | 系列二 · FDE | FDE 岗位定义、五步工作流与进入企业的 8 阶段工程闭环 |
-| [AI能力到企业底座-3-企业落地与Agent平台.md](AI能力到企业底座-3-企业落地与Agent平台.md) | 系列三 · 企业工程 | 企业 AI 落地五阶段、30 步研发主流程、Agent 平台 / 开发 / 员工系统 / Java×Python×Rust 总体架构 |
+| [AI能力到企业底座-3-企业落地与Agent平台.md](AI能力到企业底座-3-企业落地与Agent平台.md) | 系列三 · 企业工程 | 企业 AI 落地五阶段、30 步研发主流程、Agent 平台架构（平台 × 开发双视角）、Agent 员工系统、Java×Python×Rust 总体架构 |
 | [AI能力到企业底座-4-数据底座.md](AI能力到企业底座-4-数据底座.md) | 系列四 · 数据 | 数据中台 / AI 中台 / AI 智能体的三层协同、15 个数据开发核心概念 |
 
 > 工程侧的落地：数据平台 → [`../engineering/data-platform/`](../engineering/data-platform/)（设计文档 v42，未实现）；AI 平台 → [`../engineering/ai-platform/`](../engineering/ai-platform/)（设计阶段 v10 待评审，`p5-agent-platform` 进行中，其余单元未开工）。
