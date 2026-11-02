@@ -3,7 +3,7 @@
 > 状态：✅ 已完成（2026-10-23）
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 5.4 章
 > 阅读路线：基础篇 → 进阶篇
-> 本族共 7 个实验，见 [族级导读](../README.md)。
+> 本族共 8 个算法，见 [族级导读](../README.md)。
 
 深度模型（判别式）：入口是 `ViT(d).fit(X, y)` / `predict(X)`，实现在 [impl.py](impl.py)；对照是展平像素 + 逻辑回归（`baseline.py`）。
 
@@ -41,7 +41,7 @@ flowchart TD
 ## 5. 白话版：ViT 与 CNN 的区别
 
 - CNN 局部卷积、平移等变；ViT 全局注意力、patch 间直接交互。
-- 小数据上 ViT 通常不如 CNN；本实验 8×8 digits 只有 1257 训练样本。
+- 小数据上 ViT 通常不如 CNN；本算法 8×8 digits 只有 1257 训练样本。
 - 本实现是 **ViT-lite**：单头、1 block、无 LayerNorm；不是标准 ViT。
 - 没有预训练/大规模数据，不能代表 ViT 的真实能力。
 
@@ -68,7 +68,7 @@ flowchart TD
 | 1 说清 | 复述 patch/attention | 本文 |
 | 2 走通 | 手算注意力 | 手算示例 |
 | 3 判断 | ViT vs CNN/小数据 | 白话版 |
-| 4 实现 | 跑 demo | 实验结果 |
+| 4 实现 | 跑 demo | 算法结果 |
 | 5 迁移 | 新图分类 | project |
 
 # 进阶篇
@@ -79,7 +79,7 @@ flowchart TD
 |---|---|
 | [impl.py](impl.py) | patch embedding、单头注意力、反向 |
 | [demo.py](demo.py) | digits 训练/评估 |
-| [test_impl.py](test_impl.py) | 8 个测试 |
+| [test_impl.py](test_impl.py) | 15 个测试（含 6 组参数 FD、3 seed 方差） |
 | [make_teaching_assets.py](make_teaching_assets.py) | 素材 |
 | [exercises/](exercises/README.md) | 5 题 |
 | [project/](project/README.md) | 小图分类 |
@@ -104,9 +104,9 @@ flowchart TD
 
 ## 4. 框架对照
 
-本实验未接 `nn.Transformer`；CNN 对照见 p03 `cnn-lenet`。
+本算法未接 `nn.Transformer`；CNN 对照见 p03 `cnn-lenet`。
 
-## 5. 实验结果
+## 5. 算法结果
 
 8×8 digits，1257 训练 / 540 测试，d=64，200 轮：
 
@@ -114,14 +114,19 @@ flowchart TD
 |---|---|
 | loss | 3.233 → **0.231** |
 | 测试 acc | **0.904**（逻辑回归基线 0.970） |
-| 训练 | 3.6s |
+| 训练 | 3.4s |
 
-**验证**：2026-10-23 实跑；`pytest` → **8 passed**；素材对账通过。
+**seed 方差（d=16，100 轮，测试集同切分）**：0.608 / 0.728 / 0.608（3 seeds），
+说明单点 0.904 不是“稳定 0.9”；ViT-lite 无 LN、无预训练，对初始化敏感。
+
+**验证**：2026-11-02 复跑；`pytest` → **15 passed**
+（patch embedding / attention / FFN / classifier 六组参数 FD，3 seed 方差）；
+`demo.py` 0.9037 vs 逻辑回归 0.9704；素材对账通过。
 
 ## 6. 局限与延伸
 
 - ViT-lite：单头、1 block、无 LayerNorm；
-- 小数据，CNN 可能更强；
+- 小数据，CNN 可能更强；demo 单点 0.904，但 3 seed 只有 0.608–0.728；
 - 无预训练/数据增广；
 - 训练对 lr 敏感（0.2 会 NaN）；
 - 下游：标准 ViT/DeiT/Swin → 检测/分割。

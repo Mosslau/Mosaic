@@ -12,7 +12,7 @@
 import numpy as np
 import pytest
 from impl import KDE, LOF, IsolationForest, _c
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import average_precision_score, roc_auc_score
 
 
 def make_data(n_normal=240, n_out=30, seed=0):
@@ -63,6 +63,32 @@ def test_kde_scores() -> None:
     s = model.score_samples(X_te)
     assert s[y == 1].mean() > s[y == 0].mean()
     assert roc_auc_score(y, s) > 0.9
+
+
+def make_hard_data(n_normal=240, n_out=30, seed=0):
+    """双峰正常数据 + 靠近簇边缘的异常：不再是一个远离的 [4,4] 团。"""
+    rng = np.random.default_rng(seed)
+    normal = np.vstack([
+        rng.normal([-2, 0], 1, size=(n_normal // 2, 2)),
+        rng.normal([2, 0], 1, size=(n_normal // 2, 2)),
+    ])
+    out = rng.normal([2.5, 1.5], 0.8, size=(n_out, 2))
+    X_tr = normal[:200]
+    X_te = np.vstack([normal[200:], out])
+    y = np.array([0] * (n_normal - 200) + [1] * n_out)
+    return X_tr, X_te, y
+
+
+def test_harder_data_is_not_trivial() -> None:
+    """旧数据三方法 AUC=1.0，区分不了；双峰 + 边缘异常应落在 0.6–0.95。"""
+    X_tr, X_te, y = make_hard_data()
+    for model in (IsolationForest(n_trees=80, random_state=0),
+                  LOF(n_neighbors=20), KDE()):
+        s = model.fit(X_tr).score_samples(X_te)
+        auc = roc_auc_score(y, s)
+        ap = average_precision_score(y, s)
+        assert 0.6 < auc < 0.95, (type(model).__name__, auc)
+        assert ap > 0.5, (type(model).__name__, ap)
 
 
 def test_matches_sklearn_auc() -> None:

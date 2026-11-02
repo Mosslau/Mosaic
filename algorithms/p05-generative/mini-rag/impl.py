@@ -151,9 +151,16 @@ class Pipeline:
         self.index = index
         self.generator = generator
 
-    def query(self, text: str, top_k: int = 3) -> Answer:
+    def query(self, text: str, top_k: int = 3, cite_top_k: int = 1) -> Answer:
+        """检索 top_k，但只把前 cite_top_k 条作为引用。
+
+        这样"引用命中率"（top-1）与"检索 Recall@k"（top-k）是两个指标，
+        不再互相冒充；默认引用 top-1，符合"答案只标最直接来源"。
+        """
+        if cite_top_k < 1:
+            raise ValueError("cite_top_k 必须 >=1")
         hits = self.index.search(text, top_k)
-        return Answer(self.generator.generate(text, hits), hits)
+        return Answer(self.generator.generate(text, hits), hits[:cite_top_k])
 
 
 if __name__ == "__main__":

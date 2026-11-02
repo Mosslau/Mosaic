@@ -58,7 +58,7 @@ from impl import Generator, Index, Pipeline  # noqa: E402
 
 
 def setup():
-    idx = Index(chunk_size=200, overlap=40).build(D.DOCS)
+    idx = Index(chunk_size=60, overlap=10).build(D.DOCS)
     return idx, Pipeline(idx, Generator())
 
 

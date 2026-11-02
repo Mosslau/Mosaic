@@ -2,8 +2,8 @@
 
 > 状态：✅ 已完成（2026-10-23）
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 4.5 章
-> 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现实验读「进阶篇」
-> 本族共 3 个实验，学习顺序与计划见 [族级导读](../README.md)。
+> 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现读「进阶篇」
+> 本族共 3 个算法，学习顺序与计划见 [族级导读](../README.md)。
 
 生成模型（深度模型 · 生成式）：入口 `VAE(latent_dim, beta).fit(X)` / `encode(X)` / `reconstruct(X)` / `sample(n)` / `interpolate(z1,z2,n)`；实现在 [impl.py](impl.py)，对照是 [framework.py](framework.py) 的 PyTorch VAE。**没有 `fit(X,y)`**：无监督，目标是 `X` 自己 + KL 正则。
 
@@ -81,7 +81,7 @@ flowchart TD
 - **❌ "直接采样 z 也能反传"** —— 采样不可导；必须重参数化。
 - **❌ "VAE 的 loss 是重构 MSE"** —— 是 ELBO；重构只是其中一项。
 - **❌ "VAE 生成一定比 AE 清晰"** —— 2D latent 下 VAE 通常更模糊；它换的是可采样性。
-- **❌ "latent 维度越高越好"** —— 高维更容易忽略 latent；本实验用 2D 讲故事。
+- **❌ "latent 维度越高越好"** —— 高维更容易忽略 latent；本算法用 2D 讲故事。
 
 ## 7. 看图：重构、latent、采样与插值
 
@@ -103,12 +103,12 @@ latent 线性插值，解码结果连续变化。
 
 ## 8. 掌握清单：五级能力与自测
 
-| 级别 | 能力 | 本实验的检验方式 | 在哪做 |
+| 级别 | 能力 | 本算法的检验方式 | 在哪做 |
 |---|---|---|---|
 | 1 说清 | 用自己的话讲规则 | 说出 μ/logσ²、重参数化、ELBO、KL | 基础篇「核心量」「白话版」 |
 | 2 走通 | 纸上手算 | `μ=1` 的 KL；`ε=0.5` 的 z | 基础篇「手算示例」节 |
-| 3 判断 | 说清正确性条件 | 解释 KL、重参数化、beta、2D 模糊 | 基础篇「白话版」+ 实验二 |
-| 4 实现 | 手写并与对照比对 | 跑通 `demo.py`，梯度/ELBO 检查 | 进阶篇「实验结果」 |
+| 3 判断 | 说清正确性条件 | 解释 KL、重参数化、beta、2D 模糊 | 基础篇「白话版」+ 验证二 |
+| 4 实现 | 手写并与对照比对 | 跑通 `demo.py`，梯度/ELBO 检查 | 进阶篇「算法结果」 |
 | 5 迁移 | 用到新问题 | 采样 + 插值生成 | [project/](project/README.md) |
 
 **自测关卡（先预测，再跑代码验证）**：
@@ -118,7 +118,7 @@ latent 线性插值，解码结果连续变化。
 3. beta 从 0.1 加到 4，重构会变好还是变差？
 4. VAE 重构比 AE 差，为什么还值得学？
 
-# 进阶篇 · 实验档案
+# 进阶篇 · 算法档案
 
 ## 目录形态（本算法的"类型"）
 
@@ -150,7 +150,7 @@ $$-D_{KL}=\frac12\sum_j(1+\log\sigma_j^2-\mu_j^2-\sigma_j^2)$$
 **重参数化梯度**：`∂z/∂μ=1`，`∂z/∂logσ²=0.5·σ·ε`。
 
 **损失缩放**：重构项按“每个样本对 64 个像素求和、再对 batch 平均”，KL 按样本平均；
-否则重构项会被 64 除，KL 直接压垮 latent（本实验实现时踩过这个坑）。
+否则重构项会被 64 除，KL 直接压垮 latent（本算法实现时踩过这个坑）。
 
 ## 3. 手写实现要点
 
@@ -173,7 +173,7 @@ torch 版同结构（64→32→μ/logσ²→2→32→64），同 ELBO 口径。
 | 反向 | 手写链式 | autograd |
 | 速度 | 教学优先 | 融合算子 |
 
-## 5. 实验结果
+## 5. 算法结果
 
 **环境**：uv（`uv sync --extra deep-learning --extra dev`），Python 3.13.15 /
 numpy 2.5.4 / scikit-learn 1.9.1 / torch 2.14.1；CPU。
@@ -181,14 +181,14 @@ numpy 2.5.4 / scikit-learn 1.9.1 / torch 2.14.1；CPU。
 **复现**：本目录内 `uv run python demo.py`、`uv run pytest test_impl.py -q`、
 `uv run python make_teaching_assets.py`。
 
-**实验一：VAE vs p03 AE（latent=2）**
+**验证一：VAE vs p03 AE（latent=2）**
 
 | 模型 | test MSE | KL | 耗时 | 能采样？ |
 |---|---|---|---|---|
 | VAE（beta=1） | 0.0608 | 0.342 | ≈0.5s | ✅ |
 | AE（p03） | **0.0381** | — | — | ❌ |
 
-**实验二：beta 权衡**
+**验证二：beta 权衡**
 
 | beta | test MSE | KL |
 |---|---|---|
@@ -196,12 +196,12 @@ numpy 2.5.4 / scikit-learn 1.9.1 / torch 2.14.1；CPU。
 | 1.0 | 0.0608 | 0.342 |
 | 4.0 | 0.0742 | 0.000 |
 
-**实验三：采样/插值**
+**验证三：采样/插值**
 
 - `sample(8)` 形状 `(8,64)`，范围约 `[0,0.89]`；
 - 插值 5 帧，相邻 L2 平均约 `0.076`。
 
-**实验四：手写 vs torch**
+**验证四：手写 vs torch**
 
 手写 test MSE 0.0608 / ≈0.5s；torch 0.0598 / ≈0.7s。
 
@@ -222,7 +222,7 @@ numpy 2.5.4 / scikit-learn 1.9.1 / torch 2.14.1；CPU。
 - **beta=4 时 posterior collapse**：KL→0、重构退化；需要 warm-up/自由比特。
 - **MSE 重构**：二值图像可换 Bernoulli 交叉熵。
 - **没有卷积**：8×8 平板 MLP；更大图像要 ConvVAE。
-- **没有更丰富先验**：本实验只 `N(0,I)`；层次 VAE/vampPrior 未做。
+- **没有更丰富先验**：本算法只 `N(0,I)`；层次 VAE/vampPrior 未做。
 - **采样质量没有 FID**：只看样例/重构 MSE。
 - **下游**：β-VAE/ConvVAE → VQ-VAE → Diffusion（p05 下一个）。
 
@@ -244,8 +244,8 @@ numpy 2.5.4 / scikit-learn 1.9.1 / torch 2.14.1；CPU。
 - **`sample()` 每次用同一 `random_state` 新建 RNG**：重复调用会得到同一批先验样本；
   想要不同样本应传不同 `random_state` 或改持久 RNG。
 - **输入固定 64 维**：只适配 8×8 digits；换数据要改 `data_dim`/网络结构。
-- **2D latent 生成模糊**：数字块；高维/卷积会改善，但本实验为了可视化选 2D。
+- **2D latent 生成模糊**：数字块；高维/卷积会改善，但本算法为了可视化选 2D。
 - **beta=4 已 posterior collapse**：KL→0、重构退化；没有 KL warm-up/自由比特。
-- **MSE 重构**：二值图像可换 Bernoulli 交叉熵，本实验只做 MSE。
+- **MSE 重构**：二值图像可换 Bernoulli 交叉熵，本算法只做 MSE。
 - **没有 test log-likelihood/FID**：只报 MSE/KL 和样例。
 - **没有 early stopping**：固定 100 轮。

@@ -2,8 +2,8 @@
 
 > 状态：✅ 已完成（2026-10-23）
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 4.3.1 章
-> 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现实验读「进阶篇」
-> 本族共 8 个实验，学习顺序与补强计划见 [族级导读](../README.md)。
+> 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现读「进阶篇」
+> 本族共 11 个算法，学习顺序与补强计划见 [族级导读](../README.md)。
 
 深度模型（判别式）：入口 `LeNet(use_bn, use_residual).fit(X, y)` / `predict(X)`，输入 `(N,1,8,8)`；实现在 [impl.py](impl.py)，对照是 [framework.py](framework.py) 的 PyTorch `Conv2d + BatchNorm2d + MaxPool2d`。
 
@@ -12,9 +12,9 @@
 **CNN 是一类网络架构范式，LeNet 是其中一个具体的早期模型。** 不是并列关系，
 而是“手机”和“iPhone”的关系：CNN 包含 LeNet、AlexNet、VGG、ResNet、ConvNeXt……
 
-本实验用 **8×8 digits 上的 LeNet 风格网络**讲清 CNN 的机制，不是复刻原版 LeNet-5：
+本算法用 **8×8 digits 上的 LeNet 风格网络**讲清 CNN 的机制，不是复刻原版 LeNet-5：
 
-| 维度 | LeNet-5 原版（1998） | 本实验的 LeNet 风格 |
+| 维度 | LeNet-5 原版（1998） | 本算法的 LeNet 风格 |
 |---|---|---|
 | 输入 | 32×32 灰度 | 8×8 灰度（digits） |
 | 卷积核 | 5×5 | 3×3 |
@@ -118,7 +118,7 @@ flowchart TD
 不能覆盖。这是卷积反向最容易写错的地方。
 
 **BN 修什么**：每层输入分布随参数变化，训练不稳；BN 把它标准化，允许更大学习率。
-**残差修什么**：深层网络难训；`x + F(x)` 给梯度一条捷径。本实验在 conv2 上加 1×1 skip。
+**残差修什么**：深层网络难训；`x + F(x)` 给梯度一条捷径。本算法在 conv2 上加 1×1 skip。
 
 ## 6. 常见误区
 
@@ -126,7 +126,7 @@ flowchart TD
 - **❌ "池化反向把梯度平均分给窗口"** —— 最大池化只回传给 argmax；平均池化才平均。
 - **❌ "col2im 直接赋值就行"** —— 重叠窗口必须累加，否则梯度丢一半。
 - **❌ "BN 训练和推理一样"** —— 训练用 batch 统计，推理用 running 统计。
-- **❌ "残差一定要加在主分支"** —— 通道/尺寸不匹配要先 1×1 投影；本实验 skip 用 1×1。
+- **❌ "残差一定要加在主分支"** —— 通道/尺寸不匹配要先 1×1 投影；本算法 skip 用 1×1。
 - **❌ "CNN 一定比 MLP 强"** —— 8×8 小图上线性基线/MLP 仍很强；CNN 的收益在更大图像。
 
 ## 7. 看图：损失、BN/残差、特征图与卷积核
@@ -149,12 +149,12 @@ conv1 的 6 个通道对同一张数字的响应不同：有的抓边缘，有�
 
 ## 8. 掌握清单：五级能力与自测
 
-| 级别 | 能力 | 本实验的检验方式 | 在哪做 |
+| 级别 | 能力 | 本算法的检验方式 | 在哪做 |
 |---|---|---|---|
 | 1 说清 | 用自己的话讲规则 | 说出卷积/池化/im2col/BN/残差各是什么 | 基础篇「核心量」「白话版」 |
 | 2 走通 | 纸上手算 | 2×2 卷积的 3×3 输出 + 2×2 池化 | 基础篇「手算示例」节 |
-| 3 判断 | 说清正确性条件 | 解释 col2im 累加、池化 argmax、BN train/eval | 练习 3 + 实验三 |
-| 4 实现 | 手写并与对照比对 | 跑通 `demo.py`，算子伴随检查通过 | 进阶篇「实验结果」 |
+| 3 判断 | 说清正确性条件 | 解释 col2im 累加、池化 argmax、BN train/eval | 练习 3 + 验证三 |
+| 4 实现 | 手写并与对照比对 | 跑通 `demo.py`，算子伴随检查通过 | 进阶篇「算法结果」 |
 | 5 迁移 | 用到新问题 | 8×8 digits 10 分类，比较 MLP/线性/CNN | [project/](project/README.md) |
 
 **自测关卡（先预测，再跑代码验证）**：
@@ -164,7 +164,7 @@ conv1 的 6 个通道对同一张数字的响应不同：有的抓边缘，有�
 3. col2im 如果把重叠窗口改成赋值，梯度会变大还是变小？
 4. BN 在训练/推理时分别用哪组均值方差？
 
-# 进阶篇 · 实验档案
+# 进阶篇 · 算法档案
 
 ## 目录形态（本算法的"类型"）
 
@@ -173,7 +173,7 @@ conv1 的 6 个通道对同一张数字的响应不同：有的抓边缘，有�
 | [impl.py](impl.py) | 手写实现 | im2col/col2im、maxpool、Conv2D、BatchNorm、Linear、LeNet |
 | [framework.py](framework.py) | PyTorch 对照 | `TorchLeNet`，支持 use_bn/use_residual |
 | [demo.py](demo.py) | 同数据双跑 | 基线 / BN+残差 / 算子伴随检查 |
-| [test_impl.py](test_impl.py) | 性质测试 | im2col/池化伴随、形状、训练、BN+残差、契约 |
+| [test_impl.py](test_impl.py) | 性质测试 | im2col/池化伴随、7 组参数 FD、heldout、torch smoke、契约 |
 | [make_teaching_assets.py](make_teaching_assets.py) | 素材生成 + 对账 | 损失 / BN 残差 / 特征图 / 卷积核 GIF |
 | [exercises/](exercises/README.md) | 练习（5 题，题解分离） | 概念、手算、诊断、实现、迁移 |
 | [project/](project/README.md) | 迁移项目 | 8×8 digits：手写 LeNet vs torch vs 线性 |
@@ -181,7 +181,7 @@ conv1 的 6 个通道对同一张数字的响应不同：有的抓边缘，有�
 ## 1. 设计原理
 
 LeNet 用"卷积 + 池化"利用图像的空间局部性：卷积核共享、池化降采样。
-本实验把卷积写成 im2col 矩阵乘，把池化写成 argmax 路由，再补 BN/残差，
+本算法把卷积写成 im2col 矩阵乘，把池化写成 argmax 路由，再补 BN/残差，
 目的是让读者能自己写出 CNN 的前向/反向，而不是只调 `nn.Conv2d`。
 
 ## 2. 数学推导
@@ -233,7 +233,7 @@ torch 的 `Conv2d + BatchNorm2d + MaxPool2d + Linear` 与手写版同数据、�
 
 **不是“算法不同”，而是实现/优化细节**；修复 `Conv2D.dW` 轴序后，两边已基本对齐。
 
-## 5. 实验结果
+## 5. 算法结果
 
 **环境**：uv（`uv sync --extra deep-learning --extra dev`），Python 3.13.15 /
 numpy 2.5.4 / scikit-learn 1.9.1 / torch 2.14.1；CPU。
@@ -241,14 +241,14 @@ numpy 2.5.4 / scikit-learn 1.9.1 / torch 2.14.1；CPU。
 **复现**：本目录内 `uv run python demo.py`、`uv run pytest test_impl.py -q`、
 `uv run python make_teaching_assets.py`。
 
-**实验一：手写 vs torch（100 轮）**
+**验证一：手写 vs torch（100 轮）**
 
 | 方法 | 训练 acc | 测试 acc | 末轮 loss | 耗时（s） |
 |---|---|---|---|---|
 | 手写 | 0.9748 | 0.9748 | 0.0017 | ≈3.0 |
 | torch | 1.0000 | **0.9698** | 0.0008 | ≈21 |
 
-**实验二：BatchNorm / 残差（手写，100 轮）**
+**验证二：BatchNorm / 残差（手写，100 轮）**
 
 | 配置 | 测试 acc | 末轮 loss |
 |---|---|---|
@@ -257,13 +257,18 @@ numpy 2.5.4 / scikit-learn 1.9.1 / torch 2.14.1；CPU。
 | +Residual | 0.9824 | 0.0007 |
 | +BN+Residual | **0.9874** | **0.0003** |
 
-**实验三：算子伴随检查**
+**验证三：算子伴随检查**
 
 `<im2col(X),G>=0.334417`，`<X,col2im(G)>=0.334417`；
 `<pool(X),G>=4.772660`，`<X,pool'(G)>=4.772660`，误差 <1e-10。
 
-**验证声明（已验证）**：输入为上述数据与种子；2026-10-22 在 uv 环境实跑，
-`uv run python demo.py` 输出上表；`uv run pytest test_impl.py -q` → **8 passed**；
+**反向 FD（2026-11-02 新增）**：conv1 / conv2 / fc1 / fc2 / bn1.gamma /
+bn2.gamma / skip.W 七组参数，中心差分与手写梯度误差 <1e-4；这是旧版缺的
+"卷积/BN/残差反向数值验证"。另有 heldout 10 轮 acc >0.6 与 torch 2 轮 smoke。
+
+**验证声明（已验证）**：输入为上述数据与种子；2026-11-02 复跑，
+`uv run python demo.py` 输出上表；`uv run pytest test_impl.py -q` → **17 passed**
+（含 7 组 FD、heldout、torch smoke）；
 `uv run python make_teaching_assets.py` 对账通过（10 轮 >0.6；im2col 伴随 <1e-8）。
 
 **可视化结论**：
@@ -290,10 +295,10 @@ numpy 2.5.4 / scikit-learn 1.9.1 / torch 2.14.1；CPU。
 
 ## 6. 局限与延伸
 
-- **8×8 太小**：CNN 的收益在 28×28/更大图像上更明显；本实验手写版已与 torch 对齐；是否胜过 MLP 取决于训练预算。
+- **8×8 太小**：CNN 的收益在 28×28/更大图像上更明显；本算法手写版已与 torch 对齐；是否胜过 MLP 取决于训练预算。
 - **手写实现慢**：Python 循环 + im2col，无 MKL；只适合教学规模。
 - **没有现代 CNN**：无 VGG/ResNet/Inception；残差只做 1×1 skip。
-- **BN 的数值细节**：running stats 的 momentum、eval 模式要分清；本实验只做基础版。
+- **BN 的数值细节**：running stats 的 momentum、eval 模式要分清；本算法只做基础版。
 - **下游**：更深 CNN（ResNet）→ 检测/分割（4.3.2–4.3.4）→ 序列模型 RNN/Transformer。
 
 **已记录、不阻塞**：

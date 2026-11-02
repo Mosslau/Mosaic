@@ -5,20 +5,8 @@ from __future__ import annotations
 import time
 
 import numpy as np
-from impl import DQN, GOAL, GridWorld
-
-
-def random_policy(episodes=20, seed=0):
-    rng = np.random.default_rng(seed)
-    env = GridWorld()
-    wins = []
-    for _ in range(episodes):
-        env.reset()
-        done = False
-        while not done:
-            _, _, done = env.step(int(rng.integers(4)))
-        wins.append(1.0 if env.pos == GOAL else 0.0)
-    return float(np.mean(wins))
+from baseline import evaluate_q, random_policy, tabular_q
+from impl import DQN
 
 
 def main() -> None:
@@ -30,9 +18,12 @@ def main() -> None:
     print(f"训练 {dt:.2f}s；末 100 轮成功率 {np.mean(m.success[-100:]):.2f}")
     print(f"贪心评估成功率 {m.evaluate(20):.2f}")
     print(f"随机策略成功率 {random_policy(20):.2f}")
+    Q = tabular_q(episodes=1000, alpha=0.1, gamma=0.9, epsilon=0.2, seed=0)
+    print(f"表格 Q 基线成功率 {evaluate_q(Q):.2f}（无 replay / 无 target）")
     print(f"loss {m.loss_history[0]:.3f} → {m.loss_history[-1]:.3f}")
     print(f"策略（每个格子的动作）：{m.policy()}")
     assert m.evaluate(20) >= 0.8
+    assert evaluate_q(Q) >= 0.8
 
 
 if __name__ == "__main__":

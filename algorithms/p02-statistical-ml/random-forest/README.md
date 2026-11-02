@@ -2,8 +2,8 @@
 
 > 状态：✅ 已完成（2026-10-21）
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 3.3.1 章（集成学习 · Bagging 系列）
-> 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现实验读「进阶篇」
-> 本族共 14 个实验，学习顺序与选读建议见 [族级导读](../README.md)。
+> 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现读「进阶篇」
+> 本族共 14 个算法，学习顺序与选读建议见 [族级导读](../README.md)。
 
 监督估计器（统计机器学习族）：入口是 `RandomForest(n_trees, max_features, max_depth, random_state).fit(X, y) / predict(X) / predict_proba(X)`，实现在 [impl.py](impl.py)；对照是 [framework.py](framework.py) 的 sklearn `RandomForestClassifier`。它是 [决策树](../decision-tree/) 的 bagging 集成：**不新学划分准则，而是用随机性把很多棵树"平均"稳**。
 
@@ -102,12 +102,12 @@ $$\text{Var}=\rho\sigma^2+\frac{1-\rho}{B}\sigma^2$$
 
 ## 8. 掌握清单：五级能力与自测
 
-| 级别 | 能力 | 本实验的检验方式 | 在哪做 |
+| 级别 | 能力 | 本算法的检验方式 | 在哪做 |
 |---|---|---|---|
 | 1 说清 | 用自己的话讲规则 | 说出 bootstrap、max_features、OOB、重要性各是什么；解释 `ρ` 为什么关键 | 基础篇「核心量」「白话版」 |
 | 2 走通 | 纸上手算 | 给定 bootstrap 下标，写出 OOB 集合；给三棵树投票算 OOB 判断 | 基础篇「手算示例」节 |
 | 3 判断 | 说清正确性条件 | 写出方差分解公式；解释 OOB 的前提与重要性的偏差 | 进阶篇「数学推导」 |
-| 4 实现 | 手写并与对照比对 | 跑通 `demo.py`，解释 OOB 与测试的关系、重要性排序 | 进阶篇「实验结果」 |
+| 4 实现 | 手写并与对照比对 | 跑通 `demo.py`，解释 OOB 与测试的关系、重要性排序 | 进阶篇「算法结果」 |
 | 5 迁移 | 用到新问题 | 在真实多分类数据上用 OOB 选树数，并解释重要性 | [project/](project/README.md) |
 
 **自测关卡（先预测，再跑代码验证）**：
@@ -117,7 +117,7 @@ $$\text{Var}=\rho\sigma^2+\frac{1-\rho}{B}\sigma^2$$
 3. 为什么 OOB 精度通常略高于测试精度？
 4. 两个高度相关的特征，重要性会怎么分？
 
-# 进阶篇 · 实验档案
+# 进阶篇 · 算法档案
 
 ## 目录形态（本算法的"类型"）
 
@@ -125,7 +125,7 @@ $$\text{Var}=\rho\sigma^2+\frac{1-\rho}{B}\sigma^2$$
 |---|---|---|
 | [impl.py](impl.py) | 手写实现 | `_Tree`（特征随机 CART）+ `RandomForest`（bootstrap、OOB、重要性） |
 | [framework.py](framework.py) | 框架对照 | sklearn `RandomForestClassifier`（OOB、`n_jobs`） |
-| [demo.py](demo.py) | 同数据双跑 | 五组实验：单树/森林 / 树数 / max_features / 重要性 / 稳定性 |
+| [demo.py](demo.py) | 同数据双跑 | 五组验证：单树/森林 / 树数 / max_features / 重要性 / 稳定性 |
 | [test_impl.py](test_impl.py) | 性质测试 | OOB 比例、max_features、集成增益、OOB 一致性、重要性、契约 |
 | [make_teaching_assets.py](make_teaching_assets.py) | 素材生成 + 对账 | 边界对比 / 树数曲线 / 重要性 / 投票动画 |
 | [exercises/](exercises/README.md) | 练习（5 题，题解分离） | 概念、手算、诊断、实现、迁移 |
@@ -186,7 +186,7 @@ sklearn `RandomForestClassifier` 与手写版同口径（bootstrap + `sqrt(p)` +
 差异在工程：sklearn 用 C 实现、多核并行、预排序/分箱与更成熟的随机数管理；
 数学目标一致。OOB 相同说明"未入袋投票"的口径对上了。
 
-## 5. 实验结果
+## 5. 算法结果
 
 **环境**：uv 环境（`uv sync --extra dev`），Python 3.13.15 / numpy 2.5.4 / scikit-learn 1.9.1。
 **数据**：moons（`n=300`，`noise=0.25`，`seed=0`，70/30 分层切分）；高维合成数据
@@ -194,7 +194,7 @@ sklearn `RandomForestClassifier` 与手写版同口径（bootstrap + `sqrt(p)` +
 **复现**：本目录内 `uv run python demo.py`、`uv run pytest test_impl.py -q`、
 `uv run python make_teaching_assets.py`。
 
-**实验一：单棵树 vs 森林（moons，100 棵）**
+**验证一：单棵树 vs 森林（moons，100 棵）**
 
 | 方法 | 训练 acc | 测试 acc | OOB | 耗时（ms） |
 |---|---|---|---|---|
@@ -202,7 +202,7 @@ sklearn `RandomForestClassifier` 与手写版同口径（bootstrap + `sqrt(p)` +
 | 手写 森林（100 棵） | 1.0000 | **0.9444** | 0.9524 | 256.0 |
 | sklearn 森林（100 棵） | 1.0000 | 0.9333 | 0.9524 | 43.8 |
 
-**实验二：树数扫描**
+**验证二：树数扫描**
 
 | n_trees | 训练 acc | 测试 acc | OOB |
 |---|---|---|---|
@@ -216,7 +216,7 @@ sklearn `RandomForestClassifier` 与手写版同口径（bootstrap + `sqrt(p)` +
 
 树数增加后 OOB 从 0.9155 升到 0.9524，50–100 棵后基本饱和。
 
-**实验三：max_features 扫描（p=12）**
+**验证三：max_features 扫描（p=12）**
 
 | max_features | 测试 acc | OOB |
 |---|---|---|
@@ -228,7 +228,7 @@ sklearn `RandomForestClassifier` 与手写版同口径（bootstrap + `sqrt(p)` +
 
 每次只看 1 个特征太弱；给到 3–6 个后明显改善。`sqrt` 是常用默认，不是最优保证。
 
-**实验四：特征重要性（前 6）**
+**验证四：特征重要性（前 6）**
 
 | rank | 特征 | 手写 | sklearn |
 |---|---|---|---|
@@ -241,7 +241,7 @@ sklearn `RandomForestClassifier` 与手写版同口径（bootstrap + `sqrt(p)` +
 
 重要性前 4 正好是真特征 x0–x3；手写与 sklearn 的排序与量级一致。
 
-**实验五：稳定性（10 个随机种子）**
+**验证五：稳定性（10 个随机种子）**
 
 | 模型 | 测试 acc 均值 | 标准差 |
 |---|---|---|

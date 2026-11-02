@@ -4,8 +4,9 @@
 
 产出（`images/` 目录）：
     01-扩展顺序.png    同一张 5×5 小图上，DFS / BFS / UCS 的扩展顺序（第几步取出）
-    02-代价与内存.png  带权图上 BFS 的次优程度 + 三个算法的边界峰值对比 + UCS vs A*
+    02-代价与内存.png  带权图上 BFS 的次优程度 + 三个算法的边界峰值对比
     03-扩展动画.gif    DFS 在 5×5 小图上的逐步扩展（看清"一条路插到底"）
+    04-UCS-vs-A.png    同一张 21×21 图上 UCS / A*(insertion) / A*(large_g) 的扩展数
 
 流程图不在这里——优先 Mermaid 直接写进 README（见 visual-assets.md）。
 
@@ -275,6 +276,34 @@ def make_animation(order: dict) -> None:
     plt.close(fig)
 
 
+def make_ucs_astar_chart(ucs_astar: dict) -> None:
+    """UCS 与 A* 的扩展节点数对照：同样最优，h 把搜索拉向目标。"""
+    labels = ["UCS（无 h）", "A*（insertion）", "A*（large_g）"]
+    vals = [ucs_astar["ucs"].expanded, ucs_astar["astar_insertion"].expanded,
+            ucs_astar["astar_large_g"].expanded]
+    colors = [COLOR["ucs"], COLOR["bfs"], COLOR["hl"]]
+
+    fig, ax = plt.subplots(figsize=(9.6, 5.2))
+    xs = np.arange(len(labels))
+    ax.bar(xs, vals, width=0.55, color=colors)
+    for x, v in zip(xs, vals):
+        ax.text(x, v + max(vals) * 0.015, f"{v:,}", ha="center", fontsize=11)
+    ax.set_xticks(xs)
+    ax.set_xticklabels(labels, fontsize=10.5)
+    ax.set_ylabel("扩展节点数（同一张 21×21 无权地图）", fontsize=12)
+    ax.set_title(f"同样最优，A*（large_g）比 UCS 少扩展 {ucs_astar['saved']:.0%}",
+                 fontsize=13.5, pad=12)
+    ax.grid(axis="y", color=COLOR["grid"], lw=0.8)
+    ax.set_axisbelow(True)
+    ax.text(0.99, 0.02,
+            "三者代价相同；差别只在 h 是否把搜索拉向目标",
+            transform=ax.transAxes, ha="right", va="bottom", fontsize=9.5,
+            color=COLOR["text"])
+    fig.tight_layout()
+    fig.savefig(IMAGES / "04-UCS-vs-A.png", dpi=130)
+    plt.close(fig)
+
+
 def main() -> None:
     print("取数：小图扩展顺序 …")
     order = order_data()
@@ -291,8 +320,11 @@ def main() -> None:
     make_animation(order)
     print("③ 画代价与内存 …")
     make_cost_memory_figure(weighted, ucs_astar, per_algo)
+    print("④ 画 UCS vs A* …")
+    make_ucs_astar_chart(ucs_astar)
     print("\n产出：")
-    for name in ("01-扩展顺序.png", "02-代价与内存.png", "03-扩展动画.gif"):
+    for name in ("01-扩展顺序.png", "02-代价与内存.png", "03-扩展动画.gif",
+                 "04-UCS-vs-A.png"):
         print(f"  {name}  {(IMAGES / name).stat().st_size / 1024:.0f} KB")
     print("\n可粘贴进 README 的对照表（带权图）:")
     print("| 图 | BFS 步数 | BFS 代价 | UCS 代价 | BFS 相对最优 |")

@@ -37,7 +37,7 @@ ALGO_INDEX = ROOT / "algorithms" / "README.md"
 ALGO_ROADMAP = ROOT / "algorithms" / "docs" / "人工智能代表算法演进路线.md"
 
 # 六段式权威结构（与 references/readme-structure.md 一致；"对照"段名按族二选一）
-ALGO_SECTIONS_FIXED = ["设计原理", "数学推导", "手写实现要点", "实验结果", "局限与延伸"]
+ALGO_SECTIONS_FIXED = ["设计原理", "数学推导", "手写实现要点", "算法结果", "局限与延伸"]
 ALGO_SECTIONS_CONTRAST = ["框架对照", "基线对照"]
 
 # 手写纪律：impl.py 中禁止出现的现成算法接口（framework.py / baseline.py 不受限）
@@ -399,13 +399,15 @@ def check_algo_unit(unit: Path, idx: dict | None, chapters: set[str], rep: Repor
 
     if deep:
         # 需人工核对的漂移/质量项
-        result_sec = re.search(r"^##\s*实验结果\s*\n(.*?)(?=^##\s|\Z)", readme, re.M | re.S)
+        result_sec = re.search(
+            r"^##\s*(?:\d+\.\s*)?算法结果\s*\n(.*?)(?=^##\s|\Z)",
+            readme, re.M | re.S)
         if result_sec and symbol in ("🚧", "✅"):
             body = result_sec.group(1)
             if not re.search(r"\d", body):
-                rep.hint(f"{rel}：「实验结果」段无任何数字——双跑对照是否真跑了？")
-            if "复现" not in body:
-                rep.hint(f"{rel}：「实验结果」段未写明复现方式")
+                rep.hint(f"{rel}：「算法结果」段无任何数字——双跑对照是否真跑了？")
+            if not re.search(r"复现|复跑|demo\.py|uv run", body):
+                rep.hint(f"{rel}：「算法结果」段未写明复现方式")
         if symbol == "✅":
             math_sec = re.search(r"^##\s*数学推导\s*\n(.*?)(?=^##\s|\Z)", readme, re.M | re.S)
             if math_sec and len(math_sec.group(1).strip()) < 50:

@@ -57,15 +57,51 @@ def test_conditional_and_cfg() -> None:
     a = d.sample(4, labels=labels, guidance=0.0, seed=1)
     b = d.sample(4, labels=labels, guidance=3.0, seed=1)
     assert a.shape == b.shape == (4, 64)
+    # CFG 不能只是“跑通”：同一 seed 下，w=0 与 w=3 的输出必须不同
+    assert not np.allclose(a, b)
 
 
-def test_grad_W3() -> None:
-    d = DDPM(n_steps=10, hidden=16)
-    X, y = data(8)
+def test_sampling_seed_varies() -> None:
+    X, y = data()
+    d = DDPM(n_steps=20, epochs=20, hidden=32)
     d.train(X, y)
-    d.net.forward(X, np.zeros(8, dtype=int), y, d.n_steps)
-    d.net.backward(np.ones((8, 64)))
-    assert d.net.dW3.shape == d.net.W3.shape
+    labels = np.array([0, 1, 2, 3])
+    a = d.sample(4, labels=labels, guidance=3.0, seed=1)
+    b = d.sample(4, labels=labels, guidance=3.0, seed=2)
+    assert not np.allclose(a, b)
+
+
+@pytest.mark.parametrize("name,idx", [
+    ("W1", (0, 0)),
+    ("W2", (0, 0)),
+    ("W3", (0, 0)),
+    ("b3", (0,)),
+    ("b2", (0,)),
+    ("class_emb", (0, 0)),
+])
+def test_denoiser_gradients(name, idx) -> None:
+    """去噪网络五组参数 + class embedding 的有限差分。"""
+    d = DDPM(n_steps=10, hidden=16)
+    X, _ = data(8)
+    y = np.arange(8) % 10
+    t = np.arange(8) % d.n_steps
+    out = d.net.forward(X, t, y, d.n_steps)
+    dout = np.ones_like(out) / out.size
+    d.net.backward(dout)
+
+    def loss():
+        return float(d.net.forward(X, t, y, d.n_steps).mean())
+
+    eps = 1e-6
+    param = d.net.params()[name]
+    analytic = float(d.net.grads()[name][idx])
+    old = param[idx]
+    param[idx] = old + eps
+    lp = loss()
+    param[idx] = old - eps
+    lm = loss()
+    param[idx] = old
+    assert abs((lp - lm) / (2 * eps) - analytic) < 1e-4, name
 
 
 def test_invalid() -> None:

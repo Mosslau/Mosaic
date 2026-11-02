@@ -1,17 +1,18 @@
 """RAG — 性质测试（pytest）"""
 
 import pytest
-from demo import DOCS, QUERIES
+from demo import DOCS, HELDOUT_QUERIES, QUERIES
 from impl import Generator, Index, Pipeline
 
 
 def build():
-    return Index(chunk_size=200, overlap=40).build(DOCS)
+    return Index(chunk_size=60, overlap=10).build(DOCS)
 
 
 def test_build_chunks_and_vectors() -> None:
     idx = build()
-    assert len(idx.chunks) == len(DOCS)
+    # chunk_size=60 < 文档长度：切块必须真的触发，而不是 1 doc = 1 chunk
+    assert len(idx.chunks) > len(DOCS)
     assert idx.vectors.shape[0] == len(idx.chunks)
     assert idx.vectors.shape[1] == 512
 
@@ -27,8 +28,21 @@ def test_search_topk_and_docid() -> None:
 def test_pipeline_citations() -> None:
     idx = build()
     a = Pipeline(idx, Generator()).query("Which rule does MCTS use for selection?", 3)
-    assert a.citations and 1 in [c.doc_id for c in a.citations]
+    assert len(a.citations) == 1
+    assert a.citations[0].doc_id == 1
     assert "UCB1" in a.text
+
+
+def test_citation_is_top1_not_recall() -> None:
+    """引用只取 top-1，因此它与 Recall@3 是两个不同指标。"""
+    idx = build()
+    q = "Which rule does MCTS use for selection?"
+    a = Pipeline(idx, Generator()).query(q, 3)
+    assert [c.doc_id for c in a.citations] == [idx.search(q, 3)[0].doc_id]
+
+
+def test_generator_empty_contexts() -> None:
+    assert "未找到" in Generator().generate("q", [])
 
 
 def test_generator_fallback() -> None:
@@ -60,6 +74,15 @@ def test_recall_on_fixture() -> None:
     assert hit / len(QUERIES) >= 0.8
 
 
+def test_heldout_paraphrase_recall() -> None:
+    idx = build()
+    hit = 0
+    for q, gold, _ in HELDOUT_QUERIES:
+        ids = [h.doc_id for h in idx.search(q, 3)]
+        hit += int(gold in ids)
+    assert hit / len(HELDOUT_QUERIES) >= 0.8
+
+
 def test_chunking_overlap() -> None:
     idx = Index(chunk_size=50, overlap=10)
     idx.build(["a" * 120])
@@ -79,3 +102,5 @@ def test_invalid() -> None:
         build().search("", 3)
     with pytest.raises(ValueError):
         build().search("x", 0)
+    with pytest.raises(ValueError):
+        Pipeline(build(), Generator()).query("x", 3, cite_top_k=0)

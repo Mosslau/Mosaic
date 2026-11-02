@@ -52,7 +52,7 @@ cd algorithms/p04-transformer/word-vectors
 ../../.venv/bin/python project/search.py
 ```
 
-依赖：numpy（与实验目录相同，无额外依赖）。预期输出：
+依赖：numpy（与算法目录相同，无额外依赖）。预期输出：
 
 ```text
 索引：94 词 × 32 维（33262 token 语料）

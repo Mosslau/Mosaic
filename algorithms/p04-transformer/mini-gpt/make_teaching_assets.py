@@ -56,8 +56,10 @@ from impl import CharTokenizer, MiniGPT  # noqa: E402
 
 
 def setup():
-    text = D.build_corpus()
-    tr_text, te_text = D.split_text(text)
+    lines = D.build_corpus()
+    tr_lines, te_lines = D.split_lines(lines)
+    tr_text = D.join_lines(tr_lines)
+    te_text = D.join_lines(te_lines)
     tok = CharTokenizer().fit(tr_text)
     tr, te = tok.encode(tr_text), tok.encode(te_text)
     g = MiniGPT(len(tok.itos), context=16, d_model=32, n_heads=4, n_layers=2,

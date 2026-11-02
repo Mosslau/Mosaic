@@ -87,6 +87,67 @@ def test_mlm_head_gradient() -> None:
     assert abs((lp - lm) / (2 * eps) - m._dWlm[idx]) < 1e-4
 
 
+@pytest.mark.parametrize("name,idx", [
+    ("Wq", (0, 0)),
+    ("W1", (0, 0)),
+    ("ln1.gamma", (0,)),
+    ("E", (5, 0)),
+    ("P", (0, 0)),
+])
+def test_encoder_gradients(name, idx) -> None:
+    """encoder 内部参数（attention/FFN/LN/embedding/position）的有限差分。"""
+    tokens = tokens_fixture()
+    m = BertMLM(20, context=10, d_model=16, n_heads=2, d_ff=32)
+    inp, target, mask = m._make_mask(tokens, np.random.default_rng(1))
+    probs = softmax(m._forward(inp))
+    d = probs.copy()
+    N, T = tokens.shape
+    d[np.arange(N)[:, None], np.arange(T)[None, :], target] -= 1
+    d *= mask[..., None]
+    d /= mask.sum()
+    m._backward(d)
+
+    def loss():
+        p = softmax(m._forward(inp))
+        sel = p[mask]
+        tgt = target[mask]
+        return float(-np.log(np.clip(sel[np.arange(len(tgt)), tgt], 1e-12, 1)).mean())
+
+    eps = 1e-6
+    param = m._params()[name]
+    analytic = float(m._grads()[name][idx])
+    old = param[idx]
+    param[idx] = old + eps
+    lp = loss()
+    param[idx] = old - eps
+    lm = loss()
+    param[idx] = old
+    assert abs((lp - lm) / (2 * eps) - analytic) < 1e-4, name
+
+
+def test_mask_ratio_near_15pct() -> None:
+    tokens = tokens_fixture(n=40, T=22)
+    m = BertMLM(20, context=22)
+    _, _, mask = m._make_mask(tokens, np.random.default_rng(0))
+    eligible = (tokens != 0) & (tokens != 2) & (tokens != 3)
+    ratio = mask.sum() / eligible.sum()
+    assert 0.10 <= ratio <= 0.20, ratio
+
+
+def test_no_train_test_leakage() -> None:
+    pytest.importorskip("torch")
+    from demo import build_data
+    from sklearn.model_selection import train_test_split
+
+    texts, labels = build_data()
+    assert len(texts) == len(set(texts))
+    idx = np.arange(len(texts))
+    tr, te = train_test_split(idx, test_size=0.3, random_state=0, stratify=labels)
+    train_texts = {texts[i] for i in tr}
+    test_texts = {texts[i] for i in te}
+    assert train_texts.isdisjoint(test_texts)
+
+
 def test_predict_masked() -> None:
     tokens = tokens_fixture()
     m = BertMLM(20, context=10, d_model=16, n_heads=2, d_ff=32)

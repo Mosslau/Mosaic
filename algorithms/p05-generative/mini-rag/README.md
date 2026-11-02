@@ -2,8 +2,8 @@
 
 > 状态：✅ 已完成（2026-10-23）
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 8.1 章
-> 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现实验读「进阶篇」
-> 本族共 3 个实验，学习顺序与计划见 [族级导读](../README.md)。
+> 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现读「进阶篇」
+> 本族共 3 个算法，学习顺序与计划见 [族级导读](../README.md)。
 
 流水线（深度模型 · 应用）：入口 `Index().build(docs)` / `search(query, top_k)`，`Pipeline(index, Generator()).query(text)` → `Answer(text, citations)`；实现在 [impl.py](impl.py)，对照是 [framework.py](framework.py) 的 TF-IDF 检索基线。**没有单一 `fit(X,y)`**：RAG 是一条链路，三个环节各自可测。
 
@@ -11,7 +11,7 @@
 
 - RAG = **检索**（找相关上下文）+ **生成**（把上下文写进答案）+ **引用**（能溯源）。
 - 它不改模型权重；知识更新靠换索引/语料。
-- 本实验没有接外部 LLM：生成用**抽取式降级**，保证无 API key 也能跑；LLM 版标注为未验证。
+- 本算法没有接外部 LLM：生成用**抽取式降级**，保证无 API key 也能跑；LLM 版标注为未验证。
 
 # 基础篇 · 先搞懂它
 
@@ -72,7 +72,7 @@ flowchart TD
 - **❌ "top-k 越大越好"** —— 噪声变多，上下文超长，成本上升。
 - **❌ "有引用就等于有依据"** —— 引用可能不支撑结论；要评估 citation 是否真对应。
 - **❌ "向量检索一定赢关键词"** —— 关键词明确时 TF-IDF/BM25 常更强。
-- **❌ "RAG 训练了新模型"** —— 本实验不改权重；知识在索引里。
+- **❌ "RAG 训练了新模型"** —— 本算法不改权重；知识在索引里。
 - **❌ "抽取式降级 = LLM 生成"** —— 它只是无 API 时的可复现替代。
 
 ## 7. 看图：指标、相似度与端到端
@@ -95,12 +95,12 @@ query × chunk 余弦相似度。
 
 ## 8. 掌握清单：五级能力与自测
 
-| 级别 | 能力 | 本实验的检验方式 | 在哪做 |
+| 级别 | 能力 | 本算法的检验方式 | 在哪做 |
 |---|---|---|---|
 | 1 说清 | 用自己的话讲规则 | 说出 chunk/embedding/top-k/引用 | 基础篇「核心量」「白话版」 |
 | 2 走通 | 纸上手算 | 余弦相似度、Recall@k/MRR | 基础篇「手算示例」节 |
-| 3 判断 | 说清正确性条件 | 解释切块、top-k、引用、词法基线 | 基础篇「白话版」+ 实验一 |
-| 4 实现 | 手写并与对照比对 | 跑通 `demo.py`，检索/引用指标 | 进阶篇「实验结果」 |
+| 3 判断 | 说清正确性条件 | 解释切块、top-k、引用、词法基线 | 基础篇「白话版」+ 验证一 |
+| 4 实现 | 手写并与对照比对 | 跑通 `demo.py`，检索/引用指标 | 进阶篇「算法结果」 |
 | 5 迁移 | 用到新问题 | 同源语料 + 查询 + 引用 | [project/](project/README.md) |
 
 **自测关卡（先预测，再跑代码验证）**：
@@ -108,9 +108,9 @@ query × chunk 余弦相似度。
 1. 文档比 chunk 短时，切块后几个块？
 2. 归一化后内积等于什么？
 3. Recall@3 与 MRR 的区别？
-4. 为什么本实验还要跑 TF-IDF 基线？
+4. 为什么本算法还要跑 TF-IDF 基线？
 
-# 进阶篇 · 实验档案
+# 进阶篇 · 算法档案
 
 ## 目录形态（本算法的"类型"）
 
@@ -127,7 +127,7 @@ query × chunk 余弦相似度。
 ## 1. 设计原理
 
 RAG 把“知识”放在外部索引：检索负责召回，生成负责组织语言，引用负责可验证。
-本实验用 TF-IDF 哈希做手写 embedding，用余弦相似度检索；生成用抽取式降级，避免外部 API。
+本算法用 TF-IDF 哈希做手写 embedding，用余弦相似度检索；生成用抽取式降级，避免外部 API。
 
 ## 2. 数学推导
 
@@ -137,7 +137,7 @@ RAG 把“知识”放在外部索引：检索负责召回，生成负责组织�
 
 **Recall@k**：`1[gold ∈ top-k]`；**MRR**：`1/rank(gold)`。
 
-**BM25**（基线对照，本实验用 TF-IDF 近似）：`score=Σ idf·tf·(k1+1)/(tf+k1(1-b+b|d|/avgdl))`。
+**BM25**（基线对照，本算法用 TF-IDF 近似）：`score=Σ idf·tf·(k1+1)/(tf+k1(1-b+b|d|/avgdl))`。
 
 ## 3. 手写实现要点
 
@@ -159,31 +159,38 @@ RAG 把“知识”放在外部索引：检索负责召回，生成负责组织�
 
 **生成基线未在本环境验证**：缺 LLM 服务/API key；读者可接任意 OpenAI 兼容服务复现。
 
-## 5. 实验结果
+## 5. 算法结果
 
 **环境**：uv（`uv sync --extra deep-learning --extra dev`），Python 3.13.15 /
 numpy 2.5.4 / scikit-learn 1.9.1；CPU。
-**数据**：12 个 AI 算法事实文档、12 个 query；chunk_size=200、overlap=40；哈希维度 512。
+**数据**：12 个 AI 算法事实文档、12 个 query + 5 个**改写 heldout query**；
+chunk_size=60、overlap=10 → **24 个 chunk**（>12 文档，切块真的触发）；哈希维度 512。
 **复现**：本目录内 `uv run python demo.py`、`uv run pytest test_impl.py -q`、
 `uv run python make_teaching_assets.py`。
 
 **检索（top-3）**
 
-| 方法 | Recall@3 | MRR | 耗时 |
-|---|---|---|---|
-| 手写 TF-IDF 哈希 | **1.000** | **0.958** | 0.2ms |
-| sklearn TF-IDF | 1.000 | 0.958 | ≈6.0ms |
+| 查询集 | Recall@3 | MRR |
+|---|---|---|
+| 原 12 query（手写 TF-IDF） | **1.000** | 0.958 |
+| 5 个改写 heldout | **1.000** | 1.000 |
+| sklearn TF-IDF（原 12） | 1.000 | 0.958 |
 
-**端到端（抽取式降级）**
+**端到端（抽取式降级，citation 只取 top-1）**
 
 | 指标 | 值 |
 |---|---|
-| answer match | 0.917 |
-| citation hit | 1.000 |
+| answer match | 0.833 |
+| citation top-1 | 0.917 |
 | 平均延迟 | 0.02ms |
 
-**验证声明（已验证）**：输入为上述 12 文档/12 query；2026-10-23 在 uv 环境实跑，
-`uv run python demo.py` 输出上表；`uv run pytest test_impl.py -q` → **8 passed**；
+> `citation top-1` 与 `Recall@3` 现在是两个指标：前者要求 gold doc 排第一，
+> 后者只要求进前三。top-1 有 1 条失败（DDPM 查询被 MCTS 片段抢到第一名），
+> 这是切块后真实存在的检索弱点，不再用“top-3 全命中”掩盖。
+
+**验证声明（已验证）**：输入为上述 12 文档 / 12+5 query；2026-11-02 在 uv 环境复跑，
+`uv run python demo.py` 输出上表；`uv run pytest test_impl.py -q` → **11 passed**
+（切块 > 文档数、heldout 改写、citation 只取 top-1、空上下文回退）；
 `uv run python make_teaching_assets.py` 对账通过（Recall@3 ≥0.9、citations 非空）。
 
 **可视化结论**：
@@ -199,7 +206,8 @@ numpy 2.5.4 / scikit-learn 1.9.1；CPU。
 - **TF-IDF 哈希**：有碰撞；没有语义 embedding/rerank。
 - **生成是抽取式降级**：不是 LLM；LLM 端到端未验证。
 - **answer match 是子串匹配**：不是语义评估。
-- **citation hit 只检查 gold doc 是否在 citations**：不检查引用是否真的支撑句子。
+- **citation top-1 只有 0.917**：引用只取最相关块，不检查它是否真的支撑答案句子。
+- **没有 rerank**：切块后 top-1 会被相邻片段抢走（DDPM 查询即一例）。
 - **没有多跳/对话/权限**：RAG 的工程问题未覆盖。
 - **下游**：真实语料 + embedding + rerank + LLM + 引用校验 + 评测集。
 

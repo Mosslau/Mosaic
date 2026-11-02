@@ -2,10 +2,10 @@
 
 > 状态：✅ 已完成（2026-10-21）
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 3.2.3 章
-> 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现实验读「进阶篇」
-> 本族共 14 个实验，学习顺序与选读建议见 [族级导读](../README.md)。
+> 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现读「进阶篇」
+> 本族共 14 个算法，学习顺序与选读建议见 [族级导读](../README.md)。
 
-监督估计器（统计机器学习族）：入口是 `DecisionTree(criterion, max_depth, min_samples_leaf, ccp_alpha).fit(X, y) / predict(X)`，实现在 [impl.py](impl.py)；对照是 [framework.py](framework.py) 的 sklearn `DecisionTreeClassifier`。**没有梯度下降**：树的生长是递归划分，这是与前面四个实验最本质的区别。
+监督估计器（统计机器学习族）：入口是 `DecisionTree(criterion, max_depth, min_samples_leaf, ccp_alpha).fit(X, y) / predict(X)`，实现在 [impl.py](impl.py)；对照是 [framework.py](framework.py) 的 sklearn `DecisionTreeClassifier`。**没有梯度下降**：树的生长是递归划分，这是与前面四个算法最本质的区别。
 
 # 基础篇 · 先搞懂它
 
@@ -94,7 +94,7 @@ flowchart TD
 值不值得多一个叶子"。α 小 → 树大；α 大 → 树小。
 
 **为什么不稳定**：每个节点只选"当前最优"的切分；训练集稍微变一点，
-根节点的最优特征可能就换了，整棵树跟着改。实验五里，bootstrap 重采样后
+根节点的最优特征可能就换了，整棵树跟着改。验证五里，bootstrap 重采样后
 两棵树的测试预测平均有 **17%** 不一致——这不是 bug，是树本身的方差。
 注意"预测分歧"不随深度单调增：低噪声时深树可能更准也更稳；噪声大时深树追噪声，
 不稳定性才明显（见练习 5）。
@@ -117,12 +117,12 @@ flowchart TD
 
 ## 8. 掌握清单：五级能力与自测
 
-| 级别 | 能力 | 本实验的检验方式 | 在哪做 |
+| 级别 | 能力 | 本算法的检验方式 | 在哪做 |
 |---|---|---|---|
 | 1 说清 | 用自己的话讲规则 | 说出熵/基尼/信息增益/剪枝各是什么；解释树为什么不稳定 | 基础篇「核心量」「白话版」 |
 | 2 走通 | 纸上手算 | 给定 4 个标签，算两种切法的熵/基尼增益 | 基础篇「手算示例」节 |
 | 3 判断 | 说清正确性条件 | 写出递归终止条件、候选阈值怎么取、ccp_alpha 的公式 | 进阶篇「数学推导」 |
-| 4 实现 | 手写并与对照比对 | 跑通 `demo.py`，解释同参数下叶子数/预测为何与 sklearn 一致 | 进阶篇「实验结果」 |
+| 4 实现 | 手写并与对照比对 | 跑通 `demo.py`，解释同参数下叶子数/预测为何与 sklearn 一致 | 进阶篇「算法结果」 |
 | 5 迁移 | 用到新问题 | 在真实三分类数据上做深度/CV/剪枝，并量化不稳定性 | [project/](project/README.md) |
 
 **自测关卡（先预测，再跑代码验证）**：
@@ -132,7 +132,7 @@ flowchart TD
 3. 为什么 `ccp_alpha` 太大时测试准确率会掉？
 4. 把训练集重采样 20 次，树的测试预测平均分歧大概多少？
 
-# 进阶篇 · 实验档案
+# 进阶篇 · 算法档案
 
 ## 目录形态（本算法的"类型"）
 
@@ -140,7 +140,7 @@ flowchart TD
 |---|---|---|
 | [impl.py](impl.py) | 手写实现 | `entropy` / `gini`、递归 CART、`ccp_alpha` 剪枝、特征重要性 |
 | [framework.py](framework.py) | 框架对照 | sklearn `DecisionTreeClassifier` + 剪枝路径 |
-| [demo.py](demo.py) | 同数据双跑 | 五组实验：对照 / 准则 / 深度 / 剪枝 / 不稳定性 |
+| [demo.py](demo.py) | 同数据双跑 | 五组验证：对照 / 准则 / 深度 / 剪枝 / 不稳定性 |
 | [test_impl.py](test_impl.py) | 性质测试 | 不纯度、切分、深度/叶约束、剪枝、概率、契约 |
 | [make_teaching_assets.py](make_teaching_assets.py) | 素材生成 + 对账 | 边界+树结构 / 深度曲线 / 剪枝曲线 / 生长动画 |
 | [exercises/](exercises/README.md) | 练习（5 题，题解分离） | 概念、手算、诊断、实现、迁移 |
@@ -199,14 +199,14 @@ sklearn 的 `DecisionTreeClassifier` 与本实现同准则、同参数时，**�
 
 耗时：depth=4 手写约 **5.5 ms**，sklearn 约 **0.27 ms**（同机同次；框架是 C 实现）。
 
-## 5. 实验结果
+## 5. 算法结果
 
 **环境**：uv 环境（`uv sync --extra dev`），Python 3.13.15 / numpy 2.5.4 / scikit-learn 1.9.1。
 **数据**：`make_moons(n=300, noise=0.25, seed=0)`，70/30 分层切分。
 **复现**：本目录内 `uv run python demo.py`、`uv run pytest test_impl.py -q`、
 `uv run python make_teaching_assets.py`。
 
-**实验一：手写 vs sklearn（gini，depth=4）**
+**验证一：手写 vs sklearn（gini，depth=4）**
 
 | 方法 | 训练 acc | 测试 acc | 叶子 | 深度 | 耗时（ms） |
 |---|---|---|---|---|---|
@@ -215,7 +215,7 @@ sklearn 的 `DecisionTreeClassifier` 与本实现同准则、同参数时，**�
 
 测试集预测一致率 **1.0000**。
 
-**实验二：gini vs entropy（depth=4）**
+**验证二：gini vs entropy（depth=4）**
 
 | criterion | 训练 acc | 测试 acc | 叶子 | 根不纯度 |
 |---|---|---|---|---|
@@ -224,7 +224,7 @@ sklearn 的 `DecisionTreeClassifier` 与本实现同准则、同参数时，**�
 
 两种准则只差 1 个叶子、1 个百分点；根不纯度不同（0.5 vs 1.0）只是定义不同，不能直接比大小。
 
-**实验三：深度扫描（gini）**
+**验证三：深度扫描（gini）**
 
 | depth | 训练 acc | 测试 acc | 叶子 |
 |---|---|---|---|
@@ -237,7 +237,7 @@ sklearn 的 `DecisionTreeClassifier` 与本实现同准则、同参数时，**�
 
 深度 5 之后训练 100%、测试不再涨——树已经把所有训练点装进纯叶子。
 
-**实验四：代价复杂度剪枝**
+**验证四：代价复杂度剪枝**
 
 | ccp_alpha | 训练 acc | 测试 acc | 叶子 |
 |---|---|---|---|
@@ -250,7 +250,7 @@ sklearn 的 `DecisionTreeClassifier` 与本实现同准则、同参数时，**�
 
 剪枝把 13 叶压到 9 叶，测试反而从 0.9222 升到 **0.9333**；α 再大就欠拟合。
 
-**实验五：不稳定性（bootstrap 20 棵，depth=4）**
+**验证五：不稳定性（bootstrap 20 棵，depth=4）**
 
 - 单树测试准确率：均值 **0.8239**，标准差 **0.0374**；
 - 两两预测分歧：均值 **0.1705**（约 17% 的测试样本，两棵树的判断不同）。
@@ -270,7 +270,7 @@ alpha=0.02 时剪枝 13→7 叶）。耗时数字随机器浮动 `[随环境/版
 ## 6. 局限与延伸
 
 - **轴对齐边界**：斜着的分界线要靠很多小方块逼近，效率低；旋转/核方法更合适。
-- **高方差**：换一批样本结构就变（实验五），所以集成（随机森林、GBDT）是自然下一步。
+- **高方差**：换一批样本结构就变（验证五），所以集成（随机森林、GBDT）是自然下一步。
 - **概率不可靠**：叶子里的频率是粗糙估计，常需校准（Platt/isotonic）。
 - **剪枝路径依赖框架**：demo 的候选 α 由 sklearn 的 `cost_complexity_pruning_path` 给出，
   手写树只负责按 α 剪；要完全自证，需要手写一条 CCP 路径。

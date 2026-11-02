@@ -3,7 +3,7 @@
 > 状态：**8/8 完成（p04 全族 ✅）**
 > 对应路线：`../docs/人工智能代表算法演进路线.md` 第五章（5.1–5.5）
 > 族内顺序：注意力 → 迷你 Transformer Block → 词向量 → BERT → 迷你 GPT → T5/编码器-解码器 → ViT → 多模态
-> 本族 8 个实验；逐实验入口见 [`algorithms/README.md`](../README.md)。
+> 本族 8 个算法；逐算法入口见 [`algorithms/README.md`](../README.md)。
 
 ## 1. 这个族在讲什么
 
@@ -17,9 +17,9 @@ p03 的 RNN 沿时间递推，长序列只能串行、长依赖会衰减。Trans
 
 这个族按“**组件 → Block → 三种预训练范式**”推进，不是一上来就写 GPT。
 
-## 2. 八个实验一览
+## 2. 八个算法一览
 
-| # | 实验 | 章节 | 默认数据 | 核心 | 接口形态 | 状态 |
+| # | 算法 | 章节 | 默认数据 | 核心 | 接口形态 | 状态 |
 |---|---|---|---|---|---|---|
 | 1 | [注意力机制](attention/) | 5.2 | 合成 Q/K/V / 小序列 | scaled dot-product、mask、softmax 反传、多头 | **组件**：`forward/backward` | ✅ 2026-10-22 |
 | 2 | [迷你 Transformer Block](mini-transformer/) | 5.2 | 小字符序列 | LayerNorm、FFN、残差、pre-LN、多头 | **Block**：`forward/backward` + `train` | ✅ 2026-10-22 |
@@ -54,7 +54,7 @@ flowchart LR
 
 ## 4. 接口边界（必须先分清）
 
-| 实验 | 有 fit(X,y)？ | 有 train？ | 有 generate？ | 为什么 |
+| 算法 | 有 fit(X,y)？ | 有 train？ | 有 generate？ | 为什么 |
 |---|---|---|---|---|
 | attention | ❌ | ❌ | ❌ | 是**组件**，输入 Q/K/V，输出加权和 + 权重 |
 | mini-transformer | ❌ | ✅（tokens） | ❌ | 是**Block**，可在语言建模目标上训练 |
@@ -72,11 +72,11 @@ flowchart LR
 | **位置编码** | Block / 所有模型 | attention 对位置是置换不变的；可学习位置嵌入 vs 正弦编码，shape `(T,d_model)`，加在 embedding 后 |
 | **tokenizer / 错位目标** | BERT / GPT / T5 | 字符表、`<unk>`、context 截断、`input=text[:-1]`、`target=text[1:]`、忽略越界 |
 | **训练/评估** | 全部模型 | train/val 切分、交叉熵/MLM 准确率、perplexity、采样参数 |
-| **共享组件** | 全族 | LayerNorm / FFN / MultiHeadAttention 放一个共享模块还是各实验复制；**必须只选一种** |
+| **共享组件** | 全族 | LayerNorm / FFN / MultiHeadAttention 放一个共享模块还是各算法复制；**必须只选一种** |
 
 **建议的共享策略**：在 `p04-transformer/` 下放 `components.py`（LayerNorm、FFN、MultiHeadAttention），
-三个模型实验复用它；这样 attention 实验验证组件、Block/BERT/GPT/T5 不再复制一份。
-如果坚持“每个实验完全自包含”，就要接受多份重复实现，并在 README 说明。
+三个模型算法复用它；这样 attention 算法验证组件、Block/BERT/GPT/T5 不再复制一份。
+如果坚持“每个算法完全自包含”，就要接受多份重复实现，并在 README 说明。
 
 ### 4.2 单头 vs 多头
 
@@ -85,7 +85,7 @@ flowchart LR
 
 ## 5. 数据与环境（离线优先）
 
-| 实验 | 默认数据 | 说明 |
+| 算法 | 默认数据 | 说明 |
 |---|---|---|
 | attention | 合成 Q/K/V + 小序列 | 可构造 padding/causal mask |
 | mini-transformer | 合成字符序列 / Zen of Python | next-token |
@@ -113,7 +113,7 @@ uv run python p04-transformer/attention/demo.py
 
 | 阶段 | 内容 | 交付 | 状态 |
 |---|---|---|---|
-| **Phase 0** | 族级导读、章节修正、接口/数据/范围约定 | 本文件 + 七个实验骨架 | ✅ 本版完成 |
+| **Phase 0** | 族级导读、章节修正、接口/数据/范围约定 | 本文件 + 七个算法骨架 | ✅ 本版完成 |
 | Phase 1 | attention：scaled dot-product、mask、softmax 反传、多头 | 实现 + 测试 + 热图 + 练习/项目 | ✅ 2026-10-22 |
 | Phase 2 | Block：LayerNorm、FFN、残差、pre-LN、多头 | 实现 + 梯度检查 + 小语料训练 + torch 对照 | ✅ 2026-10-22 |
 | Phase 3 | BERT：双向 encoder、MLM、`[CLS]` 分类探针 | 实现 + 测试 + 表示/分类项目 | ✅ 2026-10-22 |
@@ -122,7 +122,7 @@ uv run python p04-transformer/attention/demo.py
 | Phase 6 | ViT-lite：patch embedding、自注意力、分类 | 实现 + 测试 + 素材 + 项目 | ✅ 2026-10-23 |
 | Phase 7 | 多模态：双塔、对比学习、检索 | 实现 + 测试 + 素材 + 项目 | ✅ 2026-10-23 |
 
-## 7. 每个实验的交付标准
+## 7. 每个算法的交付标准
 
 - README：基础篇 8 节 + 进阶篇六段 + 五级清单；
 - 测试：形状、mask/causal、有限差分梯度、确定性、契约；
@@ -147,7 +147,7 @@ uv run python p04-transformer/attention/demo.py
 
 - 当前 **8/8**，p04 全族完成；
 - 下一步：engineering 纵切（本族作为原理底座）；阶段质量轮已收口；
-- 每个实验完成后同步：本表状态、[`algorithms/README.md`](../README.md) 索引、根 README 计数；
+- 每个算法完成后同步：本表状态、[`algorithms/README.md`](../README.md) 索引、根 README 计数；
 - 遗留项统一记在本文件"范围边界"和 `.dsh/memory/`。
 
 ## 10. 阶段横向对照（架构级）
@@ -190,16 +190,16 @@ attention 前向随 T：16→0.05ms、32→0.07ms、64→0.12ms、128→0.31ms�
 
 | 项 | 数量 / 状态 |
 |---|---|
-| 实验 | **8/8 ✅** |
+| 算法 | **8/8 ✅** |
 | 测试 | **73 个**（10+9+8+9+9+8+8+12） |
-| 素材 | **33 个**（25 PNG + 8 GIF；每实验 3–4 图 + 1 GIF） |
-| 练习 | **41 题**（每实验 5–6 题，题解分离） |
+| 素材 | **33 个**（25 PNG + 8 GIF；每验证3–4 图 + 1 GIF） |
+| 练习 | **41 题**（每验证5–6 题，题解分离） |
 | 项目 | **8 个**，验收全过 |
-| 质量轮 | 架构级对照 + 各实验遗留汇总 |
+| 质量轮 | 架构级对照 + 各算法遗留汇总 |
 
 **已记录的 p04 遗留（不阻塞）**：
 
-| 实验 | 问题 |
+| 算法 | 问题 |
 |---|---|
 | attention | mask 只支持共享 `(Tq,Tk)`；无 bias/dropout；无 per-sample mask |
 | Block | 单层；无 post-LN 对照；残差消融在这个小配置下出现负面结果 |

@@ -1,9 +1,11 @@
-# 算法实验总索引
+# 算法总索引
 
+> 口径：本索引把这 **42 个单元统一称为“算法”**；README/测试/练习/项目是其交付形态，不再使用旧称。
 > 理论总纲：[`./docs/人工智能代表算法演进路线.md`](./docs/人工智能代表算法演进路线.md)
-> 目录按演进阶段分组，编号即学习顺序；族目录用 **`p` + 两位编号**（`p01-search` … `p05-generative`），实验目录用 kebab-case 算法名。
+> 目录按演进阶段分组，编号即学习顺序；族目录用 **`p` + 两位编号**（`p01-search` … `p05-generative`），算法目录用 kebab-case 名。
+> **2026-11-02 深度补齐**：16 个原 L2/L1 算法补了 FD / heldout / 公平基线 / 种子方差；全仓 **575 passed**，validator 0 硬伤。各算法的证据与缺口见其 README 的“验证”段。
 > 原则：**手写核心逻辑（numpy / 纯 Python），禁止调 sklearn/torch 现成算法接口**；数据加载和可视化可以用现成工具。
-> 每完成一个实验，把索引表状态从 ⬜ 改为 ✅ 并记录日期。
+> 每完成一个算法，把索引表状态从 ⬜ 改为 ✅ 并记录日期。
 > 阶段成熟度评估（2026-10-22）：[阶段成熟度评估-2026-10-22.md](阶段成熟度评估-2026-10-22.md)
 > 生产系统栈与算法应用（2026-10-23）：[生产系统栈与算法应用.md](生产系统栈与算法应用.md)
 > 路线覆盖与系统题边界（2026-10-26）：[docs/路线覆盖与系统题边界.md](docs/路线覆盖与系统题边界.md)
@@ -23,7 +25,7 @@
 也可能只有 `impl.py` + `demo.py`（对照在 impl 内部，如 minimax 的剪枝对比）。
 仓库级唯一约定：每个算法目录保留 `README.md`（导航 + 状态），索引表在此维护。
 
-**手写 vs 对照原则**：每个实验必须同时跑手写版和对照版（框架或基线），对比指标与耗时，
+**手写 vs 对照原则**：每个算法必须同时跑手写版和对照版（框架或基线），对比指标与耗时，
 分析差异原因——手写理解原理，对照理解工程。
 
 ## 运行环境（uv）
@@ -39,11 +41,11 @@ uv run python p01-search/a-star/demo.py      # 在项目环境里跑，无需 ac
 uv run pytest p01-search/a-star/ -q
 ```
 
-各实验 README 的命令一律带 `uv run` 前缀；在 `algorithms/` 或该实验目录下执行均可
+各算法 README 的命令一律带 `uv run` 前缀；在 `algorithms/` 或该算法目录下执行均可
 （uv 会向上找到 `algorithms/pyproject.toml`）。历史验证记录里保留的 `python3` / `.venv/bin/python`
 是当时的复现痕迹，不代表现在的推荐用法。
 
-**度量口径**：各实验的耗时数字都是「本机某次运行」的观测值，随机器、Python/matplotlib 版本浮动——
+**度量口径**：各算法的耗时数字都是「本机某次运行」的观测值，随机器、Python/matplotlib 版本浮动——
 只用于同机、同次对比（节点数、胜率、代价这类确定性指标才可跨机复现）。
 
 ## p01-search · 符号主义与搜索
@@ -51,10 +53,10 @@ uv run pytest p01-search/a-star/ -q
 > 族内学习顺序：无信息搜索 → A* → Minimax/Alpha-Beta → MCTS → CFR → CSP。
 > 前四个解决「在一张图（或博弈树）上找」，CFR 把「看不到对手的牌」补上，
 > CSP 则换了问题形态：「没有图，只有一堆约束」。
-> 每份 README 的「局限与延伸」都写明了它指向的下一个实验（族内双向链接）。
-> 族级导读（六个实验各解决什么问题、彼此什么关系、该读哪个）：[p01-search/README.md](p01-search/README.md)。
+> 每份 README 的「局限与延伸」都写明了它指向的下一个算法（族内双向链接）。
+> 族级导读（六个算法各解决什么问题、彼此什么关系、该读哪个）：[p01-search/README.md](p01-search/README.md)。
 
-| 实验 | 章节 | 状态 | 完成日期 |
+| 算法 | 章节 | 状态 | 完成日期 |
 |---|---|---|---|
 | [无信息搜索 DFS/BFS/UCS](p01-search/uninformed-search/) | 2.2.1 | ✅ | 2026-10-09 |
 | [A* 启发式搜索](p01-search/a-star/) | 2.2.1 | ✅ | 2026-09-14 |
@@ -69,9 +71,9 @@ uv run pytest p01-search/a-star/ -q
 > → Boosting/GBDT → K-Means → PCA → 朴素贝叶斯 → 异常检测。
 > 前六个建立「损失 / 分类 / 划分 / 集成」的主线，正则化补上「泛化」，
 > Boosting 补齐集成里 bagging 之外的另一半，最后三个走向无监督与概率视角。
-> 族级导读（14 个实验什么关系、该读哪个）：[p02-statistical-ml/README.md](p02-statistical-ml/README.md)。
+> 族级导读（14 个算法什么关系、该读哪个）：[p02-statistical-ml/README.md](p02-statistical-ml/README.md)。
 
-| 实验 | 章节 | 状态 | 完成日期 |
+| 算法 | 章节 | 状态 | 完成日期 |
 |---|---|---|---|
 | [线性回归与梯度下降](p02-statistical-ml/linear-regression/) | 3.2.1 | ✅ | 2026-10-21 |
 | [逻辑回归](p02-statistical-ml/logistic-regression/) | 3.2.1 | ✅ | 2026-10-21 |
@@ -94,10 +96,10 @@ uv run pytest p01-search/a-star/ -q
 > 前两个建立「可学习非线性 + 反向传播」的主线，CNN/RNN 补上空间与时间结构，
 > AutoEncoder/GAN 走向无监督表示与生成。
 > 与 p02 的对照：人工特征 → 表示学习；与 p04 的接力：RNN → 注意力。
-> 族级导读（11 个实验什么关系、该读哪个、开工前的补强计划）：[p03-deep-learning/README.md](p03-deep-learning/README.md)。
+> 族级导读（11 个算法什么关系、该读哪个、开工前的补强计划）：[p03-deep-learning/README.md](p03-deep-learning/README.md)。
 > 阶段横向对照与质量项：[/p03-deep-learning/stage_benchmark.py](p03-deep-learning/stage_benchmark.py)。
 
-| 实验 | 章节 | 状态 | 完成日期 |
+| 算法 | 章节 | 状态 | 完成日期 |
 |---|---|---|---|
 | [感知机](p03-deep-learning/perceptron/) | 4.2 | ✅ | 2026-10-22 |
 | [MLP 与手写反向传播](p03-deep-learning/mlp-backprop/) | 4.2 | ✅ | 2026-10-22 |
@@ -117,10 +119,10 @@ uv run pytest p01-search/a-star/ -q
 > 先做“组件”（attention），再做“可堆叠 Block”，然后换 mask/目标得到三种范式：
 > BERT（双向 encoder）、GPT（因果 decoder）、T5（encoder-decoder + cross-attention）。
 > 不先手写 attention 直接写 GPT，等于把最难的反传藏在黑盒里。
-> 族级导读（8 个实验什么关系、接口边界、数据/范围/Phase 0–5 计划）：[p04-transformer/README.md](p04-transformer/README.md)。
+> 族级导读（8 个算法什么关系、接口边界、数据/范围/Phase 0–5 计划）：[p04-transformer/README.md](p04-transformer/README.md)。
 > 阶段横向对照与完成度：[stage_benchmark.py](p04-transformer/stage_benchmark.py)。
 
-| 实验 | 章节 | 状态 | 完成日期 |
+| 算法 | 章节 | 状态 | 完成日期 |
 |---|---|---|---|
 | [注意力机制](p04-transformer/attention/) | 5.2 | ✅ | 2026-10-22 |
 | [迷你 Transformer Block](p04-transformer/mini-transformer/) | 5.2 | ✅ | 2026-10-22 |
@@ -133,13 +135,13 @@ uv run pytest p01-search/a-star/ -q
 
 ## p05-generative · 生成式 AI
 
-> 族内学习顺序：VAE → DDPM（含条件生成/CFG 子实验）→ RAG。
+> 族内学习顺序：VAE → DDPM（含条件生成/CFG 子算法）→ RAG。
 > VAE 是概率 latent，DDPM 是去噪生成，RAG 是检索增强的生成应用；
-> DDPM 的条件生成/CFG 作为该实验的子实验，不单开第 4 个目录。
+> DDPM 的条件生成/CFG 作为该算法的子算法，不单开第 4 个目录。
 > 族级导读：[p05-generative/README.md](p05-generative/README.md)。
 > 阶段横向对照：[stage_benchmark.py](p05-generative/stage_benchmark.py)。
 
-| 实验 | 章节 | 状态 | 完成日期 |
+| 算法 | 章节 | 状态 | 完成日期 |
 |---|---|---|---|
 | [变分自编码器 VAE](p05-generative/vae/) | 4.5 | ✅ | 2026-10-23 |
 | [迷你扩散模型 DDPM](p05-generative/mini-diffusion/) | 6.3 | ✅ | 2026-10-23 |

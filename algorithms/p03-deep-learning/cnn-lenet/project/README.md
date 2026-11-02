@@ -22,7 +22,7 @@
 2. torch LeNet 测试 acc **≥ 0.95**；
 3. 手写 vs torch 差 **≤ 0.06**；
 4. 手写 macro F1 **≥ 0.90**；
-5. BN+残差比 baseline 高（demo 实验二）。
+5. BN+残差比 baseline 高（demo 验证二）。
 
 脚本 `digits.py` 内逐条断言。
 

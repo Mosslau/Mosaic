@@ -2,7 +2,7 @@
 
 > 状态：✅ 已完成（2026-10-26）
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 4.3.3 章
-> 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话证明 → 自测）；要看推导与复现实验读「进阶篇」
+> 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话证明 → 自测）；要看推导与复现读「进阶篇」
 
 深度模型（判别式）：入口 `TinyYOLO(...).fit(X, boxes)` / `predict(...)`；对照在 [baseline.py](baseline.py)，练习/项目见 [exercises/](exercises/README.md)、[project/](project/README.md)。
 
@@ -92,7 +92,7 @@ NMS：A 分 .9、B 分 .8（与 A 的 IoU≈.681）、C 分 .4；B 被抑制，�
 
 **自测**：① 去掉池化，中心格还分得清吗？② NMS 阈值改 0.95，P 会怎样？③ 两目标中心同格，谁丢？
 
-# 进阶篇 · 实验档案
+# 进阶篇 · 算法档案
 
 ## 目录形态
 
@@ -101,14 +101,14 @@ NMS：A 分 .9、B 分 .8（与 A 的 IoU≈.681）、C 分 .4；B 被抑制，�
 | [impl.py](impl.py) | 手写 Conv2D 反向、TinyYOLO-lite、IoU/NMS/AP |
 | [baseline.py](baseline.py) | 颜色阈值 + 连通域基线（val 调参） |
 | [demo.py](demo.py) | 同数据双跑 + mAP/P/R/耗时 |
-| [test_impl.py](test_impl.py) / [make_teaching_assets.py](make_teaching_assets.py) | 12 个测试 / 4 图 + 1 GIF 对账 |
+| [test_impl.py](test_impl.py) / [make_teaching_assets.py](make_teaching_assets.py) | 16 个测试（含 conv/head FD、AP 对基线）/ 4 图 + 1 GIF 对账 |
 | [exercises/](exercises/README.md) / [project/](project/README.md) | 6 题 / 多目标场景检测 |
 
 ## 1. 设计原理
 
 检测的演进是"怎么产生候选、怎么分类回归"：R-CNN 用外部候选逐框分类，Faster R-CNN 把候选生成学进网络，
 YOLO 把图切成网格、一次前向同时出 objectness 与 bbox，SSD/RetinaNet 补多尺度，DETR 用集合预测去掉 NMS。
-本实验保留 YOLO 最小骨架：单类、8×8、一个 3×3 卷积、中心格负责；它取代滑动窗口，也受限于单尺度。
+本算法保留 YOLO 最小骨架：单类、8×8、一个 3×3 卷积、中心格负责；它取代滑动窗口，也受限于单尺度。
 
 ## 2. 数学推导
 
@@ -143,7 +143,7 @@ YOLO 把图切成网格、一次前向同时出 objectness 与 bbox，SSD/Retina
 差异：目标不重叠、亮度可分时，阈值法 precision 略高、延迟低一个量级；学习器靠局部对比度与形状上下文赢 recall/mAP。
 代价是 245 参数与约 5 倍延迟；项目放大差距。
 
-## 5. 实验结果
+## 5. 算法结果
 
 **环境/数据**：macOS arm64，Python 3.13 + numpy 2.5.4 + matplotlib 3.11.2；`impl.py` 无 sklearn/torch。
 32×32 灰度图，1–2 个 6–10 像素目标 + 噪声；train/val/test=480/160/160，seed 0/1/2，测试 244 目标。
@@ -167,7 +167,12 @@ uv run python p03-deep-learning/object-detection/make_teaching_assets.py
 uv run python p03-deep-learning/object-detection/project/detect_scene.py
 ```
 
-**验证**：2026-10-26 实跑（Python 3.13）；`pytest` 12 passed；素材对账通过；project 验收通过。耗时随机器变化。
+**反向 FD（2026-11-02 新增）**：conv.W / head.W / conv.b / head.b 四组中心差分
+与手写梯度误差 <1e-4；旧版只验 IoU/NMS/AP，卷积/检测头反向是零数值验证。
+`test_training_learns_detection` 现在同时算阈值基线 AP 并断言模型 AP 更高，
+不再只报一个孤立的 0.996。
+
+**验证**：2026-11-02 复跑（Python 3.13）；`pytest` **16 passed**；素材对账通过；project 验收通过。耗时随机器变化。
 
 ## 6. 局限与延伸
 

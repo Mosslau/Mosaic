@@ -2,8 +2,8 @@
 
 > 状态：✅ 已完成（2026-10-22）
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 5.3.2 章
-> 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现实验读「进阶篇」
-> 本族共 7 个实验，学习顺序与计划见 [族级导读](../README.md)。
+> 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现读「进阶篇」
+> 本族共 8 个算法，学习顺序与计划见 [族级导读](../README.md)。
 
 Encoder-only 模型（深度模型 · 预训练/表示）：入口 `BertMLM(vocab_size, context).train(tokens)` / `encode(tokens)` / `predict_masked(tokens)`，实现在 [impl.py](impl.py)，对照是 [framework.py](framework.py) 的 PyTorch encoder + MLM。**没有 `fit(X,y)`，也没有 `generate`**：目标是恢复被 mask 的 token，不是自回归生成。
 
@@ -84,7 +84,7 @@ $$-\log 0.8 \approx 0.223$$
 - **❌ "BERT 能生成"** —— 它是 encoder，没有自回归解码；生成看 GPT/T5。
 - **❌ "mask 越多越好"** —— 15% 是经验值；太多上下文不够，太少学得慢。
 - **❌ "所有位置都算 loss"** —— 只算被 mask 的位置。
-- **❌ "[CLS] 天然是句向量"** —— 要训练/微调；本实验用线性探针检验。
+- **❌ "[CLS] 天然是句向量"** —— 要训练/微调；本算法用线性探针检验。
 - **❌ "MLM loss 低 = 分类好"** —— 表示质量和下游任务要分开看。
 - **❌ "BERT 和 GPT 只是 mask 不同"** —— 结构（encoder vs decoder）、目标、用途都不同。
 
@@ -108,12 +108,12 @@ BERT 的双向注意力：`[CLS]` 可以看全句，没有 causal 上三角限�
 
 ## 8. 掌握清单：五级能力与自测
 
-| 级别 | 能力 | 本实验的检验方式 | 在哪做 |
+| 级别 | 能力 | 本算法的检验方式 | 在哪做 |
 |---|---|---|---|
 | 1 说清 | 用自己的话讲规则 | 说出双向、MLM、15%、只算 masked、[CLS] | 基础篇「核心量」「白话版」 |
 | 2 走通 | 纸上手算 | 20 token 选 3 个；`-log 0.8` | 基础篇「手算示例」节 |
 | 3 判断 | 说清正确性条件 | 解释为什么双向、为什么只算 masked、探针 | 基础篇「白话版」 |
-| 4 实现 | 手写并与对照比对 | 跑通 `demo.py`，MLM acc/探针 | 进阶篇「实验结果」 |
+| 4 实现 | 手写并与对照比对 | 跑通 `demo.py`，MLM acc/探针 | 进阶篇「算法结果」 |
 | 5 迁移 | 用到新问题 | MLM + `[CLS]` 情感分类 | [project/](project/README.md) |
 
 **自测关卡（先预测，再跑代码验证）**：
@@ -123,7 +123,7 @@ BERT 的双向注意力：`[CLS]` 可以看全句，没有 causal 上三角限�
 3. BERT 的注意力有没有 causal 上三角限制？
 4. MLM loss 低，`[CLS]` 分类一定好吗？
 
-# 进阶篇 · 实验档案
+# 进阶篇 · 算法档案
 
 ## 目录形态（本算法的"类型"）
 
@@ -179,13 +179,14 @@ torch 用 `nn.TransformerEncoderLayer(norm_first=True)` + `src_key_padding_mask`
 | 反向 | 手写链式 | autograd |
 | 速度 | 教学优先 | 融合算子 |
 
-两边不要求逐位一致；本实验固定 mask 的 MLM acc 接近，`[CLS]` 探针有差异（见局限）。
+两边不要求逐位一致；本算法固定 mask 的 MLM acc 接近，`[CLS]` 探针有差异（见局限）。
 
-## 5. 实验结果
+## 5. 算法结果
 
 **环境**：uv（`uv sync --extra deep-learning --extra dev`），Python 3.13.15 /
 numpy 2.5.4 / scikit-learn 1.9.1 / torch 2.14.1；CPU。
-**数据**：48 句合成情感句（12 正/12 负 ×4），词表 27，context 16；200 轮。
+**数据**：80 句**唯一**合成情感句（10 主语 × 4 句式 × 正/负），train/test = 56/24，
+词表 30，context 16；200 轮。**句子级切分，train/test 不重叠**。
 **复现**：本目录内 `uv run python demo.py`、`uv run pytest test_impl.py -q`、
 `uv run python make_teaching_assets.py`。
 
@@ -193,14 +194,19 @@ numpy 2.5.4 / scikit-learn 1.9.1 / torch 2.14.1；CPU。
 
 | 实现 | MLM loss | masked acc | `[CLS]` 探针 | 耗时 |
 |---|---|---|---|---|
-| 手写 BERT | 0.180 | 0.958 | **0.933** | ≈0.5s |
-| torch BERT | 1.549 | 0.542 | 0.533 | ≈0.6s |
+| 手写 BERT | 0.709 | 0.833 | 0.375 | ≈0.5s |
+| torch BERT | 1.845 | 0.500 | 0.417 | ≈0.6s |
+
+> **旧版 0.933 是 train/test 泄漏**：48 句由 12 句 ×4 复制而来，探针在训练集里见过测试句。
+> 改成 80 句唯一句 + 句子级切分后，探针掉到接近随机——这不是代码坏了，而是
+> **小语料 MLM 的 `[CLS]` 本来就不携带情感**。这条负面结果比旧的高分更可信。
 
 **mask 示例**：`the cat is happy .` 中 `p`、`h` 被 mask；模型可恢复。
 
-**验证声明（已验证）**：输入为上述语料与种子；2026-10-22 在 uv 环境实跑，
-`uv run python demo.py` 输出上表；`uv run pytest test_impl.py -q` → **8 passed**；
-`uv run python make_teaching_assets.py` 对账通过（MLM acc >0.8、探针 >0.8）。
+**验证声明（已验证）**：输入为上述语料与种子；2026-11-02 在 uv 环境复跑，
+`uv run python demo.py` 输出上表；`uv run pytest test_impl.py -q` → **15 passed**
+（含 encoder 五组参数 FD、mask 比例、train/test 不重叠）；`make_teaching_assets.py`
+的 MLM test acc 断言 >0.8，探针只记录不设阈值。
 
 **可视化结论**：
 
@@ -211,10 +217,10 @@ numpy 2.5.4 / scikit-learn 1.9.1 / torch 2.14.1；CPU。
 
 ## 6. 局限与延伸
 
-- **合成小语料**：48 句、词表 27；不能代表真实语料/全量 BERT。
+- **合成小语料**：80 句、词表 30；不能代表真实语料/全量 BERT。
 - **单层 encoder**：`BertMLM` 只实现一层，没有 `n_layers` 堆叠；深层表示未验证。
-- **`[CLS]` 探针/MLM 差异**：torch masked acc 0.542、探针 0.533；手写 0.958 / 0.933。
-  两者已统一为“只算 masked loss + lr=1e-3 + 干净 tokens 探针”，但 toy 单层/初始化/优化仍会分叉；保留负面结果，不强行对齐。
+- **`[CLS]` 探针接近随机（0.375 / 0.417）**：这是修正 train/test 泄漏后的真实结果，
+  说明“MLM loss 低 ≠ 表示适合分类”；不是把模型调到高分为止，而是把边界如实标出来。
 - **没有 BERT 全量预训练/微调**：只做小规模 MLM + 线性探针。
 - **没有 BPE/WordPiece**：字符级；真实 BERT 用 WordPiece。
 - **没有下游多任务**：只做情感分类探针。

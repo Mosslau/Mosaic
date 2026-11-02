@@ -2,11 +2,20 @@
 
 import numpy as np
 import pytest
+from baseline import ridge_retrieval
 from impl import CLIP, l2norm, make_pairs
+from sklearn.model_selection import train_test_split
 
 
 def data():
     return make_pairs(10, 12, 200, 0)
+
+
+def split():
+    Xi, Xt, y = data()
+    idx = np.arange(len(y))
+    tr, te = train_test_split(idx, test_size=.3, random_state=0, stratify=y)
+    return Xi, Xt, y, tr, te
 
 
 def test_norm() -> None:
@@ -27,10 +36,11 @@ def test_loss_decreases() -> None:
     assert m.loss_history[-1] < m.loss_history[0]
 
 
-def test_class_retrieval() -> None:
-    Xi, Xt, y = data()
-    m = CLIP(d=16, lr=.2, epochs=300).fit(Xi, Xt)
-    assert m.retrieval_accuracy(Xi, Xt, y) >= .9
+def test_class_retrieval_heldout() -> None:
+    Xi, Xt, y, tr, te = split()
+    m = CLIP(d=16, lr=.2, epochs=300).fit(Xi[tr], Xt[tr])
+    assert m.retrieval_accuracy(Xi[tr], Xt[tr], y[tr]) >= .95
+    assert m.retrieval_accuracy(Xi[te], Xt[te], y[te]) >= .8
 
 
 def test_similarity_symmetric() -> None:
@@ -50,7 +60,7 @@ def test_invalid() -> None:
     with pytest.raises(RuntimeError):
         CLIP().embed(Xi, Xt)
     with pytest.raises(ValueError):
-        make_pairs(8, 12, 40, 0)
+        make_pairs(8, 12, 5, 0)
 
 
 def test_deterministic() -> None:
@@ -62,7 +72,24 @@ def test_deterministic() -> None:
     np.testing.assert_allclose(I1, I2)
 
 
-def test_identity_retrieval() -> None:
-    Xi, Xt, _ = data()
-    m = CLIP(d=16, lr=.2, epochs=300).fit(Xi, Xt)
-    assert m.retrieval_accuracy(Xi, Xt) > .5
+def test_heldout_identity_is_not_solvable() -> None:
+    """去掉了每样本唯一 token：heldout 的 identity 检索不应被背出来。"""
+    Xi, Xt, _, tr, te = split()
+    m = CLIP(d=16, lr=.2, epochs=300).fit(Xi[tr], Xt[tr])
+    assert m.retrieval_accuracy(Xi[te], Xt[te]) < .5
+
+
+def test_ridge_baseline_is_strong() -> None:
+    Xi, Xt, y, tr, te = split()
+    acc = ridge_retrieval(Xi[tr], Xt[tr], Xi[te], Xt[te], y[te])
+    assert acc >= .9, acc
+
+
+def test_seed_variance() -> None:
+    Xi, Xt, y, tr, te = split()
+    accs = []
+    for seed in (0, 1, 2):
+        m = CLIP(d=16, lr=.2, epochs=300, seed=seed).fit(Xi[tr], Xt[tr])
+        accs.append(float(m.retrieval_accuracy(Xi[te], Xt[te], y[te])))
+    assert min(accs) > .6, accs
+    assert max(accs) - min(accs) < .3, accs

@@ -12,7 +12,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
 
 PAD, MASK, CLS, SEP, UNK = 0, 1, 2, 3, 4
 
@@ -57,7 +56,15 @@ def _eval_mask(tokens, seed=123, vocab_size=None):
     return inp, target, mask_pos
 
 
-def run_framework(tokens, labels, tok, context=16, epochs=120):
+def run_framework(tokens, labels, tok, context=16, epochs=120,
+                  test_tokens=None, test_labels=None):
+    """在 train tokens 上训练，在独立 test tokens 上评估。
+
+    默认 test_tokens=None 时退化为在同一批数据上评估（仅兼容旧调用）；
+    demo 与测试都显式传独立 test 集，避免 train/test 泄漏。
+    """
+    eval_tokens = tokens if test_tokens is None else test_tokens
+    eval_labels = labels if test_labels is None else test_labels
     torch.manual_seed(0)
     V = len(tok.itos)
     model = TorchBERT(V, context=context)
@@ -89,18 +96,18 @@ def run_framework(tokens, labels, tok, context=16, epochs=120):
         loss.backward()
         opt.step()
     t = time.perf_counter() - t0
-    eval_inp, eval_target, eval_mask = _eval_mask(tokens, seed=123, vocab_size=V)
+    eval_inp, eval_target, eval_mask = _eval_mask(eval_tokens, seed=123, vocab_size=V)
     with torch.no_grad():
-        logits, hidden = model(torch.as_tensor(eval_inp))
+        logits, _ = model(torch.as_tensor(eval_inp))
         pred = logits.argmax(-1).numpy()
         eval_loss = float(lossf(logits[eval_mask],
                                 torch.as_tensor(eval_target)[eval_mask]))
         acc = float((pred[eval_mask] == eval_target[eval_mask]).mean())
-        _, clean_hidden = model(torch.as_tensor(tokens))
-        cls = clean_hidden[:, 0].numpy()
-    Xtr, Xte, ytr, yte = train_test_split(cls, labels, test_size=0.3, random_state=0,
-                                          stratify=labels)
-    probe = LogisticRegression(max_iter=2000).fit(Xtr, ytr).score(Xte, yte)
+        _, train_hidden = model(torch.as_tensor(tokens))
+        _, test_hidden = model(torch.as_tensor(eval_tokens))
+    clf = LogisticRegression(max_iter=2000)
+    clf.fit(train_hidden[:, 0].numpy(), labels)
+    probe = clf.score(test_hidden[:, 0].numpy(), eval_labels)
     return {"loss": eval_loss, "acc": acc, "probe": float(probe), "time_sec": t}
 
 

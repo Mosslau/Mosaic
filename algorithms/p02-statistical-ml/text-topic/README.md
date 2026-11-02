@@ -3,7 +3,7 @@
 > 状态：✅ 已完成（2026-10-23）
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 3.7 章
 > 阅读路线：基础篇 → 进阶篇
-> 本族共 14 个实验，见 [族级导读](../README.md)。
+> 本族共 14 个算法，见 [族级导读](../README.md)。
 
 无监督估计器（统计机器学习族）：入口是 `Tfidf().fit(docs)` / `NMF(n_topics).fit(X)` / `top_words`，实现在 [impl.py](impl.py)；对照是 [framework.py](framework.py) 的 sklearn NMF。
 
@@ -34,7 +34,7 @@ flowchart TD
 ## 4. 手算示例
 
 `X=[[1,1],[1,0]]`，2 主题；NMF 会得到一组非负 `W,H`，重构误差 `||X-WH||`。
-本实验用乘性更新：`H *= WᵀX/(WᵀWH)`，`W *= XHᵀ/(WHHᵀ)`。
+本算法用乘性更新：`H *= WᵀX/(WᵀWH)`，`W *= XHᵀ/(WHHᵀ)`。
 
 ## 5. 白话版：NMF 与 LDA 的区别
 
@@ -50,7 +50,7 @@ flowchart TD
 - **❌ "NMF=LDA"** —— 目标函数/语义不同。
 - **❌ "TF-IDF 后一定是概率"** —— 不是。
 - **❌ "主题=情感/立场"** —— 只是词共现。
-- **❌ "小语料也能稳定"** —— 本实验只有 24 篇合成文档。
+- **❌ "小语料也能稳定"** —— 本算法只有 24 篇合成文档。
 
 ## 7. 看图
 
@@ -66,7 +66,7 @@ flowchart TD
 | 1 说清 | 复述 TF-IDF/NMF | 本文 |
 | 2 走通 | 手算重构 | 手算示例 |
 | 3 判断 | NMF vs LDA、k 选择 | 白话版 |
-| 4 实现 | 跑 demo | 实验结果 |
+| 4 实现 | 跑 demo | 算法结果 |
 | 5 迁移 | 文档打标 | project |
 
 # 进阶篇
@@ -76,9 +76,9 @@ flowchart TD
 | 文件 | 角色 |
 |---|---|
 | [impl.py](impl.py) | TF-IDF + NMF |
-| [framework.py](framework.py) | sklearn NMF 对照 |
+| [framework.py](framework.py) | sklearn NMF / LDA 对照 |
 | [demo.py](demo.py) | 主题发现 + 纯度 |
-| [test_impl.py](test_impl.py) | 8 个测试 |
+| [test_impl.py](test_impl.py) | 11 个测试（含 LDA 基线、heldout 纯度） |
 | [make_teaching_assets.py](make_teaching_assets.py) | 素材 |
 | [exercises/](exercises/README.md) | 5 题 |
 | [project/](project/README.md) | 文档打标 |
@@ -104,7 +104,7 @@ TF-IDF 把文档变非负稀疏矩阵；NMF 用低秩非负分解得到“主题
 
 sklearn `NMF` 同 `n_components=3`，比较主题词与重构误差。
 
-## 5. 实验结果
+## 5. 算法结果
 
 24 篇合成文档 / 27 词 / 3 主题：
 
@@ -114,15 +114,18 @@ sklearn `NMF` 同 `n_components=3`，比较主题词与重构误差。
 | 主题纯度 | **1.000** |
 | 主题词 | space/rocket；food/pizza；sport/tennis |
 | sklearn NMF 重构误差 | 3.252（与手写一致） |
+| LDA perplexity（同 TF-IDF/3 主题） | 63.88（不同模型族基线） |
+| heldout 主题纯度（18/6 切分） | **1.000** |
 
-**验证**：2026-10-23 实跑；`pytest test_impl.py -q` → **9 passed**；素材对账通过。
+**验证**：2026-11-02 复跑；`pytest test_impl.py -q` → **11 passed**
+（含 LDA 基线、heldout 主题纯度）；素材对账通过。
 
 ## 6. 局限与延伸
 
 - 24 篇合成文档，不是真实语料；
-- NMF 非概率，无 LDA 的生成语义；
+- NMF 非概率；LDA 只做 perplexity 基线，不展开生成语义与变分推导；
 - 主题数手工指定；
 - 无词形还原/中文分词；
 - 下游：LDA/BERTopic/神经主题模型。
 
-**已记录、不阻塞**：合成语料、无 LDA、无中文分词、k 未自动选择。
+**已记录、不阻塞**：合成语料、LDA 仅基线、无中文分词、k 未自动选择。

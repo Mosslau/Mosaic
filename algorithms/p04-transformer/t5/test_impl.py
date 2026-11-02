@@ -104,6 +104,52 @@ def test_lm_head_gradient() -> None:
     assert abs((lp - lm) / (2 * eps) - m.dWlm[idx]) < 1e-4
 
 
+@pytest.mark.parametrize("name,idx", [
+    ("e.Wq", (0, 0)),
+    ("d.self_attn.Wq", (0, 0)),
+    ("d.cross_attn.Wq", (0, 0)),
+    ("e.W1", (0, 0)),
+    ("d.W1", (0, 0)),
+    ("e.ln1.gamma", (0,)),
+    ("d.ln3.gamma", (0,)),
+    ("E", None),
+    ("Pe", (0, 0)),
+    ("Pd", (0, 0)),
+])
+def test_encoder_decoder_cross_gradients(name, idx) -> None:
+    """encoder / decoder self-attn / cross-attn / FFN / LN / embedding 的 FD。"""
+    v, pairs = make_data(2)
+    m = model(v)
+    src = np.array([p[0] for p in pairs])
+    tin = np.array([p[1] for p in pairs])
+    tout = np.array([p[2] for p in pairs])
+    logits = m.forward(src, tin)
+    p = softmax(logits)
+    N, T = tout.shape
+    d = p.copy()
+    d[np.arange(N)[:, None], np.arange(T), tout] -= 1
+    d /= tout.size
+    m.backward(d)
+    if name == "E":
+        idx = (int(src[0, 0]), 0)
+
+    def loss():
+        pp = softmax(m.forward(src, tin))
+        return float(-np.log(np.clip(
+            pp[np.arange(N)[:, None], np.arange(T), tout], 1e-12, 1)).mean())
+
+    eps = 1e-6
+    param = m._params()[name]
+    analytic = float(m._grads()[name][idx])
+    old = param[idx]
+    param[idx] = old + eps
+    lp = loss()
+    param[idx] = old - eps
+    lm = loss()
+    param[idx] = old
+    assert abs((lp - lm) / (2 * eps) - analytic) < 1e-4, name
+
+
 def test_train_loss_decreases() -> None:
     v, pairs = make_data(32)
     m = model(v)
@@ -119,6 +165,17 @@ def test_generate_and_exact() -> None:
     ids = m.generate(p[0], 4, v)
     assert ids[0] == BOS
     assert all(0 <= i < len(v.itos) for i in ids)
+
+
+def test_generate_exact_on_memorized_pair() -> None:
+    """小数据上训练到记住：generate 的字符序列必须与 target 完全一致。"""
+    v, pairs = make_data(8)
+    m = model(v)
+    m.train(pairs[:4], epochs=200, lr=3e-3)
+    p = pairs[0]
+    ids = m.generate(p[0], 4, v)
+    chars = [i for i in ids if i >= 5]
+    assert chars == p[2][:-1], (v.decode(ids), v.decode(p[2]))
 
 
 def test_torch_parity_shape() -> None:

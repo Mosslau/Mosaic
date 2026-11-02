@@ -2,8 +2,8 @@
 
 > 状态：✅ 已完成（2026-10-21）
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 3.9 章
-> 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现实验读「进阶篇」
-> 本族共 14 个实验，学习顺序与选读建议见 [族级导读](../README.md)。
+> 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现读「进阶篇」
+> 本族共 14 个算法，学习顺序与选读建议见 [族级导读](../README.md)。
 
 无监督估计器（统计机器学习族）：入口是 `IsolationForest / LOF / KDE` 的 `fit(X)` → `score_samples(X)`（越大越异常）→ `predict(X)`（1 异常 / −1 正常），实现在 [impl.py](impl.py)；对照是 [framework.py](framework.py) 的 sklearn 实现。**训练可以只用正常样本**。
 
@@ -117,12 +117,12 @@ contamination 越大，召回率很快到 1，精确率下降；F1 在某个中�
 
 ## 8. 掌握清单：五级能力与自测
 
-| 级别 | 能力 | 本实验的检验方式 | 在哪做 |
+| 级别 | 能力 | 本算法的检验方式 | 在哪做 |
 |---|---|---|---|
 | 1 说清 | 用自己的话讲规则 | 说出路径长度、LOF、密度分数、contamination 各是什么 | 基础篇「核心量」「白话版」 |
 | 2 走通 | 纸上手算 | 给定 `ψ=4` 与两个路径长度，算 `c(4)` 与分数 | 基础篇「手算示例」节 |
 | 3 判断 | 说清正确性条件 | 写出孤立森林分数、LOF 的 lrd、阈值分位；解释 AUC 与阈值指标的区别 | 进阶篇「数学推导」 |
-| 4 实现 | 手写并与对照比对 | 跑通 `demo.py`，解释 AUC/精确率与 sklearn 对齐 | 进阶篇「实验结果」 |
+| 4 实现 | 手写并与对照比对 | 跑通 `demo.py`，解释 AUC/精确率与 sklearn 对齐 | 进阶篇「算法结果」 |
 | 5 迁移 | 用到新问题 | 在真实 one-class 数据上比较三种方法并选阈值 | [project/](project/README.md) |
 
 **自测关卡（先预测，再跑代码验证）**：
@@ -132,7 +132,7 @@ contamination 越大，召回率很快到 1，精确率下降；F1 在某个中�
 3. 训练集混入 5% 异常，阈值会偏松还是偏紧？
 4. 为什么 KDE 的 AUC 可以是 1.0、精确率却只有 0.63？
 
-# 进阶篇 · 实验档案
+# 进阶篇 · 算法档案
 
 ## 目录形态（本算法的"类型"）
 
@@ -140,7 +140,7 @@ contamination 越大，召回率很快到 1，精确率下降；F1 在某个中�
 |---|---|---|
 | [impl.py](impl.py) | 手写实现 | `IsolationForest`、`LOF`、`KDE`，统一 `score_samples/predict` |
 | [framework.py](framework.py) | 框架对照 | sklearn `IsolationForest` / `LocalOutlierFactor` / `KernelDensity` |
-| [demo.py](demo.py) | 同数据双跑 | 三组实验：方法对比 / 阈值扫描 / 分数分离度 |
+| [demo.py](demo.py) | 同数据双跑 | 三组验证：方法对比 / 阈值扫描 / 分数分离度 |
 | [test_impl.py](test_impl.py) | 性质测试 | 分数范围、排序、阈值分位、对照、契约 |
 | [make_teaching_assets.py](make_teaching_assets.py) | 素材生成 + 对账 | 分数图 / 阈值曲线 / 三方法分布 |
 | [exercises/](exercises/README.md) | 练习（5 题，题解分离） | 概念、手算、诊断、实现、迁移 |
@@ -191,14 +191,14 @@ sklearn 的 `IsolationForest` / `LocalOutlierFactor(novelty=True)` / `KernelDens
 差异在工程：sklearn 用 C/多线程、更成熟的子采样与 `offset_` 约定；
 `LocalOutlierFactor` 默认 `novelty=False`（只能 fit_predict），要用 `novelty=True` 才能 `predict` 新样本。
 
-## 5. 实验结果
+## 5. 算法结果
 
 **环境**：uv 环境（`uv sync --extra dev`），Python 3.13.15 / numpy 2.5.4 / scikit-learn 1.9.1。
 **数据**：二维正常样本 `N(0,I)`（训练 300、测试 100）+ 40 个异常（`[4,4]`/`[-4,4]` 附近）。
 **复现**：本目录内 `uv run python demo.py`、`uv run pytest test_impl.py -q`、
 `uv run python make_teaching_assets.py`。
 
-**实验一：三种检测器（训练只用正常样本，contamination=5%）**
+**验证一：三种检测器（训练只用正常样本，contamination=5%）**
 
 | 方法 | AUC | 精确率 | 召回率 | 耗时（ms） |
 |---|---|---|---|---|
@@ -209,7 +209,7 @@ sklearn 的 `IsolationForest` / `LocalOutlierFactor(novelty=True)` / `KernelDens
 | sklearn LOF | 1.000 | 0.889 | 1.000 | — |
 | sklearn KDE | 1.000 | — | — | — |
 
-**实验二：contamination 扫描（IsolationForest）**
+**验证二：contamination 扫描（IsolationForest）**
 
 | contamination | 精确率 | 召回率 | F1 |
 |---|---|---|---|
@@ -220,12 +220,23 @@ sklearn 的 `IsolationForest` / `LocalOutlierFactor(novelty=True)` / `KernelDens
 | 0.12 | 0.714 | 1.000 | 0.833 |
 | 0.20 | 0.635 | 1.000 | 0.777 |
 
-**实验三：分数分离度**
+**验证三：分数分离度**
 
 正常平均 **0.460**，异常平均 **0.762**；分布有重叠，阈值决定取舍。
 
-**验证声明（已验证）**：输入为上述数据与种子；2026-10-21 在 uv 环境实跑，
-`uv run python demo.py` 输出上表；`uv run pytest test_impl.py -q` → **9 passed**；
+**验证四：更难数据（双峰正常 + 靠近簇边缘的异常，2026-11-02 新增）**
+
+| 方法 | AUC | PR-AUC |
+|---|---|---|
+| 手写 IForest | 0.769 | 0.682 |
+| 手写 LOF | 0.768 | 0.680 |
+| 手写 KDE | 0.776 | 0.716 |
+
+三方法不再 AUC=1.0，且 PR-AUC 明显低于 AUC——这正是“异常率低时该看 PR”的量化证据。
+
+**验证声明（已验证）**：输入为上述数据与种子；2026-11-02 复跑，
+`uv run python demo.py` 输出上表；`uv run pytest test_impl.py -q` → **10 passed**
+（含双峰/边缘异常 AUC 0.6–0.95、PR-AUC >0.5）；
 `uv run python make_teaching_assets.py` 对账通过（手写 AUC 1.000 与 sklearn 一致）。
 
 **可视化结论**：
@@ -243,6 +254,6 @@ sklearn 的 `IsolationForest` / `LocalOutlierFactor(novelty=True)` / `KernelDens
 - **训练集污染**：正常样本里混入异常会抬高阈值、降低召回。
 - **KDE 的带宽**：`h` 太小过拟合、太大过平滑；高维还要更多样本。
 - **下游**：时序异常（突变点/滑窗）、图异常、深度异常检测（自编码器/对比学习）。
-- **合成数据太可分**：三方法 AUC 都是 1.0，差异主要落在阈值；需要更难的局部/多峰异常数据。
+- **合成数据太可分**：主验证三方法 AUC 都是 1.0；新增的双峰 + 边缘异常把 AUC 拉到 0.77，仍不是真实业务数据。
 - **LOF 训练分数口径**：`score_samples(X_train)` 会把样本自己当最近邻（距离 0），与 fit 内部的 LOF 不完全一致；本实现只把它用于新样本打分。
 - **阈值/PR 指标**：项目里 KDE 的 AUC=1.0 但精确率 0.63；低异常率场景应看 PR-AUC 与业务代价。

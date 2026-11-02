@@ -2,8 +2,8 @@
 
 > 状态：✅ 已完成（2026-10-22）
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 5.2 章
-> 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现实验读「进阶篇」
-> 本族共 7 个实验，学习顺序与计划见 [族级导读](../README.md)。
+> 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现读「进阶篇」
+> 本族共 8 个算法，学习顺序与计划见 [族级导读](../README.md)。
 
 Transformer Block（深度模型 · 组件/可训练块）：入口 `TransformerBlock(...).forward(X)` / `backward(d_out)`，并可在字符序列上 `train(tokens)` / `evaluate(tokens)` / `predict_next(tokens)`；实现在 [impl.py](impl.py)，对照是 [framework.py](framework.py) 的 PyTorch pre-LN Block。**没有 `fit(X,y)`**：next-token 的输入/目标来自同一段文本的错位切分。
 
@@ -11,7 +11,7 @@ Transformer Block（深度模型 · 组件/可训练块）：入口 `Transformer
 
 - 是一层可堆叠的 Block，不是完整语言模型：输入 `(N,T,d_model)`，输出同形状。
 - 内部是 LN → 多头注意力 → 残差 → LN → FFN → 残差，不是一层全连接。
-- 它可以用 next-token 目标训练，但词表/采样属于 GPT 实验。
+- 它可以用 next-token 目标训练，但词表/采样属于 GPT 算法。
 
 # 基础篇 · 先搞懂它
 
@@ -107,12 +107,12 @@ LN 前均值 7.01、标准差 3.00；LN 后均值 0、标准差 1。
 
 ## 8. 掌握清单：五级能力与自测
 
-| 级别 | 能力 | 本实验的检验方式 | 在哪做 |
+| 级别 | 能力 | 本算法的检验方式 | 在哪做 |
 |---|---|---|---|
 | 1 说清 | 用自己的话讲规则 | 说出 LN/MHA/FFN/残差/pre-LN 的作用 | 基础篇「核心量」「白话版」 |
 | 2 走通 | 纸上手算 | `[1,2,3]` 的 LN；残差梯度 1.5 | 基础篇「手算示例」节 |
-| 3 判断 | 说清正确性条件 | 解释 pre-LN、残差、causal、FFN | 基础篇「白话版」+ 实验二 |
-| 4 实现 | 手写并与对照比对 | 跑通 `demo.py`，梯度检查通过 | 进阶篇「实验结果」 |
+| 3 判断 | 说清正确性条件 | 解释 pre-LN、残差、causal、FFN | 基础篇「白话版」+ 验证二 |
+| 4 实现 | 手写并与对照比对 | 跑通 `demo.py`，梯度检查通过 | 进阶篇「算法结果」 |
 | 5 迁移 | 用到新问题 | 训练后做 next-token 预测 | [project/](project/README.md) |
 
 **自测关卡（先预测，再跑代码验证）**：
@@ -122,7 +122,7 @@ LN 前均值 7.01、标准差 3.00；LN 后均值 0、标准差 1。
 3. pre-LN 与 post-LN 的梯度路径差在哪？
 4. 去掉残差，训练 loss 会怎样？
 
-# 进阶篇 · 实验档案
+# 进阶篇 · 算法档案
 
 ## 目录形态（本算法的"类型"）
 
@@ -180,7 +180,7 @@ torch 用 `nn.TransformerEncoderLayer(norm_first=True)`，同样 pre-LN；手写
 
 两边不要求逐位一致（初始化/优化器细节不同），只比较 loss/acc 量级。
 
-## 5. 实验结果
+## 5. 算法结果
 
 **环境**：uv（`uv sync --extra deep-learning --extra dev`），Python 3.13.15 /
 numpy 2.5.4 / torch 2.14.1；CPU。
@@ -188,7 +188,7 @@ numpy 2.5.4 / torch 2.14.1；CPU。
 **复现**：本目录内 `uv run python demo.py`、`uv run pytest test_impl.py -q`、
 `uv run python make_teaching_assets.py`。
 
-**实验一：next-token（40 轮）**
+**验证一：next-token（40 轮）**
 
 | 实现 | train loss | train acc | test loss | test acc | 耗时 |
 |---|---|---|---|---|---|
@@ -197,7 +197,7 @@ numpy 2.5.4 / torch 2.14.1；CPU。
 
 手写 loss 曲线：2.709 → 0.286。
 
-**实验二：残差消融（40 轮）**
+**验证二：残差消融（40 轮）**
 
 | 配置 | test loss | test acc |
 |---|---|---|
@@ -227,7 +227,7 @@ numpy 2.5.4 / torch 2.14.1；CPU。
 **已记录、不阻塞**：
 
 - **单层 + 小语料**：结论只说明“能训”，不外推到深层/真实文本。
-- **无 post-LN 实现**：README 只解释差异，没有实验对照。
+- **无 post-LN 实现**：README 只解释差异，没有算法对照。
 - **无 dropout/初始化扫描**：训练配置单一。
 - **`train` 每次会重置 loss history，但不重置参数/Adam**：连续调用是“继续训练”，
   不是重新初始化；项目里依赖这一点。

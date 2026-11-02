@@ -156,10 +156,13 @@ class GAN:
                 d_real = self.discriminator(real)
                 d_fake = self.discriminator(fake)
                 d_loss = bce(d_real, np.ones(m)) + bce(d_fake, np.zeros(m))
+                # dout 是 dL/dp（p 为 sigmoid 输出），_backward 内部再乘 p(1-p)
                 gD_real, _ = _backward(self.d_params, _forward(self.d_params, real, True)[1],
-                                       ((d_real - 1) / m)[:, None], True)
+                                       (-1.0 / (np.clip(d_real, 1e-12, 1) * m))[:, None],
+                                       True)
                 gD_fake, _ = _backward(self.d_params, _forward(self.d_params, fake, True)[1],
-                                       (d_fake / m)[:, None], True)
+                                       (1.0 / (np.clip(1 - d_fake, 1e-12, 1) * m))[:, None],
+                                       True)
                 gradsD = [{"W": a["W"] + b["W"], "b": a["b"] + b["b"]}
                           for a, b in zip(gD_real, gD_fake)]
                 self._adam(self.d_params, gradsD, self._d_state, self.lr_d)

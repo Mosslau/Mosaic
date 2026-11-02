@@ -73,19 +73,22 @@ class CLIP:
 
 
 def make_pairs(n_per=20, dim_i=12, dim_t=200, seed=0):
-    """每个类有固定的图像中心与文本 one-hot 词袋。"""
-    if dim_t < 10 * n_per:
-        raise ValueError("dim_t 必须 >= 10*n_per（每个样本一个唯一 token）")
+    """每个类有固定的图像中心与文本原型，同类样本各自加噪声。
+
+    旧版给每个样本一个唯一 one-hot token：训练集上 identity 检索 1.000，
+    但 heldout 的 token 没见过，类别对齐根本没学到。现在去掉唯一 token，
+    文本只保留**类原型 + 噪声**，heldout 才能检验"图文是否按类对齐"。
+    """
+    if dim_t < 10:
+        raise ValueError("dim_t 必须 >=10（至少每个类一个维度）")
     rng = np.random.default_rng(seed)
     centers = rng.normal(0, 1, (10, dim_i))
+    text_proto = rng.normal(0, 1, (10, dim_t))
     Xi, Xt, y = [], [], []
     for c in range(10):
         for _ in range(n_per):
             Xi.append(centers[c] + rng.normal(0, .25, dim_i))
-            t = np.zeros(dim_t)
-            t[len(Xt)] = 1.0
-            t[c] += 0.5
-            Xt.append(t)
+            Xt.append(text_proto[c] + rng.normal(0, .5, dim_t))
             y.append(c)
     return np.array(Xi), np.array(Xt), np.array(y)
 

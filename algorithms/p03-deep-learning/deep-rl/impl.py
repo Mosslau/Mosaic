@@ -58,14 +58,22 @@ class QNet:
         self.H = np.maximum(0, self.X @ self.W1 + self.b1)
         return self.H @ self.W2 + self.b2
 
-    def backward(self, dout, lr):
-        dW2 = self.H.T @ dout
-        db2 = dout.sum(0)
+    def backward(self, dout, lr, step: bool = True):
+        self.dW2 = self.H.T @ dout
+        self.db2 = dout.sum(0)
         dH = (dout @ self.W2.T) * (self.H > 0)
-        dW1 = self.X.T @ dH
-        db1 = dH.sum(0)
-        for p, g in ((self.W1, dW1), (self.b1, db1), (self.W2, dW2), (self.b2, db2)):
-            p -= lr * g
+        self.dW1 = self.X.T @ dH
+        self.db1 = dH.sum(0)
+        if step:
+            for p, g in ((self.W1, self.dW1), (self.b1, self.db1),
+                         (self.W2, self.dW2), (self.b2, self.db2)):
+                p -= lr * g
+
+    def _params(self):
+        return {"W1": self.W1, "b1": self.b1, "W2": self.W2, "b2": self.b2}
+
+    def _grads(self):
+        return {"W1": self.dW1, "b1": self.db1, "W2": self.dW2, "b2": self.db2}
 
     def copy_from(self, other):
         self.W1, self.b1 = other.W1.copy(), other.b1.copy()

@@ -78,3 +78,32 @@ def test_sklearn_baseline() -> None:
     *_, X = data()
     m = framework.fit_nmf(X, 3)
     assert m.reconstruction_err_ < 4.0
+
+
+def test_lda_baseline() -> None:
+    """不同模型族的公平基线：LDA 同 TF-IDF、同主题数。"""
+    import framework
+    *_, X = data()
+    m = framework.fit_lda(X, 3)
+    W = m.transform(X)
+    assert W.shape == (24, 3)
+    assert np.isfinite(m.perplexity(X))
+
+
+def test_heldout_purity() -> None:
+    """在 18/6 的 heldout 文档上评估主题纯度，而不是只在训练集上聚类。"""
+    from sklearn.model_selection import train_test_split
+
+    docs, labels, _ = make_docs()
+    labels = np.asarray(labels)
+    idx = np.arange(len(docs))
+    tr, te = train_test_split(idx, test_size=6, random_state=0, stratify=labels)
+    tf = Tfidf().fit([docs[i] for i in tr])
+    Xtr, Xte = tf.transform([docs[i] for i in tr]), tf.transform([docs[i] for i in te])
+    m = NMF(3, 200, 0).fit(Xtr)
+    pred_tr = m.transform(Xtr).argmax(1)
+    mapping = {k: int(np.bincount(labels[tr][pred_tr == k], minlength=3).argmax())
+               for k in range(3)}
+    pred_te = m.transform(Xte).argmax(1)
+    purity = float(np.mean([mapping[p] == y for p, y in zip(pred_te, labels[te])]))
+    assert purity >= 0.8, purity

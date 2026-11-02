@@ -47,7 +47,14 @@ def main() -> None:
         print(f"{w:4.1f} | {acc:9.3f} | {div:9.2f}")
         if best is None or acc > best[1]:
             best = (w, acc)
-    print(f"→ 最佳 w={best[0]}（class acc {best[1]:.3f}）；w=0 是无条件。\n")
+    print(f"→ 最佳 w={best[0]}（class acc {best[1]:.3f}）；w=0 是无条件。")
+
+    seed_accs = []
+    for seed in (1, 2, 3):
+        s = d.sample(len(labels), labels=labels, guidance=3.0, seed=seed)
+        seed_accs.append(float((clf.predict(s) == labels).mean()))
+    print(f"w=3 的 3 seed class acc：{seed_accs}；"
+          f"mean {np.mean(seed_accs):.3f} ± {np.std(seed_accs):.3f}\n")
 
     print("== 实验四：手写 vs torch（w=3） ==")
     fm = framework.run_framework(Xtr, ytr, labels, n_steps=100, epochs=100, guidance=3.0)

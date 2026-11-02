@@ -2,8 +2,8 @@
 
 > 状态：✅ 已完成（2026-10-22）
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 5.2 章
-> 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现实验读「进阶篇」
-> 本族共 7 个实验，学习顺序与计划见 [族级导读](../README.md)。
+> 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现读「进阶篇」
+> 本族共 8 个算法，学习顺序与计划见 [族级导读](../README.md)。
 
 注意力组件（深度模型 · 组件）：入口 `ScaledDotProductAttention().forward(Q,K,V,mask)` / `backward(d_out)`，以及 `MultiHeadAttention().forward(X)` / `backward`；实现在 [impl.py](impl.py)，对照是 [framework.py](framework.py) 的 torch 实现。**没有 `fit` / `train`**：它不是独立模型，而是 Block/BERT/GPT/T5 的零件。
 
@@ -106,12 +106,12 @@ softmax 接近 one-hot，梯度几乎为 0。缩放把方差拉回 O(1)。
 
 ## 8. 掌握清单：五级能力与自测
 
-| 级别 | 能力 | 本实验的检验方式 | 在哪做 |
+| 级别 | 能力 | 本算法的检验方式 | 在哪做 |
 |---|---|---|---|
 | 1 说清 | 用自己的话讲规则 | 说出 Q/K/V、缩放、mask、多头 | 基础篇「核心量」「白话版」 |
 | 2 走通 | 纸上手算 | 两个 token 的 softmax 权重与输出 | 基础篇「手算示例」节 |
-| 3 判断 | 说清正确性条件 | 解释缩放、causal、位置编码、O(T²) | 基础篇「白话版」+ 实验二/五 |
-| 4 实现 | 手写并与对照比对 | 跑通 `demo.py`，梯度检查通过 | 进阶篇「实验结果」 |
+| 3 判断 | 说清正确性条件 | 解释缩放、causal、位置编码、O(T²) | 基础篇「白话版」+ 验证二/五 |
+| 4 实现 | 手写并与对照比对 | 跑通 `demo.py`，梯度检查通过 | 进阶篇「算法结果」 |
 | 5 迁移 | 用到新问题 | 内容检索：attention vs mean pooling | [project/](project/README.md) |
 
 **自测关卡（先预测，再跑代码验证）**：
@@ -121,7 +121,7 @@ softmax 接近 one-hot，梯度几乎为 0。缩放把方差拉回 O(1)。
 3. 打乱 token 顺序，attention 输出会怎样？
 4. 为什么 attention 的时间复杂度是 O(T²)？
 
-# 进阶篇 · 实验档案
+# 进阶篇 · 算法档案
 
 ## 目录形态（本算法的"类型"）
 
@@ -129,7 +129,7 @@ softmax 接近 one-hot，梯度几乎为 0。缩放把方差拉回 O(1)。
 |---|---|---|
 | [impl.py](impl.py) | 手写实现 | `ScaledDotProductAttention`、`MultiHeadAttention`、softmax |
 | [framework.py](framework.py) | torch 对照 | `torch_attention`（逐位对账）、`torch_mha`（工程对照） |
-| [demo.py](demo.py) | 组件实验 | mask / 缩放 / 多头 / 检索 / 复杂度 / torch |
+| [demo.py](demo.py) | 组件算法 | mask / 缩放 / 多头 / 检索 / 复杂度 / torch |
 | [test_impl.py](test_impl.py) | 性质测试 | 归一化、mask、缩放、单头/多头梯度、排列、torch、契约 |
 | [make_teaching_assets.py](make_teaching_assets.py) | 素材生成 + 对账 | 热图 / 缩放 / 多头 / GIF |
 | [exercises/](exercises/README.md) | 练习（5 题，题解分离） | 概念、手算、诊断、实现、迁移 |
@@ -179,7 +179,7 @@ torch 手写版与 `ScaledDotProductAttention` 输出最大差 **1.4e-7**、权�
 | 速度 | Python 循环 | 融合算子 |
 | 用途 | 讲原理/梯度检查 | 工程实现 |
 
-## 5. 实验结果
+## 5. 算法结果
 
 **环境**：uv（`uv sync --extra deep-learning --extra dev`），Python 3.13.15 /
 numpy 2.5.4 / torch 2.14.1；CPU。
@@ -187,11 +187,11 @@ numpy 2.5.4 / torch 2.14.1；CPU。
 **复现**：本目录内 `uv run python demo.py`、`uv run pytest test_impl.py -q`、
 `uv run python make_teaching_assets.py`。
 
-**实验一：mask**
+**验证一：mask**
 
 权重行和=1；causal 上三角最大 0；改未来 V 后前面输出不变。
 
-**实验二：d_k 与 softmax 锐度**
+**验证二：d_k 与 softmax 锐度**
 
 | d_k | 不缩放 max weight | 缩放后 max weight |
 |---|---|---|
@@ -200,16 +200,16 @@ numpy 2.5.4 / torch 2.14.1；CPU。
 | 32 | 0.986 | 0.544 |
 | 128 | 0.996 | 0.562 |
 
-**实验三：多头**
+**验证三：多头**
 
 head 0：max 0.687，熵 1.395；head 1：max 0.995，熵 0.839——同一输入，不同模式。
 
-**实验四：内容检索**
+**验证四：内容检索**
 
 T=32，query=K[17]：attention 选中 **17**；mean pooling 选中 0。
 attention 能按内容选择，mean pooling 丢失选择能力。
 
-**实验五：成本与排列**
+**验证五：成本与排列**
 
 T=32/64/128/256 的耗时随 T 增长（O(T²) 趋势）；打乱 token 后输出跟着打乱（排列等变）。
 
@@ -226,10 +226,10 @@ T=32/64/128/256 的耗时随 T 增长（O(T²) 趋势）；打乱 token 后输�
 
 ## 6. 局限与延伸
 
-- **O(T²)**：长序列成本高；KV cache/FlashAttention 是工程优化，不在本实验。
-- **位置无感知**：必须加位置编码；本实验没有实现位置编码（交给 Block/GPT）。
+- **O(T²)**：长序列成本高；KV cache/FlashAttention 是工程优化，不在本算法。
+- **位置无感知**：必须加位置编码；本算法没有实现位置编码（交给 Block/GPT）。
 - **没有任务目标**：单头 attention 无参数；多头才有投影，但仍需 Block 才能训练。
-- **只做 self-attention**：cross-attention（T5）在后续实验。
+- **只做 self-attention**：cross-attention（T5）在后续算法。
 - **没有多头可解释性训练**：多头权重由随机投影决定，不是“学出来的分工”。
 - **下游**：Block（组装）→ BERT/GPT/T5（三种范式）。
 

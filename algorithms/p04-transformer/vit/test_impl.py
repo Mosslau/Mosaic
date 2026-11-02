@@ -37,6 +37,50 @@ def test_accuracy() -> None:
     assert (m.predict(Xte) == yte).mean() > .75
 
 
+@pytest.mark.parametrize("name,idx", [
+    ("Wq", (0, 0)),
+    ("W1", (0, 0)),
+    ("Wc", (0, 0)),
+    ("E", (0, 0)),
+    ("pos", (0, 0, 0)),
+    ("cls", (0, 0, 0)),
+])
+def test_attention_ffn_gradients(name, idx) -> None:
+    """patch embedding / attention / FFN / classifier 的有限差分。"""
+    Xtr, _, ytr, _ = data()
+    m = ViT(d=8, epochs=1, lr=1e-3).fit(Xtr[:20], ytr[:20])
+    y = ytr[:20]
+    Y = np.eye(len(m.classes_))[np.searchsorted(m.classes_, y)]
+    p = m.forward()
+    m.backward(p, Y, step=False)
+
+    def loss():
+        pp = m.forward()
+        return float(-np.mean(np.log(np.clip(
+            pp[np.arange(len(Y)), Y.argmax(1)], 1e-12, 1))))
+
+    eps = 1e-6
+    param = m._params()[name]
+    analytic = float(m._grads()[name][idx])
+    old = param[idx]
+    param[idx] = old + eps
+    lp = loss()
+    param[idx] = old - eps
+    lm = loss()
+    param[idx] = old
+    assert abs((lp - lm) / (2 * eps) - analytic) < 1e-4, name
+
+
+def test_seed_variance() -> None:
+    Xtr, Xte, ytr, yte = data()
+    accs = []
+    for seed in (0, 1, 2):
+        m = ViT(d=16, lr=.1, epochs=100, seed=seed).fit(Xtr, ytr)
+        accs.append(float((m.predict(Xte) == yte).mean()))
+    assert min(accs) > 0.55, accs
+    assert max(accs) - min(accs) < 0.25, accs
+
+
 def test_patch_count() -> None:
     Xtr, _, ytr, _ = data()
     m = ViT(d=8, epochs=1).fit(Xtr[:50], ytr[:50])

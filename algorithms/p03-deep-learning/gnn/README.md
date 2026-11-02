@@ -3,9 +3,9 @@
 > 状态：✅ 已完成（2026-10-23）
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 4.7 章
 > 阅读路线：基础篇 → 进阶篇
-> 本族共 8 个实验，见 [族级导读](../README.md)。
+> 本族共 11 个算法，见 [族级导读](../README.md)。
 
-深度模型（判别式）：入口是 `GCN(hidden).fit(A, X, y, train_mask)` / `predict()`，实现在 [impl.py](impl.py)；对照是无图 MLP（`demo.py`）。
+深度模型（判别式）：入口是 `GCN(hidden).fit(A, X, y, train_mask)` / `predict()`，实现在 [impl.py](impl.py)；对照是无图 MLP（独立文件 [baseline.py](baseline.py)）。
 
 # 基础篇
 
@@ -39,7 +39,7 @@ flowchart TD
 - 标签少时，邻居特征提供额外信息；
 - MLP 只看单节点特征，无法利用连接；
 - 但层数太深会过平滑，所有节点变得相似；
-- 本实验 GCN 0.917 vs MLP 0.833，图结构带来提升。
+- 本算法 GCN 0.917 vs MLP 0.833，图结构带来提升。
 
 ## 6. 常见误区
 
@@ -64,7 +64,7 @@ flowchart TD
 | 1 说清 | 复述消息传递 | 本文 |
 | 2 走通 | 手算归一化/聚合 | 手算示例 |
 | 3 判断 | 过平滑/层数 | 白话版 |
-| 4 实现 | 跑 demo | 实验结果 |
+| 4 实现 | 跑 demo | 算法结果 |
 | 5 迁移 | 新图节点分类 | project |
 
 # 进阶篇
@@ -74,8 +74,9 @@ flowchart TD
 | 文件 | 角色 |
 |---|---|
 | [impl.py](impl.py) | 归一化、GCN 前向/反向、SBM 数据 |
+| [baseline.py](baseline.py) | 无图 MLP 基线（独立实现，不 import impl） |
 | [demo.py](demo.py) | GCN vs MLP |
-| [test_impl.py](test_impl.py) | 8 个测试 |
+| [test_impl.py](test_impl.py) | 13 个测试（含 4 组参数 FD、3 seed 方差） |
 | [make_teaching_assets.py](make_teaching_assets.py) | 素材 |
 | [exercises/](exercises/README.md) | 5 题 |
 | [project/](project/README.md) | 新图节点分类 |
@@ -95,9 +96,9 @@ GCN 是“归一化邻接矩阵 + 两层 MLP”的消息传递；半监督只对
 
 ## 4. 框架对照
 
-对照是**无图 MLP**，不是 PyG；本实验不依赖 PyTorch Geometric。
+对照是**无图 MLP**（[baseline.py](baseline.py)），不是 PyG；本算法不依赖 PyTorch Geometric。
 
-## 5. 实验结果
+## 5. 算法结果
 
 60 节点 / 240 边 / 12 训练 / 48 测试：
 
@@ -106,14 +107,18 @@ GCN 是“归一化邻接矩阵 + 两层 MLP”的消息传递；半监督只对
 | GCN | **0.917** |
 | MLP（仅特征） | 0.833 |
 
-GCN loss 0.957 → 0.031；训练 8ms。**8 passed**；素材对账通过。
+GCN loss 0.957 → 0.031；训练 8ms。**3 seed 测试 acc：0.917 / 0.979 / 0.979**——
+单点 0.917 不是“稳定 0.92”，小图 + 单 split 的方差必须报出来。
+
+**验证**：2026-11-02 复跑；`pytest` → **13 passed**
+（GCN 的 W1/b1/W2/b2 四组 FD、3 seed 方差、独立 MLP 基线）；素材对账通过。
 
 ## 6. 局限与延伸
 
 - 合成随机块图，不是 Cora/CiteSeer；
 - 只有 2 层 GCN，没有 GraphSAGE/GAT；
 - 没有 mini-batch/大图采样；
-- 没有过平滑定量实验；
+- 没有过平滑定量算法；
 - 下游：GraphSAGE/GAT → 图分类/链接预测。
 
 **已记录、不阻塞**：合成图、无 PyG、无大图采样。

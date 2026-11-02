@@ -3,9 +3,9 @@
 > 状态：✅ 已完成（2026-10-23）
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 4.8 章
 > 阅读路线：基础篇 → 进阶篇
-> 本族共 8 个实验，见 [族级导读](../README.md)。
+> 本族共 11 个算法，见 [族级导读](../README.md)。
 
-深度模型（强化学习）：入口是 `DQN().fit(episodes)` / `evaluate()` / `policy()`，实现在 [impl.py](impl.py)；环境是 4×4 网格世界。
+深度模型（强化学习）：入口是 `DQN().fit(episodes)` / `evaluate()` / `policy()`，实现在 [impl.py](impl.py)；环境是 4×4 网格世界。对照在独立文件 [baseline.py](baseline.py)：随机策略 + 无 replay/target 的表格 Q-learning。
 
 # 基础篇
 
@@ -41,7 +41,7 @@ flowchart TD
 
 - 连续样本高度相关，直接训练会遗忘/震荡；replay 随机化。
 - 目标随网络变，像“追自己的尾巴”；target 网络延迟更新。
-- 只有稀疏奖励时，DQN 可能学得慢；本实验用无陷阱网格降低难度。
+- 只有稀疏奖励时，DQN 可能学得慢；本算法用无陷阱网格降低难度。
 
 ## 6. 常见误区
 
@@ -66,7 +66,7 @@ flowchart TD
 | 1 说清 | 复述 Bellman/replay/target | 本文 |
 | 2 走通 | 手算 target | 手算示例 |
 | 3 判断 | 探索/稳定性 | 白话版 |
-| 4 实现 | 跑 demo | 实验结果 |
+| 4 实现 | 跑 demo | 算法结果 |
 | 5 迁移 | 新环境训练 | project |
 
 # 进阶篇
@@ -76,8 +76,9 @@ flowchart TD
 | 文件 | 角色 |
 |---|---|
 | [impl.py](impl.py) | GridWorld、QNet、DQN |
-| [demo.py](demo.py) | DQN vs 随机 |
-| [test_impl.py](test_impl.py) | 8 个测试 |
+| [baseline.py](baseline.py) | 随机策略 + 表格 Q-learning（独立实现，无 replay/target） |
+| [demo.py](demo.py) | DQN vs 随机 vs 表格 Q |
+| [test_impl.py](test_impl.py) | 16 个测试（含 QNet 4 组 FD、3 seed 方差、表格 Q 基线） |
 | [make_teaching_assets.py](make_teaching_assets.py) | 素材 |
 | [exercises/](exercises/README.md) | 5 题 |
 | [project/](project/README.md) | 训练/评估脚本 |
@@ -101,9 +102,9 @@ DQN 用 MLP 近似 Q，replay 采样，target 网络算 bootstrap 目标；MSE �
 
 ## 4. 框架对照
 
-本实验不接 Gym/DQN 库；环境与网络全手写。
+本算法不接 Gym/DQN 库；环境与网络全手写。对照是 [baseline.py](baseline.py) 的随机策略与表格 Q-learning——后者不使用 replay/target，正好充当这两项机制的消融参照。
 
-## 5. 实验结果
+## 5. 算法结果
 
 | 项 | 值 |
 |---|---|
@@ -111,9 +112,15 @@ DQN 用 MLP 近似 Q，replay 采样，target 网络算 bootstrap 目标；MSE �
 | 末 100 轮成功率 | **1.00** |
 | 贪心评估 | **1.00** |
 | 随机策略 | 0.60 |
+| 表格 Q 基线（无 replay/target） | **1.00** |
 | loss | 0.033 → 0.009 |
 
-**验证**：2026-10-23 实跑；`pytest test_impl.py -q` → **8 passed**；素材对账通过。
+**3 seed 方差**：1000 轮 / 每 seed 评估 20 局，成功率 1.00 / 1.00 / 1.00；
+但 500 轮时曾出现 0.00 / 0.00 / 1.00——**收敛对预算敏感，单点 1.00 不代表稳**。
+
+**验证**：2026-11-02 复跑，`pytest test_impl.py -q` → **16 passed**
+（QNet 的 W1/b1/W2/b2 四组 FD、3 seed 方差、随机/表格 Q 基线）；
+`demo.py` 三档成功率 1.00 / 1.00 / 0.60，素材对账通过。
 
 ## 6. 局限与延伸
 

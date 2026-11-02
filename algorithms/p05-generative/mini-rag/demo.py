@@ -41,10 +41,19 @@ QUERIES = [
     ("How does DDPM generate samples?", 11, "denoise"),
 ]
 
+# 与 DOCS 用词不同的改写查询：只用于 heldout 检索，不参与任何调参
+HELDOUT_QUERIES = [
+    ("How does A star decide which node to expand next?", 0, "f = g + h"),
+    ("What balances exploration in MCTS?", 1, "UCB1"),
+    ("Which directions maximize variance in PCA?", 5, "variance"),
+    ("What does a GAN generator compete with?", 10, "minimax"),
+    ("How does DDPM reverse the noise process?", 11, "denoise"),
+]
 
-def retrieval_metrics(hits_by_q, k=3):
+
+def retrieval_metrics(hits_by_q, k=3, queries=QUERIES):
     recall, mrr = [], []
-    for hits, (_, gold, _) in zip(hits_by_q, QUERIES):
+    for hits, (_, gold, _) in zip(hits_by_q, queries):
         ids = [h.doc_id for h in hits[:k]]
         recall.append(1.0 if gold in ids else 0.0)
         rank = next((i + 1 for i, d in enumerate(ids) if d == gold), None)
@@ -53,9 +62,10 @@ def retrieval_metrics(hits_by_q, k=3):
 
 
 def main() -> None:
-    idx = Index(chunk_size=200, overlap=40).build(DOCS)
+    idx = Index(chunk_size=60, overlap=10).build(DOCS)
     pipe = Pipeline(idx, Generator())
-    print(f"文档 {len(DOCS)}，chunk {len(idx.chunks)}，词表哈希维度 {idx.vectors.shape[1]}")
+    print(f"文档 {len(DOCS)}，chunk {len(idx.chunks)}（> 文档数，切块真的触发），"
+          f"词表哈希维度 {idx.vectors.shape[1]}")
 
     k = 3
     t0 = time.perf_counter()
@@ -64,6 +74,10 @@ def main() -> None:
     recall, mrr = retrieval_metrics(hits, k)
     print("\n== 检索（手写 TF-IDF 哈希） ==")
     print(f"Recall@{k} {recall:.3f}；MRR {mrr:.3f}；{t_hand * 1000:.1f}ms")
+
+    held = [idx.search(q, k) for q, _, _ in HELDOUT_QUERIES]
+    hrecall, hmrr = retrieval_metrics(held, k, HELDOUT_QUERIES)
+    print(f"heldout 改写查询：Recall@{k} {hrecall:.3f}；MRR {hmrr:.3f}")
 
     t0 = time.perf_counter()
     base = framework.run_retrieval_baseline(idx, [q for q, _, _ in QUERIES], k)
@@ -80,8 +94,8 @@ def main() -> None:
         lat.append(time.perf_counter() - t0)
         match.append(1.0 if gold_ans.lower() in a.text.lower() else 0.0)
         cite.append(1.0 if gold_doc in [c.doc_id for c in a.citations] else 0.0)
-    print(f"answer match {np.mean(match):.3f}；citation hit {np.mean(cite):.3f}；"
-          f"平均 {np.mean(lat) * 1000:.2f}ms")
+    print(f"answer match {np.mean(match):.3f}；citation top-1 {np.mean(cite):.3f}；"
+          f"平均 {np.mean(lat) * 1000:.2f}ms（citation 只取 top-1，与 Recall@3 区分）")
 
     print("\n== 一个例子 ==")
     q, gold_doc, _ = QUERIES[0]

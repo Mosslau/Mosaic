@@ -47,6 +47,60 @@ def test_conv_shapes() -> None:
     assert conv.forward(X).shape == (4, 6, 8, 8)
 
 
+@pytest.mark.parametrize("key,param_name,idx", [
+    ("conv1", "W", (0, 0, 0, 0)),
+    ("conv2", "W", (0, 0, 0, 0)),
+    ("fc1", "W", (0, 0)),
+    ("fc2", "W", (0, 0)),
+    ("bn1", "gamma", (0,)),
+    ("bn2", "gamma", (0,)),
+    ("skip", "W", (0, 0, 0, 0)),
+])
+def test_backward_fd(key, param_name, idx) -> None:
+    """卷积 / BN / 残差跳连的反向传播：七组参数有限差分。"""
+    X, y = small_data(16)
+    m = LeNet(use_bn=True, use_residual=True, optimizer="sgd", random_state=0)
+    m._init_params(np.random.default_rng(0))
+    y1 = np.eye(10)[y]
+    proba, cache = m.forward(X, training=True)
+    grads = m.backward(proba, y1, cache)
+
+    def loss():
+        p, _ = m.forward(X, training=True)
+        return float(-np.mean(np.log(np.clip(
+            p[np.arange(len(y)), y], 1e-12, 1))))
+
+    eps = 1e-6
+    param = getattr(getattr(m, key), param_name)
+    analytic = float(grads[key][0][idx])
+    old = param[idx]
+    param[idx] = old + eps
+    lp = loss()
+    param[idx] = old - eps
+    lm = loss()
+    param[idx] = old
+    assert abs((lp - lm) / (2 * eps) - analytic) < 1e-4, key
+
+
+def test_heldout_accuracy() -> None:
+    from sklearn.model_selection import train_test_split
+    X, y = small_data(300)
+    Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=.3, random_state=0, stratify=y)
+    m = LeNet(lr=0.003, epochs=10, batch_size=32, optimizer="adam", random_state=0).fit(Xtr, ytr)
+    assert np.mean(m.predict(Xte) == yte) > 0.6
+
+
+def test_torch_baseline_smoke() -> None:
+    pytest.importorskip("torch")
+    import framework
+    from sklearn.model_selection import train_test_split
+    X, y = small_data(200)
+    Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=.3, random_state=0, stratify=y)
+    fm = framework.run_framework(Xtr, Xte, ytr, yte, epochs=2, lr=0.003, batch_size=32)
+    assert np.isfinite(fm["loss"])
+    assert 0 <= fm["acc"] <= 1
+
+
 def test_train_small() -> None:
     X, y = small_data(300)
     m = LeNet(lr=0.003, epochs=15, batch_size=32, optimizer="adam", random_state=0).fit(X, y)

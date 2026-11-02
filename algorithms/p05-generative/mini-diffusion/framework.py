@@ -37,7 +37,7 @@ def run_framework(Xtr, ytr, labels, n_steps=100, epochs=100, guidance=3.0):
     opt = torch.optim.Adam(net.parameters(), lr=1e-3)
     X = torch.as_tensor(Xtr, dtype=torch.float32)
     Y = torch.as_tensor(ytr, dtype=torch.long)
-    betas = torch.linspace(1e-4, 0.02, n_steps)
+    betas = torch.linspace(1e-4, 0.1, n_steps)   # 与手写版同调度，才可比
     ab = torch.cumprod(1 - betas, 0)
     t0 = time.perf_counter()
     for _ in range(epochs):

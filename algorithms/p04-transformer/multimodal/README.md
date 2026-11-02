@@ -3,7 +3,7 @@
 > 状态：✅ 已完成（2026-10-23）
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 5.5 章
 > 阅读路线：基础篇 → 进阶篇
-> 本族共 7 个实验，见 [族级导读](../README.md)。
+> 本族共 8 个算法，见 [族级导读](../README.md)。
 
 深度模型（多模态）：入口是 `CLIP().fit(Xi, Xt)` / `retrieval_accuracy(Xi, Xt, y)` / `similarity`，实现在 [impl.py](impl.py)；对照是随机线性双塔（`baseline.py`）。
 
@@ -44,7 +44,7 @@ flowchart TD
 - 温度 τ 小 → 分布更尖，正样本拉得更紧，但训练更不稳；
 - 负样本（batch 内其他对）提供对比信号；
 - 双塔共享空间，才能做跨模态检索；
-- 本实验的文本是 200 维 one-hot，图像是 12 维连续特征；合成数据。
+- 本算法的文本是 200 维 one-hot，图像是 12 维连续特征；合成数据。
 
 ## 6. 常见误区
 
@@ -69,7 +69,7 @@ flowchart TD
 | 1 说清 | 复述双塔/τ/对比损失 | 本文 |
 | 2 走通 | 手算 softmax/相似度 | 手算示例 |
 | 3 判断 | 温度/负样本/塌缩 | 白话版 |
-| 4 实现 | 跑 demo | 实验结果 |
+| 4 实现 | 跑 demo | 算法结果 |
 | 5 迁移 | 新图文检索 | project |
 
 # 进阶篇
@@ -79,8 +79,8 @@ flowchart TD
 | 文件 | 角色 |
 |---|---|
 | [impl.py](impl.py) | 双塔、对比损失、检索 |
-| [demo.py](demo.py) | 训练 + identity/class 检索 |
-| [test_impl.py](test_impl.py) | 8 个测试 |
+| [demo.py](demo.py) | train/test 切分 + identity/class 检索 + 岭回归基线 |
+| [test_impl.py](test_impl.py) | 10 个测试（heldout、岭回归基线、3 seed 方差） |
 | [make_teaching_assets.py](make_teaching_assets.py) | 素材 |
 | [exercises/](exercises/README.md) | 5 题 |
 | [project/](project/README.md) | 图文检索脚本 |
@@ -99,32 +99,40 @@ flowchart TD
 1. L2 归一化 + 反传；
 2. 对称/单边损失说明；
 3. 温度 τ；
-4. one-hot 文本唯一性；
-5. 检索指标 identity/class 分开。
+4. 文本用**类原型 + 噪声**，不再给每样本唯一 token；
+5. 检索指标 identity/class 分开，且在 heldout 上评。
 
 ## 4. 框架对照
 
-本实验不接 CLIP 模型；对照是随机编码器/无对齐基线。
+本算法不接 CLIP 模型；对照是随机双塔（下界）与**岭回归跨模态对齐**（训练过的强基线）。
 
-## 5. 实验结果
+## 5. 算法结果
 
-200 对，图像 12 维、文本 200 维、嵌入 16：
+200 对，train/test = 140/60，图像 12 维、文本 200 维、嵌入 16：
 
 | 指标 | 值 |
 |---|---|
-| loss | 6.564 → **1.879** |
-| identity 检索 | **0.945** |
-| 类别检索 | **1.000**（随机双塔基线 0.000） |
-| 训练 | 0.07s |
+| loss | 5.338 → **1.734** |
+| 类别检索（train） | 1.000 |
+| 类别检索（test） | **0.850** |
+| identity 检索（test） | 0.200（唯一 token 已去掉，背不出来） |
+| 岭回归基线（test） | **1.000** |
+| 随机双塔（test） | 0.100 |
+| 训练 | 0.04s |
 
-**验证**：2026-10-23 实跑；`pytest` → **8 passed**；素材对账通过。
+> 负结果：CLIP 0.850 低于岭回归 1.000。说明在这个 200 对合成任务上，
+> 有监督线性对齐比 InfoNCE 更省样本；CLIP 的收益需要更大数据/更强增广才显现。
+
+**验证**：2026-11-02 复跑；`pytest` → **10 passed**（heldout、岭回归基线、3 seed 方差）；
+`demo.py` 输出上表；素材对账通过。
 
 ## 6. 局限与延伸
 
 - 合成特征，不是真实图像/文本；
 - 线性双塔，无 CNN/Transformer 编码器；
 - 只有检索，无 zero-shot 分类；
-- 单温度/单 seed；
+- demo 单 seed；测试覆盖 3 seed（类检索 0.8–0.9 区间）；
+- CLIP 在合成小数据上不如有监督岭回归，这是数据/规模限制，不是实现 bug；
 - 下游：CLIP 真模型 → 图文生成/多模态 LLM。
 
 **已记录、不阻塞**：合成数据、线性编码器、无 zero-shot。

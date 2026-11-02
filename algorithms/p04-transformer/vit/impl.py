@@ -74,7 +74,7 @@ class ViT:
         logits = self.Z2[:, 0] @ self.Wc + self.bc
         return softmax(logits)
 
-    def backward(self, p, Y):
+    def backward(self, p, Y, step: bool = True):
         n = len(p)
         dlogits = (p - Y) / n
         self.dWc = self.Z2[:, 0].T @ dlogits
@@ -103,7 +103,20 @@ class ViT:
         self.dE = self.patches.reshape(-1, 16).T @ dZ0[:, 1:].reshape(-1, self.d)
         self.dpos = dZ0.sum(0, keepdims=True)
         self.dcls = dZ0[:, :1].sum(0, keepdims=True)
-        self._step()
+        if step:
+            self._step()
+
+    def _params(self):
+        return {"E": self.E, "pos": self.pos, "cls": self.cls,
+                "Wq": self.Wq, "Wk": self.Wk, "Wv": self.Wv, "Wo": self.Wo,
+                "W1": self.W1, "b1": self.b1, "W2": self.W2, "b2": self.b2,
+                "Wc": self.Wc, "bc": self.bc}
+
+    def _grads(self):
+        return {"E": self.dE, "pos": self.dpos, "cls": self.dcls,
+                "Wq": self.dWq, "Wk": self.dWk, "Wv": self.dWv, "Wo": self.dWo,
+                "W1": self.dW1, "b1": self.db1, "W2": self.dW2, "b2": self.db2,
+                "Wc": self.dWc, "bc": self.dbc}
 
     def _step(self):
         for p, g in ((self.E, self.dE), (self.pos, self.dpos), (self.cls, self.dcls),

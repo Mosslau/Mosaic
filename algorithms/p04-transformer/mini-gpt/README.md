@@ -2,8 +2,8 @@
 
 > 状态：✅ 已完成（2026-10-22）
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 5.3.4 章
-> 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现实验读「进阶篇」
-> 本族共 7 个实验，学习顺序与计划见 [族级导读](../README.md)。
+> 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现读「进阶篇」
+> 本族共 8 个算法，学习顺序与计划见 [族级导读](../README.md)。
 
 生成模型（深度模型 · 生成式）：入口 `MiniGPT(vocab_size, context, n_layers).train(tokens)` / `generate(prompt, tokenizer, temperature, top_k)`，实现在 [impl.py](impl.py)，对照是 [framework.py](framework.py) 的 PyTorch causal GPT。**没有 `fit(X,y)`**：输入/目标是同一段文本的错位切分。
 
@@ -22,7 +22,7 @@ GPT 就是训练一个“看前文、猜下一个字”的模型；生成时把�
 
 ## 2. 核心量：tokenizer、embedding、causal Block、LM head、采样
 
-- **tokenizer**：字符 ↔ id；本实验字符级，含 `<unk>`。
+- **tokenizer**：字符 ↔ id；本算法字符级，含 `<unk>`。
 - **token embedding**：`E[id]`；
 - **position embedding**：`P[pos]`，否则模型不知道顺序；
 - **N 个 causal Block**：每个位置只能看 `≤t`；
@@ -75,7 +75,7 @@ flowchart TD
 - **❌ "训练和生成是一回事"** —— 训练并行算所有位置；生成串行逐 token。
 - **❌ "temperature 越高越好"** —— 高温度更随机，但更容易不连贯。
 - **❌ "top-k 能提高准确率"** —— 它只改变采样分布，不改变模型概率。
-- **❌ "字符级能理解语义"** —— 本实验只学局部字符转移，不是语义理解。
+- **❌ "字符级能理解语义"** —— 本算法只学局部字符转移，不是语义理解。
 - **❌ "生成文本通顺 = 模型理解"** —— 可能只是背了训练模板。
 
 ## 7. 看图：训练、采样与注意力
@@ -98,12 +98,12 @@ causal 注意力上三角为 0，只能看左边。
 
 ## 8. 掌握清单：五级能力与自测
 
-| 级别 | 能力 | 本实验的检验方式 | 在哪做 |
+| 级别 | 能力 | 本算法的检验方式 | 在哪做 |
 |---|---|---|---|
 | 1 说清 | 用自己的话讲规则 | 说出 tokenizer/embedding/N Block/LM head/采样 | 基础篇「核心量」「白话版」 |
 | 2 走通 | 纸上手算 | softmax、temperature、top-k、CE | 基础篇「手算示例」节 |
 | 3 判断 | 说清正确性条件 | 解释 causal、位置、温度/top-k | 基础篇「白话版」 |
-| 4 实现 | 手写并与对照比对 | 跑通 `demo.py`，生成非空 | 进阶篇「实验结果」 |
+| 4 实现 | 手写并与对照比对 | 跑通 `demo.py`，生成非空 | 进阶篇「算法结果」 |
 | 5 迁移 | 用到新问题 | 多 prompt/多策略生成 | [project/](project/README.md) |
 
 **自测关卡（先预测，再跑代码验证）**：
@@ -113,7 +113,7 @@ causal 注意力上三角为 0，只能看左边。
 3. temperature=0.5 与 1.5，生成风格差在哪？
 4. top-k=1 等价于哪种采样？
 
-# 进阶篇 · 实验档案
+# 进阶篇 · 算法档案
 
 ## 目录形态（本算法的"类型"）
 
@@ -166,11 +166,12 @@ torch 用 `nn.TransformerEncoder` + causal mask + LM head；手写版自己实�
 | 反向 | 手写链式 | autograd |
 | 采样 | 手写温度/top-k | 手写采样逻辑（对照版） |
 
-## 5. 实验结果
+## 5. 算法结果
 
 **环境**：uv（`uv sync --extra deep-learning --extra dev`），Python 3.13.15 /
 numpy 2.5.4 / torch 2.14.1；CPU。
-**数据**：离线合成主谓宾语料，3600 字符、词表 25；训练/测试 token 2880/720；context=16。
+**数据**：216 条**唯一**主谓宾句（6×6×6，打乱后按整行 80/20 切分），
+词表 25；训练/测试 token 4297/1103；context=16。**train/test 句子集合不重叠**。
 **复现**：本目录内 `uv run python demo.py`、`uv run pytest test_impl.py -q`、
 `uv run python make_teaching_assets.py`。
 
@@ -178,19 +179,24 @@ numpy 2.5.4 / torch 2.14.1；CPU。
 
 | 实现 | train loss | train acc | test loss | test acc | 耗时 |
 |---|---|---|---|---|---|
-| 手写 Mini-GPT | 0.196 | 0.917 | 0.232 | **0.899** | ≈2.4s |
-| torch GPT | 0.199 | — | 0.238 | 0.900 | ≈3.1s |
+| 手写 Mini-GPT | 0.274 | 0.882 | 0.437 | **0.834** | ≈3.4s |
+| torch GPT | 0.276 | — | 0.426 | 0.836 | ≈4.4s |
+
+> **旧版 0.899 有重复语料泄漏**：`(lines + " ") * 4` 再按字符切，测试半句里
+> 必然出现训练半句的原句。改成 216 条唯一句 + 按整行切分后，test acc 0.834，
+> 和 torch 0.836 基本一致——这才是 heldout 的真实水平。
 
 **采样（prompt=`the cat`，40 字符）**
 
-- greedy：`the cat sees the tree. a dog likes a song. ...`
-- T=0.8：`the cat sees the tree. a dog likes the tree. ...`
-- T=1.2：开始出现 `dseees` 之类拼写错误；
+- greedy：`the cat finds the house. the cat sees a song. ...`
+- T=0.8：与 greedy 同前缀，后段开始变化；
+- T=1.2：拼写错误增多；
 - top-k=5, T=0.8：更接近 greedy，但仍有变化。
 
-**验证声明（已验证）**：输入为上述语料与种子；2026-10-22 在 uv 环境实跑，
-`uv run python demo.py` 输出上表；`uv run pytest test_impl.py -q` → **9 passed**；
-`uv run python make_teaching_assets.py` 对账通过（test acc >0.8、生成非空）。
+**验证声明（已验证）**：输入为上述语料与种子；2026-11-02 在 uv 环境复跑，
+`uv run python demo.py` 输出上表；`uv run pytest test_impl.py -q` → **16 passed**
+（含 Block 六组参数 FD、train/test 句子不重叠）；`make_teaching_assets.py`
+对账通过（test acc >0.8、生成非空）。
 
 **可视化结论**：
 
@@ -214,7 +220,7 @@ numpy 2.5.4 / torch 2.14.1；CPU。
 - **生成质量有限**：合成语料 + 2 层，输出会重复/跑偏。
 - **`generate` 每步重算全前缀**：没有 KV cache；教学优先。
 - **temperature/top-k 没有系统扫描**：只展示 4 组样例。
-- **test acc 0.899 不代表语言能力**：只是字符级 next-token 准确率。
+- **test acc 0.834 不代表语言能力**：只是字符级 next-token 准确率，且语料是模板合成。
 - **tokenizer 只用训练文本建表**：`<unk>` 处理未知字符；没有 BPE。
 - **`generate` 每步重算全前缀**：没有 KV cache，时间复杂度随生成长度增长；教学优先。
 - **`top_k` 必须是整数**：传浮点会在切片处报错；接口只做了 `<1` 的校验。

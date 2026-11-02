@@ -7,6 +7,7 @@
     01-剪枝示意.png     一棵小博弈树：哪些分支被 α/β 剪掉（教学示意）
     02-剪枝随深度.png   朴素 vs 剪枝的访问节点数曲线（对数纵轴）+ 省下比例
     03-深化动画.gif     深度从 1 加到 9，剪枝省下的比例怎么扩大
+    04-顺序影响.png     三种招法顺序下 Alpha-Beta 主搜索访问量 + 排序额外开销
 
 流程图不在这里——优先 Mermaid 直接写进 README（见 visual-assets.md）。
 
@@ -75,7 +76,13 @@ def setup_cjk_font() -> str:
 
 FONT_USED = setup_cjk_font()
 
-from demo import TicTacToe, bench, game_interface, run_with_counter  # noqa: E402
+from demo import (  # noqa: E402
+    TicTacToe,
+    bench,
+    experiment_move_order,
+    game_interface,
+    run_with_counter,
+)
 from impl import alphabeta, minimax  # noqa: E402
 
 COLOR = dict(plain="#c92a2a", ab="#2b8a3e", grid="#dee2e6", text="#343a40",
@@ -333,6 +340,38 @@ def make_depth_animation(rows: list) -> None:
     plt.close(fig)
 
 
+def make_order_chart() -> None:
+    """实验三：三种招法顺序下，Alpha-Beta 主搜索访问量对比。"""
+    rows = experiment_move_order(TicTacToe())
+    names = [r[0] for r in rows]
+    nodes = [r[3] for r in rows]
+    extra = [r[4] for r in rows]
+    colors = [COLOR["ab"], COLOR["hl"], COLOR["plain"]]
+
+    fig, ax = plt.subplots(figsize=(10.2, 5.4))
+    y = range(len(names))
+    ax.barh(list(y), nodes, color=colors, height=0.55)
+    for i, (n, e) in enumerate(zip(nodes, extra)):
+        ax.text(n + max(nodes) * 0.015, i, f"{n:,}", va="center", fontsize=11)
+        if e:
+            ax.text(n + max(nodes) * 0.015, i - 0.18,
+                    f"排序额外 {e:,}", va="center", fontsize=8.5, color="#6b6b6b")
+    ax.set_yticks(list(y))
+    ax.set_yticklabels(names, fontsize=10.5)
+    ax.set_xlabel("Alpha-Beta 主搜索访问节点数（depth=9）", fontsize=12)
+    ax.set_title("顺序只改“算多少”，不改“选哪个”：结论相同，访问量差约三成",
+                 fontsize=13.5, pad=12)
+    ax.grid(axis="x", color=COLOR["grid"], lw=0.8)
+    ax.set_axisbelow(True)
+    ax.text(0.99, 0.02,
+            "排序本身要重算浅层搜索，额外开销远大于省下的主搜索量",
+            transform=ax.transAxes, ha="right", va="bottom", fontsize=9.5,
+            color=COLOR["text"])
+    fig.tight_layout()
+    fig.savefig(IMAGES / "04-顺序影响.png", dpi=130)
+    plt.close(fig)
+
+
 def main() -> None:
     print("① 剪枝示意图 …")
     make_pruning_sketch()
@@ -342,8 +381,11 @@ def main() -> None:
     make_depth_chart(rows)
     print("③ 深度增长动画 …")
     make_depth_animation(rows)
+    print("④ 招法顺序影响 …")
+    make_order_chart()
     print("\n产出：")
-    for name in ("01-剪枝示意.png", "02-剪枝随深度.png", "03-深化动画.gif"):
+    for name in ("01-剪枝示意.png", "02-剪枝随深度.png", "03-深化动画.gif",
+                 "04-顺序影响.png"):
         path = IMAGES / name
         print(f"  {name}  {path.stat().st_size / 1024:.0f} KB")
     print("\ndepth 1–9 两版访问节点数（可粘贴进 README）：")

@@ -72,3 +72,23 @@ def test_rule_fields() -> None:
     r = ap.rules(0.5)[0]
     assert r.antecedent and r.consequent
     assert r.antecedent | r.consequent in ap.frequent_itemsets_
+
+
+def test_threshold_sweep() -> None:
+    """min_support 越严，频繁项集单调不增；每条 support 都不低于阈值。"""
+    counts = []
+    for support in (0.1, 0.2, 0.4):
+        ap = Apriori(support, 3).fit(toy())
+        counts.append(len(ap.frequent_itemsets_))
+        assert all(v >= support - 1e-12 for v in ap.frequent_itemsets_.values())
+    assert counts[0] >= counts[1] >= counts[2]
+
+
+def test_known_lift_ab() -> None:
+    """手算 a→b：support 3/5、confidence 3/4、lift 0.75/0.8=0.9375。"""
+    ap = Apriori(0.2, 2).fit(toy())
+    rule = next(r for r in ap.rules(0.5)
+                if r.antecedent == frozenset({"a"}) and r.consequent == frozenset({"b"}))
+    assert rule.support == pytest.approx(0.6)
+    assert rule.confidence == pytest.approx(0.75)
+    assert rule.lift == pytest.approx(0.9375)

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from baseline import detect_dataset
 from impl import (
     TinyYOLO,
     average_precision,
@@ -122,13 +123,49 @@ def test_dataset_deterministic_and_valid() -> None:
             assert iou(boxes[0], boxes[1:])[0] == 0.0   # 教学集目标不重叠
 
 
+@pytest.mark.parametrize("layer,param_name,idx", [
+    ("conv", "W", (0, 0, 0, 0)),
+    ("head", "W", (0, 0, 0, 0)),
+    ("conv", "b", (0,)),
+    ("head", "b", (0,)),
+])
+def test_conv_head_fd(layer, param_name, idx) -> None:
+    """检测头 + 单卷积的 W/b 有限差分（旧版零 FD）。"""
+    X, boxes = make_dataset(4, seed=0)
+    m = TinyYOLO(channels=4, epochs=1, seed=0)
+    m._init()
+    obj_all, box_all = zip(*(encode_targets(b) for b in boxes))
+    obj_all, box_all = np.stack(obj_all), np.stack(box_all)
+    raw = m._forward(X)
+    _, grad = m._loss_grad(raw, obj_all, box_all)
+    m._backward_head(grad)
+
+    def loss():
+        return m._loss_grad(m._forward(X), obj_all, box_all)[0]
+
+    eps = 1e-6
+    layer_obj = getattr(m, layer)
+    param = getattr(layer_obj, param_name)
+    grad_name = "d" + param_name
+    analytic = float(getattr(layer_obj, grad_name)[idx])
+    old = param[idx]
+    param[idx] = old + eps
+    lp = loss()
+    param[idx] = old - eps
+    lm = loss()
+    param[idx] = old
+    assert abs((lp - lm) / (2 * eps) - analytic) < 1e-4, (layer, param_name)
+
+
 def test_training_learns_detection() -> None:
     Xtr, btr = make_dataset(240, seed=10)
     Xte, bte = make_dataset(60, seed=11)
     m = TinyYOLO(channels=16, epochs=40, batch_size=32, seed=0).fit(Xtr, btr)
     dets = m.raw_predict(Xte)
     ap = average_precision(dets, bte)
+    base = average_precision(detect_dataset(Xte), bte)
     assert ap > 0.80, f"AP 太低：{ap:.3f}"
+    assert ap > base, f"AP {ap:.3f} 未超过阈值基线 {base:.3f}"
     tp, fp, fn = match_counts(dets, bte, conf=0.1)
     assert tp > 0 and fp < tp and fn < tp
 

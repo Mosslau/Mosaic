@@ -13,39 +13,9 @@
 """
 
 import pytest
-from demo import LINES, TicTacToe, game_interface, run_with_counter
+from baseline import reference_minimax
+from demo import TicTacToe, game_interface, run_with_counter
 from impl import alphabeta, best_move, minimax
-
-# ---------------------------------------------------------------- 独立参考实现
-
-def reference_minimax(board: tuple, player: int, depth: int) -> float:
-    """独立参考：完全不复用 impl.py 的朴素 minimax。
-
-    只返回评分（不返回招法），用于校验 impl 两个版本的**评分**是否正确。
-    刻意写得笨拙：用 tuple 当状态、用列表推导展开、不做任何剪枝与提前终止。
-    """
-    def winner(cells) -> int:
-        for a, b, c in LINES:
-            v = cells[a]
-            if v != 0 and v == cells[b] == cells[c]:
-                return v
-        return 0
-
-    w = winner(board)
-    if w != 0:
-        return 10.0 * w
-    if all(v != 0 for v in board):
-        return 0.0
-    if depth == 0:
-        return 0.0                      # 参考实现只用于"搜到终局"的场合
-    moves = [i for i, v in enumerate(board) if v == 0]
-    scores = []
-    for m in moves:
-        nxt = list(board)
-        nxt[m] = player
-        scores.append(reference_minimax(tuple(nxt), -player, depth - 1))
-    return max(scores) if player == 1 else min(scores)
-
 
 # ---------------------------------------------------------------- 工具
 

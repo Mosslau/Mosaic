@@ -74,6 +74,55 @@ def test_lm_head_gradient() -> None:
     assert abs((lp - lm) / (2 * eps) - g.dWlm[idx]) < 1e-4
 
 
+@pytest.mark.parametrize("name,idx", [
+    ("b0.Wq", (0, 0)),
+    ("b0.W1", (0, 0)),
+    ("b0.ln1.gamma", (0,)),
+    ("b1.Wq", (0, 0)),
+    ("E", None),
+    ("P", (0, 0)),
+])
+def test_block_gradients(name, idx) -> None:
+    """Block 内部参数（attention/FFN/LN/embedding/position）的有限差分。"""
+    tok, ids = tok_data()
+    g = MiniGPT(len(tok.itos), context=8, d_model=8, n_heads=2, n_layers=2, d_ff=16)
+    x = ids[:8][None]
+    y = ids[1:9][None]
+    logits = g.forward(x)
+    p = softmax(logits)
+    d = p.copy()
+    d[np.arange(1)[:, None], np.arange(8), y] -= 1
+    d /= 8
+    g.backward(d)
+    if name == "E":
+        idx = (int(ids[0]), 0)
+
+    def loss():
+        pp = softmax(g.forward(x))
+        return float(-np.log(np.clip(pp[0, np.arange(8), y[0]], 1e-12, 1)).mean())
+
+    eps = 1e-6
+    param = g._all_params()[name]
+    analytic = float(g._all_grads()[name][idx])
+    old = param[idx]
+    param[idx] = old + eps
+    lp = loss()
+    param[idx] = old - eps
+    lm = loss()
+    param[idx] = old
+    assert abs((lp - lm) / (2 * eps) - analytic) < 1e-4, name
+
+
+def test_corpus_lines_unique_and_disjoint() -> None:
+    pytest.importorskip("torch")
+    from demo import build_corpus, split_lines
+
+    lines = build_corpus()
+    assert len(lines) == len(set(lines))
+    tr, te = split_lines(lines)
+    assert set(tr).isdisjoint(set(te))
+
+
 def test_train_loss_decreases() -> None:
     tok, ids = tok_data()
     g = MiniGPT(len(tok.itos), context=8, d_model=8, n_heads=2, n_layers=1, d_ff=16)

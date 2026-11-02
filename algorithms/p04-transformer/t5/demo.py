@@ -43,7 +43,7 @@ def main() -> None:
     model = T5Toy(len(vocab.itos), src_len=5, tgt_len=5, d_model=32, n_heads=4,
                   d_ff=64, random_state=0)
     t0 = time.perf_counter()
-    model.train(train, epochs=80, lr=3e-3)
+    model.train(train, epochs=300, lr=3e-3)
     t_hand = time.perf_counter() - t0
     print(f"手写：loss {model.loss_history[0]:.3f} → {model.loss_history[-1]:.4f}；"
           f"train token acc {model.acc_history[-1]:.3f}；{t_hand:.1f}s")

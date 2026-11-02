@@ -40,28 +40,33 @@ class GCN:
         self.W2 = rng.normal(0, np.sqrt(2 / self.hidden), (self.hidden, self.n_classes))
         self.b2 = np.zeros(self.n_classes)
         self.loss_history = []
-        Y = np.eye(self.n_classes)[y]
         for _ in range(self.epochs):
-            H1 = self.A_hat @ X @ self.W1 + self.b1
-            Z1 = np.maximum(0, H1)
-            logits = self.A_hat @ Z1 @ self.W2 + self.b2
-            p = _softmax(logits)
-            loss = -np.mean(np.log(np.clip(p[train_mask, y[train_mask]], 1e-12, 1)))
+            loss, grads = self._loss_grads(X, y, train_mask)
             self.loss_history.append(float(loss))
-            # 只对训练节点回传
-            G = np.zeros_like(p)
-            G[train_mask] = p[train_mask] - Y[train_mask]
-            G /= train_mask.sum()
-            dW2 = (self.A_hat @ Z1).T @ G
-            db2 = G.sum(0)
-            dZ1 = self.A_hat @ G @ self.W2.T
-            dH1 = dZ1 * (H1 > 0)
-            dW1 = (self.A_hat @ X).T @ dH1
-            db1 = dH1.sum(0)
-            for p_, g_ in ((self.W1, dW1), (self.b1, db1),
-                           (self.W2, dW2), (self.b2, db2)):
-                p_ -= self.lr * g_
+            for name, param in (("W1", self.W1), ("b1", self.b1),
+                                ("W2", self.W2), ("b2", self.b2)):
+                param -= self.lr * grads[name]
         return self
+
+    def _loss_grads(self, X, y, train_mask):
+        """只算 loss 与梯度，不更新参数；供 fit 与有限差分测试共用。"""
+        Y = np.eye(self.n_classes)[y]
+        H1 = self.A_hat @ X @ self.W1 + self.b1
+        Z1 = np.maximum(0, H1)
+        logits = self.A_hat @ Z1 @ self.W2 + self.b2
+        p = _softmax(logits)
+        loss = -np.mean(np.log(np.clip(p[train_mask, y[train_mask]], 1e-12, 1)))
+        # 只对训练节点回传
+        G = np.zeros_like(p)
+        G[train_mask] = p[train_mask] - Y[train_mask]
+        G /= train_mask.sum()
+        dW2 = (self.A_hat @ Z1).T @ G
+        db2 = G.sum(0)
+        dZ1 = self.A_hat @ G @ self.W2.T
+        dH1 = dZ1 * (H1 > 0)
+        dW1 = (self.A_hat @ X).T @ dH1
+        db1 = dH1.sum(0)
+        return float(loss), {"W1": dW1, "b1": db1, "W2": dW2, "b2": db2}
 
     def predict(self, A=None, X=None):
         if not hasattr(self, "W1"):

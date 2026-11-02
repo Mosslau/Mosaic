@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from demo import mlp_fit_predict
+from baseline import mlp_fit_predict
 from impl import GCN, make_sbm, normalize_adj
 
 
@@ -43,6 +43,44 @@ def test_accuracy_beats_mlp() -> None:
     pm = mlp_fit_predict(X, y, tr)
     assert (pg[~tr] == y[~tr]).mean() > 0.75
     assert (pg[~tr] == y[~tr]).mean() >= (pm[~tr] == y[~tr]).mean() - 0.05
+
+
+@pytest.mark.parametrize("name,idx", [
+    ("W1", (0, 0)),
+    ("b1", (0,)),
+    ("W2", (0, 0)),
+    ("b2", (0,)),
+])
+def test_gcn_gradients(name, idx) -> None:
+    """GCN 两层参数（W1/b1/W2/b2）的有限差分。"""
+    A, X, y, tr = data()
+    m = GCN(8, 2, 0.1, 1).fit(A, X, y, tr)
+    _, grads = m._loss_grads(X, y, tr)
+
+    def loss():
+        return m._loss_grads(X, y, tr)[0]
+
+    eps = 1e-6
+    param = getattr(m, name)
+    analytic = float(grads[name][idx])
+    old = param[idx]
+    param[idx] = old + eps
+    lp = loss()
+    param[idx] = old - eps
+    lm = loss()
+    param[idx] = old
+    assert abs((lp - lm) / (2 * eps) - analytic) < 1e-4, name
+
+
+def test_seed_variance() -> None:
+    A, X, y, tr = data()
+    accs = []
+    for seed in (0, 1, 2):
+        m = GCN(16, 2, 0.2, 200, seed).fit(A, X, y, tr)
+        m._X = X
+        accs.append(float((m.predict()[~tr] == y[~tr]).mean()))
+    assert min(accs) > 0.7, accs
+    assert max(accs) - min(accs) < 0.2, accs
 
 
 def test_deterministic() -> None:

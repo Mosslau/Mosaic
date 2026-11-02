@@ -68,7 +68,7 @@ pointwise 只做通道（`CinCout`），省掉 `9CinCout` 的大头。
 ## 6. 常见误区
 
 - **❌ "depthwise 只是参数少的普通卷积"** —— 它不跨通道求和，表达力不同。
-- **❌ "DS 一定更准、更快"** —— 本实验精度略低，速度要看实现。
+- **❌ "DS 一定更准、更快"** —— 本算法精度略低，速度要看实现。
 - **❌ "压缩比是 9×"** —— 单块 `<9×`，stem/head 不压缩，实测总压缩 5.44×。
 - **❌ "参数量少 = 推理快"** —— 还要看 FLOPs、访存、算子支持与 batch。
 - **❌ "上采样到 16×16 信息变多"** —— 最近邻不增信息，只为池化留空间。
@@ -157,7 +157,7 @@ torch 版逐层等价：`Conv2d(...,groups=C,bias=False)` + `BatchNorm2d` + `ReL
 
 参数量一致说明结构等价；精度/延迟差异来自数值精度、初始化与算子融合。
 
-## 5. 实验结果
+## 5. 算法结果
 
 **环境/数据**：`algorithms/.venv`（uv），Python 3.13.15 / numpy 2.5.4 / scikit-learn 1.9.1 /
 torch 2.14.1，CPU；sklearn `digits` 1797 张，8×8 像素 /16 后**最近邻上采样**到
@@ -172,7 +172,7 @@ uv run pytest test_impl.py -q          # 12 passed
 uv run python make_teaching_assets.py  # 生成并核对 4 图 + 1 GIF
 ```
 
-**实验一：三路对照**
+**验证一：三路对照**
 
 | 方法 | 参数量 | 测试 acc | 训练(s) | 单批前向(ms) |
 |---|---|---|---|---|
@@ -180,7 +180,7 @@ uv run python make_teaching_assets.py  # 生成并核对 4 图 + 1 GIF
 | 手写标准 Conv | 15554 | 0.9899 | 27.59 | 28.26 |
 | torch DS | 2858 | 0.9773 | 8.98 | **6.21** |
 
-**实验二：参数拆解**
+**验证二：参数拆解**
 
 | 阶段 | DS | 标准 Conv | 压缩比 |
 |---|---|---|---|
@@ -191,7 +191,7 @@ uv run python make_teaching_assets.py  # 生成并核对 4 图 + 1 GIF
 | 线性头 | 330 | 330 | 1.00× |
 | **合计** | **2858** | **15554** | **5.44×** |
 
-延迟列即实验三（batch=128，15 次中位数）：手写 DS 参数只有 1/5.44，延迟只快 1.62×；
+延迟列即验证三（batch=128，15 次中位数）：手写 DS 参数只有 1/5.44，延迟只快 1.62×；
 torch 融合算子再快 2.81×。
 
 **验证声明（已验证）**：2026-10-26 本机 CPU 用 uv 环境实跑，`demo.py` 输出上表（约 60 秒）；
@@ -201,7 +201,7 @@ torch 融合算子再快 2.81×。
 ## 6. 局限与延伸
 
 - **小数据小图**：16×16 digits 不是 ImageNet，结论不能外推到真实移动端视觉。
-- **无 inverted residual / SE**：本实验只是 MobileNet v1 的单层 DS 块。
+- **无 inverted residual / SE**：本算法只是 MobileNet v1 的单层 DS 块。
 - **stride 固定 1、无部署验证**：下采样全靠池化；CPU 上的 numpy/torch，未做量化、
   ONNX/TFLite 与端侧测速。
 - **下游**：MobileNet v2/v3、ShuffleNet、GhostNet；量化剪枝；轻量检测/分割。

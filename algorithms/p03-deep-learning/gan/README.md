@@ -2,8 +2,8 @@
 
 > 状态：✅ 已完成（2026-10-23）
 > 对应文档章节：`../../docs/人工智能代表算法演进路线.md` 第 4.6 章
-> 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现实验读「进阶篇」
-> 本族共 8 个实验，学习顺序与补强计划见 [族级导读](../README.md)。
+> 阅读路线：零基础读者读「基础篇」（生活类比 → 手算 → 白话 → 自测）；要看推导、实现与复现读「进阶篇」
+> 本族共 11 个算法，学习顺序与补强计划见 [族级导读](../README.md)。
 
 深度模型（生成式）：入口 `GAN(data_dim, latent_dim, ...).train(X)` / `sample(n)`，实现在 [impl.py](impl.py)；对照是 [framework.py](framework.py) 的 PyTorch 双 MLP。
 
@@ -14,7 +14,7 @@
 - **模式崩塌**：G 只生成少数几种样本，覆盖率/熵下降；
 - **与 VAE/Diffusion 的区别**：GAN 没有显式似然，训练是博弈；VAE/Diffusion 在 p05。
 
-| 概念 | 是什么 | 本实验 |
+| 概念 | 是什么 | 本算法 |
 |---|---|---|
 | GAN | 对抗式生成模型 | 手写 + torch |
 | 非饱和损失 | G 的实用损失 | `loss_type="non_saturating"` |
@@ -94,13 +94,13 @@ flowchart TD
 **模式崩塌**：G 只生成少数几种样本，D 难以区分；损失看起来正常，但多样性没了。
 **发现方法**：看覆盖的模态数/类别熵/最近邻距离，而不是只看 loss。
 
-**本实验**：2D 4-Gaussians 上，非饱和 + 足够容量覆盖 4/4；小容量/饱和损失掉队；
+**本算法**：2D 4-Gaussians 上，非饱和 + 足够容量覆盖 4/4；小容量/饱和损失掉队；
 8×8 digits 上，MLP GAN 只生成 4/10 类“模糊数字”——这就是 DCGAN/条件 GAN 的动机。
 
 ## 6. 常见误区
 
 - **❌ "GAN 有唯一损失，越小越好"** —— 是博弈；G/D loss 要一起看，loss 低不代表样本好。
-- **❌ "非饱和损失一定比饱和好"** —— 通常更稳，但仍可能崩塌；本实验饱和版在同样预算下更差。
+- **❌ "非饱和损失一定比饱和好"** —— 通常更稳，但仍可能崩塌；本算法饱和版在同样预算下更差。
 - **❌ "生成样本逼真 = 多样性好"** —— 模式崩塌时也能生成少数逼真样本；要看覆盖/熵。
 - **❌ "D 越强越好"** —— D 太强会让 G 梯度消失；要平衡。
 - **❌ "GAN 能直接算概率"** —— 没有显式似然；评估要靠样本/指标/下游任务。
@@ -126,12 +126,12 @@ full 4/4（H=1.32）；saturating 0/4；collapsed latent=1 0/4。
 
 ## 8. 掌握清单：五级能力与自测
 
-| 级别 | 能力 | 本实验的检验方式 | 在哪做 |
+| 级别 | 能力 | 本算法的检验方式 | 在哪做 |
 |---|---|---|---|
 | 1 说清 | 用自己的话讲规则 | 说出 G/D 目标、非饱和损失、模式崩塌 | 基础篇「核心量」「白话版」 |
 | 2 走通 | 纸上手算 | `−log d` 与 `log(1−d)` 的梯度对比 | 基础篇「手算示例」节 |
-| 3 判断 | 说清正确性条件 | 解释 D 太强/太弱、模式崩塌、指标 | 基础篇「白话版」+ 实验一 |
-| 4 实现 | 手写并与对照比对 | 跑通 `demo.py`，损失有限、样本形状正确 | 进阶篇「实验结果」 |
+| 3 判断 | 说清正确性条件 | 解释 D 太强/太弱、模式崩塌、指标 | 基础篇「白话版」+ 验证一 |
+| 4 实现 | 手写并与对照比对 | 跑通 `demo.py`，损失有限、样本形状正确 | 进阶篇「算法结果」 |
 | 5 迁移 | 用到新问题 | 不同 latent 容量的覆盖/熵对照 | [project/](project/README.md) |
 
 **自测关卡（先预测，再跑代码验证）**：
@@ -141,7 +141,7 @@ full 4/4（H=1.32）；saturating 0/4；collapsed latent=1 0/4。
 3. latent 从 16 降到 1，覆盖模态数会怎样？
 4. 8×8 digits 上 MLP GAN 能覆盖 10 类吗？
 
-# 进阶篇 · 实验档案
+# 进阶篇 · 算法档案
 
 ## 目录形态（本算法的"类型"）
 
@@ -150,7 +150,7 @@ full 4/4（H=1.32）；saturating 0/4；collapsed latent=1 0/4。
 | [impl.py](impl.py) | 手写实现 | `GAN`：G/D MLP、Adam、非饱和/饱和损失、`mode_coverage` |
 | [framework.py](framework.py) | PyTorch 对照 | `TorchGAN` |
 | [demo.py](demo.py) | 同数据双跑 | 2D 4-Gaussians / 8×8 digits / torch |
-| [test_impl.py](test_impl.py) | 性质测试 | LeakyReLU、覆盖指标、训练 smoke、输出域、契约 |
+| [test_impl.py](test_impl.py) | 性质测试 | LeakyReLU、覆盖指标、G/D 两组 FD、训练 smoke、输出域、契约 |
 | [evaluate.py](evaluate.py) | 固定评估 | 类别覆盖/熵/unique/NN 距离 |
 | [conditional.py](conditional.py) | 条件 GAN | 类别 one-hot 条件化 G/D |
 | [make_teaching_assets.py](make_teaching_assets.py) | 素材生成 + 对账 | 真假 / 覆盖 / 8×8 / GIF |
@@ -161,7 +161,7 @@ full 4/4（H=1.32）；saturating 0/4；collapsed latent=1 0/4。
 
 GAN 用两个网络做博弈：D 提供“真假”信号，G 用这个信号改进。
 它不定义显式似然，所以训练不稳定、评估困难；但能生成高质量样本。
-本实验用 2D 混合高斯把“覆盖/崩塌”变成可计算的指标，再用 8×8 digits 看真实像素上的困难。
+本算法用 2D 混合高斯把“覆盖/崩塌”变成可计算的指标，再用 8×8 digits 看真实像素上的困难。
 
 ## 2. 数学推导
 
@@ -180,7 +180,7 @@ $$D^*(x)=\frac{p_{data}(x)}{p_{data}(x)+p_g(x)}$$
 1. **D/G 交替**：先更新 D，再冻结 D 更新 G；G 的反向要穿过 D。
 2. **非饱和损失**：`dL/dD = −1/(D·m)`；饱和是 `−1/((1−D)·m)`。
 3. **Adam 的 beta**：GAN 常用 `beta1=0.5`；本实现用 0.9/0.999 也能跑，但更抖。
-4. **D 太强**：降低 `lr_d` 或增加 `g_steps`；本实验用 `lr_d=5e-5`。
+4. **D 太强**：降低 `lr_d` 或增加 `g_steps`；本算法用 `lr_d=5e-5`。
 5. **模式指标**：覆盖数/熵/NN 距离；不要只看 loss。
 6. **输出层**：2D 用线性；8×8 像素用 sigmoid。
 
@@ -194,9 +194,14 @@ torch 的 `nn.Sequential` + `BCELoss` + Adam 与手写版同结构：
 | torch | 1/4 | 0.00 | ≈41s |
 
 torch 版在同样轮数下崩塌；说明 **GAN 对初始化/优化细节极敏感**，不能指望“换框架就稳”。
-（torch 版调 lr/轮数后也能覆盖，但本实验保留这个负面结果。）
+但要注意：**torch 对照未调参，只作结构参考，不是公平基线**；本算法的公平基线是
+同一份手写代码上的两项消融——`saturating` 损失与 `latent=1`（各改一个变量）。
 
-## 5. 实验结果
+**G/D 反向 FD（2026-11-02 新增）**：判别器 W、生成器 W 的中心差分 <1e-4。
+过程中发现并修复了一个真实梯度 bug：D 训练把 `dL/dlogit` 当成 `dL/dp` 传给
+`_backward(out_sigmoid=True)`，内部又乘了一次 `p(1-p)`；现在 dout 统一为 `dL/dp`。
+
+## 5. 算法结果
 
 **环境**：uv（`uv sync --extra deep-learning --extra dev`），Python 3.13.15 /
 numpy 2.5.4 / scikit-learn 1.9.1 / torch 2.14.1；CPU。
@@ -204,7 +209,7 @@ numpy 2.5.4 / scikit-learn 1.9.1 / torch 2.14.1；CPU。
 **复现**：本目录内 `uv run python demo.py`、`uv run pytest test_impl.py -q`、
 `uv run python make_teaching_assets.py`。
 
-**实验一：2D 4-Gaussians（500 轮）**
+**验证一：2D 4-Gaussians（500 轮）**
 
 | 配置 | 覆盖 | 熵 | NN 距 | D acc |
 |---|---|---|---|---|
@@ -212,16 +217,17 @@ numpy 2.5.4 / scikit-learn 1.9.1 / torch 2.14.1；CPU。
 | 饱和, latent=16 | 0/4 | 0.00 | 0.35 | 0.50 |
 | 小容量, latent=1 | 0/4 | 0.00 | 0.31 | 0.50 |
 
-**实验二：8×8 digits（150 轮）**
+**验证二：8×8 digits（150 轮）**
 
 生成 256 张：预测类别 **4/10**，类别熵 **0.98**，D acc 0.43，耗时 ≈1.8s。
 
-**实验三：手写 vs torch（2D，1000 轮）**
+**验证三：手写 vs torch（2D，1000 轮）**
 
 手写 4/4、熵 1.34；torch 1/4、熵 0.00，耗时 ≈41s。
 
-**验证声明（已验证）**：输入为上述数据与种子；2026-10-22 在 uv 环境实跑，
-`uv run python demo.py` 输出上表；`uv run pytest test_impl.py test_evaluate.py test_conditional.py -q` → **13 passed**；
+**验证声明（已验证）**：输入为上述数据与种子；2026-11-02 复跑，
+`uv run python demo.py` 输出上表；`uv run pytest test_impl.py test_evaluate.py test_conditional.py -q` → **15 passed**
+（G/D 两组 FD、D 梯度语义 bug 回归、覆盖指标、训练 smoke）；
 `uv run python make_teaching_assets.py` 对账通过（2D 覆盖 ≥3、样本有限）。
 
 **条件 GAN（2026-10-23）**：G/D 同时接类别 one-hot，300 轮，按标签采样 260 张；
