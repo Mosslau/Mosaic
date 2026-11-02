@@ -1,0 +1,23 @@
+// S3c-3b-1：固定长度 array<struct, N>（局部）
+// 元素按 struct 扁平字段占连续 8 字节槽，支持字段读写、整体元素赋值与深拷贝。
+struct P { x: int; y: int; }
+struct Q { p: P; z: int; }
+
+let a: array<P, 2> = [P { x: 1, y: 2 }, P { x: 3, y: 4 }];
+a[0].x = 9;
+a[1] = P { x: 7, y: 8 };
+print(a[0].x, a[0].y, a[1].x, a[1].y);
+
+// let b = a 深拷贝：修改 b 不影响 a
+let b = a;
+b[0].x = 100;
+print(a[0].x, b[0].x, len(a));
+
+// 嵌套 struct 字段路径 q[i].p.x
+let q: array<Q, 2> = [
+    Q { p: P { x: 1, y: 2 }, z: 3 },
+    Q { p: P { x: 4, y: 5 }, z: 6 }
+];
+q[0].p.x = 9;
+q[1] = Q { p: P { x: 7, y: 8 }, z: 10 };
+print(q[0].p.x, q[0].z, q[1].p.y, q[1].z);

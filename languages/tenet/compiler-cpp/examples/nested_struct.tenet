@@ -1,0 +1,32 @@
+// S3a：嵌套 struct + struct 参数/返回值（扁平布局 + 指针 ABI）
+struct Point {
+    x: int;
+    y: int;
+}
+
+struct Line {
+    a: Point;
+    b: Point;
+}
+
+fn make() -> Point {
+    return Point { x: 7, y: 8 };
+}
+
+// struct 参数按值拷贝；struct 返回值写入隐藏 sret 缓冲
+fn mid(l: Line) -> Point {
+    return Point {
+        x: (l.a.x + l.b.x) / 2,
+        y: (l.a.y + l.b.y) / 2
+    };
+}
+
+let l: Line = Line {
+    a: Point { x: 0, y: 0 },
+    b: Point { x: 10, y: 20 }
+};
+let m: Point = mid(l);
+let n = make();
+m.x = 99;
+n.y = 88;
+print(m.x, m.y, n.x, n.y, l.a.x, l.b.y);

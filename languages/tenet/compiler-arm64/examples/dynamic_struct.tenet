@@ -1,0 +1,32 @@
+// S3c-3b-2：动态 array<struct>（堆缓冲 + stride = 扁平字段数*8）
+//
+// - 局部 `array<S>` 用 `[S { ... }, ...]` / `[]` 初始化；`push` 扩容并追加 struct。
+// - `a[i].field` / `a[i].p.x` 读写，`a[i] = S { ... }` / `a[i] = 同类型变量` 整体元素赋值。
+// - 参数传 3 槽描述符指针 + 入口深拷贝；返回值走 sret 描述符 + 所有权转移。
+// - drop 只 free 堆缓冲（struct 字段不含 array）。
+struct Point { x: int; y: int; }
+
+fn make_path(n: int) -> array<Point> {
+    let path: array<Point> = [];
+    let i: int = 0;
+    while (i < n) {
+        push(path, Point { x: i, y: i * i });
+        i = i + 1;
+    }
+    return path;
+}
+
+fn translate(p: Point, dx: int, dy: int) -> Point {
+    return Point { x: p.x + dx, y: p.y + dy };
+}
+
+let path: array<Point> = make_path(3);
+push(path, Point { x: 9, y: 9 });
+
+path[0].x = 100;
+let p = Point { x: 7, y: 8 };
+path[2] = p;
+
+let mid = Point { x: path[1].x, y: path[1].y };
+let moved: Point = translate(mid, 1, 1);
+print(len(path), path[0].x, path[1].y, path[2].x, path[3].x, moved.x, moved.y);

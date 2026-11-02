@@ -1,0 +1,38 @@
+// S3c 动态数组 array<T>：堆缓冲 {data,len,cap} + push 扩容 / len / 下标 / 深拷贝 / drop
+//
+// 只有显式标注 array<T> 才是动态数组；`let x = [1, 2]` 仍推断为定长 array<int,2>。
+let a: array<int> = [1, 2];
+push(a, 3);
+print(len(a), a[0], a[1], a[2]);      // 3 1 2 3
+
+// 空动态数组：cap 预分配 4，push 时容量不足再翻倍（malloc 新缓冲、拷贝、free 旧缓冲）
+let e: array<int> = [];
+push(e, 7);
+print(len(e), e[0]);                  // 1 7
+
+// 整体赋值是深拷贝（先 drop 旧值）：b 拿到独立堆缓冲，改 a 不影响 b
+let b: array<int> = [0];
+b = a;
+a[0] = 9;
+push(b, 4);
+print(len(b), b[0], b[1], b[2], b[3]);  // 4 1 2 3 4
+print(len(a), a[0]);                    // 3 9
+
+// let 初始化同样是深拷贝
+let c = a;
+push(c, 5);
+print(len(c), len(a), c[0]);            // 4 3 9
+
+// 循环体里的动态数组每轮结束自动 drop（malloc/free 配对）
+let i: int = 0;
+while (i < 2) {
+    let t: array<float> = [0.5];
+    push(t, 1.5);
+    print(len(t), t[0], t[1]);          // 2 0.5 1.5
+    i = i + 1;
+}
+
+// bool 元素同样按 8 字节槽存堆上
+let flags: array<bool> = [true];
+push(flags, false);
+print(flags[0], flags[1], len(flags));  // true false 2

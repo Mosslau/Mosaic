@@ -1,6 +1,13 @@
-// array<T> v1 示例：定长栈数组 / 下标读写 / len / 值拷贝
-let a: array<int> = [3, 1, 2];
+// 定长数组 v1 示例：array<T, N> / 下标读写 / len / 值拷贝
+//
+// 局部数组可以写 array<T, N>，也可以省略标注让数组字面量推断长度；
+// 动态数组写 array<T>（不带长度），见 examples/dynamic_array.tenet。
+let a: array<int, 3> = [3, 1, 2];
 let n: int = len(a);
+
+// 省略标注：字面量推断为 array<int, 3>
+let c = [4, 5, 6];
+print(c[0], c[1], c[2], len(c));    // 4 5 6 3
 
 // 冒泡排序：动态下标（运行时边界检查）
 let i: int = 0;
@@ -28,8 +35,8 @@ a = [7, 8, 9];
 print(a[0], a[1], a[2]);            // 7 8 9
 
 // float / bool 元素（每个元素仍占 8 字节槽）
-let f: array<float> = [1.5, 2.5];
+let f: array<float, 2> = [1.5, 2.5];
 print(f[0], f[1], len(f));          // 1.5 2.5 2
 
-let t: array<bool> = [true, false];
+let t: array<bool, 2> = [true, false];
 print(t[0], t[1], len(t));          // true false 2

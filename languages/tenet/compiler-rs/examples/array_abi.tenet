@@ -1,0 +1,14 @@
+// array<T, N> v1：定长数组参数/返回值（指针 ABI）
+fn sum(a: array<int, 3>) -> int {
+    return a[0] + a[1] + a[2];
+}
+
+fn make() -> array<int, 3> {
+    return [7, 8, 9];
+}
+
+let a: array<int, 3> = [1, 2, 3];
+let s: int = sum(a);
+let b: array<int, 3> = make();
+b[0] = 70;
+print(s, b[0], b[1], b[2], len(b));

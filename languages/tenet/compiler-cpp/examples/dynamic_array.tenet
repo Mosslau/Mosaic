@@ -1,0 +1,32 @@
+// S3c-1：局部动态数组 array<T> —— 堆缓冲区、push 扩容、运行时 len、下标、
+// 深拷贝与作用域 drop。数组元素按 8 字节槽存堆上（int/float/bool）。
+let a: array<int> = [1, 2];
+push(a, 3);
+print(len(a), a[0], a[1], a[2]);        // 3 1 2 3
+
+// 深拷贝：b 有独立缓冲区，push/改元素互不影响
+let b = a;
+push(b, 4);
+a[0] = 9;
+print(len(a), a[0], a[1], a[2]);        // 3 9 2 3
+print(len(b), b[0], b[1], b[2], b[3]);  // 4 1 2 3 4
+
+// 整体赋值 = 深拷贝（先 drop 旧缓冲区）
+let c: array<int> = [7];
+c = b;
+push(c, 5);
+print(len(c), c[0], c[4]);              // 5 1 5
+
+// 空动态数组 + push：cap 从 4 起步
+let e: array<int> = [];
+push(e, 7);
+print(len(e), e[0]);                    // 1 7
+
+// 离开作用域自动 drop：while 每轮结束释放循环体里的数组
+let i: int = 0;
+while (i < 2) {
+    let t: array<float> = [0.5];
+    push(t, 1.5);
+    print(len(t), t[0], t[1]);          // 2 0.5 1.5
+    i = i + 1;
+}

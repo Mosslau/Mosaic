@@ -1,0 +1,16 @@
+// S3c-3b-1：固定长度 array<struct, N>（局部）
+struct P { x: int; y: int; }
+struct Q { p: P; z: int; }
+
+let a: array<P, 2> = [P { x: 1, y: 2 }, P { x: 3, y: 4 }];
+a[0].x = 9;
+a[1] = P { x: 7, y: 8 };
+
+let q: array<Q, 2> = [
+    Q { p: P { x: 1, y: 2 }, z: 3 },
+    Q { p: P { x: 4, y: 5 }, z: 6 }
+];
+q[0].p.x = 11;
+
+print(a[0].x, a[0].y, a[1].x, a[1].y);
+print(q[0].p.x, q[0].z, q[1].p.y);

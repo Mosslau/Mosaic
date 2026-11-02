@@ -213,6 +213,16 @@ private:
                 advance();
                 expect(Kind::Lt, "`<`");
                 std::string inner = parse_type();
+                if (check(Kind::Comma)) {
+                    // S3b：array<T, N>，N 必须是正整数字面量（函数签名需要长度）。
+                    advance();
+                    if (!check(Kind::Int) || peek().int_val <= 0) {
+                        throw error("array<T, N> 的 N 必须是正整数");
+                    }
+                    int64_t n = advance().int_val;
+                    expect(Kind::Gt, "`>`");
+                    return "array<" + inner + "," + std::to_string(n) + ">";
+                }
                 expect(Kind::Gt, "`>`");
                 return "array<" + inner + ">";
             }
@@ -222,7 +232,8 @@ private:
                 return name;
             }
             default:
-                throw error("期望类型 `int` / `float` / `bool` / `string` / `array<T>` 或 struct 名，但遇到 " +
+                throw error("期望类型 `int` / `float` / `bool` / `string` / `array<T>` / "
+                            "`array<T, N>` 或 struct 名，但遇到 " +
                             describe(peek().kind, peek()));
         }
     }

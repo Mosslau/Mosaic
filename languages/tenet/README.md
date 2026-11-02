@@ -30,18 +30,18 @@ while (i < 10) {
 
 | 维度 | 设计 |
 |------|------|
-| 类型系统 | ✅ **已实现**：标量 `int`/`float`/`bool`/`string`；**struct v1**；**定长 `array<T>` v1**；⏳ 设计已定稿未实现：`Option`/`Result`（见下方「能力边界」） |
+| 类型系统 | ✅ **已实现**：标量 `int`/`float`/`bool`/`string`；**struct（含嵌套/参数/返回值）**；**固定值数组 `array<T, N>`**；**局部动态数组 `array<T>`（push/深拷贝/drop）**；⏳ 设计已定稿未实现：`Option`/`Result`（见下方「能力边界」） |
 | 变量 | `let` 声明，类型标注可选（局部静态推断）；赋值 `=`（值语义） |
 | 函数 | `fn f(a: int) -> int`，显式返回类型，递归；调用参数/返回类型严格核对 |
 | 控制流 | `if/else`、`while`（唯一循环）、`break`、`return`；条件必须 `bool` |
 | 注释 | `//` 行注释、`/* */` 块注释 |
-| 内建 | `print(...)`（任意类型、任意数量） |
+| 内建 | `print(...)`（标量/字符串，多参数；struct/array 需逐字段/元素打印） |
 | 执行 | **编译为原生二进制**：`tenet build` → 可执行文件，直接运行 |
 | 错误 | 类型错误（混合类型 / 声明·赋值·参数·返回不匹配）在前端报 `[行:列]`，三实现消息一致 |
 
-> ⚠️ **能力边界**：三个编译器目前实现**标量 + 字符串 + 递归 + 局部 struct v1 + 定长 array v1**，定位为纯计算的算法语言。
-> struct v1 只做局部变量：字段限 `int`/`float`/`bool`，不支持 struct 参数/返回值、嵌套、`array<struct>`；
-> array v1 只做局部定长数组：元素限 `int`/`float`/`bool`，支持下标/`len`/越界检查，不支持参数/返回值、动态扩容、嵌套；
+> ⚠️ **能力边界**：三个编译器目前实现**标量 + 字符串 + 递归 + struct（嵌套/参数/返回值）+ 固定值数组 `array<T, N>`**，定位为纯计算的算法语言。
+> struct 字段限 `int`/`float`/`bool` 或其他 struct；支持链式字段、嵌套字面量、参数/返回值（指针 ABI）；支持 `array<struct>` 固定/动态（字段读写、元素赋值、参数/返回值）；支持固定嵌套 `array<array<T,N>,M>` 局部/参数/返回值；不支持动态嵌套 `array<array<T>>`、struct 字段 array、直接 `print(struct)`；
+> 固定值数组 `array<T, N>` 在局部/参数/返回值中都是一等公民，长度是类型的一部分，按值拷贝（指针/sret ABI）；动态 `array<T>` 支持局部变量、堆、`push`、运行时 `len`、深拷贝/drop，以及参数/返回值（descriptor/sret，支持字面量/调用表达式）；元素限 `int`/`float`/`bool`；
 > `Option` / `Result` / `match` / `?` 已在设计文档定稿但**尚未实现**——
 > 不要按速览表把它们当作可用特性。完整边界见 [`Tenet架构设计.md`](./Tenet架构设计.md) §2.7。
 
@@ -49,9 +49,9 @@ while (i < 10) {
 
 | 实现 | 前端 | 后端方式 | 测试 |
 |---|---|---|---|
-| [`compiler-rs/`](./compiler-rs/) | Rust | clang 驱动（.ll 文本） | 66 |
-| [`compiler-cpp/`](./compiler-cpp/) | C++17 | LLVM 库进程内（rustc 方式） | 195 |
-| [`compiler-arm64/`](./compiler-arm64/) | C++17 | **手写 AArch64 后端（零 LLVM）** | 234 |
+| [`compiler-rs/`](./compiler-rs/) | Rust | clang 驱动（.ll 文本） | 94 |
+| [`compiler-cpp/`](./compiler-cpp/) | C++17 | LLVM 库进程内（rustc 方式） | 749 |
+| [`compiler-arm64/`](./compiler-arm64/) | C++17 | **手写 AArch64 后端（零 LLVM）** | 983 |
 
 三套实现共享同一套语言设计，同一批示例的**程序输出一致**。
 

@@ -1,0 +1,20 @@
+// S3c-2：动态数组参数/返回值（descriptor 指针 / sret 转移）
+fn clone(a: array<int>) -> array<int> {
+    return a;
+}
+
+fn sum(a: array<int>) -> int {
+    let s: int = 0;
+    let i: int = 0;
+    while (i < len(a)) {
+        s = s + a[i];
+        i = i + 1;
+    }
+    return s;
+}
+
+let a: array<int> = [1, 2];
+let b: array<int> = clone(a);
+push(b, 3);
+a[0] = 9;
+print(sum(b), len(a), a[0], len(b), b[0], b[2]);

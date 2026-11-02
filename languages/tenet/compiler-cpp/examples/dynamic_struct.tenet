@@ -1,0 +1,30 @@
+// S3c-3b-2：动态 array<struct> —— 堆数组按元素 stride = slots*8 存放，
+// 支持字面量 / push struct / 元素字段与整体赋值 / 深拷贝 / 参数与返回值 ABI。
+struct P { x: int; y: int; }
+struct Q { p: P; z: int; }
+
+fn clone(a: array<P>) -> array<P> {
+    return a;
+}
+
+let a: array<P> = [P { x: 1, y: 2 }, P { x: 3, y: 4 }];
+push(a, P { x: 5, y: 6 });              // 字面量 push
+let p: P = P { x: 7, y: 8 };
+push(a, p);                             // struct 变量 push（已满时 cap*2 扩容）
+a[0].x = 9;
+a[1] = P { x: 10, y: 11 };              // 整体元素赋值
+print(len(a), a[0].x, a[1].x, a[1].y, a[3].x);  // 4 9 10 11 7
+
+// 深拷贝：b 有独立堆缓冲区；参数入口深拷贝、返回值 sret descriptor 转移
+let b: array<P> = clone(a);
+b[2] = p;
+print(len(b), b[0].x, b[2].x);          // 4 9 7
+
+// 嵌套 struct 字段路径 a[i].p.x
+let q: array<Q> = [
+    Q { p: P { x: 1, y: 2 }, z: 3 },
+    Q { p: P { x: 4, y: 5 }, z: 6 }
+];
+q[0].p.x = 20;
+push(q, Q { p: P { x: 7, y: 8 }, z: 9 });
+print(len(q), q[0].p.x, q[1].p.y, q[2].z);  // 3 20 5 9

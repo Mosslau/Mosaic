@@ -1,0 +1,28 @@
+// S3c-3c v1：固定嵌套数组 array<array<T, N>, M>（仅局部变量）
+//
+// - 扁平布局 [M*N x i64]：外层元素 i 的内层元素 j 位于 base + 8*(i*N + j)。
+// - 字面量 `[[1, 2], [3, 4]]` 初始化；`let b = a` 同类型深拷贝。
+// - `a[i][j]` 读写：外层/内层分别做边界检查（常量下标编译期、动态下标运行时）。
+// - `len(a)` 仍是外层常量；暂不支持 `len(a[i])`、参数/返回值与 bool 内层。
+let grid: array<array<int, 3>, 2> = [[1, 2, 3], [4, 5, 6]];
+
+grid[0][1] = 20;
+let i: int = 1;
+let j: int = 2;
+grid[i][j] = grid[0][0] + grid[1][0];
+
+let copy = grid;
+copy[1][1] = 99;
+
+let row: int = 0;
+let sum: int = 0;
+while (row < len(grid)) {
+    let col: int = 0;
+    while (col < 3) {
+        sum = sum + grid[row][col];
+        col = col + 1;
+    }
+    row = row + 1;
+}
+
+print(len(grid), grid[0][1], grid[1][2], grid[1][1], copy[1][1], sum);

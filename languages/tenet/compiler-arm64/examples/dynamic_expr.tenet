@@ -1,0 +1,40 @@
+// S3c-3a：动态数组字面量 / 函数调用结果作实参，以及 return 字面量 / 调用
+//
+// 动态实参仍传 3 槽 descriptor 指针，被调函数入口深拷贝（值语义）：
+// - 字面量实参：调用方先构造临时 descriptor，调用返回后 free 临时堆缓冲区；
+// - 调用结果实参：复制内层调用的 sret descriptor，调用返回后只 free data；
+// - 变量实参：不复制、不 drop，缓冲区仍归调用方变量。
+//
+// 动态 return 仍走隐藏 sret descriptor：
+// - 字面量：临时动态数组的 data/len/cap 转移进 sret，不 free（所有权给调用方）；
+// - 调用结果：内层 descriptor 转移进 sret 并清空，不 free；
+// - 变量：原逻辑，转移并清空本地槽位。
+
+fn id(a: array<int>) -> array<int> {
+    return a;
+}
+
+fn make() -> array<int> {
+    let a: array<int> = [1, 2];
+    return a;
+}
+
+// return 字面量：临时动态数组转移给调用方
+fn lit() -> array<int> {
+    return [3, 4];
+}
+
+// return 调用结果：内层 sret descriptor 转移并清空，不发生 double free
+fn chain() -> array<int> {
+    return make();
+}
+
+// 字面量实参 / 调用结果实参 / 调用结果 return 的链式组合
+let a: array<int> = id([1, 2]);
+let b: array<int> = id(make());
+let c: array<int> = lit();
+let d: array<int> = chain();
+push(d, 5);
+
+print(len(a), a[0], a[1], len(b), b[1], len(c), c[1], len(d), d[2]);
+// 2 1 2 2 2 2 4 3 5

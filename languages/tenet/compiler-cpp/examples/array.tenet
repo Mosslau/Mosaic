@@ -1,5 +1,6 @@
-// array v1：定长字面量、下标读写、len、逐元素值拷贝
-let a: array<int> = [3, 1, 2];
+// array v1：定长 array<T, N>、下标读写、len、逐元素值拷贝
+// 局部数组省略标注时，由字面量推断长度：let a = [3, 1, 2] → array<int,3>
+let a: array<int, 3> = [3, 1, 2];
 let n: int = len(a);       // len 是编译期常量
 let i: int = 0;
 while (i < n) {
@@ -15,8 +16,8 @@ b = a;                     // 整体赋值 = 逐元素拷贝
 print(a[0], b[0], len(a)); // 9 9 3
 
 // float / bool 元素
-let f: array<float> = [1.5, 2.5];
+let f: array<float, 2> = [1.5, 2.5];
 print(f[0], f[1], len(f)); // 1.5 2.5 2
 
-let t: array<bool> = [true, false];
+let t: array<bool, 2> = [true, false];
 print(t[0], t[1], len(t)); // true false 2

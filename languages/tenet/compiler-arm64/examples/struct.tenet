@@ -1,10 +1,25 @@
-// Tenet struct v1 示例：声明 / 字面量 / 值拷贝 / 字段读写
+// Tenet struct 示例：声明 / 字面量 / 值拷贝 / 字段读写 / 参数与返回值
 struct Point {
     x: int;
     y: int;
 }
 
+// struct 参数按值拷贝：函数内改 p.x 不影响调用方
+fn bump(p: Point) -> int {
+    p.x = 9;
+    return p.x;
+}
+
+// struct 返回值走隐藏 sret 指针，按值写回调用方缓冲
+fn shifted(p: Point, dx: int) -> Point {
+    return Point { x: p.x + dx, y: p.y };
+}
+
 let p: Point = Point { x: 1, y: 2 };
-let q = p;              // 逐字段值拷贝：q 与 p 互不影响
-p.x = p.x + 1;          // 只修改 p.x
-print(p.x, q.x);        // 2 1
+let q = p;                  // 逐字段值拷贝：q 与 p 互不影响
+p.x = p.x + 1;              // 只修改 p.x
+print(p.x, q.x);            // 2 1
+
+let r: int = bump(p);       // p 仍是 (2, 2)
+let s = shifted(p, 10);     // s = (12, 2)
+print(p.x, r, s.x, s.y);    // 2 9 12 2

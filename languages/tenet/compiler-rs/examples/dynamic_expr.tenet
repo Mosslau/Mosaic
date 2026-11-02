@@ -1,0 +1,18 @@
+// S3c-3a：动态字面量/调用结果作实参，return 字面量/调用
+fn id(a: array<int>) -> array<int> {
+    return a;
+}
+
+fn make() -> array<int> {
+    return [3, 4];
+}
+
+fn chain() -> array<int> {
+    return make();
+}
+
+let a: array<int> = id([1, 2]);
+let b: array<int> = id(make());
+let c: array<int> = chain();
+push(c, 5);
+print(len(a), a[0], a[1], len(b), b[1], len(c), c[2]);

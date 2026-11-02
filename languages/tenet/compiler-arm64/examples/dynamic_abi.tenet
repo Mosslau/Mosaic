@@ -1,0 +1,27 @@
+// S3c-2：动态数组参数/返回值（descriptor 指针 + sret 所有权转移）
+//
+// - 动态数组作参数：调用方传 3 槽描述符指针（data, len, cap），
+//   被调函数入口深拷贝到本地 {data,len,cap}，函数内 push/改元素不影响调用方。
+// - 动态数组作返回值：隐藏 sret 指针（x0）指向调用方的 3 槽描述符；
+//   `return a;` 把 a 的 data/len/cap 写入 sret 并清空本地 a（所有权转移，不 free）。
+// - 调用方 `let b = f()` 接管 sret 描述符里的堆缓冲，后续由 b 的 drop 释放。
+
+fn clone(a: array<int>) -> array<int> {
+    return a;
+}
+
+fn sum(a: array<int>) -> int {
+    let s: int = 0;
+    let i: int = 0;
+    while (i < len(a)) {
+        s = s + a[i];
+        i = i + 1;
+    }
+    return s;
+}
+
+let a: array<int> = [1, 2];
+let b: array<int> = clone(a);
+push(b, 3);
+a[0] = 9;
+print(sum(b), len(a), a[0], len(b), b[0], b[2]);

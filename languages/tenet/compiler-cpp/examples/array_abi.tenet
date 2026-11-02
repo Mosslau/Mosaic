@@ -1,0 +1,16 @@
+// S3b：定长 array<T, N> 参数 / 返回值（指针 ABI）
+// 参数传指针 + 被调函数入口逐元素拷贝（按值传递）；
+// 返回值走隐藏 %sret 指针，调用方分配结果缓冲后拷贝到本地数组。
+fn sum(a: array<int, 3>) -> int {
+    return a[0] + a[1] + a[2];
+}
+
+fn make() -> array<int, 3> {
+    return [7, 8, 9];
+}
+
+let a: array<int, 3> = [1, 2, 3];
+let s: int = sum(a);
+let b: array<int, 3> = make();
+b[0] = 70;
+print(s, b[0], b[1], b[2], len(b));  // 6 70 8 9 3

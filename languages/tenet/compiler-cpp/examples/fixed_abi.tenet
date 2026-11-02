@@ -1,0 +1,25 @@
+// S3c-3b-3 / S3c-3c v2：固定数组签名 ABI
+// array<struct, N> 参数传 ptr，被调函数入口按 N*slots 总槽数拷贝到本地扁平缓冲；
+// 返回值走隐藏 %sret（函数返回 void），调用方 let b = f() 从返回缓冲逐槽接管。
+// 嵌套 array<array<T, N>, M> 同理，总槽数 M*N；a[i][j] 仍按扁平槽读写。
+struct P { x: int; y: int; }
+
+fn pid(a: array<P, 2>) -> array<P, 2> { return a; }
+fn nid(a: array<array<int, 2>, 2>) -> array<array<int, 2>, 2> { return a; }
+
+let a: array<P, 2> = [P { x: 1, y: 2 }, P { x: 3, y: 4 }];
+let b: array<P, 2> = pid(a);
+b[0].x = 9;
+
+let n: array<array<int, 2>, 2> = [[1, 2], [3, 4]];
+let m: array<array<int, 2>, 2> = nid(n);
+m[0][1] = 7;
+
+print(b[0].x, b[1].y, n[0][0], m[0][1]);  // 9 4 1 7
+
+// 其它实参形态：array<P,2> 字面量 / 返回同类型数组的调用
+let c: array<P, 2> = pid([P { x: 5, y: 6 }, P { x: 7, y: 8 }]);
+print(c[0].x, c[1].y);                     // 5 8
+
+let k: array<array<int, 2>, 2> = nid(nid(n));
+print(k[0][1], k[1][0]);                   // 2 3

@@ -1,0 +1,24 @@
+// S3c-3b-1：固定长度 array<struct, N>（局部）
+// 元素按 struct 扁平字段 8 字节槽连续存放；支持 a[i].field 读写、嵌套 struct 路径、
+// a[i] = struct 整体元素赋值、let b = a 深拷贝。
+// 动态 array<struct>（无 N）见 examples/dynamic_struct.tenet（S3c-3b-2）。
+struct P { x: int; y: int; }
+struct Q { p: P; z: int; }
+
+let a: array<P, 2> = [P { x: 1, y: 2 }, P { x: 3, y: 4 }];
+a[0].x = 9;
+a[1] = P { x: 7, y: 8 };
+
+let q: array<Q, 2> = [
+    Q { p: P { x: 1, y: 2 }, z: 3 },
+    Q { p: P { x: 4, y: 5 }, z: 6 }
+];
+q[0].p.x = 11;
+
+let b = a;  // 深拷贝：逐槽复制，之后改 b 不影响 a
+b[1].y = 5;
+
+let i: int = 1;
+print(a[0].x, a[0].y, a[1].x, a[1].y);
+print(q[0].p.x, q[0].z, q[1].p.y, q[1].z);
+print(b[0].x, b[1].y, len(a), a[i].x);

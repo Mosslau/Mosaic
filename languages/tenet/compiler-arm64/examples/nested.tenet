@@ -1,0 +1,34 @@
+// Tenet S3a 示例：嵌套 struct + struct 参数/返回值（指针 ABI）
+struct Point {
+    x: int;
+    y: int;
+}
+
+struct Line {
+    a: Point;       // 字段可以是另一个 struct
+    b: Point;
+}
+
+// struct 返回值：隐藏 sret 指针，按值写回调用方缓冲
+fn make() -> Point {
+    return Point { x: 7, y: 8 };
+}
+
+// struct 参数：传指针，入口逐字段拷贝（函数内修改不影响调用方）
+fn mid(l: Line) -> Point {
+    return Point {
+        x: (l.a.x + l.b.x) / 2,
+        y: (l.a.y + l.b.y) / 2
+    };
+}
+
+let l: Line = Line {
+    a: Point { x: 0, y: 0 },
+    b: Point { x: 10, y: 20 }
+};
+let m: Point = mid(l);      // m = (5, 10)
+let n = make();             // 类型推断：n = (7, 8)
+
+m.x = 99;
+n.y = 88;
+print(m.x, m.y, n.x, n.y, l.a.x, l.b.y);   // 99 10 7 88 0 20

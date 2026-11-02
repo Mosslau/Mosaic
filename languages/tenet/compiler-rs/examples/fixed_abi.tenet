@@ -1,0 +1,15 @@
+// 固定 array<struct,N> 与 array<array<T,N>,M> 参数/返回值
+struct P { x: int; y: int; }
+
+fn pid(a: array<P, 2>) -> array<P, 2> { return a; }
+fn nid(a: array<array<int, 2>, 2>) -> array<array<int, 2>, 2> { return a; }
+
+let a: array<P, 2> = [P { x: 1, y: 2 }, P { x: 3, y: 4 }];
+let b: array<P, 2> = pid(a);
+b[0].x = 9;
+
+let n: array<array<int, 2>, 2> = [[1, 2], [3, 4]];
+let m: array<array<int, 2>, 2> = nid(n);
+m[0][1] = 7;
+
+print(b[0].x, b[1].y, n[0][0], m[0][1]);

@@ -1,0 +1,15 @@
+// S3c-3b-2：动态 array<struct>
+struct P { x: int; y: int; }
+
+fn clone(a: array<P>) -> array<P> {
+    return a;
+}
+
+let a: array<P> = [P { x: 1, y: 2 }, P { x: 3, y: 4 }];
+let b: array<P> = clone(a);
+push(b, P { x: 5, y: 6 });
+a[0].x = 9;
+b[1] = P { x: 7, y: 8 };
+
+print(len(a), a[0].x, a[1].y);
+print(len(b), b[0].x, b[1].x, b[2].y);

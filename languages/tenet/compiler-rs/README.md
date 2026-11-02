@@ -11,7 +11,7 @@
 | 后端方式 | **clang 驱动**：生成 LLVM IR 文本（.ll）→ clang 子进程汇编 + 链接 |
 | 产出 | 原生可执行二进制（Mach-O / ELF） |
 | 特点 | `.ll` 文本可读可调试（`tenet ir` 即文档）；编译秒级；无 LLVM 开发库依赖 |
-| 测试 | 66 个单元测试 |
+| 测试 | 94 个单元测试 |
 
 ## 管线
 
@@ -43,7 +43,7 @@ compiler-rs/
 │   ├── codegen.rs   # 类型推断 + LLVM IR 文本生成（含测试）
 │   ├── lib.rs       # 库入口（compile_to_ir）
 │   └── main.rs      # CLI + clang 驱动 + 内嵌 runtime.c
-├── examples/        # hello / fib / fizzbuzz / struct / array
+├── examples/        # hello / fib / fizzbuzz / struct / array / nested / array_abi / dynamic_array / dynamic_abi / dynamic_expr / array_struct / dynamic_struct / nested_array / fixed_abi
 └── (target/ 构建产物，已 gitignore)
 ```
 
@@ -52,7 +52,7 @@ compiler-rs/
 ```bash
 cd tenet/compiler-rs
 
-cargo test                                   # 66 个单元测试
+cargo test                                   # 94 个单元测试
 cargo run -- build examples/hello.tenet -o hello && ./hello   # 编译为二进制并运行
 cargo run -- run examples/fib.tenet          # 编译 + 运行一步到位
 cargo run -- ir examples/hello.tenet         # 只看 LLVM IR（调试）
@@ -64,8 +64,8 @@ cargo run -- ir examples/hello.tenet         # 只看 LLVM IR（调试）
 |---|---|
 | 类型 | `int` / `float` / `bool` / `string`；局部 `struct`；定长 `array<int/float/bool>` |
 | 变量 | `let`（类型标注可选，静态推断）、赋值（值语义） |
-| struct v1 | 顶层声明、字面量、字段读写、值拷贝；仅局部变量，不做参数/返回值/嵌套 |
-| array v1 | 定长字面量、下标读写、`len`、逐元素拷贝；仅局部变量，不做参数/返回值/嵌套 |
+| struct | 顶层声明、标量/嵌套字段、字面量、字段读写、值拷贝；支持参数/返回值（指针 ABI） |
+| array | 固定值数组 `array<T, N>`/`array<struct, N>`（局部）/`array<array<T,N>,M>` 固定嵌套（局部）；动态 `array<T>`/`array<struct>`（局部/堆/push/深拷贝/drop；参数与返回值走 descriptor/sret，支持字面量/调用表达式） |
 | 函数 | `fn f(a: int) -> int`、递归 |
 | 控制流 | `if/else if/else`、`while`（唯一循环）、`break`、`return` |
 | 运算符 | 算术（向零截断整除/取模）、比较、`&&`/`\|\|` 短路、一元 `-`/`!` |
@@ -96,8 +96,8 @@ cargo test
 ## 已知限制与演进
 
 - 只支持核心子集（标量 + 函数 + 控制流 + 局部 struct/array v1）；`Option`/`Result`/`match` 设计已定待实现
-- struct v1 只做局部变量：字段限 int/float/bool，不做参数/返回值、嵌套、`array<struct>`
-- array v1 只做局部变量：定长、元素限 int/float/bool，不做参数/返回值、嵌套、动态扩容
+- struct 支持参数/返回值与嵌套；字段限 int/float/bool 或其他 struct，不做 `array<struct>`、struct 字段 array
+- 固定数组 `array<T, N>`；动态数组 `array<T>` 支持局部、push/深拷贝/drop，以及参数/返回值（descriptor/sret，v1 仅变量实参/返回变量）；不做嵌套数组、`array<struct>`、struct 字段 array
 - 除法/取模零除是 UB（与 C 一致）
 - 未开启 `-O2` 优化（可透传 clang）
 
@@ -108,7 +108,7 @@ cargo test
 | 语言 | Rust | C++17 | C++17 |
 | 后端 | clang 驱动（.ll 文本） | LLVM 库进程内（rustc 方式） | 手写 AArch64 后端（零 LLVM） |
 | 链接 | clang | 系统 `cc` | 系统 `as` + `ld` |
-| 测试 | 66 | 195 | 234 |
+| 测试 | 94 | 749 | 983 |
 | 产物 | 原生二进制，示例输出一致 | 同左 | 同左 |
 
 三套实现共享同一套语言设计，行为一致——「万语归宗」的验证：同一门语言，三种自主度级别的编译器。

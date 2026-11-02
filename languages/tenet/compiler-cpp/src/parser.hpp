@@ -209,6 +209,20 @@ private:
                 advance();
                 expect(Kind::Lt, "`<`");
                 std::string inner = parse_type();
+                // S3b：`array<T, N>`（定长）；省略 N 的 `array<T>` 是动态数组
+                // （局部变量 S3c-1；参数/返回值 S3c-2，语义分析校验元素类型与 ABI）。
+                if (check(Kind::Comma)) {
+                    advance();
+                    if (!check(Kind::Int)) {
+                        throw error("array<T, N> 的 N 必须是正整数");
+                    }
+                    Token n = advance();
+                    if (n.int_val <= 0) {
+                        throw TenetError::at_pos("array<T, N> 的 N 必须是正整数", n.pos);
+                    }
+                    expect(Kind::Gt, "`>`");
+                    return "array<" + inner + "," + std::to_string(n.int_val) + ">";
+                }
                 expect(Kind::Gt, "`>`");
                 return "array<" + inner + ">";
             }
@@ -218,7 +232,7 @@ private:
                 return name;
             }
             default:
-                throw error("期望类型 `int` / `float` / `bool` / `string` / `array<T>` 或 struct 名，但遇到 " +
+                throw error("期望类型 `int` / `float` / `bool` / `string` / `array<T>` / `array<T, N>` 或 struct 名，但遇到 " +
                             describe(peek().kind, peek()));
         }
     }

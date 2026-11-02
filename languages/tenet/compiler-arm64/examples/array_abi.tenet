@@ -1,0 +1,72 @@
+// Tenet S3b 示例：定长 array<T, N> 参数/返回值（指针 + sret ABI）
+//
+// - 数组参数：x 寄存器传指针，被调函数入口逐元素拷贝到本地 [N x T] 栈数组
+// - 数组返回值：隐藏 sret 指针占 x0，函数返回 void，调用方调用后按值解包
+// - 实参可以是变量 / 同长度字面量 / 返回数组的调用；返回值可用于 let / 整体赋值 / return
+
+fn sum(a: array<int, 3>) -> int {
+    return a[0] + a[1] + a[2];
+}
+
+// 数组返回值：写回调用方传入的隐藏 sret 缓冲区
+fn make() -> array<int, 3> {
+    return [7, 8, 9];
+}
+
+// 参数值拷贝：改的是本地拷贝，不影响调用方
+fn bump(a: array<int, 2>) -> int {
+    a[0] = 9;
+    return a[0];
+}
+
+// 数组参数可以整体作为返回值（再走一次 sret 写回）
+fn pass(a: array<int, 3>) -> array<int, 3> {
+    return a;
+}
+
+// 返回数组的调用也可以出现在 return 位置
+fn chain() -> array<int, 3> {
+    return make();
+}
+
+fn make_float() -> array<float, 2> {
+    return [1.5, 2.5];
+}
+
+fn make_bool() -> array<bool, 2> {
+    return [true, false];
+}
+
+let a: array<int, 3> = [1, 2, 3];
+
+// 变量实参 / 字面量实参
+let s: int = sum(a);
+print(s, sum([1, 2, 3]));               // 6 6
+
+// 返回值用于 let
+let b: array<int, 3> = make();
+b[0] = 70;
+print(b[0], b[1], b[2], len(b));        // 70 8 9 3
+
+// 返回值用于整体赋值
+let c: array<int, 3> = [0, 0, 0];
+c = make();
+print(c[0], c[1], c[2]);                // 7 8 9
+
+// 返回值用于 return / let
+let d = chain();
+print(d[0], d[2]);                      // 7 9
+
+// 数组参数整体作为返回值（再走一次 sret 写回）
+let e = pass(a);
+print(e[0], e[2]);                      // 1 3
+
+// 数组参数值拷贝：调用方 a 不变
+let x: array<int, 2> = [1, 2];
+let r: int = bump(x);
+print(x[0], r);                         // 1 9
+
+// float / bool 数组参数与返回值（元素仍占 8 字节槽）
+let f = make_float();
+let t = make_bool();
+print(f[0], f[1], t[0], t[1], len(f));  // 1.5 2.5 true false 2

@@ -9,10 +9,29 @@
 // - 表达式：栈式求值（push/pop 到 [sp]），临时寄存器 x9/x10/d9/d10
 // - 调用：用户函数按 AAPCS（x0-x7 / d0-d7）；print 走 Apple 变参规则
 //   （固定参数 fmt 在 x0，变参全部压栈，实测与 clang 一致）
+// - struct ABI（S3a）：struct 参数传扁平槽首地址（x 寄存器），被调函数入口逐字段拷贝；
+//   struct 返回值用隐藏 sret 指针（x0），函数返回 void，字段写回调用方缓冲区
+// - array ABI（S3b）：array<T, N> 参数同样传元素 0 地址（入口逐元素拷贝到本地 [N x T] 槽）；
+//   返回值复用隐藏 sret 指针，按 8 字节槽由调用方缓冲区打包/解包
+// - 动态数组（S3c）：array<T> 是堆缓冲 + data/len/cap 三个栈槽，
+//   push 扩容、len 运行时读取、下标运行时越界检查、赋值/初始化深拷贝、作用域/return drop
+// - 动态数组 ABI（S3c-2/S3c-3a）：参数传 3 槽描述符指针，被调函数入口深拷贝（参数值语义）；
+//   返回值走隐藏 sret 指针（x0）指向的 3 槽描述符，return 时转移所有权（变量/字面量/调用）；
+//   调用方 let/赋值从调用结果接管堆缓冲。动态实参支持变量、字面量、返回动态数组的调用：
+//   字面量/调用结果先构造临时描述符，调用返回后只 free 临时堆缓冲（不 free 栈描述符）
+// - 动态 struct 数组（S3c-3b-2）：array<S> 的堆元素按扁平字段槽存放，stride = slots*8；
+//   push/字段读写/整体元素赋值/深拷贝与参数、返回值 ABI 同动态数组（drop 只 free 堆缓冲）
+// - 嵌套固定数组（S3c-3c）：array<array<T,N>,M> 扁平 [M*N x i64]，
+//   a[i][j] 做外层/内层边界检查，不支持 len(a[i])
+// - 固定数组 ABI（S3c-3d）：多槽固定数组（array<S,N> / array<array<T,N>,M>）参数传
+//   元素 0 地址，被调函数入口按总槽数（N*slots / M*N）拷贝到本地扁平槽；
+//   返回值复用隐藏 sret 指针（函数返回 void），return 打包到 sret，调用方逐槽接管
+// - struct 布局：深度优先按声明顺序展开为 8 字节标量槽（float 位模式 / bool 0-1）
 // - 字符串：.data 常量 + adrp/add 取址；拼接/比较调用 libc（strlen/malloc/memcpy/strcmp）
 // - 控制流：if/while/break/短路全部翻译为标签 + 条件分支
 #pragma once
 
+#include <algorithm>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -102,11 +121,18 @@ private:
         std::optional<std::string> ret;
     };
 
+    /// S3c 动态数组描述符：三个 8 字节栈槽（data 指针 / len / cap）。
+    struct DynArrayInfo {
+        int data = 0;
+        int len = 0;
+        int cap = 0;
+    };
+
     std::string text_;
     std::string data_;
     int str_c_ = 0, flt_c_ = 0, label_c_ = 0;
     std::unordered_map<std::string, FnSig> functions_;
-    /// 顶层 struct 名 → 字段 (名, 标量类型)，字段顺序即槽位顺序。
+    /// 顶层 struct 名 → 字段 (名, 类型)；字段类型可为标量或另一个 struct。
     std::unordered_map<std::string, std::vector<std::pair<std::string, std::string>>> structs_;
 
     // 当前函数状态
@@ -115,12 +141,22 @@ private:
     std::vector<std::unordered_map<std::string, int>> flat_maps_;  // 所有块作用域的槽位表
     std::vector<std::unordered_map<std::string, std::string>> type_maps_;  // 与 flat_maps_ 同索引
     std::vector<std::unordered_map<std::string, int>> array_len_maps_;  // 与 flat_maps_ 同索引：数组长度
+    /// 与 flat_maps_ 同索引：动态数组 array<T> 的 data/len/cap 槽位。
+    std::vector<std::unordered_map<std::string, DynArrayInfo>> dyn_maps_;
     std::vector<int> scope_stack_;                                 // 当前作用域链（索引）
     std::vector<int> scope_queue_;                                 // 预计算的块索引（按遍历序）
     size_t scope_cursor_ = 0;                                      // 消费 scope_queue_
     int frame_ = 0;
+    /// 当前函数里由调用点按需分配的临时缓冲槽（struct/array 实参与字面量、sret）。
+    /// 槽位接在普通局部槽之后，函数体发射完才知道帧大小，故 prologue 帧调整用占位符回填。
+    int scratch_slots_ = 0;
+    int sret_slot_ = 0;              // struct/array 返回值的隐藏 sret 指针槽（无则不用）
+    bool current_ret_struct_ = false;
     int pushes_ = 0;
+    bool terminated_ = false;
     std::vector<std::string> break_stack_;
+    /// 与 break_stack_ 并行：进入循环体时的作用域深度（break 时 drop 到该深度）。
+    std::vector<size_t> break_depth_stack_;
 
     // ---- 辅助 ----
 
@@ -187,8 +223,8 @@ private:
         return t == T_INT || t == T_FLOAT || t == T_BOOL || t == T_STR;
     }
 
-    /// `array<T>` → `T`；不是数组返回 nullopt。
-    static std::optional<std::string> array_elem(const std::string& ty) {
+    /// `array<...>` 尖括号内的原文（`array<int>` / `array<int,3>` → `int` / `int,3`）。
+    static std::optional<std::string> array_inner(const std::string& ty) {
         const std::string prefix = "array<";
         if (ty.size() <= prefix.size() + 1) return std::nullopt;
         if (ty.compare(0, prefix.size(), prefix) != 0) return std::nullopt;
@@ -196,7 +232,54 @@ private:
         return ty.substr(prefix.size(), ty.size() - prefix.size() - 1);
     }
 
+    /// 在 array 内层找顶层逗号（跳过嵌套 `<...>`，如 `array<array<int,3>,2>`）。
+    static size_t array_top_comma(const std::string& inner) {
+        int depth = 0;
+        for (size_t i = 0; i < inner.size(); ++i) {
+            char c = inner[i];
+            if (c == '<') {
+                ++depth;
+            } else if (c == '>') {
+                if (depth > 0) --depth;
+            } else if (c == ',' && depth == 0) {
+                return i;
+            }
+        }
+        return std::string::npos;
+    }
+
+    /// `array<T>` / `array<T, N>` → 元素类型 `T`；不是数组返回 nullopt。
+    static std::optional<std::string> array_elem(const std::string& ty) {
+        auto inner = array_inner(ty);
+        if (!inner.has_value()) return std::nullopt;
+        size_t comma = array_top_comma(*inner);
+        std::string elem =
+            comma == std::string::npos ? *inner : inner->substr(0, comma);
+        if (elem.empty()) return std::nullopt;
+        return elem;
+    }
+
+    /// `array<T, N>` → N；`array<T>`（S3c 动态数组）或非数组返回 nullopt。
+    static std::optional<int> array_decl_len(const std::string& ty) {
+        auto inner = array_inner(ty);
+        if (!inner.has_value()) return std::nullopt;
+        size_t comma = array_top_comma(*inner);
+        if (comma == std::string::npos || comma + 1 >= inner->size()) return std::nullopt;
+        std::string digits = inner->substr(comma + 1);
+        if (digits.empty() ||
+            digits.find_first_not_of("0123456789") != std::string::npos) {
+            return std::nullopt;
+        }
+        int n = std::stoi(digits);
+        return n > 0 ? std::optional<int>(n) : std::nullopt;
+    }
+
     bool is_array(const std::string& t) const { return array_elem(t).has_value(); }
+
+    /// S3c：`array<T>`（不带长度）是局部动态数组；`array<T, N>` 是定长栈数组。
+    bool is_dynamic_array(const std::string& t) const {
+        return is_array(t) && !array_decl_len(t).has_value();
+    }
 
     /// 取数组元素类型并校验 v1 限制：元素只能是 int/float/bool。
     std::string array_elem_scalar(const std::string& ty, const Position& pos) const {
@@ -231,8 +314,140 @@ private:
         return std::nullopt;
     }
 
-    /// 收集并校验顶层 struct 声明（字段只允许 int/float/bool、字段名唯一）。
+    /// 把 struct 递归展开为标量字段：(点分路径, 标量类型)，深度优先按声明顺序。
+    /// 例：Line { a: Point; b: Point; } → a.x, a.y, b.x, b.y。
+    std::vector<std::pair<std::string, std::string>> flatten_struct(
+        const std::string& ty) const {
+        std::vector<std::pair<std::string, std::string>> out;
+        flatten_into(ty, "", out);
+        return out;
+    }
+
+    void flatten_into(const std::string& ty, const std::string& prefix,
+                      std::vector<std::pair<std::string, std::string>>& out) const {
+        auto it = structs_.find(ty);
+        if (it == structs_.end()) return;
+        for (const auto& [fname, fty] : it->second) {
+            std::string path = prefix.empty() ? fname : prefix + "." + fname;
+            if (is_struct(fty)) {
+                flatten_into(fty, path, out);
+            } else {
+                out.push_back({path, fty});
+            }
+        }
+    }
+
+    /// S3c-3b-1：数组元素类型允许标量或 struct（struct 只用于固定长度数组）。
+    /// S3c-3b-2：动态 `array<S>` 同样允许 struct 元素。
+    /// S3c-3c：固定外层数组允许内层固定数组（嵌套数组，仅局部、内层 int/float）。
+    /// 标量路径仍由 array_elem_scalar 负责（保持既有错误文案）。
+    std::string array_elem_checked(const std::string& ty, const Position& pos) const {
+        auto elem = array_elem(ty);
+        if (!elem.has_value()) {
+            throw TenetError::at_pos("不是数组类型：" + ty, pos);
+        }
+        if (*elem == T_INT || *elem == T_FLOAT || *elem == T_BOOL) return *elem;
+        if (is_struct(*elem)) return *elem;
+        if (is_array(*elem)) {
+            // S3c-3c：array<array<T, N>, M>。外层必须是固定长度；内层必须是固定长度，
+            // 且内层元素只支持 int/float（bool 明确拒绝，struct/更深嵌套也不支持）。
+            if (!array_decl_len(ty).has_value()) {
+                throw TenetError::at_pos(
+                    "嵌套数组外层必须是固定长度 `array<array<T, N>, M>`，实际 `" + ty + "`",
+                    pos);
+            }
+            auto inner_len = array_decl_len(*elem);
+            if (!inner_len.has_value()) {
+                throw TenetError::at_pos(
+                    "嵌套数组内层必须是固定长度 `array<T, N>`，实际 `" + *elem + "`", pos);
+            }
+            auto inner_elem = array_elem(*elem);
+            if (!inner_elem.has_value()) {
+                throw TenetError::at_pos("嵌套数组内层不是数组：`" + *elem + "`", pos);
+            }
+            if (*inner_elem == T_BOOL) {
+                throw TenetError::at_pos("嵌套数组内层暂不支持 bool（只支持 int/float）", pos);
+            }
+            if (*inner_elem != T_INT && *inner_elem != T_FLOAT) {
+                throw TenetError::at_pos(
+                    "嵌套数组内层只支持 int/float，实际 `" + *inner_elem + "`", pos);
+            }
+            return *elem;
+        }
+        throw TenetError::at_pos(
+            "v1 数组元素只支持 int/float/bool 或 struct，实际 `" + *elem + "`", pos);
+    }
+
+    /// 数组一个元素占多少个 8 字节扁平槽：
+    /// struct 为扁平字段数；嵌套数组为内层长度 × 内层元素槽数；标量为 1。
+    int array_elem_slots(const std::string& ty, const Position& pos) const {
+        std::string elem = array_elem_checked(ty, pos);
+        if (is_struct(elem)) return (int)flatten_struct(elem).size();
+        if (is_array(elem)) {
+            int inner_len = *array_decl_len(elem);
+            return inner_len * array_elem_slots(elem, pos);
+        }
+        return 1;
+    }
+
+    /// S3c-3c 嵌套数组的布局信息：外层 M 个元素、每个内层 N 个标量，扁平 [M*N x i64]。
+    struct NestedArrayInfo {
+        std::string ty;         // 外层数组类型 array<array<T,N>,M>
+        std::string inner_ty;   // 内层数组类型 array<T,N>
+        std::string elem;       // 内层标量元素类型 int/float
+        int outer_len = 0;      // M
+        int inner_len = 0;      // N
+        int slots = 0;          // 每个外层元素的槽数（= N）
+    };
+
+    /// 校验并拆解嵌套数组类型（仅局部）：外层/内层都必须固定长度，内层元素 int/float。
+    NestedArrayInfo nested_array_info(const std::string& ty, const Position& pos) const {
+        if (!is_array(ty)) {
+            throw TenetError::at_pos("`" + ty + "` 不是数组", pos);
+        }
+        std::string elem = array_elem_checked(ty, pos);
+        if (!is_array(elem)) {
+            throw TenetError::at_pos(
+                "`" + ty + "` 不是嵌套数组（需要 `array<array<T, N>, M>`）", pos);
+        }
+        NestedArrayInfo info;
+        info.ty = ty;
+        info.inner_ty = elem;
+        info.outer_len = *array_decl_len(ty);
+        info.inner_len = *array_decl_len(elem);
+        info.elem = *array_elem(elem);
+        info.slots = info.inner_len;
+        return info;
+    }
+
+    /// 检测循环嵌套（A 含 B、B 含 A，或自引用）。
+    void check_struct_cycle(const std::string& ty, std::vector<std::string>& stack,
+                            const Position& pos) const {
+        if (std::find(stack.begin(), stack.end(), ty) != stack.end()) {
+            std::vector<std::string> cycle = stack;
+            cycle.push_back(ty);
+            std::string chain;
+            for (size_t i = 0; i < cycle.size(); ++i) {
+                if (i) chain += " -> ";
+                chain += cycle[i];
+            }
+            // 旧 v1 测试对自引用断言过「只支持 int/float/bool」，这里在循环错误里保留该表述。
+            throw TenetError::at_pos("struct 循环嵌套：" + chain +
+                                         "（struct 字段只支持 int/float/bool 或其他非循环 struct）",
+                                     pos);
+        }
+        if (!is_struct(ty)) return;
+        stack.push_back(ty);
+        for (const auto& [fname, fty] : structs_.at(ty)) {
+            (void)fname;
+            if (is_struct(fty)) check_struct_cycle(fty, stack, pos);
+        }
+        stack.pop_back();
+    }
+
+    /// 收集并校验顶层 struct 声明：字段可为标量或其他 struct，禁止循环/array/string。
     void collect_structs(const Program& program) {
+        // 第一遍：登记所有 struct 名与原始字段（允许前向引用）。
         for (const auto& stmt : program.stmts) {
             if (stmt->kind != Stmt::Kind::StructDecl) continue;
             const std::string& name = stmt->name;
@@ -247,18 +462,38 @@ private:
             }
             std::unordered_map<std::string, int> seen;
             for (const auto& [fname, fty] : stmt->fields) {
-                if (fty != T_INT && fty != T_FLOAT && fty != T_BOOL) {
-                    throw TenetError::at_pos(
-                        "struct `" + name + "` 的字段 `" + fname + "` 只支持 int/float/bool",
-                        stmt->pos);
-                }
                 if (seen.count(fname)) {
                     throw TenetError::at_pos("struct `" + name + "` 的字段 `" + fname + "` 重复",
                                              stmt->pos);
                 }
                 seen[fname] = 1;
+                if (fty == T_STR) {
+                    throw TenetError::at_pos(
+                        "struct `" + name + "` 的字段 `" + fname +
+                            "` 只支持 int/float/bool 或其他 struct",
+                        stmt->pos);
+                }
+                if (is_array(fty)) {
+                    throw TenetError::at_pos(
+                        "v1 struct 字段不支持 array（含 array<struct>）：`" + name + "." +
+                            fname + "`（字段只支持 int/float/bool 或其他 struct）",
+                        stmt->pos);
+                }
             }
             structs_[name] = stmt->fields;
+        }
+        // 第二遍：字段类型必须已定义（标量或已声明的 struct），并检测循环嵌套。
+        for (const auto& stmt : program.stmts) {
+            if (stmt->kind != Stmt::Kind::StructDecl) continue;
+            for (const auto& [fname, fty] : stmt->fields) {
+                if (fty != T_INT && fty != T_FLOAT && fty != T_BOOL && !is_struct(fty)) {
+                    throw TenetError::at_pos("struct `" + stmt->name + "` 的字段 `" + fname +
+                                                 "` 类型 `" + fty + "` 未定义",
+                                             stmt->pos);
+                }
+            }
+            std::vector<std::string> stack;
+            check_struct_cycle(stmt->name, stack, stmt->pos);
         }
     }
 
@@ -273,36 +508,45 @@ private:
                 throw TenetError::at_pos("函数 `" + name + "` 重复定义", stmt->pos);
             }
             for (const auto& [pn, pt] : stmt->params) {
-                if (is_struct(pt)) {
-                    throw TenetError::at_pos(
-                        "v1 不支持 struct 参数：`" + name + "` 的参数 `" + pn + "` 是 `" + pt + "`",
-                        stmt->pos);
-                }
                 if (is_array(pt)) {
-                    throw TenetError::at_pos(
-                        "v1 不支持 array 参数：`" + name + "` 的参数 `" + pn + "` 是 `" + pt + "`",
-                        stmt->pos);
+                    // S3b：array<T, N> 参数走定长数组指针 ABI；
+                    // S3c-2：array<T> 参数走 3 槽描述符指针 ABI；
+                    // S3c-3b-2：动态 array<S> 参数同样走描述符指针（入口深拷贝）；
+                    // S3c-3d：固定 array<S, N> 与固定嵌套数组参数也走指针 ABI
+                    // （被调函数入口按总槽数拷贝，参数值语义）。
+                    std::string elem = array_elem_checked(pt, stmt->pos);
+                    if (is_array(elem)) nested_array_info(pt, stmt->pos);
+                    (void)pn;
+                    continue;
                 }
-                if (!is_scalar_type(pt)) {
+                if (!is_scalar_type(pt) && !is_struct(pt)) {
                     throw TenetError::at_pos("函数 `" + name + "` 的参数 `" + pn +
                                                  "` 类型未定义：`" + pt + "`",
                                              stmt->pos);
                 }
             }
+            bool ret_struct = stmt->ret.has_value() && is_struct(*stmt->ret);
+            bool ret_array = stmt->ret.has_value() && is_array(*stmt->ret);
             if (stmt->ret.has_value()) {
                 const std::string& rt = *stmt->ret;
-                if (is_struct(rt)) {
-                    throw TenetError::at_pos(
-                        "v1 不支持 struct 返回值：`" + name + "` 返回 `" + rt + "`", stmt->pos);
-                }
                 if (is_array(rt)) {
-                    throw TenetError::at_pos(
-                        "v1 不支持 array 返回值：`" + name + "` 返回 `" + rt + "`", stmt->pos);
-                }
-                if (!is_scalar_type(rt)) {
+                    // S3b 定长数组 / S3c-2、S3c-3b-2 动态数组都允许作返回值。
+                    // S3c-3d：固定 array<S, N> 与固定嵌套数组返回值也允许（走 sret）。
+                    std::string elem = array_elem_checked(rt, stmt->pos);
+                    if (is_array(elem)) nested_array_info(rt, stmt->pos);
+                    (void)elem;
+                } else if (!is_scalar_type(rt) && !is_struct(rt)) {
                     throw TenetError::at_pos(
                         "函数 `" + name + "` 的返回类型未定义：`" + rt + "`", stmt->pos);
                 }
+            }
+            // 自定义 Tenet ABI：struct/array 指针与隐藏 sret 指针都占一个参数位（x0-x7）。
+            size_t arg_positions = stmt->params.size() + (ret_struct || ret_array ? 1 : 0);
+            if (arg_positions > 8) {
+                throw TenetError::at_pos(
+                    "函数 `" + name +
+                        "` 的参数位超过 8 个（sret 与 struct/array 指针也占参数位，x0-x7）",
+                    stmt->pos);
             }
             std::vector<std::string> params;
             for (const auto& [pn, pt] : stmt->params) {
@@ -333,7 +577,11 @@ private:
         if (stmt.ty.has_value()) {
             const std::string& t = *stmt.ty;
             if (is_array(t)) {
-                array_elem_scalar(t, stmt.pos);  // v1：元素仅 int/float/bool
+                // S3c：`array<T>` 是局部动态数组；`array<T, N>` 是定长栈数组。
+                // S3c-3b-1/2：元素可为标量或 struct（动态/固定都支持）。
+                // S3c-3c：`array<array<T, N>, M>` 仅局部，内层固定且元素 int/float。
+                std::string elem = array_elem_checked(t, stmt.pos);
+                if (is_array(elem)) nested_array_info(t, stmt.pos);
                 return t;
             }
             if (!is_scalar_type(t) && !is_struct(t)) {
@@ -349,29 +597,78 @@ private:
         return *inf;
     }
 
-    /// 数组 let 的定长长度：字面量取元素个数，变量取源数组长度。
+    /// 数组 let 的定长长度：字面量取元素个数，变量/调用取源数组长度。
+    /// 显式写了 `array<T, N>` 时长度必须与来源一致。
     int plan_array_len(const Stmt& stmt, const std::string& ty) {
         const ExprPtr& v = stmt.value;
         if (!v) {
             throw TenetError::at_pos("`" + stmt.name + "` 的数组初始化缺失", stmt.pos);
         }
+        auto decl_len = array_decl_len(ty);
+        std::string elem = array_elem_checked(ty, stmt.pos);
+        if (is_array(elem)) nested_array_info(ty, stmt.pos);
         if (v->kind == Expr::Kind::Array) {
             if (v->args.empty()) {
                 throw TenetError::at_pos("v1 不支持空数组字面量", v->pos);
             }
-            return (int)v->args.size();
+            int n = (int)v->args.size();
+            if (decl_len.has_value() && *decl_len != n) {
+                throw TenetError::at_pos("数组初始化长度不匹配：需要 " +
+                                             std::to_string(*decl_len) + "，实际 " +
+                                             std::to_string(n),
+                                         v->pos);
+            }
+            return n;
         }
         if (v->kind == Expr::Kind::Var) {
             std::string src_ty = scoped_var_type(v->name, v->pos);
-            if (src_ty != ty) {
+            if (is_dynamic_array(src_ty)) {
+                throw TenetError::at_pos(
+                    "`" + stmt.name + "` 是定长数组 " + ty + "，不能用动态数组 `" + v->name +
+                        "`（" + src_ty + "）初始化",
+                    v->pos);
+            }
+            if (!is_array(src_ty) || array_elem(src_ty) != elem) {
                 throw TenetError::at_pos(
                     "`" + stmt.name + "` 需要 " + ty + "，但 `" + v->name + "` 是 " + src_ty,
                     v->pos);
             }
-            return lookup_array_len(v->name, v->pos);
+            int src_len = lookup_array_len(v->name, v->pos);
+            if (decl_len.has_value() && *decl_len != src_len) {
+                throw TenetError::at_pos("数组初始化长度不匹配：需要 " +
+                                             std::to_string(*decl_len) + "，实际 " +
+                                             std::to_string(src_len),
+                                         v->pos);
+            }
+            return src_len;
+        }
+        if (v->kind == Expr::Kind::Call) {
+            auto rt = infer_type(v);
+            if (!rt.has_value() || !is_array(*rt)) {
+                throw TenetError::at_pos(
+                    "`" + stmt.name + "` 需要 " + ty + "，但调用返回 " +
+                        rt.value_or("void"),
+                    v->pos);
+            }
+            if (array_elem(*rt) != elem) {
+                throw TenetError::at_pos(
+                    "`" + stmt.name + "` 需要 " + ty + "，调用返回 " + *rt, v->pos);
+            }
+            auto ret_len = array_decl_len(*rt);
+            if (!ret_len.has_value()) {
+                throw TenetError::at_pos("返回数组必须带长度 array<T, N>", v->pos);
+            }
+            if (decl_len.has_value() && *decl_len != *ret_len) {
+                throw TenetError::at_pos("数组初始化长度不匹配：需要 " +
+                                             std::to_string(*decl_len) + "，调用返回 " +
+                                             std::to_string(*ret_len),
+                                         v->pos);
+            }
+            return *ret_len;
         }
         throw TenetError::at_pos(
-            "`" + stmt.name + "` 的数组初始化必须是 `[...]` 或同类型数组变量", v->pos);
+            "`" + stmt.name + "` 的数组初始化必须是字面量、同类型数组变量或返回数组的调用",
+            v->pos);
     }
 
     /// 遍历语句分配变量槽位（let 按出现顺序；遮蔽用不同槽）。
@@ -388,19 +685,37 @@ private:
                     // 数组变量占用连续的 N 个槽：name 的槽位指向元素 0（最低地址），
                     // 元素 i 的槽位 = base + 8*i。
                     if (is_array(t)) {
+                        if (is_dynamic_array(t)) {
+                            // S3c：动态数组占 3 个连续槽（data/len/cap），运行时 malloc。
+                            // S3c-3b-2：元素可为 struct（stride = 扁平字段数*8）。
+                            array_elem_checked(t, s->pos);
+                            int data = -(8 * (next_slot + 1));
+                            flat_maps_[scope_stack_.back()][s->name] = data;
+                            dyn_maps_[scope_stack_.back()][s->name] =
+                                DynArrayInfo{data, data - 8, data - 16};
+                            next_slot += 3;
+                            break;
+                        }
                         int len = plan_array_len(*s, t);
-                        int base_offset = -(8 * (next_slot + len));
+                        // S3c-3b-1：每个 struct 元素按扁平字段占 slots 个连续槽，
+                        // 元素 0 在最低地址；元素 stride = slots*8。
+                        // S3c-3c：嵌套数组每个外层元素占 N 个标量槽，扁平 [M*N x i64]。
+                        int slots = array_elem_slots(t, s->pos);
+                        int total = len * slots;
+                        int base_offset = -(8 * (next_slot + total));
                         flat_maps_[scope_stack_.back()][s->name] = base_offset;
                         array_len_maps_[scope_stack_.back()][s->name] = len;
-                        next_slot += len;
+                        next_slot += total;
                         break;
                     }
                     int first_offset = -(8 * (next_slot + 1));
                     flat_maps_[scope_stack_.back()][s->name] = first_offset;
                     if (is_struct(t)) {
-                        const auto& defs = struct_fields(t, s->pos);
-                        for (const auto& f : defs) {
-                            flat_maps_[scope_stack_.back()][s->name + "." + f.first] =
+                        // 扁平字段槽：深度优先按声明顺序，路径 a.x / a.y / b.x ...
+                        const auto flat = flatten_struct(t);
+                        for (const auto& [path, fty] : flat) {
+                            (void)fty;
+                            flat_maps_[scope_stack_.back()][s->name + "." + path] =
                                 -(8 * (next_slot + 1));
                             ++next_slot;
                         }
@@ -413,6 +728,7 @@ private:
                     flat_maps_.push_back({});
                     type_maps_.push_back({});
                     array_len_maps_.push_back({});
+                    dyn_maps_.push_back({});
                     scope_queue_.push_back((int)flat_maps_.size() - 1);
                     scope_stack_.push_back((int)flat_maps_.size() - 1);
                     plan_stmts(s->then_branch, next_slot);
@@ -421,6 +737,7 @@ private:
                         flat_maps_.push_back({});
                         type_maps_.push_back({});
                         array_len_maps_.push_back({});
+                        dyn_maps_.push_back({});
                         scope_queue_.push_back((int)flat_maps_.size() - 1);
                         scope_stack_.push_back((int)flat_maps_.size() - 1);
                         plan_stmts(s->else_branch, next_slot);
@@ -432,6 +749,7 @@ private:
                     flat_maps_.push_back({});
                     type_maps_.push_back({});
                     array_len_maps_.push_back({});
+                    dyn_maps_.push_back({});
                     scope_queue_.push_back((int)flat_maps_.size() - 1);
                     scope_stack_.push_back((int)flat_maps_.size() - 1);
                     plan_stmts(s->body, next_slot);
@@ -447,14 +765,35 @@ private:
     // ---- 函数发射 ----
 
     /// 大帧（数组可能占很多槽）超过 sub/add 的 12 位立即数范围时走寄存器。
-    void emit_frame_adjust(int frame, bool allocate) {
-        if (frame <= 0) return;
+    static std::string frame_adjust_asm(int frame, bool allocate) {
+        if (frame <= 0) return "";
+        std::string op = allocate ? "sub" : "add";
         if (frame <= 4095) {
-            emit(std::string(allocate ? "sub" : "add") + " sp, sp, #" + std::to_string(frame));
-            return;
+            return "\t" + op + " sp, sp, #" + std::to_string(frame) + "\n";
         }
-        emit_mov_const("x16", frame);
-        emit(std::string(allocate ? "sub" : "add") + " sp, sp, x16");
+        return mov_const_asm("x16", frame) + "\t" + op + " sp, sp, x16\n";
+    }
+
+    void emit_frame_adjust(int frame, bool allocate) {
+        text_ += frame_adjust_asm(frame, allocate);
+    }
+
+    /// 函数体发射时才能确定帧大小（scratch 槽按调用点增长），prologue 先用占位符。
+    void patch_frame_alloc(const std::string& marker, int frame) {
+        size_t pos = text_.rfind(marker);
+        if (pos == std::string::npos) return;
+        text_.replace(pos, marker.size(), frame_adjust_asm(frame, true));
+    }
+
+    void zero_dynamic_slots() {
+        for (const auto& m : dyn_maps_) {
+            for (const auto& [name, di] : m) {
+                (void)name;
+                emit("str xzr, [x29, #" + std::to_string(di.data) + "]");
+                emit("str xzr, [x29, #" + std::to_string(di.len) + "]");
+                emit("str xzr, [x29, #" + std::to_string(di.cap) + "]");
+            }
+        }
     }
 
     void emit_fn(const StmtPtr& stmt) {
@@ -464,56 +803,131 @@ private:
             throw TenetError::at_pos("函数 `" + name + "` 声明了返回类型，但函数末尾没有 return",
                                      stmt->pos);
         }
-        // 规划：参数槽 + 局部槽（作用域索引按遍历序进队列）
+        // 规划：sret 隐藏槽 + 参数槽 + 局部槽（作用域索引按遍历序进队列）
         flat_maps_.clear();
         type_maps_.clear();
         array_len_maps_.clear();
+        dyn_maps_.clear();
         scope_queue_.clear();
         scope_cursor_ = 0;
         scope_stack_.clear();
         flat_maps_.push_back({});
         type_maps_.push_back({});
         array_len_maps_.push_back({});
+        dyn_maps_.push_back({});
         scope_queue_.push_back(0);
         scope_stack_.push_back(0);
-        int next_slot = (int)stmt->params.size();
-        for (int i = 0; i < (int)stmt->params.size(); ++i) {
-            flat_maps_[0][stmt->params[i].first] = -(8 * (i + 1));
-            type_maps_[0][stmt->params[i].first] = stmt->params[i].second;
+        bool ret_struct = stmt->ret.has_value() && is_struct(*stmt->ret);
+        bool ret_array = stmt->ret.has_value() && is_array(*stmt->ret);
+        bool ret_composite = ret_struct || ret_array;
+        int next_slot = 0;
+        sret_slot_ = 0;
+        if (ret_composite) {
+            sret_slot_ = -(8 * (next_slot + 1));
+            ++next_slot;
+        }
+        for (const auto& [pn, pt] : stmt->params) {
+            type_maps_[0][pn] = pt;
+            if (is_struct(pt)) {
+                // struct 参数在入口从指针逐字段拷贝到本地扁平槽，函数内修改不影响调用方。
+                flat_maps_[0][pn] = -(8 * (next_slot + 1));
+                for (const auto& [path, fty] : flatten_struct(pt)) {
+                    (void)fty;
+                    flat_maps_[0][pn + "." + path] = -(8 * (next_slot + 1));
+                    ++next_slot;
+                }
+            } else if (is_array(pt)) {
+                if (is_dynamic_array(pt)) {
+                    // S3c-2：动态数组参数占 3 个连续槽（data/len/cap）。
+                    // 入口先保存调用方描述符指针，再把堆缓冲深拷贝到本地（参数值语义）。
+                    int data = -(8 * (next_slot + 1));
+                    flat_maps_[0][pn] = data;
+                    dyn_maps_[0][pn] = DynArrayInfo{data, data - 8, data - 16};
+                    next_slot += 3;
+                } else {
+                    // S3b：数组参数在入口从指针逐元素拷贝到本地 [N x T] 栈数组。
+                    // S3c-3d：固定 array<S, N> / 嵌套数组占 N*slots（M*N）个连续槽，
+                    // 入口按总槽数拷贝，函数内就是普通扁平数组局部变量。
+                    int len = *array_decl_len(pt);
+                    int total = len * array_elem_slots(pt, stmt->pos);
+                    flat_maps_[0][pn] = -(8 * (next_slot + total));
+                    array_len_maps_[0][pn] = len;
+                    next_slot += total;
+                }
+            } else {
+                flat_maps_[0][pn] = -(8 * (next_slot + 1));
+                ++next_slot;
+            }
         }
         plan_stmts(stmt->body, next_slot);
         scope_stack_.pop_back();
-        frame_ = ((next_slot * 8) + 15) / 16 * 16;
+        scratch_slots_ = next_slot;  // 调用点临时缓冲从普通槽之后分配
 
         fn_ = name;
         current_ret_ = stmt->ret;
+        current_ret_struct_ = ret_struct;
         scope_stack_.clear();
         scope_stack_.push_back(0);
         scope_cursor_ = 1;  // 0 号块（fn body）已进入
         pushes_ = 0;
+        // 上一函数可能以 return 结束（terminated_ 为 true），必须按函数重置，
+        // 否则本函数的 if/while 体在发出第一条语句后会被误判为已终止。
+        terminated_ = false;
         break_stack_.clear();
+        break_depth_stack_.clear();
 
         text_ += "\n.p2align 2\n";
         text_ += "\t.globl _" + name + "\n";
         label("_" + name);
         emit("stp x29, x30, [sp, #-16]!");
         emit("mov x29, sp");
-        emit_frame_adjust(frame_, true);
-        // 参数入槽
-        for (size_t i = 0; i < stmt->params.size(); ++i) {
+        const std::string frame_marker = "\t@FRAME_ALLOC@\n";
+        text_ += frame_marker;
+        zero_dynamic_slots();
+        size_t param_pos = 0;
+        if (ret_composite) {
+            // 隐藏 sret 指针在 x0，函数返回 void（自定义 Tenet ABI，struct/array 共用）。
+            emit("str x0, [x29, #" + std::to_string(sret_slot_) + "]");
+            param_pos = 1;
+        }
+        // 参数入槽：先全部落槽，再对动态数组参数深拷贝。
+        // （malloc 会破坏尚未落槽的参数寄存器，所以不能边落槽边深拷贝。）
+        for (size_t i = 0; i < stmt->params.size(); ++i, ++param_pos) {
             const auto& [pn, pt] = stmt->params[i];
-            int off = flat_maps_[0][pn];
-            emit("str " + std::string(is_float(pt) ? "d" : "x") + std::to_string(i) +
-                 ", [x29, #" + std::to_string(off) + "]");
+            std::string arg_reg = std::string(is_float(pt) ? "d" : "x") +
+                                  std::to_string(param_pos);
+            if (is_struct(pt)) {
+                unpack_buffer_from_reg(pn, pt, arg_reg, stmt->pos);
+            } else if (is_dynamic_array(pt)) {
+                // S3c-2：xN 是调用方描述符指针，先暂存在 data 槽，第二阶段再深拷贝覆盖。
+                store_slot(arg_reg, dyn_maps_[0][pn].data);
+            } else if (is_array(pt)) {
+                // S3b/S3c-3d：xN 是调用方数组元素 0 的地址，按总槽数逐槽拷贝到本地
+                // （struct 元素按扁平字段槽、嵌套数组按 M*N 扁平槽，均按 8 字节值拷贝）。
+                copy_array_from_reg(flat_maps_[0][pn], arg_reg,
+                                    *array_decl_len(pt) * array_elem_slots(pt, stmt->pos));
+            } else {
+                int off = flat_maps_[0][pn];
+                store_slot(arg_reg, off);
+            }
+        }
+        for (const auto& [pn, pt] : stmt->params) {
+            if (is_dynamic_array(pt)) deep_copy_dynamic_param(dyn_maps_[0][pn], pt, stmt->pos);
         }
         for (const auto& s : stmt->body) emit_stmt(s);
+        // void 函数自然落回：离开函数作用域前 drop 局部动态数组（return 路径已各自 drop）。
+        if (!terminated_) drop_all_scopes();
         // 函数 epilogue（return 跳转到此；void 函数自然落回）
         label("L." + name + ".ret");
+        frame_ = ((scratch_slots_ * 8) + 15) / 16 * 16;
         emit_frame_adjust(frame_, false);
         emit("ldp x29, x30, [sp], #16");
         emit("ret");
+        patch_frame_alloc(frame_marker, frame_);
         fn_.clear();
         current_ret_ = std::nullopt;
+        current_ret_struct_ = false;
+        sret_slot_ = 0;
     }
 
     void emit_main(const Program& program) {
@@ -531,36 +945,46 @@ private:
         flat_maps_.clear();
         type_maps_.clear();
         array_len_maps_.clear();
+        dyn_maps_.clear();
         scope_queue_.clear();
         scope_cursor_ = 0;
         scope_stack_.clear();
         flat_maps_.push_back({});
         type_maps_.push_back({});
         array_len_maps_.push_back({});
+        dyn_maps_.push_back({});
         scope_queue_.push_back(0);
         scope_stack_.push_back(0);
         plan_stmts(body, next_slot);
         scope_stack_.pop_back();
-        frame_ = ((next_slot * 8) + 15) / 16 * 16;
+        scratch_slots_ = next_slot;
         scope_stack_.clear();
         scope_stack_.push_back(0);
         scope_cursor_ = 1;
         pushes_ = 0;
+        terminated_ = false;  // 与 emit_fn 同理：main 前一个函数可能以 return 结束
         break_stack_.clear();
+        break_depth_stack_.clear();
 
         text_ += "\n.p2align 2\n";
         text_ += "\t.globl _main\n";
         label("_main");
         emit("stp x29, x30, [sp, #-16]!");
         emit("mov x29, sp");
-        emit_frame_adjust(frame_, true);
+        const std::string frame_marker = "\t@FRAME_ALLOC@\n";
+        text_ += frame_marker;
+        zero_dynamic_slots();
         for (const auto& s : body) emit_stmt(s);
+        drop_all_scopes();  // main 结束前释放顶层动态数组
         label("L.main.ret");
         emit("mov x0, #0");
+        frame_ = ((scratch_slots_ * 8) + 15) / 16 * 16;
         emit_frame_adjust(frame_, false);
         emit("ldp x29, x30, [sp], #16");
         emit("ret");
+        patch_frame_alloc(frame_marker, frame_);
         fn_.clear();
+        current_ret_struct_ = false;
     }
 
     // ---- 语句 ----
@@ -575,7 +999,11 @@ private:
                     return;
                 }
                 if (is_array(t)) {
-                    emit_array_init(*stmt, t);
+                    if (is_dynamic_array(t)) {
+                        emit_dynamic_init(*stmt, t);
+                    } else {
+                        emit_array_init(*stmt, t);
+                    }
                     return;
                 }
                 std::string vt = gen_expr(stmt->value);
@@ -605,15 +1033,23 @@ private:
                 auto merge_l = new_label("merge");
                 emit("b.eq " + else_l);
                 enter_scope();
-                for (const auto& s : stmt->then_branch) emit_stmt(s);
+                for (const auto& s : stmt->then_branch) {
+                    emit_stmt(s);
+                    if (terminated_) break;
+                }
                 exit_scope();
-                emit("b " + merge_l);
+                if (!terminated_) emit("b " + merge_l);
+                terminated_ = false;
                 label(else_l);
                 if (!stmt->else_branch.empty()) {
                     enter_scope();
-                    for (const auto& s : stmt->else_branch) emit_stmt(s);
+                    for (const auto& s : stmt->else_branch) {
+                        emit_stmt(s);
+                        if (terminated_) break;
+                    }
                     exit_scope();
                 }
+                terminated_ = false;
                 label(merge_l);
                 return;
             }
@@ -630,14 +1066,74 @@ private:
                 emit("b.eq " + exit_l);
                 enter_scope();
                 break_stack_.push_back(exit_l);
-                for (const auto& s : stmt->body) emit_stmt(s);
+                break_depth_stack_.push_back(scope_stack_.size());
+                for (const auto& s : stmt->body) {
+                    emit_stmt(s);
+                    if (terminated_) break;
+                }
+                break_depth_stack_.pop_back();
                 break_stack_.pop_back();
                 exit_scope();
-                emit("b " + cond_l);
+                if (!terminated_) emit("b " + cond_l);
+                terminated_ = false;
                 label(exit_l);
                 return;
             }
             case Stmt::Kind::Return: {
+                if (current_ret_.has_value() && is_dynamic_array(*current_ret_)) {
+                    // S3c-2：动态数组返回值把 data/len/cap 写进调用方描述符（隐藏 sret 第一参数）。
+                    transfer_dynamic_return(*stmt);
+                    return;
+                }
+                if (current_ret_.has_value() && is_array(*current_ret_)) {
+                    // S3b：定长数组返回值打包到隐藏 sret 指针指向的调用方缓冲区。
+                    // S3c-3d：多槽固定数组（array<S, N> / 嵌套数组）按 N*slots（M*N）
+                    // 总槽数打包/写出，元素仍是扁平 8 字节槽。
+                    if (!stmt->expr) {
+                        throw TenetError::at_pos("函数 `" + fn_ + "` 返回 " + *current_ret_ +
+                                                     "，return 必须带值",
+                                                 stmt->pos);
+                    }
+                    auto len = array_decl_len(*current_ret_);
+                    if (!len.has_value()) {
+                        throw TenetError::at_pos("array 返回值必须写 array<T, N>", stmt->pos);
+                    }
+                    int slots = array_elem_slots(*current_ret_, stmt->pos);
+                    int total = *len * slots;
+                    int buf_off = alloc_array_scratch(total);
+                    if (fixed_array_flat_slots(*current_ret_, stmt->pos)) {
+                        pack_fixed_array_expr(*current_ret_, stmt->expr, buf_off);
+                    } else {
+                        pack_array_expr_to_buffer(*current_ret_, *len, stmt->expr, buf_off);
+                    }
+                    load_slot("x15", sret_slot_);
+                    copy_array_to_ptr("x15", buf_off, total);
+                    // return 前 drop 当前所有作用域里的局部动态数组。
+                    drop_all_scopes();
+                    emit("b L." + fn_ + ".ret");
+                    terminated_ = true;
+                    return;
+                }
+                if (current_ret_struct_) {
+                    if (!stmt->expr) {
+                        throw TenetError::at_pos("函数 `" + fn_ + "` 返回 " + *current_ret_ +
+                                                     "，return 必须带值",
+                                                 stmt->pos);
+                    }
+                    // 先把返回值打包到临时缓冲，再整块写到隐藏 sret 指针指向的缓冲区。
+                    int n = (int)flatten_struct(*current_ret_).size();
+                    int buf_off = alloc_scratch(n);
+                    pack_expr_to_buffer(buf_off, *current_ret_, stmt->expr);
+                    load_slot("x15", sret_slot_);
+                    for (int j = 0; j < n; ++j) {
+                        load_slot("x9", buf_off - 8 * j);
+                        store_reg_offset("x9", "x15", -8 * j);
+                    }
+                    drop_all_scopes();
+                    emit("b L." + fn_ + ".ret");
+                    terminated_ = true;
+                    return;
+                }
                 if (stmt->expr) {
                     std::string vt = gen_expr(stmt->expr);
                     if (!current_ret_.has_value()) {
@@ -649,16 +1145,26 @@ private:
                                                      *current_ret_ + "，实际 " + vt,
                                                  stmt->expr->pos);
                     }
+                    // 返回值已在表达式栈上；先 drop（调用会破坏寄存器），再弹进返回寄存器。
+                    drop_all_scopes();
                     pop_reg(is_float(vt) ? "d0" : "x0");
+                } else {
+                    drop_all_scopes();
                 }
                 emit("b L." + fn_ + ".ret");
+                terminated_ = true;
                 return;
             }
             case Stmt::Kind::Break: {
                 if (break_stack_.empty()) {
                     throw TenetError::at_pos("`break` 出现在循环之外", stmt->pos);
                 }
+                // break 跳出循环：先 drop 循环体作用域（含其内嵌套块）再跳。
+                if (!break_depth_stack_.empty()) {
+                    emit_drop_scopes_from(break_depth_stack_.back());
+                }
                 emit("b " + break_stack_.back());
+                terminated_ = true;
                 return;
             }
             case Stmt::Kind::FnDecl:
@@ -682,7 +1188,11 @@ private:
         scope_stack_.push_back(idx);
     }
 
-    void exit_scope() { scope_stack_.pop_back(); }
+    /// 退出块作用域：先 drop 该作用域内的动态数组，再弹出作用域。
+    void exit_scope() {
+        emit_drop_scope(scope_stack_.back());
+        scope_stack_.pop_back();
+    }
 
     std::string var_type(const std::string& name, const Position& pos) const {
         for (auto it = scope_stack_.rbegin(); it != scope_stack_.rend(); ++it) {
@@ -693,7 +1203,7 @@ private:
         throw TenetError::at_pos("未定义的变量 `" + name + "`", pos);
     }
 
-    // ---- struct v1：扁平化字段槽位 ----
+    // ---- struct：嵌套扁平化字段槽位 + 指针 ABI ----
 
     /// 取变量的 Tenet 类型，同时确认它在当前作用域可见。
     std::string scoped_var_type(const std::string& name, const Position& pos) const {
@@ -701,77 +1211,355 @@ private:
         return var_type(name, pos);
     }
 
-    /// 字段读写前的类型解析：base 必须是 struct 变量，字段必须存在。
-    std::string field_access_type(const std::string& var, const std::string& field,
-                                  const Position& pos, bool writing) const {
-        std::string t = scoped_var_type(var, pos);
-        if (!is_struct(t)) {
-            throw TenetError::at_pos("`" + var + "` 不是 struct，不能" +
-                                         (writing ? "写" : "取") + "字段 `" + field + "`",
+    /// `l.a.x` → (var="l", path="a.x")；base 不是变量字段链时返回 false。
+    static bool expr_var_path(const ExprPtr& e, std::string& var, std::string& path) {
+        if (!e) return false;
+        if (e->kind == Expr::Kind::Var) {
+            var = e->name;
+            path.clear();
+            return true;
+        }
+        if (e->kind == Expr::Kind::Field) {
+            std::string base_path;
+            if (!expr_var_path(e->lhs, var, base_path)) return false;
+            path = base_path.empty() ? e->name : base_path + "." + e->name;
+            return true;
+        }
+        return false;
+    }
+
+    struct FieldRef {
+        std::string var;
+        std::string path;
+        std::string ty;
+    };
+
+    /// 解析字段链（支持 l.a.x）：根必须是 struct 变量，中间路径必须都是 struct，
+    /// 最终字段必须是标量（struct 字段需继续访问到标量）。
+    FieldRef resolve_field(const ExprPtr& field, bool writing) const {
+        std::string var, path;
+        if (!expr_var_path(field, var, path) || path.empty()) {
+            throw TenetError::at_pos("v1 只支持对 struct 变量" +
+                                         std::string(writing ? "写" : "取") + "字段",
+                                     field->lhs ? field->lhs->pos : field->pos);
+        }
+        Position pos = field->lhs ? field->lhs->pos : field->pos;
+        std::string root = scoped_var_type(var, pos);
+        std::string verb = writing ? "写" : "取";
+        size_t first_dot = path.find('.');
+        std::string first = path.substr(0, first_dot);
+        if (!is_struct(root)) {
+            throw TenetError::at_pos("`" + var + "` 不是 struct，不能" + verb + "字段 `" +
+                                         first + "`",
                                      pos);
         }
-        auto ft = field_type(t, field);
-        if (!ft.has_value()) {
-            throw TenetError::at_pos("struct `" + t + "` 没有字段 `" + field + "`", pos);
+        std::string cur = root;
+        std::string prefix;
+        size_t start = 0;
+        while (true) {
+            size_t dot = path.find('.', start);
+            std::string part =
+                path.substr(start, dot == std::string::npos ? std::string::npos : dot - start);
+            if (!is_struct(cur)) {
+                throw TenetError::at_pos("v1 只支持对 struct 变量" + verb + "字段（`" + var +
+                                             (prefix.empty() ? "" : "." + prefix) +
+                                             "` 不是 struct）",
+                                         pos);
+            }
+            auto ft = field_type(cur, part);
+            if (!ft.has_value()) {
+                throw TenetError::at_pos("struct `" + cur + "` 没有字段 `" + part + "`",
+                                         field->pos);
+            }
+            cur = *ft;
+            prefix = prefix.empty() ? part : prefix + "." + part;
+            if (dot == std::string::npos) break;
+            start = dot + 1;
         }
-        return *ft;
+        if (is_struct(cur)) {
+            throw TenetError::at_pos("字段 `" + var + "." + path +
+                                         "` 是 struct，请继续访问到标量字段",
+                                     field->pos);
+        }
+        return {var, path, cur};
     }
 
-    int field_slot(const std::string& var, const std::string& field,
+    int field_slot(const std::string& var, const std::string& path,
                    const Position& pos) const {
-        return lookup_slot(var + "." + field, pos);
+        return lookup_slot(var + "." + path, pos);
     }
 
-    /// 把 struct 字面量的字段逐个求值并存入 dst 的字段槽（不做聚合写入）。
-    void store_struct_lit(const std::string& dst, const std::string& ty,
-                          const ExprPtr& lit) {
-        const auto& defs = struct_fields(ty, lit->pos);
+    // ---- S3c-3b-1：array<struct, N> 元素字段 ----
+
+    /// `a[i].p.x` → 根数组变量 `a`、下标表达式 `i`、字段路径 `p.x`。
+    struct StructElemRef {
+        ExprPtr base;   // 数组变量节点（用于作用域查找与错误定位）
+        ExprPtr index;
+        std::string path;
+    };
+
+    /// 递归拆解 `a[i].p.x`：最内层必须是 `数组变量[下标]`。
+    static bool struct_elem_path(const ExprPtr& e, StructElemRef& ref) {
+        if (!e) return false;
+        if (e->kind == Expr::Kind::Field) {
+            if (!struct_elem_path(e->lhs, ref)) return false;
+            ref.path = ref.path.empty() ? e->name : ref.path + "." + e->name;
+            return true;
+        }
+        if (e->kind == Expr::Kind::Index) {
+            if (!e->lhs || e->lhs->kind != Expr::Kind::Var) return false;
+            ref.base = e->lhs;
+            ref.index = e->rhs;
+            ref.path.clear();
+            return true;
+        }
+        return false;
+    }
+
+    struct FlatFieldRef {
+        std::string ty;  // 标量类型
+        int index = 0;   // 在 flatten_struct 顺序里的槽位下标
+    };
+
+    /// 暂不支持把 `a[i]` 整体读成 struct 值（S3c-3b-1 只支持标量字段路径）。
+    [[noreturn]] static void reject_struct_elem_read(const ExprPtr& e) {
+        throw TenetError::at_pos(
+            "array<struct> 元素不能整体读取为 struct 值；请访问标量字段（如 a[i].x）",
+            e->pos);
+    }
+
+    /// 校验点分字段路径并返回标量类型与扁平槽下标。
+    FlatFieldRef struct_flat_field(const std::string& ty, const std::string& path,
+                                   const Position& pos) const {
+        std::string cur = ty;
+        size_t start = 0;
+        while (true) {
+            size_t dot = path.find('.', start);
+            std::string part = path.substr(
+                start, dot == std::string::npos ? std::string::npos : dot - start);
+            if (!is_struct(cur)) {
+                throw TenetError::at_pos(
+                    "v1 只支持对 struct 路径取字段（`" + cur + "` 不是 struct）", pos);
+            }
+            auto ft = field_type(cur, part);
+            if (!ft.has_value()) {
+                throw TenetError::at_pos("struct `" + cur + "` 没有字段 `" + part + "`", pos);
+            }
+            cur = *ft;
+            if (dot == std::string::npos) break;
+            start = dot + 1;
+        }
+        if (is_struct(cur)) {
+            throw TenetError::at_pos(
+                "字段 `" + path + "` 是 struct，请继续访问到标量字段", pos);
+        }
+        const auto flat = flatten_struct(ty);
+        for (int i = 0; i < (int)flat.size(); ++i) {
+            if (flat[i].first == path) return {cur, i};
+        }
+        throw TenetError::at_pos("struct `" + ty + "` 没有标量字段 `" + path + "`", pos);
+    }
+
+    /// 把 struct 字面量递归展开为标量字段初始化：路径 → 表达式（按声明顺序）。
+    void flatten_literal(const std::string& ty,
+                         const std::vector<std::pair<std::string, ExprPtr>>& fields,
+                         const std::string& prefix, const Position& lit_pos,
+                         std::vector<std::pair<std::string, ExprPtr>>& out) const {
+        const auto& defs = struct_fields(ty, lit_pos);
         std::unordered_map<std::string, ExprPtr> inits;
-        for (const auto& [fname, fexpr] : lit->fields) {
+        for (const auto& [fname, fexpr] : fields) {
             if (inits.count(fname)) {
                 throw TenetError::at_pos("struct `" + ty + "` 的字段 `" + fname + "` 重复初始化",
                                          fexpr->pos);
             }
-            inits[fname] = fexpr;
-        }
-        for (const auto& [fname, fexpr] : lit->fields) {
             if (!field_type(ty, fname).has_value()) {
                 throw TenetError::at_pos("struct `" + ty + "` 没有字段 `" + fname + "`",
                                          fexpr->pos);
             }
+            inits[fname] = fexpr;
         }
         for (const auto& [fname, fty] : defs) {
             auto it = inits.find(fname);
             if (it == inits.end()) {
-                throw TenetError::at_pos("struct `" + ty + "` 缺少字段 `" + fname + "`",
-                                         lit->pos);
+                throw TenetError::at_pos("struct `" + ty + "` 缺少字段 `" + fname + "`", lit_pos);
             }
             const ExprPtr& fexpr = it->second;
-            std::string vt = gen_expr(fexpr);
-            if (vt != fty) {
-                throw TenetError::at_pos("struct `" + ty + "` 字段 `" + fname +
-                                             "` 类型不匹配：需要 " + fty + "，实际 " + vt,
+            std::string path = prefix.empty() ? fname : prefix + "." + fname;
+            if (is_struct(fty)) {
+                if (fexpr->kind != Expr::Kind::StructLit) {
+                    throw TenetError::at_pos("字段 `" + path + "` 需要 " + fty + " 字面量",
+                                             fexpr->pos);
+                }
+                if (fexpr->name != fty) {
+                    throw TenetError::at_pos("字段 `" + path + "` 需要 " + fty +
+                                                 "，实际字面量是 " + fexpr->name,
+                                             fexpr->pos);
+                }
+                flatten_literal(fty, fexpr->fields, path, fexpr->pos, out);
+            } else {
+                out.push_back({path, fexpr});
+            }
+        }
+    }
+
+    /// 把 struct 字面量的标量字段逐个求值并写入 dst 的扁平字段槽。
+    void store_struct_lit(const std::string& dst, const std::string& ty,
+                          const ExprPtr& lit) {
+        std::vector<std::pair<std::string, ExprPtr>> flat;
+        flatten_literal(ty, lit->fields, "", lit->pos, flat);
+        std::unordered_map<std::string, std::pair<std::string, int>> layout;
+        int idx = 0;
+        for (const auto& [path, stype] : flatten_struct(ty)) layout[path] = {stype, idx++};
+        for (const auto& [path, fexpr] : flat) {
+            auto it = layout.find(path);
+            if (it == layout.end()) {
+                throw TenetError::at_pos("struct `" + ty + "` 没有标量字段 `" + path + "`",
                                          fexpr->pos);
             }
-            int off = field_slot(dst, fname, fexpr->pos);
-            pop_reg(is_float(fty) ? "d9" : "x9");
-            store_slot(is_float(fty) ? "d9" : "x9", off);
+            const std::string& stype = it->second.first;
+            std::string vt = gen_expr(fexpr);
+            if (vt != stype) {
+                throw TenetError::at_pos("struct `" + ty + "` 字段 `" + path +
+                                             "` 类型不匹配：需要 " + stype + "，实际 " + vt,
+                                         fexpr->pos);
+            }
+            int off = field_slot(dst, path, fexpr->pos);
+            pop_reg(is_float(stype) ? "d9" : "x9");
+            store_slot(is_float(stype) ? "d9" : "x9", off);
         }
     }
 
-    /// 逐字段值拷贝：struct 变量之间不共享槽位。
+    /// 逐字段值拷贝：struct 变量之间不共享槽位（嵌套路径同样逐标量拷贝）。
     void copy_struct(const std::string& dst, const std::string& src, const std::string& ty,
                      const Position& pos) {
-        for (const auto& [fname, fty] : struct_fields(ty, pos)) {
-            int src_off = field_slot(src, fname, pos);
-            int dst_off = field_slot(dst, fname, pos);
-            std::string reg = is_float(fty) ? "d9" : "x9";
-            load_slot(reg, src_off);
-            store_slot(reg, dst_off);
+        for (const auto& [path, stype] : flatten_struct(ty)) {
+            (void)stype;
+            int src_off = field_slot(src, path, pos);
+            int dst_off = field_slot(dst, path, pos);
+            load_slot("x9", src_off);
+            store_slot("x9", dst_off);
         }
     }
 
-    /// let p: Point = Point { ... }; 或 let q = p;
+    /// 把 struct 值（字面量 / 同类型变量 / 返回 struct 的调用）打包到临时缓冲。
+    /// 缓冲 slot 0 在 buf_off，slot j 在 buf_off - 8*j（扁平声明顺序）。
+    void pack_expr_to_buffer(int buf_off, const std::string& ty, const ExprPtr& expr) {
+        const auto flat = flatten_struct(ty);
+        int n = (int)flat.size();
+        std::unordered_map<std::string, std::pair<std::string, int>> layout;
+        for (int i = 0; i < n; ++i) layout[flat[i].first] = {flat[i].second, i};
+
+        if (expr->kind == Expr::Kind::StructLit) {
+            if (expr->name != ty) {
+                throw TenetError::at_pos("需要 " + ty + "，字面量是 " + expr->name, expr->pos);
+            }
+            std::vector<std::pair<std::string, ExprPtr>> init;
+            flatten_literal(ty, expr->fields, "", expr->pos, init);
+            for (const auto& [path, fexpr] : init) {
+                auto it = layout.find(path);
+                if (it == layout.end()) {
+                    throw TenetError::at_pos("struct `" + ty + "` 没有标量字段 `" + path + "`",
+                                             fexpr->pos);
+                }
+                const std::string& stype = it->second.first;
+                int idx = it->second.second;
+                std::string vt = gen_expr(fexpr);
+                if (vt != stype) {
+                    throw TenetError::at_pos("字段 `" + path + "` 类型不匹配：需要 " + stype +
+                                                 "，实际 " + vt,
+                                             fexpr->pos);
+                }
+                if (is_float(stype)) {
+                    pop_reg("d9");
+                    emit("fmov x9, d9");  // 统一按 8 字节位模式存储
+                } else {
+                    pop_reg("x9");
+                }
+                store_slot("x9", buf_off - 8 * idx);
+            }
+            return;
+        }
+        if (expr->kind == Expr::Kind::Var) {
+            std::string src_ty = scoped_var_type(expr->name, expr->pos);
+            if (src_ty != ty) {
+                throw TenetError::at_pos("需要 " + ty + "，实际是 " + src_ty, expr->pos);
+            }
+            int src_off = lookup_slot(expr->name, expr->pos);
+            for (int j = 0; j < n; ++j) {
+                load_slot("x9", src_off - 8 * j);
+                store_slot("x9", buf_off - 8 * j);
+            }
+            return;
+        }
+        if (expr->kind == Expr::Kind::Call) {
+            std::string rt = gen_expr(expr);
+            if (rt != ty) {
+                throw TenetError::at_pos("需要 " + ty + "，实际 " + rt, expr->pos);
+            }
+            pop_reg("x10");  // 调用返回的 struct 缓冲区指针
+            for (int j = 0; j < n; ++j) {
+                load_reg_offset("x9", "x10", -8 * j);
+                store_slot("x9", buf_off - 8 * j);
+            }
+            return;
+        }
+        if (expr->kind == Expr::Kind::Index) reject_struct_elem_read(expr);
+        throw TenetError::at_pos(
+            "`" + ty + "` 值必须是字面量、同类型变量或返回 `" + ty + "` 的函数调用",
+            expr->pos);
+    }
+
+    /// 从寄存器指向的缓冲区逐字段拷到本地扁平槽（struct 参数入口 / 调用返回值）。
+    void unpack_buffer_from_reg(const std::string& dst, const std::string& ty,
+                                const std::string& reg, const Position& pos) {
+        int j = 0;
+        for (const auto& [path, stype] : flatten_struct(ty)) {
+            (void)stype;
+            int dst_off = field_slot(dst, path, pos);
+            load_reg_offset("x9", reg, -8 * j);
+            store_slot("x9", dst_off);
+            ++j;
+        }
+    }
+
+    /// struct 类型的实参：同类型变量传其扁平槽首地址（被调方入口拷贝），
+    /// 字面量打包到临时缓冲，调用返回则直接传返回缓冲区指针。结果压栈。
+    void push_struct_value(const std::string& ty, const ExprPtr& expr) {
+        if (expr->kind == Expr::Kind::Var) {
+            std::string src_ty = scoped_var_type(expr->name, expr->pos);
+            if (src_ty != ty) {
+                throw TenetError::at_pos("需要 " + ty + "，实际是 " + src_ty, expr->pos);
+            }
+            int off = lookup_slot(expr->name, expr->pos);
+            lea_slot("x9", off);
+            push_reg("x9");
+            return;
+        }
+        if (expr->kind == Expr::Kind::StructLit) {
+            if (expr->name != ty) {
+                throw TenetError::at_pos("需要 " + ty + "，字面量是 " + expr->name, expr->pos);
+            }
+            int n = (int)flatten_struct(ty).size();
+            int buf_off = alloc_scratch(n);
+            pack_expr_to_buffer(buf_off, ty, expr);
+            lea_slot("x9", buf_off);
+            push_reg("x9");
+            return;
+        }
+        if (expr->kind == Expr::Kind::Call) {
+            std::string rt = gen_expr(expr);
+            if (rt != ty) {
+                throw TenetError::at_pos("需要 " + ty + "，实际 " + rt, expr->pos);
+            }
+            return;  // gen_expr 已压入返回缓冲区指针
+        }
+        if (expr->kind == Expr::Kind::Index) reject_struct_elem_read(expr);
+        throw TenetError::at_pos(
+            "`" + ty + "` 类型的实参必须是同类型变量、字面量或返回 `" + ty + "` 的函数调用",
+            expr->pos);
+    }
+
+    /// let p: Point = Point { ... }; / let q = p; / let m = make();
     void emit_struct_init(const Stmt& stmt, const std::string& ty) {
         const ExprPtr& v = stmt.value;
         if (v->kind == Expr::Kind::StructLit) {
@@ -792,12 +1580,23 @@ private:
             copy_struct(stmt.name, v->name, ty, v->pos);
             return;
         }
+        if (v->kind == Expr::Kind::Call) {
+            std::string rt = gen_expr(v);
+            if (rt != ty) {
+                throw TenetError::at_pos(
+                    "`" + stmt.name + "` 需要 " + ty + "，但调用返回 " + rt, v->pos);
+            }
+            pop_reg("x10");
+            unpack_buffer_from_reg(stmt.name, ty, "x10", v->pos);
+            return;
+        }
+        if (v->kind == Expr::Kind::Index) reject_struct_elem_read(v);
         throw TenetError::at_pos("`" + stmt.name + "` 的 struct 初始化必须是 `" + ty +
-                                     " { ... }` 或同类型 struct 变量",
+                                     " { ... }`、同类型变量或返回 " + ty + " 的调用",
                                  v->pos);
     }
 
-    /// p = Point { ... }; 或 p = q;（逐字段覆盖）
+    /// p = Point { ... }; / p = q; / p = make();
     void assign_struct(const std::string& dst, const std::string& dst_ty, const ExprPtr& value,
                        const Position& pos) {
         if (value->kind == Expr::Kind::StructLit) {
@@ -817,7 +1616,19 @@ private:
             copy_struct(dst, value->name, dst_ty, value->pos);
             return;
         }
-        throw TenetError::at_pos("struct 整体赋值必须是同类型变量或字面量", value->pos);
+        if (value->kind == Expr::Kind::Call) {
+            std::string rt = gen_expr(value);
+            if (rt != dst_ty) {
+                throw TenetError::at_pos(
+                    "赋值类型不匹配：需要 " + dst_ty + "，右侧调用返回 " + rt, pos);
+            }
+            pop_reg("x10");
+            unpack_buffer_from_reg(dst, dst_ty, "x10", value->pos);
+            return;
+        }
+        if (value->kind == Expr::Kind::Index) reject_struct_elem_read(value);
+        throw TenetError::at_pos(
+            "struct 整体赋值必须是同类型变量、字面量或返回 struct 的调用", value->pos);
     }
 
     // ---- array v1：定长栈数组（每元素 8 字节槽，bool 同样占 8 字节）----
@@ -841,22 +1652,25 @@ private:
         return std::nullopt;
     }
 
-    /// 把常量装入任意寄存器（大数组槽位地址用）。
-    void emit_mov_const(const std::string& reg, int64_t v) {
+    /// 把常量装入任意寄存器（大数组槽位地址 / 大栈帧用）。返回带制表符的完整行。
+    static std::string mov_const_asm(const std::string& reg, int64_t v) {
+        std::string out;
         if (v >= -32768 && v <= 32767) {
-            emit("mov " + reg + ", #" + std::to_string(v));
-            return;
+            return "\tmov " + reg + ", #" + std::to_string(v) + "\n";
         }
         uint64_t u = static_cast<uint64_t>(v);
-        emit("movz " + reg + ", #" + std::to_string(u & 0xFFFF));
+        out += "\tmovz " + reg + ", #" + std::to_string(u & 0xFFFF) + "\n";
         for (int shift = 16; shift < 64; shift += 16) {
             uint64_t part = (u >> shift) & 0xFFFF;
             if (part != 0) {
-                emit("movk " + reg + ", #" + std::to_string(part) + ", lsl #" +
-                         std::to_string(shift));
+                out += "\tmovk " + reg + ", #" + std::to_string(part) + ", lsl #" +
+                       std::to_string(shift) + "\n";
             }
         }
+        return out;
     }
+
+    void emit_mov_const(const std::string& reg, int64_t v) { text_ += mov_const_asm(reg, v); }
 
     /// x29 相对槽位地址 → reg。ldr/str 的负立即数只有 9 位，大数组必须走寄存器寻址。
     void lea_slot(const std::string& reg, int off, const std::string& scratch = "x16") {
@@ -890,6 +1704,47 @@ private:
         }
         lea_slot("x16", off, "x17");
         emit("str " + reg + ", [x16]");
+    }
+
+    /// 寄存器基址 + 有符号偏移的 8 字节读写（struct 缓冲槽用；槽位向低地址增长）。
+    void load_reg_offset(const std::string& reg, const std::string& base, int off) {
+        if (off >= -256 && off <= 255) {
+            emit("ldr " + reg + ", [" + base + ", #" + std::to_string(off) + "]");
+            return;
+        }
+        int abs = off < 0 ? -off : off;
+        if (abs <= 4095) {
+            emit(std::string(off < 0 ? "sub " : "add ") + "x17, " + base + ", #" +
+                 std::to_string(abs));
+        } else {
+            emit_mov_const("x17", abs);
+            emit(std::string(off < 0 ? "sub " : "add ") + "x17, " + base + ", x17");
+        }
+        emit("ldr " + reg + ", [x17]");
+    }
+
+    void store_reg_offset(const std::string& reg, const std::string& base, int off) {
+        if (off >= -256 && off <= 255) {
+            emit("str " + reg + ", [" + base + ", #" + std::to_string(off) + "]");
+            return;
+        }
+        int abs = off < 0 ? -off : off;
+        if (abs <= 4095) {
+            emit(std::string(off < 0 ? "sub " : "add ") + "x17, " + base + ", #" +
+                 std::to_string(abs));
+        } else {
+            emit_mov_const("x17", abs);
+            emit(std::string(off < 0 ? "sub " : "add ") + "x17, " + base + ", x17");
+        }
+        emit("str " + reg + ", [x17]");
+    }
+
+    /// 在帧尾按需分配 n 个连续 8 字节临时槽，返回 slot 0（最高地址）的 x29 偏移。
+    /// 槽 j 位于 base - 8*j，与 struct 局部字段的扁平槽布局一致。
+    int alloc_scratch(int n) {
+        int base_slot = scratch_slots_;
+        scratch_slots_ += n;
+        return -(8 * (base_slot + 1));
     }
 
     /// 动态下标：地址 = 元素 0 槽位 + idx*8。
@@ -930,11 +1785,347 @@ private:
         }
     }
 
+    /// S3b：数组缓冲布局与局部数组槽一致——元素 i 在 base + 8*i（元素 0 最低地址）。
+    /// 从寄存器指向的缓冲区逐元素拷到本地数组槽（参数入口 / 调用返回值）。
+    void copy_array_from_reg(int dst_off, const std::string& reg, int len) {
+        for (int i = 0; i < len; ++i) {
+            load_reg_offset("x9", reg, 8 * i);
+            store_slot("x9", dst_off + 8 * i);
+        }
+    }
+
+    /// 本地数组槽逐元素写到寄存器指向的缓冲区（数组返回值写入隐藏 sret）。
+    void copy_array_to_ptr(const std::string& reg, int src_off, int len) {
+        for (int i = 0; i < len; ++i) {
+            load_slot("x9", src_off + 8 * i);
+            store_reg_offset("x9", reg, 8 * i);
+        }
+    }
+
+    /// 数组临时缓冲：返回元素 0（最低地址）的槽位偏移；元素 i 在 base + 8*i。
+    int alloc_array_scratch(int n) {
+        int base_slot = scratch_slots_;
+        scratch_slots_ += n;
+        return -(8 * (base_slot + n));
+    }
+
+    /// 把数组值（字面量 / 同类型同长度变量 / 返回数组的调用）打包到临时缓冲。
+    void pack_array_expr_to_buffer(const std::string& ty, int len, const ExprPtr& expr,
+                                   int buf_off) {
+        std::string elem = array_elem_scalar(ty, expr->pos);
+        if (expr->kind == Expr::Kind::Array) {
+            if ((int)expr->args.size() != len) {
+                throw TenetError::at_pos("数组长度不匹配：需要 " + std::to_string(len) +
+                                             "，实际 " +
+                                             std::to_string(expr->args.size()),
+                                         expr->pos);
+            }
+            for (size_t i = 0; i < expr->args.size(); ++i) {
+                std::string vt = gen_expr(expr->args[i]);
+                if (vt != elem) {
+                    throw TenetError::at_pos("数组元素 " + std::to_string(i) +
+                                                 " 类型不匹配：需要 " + elem + "，实际 " + vt,
+                                             expr->args[i]->pos);
+                }
+                if (is_float(elem)) {
+                    pop_reg("d9");
+                    emit("fmov x9, d9");  // 统一按 8 字节位模式打包
+                } else {
+                    pop_reg("x9");
+                }
+                store_slot("x9", buf_off + 8 * (int)i);
+            }
+            return;
+        }
+        if (expr->kind == Expr::Kind::Var) {
+            std::string src_ty = scoped_var_type(expr->name, expr->pos);
+            if (!is_array(src_ty) || array_elem(src_ty) != elem) {
+                throw TenetError::at_pos("数组类型不匹配：需要 " + ty + "，实际 " + src_ty,
+                                         expr->pos);
+            }
+            int src_len = lookup_array_len(expr->name, expr->pos);
+            if (src_len != len) {
+                throw TenetError::at_pos("数组长度不匹配：需要 " + std::to_string(len) +
+                                             "，实际 " + std::to_string(src_len),
+                                         expr->pos);
+            }
+            int src_off = lookup_slot(expr->name, expr->pos);
+            copy_array_elems(buf_off, src_off, len, elem);
+            return;
+        }
+        if (expr->kind == Expr::Kind::Call) {
+            std::string rt = gen_expr(expr);
+            if (!is_array(rt) || array_elem(rt) != elem) {
+                throw TenetError::at_pos("数组调用返回类型不匹配：需要 " + ty + "，实际 " + rt,
+                                         expr->pos);
+            }
+            auto rlen = array_decl_len(rt);
+            if (!rlen.has_value() || *rlen != len) {
+                throw TenetError::at_pos(
+                    "数组调用返回长度不匹配：需要 " + std::to_string(len) + "，实际 " +
+                        (rlen.has_value() ? std::to_string(*rlen) : std::string("?")),
+                    expr->pos);
+            }
+            pop_reg("x10");
+            copy_array_from_reg(buf_off, "x10", len);
+            return;
+        }
+        throw TenetError::at_pos(
+            "数组实参必须是同类型同长度数组变量、同长度字面量或返回数组的调用",
+            expr->pos);
+    }
+
+    /// 数组实参：变量传其元素 0 的地址（被调方入口逐元素拷贝）；
+    /// 字面量打包到临时缓冲；返回数组的调用直接传返回缓冲区指针。结果压栈。
+    void push_array_value(const std::string& ty, const ExprPtr& expr) {
+        auto len = array_decl_len(ty);
+        if (!len.has_value()) {
+            // 动态数组参数在 gen_call 里已分流到 push_dynamic_arg。
+            throw TenetError::at_pos("内部错误：动态数组实参应走 push_dynamic_arg",
+                                     expr->pos);
+        }
+        std::string elem = array_elem_scalar(ty, expr->pos);
+        if (expr->kind == Expr::Kind::Var) {
+            std::string src_ty = scoped_var_type(expr->name, expr->pos);
+            if (!is_array(src_ty) || array_elem(src_ty) != elem) {
+                throw TenetError::at_pos("数组实参类型不匹配：需要 " + ty + "，实际 " + src_ty,
+                                         expr->pos);
+            }
+            int src_len = lookup_array_len(expr->name, expr->pos);
+            if (src_len != *len) {
+                throw TenetError::at_pos("数组实参长度不匹配：需要 " + std::to_string(*len) +
+                                             "，实际 " + std::to_string(src_len),
+                                         expr->pos);
+            }
+            int off = lookup_slot(expr->name, expr->pos);
+            lea_slot("x9", off);
+            push_reg("x9");
+            return;
+        }
+        if (expr->kind == Expr::Kind::Array) {
+            int buf_off = alloc_array_scratch(*len);
+            pack_array_expr_to_buffer(ty, *len, expr, buf_off);
+            lea_slot("x9", buf_off);
+            push_reg("x9");
+            return;
+        }
+        if (expr->kind == Expr::Kind::Call) {
+            std::string rt = gen_expr(expr);
+            if (!is_array(rt) || array_elem(rt) != elem || array_decl_len(rt) != len) {
+                throw TenetError::at_pos(
+                    "数组实参类型不匹配：需要 " + ty + "，调用返回 " + rt, expr->pos);
+            }
+            return;  // gen_expr 已压入返回缓冲区指针
+        }
+        throw TenetError::at_pos(
+            "数组实参必须是同类型同长度数组变量、同长度字面量或返回数组的调用",
+            expr->pos);
+    }
+
+    /// S3c-3d：多槽固定数组（array<S, N> / array<array<T, N>, M>）的总槽数。
+    /// 标量数组为 N（slots=1），struct 数组为 N*slots，嵌套数组为 M*N。
+    int fixed_array_total_slots(const std::string& ty, const Position& pos) const {
+        auto len = array_decl_len(ty);
+        if (!len.has_value()) {
+            throw TenetError::at_pos("需要固定长度数组", pos);
+        }
+        return *len * array_elem_slots(ty, pos);
+    }
+
+    /// 固定数组是否按"元素整体平铺槽"处理（struct 元素 / 嵌套数组）。
+    /// 与每个元素占几个槽无关（单字段 struct 也是 1 槽），这类数组的参数、返回值
+    /// 与实参打包都走扁平槽路径，而不是标量数组的逐元素路径。
+    bool fixed_array_flat_slots(const std::string& ty, const Position& pos) const {
+        std::string elem = array_elem_checked(ty, pos);
+        return is_struct(elem) || is_array(elem);
+    }
+
+    /// 把多槽固定数组值（字面量 / 同类型变量 / 返回数组的调用）打包到扁平槽缓冲。
+    /// 缓冲布局与局部数组一致：元素 0 字段 0 在 buf_off（最低地址），槽 k 在 buf_off + 8*k；
+    /// 因此参数入口与 sret 打包都只需按总槽数逐槽拷贝。
+    void pack_fixed_array_expr(const std::string& ty, const ExprPtr& expr, int buf_off) {
+        int total = fixed_array_total_slots(ty, expr->pos);
+        auto len = array_decl_len(ty);
+        std::string elem = array_elem_checked(ty, expr->pos);
+        int slots = array_elem_slots(ty, expr->pos);
+        if (expr->kind == Expr::Kind::Var) {
+            std::string src_ty = scoped_var_type(expr->name, expr->pos);
+            if (src_ty != ty) {
+                throw TenetError::at_pos("数组类型不匹配：需要 " + ty + "，实际 " + src_ty,
+                                         expr->pos);
+            }
+            int src_off = lookup_slot(expr->name, expr->pos);
+            copy_struct_array_slots(buf_off, src_off, total);
+            return;
+        }
+        if (expr->kind == Expr::Kind::Array) {
+            if ((int)expr->args.size() != *len) {
+                throw TenetError::at_pos("数组长度不匹配：需要 " + std::to_string(*len) +
+                                             "，实际 " +
+                                             std::to_string(expr->args.size()),
+                                         expr->pos);
+            }
+            if (is_struct(elem)) {
+                // struct 元素：先把元素打包到 slots 槽临时缓冲，再逐槽平铺到数组槽。
+                int tmp = alloc_scratch(slots);
+                for (size_t i = 0; i < expr->args.size(); ++i) {
+                    const ExprPtr& arg = expr->args[i];
+                    if (arg->kind == Expr::Kind::StructLit && arg->name != elem) {
+                        throw TenetError::at_pos("数组元素 " + std::to_string(i) +
+                                                     " 类型不匹配：需要 " + elem +
+                                                     "，字面量是 " + arg->name,
+                                                 arg->pos);
+                    }
+                    if (arg->kind == Expr::Kind::Var) {
+                        std::string vt = scoped_var_type(arg->name, arg->pos);
+                        if (vt != elem) {
+                            throw TenetError::at_pos("数组元素 " + std::to_string(i) +
+                                                         " 类型不匹配：需要 " + elem +
+                                                         "，实际 " + vt,
+                                                     arg->pos);
+                        }
+                    }
+                    pack_expr_to_buffer(tmp, elem, arg);
+                    for (int k = 0; k < slots; ++k) {
+                        load_slot("x9", tmp - 8 * k);
+                        store_slot("x9", buf_off + 8 * ((int)i * slots + k));
+                    }
+                }
+                return;
+            }
+            // 嵌套数组：每个内层 `[...]` / 内层数组变量平铺到 N 个槽。
+            NestedArrayInfo info = nested_array_info(ty, expr->pos);
+            for (size_t i = 0; i < expr->args.size(); ++i) {
+                store_nested_inner(info, buf_off + 8 * (int)i * info.inner_len, expr->args[i],
+                                   (int)i);
+            }
+            return;
+        }
+        if (expr->kind == Expr::Kind::Call) {
+            std::string rt = gen_expr(expr);
+            if (rt != ty) {
+                throw TenetError::at_pos("数组类型不匹配：需要 " + ty + "，调用返回 " + rt,
+                                         expr->pos);
+            }
+            pop_reg("x10");  // 调用返回的 sret 缓冲区（元素 0 地址）
+            copy_array_from_reg(buf_off, "x10", total);
+            return;
+        }
+        throw TenetError::at_pos(
+            "固定数组值必须是同类型数组变量、字面量或返回数组的调用", expr->pos);
+    }
+
+    /// S3c-3d：多槽固定数组实参——变量传元素 0 地址（被调方入口按总槽数拷贝）；
+    /// 字面量打包到临时缓冲；返回数组的调用直接传 sret 返回缓冲区指针。结果压栈。
+    void push_fixed_array_value(const std::string& ty, const ExprPtr& expr) {
+        int total = fixed_array_total_slots(ty, expr->pos);
+        if (expr->kind == Expr::Kind::Var) {
+            std::string src_ty = scoped_var_type(expr->name, expr->pos);
+            if (src_ty != ty) {
+                throw TenetError::at_pos("数组实参类型不匹配：需要 " + ty + "，实际 " + src_ty,
+                                         expr->pos);
+            }
+            int off = lookup_slot(expr->name, expr->pos);
+            lea_slot("x9", off);
+            push_reg("x9");
+            return;
+        }
+        if (expr->kind == Expr::Kind::Array) {
+            int buf_off = alloc_array_scratch(total);
+            pack_fixed_array_expr(ty, expr, buf_off);
+            lea_slot("x9", buf_off);
+            push_reg("x9");
+            return;
+        }
+        if (expr->kind == Expr::Kind::Call) {
+            std::string rt = gen_expr(expr);
+            if (rt != ty) {
+                throw TenetError::at_pos("数组实参类型不匹配：需要 " + ty + "，调用返回 " + rt,
+                                         expr->pos);
+            }
+            return;  // gen_expr 已压入返回缓冲区指针
+        }
+        throw TenetError::at_pos(
+            "数组实参必须是同类型数组变量、字面量或返回数组的调用", expr->pos);
+    }
+
+    /// S3c-2/S3c-3a 动态数组实参：在调用方帧尾构造 3 槽描述符
+    /// （data/len/cap 从低地址到高地址），把描述符地址作为指针实参压栈；
+    /// 被调函数入口再深拷贝，调用方数组仍保留所有权。结果压栈。
+    /// - 变量：只把源槽复制进临时描述符，不复制、不 drop 调用方变量
+    /// - 字面量：构造临时动态数组（malloc + 填元素），登记到 temp_dyn，
+    ///   调用返回后由 gen_call 只 free 堆缓冲（描述符本身是栈槽，不 free）
+    /// - 调用：内层调用已在 sret 描述符里返回堆缓冲；复制进临时描述符并清空内层描述符，
+    ///   同样登记到 temp_dyn，外层调用返回后 free（被调函数入口已深拷贝，安全）
+    void push_dynamic_arg(const std::string& ty, const ExprPtr& expr,
+                          std::vector<DynArrayInfo>& temp_dyn) {
+        if (!expr) {
+            throw TenetError::at_pos("动态数组实参只支持变量、字面量或返回动态数组的调用",
+                                     Position());
+        }
+        array_elem_checked(ty, expr->pos);
+        if (expr->kind == Expr::Kind::Var) {
+            std::string at = scoped_var_type(expr->name, expr->pos);
+            if (at != ty) {
+                throw TenetError::at_pos("参数类型不匹配：需要 " + ty + "，实际 " + at,
+                                         expr->pos);
+            }
+            const DynArrayInfo src = lookup_dyn(expr->name, expr->pos);
+            DynArrayInfo desc = alloc_dyn_desc();
+            load_slot("x9", src.data);
+            store_slot("x9", desc.data);
+            load_slot("x9", src.len);
+            store_slot("x9", desc.len);
+            load_slot("x9", src.cap);
+            store_slot("x9", desc.cap);
+            lea_slot("x9", desc.data);
+            push_reg("x9");
+            return;
+        }
+        if (expr->kind == Expr::Kind::Array) {
+            DynArrayInfo desc = alloc_dyn_desc();
+            init_dynamic_into(desc, ty, expr);
+            temp_dyn.push_back(desc);
+            lea_slot("x9", desc.data);
+            push_reg("x9");
+            return;
+        }
+        if (expr->kind == Expr::Kind::Call) {
+            std::string rt = gen_expr(expr);
+            if (!is_dynamic_array(rt) || rt != ty) {
+                throw TenetError::at_pos(
+                    "参数类型不匹配：需要 " + ty + "，调用返回 " + rt, expr->pos);
+            }
+            // gen_expr 已压入内层调用的 sret 描述符指针：复制到本实参的临时描述符，
+            // 并清空内层描述符（堆缓冲所有权改由 temp_dyn 负责，避免重复 free）。
+            pop_reg("x10");
+            DynArrayInfo desc = alloc_dyn_desc();
+            load_reg_offset("x9", "x10", 0);
+            store_slot("x9", desc.data);
+            load_reg_offset("x9", "x10", 8);
+            store_slot("x9", desc.len);
+            load_reg_offset("x9", "x10", 16);
+            store_slot("x9", desc.cap);
+            store_reg_offset("xzr", "x10", 0);
+            store_reg_offset("xzr", "x10", 8);
+            store_reg_offset("xzr", "x10", 16);
+            temp_dyn.push_back(desc);
+            lea_slot("x9", desc.data);
+            push_reg("x9");
+            return;
+        }
+        throw TenetError::at_pos("动态数组实参只支持变量、字面量或返回动态数组的调用",
+                                 expr->pos);
+    }
+
     struct ArrayRef {
         std::string ty;
         std::string elem;
-        int len = 0;
-        int base_off = 0;
+        int len = 0;        // 定长数组长度（动态数组为 0）
+        int base_off = 0;   // 定长数组元素 0 槽位 / 动态数组 data 槽位
+        bool dynamic = false;
+        int dyn_len_off = 0;
+        int dyn_cap_off = 0;
     };
 
     /// 下标读写共用的数组变量解析：必须是对局部数组变量取下标。
@@ -951,14 +2142,623 @@ private:
                 "`" + base->name + "` 不是数组，不能" + (writing ? "写下标" : "取下标"),
                 base->pos);
         }
-        ref.elem = array_elem_scalar(ref.ty, pos);
+        ref.elem = array_elem_checked(ref.ty, pos);
+        if (is_dynamic_array(ref.ty)) {
+            // S3c：动态数组元素在堆上，data 指针与 len 都在运行时读取。
+            // S3c-3b-2：struct 元素同样走 data/len/cap 描述符 + slots 步长。
+            const DynArrayInfo di = lookup_dyn(base->name, base->pos);
+            ref.dynamic = true;
+            ref.base_off = di.data;
+            ref.dyn_len_off = di.len;
+            ref.dyn_cap_off = di.cap;
+            return ref;
+        }
         ref.len = lookup_array_len(base->name, base->pos);
         ref.base_off = lookup_slot(base->name, base->pos);
         return ref;
     }
 
+    // ---- S3c-3b-1：固定长度 array<struct, N> ----
+    //
+    // 元素 i 的扁平字段 j 位于 base + 8*(i*slots + j)（元素 0 在最低地址），
+    // slots = flatten_struct(S).size()，因此元素 stride = slots*8。
+
+    /// 把 idx*slots + field_idx 算进 dst（AArch64 寄存器）。slots 为 2 的幂时用 lsl。
+    void emit_flat_slot_index(const std::string& dst, const std::string& idx_reg, int slots,
+                              int field_idx) {
+        int shift = 0;
+        while ((1 << shift) < slots) ++shift;
+        if (slots == 1) {
+            emit("mov " + dst + ", " + idx_reg);
+        } else if ((1 << shift) == slots) {
+            emit("lsl " + dst + ", " + idx_reg + ", #" + std::to_string(shift));
+        } else {
+            emit_mov_const("x15", slots);
+            emit("mul " + dst + ", " + idx_reg + ", x15");
+        }
+        if (field_idx != 0) {
+            if (field_idx <= 4095) {
+                emit("add " + dst + ", " + dst + ", #" + std::to_string(field_idx));
+            } else {
+                emit_mov_const("x15", field_idx);
+                emit("add " + dst + ", " + dst + ", x15");
+            }
+        }
+    }
+
+    /// x14 = &a[idx].field0（元素基址）：base_off + idx*slots*8。
+    void emit_struct_elem_base(int base_off, int slots, const std::string& idx_reg) {
+        lea_slot("x14", base_off);
+        emit_flat_slot_index("x17", idx_reg, slots, 0);
+        emit("add x14, x14, x17, lsl #3");
+    }
+
+    /// x14 = &a[idx].field0（S3c-3b-2 动态 array<struct> 元素基址）：
+    /// data 指针 + idx*slots*8（idx 已通过运行时边界检查）。
+    void emit_dyn_struct_elem_base(int data_off, int slots, const std::string& idx_reg) {
+        load_slot("x14", data_off);
+        emit_flat_slot_index("x17", idx_reg, slots, 0);
+        emit("add x14, x14, x17, lsl #3");
+    }
+
+    /// infer_type 用：`a[i].p.x` 的标量字段类型。
+    std::string struct_array_field_type(const ExprPtr& e, bool writing) {
+        StructElemRef er;
+        if (!struct_elem_path(e, er)) {
+            throw TenetError::at_pos("内部错误：不是 array<struct> 元素字段访问", e->pos);
+        }
+        ArrayRef ref = array_ref(er.base, e->pos, writing);
+        if (!is_struct(ref.elem)) {
+            throw TenetError::at_pos(
+                "`" + er.base->name + "` 不是 array<struct>，不能对元素" +
+                    std::string(writing ? "写" : "取") + "字段 `" + er.path + "`",
+                e->pos);
+        }
+        return struct_flat_field(ref.elem, er.path, e->pos).ty;
+    }
+
+    std::string gen_struct_array_field_read(const ExprPtr& e) {
+        StructElemRef er;
+        if (!struct_elem_path(e, er)) {
+            throw TenetError::at_pos("内部错误：不是 array<struct> 元素字段访问", e->pos);
+        }
+        ArrayRef ref = array_ref(er.base, e->pos, false);
+        if (!is_struct(ref.elem)) {
+            throw TenetError::at_pos(
+                "`" + er.base->name + "` 不是 array<struct>，不能对元素取字段 `" + er.path +
+                    "`",
+                e->pos);
+        }
+        FlatFieldRef f = struct_flat_field(ref.elem, er.path, e->pos);
+        int slots = array_elem_slots(ref.ty, e->pos);
+        std::string reg = is_float(f.ty) ? "d9" : "x9";
+        if (ref.dynamic) {
+            // S3c-3b-2：动态 array<struct> 元素字段读：运行时下标 + data 指针寻址。
+            std::string it = gen_expr(er.index);
+            if (it != T_INT) {
+                throw TenetError::at_pos("数组下标必须是 int，实际为 " + it, er.index->pos);
+            }
+            pop_reg("x10");
+            load_slot("x11", ref.dyn_len_off);
+            emit_bounds_check_dyn("x10", "x11");
+            load_slot("x14", ref.base_off);
+            emit_flat_slot_index("x17", "x10", slots, f.index);
+            emit(std::string(is_float(f.ty) ? "ldr d9, " : "ldr x9, ") +
+                 "[x14, x17, lsl #3]");
+            push_reg(reg);
+            return f.ty;
+        }
+        if (auto ci = const_index(er.index)) {
+            if (*ci < 0 || *ci >= ref.len) {
+                throw TenetError::at_pos("数组下标 " + std::to_string(*ci) + " 越界（长度 " +
+                                             std::to_string(ref.len) + "）",
+                                         er.index->pos);
+            }
+            load_slot(reg, ref.base_off + 8 * ((int)*ci * slots + f.index));
+            push_reg(reg);
+            return f.ty;
+        }
+        std::string it = gen_expr(er.index);
+        if (it != T_INT) {
+            throw TenetError::at_pos("数组下标必须是 int，实际为 " + it, er.index->pos);
+        }
+        pop_reg("x10");
+        emit_bounds_check(ref.len, "x10");
+        lea_slot("x14", ref.base_off);
+        emit_flat_slot_index("x17", "x10", slots, f.index);
+        emit(std::string(is_float(f.ty) ? "ldr d9, " : "ldr x9, ") +
+             "[x14, x17, lsl #3]");
+        push_reg(reg);
+        return f.ty;
+    }
+
+    std::string gen_struct_array_field_write(const ExprPtr& target, const ExprPtr& value) {
+        StructElemRef er;
+        if (!struct_elem_path(target, er)) {
+            throw TenetError::at_pos("内部错误：不是 array<struct> 元素字段写", target->pos);
+        }
+        ArrayRef ref = array_ref(er.base, target->pos, true);
+        if (!is_struct(ref.elem)) {
+            throw TenetError::at_pos(
+                "`" + er.base->name + "` 不是 array<struct>，不能对元素写字段 `" + er.path +
+                    "`",
+                target->pos);
+        }
+        FlatFieldRef f = struct_flat_field(ref.elem, er.path, target->pos);
+        int slots = array_elem_slots(ref.ty, target->pos);
+        std::string reg = is_float(f.ty) ? "d9" : "x9";
+        if (ref.dynamic) {
+            // S3c-3b-2：动态 array<struct> 元素字段写：运行时下标 + data 指针寻址。
+            std::string it = gen_expr(er.index);
+            if (it != T_INT) {
+                throw TenetError::at_pos("数组下标必须是 int，实际为 " + it, er.index->pos);
+            }
+            pop_reg("x10");
+            load_slot("x11", ref.dyn_len_off);
+            emit_bounds_check_dyn("x10", "x11");
+            push_reg("x10");  // 保存下标，跨过右值求值
+            std::string vt = gen_expr(value);
+            if (vt != f.ty) {
+                throw TenetError::at_pos("字段 `" + er.path + "` 类型不匹配：需要 " + f.ty +
+                                             "，实际 " + vt,
+                                         value->pos);
+            }
+            pop_reg(reg);
+            pop_reg("x10");
+            load_slot("x14", ref.base_off);
+            emit_flat_slot_index("x17", "x10", slots, f.index);
+            emit(std::string(is_float(f.ty) ? "str d9, " : "str x9, ") +
+                 "[x14, x17, lsl #3]");
+            push_reg(reg);
+            return f.ty;
+        }
+        if (auto ci = const_index(er.index)) {
+            if (*ci < 0 || *ci >= ref.len) {
+                throw TenetError::at_pos("数组下标 " + std::to_string(*ci) + " 越界（长度 " +
+                                             std::to_string(ref.len) + "）",
+                                         er.index->pos);
+            }
+            std::string vt = gen_expr(value);
+            if (vt != f.ty) {
+                throw TenetError::at_pos("字段 `" + er.path + "` 类型不匹配：需要 " + f.ty +
+                                             "，实际 " + vt,
+                                         value->pos);
+            }
+            pop_reg(reg);
+            store_slot(reg, ref.base_off + 8 * ((int)*ci * slots + f.index));
+            push_reg(reg);
+            return f.ty;
+        }
+        std::string it = gen_expr(er.index);
+        if (it != T_INT) {
+            throw TenetError::at_pos("数组下标必须是 int，实际为 " + it, er.index->pos);
+        }
+        pop_reg("x10");
+        emit_bounds_check(ref.len, "x10");
+        push_reg("x10");  // 保存下标，跨过右值求值
+        std::string vt = gen_expr(value);
+        if (vt != f.ty) {
+            throw TenetError::at_pos("字段 `" + er.path + "` 类型不匹配：需要 " + f.ty +
+                                         "，实际 " + vt,
+                                     value->pos);
+        }
+        pop_reg(reg);
+        pop_reg("x10");
+        lea_slot("x14", ref.base_off);
+        emit_flat_slot_index("x17", "x10", slots, f.index);
+        emit(std::string(is_float(f.ty) ? "str d9, " : "str x9, ") +
+             "[x14, x17, lsl #3]");
+        push_reg(reg);
+        return f.ty;
+    }
+
+    /// `a[i] = P { ... }` / `a[i] = p`：整体元素赋值（逐槽复制）。
+    std::string gen_struct_array_elem_write(const ExprPtr& target_index, ArrayRef& ref,
+                                            const ExprPtr& value, const Position& pos) {
+        int slots = array_elem_slots(ref.ty, pos);
+        if (value->kind == Expr::Kind::StructLit && value->name != ref.elem) {
+            throw TenetError::at_pos("数组元素赋值类型不匹配：需要 " + ref.elem +
+                                         "，字面量是 " + value->name,
+                                     value->pos);
+        }
+        if (value->kind == Expr::Kind::Var) {
+            std::string vt = scoped_var_type(value->name, value->pos);
+            if (vt != ref.elem) {
+                throw TenetError::at_pos("数组元素赋值类型不匹配：需要 " + ref.elem +
+                                             "，实际 " + vt,
+                                         value->pos);
+            }
+        }
+        if (ref.dynamic) {
+            // S3c-3b-2：动态 array<struct> 整体元素赋值：运行时下标 + 逐槽复制。
+            std::string it = gen_expr(target_index);
+            if (it != T_INT) {
+                throw TenetError::at_pos("数组下标必须是 int，实际为 " + it,
+                                         target_index->pos);
+            }
+            pop_reg("x10");
+            load_slot("x11", ref.dyn_len_off);
+            emit_bounds_check_dyn("x10", "x11");
+            push_reg("x10");  // 保存下标，跨过右值求值
+            int buf = alloc_scratch(slots);
+            pack_expr_to_buffer(buf, ref.elem, value);
+            pop_reg("x10");
+            emit_dyn_struct_elem_base(ref.base_off, slots, "x10");
+            for (int k = 0; k < slots; ++k) {
+                load_slot("x9", buf - 8 * k);
+                store_reg_offset("x9", "x14", 8 * k);
+            }
+            return "void";
+        }
+        if (auto ci = const_index(target_index)) {
+            if (*ci < 0 || *ci >= ref.len) {
+                throw TenetError::at_pos("数组下标 " + std::to_string(*ci) + " 越界（长度 " +
+                                             std::to_string(ref.len) + "）",
+                                         target_index->pos);
+            }
+            int buf = alloc_scratch(slots);
+            pack_expr_to_buffer(buf, ref.elem, value);
+            for (int k = 0; k < slots; ++k) {
+                load_slot("x9", buf - 8 * k);
+                store_slot("x9", ref.base_off + 8 * ((int)*ci * slots + k));
+            }
+            return "void";
+        }
+        std::string it = gen_expr(target_index);
+        if (it != T_INT) {
+            throw TenetError::at_pos("数组下标必须是 int，实际为 " + it, target_index->pos);
+        }
+        pop_reg("x10");
+        emit_bounds_check(ref.len, "x10");
+        push_reg("x10");  // 保存下标，跨过右值求值
+        int buf = alloc_scratch(slots);
+        pack_expr_to_buffer(buf, ref.elem, value);
+        pop_reg("x10");
+        emit_struct_elem_base(ref.base_off, slots, "x10");
+        for (int k = 0; k < slots; ++k) {
+            load_slot("x9", buf - 8 * k);
+            store_reg_offset("x9", "x14", 8 * k);
+        }
+        return "void";
+    }
+
+    // ---- S3c-3c：固定嵌套数组 array<array<T, N>, M>（仅局部变量）----
+    //
+    // 扁平布局 [M*N x i64]：外层元素 i 的内层元素 j 位于 base + 8*(i*N + j)。
+    // 下标读写都做编译期（常量下标）或运行时（动态下标）边界检查：
+    // 先检查外层 M，再检查内层 N。
+
+    struct NestedIndexParts {
+        ExprPtr base;   // 数组变量节点
+        ExprPtr outer;  // 外层下标表达式
+        ExprPtr inner;  // 内层下标表达式
+    };
+
+    /// `a[i][j]` → (base=a, outer=i, inner=j)；结构不符返回 false。
+    static bool nested_index_parts(const ExprPtr& e, NestedIndexParts& out) {
+        if (!e || e->kind != Expr::Kind::Index) return false;
+        if (!e->lhs || e->lhs->kind != Expr::Kind::Index) return false;
+        if (!e->lhs->lhs || e->lhs->lhs->kind != Expr::Kind::Var) return false;
+        out.base = e->lhs->lhs;
+        out.outer = e->lhs->rhs;
+        out.inner = e->rhs;
+        return true;
+    }
+
+    struct NestedRef {
+        NestedArrayInfo info;
+        int base_off = 0;  // 外层元素 0 的槽位
+    };
+
+    /// 解析嵌套数组变量：必须是固定 array<array<T,N>,M> 局部变量。
+    NestedRef nested_ref(const ExprPtr& base, const Position& pos, bool writing) {
+        if (!base || base->kind != Expr::Kind::Var) {
+            throw TenetError::at_pos(
+                std::string("v1 只支持对数组变量") + (writing ? "写" : "取") + "两层下标",
+                base ? base->pos : pos);
+        }
+        std::string ty = scoped_var_type(base->name, base->pos);
+        if (!is_array(ty)) {
+            throw TenetError::at_pos(
+                "`" + base->name + "` 不是数组，不能" + (writing ? "写" : "取") + "下标",
+                base->pos);
+        }
+        std::string elem = array_elem_checked(ty, pos);
+        if (!is_array(elem)) {
+            throw TenetError::at_pos(
+                "`" + base->name + "` 不是嵌套数组（需要 `array<array<T, N>, M>`），不能取两层下标",
+                base->pos);
+        }
+        NestedRef ref;
+        ref.info = nested_array_info(ty, pos);
+        ref.base_off = lookup_slot(base->name, base->pos);
+        return ref;
+    }
+
+    /// 常量下标越界错误（编译期）。
+    [[noreturn]] static void throw_nested_oob(bool outer, int64_t idx, int len,
+                                              const Position& pos) {
+        throw TenetError::at_pos(
+            std::string(outer ? "外层" : "内层") + "数组下标 " + std::to_string(idx) +
+                " 越界（长度 " + std::to_string(len) + "）",
+            pos);
+    }
+
+    /// 求一个下标：常量则做编译期越界检查（返回 false，不生成代码）；
+    /// 动态则求值、运行时边界检查并压栈（返回 true）。
+    bool eval_nested_index(const ExprPtr& idx, bool outer, int len) {
+        if (auto ci = const_index(idx)) {
+            if (*ci < 0 || *ci >= len) throw_nested_oob(outer, *ci, len, idx->pos);
+            return false;
+        }
+        std::string t = gen_expr(idx);
+        if (t != T_INT) {
+            throw TenetError::at_pos("数组下标必须是 int，实际为 " + t, idx->pos);
+        }
+        pop_reg("x10");
+        emit_bounds_check(len, "x10");
+        push_reg("x10");
+        return true;
+    }
+
+    /// 计算 a[outer][inner] 的槽地址到 x14；动态下标已按 outer、inner 顺序压栈。
+    void emit_nested_addr(const NestedRef& ref, bool outer_dyn, bool inner_dyn,
+                          int flat_const) {
+        lea_slot("x14", ref.base_off);
+        if (!outer_dyn && !inner_dyn) {
+            if (flat_const != 0) {
+                if (flat_const <= 4095) {
+                    emit("add x14, x14, #" + std::to_string(flat_const * 8));
+                } else {
+                    emit_mov_const("x17", (int64_t)flat_const * 8);
+                    emit("add x14, x14, x17");
+                }
+            }
+            return;
+        }
+        // 弹出动态下标（压栈顺序 outer → inner，故逆序弹出）。
+        std::string oreg, ireg;
+        if (inner_dyn) {
+            pop_reg("x10");
+            ireg = "x10";
+        }
+        if (outer_dyn) {
+            if (inner_dyn) {
+                pop_reg("x11");
+                oreg = "x11";
+            } else {
+                pop_reg("x10");
+                oreg = "x10";
+            }
+        }
+        if (outer_dyn) {
+            emit_flat_slot_index("x17", oreg, ref.info.inner_len, flat_const);
+            if (inner_dyn) emit("add x17, x17, " + ireg);
+        } else {
+            emit("mov x17, " + ireg);
+            if (flat_const != 0) {
+                if (flat_const <= 4095) {
+                    emit("add x17, x17, #" + std::to_string(flat_const));
+                } else {
+                    emit_mov_const("x15", flat_const);
+                    emit("add x17, x17, x15");
+                }
+            }
+        }
+        emit("add x14, x14, x17, lsl #3");
+    }
+
+    std::string gen_nested_index_read(const ExprPtr& e) {
+        NestedIndexParts p;
+        if (!nested_index_parts(e, p)) {
+            throw TenetError::at_pos("内部错误：不是嵌套数组下标读", e->pos);
+        }
+        NestedRef ref = nested_ref(p.base, e->pos, false);
+        const NestedArrayInfo& info = ref.info;
+        int flat = 0;
+        bool outer_dyn = eval_nested_index(p.outer, true, info.outer_len);
+        if (!outer_dyn) flat += (int)*const_index(p.outer) * info.inner_len;
+        bool inner_dyn = eval_nested_index(p.inner, false, info.inner_len);
+        if (!inner_dyn) flat += (int)*const_index(p.inner);
+        std::string reg = is_float(info.elem) ? "d9" : "x9";
+        if (!outer_dyn && !inner_dyn) {
+            load_slot(reg, ref.base_off + 8 * flat);
+        } else {
+            emit_nested_addr(ref, outer_dyn, inner_dyn, flat);
+            emit(std::string(is_float(info.elem) ? "ldr d9, " : "ldr x9, ") +
+                 "[x14, #0]");
+        }
+        push_reg(reg);
+        return info.elem;
+    }
+
+    std::string gen_nested_index_write(const ExprPtr& target, const ExprPtr& value) {
+        NestedIndexParts p;
+        if (!nested_index_parts(target, p)) {
+            throw TenetError::at_pos("内部错误：不是嵌套数组下标写", target->pos);
+        }
+        NestedRef ref = nested_ref(p.base, target->pos, true);
+        const NestedArrayInfo& info = ref.info;
+        int flat = 0;
+        bool outer_dyn = eval_nested_index(p.outer, true, info.outer_len);
+        if (!outer_dyn) flat += (int)*const_index(p.outer) * info.inner_len;
+        bool inner_dyn = eval_nested_index(p.inner, false, info.inner_len);
+        if (!inner_dyn) flat += (int)*const_index(p.inner);
+        std::string vt = gen_expr(value);
+        if (vt != info.elem) {
+            throw TenetError::at_pos(
+                "嵌套数组元素赋值类型不匹配：需要 " + info.elem + "，实际 " + vt, value->pos);
+        }
+        std::string reg = is_float(info.elem) ? "d9" : "x9";
+        pop_reg(reg);
+        if (!outer_dyn && !inner_dyn) {
+            store_slot(reg, ref.base_off + 8 * flat);
+        } else {
+            emit_nested_addr(ref, outer_dyn, inner_dyn, flat);
+            emit(std::string(is_float(info.elem) ? "str d9, " : "str x9, ") +
+                 "[x14, #0]");
+        }
+        push_reg(reg);
+        return info.elem;
+    }
+
+    /// 把一个内层数组值（`[..]` 字面量或同类型内层数组变量）写进扁平槽 dst_off。
+    void store_nested_inner(const NestedArrayInfo& info, int dst_off,
+                            const ExprPtr& expr, int outer_i) {
+        if (expr->kind == Expr::Kind::Array) {
+            if ((int)expr->args.size() != info.inner_len) {
+                throw TenetError::at_pos(
+                    "内层数组长度不匹配：需要 " + std::to_string(info.inner_len) + "，实际 " +
+                        std::to_string(expr->args.size()),
+                    expr->pos);
+            }
+            for (int k = 0; k < info.inner_len; ++k) {
+                std::string vt = gen_expr(expr->args[k]);
+                if (vt != info.elem) {
+                    throw TenetError::at_pos(
+                        "嵌套数组元素 " + std::to_string(outer_i) + "[" + std::to_string(k) +
+                            "] 类型不匹配：需要 " + info.elem + "，实际 " + vt,
+                        expr->args[k]->pos);
+                }
+                std::string reg = is_float(info.elem) ? "d9" : "x9";
+                pop_reg(reg);
+                store_slot(reg, dst_off + 8 * k);
+            }
+            return;
+        }
+        if (expr->kind == Expr::Kind::Var) {
+            std::string src_ty = scoped_var_type(expr->name, expr->pos);
+            if (src_ty != info.inner_ty) {
+                throw TenetError::at_pos(
+                    "嵌套数组元素 " + std::to_string(outer_i) + " 类型不匹配：需要 " +
+                        info.inner_ty + "，实际 " + src_ty,
+                    expr->pos);
+            }
+            int src_off = lookup_slot(expr->name, expr->pos);
+            for (int k = 0; k < info.inner_len; ++k) {
+                load_slot("x9", src_off + 8 * k);
+                store_slot("x9", dst_off + 8 * k);
+            }
+            return;
+        }
+        throw TenetError::at_pos(
+            "嵌套数组元素必须是内层数组字面量 `[...]` 或同类型内层数组变量", expr->pos);
+    }
+
+    /// let a: array<array<T,N>,M> = [[...], ...]; / let b = a;（深拷贝）
+    void emit_nested_array_init(const Stmt& stmt, const std::string& ty) {
+        NestedArrayInfo info = nested_array_info(ty, stmt.pos);
+        int base_off = lookup_slot(stmt.name, stmt.pos);
+        int len = lookup_array_len(stmt.name, stmt.pos);
+        const ExprPtr& v = stmt.value;
+        if (v->kind == Expr::Kind::Array) {
+            if ((int)v->args.size() != len) {
+                throw TenetError::at_pos("数组初始化长度不匹配：需要 " + std::to_string(len) +
+                                             "，实际 " + std::to_string(v->args.size()),
+                                         v->pos);
+            }
+            for (int i = 0; i < len; ++i) {
+                store_nested_inner(info, base_off + 8 * i * info.inner_len, v->args[i], i);
+            }
+            return;
+        }
+        if (v->kind == Expr::Kind::Var) {
+            std::string src_ty = scoped_var_type(v->name, v->pos);
+            if (src_ty != ty) {
+                throw TenetError::at_pos(
+                    "`" + stmt.name + "` 需要 " + ty + "，但 `" + v->name + "` 是 " + src_ty,
+                    v->pos);
+            }
+            int src_off = lookup_slot(v->name, v->pos);
+            copy_struct_array_slots(base_off, src_off, len * info.inner_len);
+            return;
+        }
+        if (v->kind == Expr::Kind::Call) {
+            // S3c-3d：返回固定嵌套数组的调用：把 sret 缓冲按 M*N 总槽数拷进本地数组。
+            std::string rt = gen_expr(v);
+            if (rt != ty) {
+                throw TenetError::at_pos(
+                    "`" + stmt.name + "` 需要 " + ty + "，但调用返回 " + rt, v->pos);
+            }
+            pop_reg("x10");
+            copy_array_from_reg(base_off, "x10", len * info.inner_len);
+            return;
+        }
+        throw TenetError::at_pos(
+            "`" + stmt.name +
+                "` 的嵌套数组初始化必须是 `[[...], ...]` 字面量、同类型数组变量或返回数组的调用",
+            v->pos);
+    }
+
+    /// a = [[...], ...] / a = b（同类型深拷贝）
+    void assign_nested_array(const std::string& dst, const std::string& dst_ty,
+                             const ExprPtr& value, const Position& pos) {
+        NestedArrayInfo info = nested_array_info(dst_ty, pos);
+        int dst_off = lookup_slot(dst, pos);
+        int len = lookup_array_len(dst, pos);
+        if (value->kind == Expr::Kind::Array) {
+            if ((int)value->args.size() != len) {
+                throw TenetError::at_pos("数组赋值长度不匹配：需要 " + std::to_string(len) +
+                                             "，实际 " + std::to_string(value->args.size()),
+                                         value->pos);
+            }
+            for (int i = 0; i < len; ++i) {
+                store_nested_inner(info, dst_off + 8 * i * info.inner_len, value->args[i], i);
+            }
+            return;
+        }
+        if (value->kind == Expr::Kind::Var) {
+            std::string src_ty = scoped_var_type(value->name, value->pos);
+            if (src_ty != dst_ty) {
+                throw TenetError::at_pos(
+                    "数组赋值类型不匹配：需要 " + dst_ty + "，右侧是 " + src_ty, value->pos);
+            }
+            int src_off = lookup_slot(value->name, value->pos);
+            copy_struct_array_slots(dst_off, src_off, len * info.inner_len);
+            return;
+        }
+        if (value->kind == Expr::Kind::Call) {
+            // S3c-3d：a = make()：把 sret 返回缓冲按 M*N 总槽数逐槽拷进本地数组。
+            std::string rt = gen_expr(value);
+            if (rt != dst_ty) {
+                throw TenetError::at_pos(
+                    "数组赋值类型不匹配：需要 " + dst_ty + "，右侧调用返回 " + rt, value->pos);
+            }
+            pop_reg("x10");
+            copy_array_from_reg(dst_off, "x10", len * info.inner_len);
+            return;
+        }
+        throw TenetError::at_pos(
+            "数组赋值必须是同类型嵌套数组变量、同长度 `[[...], ...]` 字面量或返回数组的调用",
+            value->pos);
+    }
+
     std::string gen_index_read(const ExprPtr& e) {
         ArrayRef ref = array_ref(e->lhs, e->pos, false);
+        if (is_struct(ref.elem)) {
+            throw TenetError::at_pos(
+                "array<struct> 元素不能整体读取为 struct 值；请访问标量字段（如 a[i].x）",
+                e->pos);
+        }
+        if (is_array(ref.elem)) {
+            throw TenetError::at_pos(
+                "嵌套数组元素不能整体取值；请用 a[i][j] 访问内层元素", e->pos);
+        }
+        if (ref.dynamic) {
+            std::string it = gen_expr(e->rhs);
+            if (it != T_INT) {
+                throw TenetError::at_pos("数组下标必须是 int，实际为 " + it, e->rhs->pos);
+            }
+            pop_reg("x10");
+            load_slot("x11", ref.dyn_len_off);
+            emit_bounds_check_dyn("x10", "x11");
+            load_slot("x14", ref.base_off);
+            std::string reg = is_float(ref.elem) ? "d9" : "x9";
+            emit((is_float(ref.elem) ? "ldr d9, [x14, x10, lsl #3]"
+                                     : "ldr x9, [x14, x10, lsl #3]"));
+            push_reg(reg);
+            return ref.elem;
+        }
         if (auto ci = const_index(e->rhs)) {
             if (*ci < 0 || *ci >= ref.len) {
                 throw TenetError::at_pos("数组下标 " + std::to_string(*ci) + " 越界（长度 " +
@@ -984,7 +2784,37 @@ private:
 
     std::string gen_index_write(const ExprPtr& e, const ExprPtr& target) {
         ArrayRef ref = array_ref(target->lhs, target->pos, true);
+        if (is_struct(ref.elem)) {
+            return gen_struct_array_elem_write(target->rhs, ref, e->value, target->pos);
+        }
+        if (is_array(ref.elem)) {
+            throw TenetError::at_pos(
+                "嵌套数组元素不能整体赋值；请用 a[i][j] 写内层元素", target->pos);
+        }
         std::string reg = is_float(ref.elem) ? "d9" : "x9";
+        if (ref.dynamic) {
+            std::string it = gen_expr(target->rhs);
+            if (it != T_INT) {
+                throw TenetError::at_pos("数组下标必须是 int，实际为 " + it, target->rhs->pos);
+            }
+            pop_reg("x10");
+            load_slot("x11", ref.dyn_len_off);
+            emit_bounds_check_dyn("x10", "x11");
+            push_reg("x10");  // 保存下标，跨过右值求值
+            std::string vt = gen_expr(e->value);
+            if (vt != ref.elem) {
+                throw TenetError::at_pos("数组元素赋值类型不匹配：需要 " + ref.elem +
+                                             "，实际 " + vt,
+                                         e->value->pos);
+            }
+            pop_reg(reg);
+            pop_reg("x10");
+            load_slot("x14", ref.base_off);
+            emit(std::string("str ") + (is_float(ref.elem) ? "d9" : "x9") +
+                 ", [x14, x10, lsl #3]");
+            push_reg(reg);
+            return ref.elem;
+        }
         if (auto ci = const_index(target->rhs)) {
             if (*ci < 0 || *ci >= ref.len) {
                 throw TenetError::at_pos("数组下标 " + std::to_string(*ci) + " 越界（长度 " +
@@ -1021,7 +2851,155 @@ private:
         return ref.elem;
     }
 
+    /// struct 数组的逐槽值拷贝：total = len*slots，元素 0 字段 0 在最低地址。
+    void copy_struct_array_slots(int dst_off, int src_off, int total) {
+        for (int k = 0; k < total; ++k) {
+            load_slot("x9", src_off + 8 * k);
+            store_slot("x9", dst_off + 8 * k);
+        }
+    }
+
+    /// let a: array<P, 2> = [P { ... }, ...]; / let b = a;（深拷贝）
+    void emit_struct_array_init(const Stmt& stmt, const std::string& ty) {
+        std::string elem = array_elem_checked(ty, stmt.pos);
+        int base_off = lookup_slot(stmt.name, stmt.pos);
+        int len = lookup_array_len(stmt.name, stmt.pos);
+        int slots = array_elem_slots(ty, stmt.pos);
+        const ExprPtr& v = stmt.value;
+        if (v->kind == Expr::Kind::Array) {
+            if ((int)v->args.size() != len) {
+                throw TenetError::at_pos("数组初始化长度不匹配：需要 " + std::to_string(len) +
+                                             "，实际 " + std::to_string(v->args.size()),
+                                         v->pos);
+            }
+            int buf = alloc_scratch(slots);
+            for (size_t i = 0; i < v->args.size(); ++i) {
+                const ExprPtr& arg = v->args[i];
+                if (arg->kind == Expr::Kind::StructLit && arg->name != elem) {
+                    throw TenetError::at_pos("数组元素 " + std::to_string(i) +
+                                                 " 类型不匹配：需要 " + elem + "，字面量是 " +
+                                                 arg->name,
+                                             arg->pos);
+                }
+                if (arg->kind == Expr::Kind::Var) {
+                    std::string vt = scoped_var_type(arg->name, arg->pos);
+                    if (vt != elem) {
+                        throw TenetError::at_pos("数组元素 " + std::to_string(i) +
+                                                     " 类型不匹配：需要 " + elem + "，实际 " +
+                                                     vt,
+                                                 arg->pos);
+                    }
+                }
+                pack_expr_to_buffer(buf, elem, arg);
+                for (int k = 0; k < slots; ++k) {
+                    load_slot("x9", buf - 8 * k);
+                    store_slot("x9", base_off + 8 * ((int)i * slots + k));
+                }
+            }
+            return;
+        }
+        if (v->kind == Expr::Kind::Var) {
+            std::string src_ty = scoped_var_type(v->name, v->pos);
+            if (src_ty != ty) {
+                throw TenetError::at_pos("`" + stmt.name + "` 需要 " + ty + "，但 `" +
+                                             v->name + "` 是 " + src_ty,
+                                         v->pos);
+            }
+            int src_off = lookup_slot(v->name, v->pos);
+            copy_struct_array_slots(base_off, src_off, len * slots);
+            return;
+        }
+        if (v->kind == Expr::Kind::Call) {
+            // S3c-3d：返回固定 array<S, N> 的调用：把 sret 缓冲按总槽数拷进本地数组。
+            std::string rt = gen_expr(v);
+            if (rt != ty) {
+                throw TenetError::at_pos(
+                    "`" + stmt.name + "` 需要 " + ty + "，但调用返回 " + rt, v->pos);
+            }
+            pop_reg("x10");
+            copy_array_from_reg(base_off, "x10", len * slots);
+            return;
+        }
+        throw TenetError::at_pos(
+            "`" + stmt.name +
+                "` 的 array<struct> 初始化必须是字面量、同类型数组变量或返回数组的调用",
+            v->pos);
+    }
+
+    /// b = [P { ... }, ...] / b = a（深拷贝）
+    void assign_struct_array(const std::string& dst, const std::string& dst_ty,
+                             const ExprPtr& value, const Position& pos) {
+        std::string elem = array_elem_checked(dst_ty, pos);
+        int len = lookup_array_len(dst, pos);
+        int dst_off = lookup_slot(dst, pos);
+        int slots = array_elem_slots(dst_ty, pos);
+        if (value->kind == Expr::Kind::Array) {
+            if ((int)value->args.size() != len) {
+                throw TenetError::at_pos("数组赋值长度不匹配：需要 " + std::to_string(len) +
+                                             "，实际 " + std::to_string(value->args.size()),
+                                         value->pos);
+            }
+            int buf = alloc_scratch(slots);
+            for (size_t i = 0; i < value->args.size(); ++i) {
+                const ExprPtr& arg = value->args[i];
+                if (arg->kind == Expr::Kind::StructLit && arg->name != elem) {
+                    throw TenetError::at_pos("数组元素 " + std::to_string(i) +
+                                                 " 类型不匹配：需要 " + elem + "，字面量是 " +
+                                                 arg->name,
+                                             arg->pos);
+                }
+                if (arg->kind == Expr::Kind::Var) {
+                    std::string vt = scoped_var_type(arg->name, arg->pos);
+                    if (vt != elem) {
+                        throw TenetError::at_pos("数组元素 " + std::to_string(i) +
+                                                     " 类型不匹配：需要 " + elem + "，实际 " +
+                                                     vt,
+                                                 arg->pos);
+                    }
+                }
+                pack_expr_to_buffer(buf, elem, arg);
+                for (int k = 0; k < slots; ++k) {
+                    load_slot("x9", buf - 8 * k);
+                    store_slot("x9", dst_off + 8 * ((int)i * slots + k));
+                }
+            }
+            return;
+        }
+        if (value->kind == Expr::Kind::Var) {
+            std::string src_ty = scoped_var_type(value->name, value->pos);
+            if (src_ty != dst_ty) {
+                throw TenetError::at_pos(
+                    "数组赋值类型不匹配：需要 " + dst_ty + "，右侧是 " + src_ty, value->pos);
+            }
+            int src_off = lookup_slot(value->name, value->pos);
+            copy_struct_array_slots(dst_off, src_off, len * slots);
+            return;
+        }
+        if (value->kind == Expr::Kind::Call) {
+            // S3c-3d：b = make()：把 sret 返回缓冲按总槽数逐槽拷进本地数组。
+            std::string rt = gen_expr(value);
+            if (rt != dst_ty) {
+                throw TenetError::at_pos(
+                    "数组赋值类型不匹配：需要 " + dst_ty + "，右侧调用返回 " + rt, value->pos);
+            }
+            pop_reg("x10");
+            copy_array_from_reg(dst_off, "x10", len * slots);
+            return;
+        }
+        throw TenetError::at_pos(
+            "数组赋值必须是同类型数组变量、同长度字面量或返回数组的调用", value->pos);
+    }
+
     void emit_array_init(const Stmt& stmt, const std::string& ty) {
+        std::string elem0 = array_elem_checked(ty, stmt.pos);
+        if (is_struct(elem0)) {
+            emit_struct_array_init(stmt, ty);
+            return;
+        }
+        if (is_array(elem0)) {
+            emit_nested_array_init(stmt, ty);
+            return;
+        }
         std::string elem = array_elem_scalar(ty, stmt.pos);
         int base_off = lookup_slot(stmt.name, stmt.pos);
         int len = lookup_array_len(stmt.name, stmt.pos);
@@ -1047,22 +3025,51 @@ private:
         }
         if (v->kind == Expr::Kind::Var) {
             std::string src_ty = scoped_var_type(v->name, v->pos);
-            if (src_ty != ty) {
+            if (!is_array(src_ty) || array_elem(src_ty) != elem) {
                 throw TenetError::at_pos("`" + stmt.name + "` 需要 " + ty + "，但 `" +
                                              v->name + "` 是 " + src_ty,
+                                         v->pos);
+            }
+            int src_len = lookup_array_len(v->name, v->pos);
+            if (src_len != len) {
+                throw TenetError::at_pos("数组初始化长度不匹配：需要 " + std::to_string(len) +
+                                             "，实际 " + std::to_string(src_len),
                                          v->pos);
             }
             int src_off = lookup_slot(v->name, v->pos);
             copy_array_elems(base_off, src_off, len, elem);
             return;
         }
+        if (v->kind == Expr::Kind::Call) {
+            // S3b：返回数组的调用：先把 sret 缓冲指针解包到本地数组槽。
+            std::string rt = gen_expr(v);
+            if (!is_array(rt) || array_elem(rt) != elem ||
+                array_decl_len(rt) != std::optional<int>(len)) {
+                throw TenetError::at_pos(
+                    "`" + stmt.name + "` 需要 " + ty + "，但调用返回 " + rt, v->pos);
+            }
+            pop_reg("x10");
+            copy_array_from_reg(base_off, "x10", len);
+            return;
+        }
         throw TenetError::at_pos(
-            "`" + stmt.name + "` 的数组初始化必须是 `[...]` 或同类型数组变量", v->pos);
+            "`" + stmt.name + "` 的数组初始化必须是 `[...]` 或同类型数组变量"
+            "（或返回数组的调用）",
+            v->pos);
     }
 
     /// a = [..]（同长度）或 a = b（逐元素值拷贝）。
     void assign_array(const std::string& dst, const std::string& dst_ty, const ExprPtr& value,
                       const Position& pos) {
+        std::string elem0 = array_elem_checked(dst_ty, pos);
+        if (is_struct(elem0)) {
+            assign_struct_array(dst, dst_ty, value, pos);
+            return;
+        }
+        if (is_array(elem0)) {
+            assign_nested_array(dst, dst_ty, value, pos);
+            return;
+        }
         std::string elem = array_elem_scalar(dst_ty, pos);
         int len = lookup_array_len(dst, pos);
         int dst_off = lookup_slot(dst, pos);
@@ -1087,7 +3094,13 @@ private:
         }
         if (value->kind == Expr::Kind::Var) {
             std::string src_ty = scoped_var_type(value->name, value->pos);
-            if (src_ty != dst_ty) {
+            if (is_dynamic_array(src_ty)) {
+                throw TenetError::at_pos(
+                    "定长数组 `" + dst + "`（" + dst_ty + "）不能整体赋值为动态数组 `" +
+                        value->name + "`（" + src_ty + "）",
+                    value->pos);
+            }
+            if (!is_array(src_ty) || array_elem(src_ty) != elem) {
                 throw TenetError::at_pos(
                     "数组赋值类型不匹配：需要 " + dst_ty + "，右侧是 " + src_ty, value->pos);
             }
@@ -1101,7 +3114,657 @@ private:
             copy_array_elems(dst_off, src_off, len, elem);
             return;
         }
-        throw TenetError::at_pos("数组赋值必须是同类型数组变量或同长度字面量", value->pos);
+        if (value->kind == Expr::Kind::Call) {
+            // S3b：a = make()：把返回数组从 sret 缓冲逐元素值拷贝到本地数组。
+            std::string rt = gen_expr(value);
+            if (!is_array(rt) || array_elem(rt) != elem ||
+                array_decl_len(rt) != std::optional<int>(len)) {
+                throw TenetError::at_pos(
+                    "数组赋值类型不匹配：需要 " + dst_ty + "，右侧调用返回 " + rt, value->pos);
+            }
+            pop_reg("x10");
+            copy_array_from_reg(dst_off, "x10", len);
+            return;
+        }
+        throw TenetError::at_pos(
+            "数组赋值必须是同类型数组变量或同长度字面量（或返回数组的调用）", value->pos);
+    }
+
+    // ---- array S3c：动态数组 array<T>（堆缓冲 {data,len,cap}）----
+    //
+    // 局部变量 + 函数参数/返回值（S3c-2/S3c-3a）。元素按 8 字节槽存堆上（int/float/bool，
+    // float 用位模式），只 malloc/free，无 RC/GC。
+    // ABI：参数传 3 槽描述符指针（被调函数入口深拷贝）；返回值走隐藏 sret 指针（x0）。
+    // 实参/return 支持变量、字面量、返回动态数组的调用：字面量/调用结果先构造临时
+    // 描述符，return 时把 data/len/cap 转移给 sret（不 free），实参在调用返回后只 free
+    // 临时堆缓冲；调用方 let/赋值从调用结果接管。
+
+    const DynArrayInfo& lookup_dyn(const std::string& name, const Position& pos) const {
+        for (auto it = scope_stack_.rbegin(); it != scope_stack_.rend(); ++it) {
+            auto f = dyn_maps_[*it].find(name);
+            if (f != dyn_maps_[*it].end()) return f->second;
+        }
+        throw TenetError::at_pos("`" + name + "` 不是动态数组（array<T> 变量或参数）", pos);
+    }
+
+    /// 在帧尾分配 3 个临时描述符槽（整体赋值时先构造新值再用）。
+    DynArrayInfo alloc_dyn_scratch() {
+        int base = alloc_scratch(3);
+        return DynArrayInfo{base, base - 8, base - 16};
+    }
+
+    /// 调用点/实参描述符：3 个临时槽按 data/len/cap 从低地址到高地址排列，
+    /// 与 callee 的 `[desc]` / `[desc, #8]` / `[desc, #16]` 访问顺序一致。
+    DynArrayInfo alloc_dyn_desc() {
+        int base = alloc_array_scratch(3);
+        return DynArrayInfo{base, base + 8, base + 16};
+    }
+
+    /// S3c-2 动态数组参数入口深拷贝：调用方只传描述符指针，本地按 cap 重新 malloc
+    /// 并拷贝 len 个元素；此后函数内 push/改元素都不影响调用方（参数值语义）。
+    /// S3c-3b-2：元素为 struct 时按 stride=slots*8 拷贝 len*slots 个 8 字节槽。
+    /// 入口第一阶段已把描述符指针暂存到 di.data。
+    void deep_copy_dynamic_param(const DynArrayInfo& di, const std::string& ty,
+                                 const Position& pos) {
+        array_elem_checked(ty, pos);
+        int slots = array_elem_slots(ty, pos);
+        load_slot("x10", di.data);  // 调用方描述符指针
+        load_reg_offset("x11", "x10", 0);   // data
+        load_reg_offset("x12", "x10", 8);   // len
+        load_reg_offset("x13", "x10", 16);  // cap
+        push_reg("x11");
+        push_reg("x12");
+        push_reg("x13");
+        if (slots == 1) {
+            emit("lsl x0, x13, #3");
+        } else {
+            emit_mov_const("x0", slots);
+            emit("mul x0, x13, x0");
+            emit("lsl x0, x0, #3");
+        }
+        emit("bl _malloc");
+        pop_reg("x13");
+        pop_reg("x12");
+        pop_reg("x11");
+        store_slot("x0", di.data);
+        store_slot("x12", di.len);
+        store_slot("x13", di.cap);
+        // 深拷贝 len*slots 个 8 字节槽：新缓冲与调用方完全独立。
+        emit("mov x14, x0");
+        emit("mov x15, x11");
+        if (slots == 1) {
+            emit("mov x17, x12");
+        } else {
+            emit_mov_const("x16", slots);
+            emit("mul x17, x12, x16");
+        }
+        emit("mov x16, #0");
+        std::string loop = new_label("dyn.param.copy");
+        std::string end = new_label("dyn.param.copy.end");
+        label(loop);
+        emit("cmp x16, x17");
+        emit("b.hs " + end);
+        emit("ldr x9, [x15, x16, lsl #3]");
+        emit("str x9, [x14, x16, lsl #3]");
+        emit("add x16, x16, #1");
+        emit("b " + loop);
+        label(end);
+    }
+
+    /// 把临时动态数组的 data/len/cap 写入调用方 sret 描述符，并清空临时槽
+    /// （所有权转移：不 free 堆缓冲，之后 drop 只会 free(NULL)）。
+    void transfer_dyn_slots_to_sret(const DynArrayInfo& di) {
+        load_slot("x15", sret_slot_);
+        load_slot("x9", di.data);
+        store_reg_offset("x9", "x15", 0);
+        load_slot("x9", di.len);
+        store_reg_offset("x9", "x15", 8);
+        load_slot("x9", di.cap);
+        store_reg_offset("x9", "x15", 16);
+        store_slot("xzr", di.data);
+        store_slot("xzr", di.len);
+        store_slot("xzr", di.cap);
+    }
+
+    /// S3c-2/S3c-3a 动态数组返回值：把 data/len/cap 写入调用方 sret 描述符，
+    /// 并清空临时描述符（所有权转移，不 free）。
+    /// - 变量：转移本地描述符并清空，函数退出时 drop 只会 free(NULL)
+    /// - 字面量：先构造临时动态数组（malloc + 填元素），再把描述符转移给 sret
+    /// - 调用：把内层调用返回的 sret 描述符复制给 sret，并清空内层临时描述符
+    void transfer_dynamic_return(const Stmt& stmt) {
+        if (!stmt.expr) {
+            throw TenetError::at_pos("函数 `" + fn_ + "` 返回 " + *current_ret_ +
+                                         "，return 必须带值",
+                                     stmt.pos);
+        }
+        const Position& pos = stmt.expr->pos;
+        if (stmt.expr->kind == Expr::Kind::Var) {
+            const std::string& name = stmt.expr->name;
+            std::string vt = scoped_var_type(name, pos);
+            if (vt != *current_ret_) {
+                throw TenetError::at_pos(
+                    "返回类型不匹配：需要 " + *current_ret_ + "，实际 " + vt, pos);
+            }
+            transfer_dyn_slots_to_sret(lookup_dyn(name, pos));
+        } else if (stmt.expr->kind == Expr::Kind::Array) {
+            DynArrayInfo tmp = alloc_dyn_desc();
+            init_dynamic_into(tmp, *current_ret_, stmt.expr);
+            transfer_dyn_slots_to_sret(tmp);
+        } else if (stmt.expr->kind == Expr::Kind::Call) {
+            std::string rt = gen_expr(stmt.expr);
+            if (!is_dynamic_array(rt) || rt != *current_ret_) {
+                throw TenetError::at_pos(
+                    "返回类型不匹配：需要 " + *current_ret_ + "，调用返回 " + rt, pos);
+            }
+            // gen_expr 已压入内层调用的 sret 描述符指针：复制进本函数的 sret，
+            // 再清空内层描述符（所有权已转移，避免重复 free）。
+            pop_reg("x10");
+            load_slot("x15", sret_slot_);
+            load_reg_offset("x9", "x10", 0);
+            store_reg_offset("x9", "x15", 0);
+            load_reg_offset("x9", "x10", 8);
+            store_reg_offset("x9", "x15", 8);
+            load_reg_offset("x9", "x10", 16);
+            store_reg_offset("x9", "x15", 16);
+            store_reg_offset("xzr", "x10", 0);
+            store_reg_offset("xzr", "x10", 8);
+            store_reg_offset("xzr", "x10", 16);
+        } else {
+            throw TenetError::at_pos(
+                "动态数组 return 只支持变量、字面量或返回动态数组的调用", pos);
+        }
+        drop_all_scopes();
+        emit("b L." + fn_ + ".ret");
+        terminated_ = true;
+    }
+
+    /// 从调用返回的 sret 描述符接管堆缓冲（临时描述符随即清零，之后不再 free 它）。
+    void take_dynamic_from_desc(const DynArrayInfo& di, const std::string& desc_reg) {
+        load_reg_offset("x14", desc_reg, 0);
+        store_slot("x14", di.data);
+        load_reg_offset("x14", desc_reg, 8);
+        store_slot("x14", di.len);
+        load_reg_offset("x14", desc_reg, 16);
+        store_slot("x14", di.cap);
+        store_reg_offset("xzr", desc_reg, 0);
+        store_reg_offset("xzr", desc_reg, 8);
+        store_reg_offset("xzr", desc_reg, 16);
+    }
+
+    /// free 堆缓冲并把描述符清零。free(NULL) 合法，因此重复 drop / 已清零的槽位都安全。
+    void drop_dyn(const DynArrayInfo& di) {
+        load_slot("x0", di.data);
+        emit("bl _free");
+        emit("mov x9, #0");
+        store_slot("x9", di.data);
+        store_slot("x9", di.len);
+        store_slot("x9", di.cap);
+    }
+
+    /// drop 单个块作用域里的所有动态数组（按声明逆序，确定性输出）。
+    void emit_drop_scope(int scope_idx) {
+        std::vector<const DynArrayInfo*> vars;
+        vars.reserve(dyn_maps_[scope_idx].size());
+        for (const auto& [name, di] : dyn_maps_[scope_idx]) {
+            (void)name;
+            vars.push_back(&di);
+        }
+        // 槽位越靠低地址声明越晚：按 data 升序 = 声明逆序。
+        std::sort(vars.begin(), vars.end(), [](const DynArrayInfo* a, const DynArrayInfo* b) {
+            return a->data < b->data;
+        });
+        for (const DynArrayInfo* di : vars) drop_dyn(*di);
+    }
+
+    /// 离开函数：drop 当前作用域栈上的全部动态数组（由内向外）。
+    void drop_all_scopes() {
+        for (size_t i = scope_stack_.size(); i-- > 0;) emit_drop_scope(scope_stack_[i]);
+    }
+
+    /// break 用：从栈顶向下 drop 到（含）第 depth-1 层作用域。
+    void emit_drop_scopes_from(size_t depth) {
+        if (depth == 0) return;
+        for (size_t i = scope_stack_.size(); i-- > depth - 1;) {
+            emit_drop_scope(scope_stack_[i]);
+        }
+    }
+
+    /// 运行时边界检查：idx >= len（无符号，顺带挡住负数）时打印错误并 exit(1)。
+    void emit_bounds_check_dyn(const std::string& idx_reg, const std::string& len_reg) {
+        emit("cmp " + idx_reg + ", " + len_reg);
+        std::string fail = new_label("dbounds.fail");
+        std::string ok = new_label("dbounds.ok");
+        emit("b.hs " + fail);
+        emit("b " + ok);
+        label(fail);
+        emit("mov x0, " + idx_reg);
+        emit("mov x1, " + len_reg);
+        emit("bl _tenet_bounds_fail");
+        label(ok);
+    }
+
+    /// 运行时按 8 字节槽拷贝 count 个槽（dst/src/count 为寄存器）。
+    /// 使用 x13 作计数器、x11 作数据暂存；dst/src/count 不得是 x11/x13。
+    void emit_copy_words_runtime(const std::string& dst, const std::string& src,
+                                 const std::string& count) {
+        std::string loop = new_label("copy.words");
+        std::string end = new_label("copy.words.end");
+        emit("mov x13, #0");
+        label(loop);
+        emit("cmp x13, " + count);
+        emit("b.hs " + end);
+        emit("ldr x11, [" + src + ", x13, lsl #3]");
+        emit("str x11, [" + dst + ", x13, lsl #3]");
+        emit("add x13, x13, #1");
+        emit("b " + loop);
+        label(end);
+    }
+
+    /// S3c-3b-2：动态 array<struct> 初始化。堆缓冲按 stride=slots*8 存放扁平字段槽。
+    /// 字面量：cap = max(n, 4)；变量：按源 cap 深拷贝 len*slots 个槽；调用：接管 sret。
+    void init_dynamic_struct_into(const DynArrayInfo& di, const std::string& ty,
+                                  const ExprPtr& value) {
+        std::string elem = array_elem_checked(ty, value->pos);
+        int slots = array_elem_slots(ty, value->pos);
+        if (value->kind == Expr::Kind::Array) {
+            int n = (int)value->args.size();
+            int cap = std::max(n, 4);  // 空数组也分配 cap=4
+            emit_mov_const("x0", (int64_t)cap * slots * 8);
+            emit("bl _malloc");
+            store_slot("x0", di.data);
+            emit_mov_const("x9", n);
+            store_slot("x9", di.len);
+            emit_mov_const("x9", cap);
+            store_slot("x9", di.cap);
+            int buf = alloc_scratch(slots);
+            for (int i = 0; i < n; ++i) {
+                const ExprPtr& e = value->args[i];
+                if (e->kind == Expr::Kind::StructLit && e->name != elem) {
+                    throw TenetError::at_pos("数组元素 " + std::to_string(i) +
+                                                 " 类型不匹配：需要 " + elem + "，字面量是 " +
+                                                 e->name,
+                                             e->pos);
+                }
+                if (e->kind == Expr::Kind::Var) {
+                    std::string vt = scoped_var_type(e->name, e->pos);
+                    if (vt != elem) {
+                        throw TenetError::at_pos("数组元素 " + std::to_string(i) +
+                                                     " 类型不匹配：需要 " + elem + "，实际 " + vt,
+                                                 e->pos);
+                    }
+                }
+                pack_expr_to_buffer(buf, elem, e);
+                load_slot("x14", di.data);
+                for (int k = 0; k < slots; ++k) {
+                    load_slot("x9", buf - 8 * k);
+                    store_reg_offset("x9", "x14", 8 * (i * slots + k));
+                }
+            }
+            return;
+        }
+        if (value->kind == Expr::Kind::Var) {
+            std::string src_ty = scoped_var_type(value->name, value->pos);
+            if (!is_dynamic_array(src_ty)) {
+                throw TenetError::at_pos(
+                    "动态数组初始化需要同类型 `array<T>` 变量，`" + value->name + "` 是 " +
+                        src_ty,
+                    value->pos);
+            }
+            if (src_ty != ty) {
+                throw TenetError::at_pos(
+                    "动态数组类型不匹配：需要 " + ty + "，`" + value->name + "` 是 " + src_ty,
+                    value->pos);
+            }
+            const DynArrayInfo src = lookup_dyn(value->name, value->pos);
+            // cap / len 跨 malloc 保存（调用会破坏 x0-x18）。
+            load_slot("x9", src.cap);
+            push_reg("x9");
+            load_slot("x9", src.len);
+            push_reg("x9");
+            load_slot("x10", src.cap);
+            if (slots == 1) {
+                emit("lsl x0, x10, #3");
+            } else {
+                emit_mov_const("x0", slots);
+                emit("mul x0, x10, x0");
+                emit("lsl x0, x0, #3");
+            }
+            emit("bl _malloc");
+            store_slot("x0", di.data);
+            pop_reg("x9");
+            store_slot("x9", di.len);
+            pop_reg("x9");
+            store_slot("x9", di.cap);
+            // 深拷贝 len*slots 个槽：新缓冲与源完全独立。
+            load_slot("x14", src.data);
+            load_slot("x9", di.len);
+            load_slot("x15", di.data);
+            if (slots == 1) {
+                emit("mov x10, x9");
+            } else {
+                emit_mov_const("x10", slots);
+                emit("mul x10, x9, x10");
+            }
+            emit_copy_words_runtime("x15", "x14", "x10");
+            return;
+        }
+        if (value->kind == Expr::Kind::Call) {
+            std::string rt = gen_expr(value);
+            if (!is_dynamic_array(rt)) {
+                throw TenetError::at_pos(
+                    "动态数组 `" + ty + "` 不能用返回 " + rt + " 的调用初始化", value->pos);
+            }
+            if (rt != ty) {
+                throw TenetError::at_pos(
+                    "动态数组类型不匹配：需要 " + ty + "，调用返回 " + rt, value->pos);
+            }
+            pop_reg("x10");
+            take_dynamic_from_desc(di, "x10");
+            return;
+        }
+        throw TenetError::at_pos(
+            "`" + ty + "` 初始化必须是 `[...]` 字面量、同类型动态数组变量或返回数组的调用",
+            value->pos);
+    }
+
+    /// 把动态数组值（`[...]` 字面量 / 同类型动态数组变量）写入描述符槽。
+    /// 字面量：cap = max(n, 4)；变量：按源 cap 分配新堆缓冲并深拷贝 len 个元素。
+    /// S3c-3b-2：元素为 struct 时转 init_dynamic_struct_into（stride=slots*8）。
+    void init_dynamic_into(const DynArrayInfo& di, const std::string& ty,
+                           const ExprPtr& value) {
+        if (!value) {
+            throw TenetError::at_pos("`" + ty + "` 初始化缺失", Position());
+        }
+        std::string elem = array_elem_checked(ty, value->pos);
+        if (is_struct(elem)) {
+            init_dynamic_struct_into(di, ty, value);
+            return;
+        }
+        if (value->kind == Expr::Kind::Array) {
+            int n = (int)value->args.size();
+            int cap = std::max(n, 4);  // 空数组也分配 cap=4
+            int64_t bytes = (int64_t)cap * 8;
+            emit_mov_const("x0", bytes);
+            emit("bl _malloc");
+            store_slot("x0", di.data);
+            emit_mov_const("x9", n);
+            store_slot("x9", di.len);
+            emit_mov_const("x9", cap);
+            store_slot("x9", di.cap);
+            for (int i = 0; i < n; ++i) {
+                std::string vt = gen_expr(value->args[i]);
+                if (vt != elem) {
+                    throw TenetError::at_pos("数组元素 " + std::to_string(i) +
+                                                 " 类型不匹配：需要 " + elem + "，实际 " + vt,
+                                             value->args[i]->pos);
+                }
+                if (is_float(elem)) {
+                    pop_reg("d9");
+                    emit("fmov x9, d9");  // 8 字节位模式
+                } else {
+                    pop_reg("x9");
+                }
+                load_slot("x14", di.data);
+                store_reg_offset("x9", "x14", 8 * i);
+            }
+            return;
+        }
+        if (value->kind == Expr::Kind::Var) {
+            std::string src_ty = scoped_var_type(value->name, value->pos);
+            if (!is_dynamic_array(src_ty)) {
+                throw TenetError::at_pos(
+                    "动态数组初始化需要同类型 `array<T>` 变量，`" + value->name + "` 是 " +
+                        src_ty,
+                    value->pos);
+            }
+            if (array_elem(src_ty) != elem) {
+                throw TenetError::at_pos(
+                    "动态数组类型不匹配：需要 " + ty + "，`" + value->name + "` 是 " + src_ty,
+                    value->pos);
+            }
+            const DynArrayInfo src = lookup_dyn(value->name, value->pos);
+            // cap / len 跨 malloc 保存（调用会破坏 x0-x18）。
+            load_slot("x9", src.cap);
+            push_reg("x9");
+            load_slot("x9", src.len);
+            push_reg("x9");
+            load_slot("x10", src.cap);
+            emit("lsl x0, x10, #3");
+            emit("bl _malloc");
+            store_slot("x0", di.data);
+            pop_reg("x9");
+            store_slot("x9", di.len);
+            pop_reg("x9");
+            store_slot("x9", di.cap);
+            // 深拷贝：新缓冲与源完全独立。
+            load_slot("x14", src.data);
+            load_slot("x9", di.len);
+            load_slot("x15", di.data);
+            emit("mov x13, #0");
+            std::string loop = new_label("dyn.copy");
+            std::string end = new_label("dyn.copy.end");
+            label(loop);
+            emit("cmp x13, x9");
+            emit("b.hs " + end);
+            emit("ldr x11, [x14, x13, lsl #3]");
+            emit("str x11, [x15, x13, lsl #3]");
+            emit("add x13, x13, #1");
+            emit("b " + loop);
+            label(end);
+            return;
+        }
+        if (value->kind == Expr::Kind::Call) {
+            // S3c-2：返回动态数组的调用——接管 sret 描述符里的堆缓冲，
+            // 临时描述符只是调用方栈槽，不 free；之后由本变量的 drop 释放堆缓冲。
+            std::string rt = gen_expr(value);
+            if (!is_dynamic_array(rt)) {
+                throw TenetError::at_pos(
+                    "动态数组 `" + ty + "` 不能用返回 " + rt + " 的调用初始化", value->pos);
+            }
+            if (rt != ty) {
+                throw TenetError::at_pos(
+                    "动态数组类型不匹配：需要 " + ty + "，调用返回 " + rt, value->pos);
+            }
+            pop_reg("x10");
+            take_dynamic_from_desc(di, "x10");
+            return;
+        }
+        throw TenetError::at_pos(
+            "`array<T>` 初始化必须是 `[...]` 字面量或同类型动态数组变量", value->pos);
+    }
+
+    /// let a: array<T> = [...]; / let b = a;（深拷贝）
+    void emit_dynamic_init(const Stmt& stmt, const std::string& ty) {
+        const DynArrayInfo di = lookup_dyn(stmt.name, stmt.pos);
+        init_dynamic_into(di, ty, stmt.value);
+    }
+
+    /// b = a / b = [...];：先构造新值（临时描述符），再 drop 旧 b，最后搬描述符。
+    void assign_dynamic(const std::string& dst, const std::string& dst_ty,
+                        const ExprPtr& value, const Position& pos) {
+        if (value && value->kind == Expr::Kind::Var && value->name == dst) {
+            return;  // b = b; 无操作（也不能先 drop 再拷自己）
+        }
+        const DynArrayInfo ddi = lookup_dyn(dst, pos);
+        DynArrayInfo tmp = alloc_dyn_scratch();
+        init_dynamic_into(tmp, dst_ty, value);
+        drop_dyn(ddi);
+        load_slot("x9", tmp.data);
+        store_slot("x9", ddi.data);
+        load_slot("x9", tmp.len);
+        store_slot("x9", ddi.len);
+        load_slot("x9", tmp.cap);
+        store_slot("x9", ddi.cap);
+    }
+
+    /// push(a, x)：容量不足时 cap*2（空数组 cap=4），malloc 新缓冲、拷贝、free 旧缓冲。
+    std::string gen_push(const std::vector<ExprPtr>& args, const Position& pos) {
+        if (args.size() != 2) {
+            throw TenetError::at_pos("`push` 需要两个参数：动态数组变量和值", pos);
+        }
+        if (!args[0] || args[0]->kind != Expr::Kind::Var) {
+            throw TenetError::at_pos("`push` 第一个参数必须是动态数组变量",
+                                     args[0] ? args[0]->pos : pos);
+        }
+        std::string ty = scoped_var_type(args[0]->name, args[0]->pos);
+        if (!is_array(ty)) {
+            throw TenetError::at_pos("`" + args[0]->name + "` 不是数组，不能 push",
+                                     args[0]->pos);
+        }
+        if (!is_dynamic_array(ty)) {
+            throw TenetError::at_pos("`" + args[0]->name + "` 是定长数组 " + ty +
+                                         "，不能 push（push 只支持 array<T> 动态数组）",
+                                     args[0]->pos);
+        }
+        std::string elem = array_elem_checked(ty, args[0]->pos);
+        const DynArrayInfo di = lookup_dyn(args[0]->name, args[0]->pos);
+        if (is_struct(elem)) {
+            // S3c-3b-2：push(a, S { ... }) / push(a, s)：按 slots 个扁平槽追加。
+            return gen_push_struct(di, ty, elem, args[1]);
+        }
+        std::string vt = gen_expr(args[1]);
+        if (vt != elem) {
+            throw TenetError::at_pos("push 值类型不匹配：需要 " + elem + "，实际 " + vt,
+                                     args[1]->pos);
+        }
+        if (is_float(elem)) {
+            pop_reg("d9");
+            emit("fmov x11, d9");
+        } else {
+            pop_reg("x11");
+        }
+        load_slot("x9", di.len);
+        load_slot("x10", di.cap);
+        emit("cmp x9, x10");
+        std::string grow = new_label("dyn.grow");
+        std::string after = new_label("dyn.grow.after");
+        emit("b.eq " + grow);
+        // 容量足够：data[len] = value; len += 1
+        load_slot("x14", di.data);
+        emit("str x11, [x14, x9, lsl #3]");
+        emit("add x9, x9, #1");
+        store_slot("x9", di.len);
+        emit("b " + after);
+        label(grow);
+        // 扩容：newcap = cap*2（cap==0 时保底 4），malloc → 拷 len 个 → 写新元素 → free 旧。
+        emit("add x12, x10, x10");
+        emit("cmp x10, #0");
+        emit("mov x13, #4");
+        emit("csel x12, x13, x12, eq");
+        push_reg("x9");   // len
+        push_reg("x12");  // newcap
+        push_reg("x11");  // value
+        emit("lsl x0, x12, #3");
+        emit("bl _malloc");
+        pop_reg("x11");
+        pop_reg("x12");
+        pop_reg("x9");
+        emit("mov x14, x0");        // 新缓冲
+        load_slot("x15", di.data);  // 旧缓冲
+        emit("mov x13, #0");
+        std::string copy = new_label("dyn.grow.copy");
+        std::string copy_end = new_label("dyn.grow.copy.end");
+        label(copy);
+        emit("cmp x13, x9");
+        emit("b.hs " + copy_end);
+        emit("ldr x10, [x15, x13, lsl #3]");
+        emit("str x10, [x14, x13, lsl #3]");
+        emit("add x13, x13, #1");
+        emit("b " + copy);
+        label(copy_end);
+        emit("str x11, [x14, x9, lsl #3]");
+        store_slot("x14", di.data);
+        store_slot("x12", di.cap);
+        emit("add x9, x9, #1");
+        store_slot("x9", di.len);
+        emit("mov x0, x15");
+        emit("bl _free");
+        label(after);
+        return "void";
+    }
+
+    /// S3c-3b-2：push 一个 struct 元素。值先打包到栈上临时缓冲（slots 个槽），
+    /// 容量不足时按 slots*8 字节扩容并搬运 len*slots 个槽，再追加新元素。
+    std::string gen_push_struct(const DynArrayInfo& di, const std::string& ty,
+                                const std::string& elem, const ExprPtr& value) {
+        int slots = array_elem_slots(ty, value->pos);
+        if (value->kind == Expr::Kind::StructLit && value->name != elem) {
+            throw TenetError::at_pos(
+                "push 值类型不匹配：需要 " + elem + "，字面量是 " + value->name, value->pos);
+        }
+        if (value->kind == Expr::Kind::Var) {
+            std::string vt = scoped_var_type(value->name, value->pos);
+            if (vt != elem) {
+                throw TenetError::at_pos(
+                    "push 值类型不匹配：需要 " + elem + "，实际 " + vt, value->pos);
+            }
+        }
+        int buf = alloc_scratch(slots);
+        pack_expr_to_buffer(buf, elem, value);
+        load_slot("x9", di.len);
+        load_slot("x10", di.cap);
+        emit("cmp x9, x10");
+        std::string grow = new_label("dyn.grow");
+        std::string after = new_label("dyn.grow.after");
+        emit("b.eq " + grow);
+        // 容量足够：把临时缓冲的 slots 个槽写到 data[len*slots]。
+        load_slot("x14", di.data);
+        emit_flat_slot_index("x15", "x9", slots, 0);
+        emit("add x14, x14, x15, lsl #3");
+        for (int k = 0; k < slots; ++k) {
+            load_slot("x12", buf - 8 * k);
+            store_reg_offset("x12", "x14", 8 * k);
+        }
+        emit("add x9, x9, #1");
+        store_slot("x9", di.len);
+        emit("b " + after);
+        label(grow);
+        // 扩容：newcap = cap*2（cap==0 时保底 4），malloc → 拷 len*slots 槽 → free 旧缓冲。
+        emit("add x12, x10, x10");
+        emit("cmp x10, #0");
+        emit("mov x13, #4");
+        emit("csel x12, x13, x12, eq");
+        push_reg("x9");   // len
+        push_reg("x12");  // newcap
+        if (slots == 1) {
+            emit("lsl x0, x12, #3");
+        } else {
+            emit_mov_const("x0", slots);
+            emit("mul x0, x12, x0");
+            emit("lsl x0, x0, #3");
+        }
+        emit("bl _malloc");
+        pop_reg("x12");
+        pop_reg("x9");
+        emit("mov x14, x0");        // 新缓冲
+        load_slot("x15", di.data);  // 旧缓冲
+        if (slots == 1) {
+            emit("mov x10, x9");
+        } else {
+            emit_mov_const("x10", slots);
+            emit("mul x10, x9, x10");
+        }
+        emit_copy_words_runtime("x14", "x15", "x10");
+        store_slot("x14", di.data);
+        store_slot("x12", di.cap);
+        // free 旧缓冲会破坏调用者寄存器：先保存新 data 与旧 len。
+        push_reg("x14");
+        push_reg("x9");
+        emit("mov x0, x15");
+        emit("bl _free");
+        pop_reg("x9");
+        pop_reg("x14");
+        // 新元素写到新缓冲末尾（旧 len*slots 处）。
+        emit_flat_slot_index("x12", "x9", slots, 0);
+        emit("add x12, x14, x12, lsl #3");
+        for (int k = 0; k < slots; ++k) {
+            load_slot("x11", buf - 8 * k);
+            store_reg_offset("x11", "x12", 8 * k);
+        }
+        emit("add x9, x9, #1");
+        store_slot("x9", di.len);
+        label(after);
+        return "void";
     }
 
     // ---- 表达式 ----
@@ -1157,30 +3820,31 @@ private:
                 }
                 return t;
             }
-            case Expr::Kind::Index:
+            case Expr::Kind::Index: {
+                NestedIndexParts np;
+                if (nested_index_parts(e, np)) return gen_nested_index_read(e);
                 return gen_index_read(e);
+            }
             case Expr::Kind::Array:
-                throw TenetError::at_pos("数组字面量只能用于 let 初始化或整体赋值", e->pos);
+                throw TenetError::at_pos(
+                    "数组字面量只能用于 let 初始化或整体赋值、函数实参或返回值", e->pos);
             case Expr::Kind::Field: {
-                const ExprPtr& base = e->lhs;
-                if (!base || base->kind != Expr::Kind::Var) {
-                    throw TenetError::at_pos(
-                        "v1 只支持对 struct 变量取字段（不支持嵌套字段链）",
-                        base ? base->pos : e->pos);
-                }
-                std::string ft = field_access_type(base->name, e->name, e->pos, false);
-                int off = field_slot(base->name, e->name, e->pos);
-                if (is_float(ft)) {
+                StructElemRef er;
+                if (struct_elem_path(e, er)) return gen_struct_array_field_read(e);
+                FieldRef ref = resolve_field(e, false);
+                int off = field_slot(ref.var, ref.path, e->pos);
+                if (is_float(ref.ty)) {
                     load_slot("d9", off);
                     push_reg("d9");
                 } else {
                     load_slot("x9", off);
                     push_reg("x9");
                 }
-                return ft;
+                return ref.ty;
             }
             case Expr::Kind::StructLit:
-                throw TenetError::at_pos("struct 字面量只能用于 let 初始化或整体赋值", e->pos);
+                throw TenetError::at_pos(
+                    "struct 字面量只能用于 let 初始化、函数参数/返回值或整体赋值", e->pos);
             case Expr::Kind::Assign: {
                 const ExprPtr& target = e->lhs;
                 if (!target) {
@@ -1190,7 +3854,11 @@ private:
                     int off = lookup_slot(target->name, target->pos);
                     std::string t = var_type(target->name, target->pos);
                     if (is_array(t)) {
-                        assign_array(target->name, t, e->value, e->pos);
+                        if (is_dynamic_array(t)) {
+                            assign_dynamic(target->name, t, e->value, e->pos);
+                        } else {
+                            assign_array(target->name, t, e->value, e->pos);
+                        }
                         return "void";  // 数组赋值不产生可用的标量结果
                     }
                     if (is_struct(t)) {
@@ -1209,27 +3877,29 @@ private:
                     return t;
                 }
                 if (target->kind == Expr::Kind::Index) {
+                    NestedIndexParts np;
+                    if (nested_index_parts(target, np)) {
+                        return gen_nested_index_write(target, e->value);
+                    }
                     return gen_index_write(e, target);
                 }
                 if (target->kind == Expr::Kind::Field) {
-                    const ExprPtr& base = target->lhs;
-                    if (!base || base->kind != Expr::Kind::Var) {
-                        throw TenetError::at_pos(
-                            "v1 只支持对 struct 变量写字段",
-                            base ? base->pos : target->pos);
+                    StructElemRef er;
+                    if (struct_elem_path(target, er)) {
+                        return gen_struct_array_field_write(target, e->value);
                     }
-                    std::string ft = field_access_type(base->name, target->name, target->pos, true);
+                    FieldRef ref = resolve_field(target, true);
                     std::string vt = gen_expr(e->value);
-                    if (vt != ft) {
-                        throw TenetError::at_pos("字段 `" + target->name + "` 类型不匹配：需要 " +
-                                                     ft + "，实际 " + vt,
+                    if (vt != ref.ty) {
+                        throw TenetError::at_pos("字段 `" + ref.path + "` 类型不匹配：需要 " +
+                                                     ref.ty + "，实际 " + vt,
                                                  e->value->pos);
                     }
-                    int off = field_slot(base->name, target->name, target->pos);
-                    pop_reg(is_float(ft) ? "d9" : "x9");
-                    store_slot(is_float(ft) ? "d9" : "x9", off);
-                    push_reg(is_float(ft) ? "d9" : "x9");
-                    return ft;
+                    int off = field_slot(ref.var, ref.path, target->pos);
+                    pop_reg(is_float(ref.ty) ? "d9" : "x9");
+                    store_slot(is_float(ref.ty) ? "d9" : "x9", off);
+                    push_reg(is_float(ref.ty) ? "d9" : "x9");
+                    return ref.ty;
                 }
                 throw TenetError::at_pos("赋值左侧必须是变量、字段或数组元素", target->pos);
             }
@@ -1418,6 +4088,12 @@ private:
         if (!is_array(t)) {
             throw TenetError::at_pos("`" + a->name + "` 不是数组，不能取 len", a->pos);
         }
+        if (is_dynamic_array(t)) {
+            // S3c：动态数组长度运行时读取 len 槽。
+            load_slot("x9", lookup_dyn(a->name, a->pos).len);
+            push_reg("x9");
+            return T_INT;
+        }
         int len = lookup_array_len(a->name, a->pos);
         emit_int_const(len);
         push_reg("x9");
@@ -1427,6 +4103,7 @@ private:
     std::string gen_call(const std::string& callee, const std::vector<ExprPtr>& args,
                          const Position& pos) {
         if (callee == "print") return gen_print(args, pos);
+        if (callee == "push") return gen_push(args, pos);
         if (callee == "len") return gen_len(args, pos);
         auto it = functions_.find(callee);
         if (it == functions_.end()) {
@@ -1438,9 +4115,23 @@ private:
                                          " 个参数，实际传入 " + std::to_string(args.size()) + " 个",
                                      pos);
         }
-        if (args.size() > 8) throw TenetError::at_pos("暂不支持超过 8 个参数", pos);
-        // 参数类型核对（print 除外）：期望类型 vs 实际类型
+        bool ret_struct = sig.ret.has_value() && is_struct(*sig.ret);
+        auto ret_len = sig.ret.has_value() ? array_decl_len(*sig.ret) : std::nullopt;
+        bool ret_dynamic = sig.ret.has_value() && is_dynamic_array(*sig.ret);
+        bool ret_composite = ret_struct || ret_len.has_value() || ret_dynamic;
+        size_t base_pos = ret_composite ? 1 : 0;  // struct/array 返回值占隐藏第一参数 x0
+        if (args.size() + base_pos > 8) {
+            throw TenetError::at_pos(
+                "函数 `" + callee +
+                    "` 的参数位超过 8 个（sret 与 struct/array 指针也占参数位，x0-x7）",
+                pos);
+        }
+        // 参数类型核对（print 除外）：期望类型 vs 实际类型。
+        // 定长数组参数由 push_array_value / push_fixed_array_value 按元素类型 + 长度校验
+        // （多槽固定数组：array<S, N> 与嵌套数组，元素按扁平槽）。
+        // 动态数组参数由 push_dynamic_arg 校验（变量/字面量/返回动态数组的调用）。
         for (size_t i = 0; i < args.size(); ++i) {
+            if (is_array(sig.params[i])) continue;
             std::string at = infer_type(args[i]).value_or("?");
             if (at != sig.params[i]) {
                 throw TenetError::at_pos("函数 `" + callee + "` 参数 " + std::to_string(i) +
@@ -1448,12 +4139,76 @@ private:
                                          args[i]->pos);
             }
         }
-        for (const auto& a : args) gen_expr(a);
+        // struct/array 返回值：调用方先分配临时缓冲，地址作为隐藏第一参数传入。
+        // S3c-2 动态数组返回值用 3 槽描述符（data/len/cap 递增）；先清零，
+        // 被调函数异常落空时调用方接管的也是空描述符（free(NULL) 安全）。
+        int sret_off = 0;
+        if (ret_struct) {
+            int n = (int)flatten_struct(*sig.ret).size();
+            sret_off = alloc_scratch(n);
+        } else if (ret_dynamic) {
+            DynArrayInfo desc = alloc_dyn_desc();
+            sret_off = desc.data;
+            store_slot("xzr", desc.data);
+            store_slot("xzr", desc.len);
+            store_slot("xzr", desc.cap);
+        } else if (ret_len.has_value()) {
+            // S3b/S3c-3d：定长数组返回值在 sret 缓冲区里按总槽数存放
+            // （array<S, N> 为 N*slots，嵌套数组为 M*N；标量数组即 N）。
+            sret_off = alloc_array_scratch(*ret_len * array_elem_slots(*sig.ret, pos));
+        }
+        // 动态数组实参的临时堆缓冲（字面量/调用结果）：被调函数入口已深拷贝，
+        // 调用返回后统一 free；描述符本身是栈槽，不 free。
+        std::vector<DynArrayInfo> temp_dyn;
+        for (size_t i = 0; i < args.size(); ++i) {
+            if (is_struct(sig.params[i])) {
+                push_struct_value(sig.params[i], args[i]);
+            } else if (is_dynamic_array(sig.params[i])) {
+                push_dynamic_arg(sig.params[i], args[i], temp_dyn);
+            } else if (is_array(sig.params[i])) {
+                // S3c-3d：struct 元素 / 嵌套数组实参走扁平槽缓冲；
+                // 标量定长数组沿用 S3b 的逐元素路径。
+                if (fixed_array_flat_slots(sig.params[i], args[i]->pos)) {
+                    push_fixed_array_value(sig.params[i], args[i]);
+                } else {
+                    push_array_value(sig.params[i], args[i]);
+                }
+            } else {
+                gen_expr(args[i]);
+            }
+        }
         for (int i = (int)args.size() - 1; i >= 0; --i) {
-            pop_reg(is_float(sig.params[i]) ? "d" + std::to_string(i) : "x" + std::to_string(i));
+            size_t reg_pos = (size_t)i + base_pos;
+            if (is_struct(sig.params[i]) || is_array(sig.params[i])) {
+                pop_reg("x" + std::to_string(reg_pos));
+            } else {
+                pop_reg(is_float(sig.params[i]) ? "d" + std::to_string(reg_pos)
+                                                : "x" + std::to_string(reg_pos));
+            }
+        }
+        if (ret_composite) {
+            lea_slot("x0", sret_off);
         }
         emit("bl _" + callee);
+        // S3c-3a：被调函数入口已深拷贝，调用返回后只 free 字面量/调用结果实参的
+        // 临时堆缓冲（描述符是栈槽，不 free）。标量返回值在 x0/d0，跨 _free
+        // 调用先压栈保存；struct/array 返回值走 sret 缓冲，不占返回寄存器。
+        if (!temp_dyn.empty()) {
+            bool ret_scalar = sig.ret.has_value() && !ret_composite;
+            bool ret_x = ret_scalar && !is_float(*sig.ret);
+            bool ret_d = ret_scalar && is_float(*sig.ret);
+            if (ret_x) push_reg("x0");
+            if (ret_d) push_reg("d0");
+            for (auto it = temp_dyn.rbegin(); it != temp_dyn.rend(); ++it) drop_dyn(*it);
+            if (ret_x) pop_reg("x0");
+            if (ret_d) pop_reg("d0");
+        }
         if (!sig.ret.has_value()) return "void";
+        if (ret_composite) {
+            lea_slot("x9", sret_off);
+            push_reg("x9");
+            return *sig.ret;
+        }
         if (is_float(*sig.ret)) {
             push_reg("d0");
         } else {
@@ -1463,7 +4218,16 @@ private:
     }
 
     /// print(a, b, ...)：Apple 变参约定——fmt 在 x0，变参全部压栈（实测与 clang 一致）。
+    /// 暂存寄存器 x9-x15 只够 7 个变参；更多时额外借用 callee-saved x19/x20
+    /// （只在需要时成对保存/恢复，不影响常规 print 的栈帧）。
     std::string gen_print(const std::vector<ExprPtr>& args, const Position& pos) {
+        static const char* kTmpRegs[] = {"x9",  "x10", "x11", "x12", "x13",
+                                         "x14", "x15", "x19", "x20"};
+        int n = (int)args.size();
+        if (n > 9) throw TenetError::at_pos("print 暂不支持超过 9 个参数", pos);
+        bool need_callee_saved = n > 7;
+        if (need_callee_saved) emit("stp x19, x20, [sp, #-16]!");
+
         std::string fmt;
         std::vector<std::string> types;
         for (size_t i = 0; i < args.size(); ++i) {
@@ -1480,11 +4244,9 @@ private:
         std::string fmt_name = "L.fmt." + std::to_string(str_c_++);
         data_string(fmt, fmt_name);
 
-        int n = (int)args.size();
-        if (n > 7) throw TenetError::at_pos("print 暂不支持超过 7 个参数", pos);
-        // 逆序弹出到暂存寄存器 x9..x15（bool 转 true/false 串）
+        // 逆序弹出到暂存寄存器（bool 转 true/false 串）
         for (int i = n - 1; i >= 0; --i) {
-            std::string reg = "x" + std::to_string(9 + (n - 1 - i));
+            std::string reg = kTmpRegs[n - 1 - i];
             if (types[i] == T_BOOL) {
                 // 直接 pop 进目标寄存器；select 用 x16/x17（scratch，不占用结果寄存器）
                 pop_reg(reg);
@@ -1506,13 +4268,14 @@ private:
         int area = ((8 * n) + 15) / 16 * 16;
         if (area > 0) emit("sub sp, sp, #" + std::to_string(area));
         for (int i = 0; i < n; ++i) {
-            emit("str x" + std::to_string(9 + (n - 1 - i)) + ", [sp, #" +
+            emit(std::string("str ") + kTmpRegs[n - 1 - i] + ", [sp, #" +
                  std::to_string(8 * i) + "]");
         }
         emit("adrp x0, " + fmt_name + "@PAGE");
         emit("add x0, x0, " + fmt_name + "@PAGEOFF");
         emit("bl _printf");
         if (area > 0) emit("add sp, sp, #" + std::to_string(area));
+        if (need_callee_saved) emit("ldp x19, x20, [sp], #16");
         return "void";
     }
 
@@ -1526,6 +4289,22 @@ private:
             case Expr::Kind::Bool: return T_BOOL;
             case Expr::Kind::Var: return var_type(e->name, e->pos);
             case Expr::Kind::Index: {
+                NestedIndexParts np;
+                if (nested_index_parts(e, np)) {
+                    // S3c-3c：a[i][j] 的标量元素类型。
+                    NestedRef ref = nested_ref(np.base, e->pos, false);
+                    auto ot = infer_type(np.outer);
+                    if (ot.has_value() && *ot != T_INT) {
+                        throw TenetError::at_pos("数组下标必须是 int，实际为 " + *ot,
+                                                 np.outer->pos);
+                    }
+                    auto it = infer_type(np.inner);
+                    if (it.has_value() && *it != T_INT) {
+                        throw TenetError::at_pos("数组下标必须是 int，实际为 " + *it,
+                                                 np.inner->pos);
+                    }
+                    return ref.info.elem;
+                }
                 auto bt = infer_type(e->lhs);
                 if (!bt.has_value()) {
                     throw TenetError::at_pos("无法推断数组类型", e->lhs->pos);
@@ -1538,6 +4317,15 @@ private:
                 if (it.has_value() && *it != T_INT) {
                     throw TenetError::at_pos("数组下标必须是 int，实际为 " + *it, e->rhs->pos);
                 }
+                if (is_struct(*elem)) {
+                    throw TenetError::at_pos(
+                        "array<struct> 元素不能整体读取为 struct 值；请访问标量字段（如 a[i].x）",
+                        e->pos);
+                }
+                if (is_array(*elem)) {
+                    throw TenetError::at_pos(
+                        "嵌套数组元素不能整体取值；请用 a[i][j] 访问内层元素", e->pos);
+                }
                 return *elem;
             }
             case Expr::Kind::Array: {
@@ -1548,9 +4336,11 @@ private:
                 if (!first.has_value()) {
                     throw TenetError::at_pos("无法推断数组元素类型", e->pos);
                 }
-                if (*first != T_INT && *first != T_FLOAT && *first != T_BOOL) {
+                if (*first != T_INT && *first != T_FLOAT && *first != T_BOOL &&
+                    !is_struct(*first) && !is_array(*first)) {
                     throw TenetError::at_pos(
-                        "v1 数组元素只支持 int/float/bool，实际 `" + *first + "`", e->pos);
+                        "v1 数组元素只支持 int/float/bool 或 struct，实际 `" + *first + "`",
+                        e->pos);
                 }
                 for (size_t i = 1; i < e->args.size(); ++i) {
                     auto t = infer_type(e->args[i]);
@@ -1561,16 +4351,20 @@ private:
                             e->args[i]->pos);
                     }
                 }
-                return "array<" + *first + ">";
+                // S3b：字面量推断为定长 array<T, N>，长度是类型的一部分。
+                // S3c-3c：内层字面量推断为 array<array<T, N>, M>（仅局部变量）。
+                std::string result =
+                    "array<" + *first + "," + std::to_string(e->args.size()) + ">";
+                if (is_array(*first)) {
+                    array_elem_checked(result, e->pos);
+                    nested_array_info(result, e->pos);
+                }
+                return result;
             }
             case Expr::Kind::Field: {
-                const ExprPtr& base = e->lhs;
-                if (!base || base->kind != Expr::Kind::Var) {
-                    throw TenetError::at_pos(
-                        "v1 只支持对 struct 变量取字段（不支持嵌套字段链）",
-                        base ? base->pos : e->pos);
-                }
-                return field_access_type(base->name, e->name, e->pos, false);
+                StructElemRef er;
+                if (struct_elem_path(e, er)) return struct_array_field_type(e, false);
+                return resolve_field(e, false).ty;
             }
             case Expr::Kind::StructLit: {
                 if (!is_struct(e->name)) {
@@ -1587,6 +4381,22 @@ private:
                     return var_type(target->name, target->pos);
                 }
                 if (target->kind == Expr::Kind::Index) {
+                    NestedIndexParts np;
+                    if (nested_index_parts(target, np)) {
+                        // S3c-3c：a[i][j] = ... 返回内层标量元素类型。
+                        NestedRef ref = nested_ref(np.base, target->pos, true);
+                        auto ot = infer_type(np.outer);
+                        if (ot.has_value() && *ot != T_INT) {
+                            throw TenetError::at_pos("数组下标必须是 int，实际为 " + *ot,
+                                                     np.outer->pos);
+                        }
+                        auto it = infer_type(np.inner);
+                        if (it.has_value() && *it != T_INT) {
+                            throw TenetError::at_pos("数组下标必须是 int，实际为 " + *it,
+                                                     np.inner->pos);
+                        }
+                        return ref.info.elem;
+                    }
                     auto bt = infer_type(target->lhs);
                     if (!bt.has_value()) {
                         throw TenetError::at_pos("无法推断数组类型", target->lhs->pos);
@@ -1598,13 +4408,9 @@ private:
                     return *elem;
                 }
                 if (target->kind == Expr::Kind::Field) {
-                    const ExprPtr& base = target->lhs;
-                    if (!base || base->kind != Expr::Kind::Var) {
-                        throw TenetError::at_pos(
-                            "v1 只支持对 struct 变量写字段",
-                            base ? base->pos : target->pos);
-                    }
-                    return field_access_type(base->name, target->name, target->pos, true);
+                    StructElemRef er;
+                    if (struct_elem_path(target, er)) return struct_array_field_type(target, true);
+                    return resolve_field(target, true).ty;
                 }
                 throw TenetError::at_pos("赋值左侧必须是变量、字段或数组元素", target->pos);
             }
@@ -1674,6 +4480,7 @@ private:
             }
             case Expr::Kind::Call: {
                 if (e->name == "print") return std::nullopt;
+                if (e->name == "push") return std::nullopt;  // push 返回 void
                 if (e->name == "len") {
                     if (e->args.size() != 1) {
                         throw TenetError::at_pos("`len` 需要且只需要一个数组参数", e->pos);

@@ -1,0 +1,8 @@
+// 动态数组 array<T>：push / len / 深拷贝 / drop
+let a: array<int> = [1, 2];
+push(a, 3);
+let b = a;
+push(b, 4);
+a[0] = 9;
+print(len(a), a[0], a[1], a[2]);
+print(len(b), b[0], b[1], b[2], b[3]);

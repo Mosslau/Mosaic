@@ -1,0 +1,23 @@
+// S3c-3d：固定 array<struct, N> 与固定嵌套数组 array<array<T, N>, M> 参数/返回值 ABI
+//
+// - 参数：x 寄存器传元素 0 的地址，被调函数入口按总槽数（N*slots / M*N）
+//   拷贝到本地扁平 i64 槽，函数内就是普通局部数组（参数值语义）。
+// - 返回值：隐藏 sret 指针（x0），函数返回 void；`return 数组变量` 打包到 sret，
+//   调用方 `let b = f()` 从返回缓冲逐槽接管。
+// - 元素仍按 struct 扁平字段槽布局：P 每元素 2 槽，array<P, 2> 共 4 槽；
+//   嵌套数组 array<array<int, 2>, 2> 扁平 [M*N x i64]，共 4 槽。
+struct P { x: int; y: int; }
+
+fn pid(a: array<P, 2>) -> array<P, 2> { return a; }
+fn nid(a: array<array<int, 2>, 2>) -> array<array<int, 2>, 2> { return a; }
+
+let a: array<P, 2> = [P { x: 1, y: 2 }, P { x: 3, y: 4 }];
+let b: array<P, 2> = pid(a);
+b[0].x = 9;
+
+let n: array<array<int, 2>, 2> = [[1, 2], [3, 4]];
+let m: array<array<int, 2>, 2> = nid(n);
+m[0][1] = 7;
+
+// b 是 a 的值拷贝：改 b 不影响 a；n 同理
+print(b[0].x, b[1].y, n[0][0], m[0][1]);

@@ -1,5 +1,5 @@
 // array<T> v1：定长、下标读写、len、动态下标
-let a: array<int> = [3, 1, 2];
+let a: array<int, 3> = [3, 1, 2];
 let n: int = len(a);
 
 let i: int = 0;

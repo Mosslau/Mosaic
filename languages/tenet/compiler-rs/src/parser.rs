@@ -232,8 +232,23 @@ impl Parser {
                 self.advance();
                 self.expect(&TokenKind::Lt, "`<`")?;
                 let inner = self.parse_type()?;
-                self.expect(&TokenKind::Gt, "`>`")?;
-                Ok(format!("array<{inner}>"))
+                if self.check(&TokenKind::Comma) {
+                    self.advance();
+                    let n = match &self.peek().kind {
+                        TokenKind::Int(v) if *v > 0 => *v as usize,
+                        _ => {
+                            return Err(self.error(
+                                "array<T, N> 的 N 必须是正整数".to_string(),
+                            ))
+                        }
+                    };
+                    self.advance();
+                    self.expect(&TokenKind::Gt, "`>`")?;
+                    Ok(format!("array<{inner},{n}>"))
+                } else {
+                    self.expect(&TokenKind::Gt, "`>`")?;
+                    Ok(format!("array<{inner}>"))
+                }
             }
             TokenKind::Ident(name) => {
                 let name = name.clone();
@@ -669,11 +684,11 @@ mod tests {
     #[test]
     fn array_type_literal_index_len() {
         let prog = parse_ok(
-            "let a: array<int> = [1, 2, 3];\nlet n = len(a);\na[0] = a[1];",
+            "let a: array<int, 3> = [1, 2, 3];\nlet n = len(a);\na[0] = a[1];",
         );
         match &prog.stmts[0].kind {
             StmtKind::Let { ty, value, .. } => {
-                assert_eq!(ty.as_deref(), Some("array<int>"));
+                assert_eq!(ty.as_deref(), Some("array<int,3>"));
                 assert!(matches!(value.kind, ExprKind::Array(_)));
             }
             other => panic!("unexpected {other:?}"),
