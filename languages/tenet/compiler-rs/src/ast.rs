@@ -41,7 +41,11 @@ pub enum ExprKind {
     Str(String),
     Bool(bool),
     Var(String),
-    Assign { name: String, value: Box<Expr> },
+    Assign { target: Box<Expr>, value: Box<Expr> },
+    Field { base: Box<Expr>, field: String },
+    StructLit { name: String, fields: Vec<(String, Expr)> },
+    Array(Vec<Expr>),
+    Index { base: Box<Expr>, index: Box<Expr> },
     Unary { op: &'static str, expr: Box<Expr> },
     Binary { op: &'static str, lhs: Box<Expr>, rhs: Box<Expr> },
     Call { callee: String, args: Vec<Expr> },
@@ -75,6 +79,10 @@ pub enum StmtKind {
         params: Vec<(String, String)>,
         ret: Option<String>,
         body: Vec<Stmt>,
+    },
+    StructDecl {
+        name: String,
+        fields: Vec<(String, String)>,
     },
 }
 

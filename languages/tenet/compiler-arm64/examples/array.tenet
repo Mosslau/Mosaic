@@ -1,0 +1,35 @@
+// array<T> v1 示例：定长栈数组 / 下标读写 / len / 值拷贝
+let a: array<int> = [3, 1, 2];
+let n: int = len(a);
+
+// 冒泡排序：动态下标（运行时边界检查）
+let i: int = 0;
+while (i < n) {
+    let j: int = 0;
+    while (j < n - 1 - i) {
+        if (a[j] > a[j + 1]) {
+            let t: int = a[j];
+            a[j] = a[j + 1];
+            a[j + 1] = t;
+        }
+        j = j + 1;
+    }
+    i = i + 1;
+}
+print(a[0], a[1], a[2], len(a));   // 1 2 3 3
+
+// 值拷贝：b 与 a 各占独立栈槽，互不影响
+let b = a;
+b[0] = 9;
+print(a[0], b[0]);                  // 1 9
+
+// 整体赋值：同长度字面量
+a = [7, 8, 9];
+print(a[0], a[1], a[2]);            // 7 8 9
+
+// float / bool 元素（每个元素仍占 8 字节槽）
+let f: array<float> = [1.5, 2.5];
+print(f[0], f[1], len(f));          // 1.5 2.5 2
+
+let t: array<bool> = [true, false];
+print(t[0], t[1], len(t));          // true false 2

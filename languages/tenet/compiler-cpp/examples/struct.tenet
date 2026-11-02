@@ -1,0 +1,11 @@
+// struct v1：字段读写、值拷贝、整体赋值
+struct Point {
+    x: int;
+    y: int;
+}
+
+let p: Point = Point { x: 1, y: 2 };
+let q = p;          // 逐字段值拷贝
+p.x = p.x + 1;      // 字段写
+p = Point { x: 10, y: 20 };  // 整体赋值
+print(p.x, q.x, q.y);

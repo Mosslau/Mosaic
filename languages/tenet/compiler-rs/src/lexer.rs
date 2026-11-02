@@ -231,6 +231,8 @@ impl Lexer {
         let kind = match text.as_str() {
             "let" => TokenKind::Let,
             "fn" => TokenKind::Fn,
+            "struct" => TokenKind::Struct,
+            "array" => TokenKind::ArrayType,
             "if" => TokenKind::If,
             "else" => TokenKind::Else,
             "while" => TokenKind::While,
@@ -257,6 +259,9 @@ impl Lexer {
             ')' => TokenKind::RParen,
             '{' => TokenKind::LBrace,
             '}' => TokenKind::RBrace,
+            '.' => TokenKind::Dot,
+            '[' => TokenKind::LBracket,
+            ']' => TokenKind::RBracket,
             ',' => TokenKind::Comma,
             ':' => TokenKind::Colon,
             ';' => TokenKind::Semi,

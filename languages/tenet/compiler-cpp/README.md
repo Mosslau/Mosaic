@@ -11,7 +11,7 @@
 | 后端方式 | **LLVM 后端库（进程内）**：IRBuilder 内存构建 IR → TargetMachine 产出机器码（rustc 方式） |
 | 产出 | 原生可执行二进制（Mach-O / ELF） |
 | 特点 | 进程内完整控制（常量折叠自动生效）；真正的"链接 LLVM 库"路线实证 |
-| 测试 | 74 项检查 |
+| 测试 | 195 项检查 |
 
 ## 管线
 
@@ -42,9 +42,9 @@ compiler-cpp/
 │   ├── lexer.hpp     # 词法分析
 │   ├── ast.hpp       # 抽象语法树（标签结构体）
 │   ├── parser.hpp    # 语法分析
-│   ├── codegen.hpp   # 类型推断 + LLVM C++ API 代码生成（含 74 项测试的断言对象）
+│   ├── codegen.hpp   # 类型推断 + struct/array + LLVM C++ API 代码生成
 │   └── main.cpp      # CLI + 进程内后端（TargetMachine）+ 内嵌 runtime.c
-├── examples/         # hello / fib / fizzbuzz
+├── examples/         # hello / fib / fizzbuzz / struct / array
 └── tests/            # test_main.cpp
 ```
 
@@ -56,9 +56,10 @@ compiler-cpp/
 cd tenet/compiler-cpp
 
 make                    # 构建 tenet 与 test_tenet 并跑测试
-make test               # 74 项检查
+make test               # 195 项检查
 ./tenet build examples/hello.tenet -o hello && ./hello   # 编译为二进制并运行
 ./tenet run examples/fib.tenet          # 编译 + 运行一步到位
+./tenet run examples/array.tenet        # array v1：字面量 / 下标 / len / 拷贝
 ./tenet ir examples/hello.tenet         # 打印 LLVM IR（Module::print）
 ```
 
@@ -69,13 +70,16 @@ make test               # 74 项检查
 
 | 类别 | 内容 |
 |---|---|
-| 类型 | `int` / `float` / `bool` / `string` |
+| 类型 | `int` / `float` / `bool` / `string`；局部 `struct`；定长 `array<int/float/bool>` |
 | 变量 | `let`（类型标注可选，静态推断）、赋值（值语义） |
 | 函数 | `fn f(a: int) -> int`、递归 |
 | 控制流 | `if/else if/else`、`while`（唯一循环）、`break`、`return` |
 | 运算符 | 算术（向零截断整除/取模）、比较、`&&`/`\|\|` 短路、一元 `-`/`!` |
 | 字符串 | 拼接、比较（经 runtime.c：tenet_concat / tenet_strcmp） |
-| 内建 | `print(...)`（任意类型，编译期拼 printf 格式串） |
+| 运行时 | `tenet_concat` / `tenet_strcmp` / `tenet_bounds_fail`（越界报错退出） |
+| 内建 | `print(...)`（标量及数组元素，编译期拼 printf 格式串；数组变量本身不可直接打印） |
+| struct | v1：顶层声明（字段仅 `int`/`float`/`bool`）、局部变量、字段读写、逐字段值拷贝/整体赋值 |
+| array | v1：定长字面量、下标读写、`len`、逐元素值拷贝；编译期常量越界 / 运行时动态越界（`tenet_bounds_fail`，stderr + exit 1）；仅局部变量，不做参数/返回值/嵌套 |
 | 注释 | `//` 与 `/* */` |
 
 ## 设计要点
@@ -86,9 +90,12 @@ make test               # 74 项检查
    二者必须与 `CompiledModule{ctx, mod}` 一起转移所有权，否则 context 析构后模块悬空 → 段错误
 3. **基本块 + phi**：`if`/`while`/短路用基本块；短路结果用 `CreatePHI`（进程内 API 下最简洁）
 4. **常量折叠**：LLVM 自动做编译期求值（`7 / 2.0` 在 IR 阶段就算成 3.5）——进程内库的天然优化
-5. **后端**：`InitializeAllTargets` → `TargetMachine` → `legacy::PassManager`
+5. **数组**：`alloca [N x T]` + GEP + load/store；常量下标编译期越界报错，
+   动态下标生成 `idx >= len`（无符号比较）分支，越界调用 `tenet_bounds_fail(i64, i64)`
+   （runtime.c 中 `fprintf(stderr, ...)` + `exit(1)`）
+6. **后端**：`InitializeAllTargets` → `TargetMachine` → `legacy::PassManager`
    `addPassesToEmitFile` 产出对象文件 → 系统 `cc` 链接
-6. **LLVM 21 API 适配**：`Triple.h`/`Host.h` 移至 `TargetParser/`、`verifyModule` 签名、
+7. **LLVM 21 API 适配**：`Triple.h`/`Host.h` 移至 `TargetParser/`、`verifyModule` 签名、
    `setTargetTriple` 收 `Triple`、`getOpcode()` 返回 `unsigned`
 
 ## 测试
@@ -98,11 +105,14 @@ make test
 ```
 
 词法/语法用文本断言；代码生成用 **LLVM Module 结构断言**（main 含 alloca/store、
-add 含 Add 指令、fib 递归自调用、短路含 phi、混合提升含 sitofp）。
+add 含 Add 指令、fib 递归自调用、短路含 phi、混合提升含 sitofp；array 断言
+`[N x T]` alloca / GEP / `tenet_bounds_fail` 调用）。共 195 项检查。
 
 ## 已知限制与演进
 
-- 只支持核心子集；`struct`/`array`/`Option`/`Result`/`match` 设计已定待实现
+- struct v1 仅支持顶层声明 + 局部变量（字段 int/float/bool）：不支持 struct 参数/返回值、嵌套 struct、直接 `print`
+- array v1 仅支持局部变量：定长、元素限 int/float/bool；不支持参数/返回值、空数组、动态扩容、嵌套数组、`array<struct>`、struct 字段 array、直接 `print(a)`
+- `Option`/`Result`/`match` 设计已定待实现
 - 未开启 `-O2`（可 `TargetMachine` 配置或 `opt` pass）
 - 链接用系统 `cc`（LLVM 完成 IR→机器码，链接与 rustc 一样交给系统链接器）
 
@@ -113,8 +123,8 @@ add 含 Add 指令、fib 递归自调用、短路含 phi、混合提升含 sitof
 | 语言 | Rust | C++17 | C++17 |
 | 后端 | clang 驱动（.ll 文本） | LLVM 库进程内（rustc 方式） | 手写 AArch64 后端（零 LLVM） |
 | 链接 | clang | 系统 `cc` | 系统 `as` + `ld` |
-| 测试 | 41 | 74 | 68 |
-| 产物 | 原生二进制，输出逐字节一致 | 同左 | 同左 |
+| 测试 | 66 | 195 | 234 |
+| 产物 | 原生二进制，示例输出一致 | 同左 | 同左 |
 
 compiler-cpp 证明了"从 clang 驱动切换到链接 LLVM 库"的路线：前端产物不变，
 后端集成方式可换，编译出的二进制行为一致。

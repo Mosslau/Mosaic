@@ -10,9 +10,9 @@ namespace tenet {
 
 enum class Kind {
     Int, Float, Str, Ident,
-    Let, Fn, If, Else, While, Return, Break, True, False,
-    IntType, FloatType, BoolType, StrType,
-    LParen, RParen, LBrace, RBrace, Comma, Colon, Semi, Arrow, Assign,
+    Let, Fn, Struct, If, Else, While, Return, Break, True, False,
+    IntType, FloatType, BoolType, StrType, ArrayType,
+    LParen, RParen, LBrace, RBrace, LBracket, RBracket, Dot, Comma, Colon, Semi, Arrow, Assign,
     Plus, Minus, Star, Slash, Percent,
     Eq, Neq, Lt, Lte, Gt, Gte, And, Or, Not,
     Eof,
@@ -34,6 +34,7 @@ inline std::string describe(Kind kind, const Token& tok) {
         case Kind::Ident: return "标识符 `" + tok.str_val + "`";
         case Kind::Let: return "`let`";
         case Kind::Fn: return "`fn`";
+        case Kind::Struct: return "`struct`";
         case Kind::If: return "`if`";
         case Kind::Else: return "`else`";
         case Kind::While: return "`while`";
@@ -45,10 +46,14 @@ inline std::string describe(Kind kind, const Token& tok) {
         case Kind::FloatType: return "类型 `float`";
         case Kind::BoolType: return "类型 `bool`";
         case Kind::StrType: return "类型 `string`";
+        case Kind::ArrayType: return "`array`";
         case Kind::LParen: return "`(`";
         case Kind::RParen: return "`)`";
         case Kind::LBrace: return "`{`";
         case Kind::RBrace: return "`}`";
+        case Kind::LBracket: return "`[`";
+        case Kind::RBracket: return "`]`";
+        case Kind::Dot: return "`.`";
         case Kind::Comma: return "`,`";
         case Kind::Colon: return "`:`";
         case Kind::Semi: return "`;`";

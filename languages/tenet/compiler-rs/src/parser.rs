@@ -71,6 +71,7 @@ impl Parser {
         let kind = match &self.peek().kind {
             TokenKind::Let => self.parse_let()?,
             TokenKind::Fn => self.parse_fn_decl()?,
+            TokenKind::Struct => self.parse_struct_decl()?,
             TokenKind::If => self.parse_if()?,
             TokenKind::While => self.parse_while()?,
             TokenKind::Return => self.parse_return()?,
@@ -134,6 +135,25 @@ impl Parser {
             ret,
             body,
         })
+    }
+
+    fn parse_struct_decl(&mut self) -> TResult<StmtKind> {
+        self.advance();
+        let name = self.expect_ident("struct 名")?;
+        self.expect(&TokenKind::LBrace, "`{`")?;
+        let mut fields = Vec::new();
+        while !self.check(&TokenKind::RBrace) && !self.check(&TokenKind::Eof) {
+            let fname = self.expect_ident("字段名")?;
+            self.expect(&TokenKind::Colon, "`:`")?;
+            let fty = self.parse_type()?;
+            self.expect(&TokenKind::Semi, "`;`")?;
+            fields.push((fname, fty));
+        }
+        self.expect(&TokenKind::RBrace, "`}`")?;
+        if self.check(&TokenKind::Semi) {
+            self.advance();
+        }
+        Ok(StmtKind::StructDecl { name, fields })
     }
 
     fn parse_if(&mut self) -> TResult<StmtKind> {
@@ -208,8 +228,20 @@ impl Parser {
                 self.advance();
                 Ok(T_STR.to_string())
             }
+            TokenKind::ArrayType => {
+                self.advance();
+                self.expect(&TokenKind::Lt, "`<`")?;
+                let inner = self.parse_type()?;
+                self.expect(&TokenKind::Gt, "`>`")?;
+                Ok(format!("array<{inner}>"))
+            }
+            TokenKind::Ident(name) => {
+                let name = name.clone();
+                self.advance();
+                Ok(name)
+            }
             _ => Err(self.error(format!(
-                "期望类型 `int` / `float` / `bool` / `string`，但遇到 {}",
+                "期望类型 `int` / `float` / `bool` / `string` 或 struct 名，但遇到 {}",
                 self.peek().kind.describe()
             ))),
         }
@@ -248,7 +280,26 @@ impl Parser {
     }
 
     fn parse_expr(&mut self) -> TResult<Expr> {
-        self.parse_binary(0)
+        let lhs = self.parse_binary(0)?;
+        if self.check(&TokenKind::Assign) {
+            let pos = lhs.pos.clone();
+            if !matches!(lhs.kind, ExprKind::Var(_) | ExprKind::Field { .. } | ExprKind::Index { .. }) {
+                return Err(TenetError::at_pos(
+                    "赋值左侧必须是变量或字段".to_string(),
+                    pos,
+                ));
+            }
+            self.advance();
+            let value = self.parse_expr()?;
+            return Ok(Expr {
+                pos,
+                kind: ExprKind::Assign {
+                    target: Box::new(lhs),
+                    value: Box::new(value),
+                },
+            });
+        }
+        Ok(lhs)
     }
 
     fn parse_binary(&mut self, min_prec: u8) -> TResult<Expr> {
@@ -293,7 +344,7 @@ impl Parser {
                 },
             });
         }
-        self.parse_primary()
+        self.parse_postfix()
     }
 
     fn parse_primary(&mut self) -> TResult<Expr> {
@@ -339,16 +390,8 @@ impl Parser {
                 self.advance();
                 if self.check(&TokenKind::LParen) {
                     self.parse_call_args(name.clone(), pos)
-                } else if self.check(&TokenKind::Assign) {
-                    self.advance();
-                    let value = self.parse_expr()?;
-                    Ok(Expr {
-                        pos,
-                        kind: ExprKind::Assign {
-                            name: name.clone(),
-                            value: Box::new(value),
-                        },
-                    })
+                } else if self.check(&TokenKind::LBrace) {
+                    self.parse_struct_lit(name.clone(), pos)
                 } else {
                     Ok(Expr {
                         pos,
@@ -362,11 +405,84 @@ impl Parser {
                 self.expect(&TokenKind::RParen, "`)`")?;
                 Ok(expr)
             }
+            TokenKind::LBracket => {
+                self.advance();
+                let mut elems = Vec::new();
+                if !self.check(&TokenKind::RBracket) {
+                    loop {
+                        elems.push(self.parse_expr()?);
+                        if !self.check(&TokenKind::Comma) {
+                            break;
+                        }
+                        self.advance();
+                    }
+                }
+                self.expect(&TokenKind::RBracket, "`]`")?;
+                Ok(Expr {
+                    pos,
+                    kind: ExprKind::Array(elems),
+                })
+            }
             _ => Err(self.error(format!(
                 "期望一个表达式，但遇到 {}",
                 tok.kind.describe()
             ))),
         }
+    }
+
+    fn parse_postfix(&mut self) -> TResult<Expr> {
+        let mut expr = self.parse_primary()?;
+        loop {
+            if self.check(&TokenKind::Dot) {
+                self.advance();
+                let field = self.expect_ident("字段名")?;
+                let pos = expr.pos.clone();
+                expr = Expr {
+                    pos,
+                    kind: ExprKind::Field {
+                        base: Box::new(expr),
+                        field,
+                    },
+                };
+            } else if self.check(&TokenKind::LBracket) {
+                self.advance();
+                let index = self.parse_expr()?;
+                self.expect(&TokenKind::RBracket, "`]`")?;
+                let pos = expr.pos.clone();
+                expr = Expr {
+                    pos,
+                    kind: ExprKind::Index {
+                        base: Box::new(expr),
+                        index: Box::new(index),
+                    },
+                };
+            } else {
+                break;
+            }
+        }
+        Ok(expr)
+    }
+
+    fn parse_struct_lit(&mut self, name: String, pos: Position) -> TResult<Expr> {
+        self.expect(&TokenKind::LBrace, "`{`")?;
+        let mut fields = Vec::new();
+        if !self.check(&TokenKind::RBrace) {
+            loop {
+                let fname = self.expect_ident("字段名")?;
+                self.expect(&TokenKind::Colon, "`:`")?;
+                let value = self.parse_expr()?;
+                fields.push((fname, value));
+                if !self.check(&TokenKind::Comma) {
+                    break;
+                }
+                self.advance();
+            }
+        }
+        self.expect(&TokenKind::RBrace, "`}`")?;
+        Ok(Expr {
+            pos,
+            kind: ExprKind::StructLit { name, fields },
+        })
     }
 
     fn parse_call_args(&mut self, callee: String, pos: Position) -> TResult<Expr> {
@@ -485,10 +601,10 @@ mod tests {
         let prog = parse_ok("x = f(1, 2);");
         match &prog.stmts[0].kind {
             StmtKind::Expr(Expr {
-                kind: ExprKind::Assign { name, value },
+                kind: ExprKind::Assign { target, value },
                 ..
             }) => {
-                assert_eq!(name, "x");
+                assert!(matches!(target.kind, ExprKind::Var(ref n) if n == "x"));
                 let ExprKind::Call { callee, args } = &value.kind else {
                     panic!()
                 };
@@ -504,4 +620,70 @@ mod tests {
         assert!(Parser::parse("let x: int = 1").unwrap_err().message.contains("`;`"));
         assert!(Parser::parse("if x > 0 { }").unwrap_err().message.contains("`(`"));
     }
+
+    #[test]
+    fn struct_decl_literal_and_field_assign() {
+        let prog = parse_ok(
+            "struct Point { x: int; y: int; }\nlet p: Point = Point { x: 1, y: 2 };\np.x = p.y;",
+        );
+        match &prog.stmts[0].kind {
+            StmtKind::StructDecl { name, fields } => {
+                assert_eq!(name, "Point");
+                assert_eq!(fields.len(), 2);
+                assert_eq!(fields[0], ("x".to_string(), T_INT.to_string()));
+            }
+            other => panic!("unexpected {other:?}"),
+        }
+        match &prog.stmts[1].kind {
+            StmtKind::Let { name, ty, value } => {
+                assert_eq!(name, "p");
+                assert_eq!(ty.as_deref(), Some("Point"));
+                assert!(matches!(value.kind, ExprKind::StructLit { .. }));
+            }
+            other => panic!("unexpected {other:?}"),
+        }
+        match &prog.stmts[2].kind {
+            StmtKind::Expr(Expr { kind: ExprKind::Assign { target, .. }, .. }) => {
+                assert!(matches!(target.kind, ExprKind::Field { .. }));
+            }
+            other => panic!("unexpected {other:?}"),
+        }
+    }
+
+    #[test]
+    fn struct_field_read_postfix() {
+        let prog = parse_ok("let y = p.x;");
+        let StmtKind::Let { value, .. } = &prog.stmts[0].kind else {
+            panic!()
+        };
+        match &value.kind {
+            ExprKind::Field { base, field } => {
+                assert_eq!(field, "x");
+                assert!(matches!(base.kind, ExprKind::Var(ref n) if n == "p"));
+            }
+            other => panic!("unexpected {other:?}"),
+        }
+    }
+
+
+    #[test]
+    fn array_type_literal_index_len() {
+        let prog = parse_ok(
+            "let a: array<int> = [1, 2, 3];\nlet n = len(a);\na[0] = a[1];",
+        );
+        match &prog.stmts[0].kind {
+            StmtKind::Let { ty, value, .. } => {
+                assert_eq!(ty.as_deref(), Some("array<int>"));
+                assert!(matches!(value.kind, ExprKind::Array(_)));
+            }
+            other => panic!("unexpected {other:?}"),
+        }
+        match &prog.stmts[2].kind {
+            StmtKind::Expr(Expr { kind: ExprKind::Assign { target, .. }, .. }) => {
+                assert!(matches!(target.kind, ExprKind::Index { .. }));
+            }
+            other => panic!("unexpected {other:?}"),
+        }
+    }
+
 }

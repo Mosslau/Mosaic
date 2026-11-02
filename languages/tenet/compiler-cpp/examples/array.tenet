@@ -1,0 +1,22 @@
+// array v1：定长字面量、下标读写、len、逐元素值拷贝
+let a: array<int> = [3, 1, 2];
+let n: int = len(a);       // len 是编译期常量
+let i: int = 0;
+while (i < n) {
+    a[i] = a[i] * 2;       // 动态下标：运行时边界检查
+    i = i + 1;
+}
+print(a[0], a[1], a[2], n);  // 6 2 4 3
+
+// 值拷贝：b 拥有独立元素
+let b = a;
+a[0] = 9;
+b = a;                     // 整体赋值 = 逐元素拷贝
+print(a[0], b[0], len(a)); // 9 9 3
+
+// float / bool 元素
+let f: array<float> = [1.5, 2.5];
+print(f[0], f[1], len(f)); // 1.5 2.5 2
+
+let t: array<bool> = [true, false];
+print(t[0], t[1], len(t)); // true false 2

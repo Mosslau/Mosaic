@@ -37,7 +37,9 @@ struct Expr;
 using ExprPtr = std::shared_ptr<Expr>;
 
 struct Expr {
-    enum class Kind { Int, Float, Str, Bool, Var, Assign, Unary, Binary, Call };
+    enum class Kind {
+        Int, Float, Str, Bool, Var, Assign, Field, StructLit, Array, Index, Unary, Binary, Call
+    };
     Position pos;
     Kind kind;
     int64_t int_val = 0;
@@ -46,16 +48,17 @@ struct Expr {
     std::string str_val;
     std::string name;
     std::string op;
-    ExprPtr value;
-    ExprPtr lhs, rhs;
-    std::vector<ExprPtr> args;
+    ExprPtr value;   // Assign 的右值 / 一元运算的操作数
+    ExprPtr lhs, rhs;  // Assign 的 target 存在 lhs；Field 的 base 存在 lhs；Index 的 index 存在 rhs
+    std::vector<ExprPtr> args;  // Call 的实参 / Array 的元素
+    std::vector<std::pair<std::string, ExprPtr>> fields;  // StructLit 的字段初始化
 };
 
 struct Stmt;
 using StmtPtr = std::shared_ptr<Stmt>;
 
 struct Stmt {
-    enum class Kind { Let, Expr, If, While, Return, Break, FnDecl };
+    enum class Kind { Let, Expr, If, While, Return, Break, FnDecl, StructDecl };
     Position pos;
     Kind kind;
     std::string name;
@@ -68,6 +71,7 @@ struct Stmt {
     std::vector<StmtPtr> else_branch;
     std::vector<StmtPtr> body;
     std::vector<std::pair<std::string, std::string>> params;
+    std::vector<std::pair<std::string, std::string>> fields;  // StructDecl 的字段声明
 };
 
 struct Program {

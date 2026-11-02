@@ -37,7 +37,7 @@ struct Expr;
 using ExprPtr = std::shared_ptr<Expr>;
 
 struct Expr {
-    enum class Kind { Int, Float, Str, Bool, Var, Assign, Unary, Binary, Call };
+    enum class Kind { Int, Float, Str, Bool, Var, Assign, Field, StructLit, Array, Index, Unary, Binary, Call };
     Position pos;
     Kind kind;
     int64_t int_val = 0;
@@ -45,17 +45,22 @@ struct Expr {
     bool bool_val = false;
     std::string str_val;
     std::string name;
+    std::string field;
     std::string op;
     ExprPtr value;
+    ExprPtr base;
+    ExprPtr index;
     ExprPtr lhs, rhs;
     std::vector<ExprPtr> args;
+    // struct 字面量字段：字段名 → 初始化表达式
+    std::vector<std::pair<std::string, ExprPtr>> init_fields;
 };
 
 struct Stmt;
 using StmtPtr = std::shared_ptr<Stmt>;
 
 struct Stmt {
-    enum class Kind { Let, Expr, If, While, Return, Break, FnDecl };
+    enum class Kind { Let, Expr, If, While, Return, Break, FnDecl, StructDecl };
     Position pos;
     Kind kind;
     std::string name;
@@ -68,6 +73,7 @@ struct Stmt {
     std::vector<StmtPtr> else_branch;
     std::vector<StmtPtr> body;
     std::vector<std::pair<std::string, std::string>> params;
+    std::vector<std::pair<std::string, std::string>> fields;
 };
 
 struct Program {

@@ -9,6 +9,7 @@
 
 #include <cstdio>
 #include <unistd.h>
+#include <sys/wait.h>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -144,9 +145,11 @@ int main(int argc, char** argv) {
         std::string bin = temp_path("-run");
         try {
             build(argv[2], bin);
-            int rc = std::system((bin + " ; exit $?").c_str());
+            int status = std::system((bin + " ; exit $?").c_str());
             std::remove(bin.c_str());
-            return rc;
+            // system() 返回 wait 状态：取真正的退出码，让 `tenet run` 透传（越界 exit(1) 等）。
+            if (status != -1 && WIFEXITED(status)) return WEXITSTATUS(status);
+            return 1;
         } catch (const TenetError& e) {
             std::cerr << e.str() << "\n";
             return 1;

@@ -55,6 +55,7 @@ private:
         switch (peek().kind) {
             case Kind::Let: return parse_let();
             case Kind::Fn: return parse_fn_decl();
+            case Kind::Struct: return parse_struct_decl();
             case Kind::If: return parse_if();
             case Kind::While: return parse_while();
             case Kind::Return: return parse_return();
@@ -121,6 +122,26 @@ private:
         return s;
     }
 
+    StmtPtr parse_struct_decl() {
+        Position p = peek().pos;
+        advance();
+        auto s = std::make_shared<Stmt>();
+        s->pos = p;
+        s->kind = Stmt::Kind::StructDecl;
+        s->name = expect_ident("struct 名");
+        expect(Kind::LBrace, "`{`");
+        while (!check(Kind::RBrace) && !check(Kind::Eof)) {
+            std::string fname = expect_ident("字段名");
+            expect(Kind::Colon, "`:`");
+            std::string fty = parse_type();
+            expect(Kind::Semi, "`;`");
+            s->fields.emplace_back(std::move(fname), std::move(fty));
+        }
+        expect(Kind::RBrace, "`}`");
+        if (check(Kind::Semi)) advance();
+        return s;
+    }
+
     StmtPtr parse_if() {
         Position p = peek().pos;
         advance();
@@ -184,8 +205,21 @@ private:
             case Kind::FloatType: advance(); return T_FLOAT;
             case Kind::BoolType: advance(); return T_BOOL;
             case Kind::StrType: advance(); return T_STR;
+            case Kind::ArrayType: {
+                advance();
+                expect(Kind::Lt, "`<`");
+                std::string inner = parse_type();
+                expect(Kind::Gt, "`>`");
+                return "array<" + inner + ">";
+            }
+            case Kind::Ident: {
+                std::string name = peek().str_val;
+                advance();
+                return name;
+            }
             default:
-                throw error("期望类型 `int` / `float` / `bool` / `string`，但遇到 " + describe(peek().kind, peek()));
+                throw error("期望类型 `int` / `float` / `bool` / `string` / `array<T>` 或 struct 名，但遇到 " +
+                            describe(peek().kind, peek()));
         }
     }
 
@@ -236,7 +270,27 @@ private:
         }
     }
 
-    ExprPtr parse_expr() { return parse_binary(0); }
+    /// 表达式：先解析二元表达式，再在最低优先级处理赋值（右结合）。
+    /// 赋值左侧必须是变量、字段或数组下标（`x = ...` / `p.x = ...` / `a[i] = ...`）。
+    ExprPtr parse_expr() {
+        ExprPtr lhs = parse_binary(0);
+        if (check(Kind::Assign)) {
+            if (lhs->kind != Expr::Kind::Var && lhs->kind != Expr::Kind::Field &&
+                lhs->kind != Expr::Kind::Index) {
+                throw TenetError::at_pos("赋值左侧必须是变量或字段", lhs->pos);
+            }
+            Position p = lhs->pos;
+            advance();
+            ExprPtr value = parse_expr();
+            auto e = std::make_shared<Expr>();
+            e->pos = p;
+            e->kind = Expr::Kind::Assign;
+            e->lhs = std::move(lhs);
+            e->value = std::move(value);
+            return e;
+        }
+        return lhs;
+    }
 
     ExprPtr parse_binary(int min_prec) {
         ExprPtr lhs = parse_unary();
@@ -278,11 +332,41 @@ private:
             e->value = parse_unary();
             return e;
         }
-        return parse_primary();
+        return parse_postfix();
+    }
+
+    /// 后缀 `.field` / `[index]`：v1 仅需一层字段/下标，但语法上允许链式（codegen 报错）。
+    ExprPtr parse_postfix() {
+        ExprPtr expr = parse_primary();
+        while (true) {
+            if (check(Kind::Dot)) {
+                advance();
+                std::string field = expect_ident("字段名");
+                auto e = std::make_shared<Expr>();
+                e->pos = expr->pos;
+                e->kind = Expr::Kind::Field;
+                e->base = std::move(expr);
+                e->field = std::move(field);
+                expr = std::move(e);
+            } else if (check(Kind::LBracket)) {
+                advance();
+                ExprPtr index = parse_expr();
+                expect(Kind::RBracket, "`]`");
+                auto e = std::make_shared<Expr>();
+                e->pos = expr->pos;
+                e->kind = Expr::Kind::Index;
+                e->base = std::move(expr);
+                e->index = std::move(index);
+                expr = std::move(e);
+            } else {
+                break;
+            }
+        }
+        return expr;
     }
 
     ExprPtr parse_primary() {
-        const Token& tok = peek();
+        const Token tok = peek();
         auto e = std::make_shared<Expr>();
         e->pos = tok.pos;
         switch (tok.kind) {
@@ -294,13 +378,7 @@ private:
             case Kind::Ident: {
                 advance();
                 if (check(Kind::LParen)) return parse_call_args(tok.str_val, tok.pos);
-                if (check(Kind::Assign)) {
-                    advance();
-                    e->kind = Expr::Kind::Assign;
-                    e->name = tok.str_val;
-                    e->value = parse_expr();
-                    return e;
-                }
+                if (check(Kind::LBrace)) return parse_struct_lit(tok.str_val, tok.pos);
                 e->kind = Expr::Kind::Var;
                 e->name = tok.str_val;
                 return e;
@@ -311,9 +389,42 @@ private:
                 expect(Kind::RParen, "`)`");
                 return inner;
             }
+            case Kind::LBracket: {
+                advance();
+                e->kind = Expr::Kind::Array;
+                if (!check(Kind::RBracket)) {
+                    while (true) {
+                        e->args.push_back(parse_expr());
+                        if (!check(Kind::Comma)) break;
+                        advance();
+                    }
+                }
+                expect(Kind::RBracket, "`]`");
+                return e;
+            }
             default:
                 throw error("期望一个表达式，但遇到 " + describe(tok.kind, tok));
         }
+    }
+
+    ExprPtr parse_struct_lit(const std::string& name, Position pos) {
+        expect(Kind::LBrace, "`{`");
+        auto e = std::make_shared<Expr>();
+        e->pos = pos;
+        e->kind = Expr::Kind::StructLit;
+        e->name = name;
+        if (!check(Kind::RBrace)) {
+            while (true) {
+                std::string fname = expect_ident("字段名");
+                expect(Kind::Colon, "`:`");
+                ExprPtr value = parse_expr();
+                e->init_fields.emplace_back(std::move(fname), std::move(value));
+                if (!check(Kind::Comma)) break;
+                advance();
+            }
+        }
+        expect(Kind::RBrace, "`}`");
+        return e;
     }
 
     ExprPtr parse_call_args(const std::string& callee, Position pos) {

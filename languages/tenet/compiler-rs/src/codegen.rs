@@ -65,13 +65,25 @@ struct FnSig {
     ret: Option<String>,
 }
 
+/// 变量信息。struct 变量不占一个聚合槽，而是扁平化成字段槽位（v1 局部变量方案）。
+#[derive(Clone)]
+struct VarInfo {
+    ty: String,
+    addr: Option<String>,
+    fields: HashMap<String, VarInfo>,
+    /// 数组变量的定长长度；非数组为 None。
+    array: Option<usize>,
+}
+
 pub struct Codegen {
     out: String,
     /// 字符串字面量全局常量声明（文件头输出）。
     globals: Vec<String>,
     string_counter: usize,
     /// 变量作用域栈：name -> (LLVM 类型, alloca 名)。
-    symbols: Vec<HashMap<String, (String, String)>>,
+    symbols: Vec<HashMap<String, VarInfo>>,
+    /// 顶层 struct 名 → 字段 (名, 标量类型)。
+    structs: HashMap<String, Vec<(String, String)>>,
     /// 函数签名表：name -> 签名。
     functions: HashMap<String, FnSig>,
     /// 当前函数上下文（错误信息用）。
@@ -94,6 +106,7 @@ impl Codegen {
             globals: Vec::new(),
             string_counter: 0,
             symbols: vec![HashMap::new()],
+            structs: HashMap::new(),
             functions: HashMap::new(),
             current_fn: String::new(),
             current_ret: None,
@@ -107,6 +120,7 @@ impl Codegen {
     /// 完整编译：Program → LLVM IR 文本。
     pub fn generate(program: &Program) -> TResult<String> {
         let mut gen = Codegen::new();
+        gen.collect_structs(program)?;
         gen.collect_signatures(program)?;
         gen.emit_header();
         gen.emit_program(program)?;
@@ -190,6 +204,68 @@ impl Codegen {
 
     // ---- 预处理 ----
 
+    fn collect_structs(&mut self, program: &Program) -> TResult<()> {
+        for stmt in &program.stmts {
+            let StmtKind::StructDecl { name, fields } = &stmt.kind else {
+                continue;
+            };
+            if matches!(name.as_str(), "int" | "float" | "bool" | "string") {
+                return Err(TenetError::at_pos(
+                    format!("struct 名 `{name}` 不能与标量类型重名"),
+                    stmt.pos.clone(),
+                ));
+            }
+            if self.structs.contains_key(name) {
+                return Err(TenetError::at_pos(
+                    format!("struct `{name}` 重复定义"),
+                    stmt.pos.clone(),
+                ));
+            }
+            if fields.is_empty() {
+                return Err(TenetError::at_pos(
+                    format!("struct `{name}` 至少需要一个字段"),
+                    stmt.pos.clone(),
+                ));
+            }
+            let mut seen = std::collections::HashSet::new();
+            for (fname, fty) in fields {
+                if !matches!(fty.as_str(), T_INT | T_FLOAT | T_BOOL) {
+                    return Err(TenetError::at_pos(
+                        format!("struct `{name}` 的字段 `{fname}` 只支持 int/float/bool"),
+                        stmt.pos.clone(),
+                    ));
+                }
+                if !seen.insert(fname.clone()) {
+                    return Err(TenetError::at_pos(
+                        format!("struct `{name}` 的字段 `{fname}` 重复"),
+                        stmt.pos.clone(),
+                    ));
+                }
+            }
+            self.structs.insert(name.clone(), fields.clone());
+        }
+        Ok(())
+    }
+
+    fn is_struct(&self, ty: &str) -> bool {
+        self.structs.contains_key(ty)
+    }
+
+    fn is_array(&self, ty: &str) -> bool {
+        Self::array_elem(ty).is_some()
+    }
+
+    fn array_elem(ty: &str) -> Option<&str> {
+        ty.strip_prefix("array<")?.strip_suffix('>')
+    }
+
+    fn struct_fields(&self, ty: &str, pos: Position) -> TResult<Vec<(String, String)>> {
+        self.structs
+            .get(ty)
+            .cloned()
+            .ok_or_else(|| TenetError::at_pos(format!("未定义的 struct `{ty}`"), pos))
+    }
+
     fn collect_signatures(&mut self, program: &Program) -> TResult<()> {
         for stmt in &program.stmts {
             if let StmtKind::FnDecl { name, ret, params, .. } = &stmt.kind {
@@ -204,6 +280,34 @@ impl Codegen {
                         format!("函数 `{name}` 重复定义"),
                         stmt.pos.clone(),
                     ));
+                }
+                for (pname, pty) in params {
+                    if self.is_struct(pty) {
+                        return Err(TenetError::at_pos(
+                            format!("v1 不支持 struct 参数：`{name}` 的参数 `{pname}` 是 `{pty}`"),
+                            stmt.pos.clone(),
+                        ));
+                    }
+                    if self.is_array(pty) {
+                        return Err(TenetError::at_pos(
+                            format!("v1 不支持 array 参数：`{name}` 的参数 `{pname}` 是 `{pty}`"),
+                            stmt.pos.clone(),
+                        ));
+                    }
+                }
+                if let Some(rt) = ret {
+                    if self.is_struct(rt) {
+                        return Err(TenetError::at_pos(
+                            format!("v1 不支持 struct 返回值：`{name}` 返回 `{rt}`"),
+                            stmt.pos.clone(),
+                        ));
+                    }
+                    if self.is_array(rt) {
+                        return Err(TenetError::at_pos(
+                            format!("v1 不支持 array 返回值：`{name}` 返回 `{rt}`"),
+                            stmt.pos.clone(),
+                        ));
+                    }
                 }
                 self.functions.insert(
                     name.clone(),
@@ -222,6 +326,7 @@ impl Codegen {
         self.push("declare i32 @printf(ptr, ...)");
         self.push("declare ptr @tenet_concat(ptr, ptr)");
         self.push("declare i32 @tenet_strcmp(ptr, ptr)");
+        self.push("declare void @tenet_bounds_fail(i64, i64)");
         self.globals
             .push("@.str.true = private unnamed_addr constant [5 x i8] c\"true\\00\"".into());
         self.globals
@@ -241,7 +346,7 @@ impl Codegen {
         self.push("define i32 @main() {");
         self.block("entry");
         for stmt in &program.stmts {
-            if let StmtKind::FnDecl { .. } = &stmt.kind {
+            if matches!(&stmt.kind, StmtKind::FnDecl { .. } | StmtKind::StructDecl { .. }) {
                 continue;
             }
             if let StmtKind::Return(_) = &stmt.kind {
@@ -297,10 +402,15 @@ impl Codegen {
             let addr = format!("%p{i}.addr");
             self.ins(&format!("{addr} = alloca {}", llvm_type(pty)));
             self.ins(&format!("store {} %p{i}, ptr {addr}", llvm_type(pty)));
-            self.symbols
-                .last_mut()
-                .unwrap()
-                .insert(pname.clone(), (pty.clone(), addr));
+            self.symbols.last_mut().unwrap().insert(
+                pname.clone(),
+                VarInfo {
+                    ty: pty.clone(),
+                    addr: Some(addr),
+                    fields: HashMap::new(),
+                    array: None,
+                },
+            );
         }
         for s in body {
             self.emit_stmt(s)?;
@@ -331,8 +441,17 @@ impl Codegen {
                             )
                         })?,
                 };
+                if self.is_array(&t) {
+                    let info = self.init_array(name, &t, value, stmt.pos.clone())?;
+                    self.symbols.last_mut().unwrap().insert(name.clone(), info);
+                    return Ok(());
+                }
+                if self.is_struct(&t) {
+                    let info = self.init_struct(name, &t, value, stmt.pos.clone())?;
+                    self.symbols.last_mut().unwrap().insert(name.clone(), info);
+                    return Ok(());
+                }
                 let (vt, v) = self.gen_expr(value)?;
-                // 声明类型必须与表达式类型一致（int→float 不隐式转换，与三实现一致）
                 if vt != llvm_type(&t) {
                     return Err(TenetError::at_pos(
                         format!(
@@ -345,10 +464,15 @@ impl Codegen {
                 let addr = self.tmp();
                 self.ins(&format!("{addr} = alloca {}", llvm_type(&t)));
                 self.ins(&format!("store {} {v}, ptr {addr}", llvm_type(&t)));
-                self.symbols
-                    .last_mut()
-                    .unwrap()
-                    .insert(name.clone(), (t, addr));
+                self.symbols.last_mut().unwrap().insert(
+                    name.clone(),
+                    VarInfo {
+                        ty: t,
+                        addr: Some(addr),
+                        fields: HashMap::new(),
+                        array: None,
+                    },
+                );
                 Ok(())
             }
             StmtKind::Expr(expr) => {
@@ -454,6 +578,10 @@ impl Codegen {
                 self.term(&format!("br label %{}", self.break_stack.last().unwrap()));
                 Ok(())
             }
+            StmtKind::StructDecl { .. } => Err(TenetError::at_pos(
+                "struct 声明只能出现在顶层".to_string(),
+                stmt.pos.clone(),
+            )),
             StmtKind::FnDecl { .. } => Ok(()),
         }
     }
@@ -474,26 +602,224 @@ impl Codegen {
                 if *b { "true".into() } else { "false".into() },
             )),
             ExprKind::Var(name) => {
-                let (t, addr) = self.lookup_var(name, expr.pos.clone())?;
-                let r = self.tmp();
-                self.ins(&format!("{r} = load {}, ptr {addr}", llvm_type(&t)));
-                Ok((llvm_type(&t).into(), r))
-            }
-            ExprKind::Assign { name, value } => {
-                let (t, addr) = self.lookup_var(name, expr.pos.clone())?;
-                let (vt, v) = self.gen_expr(value)?;
-                if vt != llvm_type(&t) {
+                let info = self.lookup_var(name, expr.pos.clone())?;
+                if info.array.is_some() {
                     return Err(TenetError::at_pos(
-                        format!(
-                            "赋值类型不匹配：`{name}` 是 {t}，右侧是 {}",
-                            tenet_name(&vt)
-                        ),
+                        format!("数组变量 `{name}` 不能直接取值；请用下标或整体拷贝"),
                         expr.pos.clone(),
                     ));
                 }
-                self.ins(&format!("store {vt} {v}, ptr {addr}"));
-                Ok((vt, v))
+                let Some(addr) = info.addr else {
+                    return Err(TenetError::at_pos(
+                        format!("struct 变量 `{name}` 不能直接取值；请用字段访问或整体拷贝"),
+                        expr.pos.clone(),
+                    ));
+                };
+                let r = self.tmp();
+                self.ins(&format!("{r} = load {}, ptr {addr}", llvm_type(&info.ty)));
+                Ok((llvm_type(&info.ty).into(), r))
             }
+            ExprKind::Index { base, index } => {
+                let ExprKind::Var(name) = &base.kind else {
+                    return Err(TenetError::at_pos(
+                        "v1 只支持对数组变量取下标",
+                        base.pos.clone(),
+                    ));
+                };
+                let info = self.lookup_var(name, base.pos.clone())?;
+                let Some(len) = info.array else {
+                    return Err(TenetError::at_pos(
+                        format!("`{name}` 不是数组，不能取下标"),
+                        base.pos.clone(),
+                    ));
+                };
+                let elem = Self::array_elem(&info.ty).unwrap();
+                let elem_ll = llvm_type(elem);
+                let base_addr = info.addr.clone().unwrap();
+                let (it, iv) = self.gen_expr(index)?;
+                if it != llvm_type(T_INT) {
+                    return Err(TenetError::at_pos(
+                        format!("数组下标必须是 int，实际为 {}", tenet_name(&it)),
+                        index.pos.clone(),
+                    ));
+                }
+                let idx = match &index.kind {
+                    ExprKind::Int(v) => {
+                        if *v < 0 || *v as usize >= len {
+                            return Err(TenetError::at_pos(
+                                format!("数组下标 {v} 越界（长度 {len}）"),
+                                index.pos.clone(),
+                            ));
+                        }
+                        v.to_string()
+                    }
+                    _ => {
+                        self.bounds_check(&iv, len);
+                        iv
+                    }
+                };
+                let addr = self.array_addr(&base_addr, len, &idx, elem_ll);
+                let r = self.tmp();
+                self.ins(&format!("{r} = load {elem_ll}, ptr {addr}"));
+                Ok((elem_ll.to_string(), r))
+            }
+            ExprKind::Array(_) => Err(TenetError::at_pos(
+                "数组字面量只能用于 let 初始化或整体赋值",
+                expr.pos.clone(),
+            )),
+            ExprKind::Field { base, field } => {
+                let ExprKind::Var(name) = &base.kind else {
+                    return Err(TenetError::at_pos(
+                        "v1 只支持对 struct 变量取字段（不支持嵌套字段链）",
+                        base.pos.clone(),
+                    ));
+                };
+                let info = self.lookup_var(name, base.pos.clone())?;
+                if !self.is_struct(&info.ty) {
+                    return Err(TenetError::at_pos(
+                        format!("`{name}` 不是 struct，不能取字段 `{field}`"),
+                        base.pos.clone(),
+                    ));
+                }
+                let f = info.fields.get(field).ok_or_else(|| {
+                    TenetError::at_pos(
+                        format!("struct `{}` 没有字段 `{field}`", info.ty),
+                        expr.pos.clone(),
+                    )
+                })?;
+                let addr = f.addr.clone().unwrap();
+                let r = self.tmp();
+                self.ins(&format!("{r} = load {}, ptr {addr}", llvm_type(&f.ty)));
+                Ok((llvm_type(&f.ty).into(), r))
+            }
+            ExprKind::StructLit { .. } => Err(TenetError::at_pos(
+                "struct 字面量只能用于 let 初始化或整体赋值",
+                expr.pos.clone(),
+            )),
+            ExprKind::Assign { target, value } => match &target.kind {
+                ExprKind::Var(name) => {
+                    let info = self.lookup_var(name, target.pos.clone())?;
+                    if self.is_array(&info.ty) {
+                        self.assign_array(&info, value, expr.pos.clone())?;
+                        return Ok((info.ty.clone(), String::new()));
+                    }
+                    if self.is_struct(&info.ty) {
+                        self.assign_struct(&info, value, expr.pos.clone())?;
+                        return Ok((info.ty.clone(), String::new()));
+                    }
+                    let Some(addr) = info.addr.clone() else {
+                        return Err(TenetError::at_pos(
+                            format!("`{name}` 不是可赋值标量"),
+                            target.pos.clone(),
+                        ));
+                    };
+                    let (vt, v) = self.gen_expr(value)?;
+                    if vt != llvm_type(&info.ty) {
+                        return Err(TenetError::at_pos(
+                            format!(
+                                "赋值类型不匹配：`{name}` 是 {}，右侧是 {}",
+                                info.ty,
+                                tenet_name(&vt)
+                            ),
+                            expr.pos.clone(),
+                        ));
+                    }
+                    self.ins(&format!("store {vt} {v}, ptr {addr}"));
+                    Ok((vt, v))
+                }
+                ExprKind::Index { base, index } => {
+                    let ExprKind::Var(name) = &base.kind else {
+                        return Err(TenetError::at_pos(
+                            "v1 只支持对数组变量写下标",
+                            base.pos.clone(),
+                        ));
+                    };
+                    let info = self.lookup_var(name, base.pos.clone())?;
+                    let Some(len) = info.array else {
+                        return Err(TenetError::at_pos(
+                            format!("`{name}` 不是数组，不能写下标"),
+                            base.pos.clone(),
+                        ));
+                    };
+                    let elem = Self::array_elem(&info.ty).unwrap();
+                    let elem_ll = llvm_type(elem);
+                    let base_addr = info.addr.clone().unwrap();
+                    let (it, iv) = self.gen_expr(index)?;
+                    if it != llvm_type(T_INT) {
+                        return Err(TenetError::at_pos(
+                            format!("数组下标必须是 int，实际为 {}", tenet_name(&it)),
+                            index.pos.clone(),
+                        ));
+                    }
+                    let idx = match &index.kind {
+                        ExprKind::Int(v) => {
+                            if *v < 0 || *v as usize >= len {
+                                return Err(TenetError::at_pos(
+                                    format!("数组下标 {v} 越界（长度 {len}）"),
+                                    index.pos.clone(),
+                                ));
+                            }
+                            v.to_string()
+                        }
+                        _ => {
+                            self.bounds_check(&iv, len);
+                            iv
+                        }
+                    };
+                    let (vt, v) = self.gen_expr(value)?;
+                    if vt != elem_ll {
+                        return Err(TenetError::at_pos(
+                            format!(
+                                "数组元素赋值类型不匹配：需要 {elem}，实际 {}",
+                                tenet_name(&vt)
+                            ),
+                            value.pos.clone(),
+                        ));
+                    }
+                    let addr = self.array_addr(&base_addr, len, &idx, elem_ll);
+                    self.ins(&format!("store {vt} {v}, ptr {addr}"));
+                    Ok((vt, v))
+                }
+            ExprKind::Field { base, field } => {
+                    let ExprKind::Var(name) = &base.kind else {
+                        return Err(TenetError::at_pos(
+                            "v1 只支持对 struct 变量写字段",
+                            base.pos.clone(),
+                        ));
+                    };
+                    let info = self.lookup_var(name, base.pos.clone())?;
+                    if !self.is_struct(&info.ty) {
+                        return Err(TenetError::at_pos(
+                            format!("`{name}` 不是 struct，不能写字段 `{field}`"),
+                            base.pos.clone(),
+                        ));
+                    }
+                    let f = info.fields.get(field).ok_or_else(|| {
+                        TenetError::at_pos(
+                            format!("struct `{}` 没有字段 `{field}`", info.ty),
+                            target.pos.clone(),
+                        )
+                    })?;
+                    let (vt, v) = self.gen_expr(value)?;
+                    if vt != llvm_type(&f.ty) {
+                        return Err(TenetError::at_pos(
+                            format!(
+                                "字段 `{field}` 类型不匹配：需要 {}，实际 {}",
+                                f.ty,
+                                tenet_name(&vt)
+                            ),
+                            value.pos.clone(),
+                        ));
+                    }
+                    let addr = f.addr.clone().unwrap();
+                    self.ins(&format!("store {vt} {v}, ptr {addr}"));
+                    Ok((vt, v))
+                }
+                _ => Err(TenetError::at_pos(
+                    "赋值左侧必须是变量或字段",
+                    target.pos.clone(),
+                )),
+            },
             ExprKind::Unary { op, expr: inner } => {
                 let (t, v) = self.gen_expr(inner)?;
                 match *op {
@@ -540,13 +866,345 @@ impl Codegen {
         }
     }
 
-    fn lookup_var(&self, name: &str, pos: Position) -> TResult<(String, String)> {
+    fn array_elem_scalar(ty: &str, pos: Position) -> TResult<String> {
+        let elem = Self::array_elem(ty)
+            .ok_or_else(|| TenetError::at_pos(format!("不是数组类型：{ty}"), pos.clone()))?;
+        if !matches!(elem, T_INT | T_FLOAT | T_BOOL) {
+            return Err(TenetError::at_pos(
+                format!("v1 数组元素只支持 int/float/bool，实际 `{elem}`"),
+                pos,
+            ));
+        }
+        Ok(elem.to_string())
+    }
+
+    fn array_addr(
+        &mut self,
+        base: &str,
+        len: usize,
+        index: &str,
+        elem_ll: &str,
+    ) -> String {
+        let addr = self.tmp();
+        self.ins(&format!(
+            "{addr} = getelementptr [{len} x {elem_ll}], ptr {base}, i64 0, i64 {index}"
+        ));
+        addr
+    }
+
+    fn bounds_check(&mut self, index: &str, len: usize) {
+        let ok = self.new_label("bounds.ok");
+        let fail = self.new_label("bounds.fail");
+        let cmp = self.tmp();
+        self.ins(&format!("{cmp} = icmp uge i64 {index}, {len}"));
+        self.term(&format!("br i1 {cmp}, label %{fail}, label %{ok}"));
+        self.block(&fail);
+        self.ins(&format!("call void @tenet_bounds_fail(i64 {index}, i64 {len})"));
+        self.term("unreachable");
+        self.block(&ok);
+    }
+
+    fn init_array(&mut self, name: &str, ty: &str, value: &Expr, pos: Position) -> TResult<VarInfo> {
+        let elem = Self::array_elem_scalar(ty, pos.clone())?;
+        let elem_ll = llvm_type(&elem);
+        let (len, src_literal) = match &value.kind {
+            ExprKind::Array(elems) => {
+                if elems.is_empty() {
+                    return Err(TenetError::at_pos(
+                        "v1 不支持空数组字面量".to_string(),
+                        value.pos.clone(),
+                    ));
+                }
+                (elems.len(), Some(elems))
+            }
+            ExprKind::Var(src) => {
+                let sinfo = self.lookup_var(src, value.pos.clone())?;
+                let slen = sinfo.array.ok_or_else(|| {
+                    TenetError::at_pos(format!("`{src}` 不是数组"), value.pos.clone())
+                })?;
+                if sinfo.ty != ty {
+                    return Err(TenetError::at_pos(
+                        format!("`{name}` 需要 {ty}，但 `{src}` 是 {}", sinfo.ty),
+                        value.pos.clone(),
+                    ));
+                }
+                (slen, None)
+            }
+            _ => {
+                return Err(TenetError::at_pos(
+                    format!("`{name}` 的数组初始化必须是 `[...]` 或同类型数组变量"),
+                    value.pos.clone(),
+                ))
+            }
+        };
+        let addr = self.tmp();
+        self.ins(&format!("{addr} = alloca [{len} x {elem_ll}]"));
+        if let Some(elems) = src_literal {
+            for (i, e) in elems.iter().enumerate() {
+                let (vt, v) = self.gen_expr(e)?;
+                if vt != elem_ll {
+                    return Err(TenetError::at_pos(
+                        format!(
+                            "数组元素 {i} 类型不匹配：需要 {elem}，实际 {}",
+                            tenet_name(&vt)
+                        ),
+                        e.pos.clone(),
+                    ));
+                }
+                let slot = self.array_addr(&addr, len, &i.to_string(), elem_ll);
+                self.ins(&format!("store {vt} {v}, ptr {slot}"));
+            }
+        } else if let ExprKind::Var(src) = &value.kind {
+            let sinfo = self.lookup_var(src, value.pos.clone())?;
+            let sbase = sinfo.addr.clone().unwrap();
+            for i in 0..len {
+                let sslot = self.array_addr(&sbase, len, &i.to_string(), elem_ll);
+                let dslot = self.array_addr(&addr, len, &i.to_string(), elem_ll);
+                let v = self.tmp();
+                self.ins(&format!("{v} = load {elem_ll}, ptr {sslot}"));
+                self.ins(&format!("store {elem_ll} {v}, ptr {dslot}"));
+            }
+        }
+        Ok(VarInfo {
+            ty: ty.to_string(),
+            addr: Some(addr),
+            fields: HashMap::new(),
+            array: Some(len),
+        })
+    }
+
+    fn assign_array(&mut self, dst: &VarInfo, value: &Expr, pos: Position) -> TResult<()> {
+        let elem = Self::array_elem_scalar(&dst.ty, pos.clone())?;
+        let elem_ll = llvm_type(&elem);
+        let len = dst.array.unwrap();
+        let dbase = dst.addr.clone().unwrap();
+        match &value.kind {
+            ExprKind::Array(elems) => {
+                if elems.len() != len {
+                    return Err(TenetError::at_pos(
+                        format!("数组赋值长度不匹配：需要 {len}，实际 {}", elems.len()),
+                        value.pos.clone(),
+                    ));
+                }
+                for (i, e) in elems.iter().enumerate() {
+                    let (vt, v) = self.gen_expr(e)?;
+                    if vt != elem_ll {
+                        return Err(TenetError::at_pos(
+                            format!(
+                                "数组元素 {i} 类型不匹配：需要 {elem}，实际 {}",
+                                tenet_name(&vt)
+                            ),
+                            e.pos.clone(),
+                        ));
+                    }
+                    let slot = self.array_addr(&dbase, len, &i.to_string(), elem_ll);
+                    self.ins(&format!("store {vt} {v}, ptr {slot}"));
+                }
+                Ok(())
+            }
+            ExprKind::Var(src) => {
+                let sinfo = self.lookup_var(src, value.pos.clone())?;
+                if sinfo.ty != dst.ty || sinfo.array != dst.array {
+                    return Err(TenetError::at_pos(
+                        format!("数组赋值类型不匹配：需要 {}，右侧是 {}", dst.ty, sinfo.ty),
+                        value.pos.clone(),
+                    ));
+                }
+                let sbase = sinfo.addr.clone().unwrap();
+                for i in 0..len {
+                    let sslot = self.array_addr(&sbase, len, &i.to_string(), elem_ll);
+                    let dslot = self.array_addr(&dbase, len, &i.to_string(), elem_ll);
+                    let v = self.tmp();
+                    self.ins(&format!("{v} = load {elem_ll}, ptr {sslot}"));
+                    self.ins(&format!("store {elem_ll} {v}, ptr {dslot}"));
+                }
+                Ok(())
+            }
+            _ => Err(TenetError::at_pos(
+                "数组赋值必须是同类型数组变量或同长度字面量",
+                value.pos.clone(),
+            )),
+        }
+    }
+
+    fn assign_struct(&mut self, dst: &VarInfo, value: &Expr, pos: Position) -> TResult<()> {
+        match &value.kind {
+            ExprKind::Var(src) => {
+                let sinfo = self.lookup_var(src, value.pos.clone())?;
+                if sinfo.ty != dst.ty {
+                    return Err(TenetError::at_pos(
+                        format!("赋值类型不匹配：需要 {}，右侧是 {}", dst.ty, sinfo.ty),
+                        pos,
+                    ));
+                }
+                self.copy_struct(dst, &sinfo)
+            }
+            ExprKind::StructLit { name: sname, fields: inits } => {
+                if sname != &dst.ty {
+                    return Err(TenetError::at_pos(
+                        format!("赋值类型不匹配：需要 {}，字面量是 {sname}", dst.ty),
+                        pos,
+                    ));
+                }
+                let defs = self.struct_fields(&dst.ty, pos.clone())?;
+                let mut map = HashMap::new();
+                for (fname, fexpr) in inits {
+                    if map.insert(fname.clone(), fexpr).is_some() {
+                        return Err(TenetError::at_pos(
+                            format!("struct `{}` 的字段 `{fname}` 重复初始化", dst.ty),
+                            fexpr.pos.clone(),
+                        ));
+                    }
+                }
+                for (fname, fty) in &defs {
+                    let Some(fexpr) = map.remove(fname) else {
+                        return Err(TenetError::at_pos(
+                            format!("struct `{}` 缺少字段 `{fname}`", dst.ty),
+                            value.pos.clone(),
+                        ));
+                    };
+                    let (vt, v) = self.gen_expr(fexpr)?;
+                    if vt != llvm_type(fty) {
+                        return Err(TenetError::at_pos(
+                            format!(
+                                "struct `{}` 字段 `{fname}` 类型不匹配：需要 {fty}，实际 {}",
+                                dst.ty,
+                                tenet_name(&vt)
+                            ),
+                            fexpr.pos.clone(),
+                        ));
+                    }
+                    let addr = dst.fields[fname].addr.clone().unwrap();
+                    self.ins(&format!("store {vt} {v}, ptr {addr}"));
+                }
+                if let Some((extra, e)) = map.into_iter().next() {
+                    return Err(TenetError::at_pos(
+                        format!("struct `{}` 没有字段 `{extra}`", dst.ty),
+                        e.pos.clone(),
+                    ));
+                }
+                Ok(())
+            }
+            _ => Err(TenetError::at_pos(
+                "struct 整体赋值必须是同类型变量或字面量",
+                value.pos.clone(),
+            )),
+        }
+    }
+
+    fn lookup_var(&self, name: &str, pos: Position) -> TResult<VarInfo> {
         for scope in self.symbols.iter().rev() {
-            if let Some((t, addr)) = scope.get(name) {
-                return Ok((t.clone(), addr.clone()));
+            if let Some(info) = scope.get(name) {
+                return Ok(info.clone());
             }
         }
         Err(TenetError::at_pos(format!("未定义的变量 `{name}`"), pos))
+    }
+
+    /// 为 struct 局部变量分配扁平字段槽位。
+    fn alloc_struct(&mut self, ty: &str, pos: Position) -> TResult<VarInfo> {
+        let defs = self.struct_fields(ty, pos)?;
+        let mut fields = HashMap::new();
+        for (fname, fty) in defs {
+            let addr = self.tmp();
+            self.ins(&format!("{addr} = alloca {}", llvm_type(&fty)));
+            fields.insert(
+                fname,
+                VarInfo {
+                    ty: fty,
+                    addr: Some(addr),
+                    fields: HashMap::new(),
+                    array: None,
+                },
+            );
+        }
+        Ok(VarInfo {
+            ty: ty.to_string(),
+            addr: None,
+            fields,
+            array: None,
+        })
+    }
+
+    /// struct 初始化：从字面量或其他 struct 变量逐字段拷贝。
+    fn init_struct(&mut self, name: &str, ty: &str, value: &Expr, pos: Position) -> TResult<VarInfo> {
+        let defs = self.struct_fields(ty, pos.clone())?;
+        let dst = self.alloc_struct(ty, pos.clone())?;
+        match &value.kind {
+            ExprKind::StructLit { name: sname, fields: inits } => {
+                if sname != ty {
+                    return Err(TenetError::at_pos(
+                        format!("`{name}` 标注为 {ty}，但字面量是 {sname}"),
+                        value.pos.clone(),
+                    ));
+                }
+                let mut map = HashMap::new();
+                for (fname, fexpr) in inits {
+                    if map.insert(fname.clone(), fexpr).is_some() {
+                        return Err(TenetError::at_pos(
+                            format!("struct `{ty}` 的字段 `{fname}` 重复初始化"),
+                            fexpr.pos.clone(),
+                        ));
+                    }
+                }
+                for (fname, fty) in &defs {
+                    let Some(fexpr) = map.remove(fname) else {
+                        return Err(TenetError::at_pos(
+                            format!("struct `{ty}` 缺少字段 `{fname}`"),
+                            value.pos.clone(),
+                        ));
+                    };
+                    let (vt, v) = self.gen_expr(fexpr)?;
+                    if vt != llvm_type(fty) {
+                        return Err(TenetError::at_pos(
+                            format!(
+                                "struct `{ty}` 字段 `{fname}` 类型不匹配：需要 {fty}，实际 {}",
+                                tenet_name(&vt)
+                            ),
+                            fexpr.pos.clone(),
+                        ));
+                    }
+                    let addr = dst.fields[fname].addr.clone().unwrap();
+                    self.ins(&format!("store {vt} {v}, ptr {addr}"));
+                }
+                if let Some((extra, e)) = map.into_iter().next() {
+                    return Err(TenetError::at_pos(
+                        format!("struct `{ty}` 没有字段 `{extra}`"),
+                        e.pos.clone(),
+                    ));
+                }
+                Ok(dst)
+            }
+            ExprKind::Var(src) => {
+                let sinfo = self.lookup_var(src, value.pos.clone())?;
+                if sinfo.ty != ty {
+                    return Err(TenetError::at_pos(
+                        format!("`{name}` 需要 {ty}，但 `{src}` 是 {}", sinfo.ty),
+                        value.pos.clone(),
+                    ));
+                }
+                self.copy_struct(&dst, &sinfo)?;
+                Ok(dst)
+            }
+            _ => Err(TenetError::at_pos(
+                format!("`{name}` 的 struct 初始化必须是 `{ty} {{ ... }}` 或同类型 struct 变量"),
+                value.pos.clone(),
+            )),
+        }
+    }
+
+    fn copy_struct(&mut self, dst: &VarInfo, src: &VarInfo) -> TResult<()> {
+        for (fname, dfield) in &dst.fields {
+            let sfield = src.fields.get(fname).ok_or_else(|| {
+                TenetError::at_pos(format!("struct 字段 `{fname}` 不存在"), Position::new(1, 1))
+            })?;
+            let (t, daddr) = (dfield.ty.clone(), dfield.addr.clone().unwrap());
+            let saddr = sfield.addr.clone().unwrap();
+            let v = self.tmp();
+            self.ins(&format!("{v} = load {}, ptr {saddr}", llvm_type(&t)));
+            self.ins(&format!("store {} {v}, ptr {daddr}", llvm_type(&t)));
+        }
+        Ok(())
     }
 
     /// 短路逻辑 && / ||：基本块跳转 + alloca 存结果（免 phi）。
@@ -764,6 +1422,28 @@ impl Codegen {
         if callee == "print" {
             return self.gen_print(args, pos);
         }
+        if callee == "len" {
+            if args.len() != 1 {
+                return Err(TenetError::at_pos(
+                    "`len` 需要且只需要一个数组参数".to_string(),
+                    pos.clone(),
+                ));
+            }
+            let ExprKind::Var(name) = &args[0].kind else {
+                return Err(TenetError::at_pos(
+                    "`len` 参数必须是数组变量",
+                    args[0].pos.clone(),
+                ));
+            };
+            let info = self.lookup_var(name, args[0].pos.clone())?;
+            let Some(len) = info.array else {
+                return Err(TenetError::at_pos(
+                    format!("`{name}` 不是数组，不能取 len"),
+                    args[0].pos.clone(),
+                ));
+            };
+            return Ok((llvm_type(T_INT).into(), len.to_string()));
+        }
         let sig = self
             .functions
             .get(callee)
@@ -870,8 +1550,136 @@ impl Codegen {
             ExprKind::Float(_) => Some(T_FLOAT.to_string()),
             ExprKind::Str(_) => Some(T_STR.to_string()),
             ExprKind::Bool(_) => Some(T_BOOL.to_string()),
-            ExprKind::Var(name) => Some(self.lookup_var(name, expr.pos.clone())?.0),
-            ExprKind::Assign { name, .. } => Some(self.lookup_var(name, expr.pos.clone())?.0),
+            ExprKind::Var(name) => Some(self.lookup_var(name, expr.pos.clone())?.ty),
+            ExprKind::Index { base, index } => {
+                let bt = self.infer_type(base)?;
+                let Some(bt) = bt else {
+                    return Err(TenetError::at_pos(
+                        "无法推断数组类型".to_string(),
+                        base.pos.clone(),
+                    ));
+                };
+                let elem = Self::array_elem(&bt).ok_or_else(|| {
+                    TenetError::at_pos(format!("`{bt}` 不是数组"), base.pos.clone())
+                })?;
+                let it = self.infer_type(index)?;
+                if let Some(it) = it {
+                    if it != T_INT {
+                        return Err(TenetError::at_pos(
+                            format!("数组下标必须是 int，实际为 {it}"),
+                            index.pos.clone(),
+                        ));
+                    }
+                }
+                Some(elem.to_string())
+            }
+            ExprKind::Field { base, field } => {
+                let ExprKind::Var(name) = &base.kind else {
+                    return Err(TenetError::at_pos(
+                        "v1 只支持对 struct 变量取字段",
+                        base.pos.clone(),
+                    ));
+                };
+                let info = self.lookup_var(name, base.pos.clone())?;
+                if !self.is_struct(&info.ty) {
+                    return Err(TenetError::at_pos(
+                        format!("`{name}` 不是 struct"),
+                        base.pos.clone(),
+                    ));
+                }
+                Some(
+                    info.fields
+                        .get(field)
+                        .ok_or_else(|| {
+                            TenetError::at_pos(
+                                format!("struct `{}` 没有字段 `{field}`", info.ty),
+                                expr.pos.clone(),
+                            )
+                        })?
+                        .ty
+                        .clone(),
+                )
+            }
+            ExprKind::Array(elems) => {
+                if elems.is_empty() {
+                    return Err(TenetError::at_pos(
+                        "v1 不支持空数组字面量".to_string(),
+                        expr.pos.clone(),
+                    ));
+                }
+                let first = self.infer_type(&elems[0])?;
+                let Some(elem) = first else {
+                    return Err(TenetError::at_pos(
+                        "无法推断数组元素类型".to_string(),
+                        expr.pos.clone(),
+                    ));
+                };
+                if !matches!(elem.as_str(), T_INT | T_FLOAT | T_BOOL) {
+                    return Err(TenetError::at_pos(
+                        format!("v1 数组元素只支持 int/float/bool，实际 `{elem}`"),
+                        expr.pos.clone(),
+                    ));
+                }
+                for e in &elems[1..] {
+                    let t = self.infer_type(e)?;
+                    if t.as_deref() != Some(elem.as_str()) {
+                        return Err(TenetError::at_pos(
+                            format!(
+                                "数组元素类型不一致：第一个是 {elem}，后面是 {}",
+                                t.unwrap_or_else(|| "?".into())
+                            ),
+                            e.pos.clone(),
+                        ));
+                    }
+                }
+                Some(format!("array<{elem}>"))
+            }
+            ExprKind::StructLit { name, .. } => {
+                self.struct_fields(name, expr.pos.clone())?;
+                Some(name.clone())
+            }
+            ExprKind::Assign { target, .. } => Some(match &target.kind {
+                ExprKind::Var(name) => self.lookup_var(name, target.pos.clone())?.ty,
+                ExprKind::Index { base, .. } => {
+                    let bt = self.infer_type(base)?;
+                    let Some(bt) = bt else {
+                        return Err(TenetError::at_pos(
+                            "无法推断数组类型".to_string(),
+                            base.pos.clone(),
+                        ));
+                    };
+                    Self::array_elem(&bt)
+                        .ok_or_else(|| {
+                            TenetError::at_pos(format!("`{bt}` 不是数组"), base.pos.clone())
+                        })?
+                        .to_string()
+                }
+            ExprKind::Field { base, field } => {
+                    let ExprKind::Var(name) = &base.kind else {
+                        return Err(TenetError::at_pos(
+                            "v1 只支持对 struct 变量取字段",
+                            base.pos.clone(),
+                        ));
+                    };
+                    let info = self.lookup_var(name, base.pos.clone())?;
+                    info.fields
+                        .get(field)
+                        .ok_or_else(|| {
+                            TenetError::at_pos(
+                                format!("struct `{}` 没有字段 `{field}`", info.ty),
+                                target.pos.clone(),
+                            )
+                        })?
+                        .ty
+                        .clone()
+                }
+                _ => {
+                    return Err(TenetError::at_pos(
+                        "赋值左侧必须是变量或字段",
+                        target.pos.clone(),
+                    ))
+                }
+            }),
             ExprKind::Unary { op, expr: inner } => match *op {
                 crate::ast::OP_NOT => {
                     if let Some(t) = self.infer_type(inner)? {
@@ -988,9 +1796,30 @@ impl Codegen {
                     _ => unreachable!(),
                 }
             }
-            ExprKind::Call { callee, .. } => {
+            ExprKind::Call { callee, args } => {
                 if callee == "print" {
                     None
+                } else if callee == "len" {
+                    if args.len() != 1 {
+                        return Err(TenetError::at_pos(
+                            "`len` 需要且只需要一个数组参数".to_string(),
+                            expr.pos.clone(),
+                        ));
+                    }
+                    let t = self.infer_type(&args[0])?;
+                    let Some(t) = t else {
+                        return Err(TenetError::at_pos(
+                            "无法推断 `len` 参数类型".to_string(),
+                            args[0].pos.clone(),
+                        ));
+                    };
+                    if Self::array_elem(&t).is_none() {
+                        return Err(TenetError::at_pos(
+                            format!("`len` 参数必须是数组，实际是 {t}"),
+                            args[0].pos.clone(),
+                        ));
+                    }
+                    Some(T_INT.to_string())
                 } else {
                     let sig = self.functions.get(callee).ok_or_else(|| {
                         TenetError::at_pos(format!("未定义的函数 `{callee}`"), expr.pos.clone())
@@ -1200,4 +2029,194 @@ mod tests {
         assert_eq!(msg, "未定义的函数 `nope`", "{msg}");
         assert_eq!(pos, Some(Position::new(1, 9)));
     }
+
+    // ---- struct v1 ----
+
+    #[test]
+    fn struct_fields_are_flattened() {
+        let ir = gen(
+            "struct Point { x: int; y: int; }\n\
+             let p: Point = Point { x: 1, y: 2 };\n\
+             p.x = p.x + 1;\n\
+             print(p.x, p.y);",
+        )
+        .unwrap();
+        assert!(ir.contains("alloca i64"), "{ir}");
+        assert!(ir.contains("store i64"), "{ir}");
+        assert!(ir.contains("load i64"), "{ir}");
+        assert!(!ir.contains("%Point"), "struct 不应生成聚合类型: {ir}");
+    }
+
+    #[test]
+    fn struct_copy_is_fieldwise() {
+        let ir = gen(
+            "struct Point { x: int; y: float; }\n\
+             let p: Point = Point { x: 1, y: 2.0 };\n\
+             let q = p;\n\
+             q.x = 9;\n\
+             print(p.x, q.x);",
+        )
+        .unwrap();
+        assert!(ir.contains("alloca double"), "{ir}");
+        // p/q 各有 x/y 两个槽位，至少 4 个 alloca
+        assert!(ir.matches("alloca i64").count() >= 2, "{ir}");
+        assert!(ir.matches("alloca double").count() >= 2, "{ir}");
+    }
+
+    #[test]
+    fn struct_missing_field_errors() {
+        let (msg, _) = err_pos(
+            "struct Point { x: int; y: int; }\nlet p: Point = Point { x: 1 };",
+        );
+        assert!(msg.contains("缺少字段 `y`"), "{msg}");
+    }
+
+    #[test]
+    fn struct_unknown_field_errors() {
+        let (msg, _) = err_pos(
+            "struct Point { x: int; }\nlet p: Point = Point { x: 1, z: 2 };",
+        );
+        assert!(msg.contains("没有字段 `z`"), "{msg}");
+    }
+
+    #[test]
+    fn struct_field_type_mismatch_errors() {
+        let (msg, _) = err_pos(
+            "struct Point { x: int; }\nlet p: Point = Point { x: \"s\" };",
+        );
+        assert!(msg.contains("字段 `x` 类型不匹配"), "{msg}");
+    }
+
+    #[test]
+    fn struct_param_is_rejected() {
+        let (msg, _) = err_pos(
+            "struct Point { x: int; }\nfn f(p: Point) -> int { return p.x; }",
+        );
+        assert!(msg.contains("不支持 struct 参数"), "{msg}");
+    }
+
+    #[test]
+    fn struct_ret_is_rejected() {
+        let (msg, _) = err_pos(
+            "struct Point { x: int; }\nfn f() -> Point { return Point { x: 1 }; }",
+        );
+        assert!(msg.contains("不支持 struct 返回值"), "{msg}");
+    }
+
+
+    #[test]
+    fn struct_whole_assign_copies() {
+        let ir = gen(
+            "struct Point { x: int; y: int; }\n\
+             let p: Point = Point { x: 1, y: 2 };\n\
+             let q: Point = Point { x: 0, y: 0 };\n\
+             q = p;\n\
+             q.x = 9;\n\
+             print(p.x, q.x);",
+        )
+        .unwrap();
+        assert!(ir.contains("store i64"), "{ir}");
+    }
+
+    #[test]
+    fn struct_print_errors() {
+        let (msg, _) = err_pos(
+            "struct Point { x: int; }\nlet p: Point = Point { x: 1 };\nprint(p);",
+        );
+        assert!(msg.contains("struct 变量"), "{msg}");
+    }
+
+    #[test]
+    fn struct_duplicate_field_errors() {
+        let (msg, _) = err_pos("struct Point { x: int; x: float; }");
+        assert!(msg.contains("字段 `x` 重复"), "{msg}");
+    }
+
+    #[test]
+    fn struct_field_string_is_rejected() {
+        let (msg, _) = err_pos("struct Point { s: string; }");
+        assert!(msg.contains("只支持 int/float/bool"), "{msg}");
+    }
+
+    #[test]
+    fn nested_struct_decl_is_rejected() {
+        let (msg, _) = err_pos("struct Point { x: int; }\nfn f() { struct Inner { y: int; } }");
+        assert!(msg.contains("顶层"), "{msg}");
+    }
+
+
+    // ---- array v1 ----
+
+    #[test]
+    fn array_literal_alloca_and_index() {
+        let ir = gen(
+            "let a: array<int> = [1, 2, 3];\n\
+             a[0] = a[1] + 1;\n\
+             print(a[0], len(a));",
+        )
+        .unwrap();
+        assert!(ir.contains("alloca [3 x i64]"), "{ir}");
+        assert!(ir.contains("getelementptr [3 x i64]"), "{ir}");
+        assert!(ir.contains("store i64"), "{ir}");
+    }
+
+    #[test]
+    fn array_copy_is_elementwise() {
+        let ir = gen(
+            "let a = [1, 2];\nlet b = a;\na[0] = 9;\nprint(a[0], b[0]);",
+        )
+        .unwrap();
+        assert!(ir.matches("alloca [2 x i64]").count() >= 2, "{ir}");
+    }
+
+    #[test]
+    fn array_len_is_constant() {
+        let ir = gen("let a = [1, 2, 3];\nprint(len(a));").unwrap();
+        assert!(ir.contains("i64 3"), "{ir}");
+    }
+
+    #[test]
+    fn array_float_and_bool_elements() {
+        let ir = gen("let f: array<float> = [1.5, 2.5];\nprint(f[0], f[1]);").unwrap();
+        assert!(ir.contains("alloca [2 x double]"), "{ir}");
+        let ir = gen("let b: array<bool> = [true, false];\nprint(b[0], b[1]);").unwrap();
+        assert!(ir.contains("alloca [2 x i1]"), "{ir}");
+    }
+
+    #[test]
+    fn array_constant_index_out_of_bounds_errors() {
+        let (msg, _) = err_pos("let a = [1, 2];\nprint(a[2]);");
+        assert!(msg.contains("越界"), "{msg}");
+    }
+
+    #[test]
+    fn array_element_type_mismatch_errors() {
+        let (msg, _) = err_pos("let a: array<int> = [1, 2.0];");
+        assert!(msg.contains("类型不匹配"), "{msg}");
+    }
+
+    #[test]
+    fn array_param_is_rejected() {
+        let (msg, _) = err_pos("fn f(a: array<int>) -> int { return 0; }");
+        assert!(msg.contains("不支持 array 参数"), "{msg}");
+    }
+
+    #[test]
+    fn array_ret_is_rejected() {
+        let (msg, _) = err_pos("fn f() -> array<int> { return [1]; }");
+        assert!(msg.contains("不支持 array 返回值"), "{msg}");
+    }
+
+    #[test]
+    fn empty_array_is_rejected() {
+        let (msg, _) = err_pos("let a: array<int> = [];");
+        assert!(msg.contains("空数组"), "{msg}");
+    }
+
+    #[test]
+    fn array_direct_print_is_rejected() {
+        let (msg, _) = err_pos("let a = [1, 2];\nprint(a);");
+        assert!(msg.contains("数组变量"), "{msg}");
+    }
+
 }

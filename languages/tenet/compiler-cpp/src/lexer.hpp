@@ -167,6 +167,7 @@ private:
         t.str_val = text;
         if (text == "let") t.kind = Kind::Let;
         else if (text == "fn") t.kind = Kind::Fn;
+        else if (text == "struct") t.kind = Kind::Struct;
         else if (text == "if") t.kind = Kind::If;
         else if (text == "else") t.kind = Kind::Else;
         else if (text == "while") t.kind = Kind::While;
@@ -178,6 +179,7 @@ private:
         else if (text == "float") t.kind = Kind::FloatType;
         else if (text == "bool") t.kind = Kind::BoolType;
         else if (text == "string") t.kind = Kind::StrType;
+        else if (text == "array") t.kind = Kind::ArrayType;
         else t.kind = Kind::Ident;
         return t;
     }
@@ -190,6 +192,9 @@ private:
             case ')': kind = Kind::RParen; break;
             case '{': kind = Kind::LBrace; break;
             case '}': kind = Kind::RBrace; break;
+            case '[': kind = Kind::LBracket; break;
+            case ']': kind = Kind::RBracket; break;
+            case '.': kind = Kind::Dot; break;
             case ',': kind = Kind::Comma; break;
             case ':': kind = Kind::Colon; break;
             case ';': kind = Kind::Semi; break;

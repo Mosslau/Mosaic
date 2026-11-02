@@ -8,6 +8,7 @@
 // 系统链接器（cc）链接 runtime → 原生二进制（与 rustc 相同的模型）。
 
 #include <cstdio>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <fstream>
 #include <iostream>
@@ -82,6 +83,7 @@ void Codegen::emit_object(llvm::Module& mod, const std::string& obj_path) {
 namespace {
 
 const char* RUNTIME_C = R"(
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 char* tenet_concat(const char* a, const char* b) {
@@ -92,6 +94,10 @@ char* tenet_concat(const char* a, const char* b) {
     return r;
 }
 int tenet_strcmp(const char* a, const char* b) { return strcmp(a, b); }
+void tenet_bounds_fail(long long idx, long long len) {
+    fprintf(stderr, "Tenet runtime error: array index %lld out of bounds for length %lld\n", idx, len);
+    exit(1);
+}
 )";
 
 void usage() {
@@ -197,9 +203,12 @@ int main(int argc, char** argv) {
                           + "/tenet-cpp-run-" + std::to_string(::getpid());
         try {
             build(argv[2], bin);
-            int rc = std::system((bin + " ; exit $?").c_str());
+            int status = std::system(bin.c_str());
             std::remove(bin.c_str());
-            return rc;
+            if (status == -1) return 1;
+            if (WIFEXITED(status)) return WEXITSTATUS(status);
+            if (WIFSIGNALED(status)) return 128 + WTERMSIG(status);
+            return 1;
         } catch (const TenetError& e) {
             std::cerr << e.str() << "\n";
             return 1;

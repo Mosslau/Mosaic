@@ -1,0 +1,19 @@
+// array<T> v1：定长、下标读写、len、动态下标
+let a: array<int> = [3, 1, 2];
+let n: int = len(a);
+
+let i: int = 0;
+while (i < n) {
+    let j: int = 0;
+    while (j < n - 1 - i) {
+        if (a[j] > a[j + 1]) {
+            let t: int = a[j];
+            a[j] = a[j + 1];
+            a[j + 1] = t;
+        }
+        j = j + 1;
+    }
+    i = i + 1;
+}
+
+print(a[0], a[1], a[2], len(a));

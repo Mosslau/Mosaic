@@ -14,6 +14,7 @@ const USAGE: &str = "用法:\n  tenet build <file> [-o <out>]\n  tenet run <file
 
 /// 运行时库：字符串拼接与比较（链接时与编译产物一起编入）。
 const RUNTIME_C: &str = r#"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -27,6 +28,11 @@ char* tenet_concat(const char* a, const char* b) {
 
 int tenet_strcmp(const char* a, const char* b) {
     return strcmp(a, b);
+}
+
+void tenet_bounds_fail(long long idx, long long len) {
+    fprintf(stderr, "Tenet runtime error: array index %lld out of bounds for length %lld\n", idx, len);
+    exit(1);
 }
 "#;
 
