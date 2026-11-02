@@ -15,6 +15,7 @@
 #include <sstream>
 #include <string>
 
+#include "llvm/Config/llvm-config.h"
 #include "llvm/TargetParser/Triple.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -45,7 +46,11 @@ void Codegen::emit_object(llvm::Module& mod, const std::string& obj_path) {
     llvm::InitializeAllAsmPrinters();
 
     std::string triple = llvm::sys::getDefaultTargetTriple();
+#if LLVM_VERSION_MAJOR >= 21
     mod.setTargetTriple(llvm::Triple(triple));
+#else
+    mod.setTargetTriple(triple);
+#endif
 
     std::string err;
     const llvm::Target* target = llvm::TargetRegistry::lookupTarget(triple, err);

@@ -50,7 +50,8 @@ compiler-cpp/
 
 ## 构建与使用
 
-要求：LLVM 开发库（Homebrew：`brew install llvm`，本机 21.1.8）。
+要求：LLVM 开发库和 `clang++`（macOS Homebrew：`brew install llvm`；
+Ubuntu：`sudo apt-get install llvm-dev clang`）。代码兼容 LLVM 18 与 21。
 
 ```bash
 cd tenet/compiler-cpp
@@ -73,8 +74,8 @@ make test               # 749 项检查
 ./tenet ir examples/hello.tenet         # 打印 LLVM IR（Module::print）
 ```
 
-`llvm-config` 路径可用 `LLVM_CONFIG` 覆盖（Makefile 默认
-`/opt/homebrew/opt/llvm/bin/llvm-config`）。
+Makefile 会优先使用 PATH 中的 `llvm-config`；也可用
+`LLVM_CONFIG=/path/to/llvm-config` 显式覆盖。
 
 ## 支持的语言特性（核心子集）
 
