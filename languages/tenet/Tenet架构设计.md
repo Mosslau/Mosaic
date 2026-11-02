@@ -200,7 +200,7 @@ pattern         := literal | 'None' | 'Some' '(' pattern ')' | 'Ok' '(' pattern 
 
 | 能力 | 缺口 |
 |------|------|
-| 数组 / 排序 / 集合 | 固定/动态 `array<struct>`；固定/动态数组；固定嵌套 `array<array<T,N>,M>` 局部/参数/返回值；缺动态嵌套 `array<array<T>>` |
+| 数组 / 排序 / 集合 | 固定/动态 `array<struct>`数组；固定嵌套 `array<array<T,N>,M>`；缺动态嵌套 `array<array<T>>` |
 | 逐字符处理文本 | 无字符串索引/切片 |
 | 数字格式化（int→string 拼接） | 无转换函数——`line + 1` 是编译错误 |
 | 交互输入 / 文件 IO | 无 read / 标准库 |
@@ -362,8 +362,6 @@ file fib / nm fib | grep tenet_    # 产物格式 / 链接进来的符号
 ## 6. 演进方向
 
 ```text
-struct 已实现（嵌套 / 链式字段 / 参数 / 返回值 / 值拷贝）
-array<T, N> 已实现（固定值数组 / 局部 / 参数 / 返回值 / 下标 / len / 越界）
 array v2             ← 动态嵌套数组、内存管理
 array<struct> 固定/动态已实现；嵌套数组仅局部固定
 Option / Result / match / ?  ← Rust（标签联合 + 分支）
