@@ -1,15 +1,8 @@
 # 算法总索引
 
-> 口径：本索引把这 **42 个单元统一称为“算法”**；README/测试/练习/项目是其交付形态，不再使用旧称。
 > 理论总纲：[`./docs/人工智能代表算法演进路线.md`](./docs/人工智能代表算法演进路线.md)
-> 目录按演进阶段分组，编号即学习顺序；族目录用 **`p` + 两位编号**（`p01-search` … `p05-generative`），算法目录用 kebab-case 名。
-> **2026-11-02 深度补齐**：16 个原 L2/L1 算法补了 FD / heldout / 公平基线 / 种子方差；全仓 **575 passed**，validator 0 硬伤。各算法的证据与缺口见其 README 的“验证”段。
 > 原则：**手写核心逻辑（numpy / 纯 Python），禁止调 sklearn/torch 现成算法接口**；数据加载和可视化可以用现成工具。
-> 每完成一个算法，把索引表状态从 ⬜ 改为 ✅ 并记录日期。
-> **当前评估与生产化路线（2026-11-02）**：[算法评估与生产化路线.md](算法评估与生产化路线.md)——交付/深度/生产差距的单一当前视图。
-> 阶段成熟度评估（2026-10-22，历史快照）：[阶段成熟度评估-2026-10-22.md](阶段成熟度评估-2026-10-22.md)
-> 生产系统栈与算法应用（2026-10-23，详版）：[生产系统栈与算法应用.md](生产系统栈与算法应用.md)
-> 路线覆盖与系统题边界（2026-10-26）：[docs/路线覆盖与系统题边界.md](docs/路线覆盖与系统题边界.md)
+> **当前评估与生产化路线（2026-11-02）**：[算法评估与生产化路线.md](docs/算法评估与生产化路线.md)——交付/深度/生产差距的唯一当前视图；原阶段成熟度、生产系统栈、路线覆盖三份文档已合并进此文件。
 
 ## 目录组织原则（不设统一模板）
 
@@ -69,9 +62,10 @@ uv run pytest p01-search/a-star/ -q
 ## p02-statistical-ml · 统计机器学习
 
 > 族内学习顺序：线性回归 → 逻辑回归 → 正则化与模型选择 → SVM → 决策树 → 随机森林
-> → Boosting/GBDT → K-Means → PCA → 朴素贝叶斯 → 异常检测。
-> 前六个建立「损失 / 分类 / 划分 / 集成」的主线，正则化补上「泛化」，
-> Boosting 补齐集成里 bagging 之外的另一半，最后三个走向无监督与概率视角。
+> → Boosting/GBDT → K-Means → PCA → 朴素贝叶斯 → 关联规则 → 主题模型 → 推荐系统 → 异常检测。
+> 前六个建立「损失 / 分类 / 划分 / 集成」的主线，正则化补上「泛化」；
+> 中段转向无监督与概率视角（K-Means/PCA/朴素贝叶斯），
+> 末段是三个应用型算法（关联规则/主题/推荐）+ 异常检测。
 > 族级导读（14 个算法什么关系、该读哪个）：[p02-statistical-ml/README.md](p02-statistical-ml/README.md)。
 
 | 算法 | 章节 | 状态 | 完成日期 |
@@ -93,9 +87,10 @@ uv run pytest p01-search/a-star/ -q
 
 ## p03-deep-learning · 深度学习
 
-> 族内学习顺序：感知机 → MLP/反向传播 → CNN → RNN/LSTM → AutoEncoder → GAN。
-> 前两个建立「可学习非线性 + 反向传播」的主线，CNN/RNN 补上空间与时间结构，
-> AutoEncoder/GAN 走向无监督表示与生成。
+> 族内学习顺序：感知机 → MLP/反向传播 → CNN → 轻量 CNN → 目标检测 → 图像分割
+> → RNN/LSTM → AutoEncoder → GAN → GCN → DQN。
+> 前两个建立「可学习非线性 + 反向传播」的主线；CNN 系列（LeNet → 轻量 → 检测/分割）补空间视觉，
+> RNN/LSTM 补时间结构，AE/GAN 走向无监督表示与生成，GCN/DQN 扩到图与决策。
 > 与 p02 的对照：人工特征 → 表示学习；与 p04 的接力：RNN → 注意力。
 > 族级导读（11 个算法什么关系、该读哪个、开工前的补强计划）：[p03-deep-learning/README.md](p03-deep-learning/README.md)。
 > 阶段横向对照与质量项：[/p03-deep-learning/stage_benchmark.py](p03-deep-learning/stage_benchmark.py)。
@@ -116,9 +111,10 @@ uv run pytest p01-search/a-star/ -q
 
 ## p04-transformer · Transformer 时代
 
-> 族内学习顺序：注意力机制 → 迷你 Transformer Block → BERT → 迷你 GPT → T5。
-> 先做“组件”（attention），再做“可堆叠 Block”，然后换 mask/目标得到三种范式：
-> BERT（双向 encoder）、GPT（因果 decoder）、T5（encoder-decoder + cross-attention）。
+> 族内学习顺序：词向量 → 注意力机制 → 迷你 Transformer Block → BERT → 迷你 GPT → T5 → ViT → 多模态。
+> 先用词向量建立「离散符号 → 连续向量」，再做“组件”（attention）和“可堆叠 Block”；
+> 然后换 mask/目标得到三种范式：BERT（双向 encoder）、GPT（因果 decoder）、T5（encoder-decoder + cross-attention）；
+> ViT 把同一套注意力搬到图像，多模态做图文对齐。
 > 不先手写 attention 直接写 GPT，等于把最难的反传藏在黑盒里。
 > 族级导读（8 个算法什么关系、接口边界、数据/范围/Phase 0–5 计划）：[p04-transformer/README.md](p04-transformer/README.md)。
 > 阶段横向对照与完成度：[stage_benchmark.py](p04-transformer/stage_benchmark.py)。
