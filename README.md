@@ -25,22 +25,6 @@
 
 退出码：`0` 全部通过 / `1` 有域失败 / `2` 无失败但有域跳过（跳过的域不算通过）。
 
-| 域 | 实际命令 | 依赖 |
-|---|---|---|
-| 语言域文档契约 | `python3 .dsh/skills/tenetlang-notes/scripts/validate.py --links` | 系统 `python3` |
-| 算法域文档契约 | `python3 .dsh/skills/mindspring-lab/scripts/validate.py` | 系统 `python3` |
-| 算法域测试 | `cd algorithms && .venv/bin/python -m pytest -q`（575 项） | `uv sync --extra dev` |
-| Agent 运行时 | [`python-agent-runtime/scripts/verify.sh`](engineering/ai-platform/agent-platform/agent-service/python-agent-runtime/scripts/verify.sh)（pytest / ruff / docstring） | 该目录 `uv sync` |
-| 语言域文档站 | `cd languages/website && npm install && npm run build` | Node + 网络 |
-
-> 各域 pytest 配置互斥：根 [`pytest.ini`](pytest.ini) 只收 `algorithms/`（`--import-mode=importlib`），
-> `python-agent-runtime` 自带 `[tool.pytest.ini_options]`（prepend 模式，服务同目录导入）。
-> **不要用一条 `pytest` 跨域收集**——会在收集期直接失败。详见 [`verify.sh`](verify.sh)。
-> 算法域需 Python ≥ 3.11（`algorithms/pyproject.toml` 的 `requires-python`；系统 `python3` 可能是 3.9）。
-
-`engineering/` 两个平台的**设计文档**当前无自动化脚本（规范自述「不带校验脚本」），按
-[`.dsh/skills/engineering-docs/`](.dsh/skills/engineering-docs/) 的场景 D 完成度清单人工核对。
-
 ## 边界
 
 `languages/` 承载**语义与教学**（"应该怎么做、为什么"），`engineering/` 的目标是**真实系统与真实指标**（"跑起来是什么样"）。同一个概念在两处出现时，前者讲清纪律，后者交付可运行的实现与实测数字——不重复造文档。
