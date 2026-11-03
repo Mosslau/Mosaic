@@ -7525,8 +7525,9 @@ __attribute__((constructor)) static void init_tracker(void) { atexit(report); }
              t.a[0] = 5;\n\
              print(len(s.a), s.a[0], t.a[0], s.x);\n\
              print(s);\n\
+             print(s.a);\n\
              print(len(t.a), t.a[0]);",
-            "3 7 5 9\nS { a: [7, 2, 3], x: 9 }\n3 5\n",
+            "3 7 5 9\nS { a: [7, 2, 3], x: 9 }\n[7, 2, 3]\n3 5\n",
         );
     }
 
