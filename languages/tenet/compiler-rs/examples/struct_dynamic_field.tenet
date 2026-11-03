@@ -1,0 +1,22 @@
+// S3e：struct 的动态数组字段 v1
+// 布局：动态数组字段占 3 个 i64 descriptor 槽（data/len/cap），与标量/固定数组字段共存。
+struct S { a: array<int>; x: int; }
+
+let s: S = S { a: [1, 2], x: 9 };
+s.a[0] = 7;
+push(s.a, 3);
+
+// struct 整体赋值是深拷贝：t 与 s 的动态字段互不影响。
+let t: S = s;
+t.a[0] = 5;
+print(len(s.a), s.a[0], t.a[0], s.x);
+print(s);
+
+// struct 参数/返回值按总槽数 ABI；入口深拷贝，返回时转移并清空本地。
+fn f(v: S) -> S {
+    v.a[0] = 8;
+    return v;
+}
+
+let u: S = f(s);
+print(u.a[0], s.a[0]);

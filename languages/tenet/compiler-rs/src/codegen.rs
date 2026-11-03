@@ -92,9 +92,10 @@ struct VarInfo {
 /// struct 的扁平槽位布局条目。
 ///
 /// - `path`：字段点路径（嵌套 struct 会递归展开成 `inner.x` 这种形式）。
-/// - `ty`：标量字段类型，或固定数组字段的完整数组类型。
+/// - `ty`：标量字段类型，或数组字段的完整数组类型。
 /// - `offset`：相对 struct 起始的 8 字节槽偏移（不是字段序号）。
-/// - `slots`：该字段占用的槽数；标量为 1，固定数组为 `N * elem_slots`。
+/// - `slots`：该字段占用的槽数；标量为 1，固定数组为 `N * elem_slots`，
+///   动态数组为 3（data/len/cap descriptor）。
 #[derive(Clone)]
 struct LayoutEntry {
     path: String,
@@ -118,6 +119,12 @@ enum Place {
         addr: String,
         len: usize,
         packed: bool,
+    },
+    /// 动态数组 descriptor：三个槽的地址（data ptr / len i64 / cap i64）。
+    /// 可以来自局部动态数组、struct 的局部字段，也可以来自扁平槽块中的字段。
+    DynArray {
+        ty: String,
+        info: DynArrayInfo,
     },
     /// struct 值：局部变量用 `fields` 字段表；数组元素/字段块用 `addr`。
     Struct {
@@ -295,7 +302,7 @@ impl Codegen {
                     return Err(TenetError::at_pos(
                         format!(
                             "struct `{name}` 的字段 `{fname}` 只支持 int/float/bool、\
-                             其他 struct 或固定数组"
+                             其他 struct、固定数组或标量动态数组"
                         ),
                         stmt.pos.clone(),
                     ));
@@ -319,7 +326,10 @@ impl Codegen {
         Ok(())
     }
 
-    /// struct 字段的固定数组校验：每一层都必须是固定长度，元素限标量或 struct。
+    /// struct 字段的数组校验：
+    /// - 固定数组：每一层都必须是固定长度，元素限标量或 struct；
+    /// - 动态数组（v1）：只允许标量元素 `array<int/float/bool>`，占 3 个
+    ///   descriptor 槽；不支持动态 `array<struct>` 与动态嵌套字段。
     fn validate_struct_array_field(
         &self,
         sname: &str,
@@ -327,13 +337,42 @@ impl Codegen {
         fty: &str,
         pos: Position,
     ) -> TResult<()> {
+        let elem = Self::array_elem(fty).unwrap();
+        if Self::array_decl_len(fty).is_none() {
+            if self.is_array(elem) {
+                return Err(TenetError::at_pos(
+                    format!(
+                        "struct `{sname}` 的字段 `{fname}` 不支持动态嵌套数组字段；\
+                         v1 只支持一层动态数组 `array<int/float/bool>`"
+                    ),
+                    pos,
+                ));
+            }
+            if self.is_struct(elem) {
+                return Err(TenetError::at_pos(
+                    format!(
+                        "struct `{sname}` 的字段 `{fname}` 不支持动态 array<struct> 字段；\
+                         v1 的动态数组字段元素只支持 int/float/bool"
+                    ),
+                    pos,
+                ));
+            }
+            if elem == T_STR {
+                return Err(TenetError::at_pos(
+                    format!("struct `{sname}` 的字段 `{fname}` 的数组元素不支持 string"),
+                    pos,
+                ));
+            }
+            // 标量元素（或未定义的 struct 名，交给第二阶段检查）。
+            return Ok(());
+        }
         let mut cur = fty.to_string();
         loop {
             if Self::array_decl_len(&cur).is_none() {
                 return Err(TenetError::at_pos(
                     format!(
-                        "struct `{sname}` 的字段 `{fname}` 不支持 array 动态数组字段；\
-                         v1 只支持固定长度 array<T, N>"
+                        "struct `{sname}` 的字段 `{fname}` 的固定数组内层不支持动态数组；\
+                         v1 固定数组的每一层都必须是固定长度"
                     ),
                     pos,
                 ));
@@ -416,15 +455,38 @@ impl Codegen {
     }
 
     /// 一个字段类型占用的 8 字节槽数：
-    /// 标量 1 槽；固定数组 `N * elem_slots`；struct 递归求和。
+    /// 标量 1 槽；固定数组 `N * elem_slots`；动态数组 3 槽（data/len/cap）；
+    /// struct 递归求和。
     fn field_slot_width(&self, ty: &str) -> usize {
-        if let Some(n) = Self::array_decl_len(ty) {
+        if Self::is_dynamic_array(ty) {
+            3
+        } else if let Some(n) = Self::array_decl_len(ty) {
             n * self.array_elem_slots(ty).unwrap_or(1)
         } else if self.is_struct(ty) {
             self.struct_total_slots(ty)
         } else {
             1
         }
+    }
+
+    /// 一个值在扁平 i64 槽块中占用的槽数（标量 / struct / 固定数组 / 动态 descriptor）。
+    fn value_slots(&self, ty: &str) -> usize {
+        self.field_slot_width(ty)
+    }
+
+    /// 该类型是否（递归地）拥有需要释放的堆内存：
+    /// 动态数组自身；固定数组看元素；struct 看字段。
+    fn type_owns_heap(&self, ty: &str) -> bool {
+        if Self::is_dynamic_array(ty) {
+            return true;
+        }
+        if let Some(elem) = Self::array_elem(ty) {
+            return self.type_owns_heap(elem);
+        }
+        if let Some(fields) = self.structs.get(ty) {
+            return fields.iter().any(|(_, fty)| self.type_owns_heap(fty));
+        }
+        false
     }
 
     /// struct 的总槽数（固定数组字段按 `N * elem_slots` 计入）。
@@ -789,9 +851,56 @@ impl Codegen {
         }
     }
 
+    /// 把一个动态数组表达式初始化后写入扁平 struct buffer 的 descriptor 三槽。
+    /// 新数组的所有权随槽位转移给 buffer / 调用方。
+    fn pack_dyn_field_expr(
+        &mut self,
+        ty: &str,
+        expr: &Expr,
+        buf: &str,
+        off: usize,
+    ) -> TResult<()> {
+        let tmp = self.init_dynamic_array("__field_tmp", ty, expr, expr.pos.clone())?;
+        let di = tmp.dyn_array.as_ref().unwrap();
+        let p = self.dyn_load(&di.data, "ptr");
+        let l = self.dyn_load(&di.len, "i64");
+        let c = self.dyn_load(&di.cap, "i64");
+        let s0 = self.flat_slot(buf, off);
+        let s1 = self.flat_slot(buf, off + 1);
+        let s2 = self.flat_slot(buf, off + 2);
+        self.ins(&format!("store ptr {p}, ptr {s0}"));
+        self.ins(&format!("store i64 {l}, ptr {s1}"));
+        self.ins(&format!("store i64 {c}, ptr {s2}"));
+        Ok(())
+    }
+
     fn unpack_buffer(&mut self, dst: &VarInfo, ty: &str, buf: &str) -> TResult<()> {
         let n = self.struct_total_slots(ty);
         for entry in self.layout_of(ty) {
+            if Self::is_dynamic_array(&entry.ty) {
+                let f = dst.fields.get(&entry.path).ok_or_else(|| {
+                    TenetError::at_pos(
+                        format!("缺少字段槽 `{}`", entry.path),
+                        Position::new(1, 1),
+                    )
+                })?;
+                let di = f.dyn_array.as_ref().ok_or_else(|| {
+                    TenetError::at_pos(
+                        format!("字段 `{}` 不是动态数组", entry.path),
+                        Position::new(1, 1),
+                    )
+                })?;
+                let s0 = self.flat_slot(buf, entry.offset);
+                let s1 = self.flat_slot(buf, entry.offset + 1);
+                let s2 = self.flat_slot(buf, entry.offset + 2);
+                let p = self.load_slot_ptr(&s0);
+                let l = self.load_slot_i64(&s1);
+                let c = self.load_slot_i64(&s2);
+                self.ins(&format!("store ptr {p}, ptr {}", di.data));
+                self.store_slot_i64(&di.len, &l);
+                self.store_slot_i64(&di.cap, &c);
+                continue;
+            }
             let addr = dst
                 .fields
                 .get(&entry.path)
@@ -805,6 +914,55 @@ impl Codegen {
             if entry.slots > 1 {
                 let src = self.flat_slot(buf, entry.offset);
                 self.copy_flat_i64(&addr, &src, entry.slots);
+                continue;
+            }
+            let slot = self.buffer_slot(buf, n, entry.offset);
+            let raw = self.tmp();
+            self.ins(&format!("{raw} = load i64, ptr {slot}"));
+            let v = self.unpack_scalar(&entry.ty, &raw);
+            self.ins(&format!(
+                "store {} {v}, ptr {addr}",
+                llvm_type(&entry.ty)
+            ));
+        }
+        Ok(())
+    }
+
+    /// 函数入口的 struct 参数：从 ABI buffer 深拷贝到本地字段（动态字段重新 malloc）。
+    fn unpack_buffer_deep(&mut self, dst: &VarInfo, ty: &str, buf: &str) -> TResult<()> {
+        let n = self.struct_total_slots(ty);
+        for entry in self.layout_of(ty) {
+            let f = dst.fields.get(&entry.path).ok_or_else(|| {
+                TenetError::at_pos(
+                    format!("缺少字段槽 `{}`", entry.path),
+                    Position::new(1, 1),
+                )
+            })?;
+            if Self::is_dynamic_array(&entry.ty) {
+                let di = f.dyn_array.as_ref().ok_or_else(|| {
+                    TenetError::at_pos(
+                        format!("字段 `{}` 不是动态数组", entry.path),
+                        Position::new(1, 1),
+                    )
+                })?;
+                let s0 = self.flat_slot(buf, entry.offset);
+                let src_di = self.dyn_info_in_block(&s0, 0);
+                self.deep_copy_dyn_to_local(&entry.ty, di, &src_di)?;
+                continue;
+            }
+            let addr = f.addr.clone().ok_or_else(|| {
+                TenetError::at_pos(
+                    format!("缺少字段槽 `{}`", entry.path),
+                    Position::new(1, 1),
+                )
+            })?;
+            if entry.slots > 1 {
+                let src = self.flat_slot(buf, entry.offset);
+                if self.type_owns_heap(&entry.ty) {
+                    self.deep_copy_value(&entry.ty, &addr, &src);
+                } else {
+                    self.copy_flat_i64(&addr, &src, entry.slots);
+                }
                 continue;
             }
             let slot = self.buffer_slot(buf, n, entry.offset);
@@ -839,6 +997,10 @@ impl Codegen {
                         .ok_or_else(|| {
                             TenetError::at_pos(format!("未知字段 `{path}`"), e.pos.clone())
                         })?;
+                    if Self::is_dynamic_array(&entry.ty) {
+                        self.pack_dyn_field_expr(&entry.ty, &e, buf, entry.offset)?;
+                        continue;
+                    }
                     if entry.slots > 1 {
                         self.pack_array_field_expr(&entry.ty, &e, buf, entry.offset)?;
                         continue;
@@ -874,6 +1036,24 @@ impl Codegen {
                             expr.pos.clone(),
                         )
                     })?;
+                    if Self::is_dynamic_array(&entry.ty) {
+                        let di = f.dyn_array.as_ref().ok_or_else(|| {
+                            TenetError::at_pos(
+                                format!("字段 `{}` 不是动态数组", entry.path),
+                                expr.pos.clone(),
+                            )
+                        })?;
+                        let p = self.dyn_load(&di.data, "ptr");
+                        let l = self.dyn_load(&di.len, "i64");
+                        let c = self.dyn_load(&di.cap, "i64");
+                        let s0 = self.flat_slot(buf, entry.offset);
+                        let s1 = self.flat_slot(buf, entry.offset + 1);
+                        let s2 = self.flat_slot(buf, entry.offset + 2);
+                        self.ins(&format!("store ptr {p}, ptr {s0}"));
+                        self.ins(&format!("store i64 {l}, ptr {s1}"));
+                        self.ins(&format!("store i64 {c}, ptr {s2}"));
+                        continue;
+                    }
                     let addr = f.addr.clone().unwrap();
                     if entry.slots > 1 {
                         let dst = self.flat_slot(buf, entry.offset);
@@ -992,6 +1172,8 @@ impl Codegen {
         }
         self.current_fn.clear();
         if !self.terminated {
+            // 顶层作用域收尾：释放局部动态数组 / struct 动态字段。
+            self.drop_all_scopes();
             self.term("ret i32 0");
         }
         self.push("}");
@@ -1048,7 +1230,7 @@ impl Codegen {
             if self.is_struct(pty) {
                 let info = self.alloc_struct(pty, stmt.pos.clone())?;
                 let arg = format!("%p{i}");
-                self.unpack_buffer(&info, pty, &arg)?;
+                self.unpack_buffer_deep(&info, pty, &arg)?;
                 self.symbols.last_mut().unwrap().insert(pname.clone(), info);
             } else if Self::is_dynamic_array(pty) {
                 let arg = format!("%p{i}");
@@ -1063,7 +1245,11 @@ impl Codegen {
                     let total = len * slots;
                     let addr = self.tmp();
                     self.ins(&format!("{addr} = alloca [{total} x i64]"));
-                    self.copy_flat_i64(&addr, &format!("%p{i}"), total);
+                    if self.type_owns_heap(pty) {
+                        self.deep_copy_value(pty, &addr, &format!("%p{i}"));
+                    } else {
+                        self.copy_flat_i64(&addr, &format!("%p{i}"), total);
+                    }
                     self.symbols.last_mut().unwrap().insert(
                         pname.clone(),
                         VarInfo {
@@ -1117,13 +1303,15 @@ impl Codegen {
         for s in body {
             self.emit_stmt(s)?;
         }
+        if ret.is_none() && !self.terminated {
+            // 函数体正常落空：先递归 drop 函数作用域（含 struct 参数），再返回。
+            self.drop_all_scopes();
+            self.term("ret void");
+        }
         self.symbols.pop();
         self.current_fn.clear();
         self.current_ret = None;
 
-        if ret.is_none() && !self.terminated {
-            self.term("ret void");
-        }
         if ret_composite && !self.terminated {
             return Err(TenetError::at_pos(
                 format!("函数 `{name}` 的复合类型返回路径没有 return"),
@@ -1282,7 +1470,8 @@ impl Codegen {
                                 stmt.pos.clone(),
                             ));
                         };
-                        self.pack_expr_to_buffer(&decl, e, "%sret")?;
+                        self.return_struct_to_sret(&decl, e)?;
+                        self.drop_all_scopes();
                         self.term("ret void");
                         return Ok(());
                     }
@@ -1308,7 +1497,27 @@ impl Codegen {
                         let len = Self::array_decl_len(&decl).ok_or_else(|| {
                             TenetError::at_pos("array 返回值必须写 array<T, N>".to_string(), stmt.pos.clone())
                         })?;
-                        self.pack_array_expr_to_buffer(&decl, len, e, "%sret")?;
+                        if self.is_flat_slot_array(&decl) {
+                            if let ExprKind::Var(src) = &e.kind {
+                                let info = self.lookup_var(src, e.pos.clone())?;
+                                if info.ty != decl {
+                                    return Err(TenetError::at_pos(
+                                        format!(
+                                            "返回类型不匹配：需要 {decl}，实际 {}",
+                                            info.ty
+                                        ),
+                                        e.pos.clone(),
+                                    ));
+                                }
+                                let addr = info.addr.clone().unwrap();
+                                self.transfer_value_slots(&decl, "%sret", &addr);
+                            } else {
+                                self.pack_array_expr_to_buffer(&decl, len, e, "%sret")?;
+                            }
+                        } else {
+                            self.pack_array_expr_to_buffer(&decl, len, e, "%sret")?;
+                        }
+                        self.drop_all_scopes();
                         self.term("ret void");
                         return Ok(());
                     }
@@ -1578,6 +1787,10 @@ impl Codegen {
             ExprKind::Assign { target, value } => match &target.kind {
                 ExprKind::Var(name) => {
                     let info = self.lookup_var(name, target.pos.clone())?;
+                    // 自赋值是 no-op（尤其 struct 深拷贝 / 整体赋值时避免先 drop 自己）。
+                    if matches!(&value.kind, ExprKind::Var(src) if src == name) {
+                        return Ok((info.ty.clone(), String::new()));
+                    }
                     if info.dyn_array.is_some() {
                         self.assign_dynamic(name, &info, value, expr.pos.clone())?;
                         return Ok((info.ty.clone(), String::new()));
@@ -1674,20 +1887,7 @@ impl Codegen {
                     if self.is_struct(&elem_ty) {
                         let (_, elem_addr) =
                             self.struct_array_elem_addr(&info, index, target.pos.clone())?;
-                        let slots = self.array_elem_slots(&info.ty)?;
-                        let tmp = self.alloc_buffer(slots);
-                        self.pack_expr_to_buffer(&elem_ty, value, &tmp)?;
-                        for k in 0..slots {
-                            let saddr = self.tmp();
-                            self.ins(&format!("{saddr} = getelementptr i64, ptr {tmp}, i64 {k}"));
-                            let daddr = self.tmp();
-                            self.ins(&format!(
-                                "{daddr} = getelementptr i64, ptr {elem_addr}, i64 {k}"
-                            ));
-                            let v = self.tmp();
-                            self.ins(&format!("{v} = load i64, ptr {saddr}"));
-                            self.ins(&format!("store i64 {v}, ptr {daddr}"));
-                        }
+                        self.write_struct_expr_to_slots(&elem_ty, value, &elem_addr, true)?;
                         return Ok((elem_ty, String::new()));
                     }
                     if info.dyn_array.is_some() {
@@ -1761,6 +1961,14 @@ impl Codegen {
                     Ok((vt, v))
                 }
             ExprKind::Field { base, field } => {
+                // `s.a = s.a` / `arr[0].x = arr[0].x` 是 no-op，避免先 drop 再拷贝自己。
+                if Self::place_path(target).is_some()
+                    && Self::place_path(target) == Self::place_path(value)
+                {
+                    if let Ok(Some(t)) = self.infer_type(target) {
+                        return Ok((t, String::new()));
+                    }
+                }
                 let mut ipath: Vec<&str> = Vec::new();
                 if let Some((arr_name, index)) = self.struct_index_fields(target, &mut ipath) {
                     let fpath = ipath.join(".");
@@ -1776,7 +1984,12 @@ impl Codegen {
                     let fty = self.field_type_of(&elem, &fpath)?;
                     if self.is_array(&fty) {
                         let faddr = self.gep_i8(&elem_addr, off * 8);
-                        self.store_array_place(&fty, &faddr, value, target.pos.clone())?;
+                        if Self::is_dynamic_array(&fty) {
+                            let di = self.dyn_info_in_block(&faddr, 0);
+                            self.assign_dyn_place(&fty, &di, value, target.pos.clone())?;
+                        } else {
+                            self.store_array_place(&fty, &faddr, value, target.pos.clone())?;
+                        }
                         return Ok((fty, String::new()));
                     }
                     let (vt, v) = self.gen_expr(value)?;
@@ -1827,8 +2040,13 @@ impl Codegen {
                 })?;
                 if self.is_array(&f.ty) {
                     let fty = f.ty.clone();
-                    let faddr = f.addr.clone().unwrap();
-                    self.store_array_place(&fty, &faddr, value, target.pos.clone())?;
+                    if let Some(di) = &f.dyn_array {
+                        let di = di.clone();
+                        self.assign_dyn_place(&fty, &di, value, target.pos.clone())?;
+                    } else {
+                        let faddr = f.addr.clone().unwrap();
+                        self.store_array_place(&fty, &faddr, value, target.pos.clone())?;
+                    }
                     return Ok((fty, String::new()));
                 }
                 let (vt, v) = self.gen_expr(value)?;
@@ -2131,6 +2349,19 @@ impl Codegen {
         r
     }
 
+    /// 扩容后的容量：至少 4（空数组 push 时 cap=0，不能继续乘 2 得 0）。
+    fn grow_cap(&mut self, cap: &str) -> String {
+        let doubled = self.tmp();
+        self.ins(&format!("{doubled} = mul i64 {cap}, 2"));
+        let small = self.tmp();
+        self.ins(&format!("{small} = icmp ult i64 {doubled}, 4"));
+        let nc = self.tmp();
+        self.ins(&format!(
+            "{nc} = select i1 {small}, i64 4, i64 {doubled}"
+        ));
+        nc
+    }
+
     fn dyn_alloc(
         &mut self,
         data_slot: &str,
@@ -2184,7 +2415,8 @@ impl Codegen {
         self.dyn_drop_slots(&info.data, &info.len, &info.cap, ty);
     }
 
-    /// 释放动态数组：嵌套数组先逐内层 free(data)，再 free 外层，最后清空槽位。
+    /// 释放动态数组：嵌套数组先逐内层 free(data)，struct 元素先递归 drop 其动态字段，
+    /// 再 free 外层，最后清空槽位。
     fn dyn_drop_slots(&mut self, data_slot: &str, len_slot: &str, cap_slot: &str, ty: &str) {
         let p = self.dyn_load(data_slot, "ptr");
         let is_null = self.tmp();
@@ -2231,6 +2463,34 @@ impl Codegen {
             self.ins(&format!("store i64 {ni}, ptr {i_slot}"));
             self.term(&format!("br label %{cond}"));
             self.block(&after);
+        } else if let Some(elem) = Self::array_elem(ty).map(|s| s.to_string()) {
+            // 动态 array<struct>：元素里的动态字段需要先递归 drop。
+            if self.is_struct(&elem) && self.type_owns_heap(&elem) {
+                let len = self.dyn_load(len_slot, "i64");
+                let eslots = self.array_elem_slots(ty).unwrap_or(1);
+                let i_slot = self.tmp();
+                self.ins(&format!("{i_slot} = alloca i64"));
+                self.ins(&format!("store i64 0, ptr {i_slot}"));
+                let cond = self.new_label("dyn.drop.elem.cond");
+                let body = self.new_label("dyn.drop.elem");
+                let after = self.new_label("dyn.drop.elems");
+                self.term(&format!("br label %{cond}"));
+                self.block(&cond);
+                let i = self.dyn_load(&i_slot, "i64");
+                let c = self.tmp();
+                self.ins(&format!("{c} = icmp slt i64 {i}, {len}"));
+                self.term(&format!("br i1 {c}, label %{body}, label %{after}"));
+                self.block(&body);
+                let row = self.tmp();
+                self.ins(&format!("{row} = mul i64 {i}, {eslots}"));
+                let base = self.slot_addr_dyn(&p, &row);
+                self.drop_value_slots(&elem, &base);
+                let ni = self.tmp();
+                self.ins(&format!("{ni} = add i64 {i}, 1"));
+                self.ins(&format!("store i64 {ni}, ptr {i_slot}"));
+                self.term(&format!("br label %{cond}"));
+                self.block(&after);
+            }
         }
         self.ins(&format!("call void @free(ptr {p})"));
         self.ins(&format!("store ptr null, ptr {data_slot}"));
@@ -2420,14 +2680,40 @@ impl Codegen {
         self.ins(&format!("{bytes} = mul i64 {sc}, {}", slots * 8));
         let np = self.tmp();
         self.ins(&format!("{np} = call ptr @malloc(i64 {bytes})"));
-        let total = self.tmp();
-        self.ins(&format!("{total} = mul i64 {sl}, {slots}"));
-        self.dyn_copy_elems(&np, &sp, &total, &elem);
         let (data, len_s, cap_s) = self.dyn_new_slots();
         self.ins(&format!("store ptr {np}, ptr {data}"));
         self.ins(&format!("store i64 {sl}, ptr {len_s}"));
         self.ins(&format!("store i64 {sc}, ptr {cap_s}"));
-        let _ = elem;
+        if self.is_struct(&elem) && self.type_owns_heap(&elem) {
+            // array<struct> 且 struct 含动态字段：逐元素深拷贝。
+            let i_slot = self.tmp();
+            self.ins(&format!("{i_slot} = alloca i64"));
+            self.ins(&format!("store i64 0, ptr {i_slot}"));
+            let cond = self.new_label("arr.param.copy.cond");
+            let body = self.new_label("arr.param.copy.body");
+            let end = self.new_label("arr.param.copy.end");
+            self.term(&format!("br label %{cond}"));
+            self.block(&cond);
+            let i = self.dyn_load(&i_slot, "i64");
+            let c = self.tmp();
+            self.ins(&format!("{c} = icmp slt i64 {i}, {sl}"));
+            self.term(&format!("br i1 {c}, label %{body}, label %{end}"));
+            self.block(&body);
+            let row = self.tmp();
+            self.ins(&format!("{row} = mul i64 {i}, {slots}"));
+            let d = self.slot_addr_dyn(&np, &row);
+            let s = self.slot_addr_dyn(&sp, &row);
+            self.deep_copy_value(&elem, &d, &s);
+            let ni = self.tmp();
+            self.ins(&format!("{ni} = add i64 {i}, 1"));
+            self.ins(&format!("store i64 {ni}, ptr {i_slot}"));
+            self.term(&format!("br label %{cond}"));
+            self.block(&end);
+        } else {
+            let total = self.tmp();
+            self.ins(&format!("{total} = mul i64 {sl}, {slots}"));
+            self.dyn_copy_elems(&np, &sp, &total, &elem);
+        }
         Ok(VarInfo {
             ty: ty.to_string(),
             addr: None,
@@ -2628,8 +2914,6 @@ impl Codegen {
         let di = info.dyn_array.as_ref().unwrap();
         let elem = self.array_elem_or_err(&info.ty, pos.clone())?;
         let slots = self.array_elem_slots(&info.ty)?;
-        let tmp = self.alloc_buffer(slots);
-        self.pack_expr_to_buffer(&elem, value, &tmp)?;
         let len = self.dyn_load(&di.len, "i64");
         let cap = self.dyn_load(&di.cap, "i64");
         let need = self.tmp();
@@ -2638,8 +2922,7 @@ impl Codegen {
         let after = self.new_label("dyn.grow.after");
         self.term(&format!("br i1 {need}, label %{grow}, label %{after}"));
         self.block(&grow);
-        let newcap = self.tmp();
-        self.ins(&format!("{newcap} = mul i64 {cap}, 2"));
+        let newcap = self.grow_cap(&cap);
         let bytes = self.tmp();
         self.ins(&format!("{bytes} = mul i64 {newcap}, {}", slots * 8));
         let np = self.tmp();
@@ -2657,15 +2940,7 @@ impl Codegen {
         let row = self.tmp();
         self.ins(&format!("{row} = mul i64 {len}, {slots}"));
         let dst = self.dyn_slot(&data, &row);
-        for k in 0..slots {
-            let sa = self.tmp();
-            self.ins(&format!("{sa} = getelementptr i64, ptr {tmp}, i64 {k}"));
-            let da = self.tmp();
-            self.ins(&format!("{da} = getelementptr i64, ptr {dst}, i64 {k}"));
-            let v = self.tmp();
-            self.ins(&format!("{v} = load i64, ptr {sa}"));
-            self.ins(&format!("store i64 {v}, ptr {da}"));
-        }
+        self.write_struct_expr_to_slots(&elem, value, &dst, false)?;
         let nl = self.tmp();
         self.ins(&format!("{nl} = add i64 {len}, 1"));
         self.ins(&format!("store i64 {nl}, ptr {}", di.len));
@@ -2699,8 +2974,7 @@ impl Codegen {
         let after = self.new_label("dyn.grow.after");
         self.term(&format!("br i1 {need}, label %{grow}, label %{after}"));
         self.block(&grow);
-        let newcap = self.tmp();
-        self.ins(&format!("{newcap} = mul i64 {cap}, 2"));
+        let newcap = self.grow_cap(&cap);
         let bytes = self.tmp();
         self.ins(&format!("{bytes} = mul i64 {newcap}, 24"));
         let np = self.tmp();
@@ -2756,9 +3030,7 @@ impl Codegen {
             .map(|m| m.values().cloned().collect())
             .unwrap_or_default();
         for v in vars {
-            if let Some(di) = v.dyn_array {
-                self.dyn_drop(&di, &v.ty);
-            }
+            self.drop_var(&v);
         }
     }
 
@@ -2766,9 +3038,7 @@ impl Codegen {
         for i in (0..self.symbols.len()).rev() {
             let vars: Vec<VarInfo> = self.symbols[i].values().cloned().collect();
             for v in vars {
-                if let Some(di) = v.dyn_array {
-                    self.dyn_drop(&di, &v.ty);
-                }
+                self.drop_var(&v);
             }
         }
     }
@@ -2794,22 +3064,12 @@ impl Codegen {
                 self.ins(&format!("store i64 {len}, ptr {len_s}"));
                 self.ins(&format!("store i64 {cap}, ptr {cap_s}"));
                 for (i, e) in elems.iter().enumerate() {
-                    let tmp = self.alloc_buffer(slots);
-                    self.pack_expr_to_buffer(&elem, e, &tmp)?;
                     let dst = self.tmp();
                     self.ins(&format!(
                         "{dst} = getelementptr i64, ptr {p}, i64 {}",
                         i * slots
                     ));
-                    for k in 0..slots {
-                        let sa = self.tmp();
-                        self.ins(&format!("{sa} = getelementptr i64, ptr {tmp}, i64 {k}"));
-                        let da = self.tmp();
-                        self.ins(&format!("{da} = getelementptr i64, ptr {dst}, i64 {k}"));
-                        let v = self.tmp();
-                        self.ins(&format!("{v} = load i64, ptr {sa}"));
-                        self.ins(&format!("store i64 {v}, ptr {da}"));
-                    }
+                    self.write_struct_expr_to_slots(&elem, e, &dst, false)?;
                 }
             }
             ExprKind::Var(src) => {
@@ -2825,6 +3085,9 @@ impl Codegen {
                         format!("`{name}` 需要 {ty}，但 `{src}` 是 {}", sinfo.ty),
                         value.pos.clone(),
                     ));
+                }
+                if self.type_owns_heap(&elem) {
+                    return self.dyn_deep_copy_from(ty, di);
                 }
                 let slen = self.dyn_load(&di.len, "i64");
                 let scap = self.dyn_load(&di.cap, "i64");
@@ -2977,6 +3240,22 @@ impl Codegen {
         value: &Expr,
         pos: Position,
     ) -> TResult<VarInfo> {
+        if matches!(value.kind, ExprKind::Field { .. }) {
+            // `s.a = t.a` / 字段整体初始化：从另一个动态数组字段深拷贝。
+            let Some((sty, di)) = self.resolve_dyn_target(value)? else {
+                return Err(TenetError::at_pos(
+                    format!("`{name}` 的初始化需要动态数组表达式"),
+                    value.pos.clone(),
+                ));
+            };
+            if sty != ty {
+                return Err(TenetError::at_pos(
+                    format!("`{name}` 需要 {ty}，实际是 {sty}"),
+                    value.pos.clone(),
+                ));
+            }
+            return self.dyn_deep_copy_from(ty, &di);
+        }
         let elem0 = self.array_elem_or_err(ty, pos.clone())?;
         if self.is_struct(&elem0) {
             return self.init_dynamic_struct_array(name, ty, value, pos);
@@ -3217,39 +3496,33 @@ impl Codegen {
         ));
         if let Some(elems) = src_literal {
             for (i, e) in elems.iter().enumerate() {
-                let tmp = self.alloc_buffer(slots);
-                self.pack_expr_to_buffer(&elem, e, &tmp)?;
                 let dst = self.tmp();
                 self.ins(&format!(
                     "{dst} = getelementptr [{} x i64], ptr {addr}, i64 0, i64 {}",
                     len * slots,
                     i * slots
                 ));
-                for k in 0..slots {
+                self.write_struct_expr_to_slots(&elem, e, &dst, false)?;
+            }
+        } else if let Some(src) = src_addr {
+            if self.type_owns_heap(ty) {
+                self.deep_copy_value(ty, &addr, &src);
+            } else {
+                for k in 0..(len * slots) {
                     let saddr = self.tmp();
-                    self.ins(&format!("{saddr} = getelementptr i64, ptr {tmp}, i64 {k}"));
+                    self.ins(&format!(
+                        "{saddr} = getelementptr [{} x i64], ptr {src}, i64 0, i64 {k}",
+                        len * slots
+                    ));
                     let daddr = self.tmp();
-                    self.ins(&format!("{daddr} = getelementptr i64, ptr {dst}, i64 {k}"));
+                    self.ins(&format!(
+                        "{daddr} = getelementptr [{} x i64], ptr {addr}, i64 0, i64 {k}",
+                        len * slots
+                    ));
                     let v = self.tmp();
                     self.ins(&format!("{v} = load i64, ptr {saddr}"));
                     self.ins(&format!("store i64 {v}, ptr {daddr}"));
                 }
-            }
-        } else if let Some(src) = src_addr {
-            for k in 0..(len * slots) {
-                let saddr = self.tmp();
-                self.ins(&format!(
-                    "{saddr} = getelementptr [{} x i64], ptr {src}, i64 0, i64 {k}",
-                    len * slots
-                ));
-                let daddr = self.tmp();
-                self.ins(&format!(
-                    "{daddr} = getelementptr [{} x i64], ptr {addr}, i64 0, i64 {k}",
-                    len * slots
-                ));
-                let v = self.tmp();
-                self.ins(&format!("{v} = load i64, ptr {saddr}"));
-                self.ins(&format!("store i64 {v}, ptr {daddr}"));
             }
         }
         let _ = slots;
@@ -3333,6 +3606,560 @@ impl Codegen {
             self.ins(&format!("{v} = load i64, ptr {sa}"));
             self.ins(&format!("store i64 {v}, ptr {da}"));
         }
+    }
+
+    // ---- 动态字段的通用深拷贝 / 转移 / 递归 drop ----
+
+    /// 扁平槽块中第 `slot` 个 i64 槽的地址（基址按字节寻址）。
+    fn slot_addr(&mut self, base: &str, slot: usize) -> String {
+        let a = self.tmp();
+        self.ins(&format!(
+            "{a} = getelementptr i8, ptr {base}, i64 {}",
+            slot * 8
+        ));
+        a
+    }
+
+    /// 运行时下标：扁平槽块中第 `slot_var` 个槽的地址。
+    fn slot_addr_dyn(&mut self, base: &str, slot_var: &str) -> String {
+        let byte = self.tmp();
+        self.ins(&format!("{byte} = mul i64 {slot_var}, 8"));
+        let a = self.tmp();
+        self.ins(&format!("{a} = getelementptr i8, ptr {base}, i64 {byte}"));
+        a
+    }
+
+    fn load_slot_ptr(&mut self, addr: &str) -> String {
+        let v = self.tmp();
+        self.ins(&format!("{v} = load ptr, ptr {addr}"));
+        v
+    }
+
+    fn load_slot_i64(&mut self, addr: &str) -> String {
+        let v = self.tmp();
+        self.ins(&format!("{v} = load i64, ptr {addr}"));
+        v
+    }
+
+    fn store_slot_i64(&mut self, addr: &str, v: &str) {
+        self.ins(&format!("store i64 {v}, ptr {addr}"));
+    }
+
+    fn copy_slot_i64(&mut self, dst: &str, src: &str) {
+        let v = self.load_slot_i64(src);
+        self.store_slot_i64(dst, &v);
+    }
+
+    /// 清空一个动态数组 descriptor 槽（所有权转移后避免二次释放）。
+    fn clear_desc_addr(&mut self, data: &str, len: &str, cap: &str) {
+        self.ins(&format!("store ptr null, ptr {data}"));
+        self.store_slot_i64(len, "0");
+        self.store_slot_i64(cap, "0");
+    }
+
+    /// 构造扁平槽块中某个字段位置上的 descriptor 三元组地址。
+    fn dyn_info_in_block(&mut self, base: &str, slot_off: usize) -> DynArrayInfo {
+        DynArrayInfo {
+            data: self.slot_addr(base, slot_off),
+            len: self.slot_addr(base, slot_off + 1),
+            cap: self.slot_addr(base, slot_off + 2),
+        }
+    }
+
+    /// 深拷贝一个值（struct / 固定数组 / 动态数组 / 标量）：
+    /// `dst` 与 `src` 都是扁平 i64 槽块中的起始地址。源保持有效。
+    fn deep_copy_value(&mut self, ty: &str, dst: &str, src: &str) {
+        if !self.type_owns_heap(ty) {
+            let n = self.value_slots(ty);
+            self.copy_flat_i64(dst, src, n);
+            return;
+        }
+        if Self::is_dynamic_array(ty) {
+            self.deep_copy_dyn_slots(ty, dst, src)
+                .expect("动态数组类型已经校验");
+            return;
+        }
+        if let Some(elem) = Self::array_elem(ty) {
+            let elem = elem.to_string();
+            let len = Self::array_decl_len(ty).expect("固定数组");
+            let eslots = self.array_elem_slots(ty).expect("数组元素槽数");
+            for i in 0..len {
+                let d = self.slot_addr(dst, i * eslots);
+                let s = self.slot_addr(src, i * eslots);
+                self.deep_copy_value(&elem, &d, &s);
+            }
+            return;
+        }
+        // struct：逐直接字段递归。
+        let defs = self.structs.get(ty).cloned().unwrap_or_default();
+        for (fname, fty) in defs {
+            let off = self
+                .direct_field_slot_offset(ty, &fname)
+                .expect("字段布局");
+            let d = self.slot_addr(dst, off);
+            let s = self.slot_addr(src, off);
+            if Self::is_dynamic_array(&fty) {
+                self.deep_copy_dyn_slots(&fty, &d, &s)
+                    .expect("动态数组字段类型已经校验");
+            } else if self.type_owns_heap(&fty) {
+                self.deep_copy_value(&fty, &d, &s);
+            } else {
+                let n = self.value_slots(&fty);
+                self.copy_flat_i64(&d, &s, n);
+            }
+        }
+    }
+
+    /// 深拷贝动态数组负载：给定源 data/len/cap 值，返回新 data 指针。
+    /// 元素为 struct 或嵌套动态数组时递归深拷贝；标量元素按打包槽复制。
+    fn dyn_copy_payload(
+        &mut self,
+        ty: &str,
+        sp: &str,
+        len: &str,
+        cap: &str,
+    ) -> TResult<String> {
+        let elem = self.array_elem_or_err(ty, Position::new(1, 1))?;
+        let eslots = self.array_elem_slots(ty)?;
+        let bytes = self.tmp();
+        self.ins(&format!("{bytes} = mul i64 {cap}, {}", eslots * 8));
+        let np = self.tmp();
+        self.ins(&format!("{np} = call ptr @malloc(i64 {bytes})"));
+
+        let i_slot = self.tmp();
+        self.ins(&format!("{i_slot} = alloca i64"));
+        self.store_slot_i64(&i_slot, "0");
+        let cond = self.new_label("deep.copy.cond");
+        let body = self.new_label("deep.copy.body");
+        let end = self.new_label("deep.copy.end");
+        self.term(&format!("br label %{cond}"));
+        self.block(&cond);
+        let i = self.dyn_load(&i_slot, "i64");
+        let c = self.tmp();
+        self.ins(&format!("{c} = icmp slt i64 {i}, {len}"));
+        self.term(&format!("br i1 {c}, label %{body}, label %{end}"));
+        self.block(&body);
+        let row = self.tmp();
+        self.ins(&format!("{row} = mul i64 {i}, {eslots}"));
+        let d = self.slot_addr_dyn(&np, &row);
+        let s = self.slot_addr_dyn(sp, &row);
+        if self.type_owns_heap(&elem) {
+            self.deep_copy_value(&elem, &d, &s);
+        } else {
+            self.copy_slot_i64(&d, &s);
+        }
+        let ni = self.tmp();
+        self.ins(&format!("{ni} = add i64 {i}, 1"));
+        self.store_slot_i64(&i_slot, &ni);
+        self.term(&format!("br label %{cond}"));
+        self.block(&end);
+        Ok(np)
+    }
+
+    /// 深拷贝 descriptor 三元组（源、目标都可能是互不相邻的槽位地址）。
+    fn deep_copy_dyn_to_local(
+        &mut self,
+        ty: &str,
+        dst: &DynArrayInfo,
+        src: &DynArrayInfo,
+    ) -> TResult<()> {
+        let sp = self.load_slot_ptr(&src.data);
+        let len = self.load_slot_i64(&src.len);
+        let cap = self.load_slot_i64(&src.cap);
+        let np = self.dyn_copy_payload(ty, &sp, &len, &cap)?;
+        self.ins(&format!("store ptr {np}, ptr {}", dst.data));
+        self.store_slot_i64(&dst.len, &len);
+        self.store_slot_i64(&dst.cap, &cap);
+        Ok(())
+    }
+
+    /// 深拷贝扁平块中的 descriptor 三元组（目标/源按连续 3 槽解释）。
+    fn deep_copy_dyn_slots(&mut self, ty: &str, dst: &str, src: &str) -> TResult<()> {
+        let ddi = self.dyn_info_in_block(dst, 0);
+        let sdi = self.dyn_info_in_block(src, 0);
+        self.deep_copy_dyn_to_local(ty, &ddi, &sdi)
+    }
+
+    /// 从已有 descriptor 深拷贝出一个新的局部动态数组。
+    fn dyn_deep_copy_from(&mut self, ty: &str, src: &DynArrayInfo) -> TResult<VarInfo> {
+        let (data, len_s, cap_s) = self.dyn_new_slots();
+        let dst = DynArrayInfo {
+            data: data.clone(),
+            len: len_s.clone(),
+            cap: cap_s.clone(),
+        };
+        self.deep_copy_dyn_to_local(ty, &dst, src)?;
+        Ok(VarInfo {
+            ty: ty.to_string(),
+            addr: None,
+            fields: HashMap::new(),
+            array: None,
+            dyn_array: Some(DynArrayInfo { data, len: len_s, cap: cap_s }),
+        })
+    }
+
+    /// 把扁平槽块中的值转移给另一块（用于 return）：动态 descriptor 复制后清空源，
+    /// 避免调用方接管后本地又 drop 一次。
+    fn transfer_value_slots(&mut self, ty: &str, dst: &str, src: &str) {
+        if !self.type_owns_heap(ty) {
+            let n = self.value_slots(ty);
+            self.copy_flat_i64(dst, src, n);
+            return;
+        }
+        if Self::is_dynamic_array(ty) {
+            let d0 = self.slot_addr(dst, 0);
+            let d1 = self.slot_addr(dst, 1);
+            let d2 = self.slot_addr(dst, 2);
+            let s0 = self.slot_addr(src, 0);
+            let s1 = self.slot_addr(src, 1);
+            let s2 = self.slot_addr(src, 2);
+            self.copy_slot_i64(&d0, &s0);
+            self.copy_slot_i64(&d1, &s1);
+            self.copy_slot_i64(&d2, &s2);
+            self.clear_desc_addr(&s0, &s1, &s2);
+            return;
+        }
+        if let Some(elem) = Self::array_elem(ty) {
+            let elem = elem.to_string();
+            let len = Self::array_decl_len(ty).expect("固定数组");
+            let eslots = self.array_elem_slots(ty).expect("数组元素槽数");
+            for i in 0..len {
+                let d = self.slot_addr(dst, i * eslots);
+                let s = self.slot_addr(src, i * eslots);
+                self.transfer_value_slots(&elem, &d, &s);
+            }
+            return;
+        }
+        let defs = self.structs.get(ty).cloned().unwrap_or_default();
+        for (fname, fty) in defs {
+            let off = self
+                .direct_field_slot_offset(ty, &fname)
+                .expect("字段布局");
+            let d = self.slot_addr(dst, off);
+            let s = self.slot_addr(src, off);
+            if Self::is_dynamic_array(&fty) {
+                self.desc_transfer(&d, &s);
+            } else if self.type_owns_heap(&fty) {
+                self.transfer_value_slots(&fty, &d, &s);
+            } else {
+                let n = self.value_slots(&fty);
+                self.copy_flat_i64(&d, &s, n);
+            }
+        }
+    }
+
+    /// descriptor 三元组复制 + 清空源（两者均为块中起始槽地址）。
+    fn desc_transfer(&mut self, dst: &str, src: &str) {
+        let d0 = self.slot_addr(dst, 0);
+        let d1 = self.slot_addr(dst, 1);
+        let d2 = self.slot_addr(dst, 2);
+        let s0 = self.slot_addr(src, 0);
+        let s1 = self.slot_addr(src, 1);
+        let s2 = self.slot_addr(src, 2);
+        self.copy_slot_i64(&d0, &s0);
+        self.copy_slot_i64(&d1, &s1);
+        self.copy_slot_i64(&d2, &s2);
+        self.clear_desc_addr(&s0, &s1, &s2);
+    }
+
+    /// 递归 drop 扁平槽块中的值（不触碰标量）。
+    fn drop_value_slots(&mut self, ty: &str, base: &str) {
+        if !self.type_owns_heap(ty) {
+            return;
+        }
+        if Self::is_dynamic_array(ty) {
+            let d = self.slot_addr(base, 0);
+            let l = self.slot_addr(base, 1);
+            let c = self.slot_addr(base, 2);
+            self.dyn_drop_slots(&d, &l, &c, ty);
+            return;
+        }
+        if let Some(elem) = Self::array_elem(ty) {
+            let elem = elem.to_string();
+            let len = Self::array_decl_len(ty).expect("固定数组");
+            let eslots = self.array_elem_slots(ty).expect("数组元素槽数");
+            for i in 0..len {
+                let a = self.slot_addr(base, i * eslots);
+                self.drop_value_slots(&elem, &a);
+            }
+            return;
+        }
+        let defs = self.structs.get(ty).cloned().unwrap_or_default();
+        for (fname, fty) in defs {
+            let off = self
+                .direct_field_slot_offset(ty, &fname)
+                .expect("字段布局");
+            if !self.type_owns_heap(&fty) {
+                continue;
+            }
+            let a = self.slot_addr(base, off);
+            if Self::is_dynamic_array(&fty) {
+                let d = self.slot_addr(&a, 0);
+                let l = self.slot_addr(&a, 1);
+                let c = self.slot_addr(&a, 2);
+                self.dyn_drop_slots(&d, &l, &c, &fty);
+            } else {
+                self.drop_value_slots(&fty, &a);
+            }
+        }
+    }
+
+    /// 递归 drop 一个局部变量（动态数组 / struct 字段 / 固定数组元素）。
+    fn drop_var(&mut self, v: &VarInfo) {
+        if let Some(di) = &v.dyn_array {
+            let di = di.clone();
+            self.dyn_drop(&di, &v.ty);
+            return;
+        }
+        if let Some(len) = v.array {
+            let Some(elem) = Self::array_elem(&v.ty).map(|s| s.to_string()) else {
+                return;
+            };
+            if self.type_owns_heap(&elem) {
+                let base = v.addr.clone().unwrap_or_default();
+                let eslots = self.array_elem_slots(&v.ty).unwrap_or(1);
+                for i in 0..len {
+                    let a = self.slot_addr(&base, i * eslots);
+                    self.drop_value_slots(&elem, &a);
+                }
+            }
+            return;
+        }
+        if self.is_struct(&v.ty) {
+            let fields: Vec<VarInfo> = v.fields.values().cloned().collect();
+            for f in fields {
+                self.drop_var(&f);
+            }
+        }
+    }
+
+    /// 把局部 struct 字段深拷贝到扁平槽块（目标可以是数组元素 / ABI buffer）。
+    fn store_struct_local_to_slots(
+        &mut self,
+        ty: &str,
+        fields: &HashMap<String, VarInfo>,
+        dst: &str,
+    ) -> TResult<()> {
+        for entry in self.layout_of(ty) {
+            let f = fields.get(&entry.path).ok_or_else(|| {
+                TenetError::at_pos(
+                    format!("缺少字段槽 `{}`", entry.path),
+                    Position::new(1, 1),
+                )
+            })?;
+            let target = self.slot_addr(dst, entry.offset);
+            if Self::is_dynamic_array(&entry.ty) {
+                let di = f.dyn_array.as_ref().ok_or_else(|| {
+                    TenetError::at_pos(
+                        format!("字段 `{}` 缺少动态数组 descriptor", entry.path),
+                        Position::new(1, 1),
+                    )
+                })?;
+                let dst_di = self.dyn_info_in_block(&target, 0);
+                self.deep_copy_dyn_to_local(&entry.ty, &dst_di, di)?;
+            } else if self.type_owns_heap(&entry.ty) {
+                let src = f.addr.clone().unwrap();
+                self.deep_copy_value(&entry.ty, &target, &src);
+            } else if entry.slots > 1 {
+                let src = f.addr.clone().unwrap();
+                self.copy_flat_i64(&target, &src, entry.slots);
+            } else {
+                let src = f.addr.clone().unwrap();
+                let v = self.tmp();
+                self.ins(&format!(
+                    "{v} = load {}, ptr {src}",
+                    llvm_type(&entry.ty)
+                ));
+                let raw = self.pack_scalar(&entry.ty, &v);
+                self.store_slot_i64(&target, &raw);
+            }
+        }
+        Ok(())
+    }
+
+    /// 把局部 struct 字段转移到扁平槽块（return 用）：动态 descriptor 复制后清空源。
+    fn transfer_struct_local_to_slots(
+        &mut self,
+        ty: &str,
+        fields: &HashMap<String, VarInfo>,
+        dst: &str,
+    ) -> TResult<()> {
+        for entry in self.layout_of(ty) {
+            let f = fields.get(&entry.path).ok_or_else(|| {
+                TenetError::at_pos(
+                    format!("缺少字段槽 `{}`", entry.path),
+                    Position::new(1, 1),
+                )
+            })?;
+            let target = self.slot_addr(dst, entry.offset);
+            if Self::is_dynamic_array(&entry.ty) {
+                let di = f.dyn_array.as_ref().ok_or_else(|| {
+                    TenetError::at_pos(
+                        format!("字段 `{}` 缺少动态数组 descriptor", entry.path),
+                        Position::new(1, 1),
+                    )
+                })?;
+                let s0 = di.data.clone();
+                let s1 = di.len.clone();
+                let s2 = di.cap.clone();
+                let d0 = self.slot_addr(&target, 0);
+                let d1 = self.slot_addr(&target, 1);
+                let d2 = self.slot_addr(&target, 2);
+                self.copy_slot_i64(&d0, &s0);
+                self.copy_slot_i64(&d1, &s1);
+                self.copy_slot_i64(&d2, &s2);
+                self.clear_desc_addr(&s0, &s1, &s2);
+            } else if self.type_owns_heap(&entry.ty) {
+                let src = f.addr.clone().unwrap();
+                self.transfer_value_slots(&entry.ty, &target, &src);
+            } else if entry.slots > 1 {
+                let src = f.addr.clone().unwrap();
+                self.copy_flat_i64(&target, &src, entry.slots);
+            } else {
+                let src = f.addr.clone().unwrap();
+                let v = self.tmp();
+                self.ins(&format!(
+                    "{v} = load {}, ptr {src}",
+                    llvm_type(&entry.ty)
+                ));
+                let raw = self.pack_scalar(&entry.ty, &v);
+                self.store_slot_i64(&target, &raw);
+            }
+        }
+        Ok(())
+    }
+
+    /// struct return 写入 %sret：
+    /// - 变量：转移动态 descriptor 并清空本地（避免函数收尾时二次释放）；
+    /// - 字面量：直接构造到 sret；
+    /// - 调用：从被调函数的 sret buffer 转移。
+    fn return_struct_to_sret(&mut self, ty: &str, expr: &Expr) -> TResult<()> {
+        match &expr.kind {
+            ExprKind::Var(src) => {
+                let info = self.lookup_var(src, expr.pos.clone())?;
+                if info.ty != ty {
+                    return Err(TenetError::at_pos(
+                        format!("返回类型不匹配：需要 {ty}，实际 {}", info.ty),
+                        expr.pos.clone(),
+                    ));
+                }
+                self.transfer_struct_local_to_slots(ty, &info.fields, "%sret")
+            }
+            ExprKind::StructLit { .. } => {
+                self.pack_expr_to_buffer(ty, expr, "%sret")?;
+                Ok(())
+            }
+            ExprKind::Call { .. } => {
+                let (rt, buf) = self.gen_expr(expr)?;
+                if rt != ty {
+                    return Err(TenetError::at_pos(
+                        format!("返回类型不匹配：需要 {ty}，调用返回 {rt}"),
+                        expr.pos.clone(),
+                    ));
+                }
+                self.transfer_value_slots(ty, "%sret", &buf);
+                Ok(())
+            }
+            _ => Err(TenetError::at_pos(
+                format!("{ty} 返回只支持变量、字面量或返回 {ty} 的调用"),
+                expr.pos.clone(),
+            )),
+        }
+    }
+
+    /// 用字面量/变量/调用结果写入扁平槽块中的一个 struct 值。
+    /// `drop_old=true` 时先递归 drop 目标位置的旧动态字段。
+    fn write_struct_expr_to_slots(
+        &mut self,
+        ty: &str,
+        expr: &Expr,
+        dst: &str,
+        drop_old: bool,
+    ) -> TResult<()> {
+        match &expr.kind {
+            ExprKind::Var(src) => {
+                let info = self.lookup_var(src, expr.pos.clone())?;
+                if info.ty != ty {
+                    return Err(TenetError::at_pos(
+                        format!("需要 {ty}，实际是 {}", info.ty),
+                        expr.pos.clone(),
+                    ));
+                }
+                if drop_old {
+                    self.drop_value_slots(ty, dst);
+                }
+                self.store_struct_local_to_slots(ty, &info.fields, dst)
+            }
+            ExprKind::StructLit { name, .. } => {
+                if name != ty {
+                    return Err(TenetError::at_pos(
+                        format!("需要 {ty}，字面量是 {name}"),
+                        expr.pos.clone(),
+                    ));
+                }
+                let n = self.value_slots(ty);
+                let buf = self.alloc_buffer(n);
+                self.pack_expr_to_buffer(ty, expr, &buf)?;
+                if drop_old {
+                    self.drop_value_slots(ty, dst);
+                }
+                self.copy_flat_i64(dst, &buf, n);
+                Ok(())
+            }
+            ExprKind::Call { .. } => {
+                let (rt, buf) = self.gen_expr(expr)?;
+                if rt != ty {
+                    return Err(TenetError::at_pos(
+                        format!("需要 {ty}，调用返回 {rt}"),
+                        expr.pos.clone(),
+                    ));
+                }
+                if drop_old {
+                    self.drop_value_slots(ty, dst);
+                }
+                let n = self.value_slots(ty);
+                self.copy_flat_i64(dst, &buf, n);
+                Ok(())
+            }
+            _ => Err(TenetError::at_pos(
+                format!("{ty} 值必须是字面量、同类型变量或返回 {ty} 的函数调用"),
+                expr.pos.clone(),
+            )),
+        }
+    }
+
+    /// 整体赋值动态数组字段 `s.a = [..]` / `s.a = t.a`：先深拷贝右侧，再 drop 旧值。
+    fn assign_dyn_place(
+        &mut self,
+        ty: &str,
+        target: &DynArrayInfo,
+        value: &Expr,
+        pos: Position,
+    ) -> TResult<()> {
+        let tmp = self.init_dynamic_array("__assign_tmp", ty, value, pos)?;
+        let tdi = tmp.dyn_array.as_ref().unwrap();
+        let nd = self.dyn_load(&tdi.data, "ptr");
+        let nl = self.dyn_load(&tdi.len, "i64");
+        let nc = self.dyn_load(&tdi.cap, "i64");
+        self.dyn_drop_slots(&target.data, &target.len, &target.cap, ty);
+        self.ins(&format!("store ptr {nd}, ptr {}", target.data));
+        self.store_slot_i64(&target.len, &nl);
+        self.store_slot_i64(&target.cap, &nc);
+        Ok(())
+    }
+
+    /// 解析一个动态数组左值（变量或 struct 字段 / 数组元素的动态字段）。
+    fn resolve_dyn_target(&mut self, expr: &Expr) -> TResult<Option<(String, DynArrayInfo)>> {
+        if let ExprKind::Var(name) = &expr.kind {
+            let info = self.lookup_var(name, expr.pos.clone())?;
+            if let Some(di) = info.dyn_array {
+                return Ok(Some((info.ty, di)));
+            }
+        }
+        if let Some(Place::DynArray { ty, info }) = self.resolve_place(expr)? {
+            return Ok(Some((ty, info)));
+        }
+        Ok(None)
     }
 
     fn pack_fixed_array_expr(&mut self, ty: &str, expr: &Expr, buf: &str) -> TResult<()> {
@@ -3602,9 +4429,28 @@ impl Codegen {
     fn assign_array(&mut self, dst: &VarInfo, value: &Expr, pos: Position) -> TResult<()> {
         if self.is_flat_slot_array(&dst.ty) {
             let total = self.fixed_array_total_slots(&dst.ty)?;
+            let dbase = dst.addr.clone().unwrap();
+            if let ExprKind::Var(src) = &value.kind {
+                let sinfo = self.lookup_var(src, value.pos.clone())?;
+                if sinfo.ty != dst.ty {
+                    return Err(TenetError::at_pos(
+                        format!("数组赋值类型不匹配：需要 {}，右侧是 {}", dst.ty, sinfo.ty),
+                        value.pos.clone(),
+                    ));
+                }
+                self.drop_var(dst);
+                if self.type_owns_heap(&dst.ty) {
+                    let sbase = sinfo.addr.clone().unwrap();
+                    self.deep_copy_value(&dst.ty, &dbase, &sbase);
+                } else {
+                    let sbase = sinfo.addr.clone().unwrap();
+                    self.copy_flat_i64(&dbase, &sbase, total);
+                }
+                return Ok(());
+            }
             let tmp = self.alloc_buffer(total);
             self.pack_fixed_array_expr(&dst.ty, value, &tmp)?;
-            let dbase = dst.addr.clone().unwrap();
+            self.drop_var(dst);
             self.copy_flat_i64(&dbase, &tmp, total);
             return Ok(());
         }
@@ -3678,6 +4524,8 @@ impl Codegen {
                         pos,
                     ));
                 }
+                // 先释放旧值，再深拷贝右侧（右侧来自另一个局部变量）。
+                self.drop_var(dst);
                 self.copy_struct(dst, &sinfo)
             }
             ExprKind::StructLit { name: sname, .. } => {
@@ -3690,6 +4538,7 @@ impl Codegen {
                 let n = self.struct_total_slots(&dst.ty);
                 let buf = self.alloc_buffer(n);
                 self.pack_expr_to_buffer(&dst.ty, value, &buf)?;
+                self.drop_var(dst);
                 self.unpack_buffer(dst, &dst.ty, &buf)
             }
             ExprKind::Call { .. } => {
@@ -3700,6 +4549,7 @@ impl Codegen {
                         pos,
                     ));
                 }
+                self.drop_var(dst);
                 self.unpack_buffer(dst, &dst.ty, &buf)
             }
             _ => Err(TenetError::at_pos(
@@ -3732,10 +4582,26 @@ impl Codegen {
         }
     }
 
+    /// 纯字段/常量下标路径（用于识别 `s.a = s.a` 这类自赋值）。
+    fn place_path(expr: &Expr) -> Option<String> {
+        match &expr.kind {
+            ExprKind::Var(name) => Some(name.clone()),
+            ExprKind::Field { base, field } => {
+                Some(format!("{}.{}", Self::place_path(base)?, field))
+            }
+            ExprKind::Index { base, index } => match &index.kind {
+                ExprKind::Int(i) => Some(format!("{}[{}]", Self::place_path(base)?, i)),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
     /// 为 struct 局部变量分配扁平字段槽位（嵌套路径如 a.x）。
     ///
     /// - 标量字段：`alloca <标量类型>`；
     /// - 固定数组字段：`alloca [N * elem_slots x i64]`，统一用扁平 i64 槽表示；
+    /// - 动态数组字段：data/len/cap 三个独立槽位（局部表示）；
     /// - 嵌套 struct：递归展开成点路径。
     fn alloc_struct(&mut self, ty: &str, pos: Position) -> TResult<VarInfo> {
         if !self.structs.contains_key(ty) {
@@ -3767,6 +4633,19 @@ impl Codegen {
             };
             if self.is_struct(&fty) {
                 self.alloc_struct_fields(&fty, &path, fields)?;
+            } else if Self::is_dynamic_array(&fty) {
+                // 动态数组字段：data/len/cap 三个独立槽位（局部表示）。
+                let (data, len, cap) = self.dyn_new_slots();
+                fields.insert(
+                    path,
+                    VarInfo {
+                        ty: fty.clone(),
+                        addr: None,
+                        fields: HashMap::new(),
+                        array: None,
+                        dyn_array: Some(DynArrayInfo { data, len, cap }),
+                    },
+                );
             } else if self.is_array(&fty) {
                 let slots = self.field_slot_width(&fty);
                 let addr = self.tmp();
@@ -3845,17 +4724,33 @@ impl Codegen {
         }
     }
 
-    /// struct 整体拷贝：标量字段逐槽 load/store，固定数组字段逐槽拷贝。
+    /// struct 整体拷贝（深拷贝）：
+    /// 标量字段逐槽复制；固定数组字段在含堆元素时递归深拷贝；
+    /// 动态数组字段 malloc 新块并复制元素。
     fn copy_struct(&mut self, dst: &VarInfo, src: &VarInfo) -> TResult<()> {
         for (path, dfield) in &dst.fields {
             let sfield = src.fields.get(path).ok_or_else(|| {
                 TenetError::at_pos(format!("struct 字段 `{path}` 不存在"), Position::new(1, 1))
             })?;
+            if let Some(ddi) = &dfield.dyn_array {
+                let sdi = sfield.dyn_array.as_ref().ok_or_else(|| {
+                    TenetError::at_pos(
+                        format!("结构字段 `{path}` 的动态数组状态不一致"),
+                        Position::new(1, 1),
+                    )
+                })?;
+                self.deep_copy_dyn_to_local(&dfield.ty, ddi, sdi)?;
+                continue;
+            }
             let daddr = dfield.addr.clone().unwrap();
             let saddr = sfield.addr.clone().unwrap();
             if self.is_array(&dfield.ty) {
-                let slots = self.field_slot_width(&dfield.ty);
-                self.copy_flat_i64(&daddr, &saddr, slots);
+                if self.type_owns_heap(&dfield.ty) {
+                    self.deep_copy_value(&dfield.ty, &daddr, &saddr);
+                } else {
+                    let slots = self.field_slot_width(&dfield.ty);
+                    self.copy_flat_i64(&daddr, &saddr, slots);
+                }
                 continue;
             }
             let t = dfield.ty.clone();
@@ -3951,6 +4846,12 @@ impl Codegen {
                     };
                     if let Some(f) = fs.get(&path) {
                         if self.is_array(&f.ty) {
+                            if let Some(di) = &f.dyn_array {
+                                return Ok(Some(Place::DynArray {
+                                    ty: f.ty.clone(),
+                                    info: di.clone(),
+                                }));
+                            }
                             return Ok(Some(Place::Array {
                                 ty: f.ty.clone(),
                                 addr: f.addr.clone().unwrap(),
@@ -3992,12 +4893,19 @@ impl Codegen {
                         prefix: String::new(),
                     }))
                 } else if self.is_array(&fty) {
-                    Ok(Some(Place::Array {
-                        ty: fty.clone(),
-                        addr: faddr,
-                        len: Self::array_decl_len(&fty).unwrap(),
-                        packed: true,
-                    }))
+                    if Self::is_dynamic_array(&fty) {
+                        Ok(Some(Place::DynArray {
+                            ty: fty.clone(),
+                            info: self.dyn_info_in_block(&faddr, 0),
+                        }))
+                    } else {
+                        Ok(Some(Place::Array {
+                            ty: fty.clone(),
+                            addr: faddr,
+                            len: Self::array_decl_len(&fty).unwrap(),
+                            packed: true,
+                        }))
+                    }
                 } else {
                     Ok(Some(Place::Scalar {
                         ty: fty,
@@ -4006,17 +4914,70 @@ impl Codegen {
                 }
             }
             ExprKind::Index { base, index } => {
+                // `dynamic_arr[i]` 的 struct 元素：供 `arr[i].field` / `arr[i].a[j]` 链式访问。
+                if let ExprKind::Var(name) = &base.kind {
+                    let info = self.lookup_var(name, base.pos.clone())?;
+                    if info.dyn_array.is_some() {
+                        let elem =
+                            self.array_elem_or_err(&info.ty, expr.pos.clone())?;
+                        if self.is_struct(&elem) {
+                            let (elem, elem_addr) = self.struct_array_elem_addr(
+                                &info,
+                                index,
+                                expr.pos.clone(),
+                            )?;
+                            return Ok(Some(Place::Struct {
+                                ty: elem,
+                                addr: Some(elem_addr),
+                                fields: None,
+                                prefix: String::new(),
+                            }));
+                        }
+                    }
+                }
                 let Some(bp) = self.resolve_place(base)? else {
                     return Ok(None);
                 };
-                let Place::Array {
-                    ty,
-                    addr,
-                    len,
-                    packed,
-                } = bp
-                else {
-                    return Ok(None);
+                let (ty, addr, len, packed) = match bp {
+                    Place::DynArray { ty, info } => {
+                        let elem = self.array_elem_or_err(&ty, expr.pos.clone())?;
+                        if self.is_array(&elem) || self.is_struct(&elem) {
+                            return Err(TenetError::at_pos(
+                                format!(
+                                    "v1 动态数组字段只支持标量元素，不支持对 `{elem}` 元素取下标"
+                                ),
+                                expr.pos.clone(),
+                            ));
+                        }
+                        let data = self.dyn_load(&info.data, "ptr");
+                        let dlen = self.dyn_load(&info.len, "i64");
+                        let (it, iv) = self.gen_expr(index)?;
+                        if it != llvm_type(T_INT) {
+                            return Err(TenetError::at_pos(
+                                format!(
+                                    "数组下标必须是 int，实际为 {}",
+                                    tenet_name(&it)
+                                ),
+                                index.pos.clone(),
+                            ));
+                        }
+                        self.bounds_check_op(&iv, &dlen);
+                        let slots = self.array_elem_slots(&ty)?;
+                        let row = self.tmp();
+                        self.ins(&format!("{row} = mul i64 {iv}, {slots}"));
+                        let slot = self.dyn_slot(&data, &row);
+                        return Ok(Some(Place::Scalar {
+                            ty: elem,
+                            addr: slot,
+                        }));
+                    }
+                    Place::Array {
+                        ty,
+                        addr,
+                        len,
+                        packed,
+                    } => (ty, addr, len, packed),
+                    _ => return Ok(None),
                 };
                 let elem = self.array_elem_or_err(&ty, expr.pos.clone())?;
                 let slots = self.array_elem_slots(&ty)?;
@@ -4090,6 +5051,11 @@ impl Codegen {
                 "数组值不能直接取值；请使用下标或整体赋值".to_string(),
                 pos,
             )),
+            Place::DynArray { .. } => Err(TenetError::at_pos(
+                "动态数组字段不能直接取值；请使用下标、len()、print() 或整体字段赋值"
+                    .to_string(),
+                pos,
+            )),
             Place::Struct { .. } => Err(TenetError::at_pos(
                 "struct 值不能直接取值；请继续访问字段".to_string(),
                 pos,
@@ -4098,6 +5064,7 @@ impl Codegen {
     }
 
     /// 把固定数组表达式写入已解析的数组槽区（`addr` 为扁平 i64 槽）。
+    /// 变量来源会深拷贝；字面量/调用结果先构造再接管，覆盖前先 drop 旧值。
     fn store_array_place(
         &mut self,
         ty: &str,
@@ -4106,6 +5073,19 @@ impl Codegen {
         pos: Position,
     ) -> TResult<()> {
         let total = self.fixed_array_total_slots(ty)?;
+        if let ExprKind::Var(src) = &value.kind {
+            let info = self.lookup_var(src, value.pos.clone())?;
+            if info.ty != ty {
+                return Err(TenetError::at_pos(
+                    format!("数组赋值类型不匹配：需要 {ty}，右侧是 {}", info.ty),
+                    value.pos.clone(),
+                ));
+            }
+            self.drop_value_slots(ty, addr);
+            let saddr = info.addr.clone().unwrap();
+            self.deep_copy_value(ty, addr, &saddr);
+            return Ok(());
+        }
         let buf = self.alloc_buffer(total);
         self.pack_array_field_expr(ty, value, &buf, 0).map_err(|mut e| {
             if e.pos.is_none() {
@@ -4113,6 +5093,7 @@ impl Codegen {
             }
             e
         })?;
+        self.drop_value_slots(ty, addr);
         self.copy_flat_i64(addr, &buf, total);
         Ok(())
     }
@@ -4143,15 +5124,16 @@ impl Codegen {
                 self.store_array_place(ty, addr, value, pos)?;
                 Ok((ty.clone(), String::new()))
             }
+            Place::DynArray { ty, info } => {
+                self.assign_dyn_place(ty, info, value, pos)?;
+                Ok((ty.clone(), String::new()))
+            }
             Place::Struct {
                 ty,
                 addr: Some(addr),
                 ..
             } => {
-                let slots = self.struct_total_slots(ty);
-                let buf = self.alloc_buffer(slots);
-                self.pack_expr_to_buffer(ty, value, &buf)?;
-                self.copy_flat_i64(addr, &buf, slots);
+                self.write_struct_expr_to_slots(ty, value, addr, true)?;
                 Ok((ty.clone(), String::new()))
             }
             Place::Struct { addr: None, .. } => Err(TenetError::at_pos(
@@ -4383,18 +5365,19 @@ impl Codegen {
                     pos.clone(),
                 ));
             }
-            let ExprKind::Var(name) = &args[0].kind else {
+            let Some((ty, di)) = self.resolve_dyn_target(&args[0])? else {
                 return Err(TenetError::at_pos(
-                    "`push` 第一个参数必须是动态数组变量".to_string(),
+                    "`push` 第一个参数必须是动态数组变量或 struct 的动态数组字段"
+                        .to_string(),
                     args[0].pos.clone(),
                 ));
             };
-            let info = self.lookup_var(name, args[0].pos.clone())?;
-            let Some(di) = &info.dyn_array else {
-                return Err(TenetError::at_pos(
-                    format!("`{name}` 不是动态数组，不能 push"),
-                    args[0].pos.clone(),
-                ));
+            let info = VarInfo {
+                ty: ty.clone(),
+                addr: None,
+                fields: HashMap::new(),
+                array: None,
+                dyn_array: Some(di),
             };
             let elem0 = self.array_elem_or_err(&info.ty, args[0].pos.clone())?;
             if self.is_struct(&elem0) {
@@ -4405,6 +5388,7 @@ impl Codegen {
                 self.push_nested_dynamic(&info, &args[1], pos)?;
                 return Ok(("void".into(), String::new()));
             }
+            let di = info.dyn_array.as_ref().unwrap();
             let elem = Self::array_elem_scalar(&info.ty, args[0].pos.clone())?;
             let elem_ll = llvm_type(&elem);
             let (vt, v) = self.gen_expr(&args[1])?;
@@ -4422,8 +5406,7 @@ impl Codegen {
             let after = self.new_label("dyn.grow.after");
             self.term(&format!("br i1 {need}, label %{grow}, label %{after}"));
             self.block(&grow);
-            let newcap = self.tmp();
-            self.ins(&format!("{newcap} = mul i64 {cap}, 2"));
+            let newcap = self.grow_cap(&cap);
             let bytes = self.tmp();
             self.ins(&format!("{bytes} = mul i64 {newcap}, 8"));
             let np = self.tmp();
@@ -4462,6 +5445,10 @@ impl Codegen {
                         return Ok((llvm_type(T_INT).into(), len));
                     }
                 }
+            }
+            if let Some((_ty, di)) = self.resolve_dyn_target(&args[0])? {
+                let len = self.dyn_load(&di.len, "i64");
+                return Ok((llvm_type(T_INT).into(), len));
             }
             let ExprKind::Var(name) = &args[0].kind else {
                 return Err(TenetError::at_pos(
@@ -4536,12 +5523,18 @@ impl Codegen {
         };
 
         let mut temp_dyn: Vec<TempDyn> = Vec::new();
+        // 非变量实参（字面量/调用结果）构造出的临时槽块由调用方拥有：
+        // 被调函数入口会深拷贝，调用返回后必须释放，避免泄漏。
+        let mut temp_owned: Vec<(String, String)> = Vec::new();
         for (i, a) in args.iter().enumerate() {
             let pty = &sig.params[i];
             if self.is_struct(pty) {
                 let n = self.struct_total_slots(pty);
                 let buf = self.alloc_buffer(n);
                 self.pack_expr_to_buffer(pty, a, &buf)?;
+                if !matches!(a.kind, ExprKind::Var(_)) && self.type_owns_heap(pty) {
+                    temp_owned.push((pty.clone(), buf.clone()));
+                }
                 arg_ops.push(format!("ptr {buf}"));
             } else if Self::is_dynamic_array(pty) {
                 let desc = self.desc_alloc();
@@ -4590,6 +5583,9 @@ impl Codegen {
                     let buf = self.tmp();
                     self.ins(&format!("{buf} = alloca [{total} x i64]"));
                     self.pack_fixed_array_expr(pty, a, &buf)?;
+                    if !matches!(a.kind, ExprKind::Var(_)) && self.type_owns_heap(pty) {
+                        temp_owned.push((pty.clone(), buf.clone()));
+                    }
                     arg_ops.push(format!("ptr {buf}"));
                 } else {
                     let elem = Self::array_elem_scalar(pty, a.pos.clone())?;
@@ -4630,6 +5626,9 @@ impl Codegen {
                 (ret_ll.into(), r)
             }
         };
+        for (ty, buf) in temp_owned {
+            self.drop_value_slots(&ty, &buf);
+        }
         for t in temp_dyn {
             match t {
                 TempDyn::Var(v) => {
@@ -4727,6 +5726,18 @@ impl Codegen {
         Ok(())
     }
 
+    /// 打印扁平槽块中某个动态数组字段（descriptor 三元组）。
+    fn print_dyn_info(&mut self, ty: &str, di: &DynArrayInfo) -> TResult<()> {
+        let fake = VarInfo {
+            ty: ty.to_string(),
+            addr: None,
+            fields: HashMap::new(),
+            array: None,
+            dyn_array: Some(di.clone()),
+        };
+        self.print_array_info(&fake)
+    }
+
     fn print_struct_at(
         &mut self,
         ty: &str,
@@ -4742,6 +5753,17 @@ impl Codegen {
             self.printf_raw(&format!("{}: ", entry.path), &[]);
             if let Some(fs) = fields {
                 if let Some(f) = fs.get(&entry.path) {
+                    if Self::is_dynamic_array(&entry.ty) {
+                        let di = f.dyn_array.as_ref().ok_or_else(|| {
+                            TenetError::at_pos(
+                                format!("字段 `{}` 不是动态数组", entry.path),
+                                Position::new(1, 1),
+                            )
+                        })?;
+                        let di = di.clone();
+                        self.print_dyn_info(&entry.ty, &di)?;
+                        continue;
+                    }
                     let a = f.addr.clone().unwrap();
                     if entry.slots > 1 {
                         self.print_packed_array_at(&entry.ty, &a)?;
@@ -4753,7 +5775,10 @@ impl Codegen {
             }
             if let Some(b) = base {
                 let a = self.gep_i8(b, entry.offset * 8);
-                if entry.slots > 1 {
+                if Self::is_dynamic_array(&entry.ty) {
+                    let di = self.dyn_info_in_block(&a, 0);
+                    self.print_dyn_info(&entry.ty, &di)?;
+                } else if entry.slots > 1 {
                     self.print_packed_array_at(&entry.ty, &a)?;
                 } else {
                     self.print_packed_scalar_at(&entry.ty, &a);
@@ -4914,6 +5939,19 @@ impl Codegen {
         for (i, a) in args.iter().enumerate() {
             if i > 0 {
                 self.printf_raw(" ", &[]);
+            }
+            if let Some((name, path)) = Self::expr_var_path(a) {
+                if !path.is_empty() {
+                    let info = self.lookup_var(&name, a.pos.clone())?;
+                    if let Some(f) = info.fields.get(&path) {
+                        if let Some(di) = &f.dyn_array {
+                            let ty = f.ty.clone();
+                            let di = di.clone();
+                            self.print_dyn_info(&ty, &di)?;
+                            continue;
+                        }
+                    }
+                }
             }
             if let ExprKind::Var(name) = &a.kind {
                 let info = self.lookup_var(name, a.pos.clone())?;
@@ -5735,9 +6773,19 @@ mod tests {
     }
 
     #[test]
-    fn struct_array_field_is_rejected() {
-        let (msg, _) = err_pos("struct S { a: array<int>; }");
-        assert!(msg.contains("不支持 array"), "{msg}");
+    fn struct_dynamic_array_field_layout() {
+        // S 的布局：a 占 3 个 descriptor 槽 + x 1 槽 = 4 槽。
+        let ir = gen(
+            "struct S { a: array<int>; x: int; }\n\
+             let s: S = S { a: [1, 2], x: 9 };\n\
+             print(len(s.a), s.a[0], s.x);\n\
+             print(s);",
+        )
+        .unwrap();
+        assert!(ir.contains("alloca [4 x i64]"), "{ir}");
+        assert!(ir.contains("call ptr @malloc"), "{ir}");
+        assert!(ir.contains("S { "), "{ir}");
+        assert!(ir.contains("pr.cond"), "print(struct) 应展开动态字段: {ir}");
     }
 
 
@@ -6124,9 +7172,439 @@ mod tests {
     }
 
     #[test]
-    fn dynamic_array_field_is_rejected() {
-        let (msg, _) = err_pos("struct S { a: array<int>; }");
-        assert!(msg.contains("动态") || msg.contains("array"), "{msg}");
+    fn struct_dynamic_array_field_unsupported_shapes_rejected() {
+        let (msg, _) = err_pos("struct P { x: int; }\nstruct S { a: array<P>; }");
+        assert!(msg.contains("array<struct>"), "{msg}");
+        let (msg, _) = err_pos("struct S { a: array<array<int>>; }");
+        assert!(msg.contains("嵌套"), "{msg}");
+        let (msg, _) = err_pos("struct S { a: array<string>; }");
+        assert!(msg.contains("string"), "{msg}");
+    }
+
+    // ---- struct 的动态数组字段 v1 ----
+
+    #[test]
+    fn struct_dynamic_field_index_push_len() {
+        let ir = gen(
+            "struct S { a: array<int>; x: int; }\n\
+             let s: S = S { a: [1, 2], x: 9 };\n\
+             s.a[0] = 7;\n\
+             push(s.a, 3);\n\
+             let t: S = s;\n\
+             t.a[0] = 5;\n\
+             print(len(s.a), s.a[0], t.a[0], s.x);",
+        )
+        .unwrap();
+        // 动态下标有边界检查；push 有容量判断；深拷贝有独立 malloc。
+        assert!(ir.contains("dbounds.fail"), "{ir}");
+        assert!(ir.contains("icmp eq i64"), "{ir}");
+        assert!(ir.contains("deep.copy.cond"), "{ir}");
+        assert!(ir.matches("call ptr @malloc").count() >= 2, "{ir}");
+    }
+
+    #[test]
+    fn struct_dynamic_field_whole_field_assign() {
+        let ir = gen(
+            "struct S { a: array<int>; x: int; }\n\
+             let s: S = S { a: [1, 2], x: 9 };\n\
+             let t: S = S { a: [3], x: 4 };\n\
+             s.a = [5, 6];\n\
+             t.a = s.a;\n\
+             print(s.a[1], t.a[0], len(t.a));",
+        )
+        .unwrap();
+        // 整体字段赋值：右侧深拷贝 + 先 drop 旧 descriptor。
+        assert!(ir.contains("deep.copy.cond"), "{ir}");
+        assert!(ir.contains("call void @free"), "{ir}");
+        assert!(ir.matches("call ptr @malloc").count() >= 4, "{ir}");
+    }
+
+    #[test]
+    fn struct_dynamic_field_param_ret_entry_copy_and_transfer() {
+        let ir = gen(
+            "struct S { a: array<int>; x: int; }\n\
+             fn f(v: S) -> S { v.a[0] = 8; return v; }\n\
+             let s: S = S { a: [1, 2], x: 9 };\n\
+             let u: S = f(s);\n\
+             print(u.a[0], s.a[0]);",
+        )
+        .unwrap();
+        assert!(ir.contains("define void @f(ptr %sret, ptr %p0)"), "{ir}");
+        assert!(ir.contains("call void @f"), "{ir}");
+        // 参数入口深拷贝 + 返回前转移后清空本地 descriptor。
+        assert!(ir.contains("deep.copy.cond"), "{ir}");
+        assert!(ir.contains("store ptr null"), "{ir}");
+    }
+
+    #[test]
+    fn struct_dynamic_field_scope_and_break_drop() {
+        let ir = gen(
+            "struct S { a: array<int>; x: int; }\n\
+             let i: int = 0;\n\
+             while (i < 1) {\n\
+               let w: S = S { a: [1, 2], x: 1 };\n\
+               push(w.a, 3);\n\
+               print(w.a[0]);\n\
+               break;\n\
+             }\n\
+             print(0);",
+        )
+        .unwrap();
+        // break 前递归 drop 函数作用域里的 struct 动态字段。
+        assert!(ir.contains("dyn.free"), "{ir}");
+        assert!(ir.contains("call void @free"), "{ir}");
+    }
+
+    #[test]
+    fn fixed_array_and_struct_field_with_dynamic_leaf() {
+        let ir = gen(
+            "struct P { a: array<int>; }\n\
+             struct Q { ps: array<P, 2>; z: int; }\n\
+             let q: Q = Q { ps: [P { a: [1] }, P { a: [2] }], z: 5 };\n\
+             let q2: Q = q;\n\
+             q2.ps[0].a[0] = 9;\n\
+             print(q.ps[0].a[0], q2.ps[0].a[0], q.z);\n\
+             q.ps = [P { a: [7] }, P { a: [8] }];\n\
+             print(q.ps[0].a[0], q.ps[1].a[0]);",
+        )
+        .unwrap();
+        // Q 的总槽数 = 2 * 3 + 1 = 7；固定数组字段本身占 6 个扁平槽。
+        assert!(ir.contains("alloca [7 x i64]"), "{ir}");
+        assert!(ir.contains("alloca [6 x i64]"), "{ir}");
+        assert!(ir.contains("deep.copy.cond"), "{ir}");
+    }
+
+    #[test]
+    fn dynamic_array_of_struct_with_dynamic_field() {
+        let ir = gen(
+            "struct P { a: array<int>; }\n\
+             fn clone(x: array<P>) -> array<P> { return x; }\n\
+             let d: array<P> = [P { a: [1] }, P { a: [2] }];\n\
+             let d2: array<P> = d;\n\
+             push(d, P { a: [3] });\n\
+             d[0].a = [4, 5];\n\
+             print(len(d), d[0].a[0], d2[0].a[0], d2[1].a[0]);\n\
+             let d3: array<P> = clone(d);\n\
+             print(d3[2].a[0]);",
+        )
+        .unwrap();
+        assert!(ir.contains("define void @clone(ptr %sret, ptr %p0)"), "{ir}");
+        // array<struct> 元素里的动态字段：拷贝、参数入口、drop 都递归。
+        assert!(ir.contains("deep.copy.cond"), "{ir}");
+        assert!(ir.contains("arr.param.copy.cond"), "{ir}");
+        assert!(ir.contains("dyn.drop.elem"), "{ir}");
+    }
+
+    #[test]
+    fn fixed_array_of_struct_dynamic_field_param_ret() {
+        let ir = gen(
+            "struct S { a: array<int>; x: int; }\n\
+             fn id(a: array<S, 1>) -> array<S, 1> { return a; }\n\
+             let a: array<S, 1> = [S { a: [1, 2], x: 3 }];\n\
+             let b: array<S, 1> = id(a);\n\
+             print(b[0].a[0], b[0].x);",
+        )
+        .unwrap();
+        assert!(ir.contains("define void @id(ptr %sret, ptr %p0)"), "{ir}");
+        assert!(ir.contains("deep.copy.cond"), "{ir}");
+    }
+
+    #[test]
+    fn struct_dynamic_field_return_literal_and_call() {
+        let ir = gen(
+            "struct S { a: array<int>; x: int; }\n\
+             fn make() -> S { return S { a: [1, 2], x: 3 }; }\n\
+             fn chain() -> S { return make(); }\n\
+             let m: S = chain();\n\
+             print(m.a[0], m.a[1], m.x);",
+        )
+        .unwrap();
+        assert!(ir.contains("define void @make(ptr %sret)"), "{ir}");
+        assert!(ir.contains("define void @chain(ptr %sret)"), "{ir}");
+        assert!(ir.contains("call void @make"), "{ir}");
+    }
+
+    #[test]
+    fn struct_dynamic_float_bool_print() {
+        let ir = gen(
+            "struct F { a: array<float>; }\n\
+             struct B { a: array<bool>; }\n\
+             let f: F = F { a: [1.5, 2.5] };\n\
+             let b: B = B { a: [true, false] };\n\
+             print(f);\n\
+             print(b);\n\
+             print(f.a[0], b.a[1]);",
+        )
+        .unwrap();
+        assert!(ir.contains("%g"), "{ir}");
+        assert!(ir.contains("select i1"), "{ir}");
+        assert!(ir.contains("F { "), "{ir}");
+        assert!(ir.contains("B { "), "{ir}");
+    }
+
+    #[test]
+    fn struct_dynamic_field_array_element_chains() {
+        let ir = gen(
+            "struct S { a: array<int>; x: int; }\n\
+             let arr: array<S, 2> = [S { a: [1], x: 1 }, S { a: [2], x: 2 }];\n\
+             arr[0].a[0] = 7;\n\
+             arr[1].a = [8, 9];\n\
+             print(arr[0].a[0], arr[1].a[1], len(arr[1].a));\n\
+             let d: array<S> = [S { a: [3], x: 3 }];\n\
+             d[0].a[0] = 4;\n\
+             print(d[0].a[0], len(d[0].a));",
+        )
+        .unwrap();
+        assert!(ir.contains("dbounds.fail"), "{ir}");
+        // 数组元素的动态字段整体赋值：构造新数组后 drop 旧值。
+        assert!(ir.contains("call void @free"), "{ir}");
+        assert!(ir.contains("dyn.free"), "{ir}");
+    }
+
+    #[test]
+    fn struct_dynamic_field_type_errors() {
+        let (msg, _) = err_pos(
+            "struct S { a: array<int>; }\nlet s: S = S { a: [1] };\ns.a = [1.5];",
+        );
+        assert!(msg.contains("类型不匹配"), "{msg}");
+        let (msg, _) = err_pos(
+            "struct S { a: array<int>; }\nstruct T { a: array<float>; }\n\
+             let s: S = S { a: [1] };\nlet t: T = T { a: [1.5] };\ns.a = t.a;",
+        );
+        assert!(msg.contains("需要 array<int>") || msg.contains("类型不匹配"), "{msg}");
+    }
+
+    #[test]
+    fn struct_dynamic_field_self_assign_is_noop() {
+        let ir = gen(
+            "struct S { a: array<int>; }\n\
+             let s: S = S { a: [1, 2] };\n\
+             s = s;\n\
+             s.a = s.a;\n\
+             print(len(s.a), s.a[0]);",
+        )
+        .unwrap();
+        // 自赋值不应生成复制/释放路径；仅字面量初始化的一次 malloc。
+        assert_eq!(ir.matches("call ptr @malloc").count(), 1, "{ir}");
+        assert!(!ir.contains("__assign_tmp"), "{ir}");
+    }
+
+    // ---- 运行期语义测试（clang 可用时执行；带 malloc/free 追踪器检查泄漏/双重释放）----
+
+    /// 带 malloc/free 追踪的运行时：程序正常退出时若仍有未释放块则退出码 3，
+    /// 重复 free 则退出码 2。用于替代 ASan（Apple clang 的 ASan 在本机沙箱中不可用）。
+    const TRACK_RUNTIME_C: &str = r#"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+#include <unistd.h>
+
+#define ARENA_SIZE (128UL * 1024 * 1024)
+static unsigned char arena[ARENA_SIZE];
+static size_t arena_off = 0;
+static long long live_blocks = 0, live_bytes = 0;
+typedef struct { size_t size; int freed; } Hdr;
+
+static void report(void) {
+    if (live_blocks != 0) {
+        fprintf(stderr, "[tracker] LEAK: %lld blocks, %lld bytes\n", live_blocks, live_bytes);
+        _exit(3);
+    }
+}
+
+void* malloc(size_t n) {
+    if (n == 0) n = 1;
+    n = (n + 15) & ~((size_t)15);
+    if (arena_off + sizeof(Hdr) + n > ARENA_SIZE) { fprintf(stderr, "[tracker] OOM\n"); _exit(4); }
+    Hdr* h = (Hdr*)(arena + arena_off);
+    arena_off += sizeof(Hdr) + n;
+    h->size = n;
+    h->freed = 0;
+    live_blocks++; live_bytes += (long long)n;
+    return (void*)(h + 1);
+}
+
+void free(void* p) {
+    if (!p) return;
+    Hdr* h = ((Hdr*)p) - 1;
+    if (h->freed) { fprintf(stderr, "[tracker] DOUBLE FREE\n"); fflush(stderr); _exit(2); }
+    h->freed = 1;
+    live_blocks--; live_bytes -= (long long)h->size;
+}
+
+char* tenet_concat(const char* a, const char* b) {
+    size_t la = strlen(a), lb = strlen(b);
+    char* r = malloc(la + lb + 1);
+    memcpy(r, a, la);
+    memcpy(r + la, b, lb + 1);
+    return r;
+}
+
+int tenet_strcmp(const char* a, const char* b) { return strcmp(a, b); }
+
+void tenet_bounds_fail(long long idx, long long len) {
+    fprintf(stderr, "Tenet runtime error: array index %lld out of bounds for length %lld\n", idx, len);
+    exit(1);
+}
+
+__attribute__((constructor)) static void init_tracker(void) { atexit(report); }
+"#;
+
+    /// 编译并运行 Tenet 程序；clang 不可用时返回 None（跳过运行期测试）。
+    fn run_program(src: &str) -> Option<String> {
+        use std::process::Command;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        static SEQ: AtomicUsize = AtomicUsize::new(0);
+        let clang = std::env::var("TENET_CLANG").unwrap_or_else(|_| "clang".to_string());
+        if Command::new(&clang).arg("--version").output().is_err() {
+            return None;
+        }
+        let ir = gen(src).expect("编译失败");
+        let dir = std::env::temp_dir();
+        let tag = format!(
+            "tenet-sem-{}-{}",
+            std::process::id(),
+            SEQ.fetch_add(1, Ordering::SeqCst)
+        );
+        let ir_path = dir.join(format!("{tag}.ll"));
+        let rt_path = dir.join(format!("{tag}-runtime.c"));
+        let bin_path = dir.join(format!("{tag}.bin"));
+        std::fs::write(&ir_path, ir).unwrap();
+        std::fs::write(&rt_path, TRACK_RUNTIME_C).unwrap();
+        let out = Command::new(&clang)
+            .arg(&ir_path)
+            .arg(&rt_path)
+            .arg("-o")
+            .arg(&bin_path)
+            .output()
+            .expect("无法执行 clang");
+        if !out.status.success() {
+            panic!(
+                "clang 链接失败:\n{}",
+                String::from_utf8_lossy(&out.stderr)
+            );
+        }
+        let run = Command::new(&bin_path).output().expect("运行失败");
+        let _ = std::fs::remove_file(&ir_path);
+        let _ = std::fs::remove_file(&rt_path);
+        let _ = std::fs::remove_file(&bin_path);
+        let stderr = String::from_utf8_lossy(&run.stderr).to_string();
+        assert!(
+            run.status.success(),
+            "程序退出失败: {:?}\nstdout:\n{}\nstderr:\n{}",
+            run.status,
+            String::from_utf8_lossy(&run.stdout),
+            stderr
+        );
+        assert!(
+            !stderr.contains("DOUBLE FREE") && !stderr.contains("LEAK"),
+            "内存错误: {stderr}"
+        );
+        assert!(
+            stderr.contains("[tracker]") || stderr.is_empty(),
+            "追踪器未生效: {stderr}"
+        );
+        Some(String::from_utf8_lossy(&run.stdout).to_string())
+    }
+
+    fn assert_runtime(src: &str, expected: &str) {
+        if let Some(out) = run_program(src) {
+            assert_eq!(out, expected);
+        }
+    }
+
+    #[test]
+    fn struct_dynamic_field_runtime_deep_copy_and_push() {
+        assert_runtime(
+            "struct S { a: array<int>; x: int; }\n\
+             let s: S = S { a: [1, 2], x: 9 };\n\
+             s.a[0] = 7;\n\
+             push(s.a, 3);\n\
+             let t: S = s;\n\
+             t.a[0] = 5;\n\
+             print(len(s.a), s.a[0], t.a[0], s.x);\n\
+             print(s);\n\
+             print(len(t.a), t.a[0]);",
+            "3 7 5 9\nS { a: [7, 2, 3], x: 9 }\n3 5\n",
+        );
+    }
+
+    #[test]
+    fn struct_dynamic_field_runtime_whole_field_assign() {
+        assert_runtime(
+            "struct S { a: array<int>; x: int; }\n\
+             let s: S = S { a: [1, 2], x: 9 };\n\
+             let t: S = S { a: [3], x: 4 };\n\
+             s.a = [5, 6];\n\
+             t.a = s.a;\n\
+             print(len(s.a), s.a[0], s.a[1], len(t.a), t.a[0], t.a[1]);\n\
+             t.a = [];\n\
+             push(t.a, 8);\n\
+             print(len(t.a), t.a[0]);",
+            "2 5 6 2 5 6\n1 8\n",
+        );
+    }
+
+    #[test]
+    fn struct_dynamic_field_runtime_param_ret() {
+        assert_runtime(
+            "struct S { a: array<int>; x: int; }\n\
+             fn f(v: S) -> S { v.a[0] = 8; return v; }\n\
+             let s: S = S { a: [1, 2], x: 9 };\n\
+             s.a[0] = 7;\n\
+             push(s.a, 3);\n\
+             let u: S = f(s);\n\
+             print(u.a[0], s.a[0]);\n\
+             let v: S = f(s);\n\
+             print(v);",
+            "8 7\nS { a: [8, 2, 3], x: 9 }\n",
+        );
+    }
+
+    #[test]
+    fn struct_dynamic_field_runtime_arrays_and_scope_drop() {
+        assert_runtime(
+            "struct P { a: array<int>; }\n\
+             let arr: array<P, 2> = [P { a: [1] }, P { a: [2] }];\n\
+             let cp: array<P, 2> = arr;\n\
+             cp[0].a[0] = 9;\n\
+             print(arr[0].a[0], cp[0].a[0]);\n\
+             let d: array<P> = [P { a: [3] }, P { a: [4] }];\n\
+             let d2: array<P> = d;\n\
+             d2[1].a[0] = 8;\n\
+             push(d, P { a: [5] });\n\
+             print(len(d), d[1].a[0], d[2].a[0], d2[1].a[0]);\n\
+             let i: int = 0;\n\
+             while (i < 1) {\n\
+               let w: P = P { a: [6, 7] };\n\
+               print(len(w.a), w.a[1]);\n\
+               break;\n\
+             }\n\
+             print(0);",
+            "1 9\n3 4 5 8\n2 7\n0\n",
+        );
+    }
+
+    #[test]
+    fn struct_dynamic_field_runtime_return_transfer_and_drop() {
+        assert_runtime(
+            "struct S { a: array<int>; x: int; }\n\
+             fn early() -> S {\n\
+               let w: S = S { a: [1, 2], x: 1 };\n\
+               let z: S = S { a: [3], x: 2 };\n\
+               return w;\n\
+             }\n\
+             let e: S = early();\n\
+             print(e.a[0], e.a[1], e.x);\n\
+             fn lit() -> S { return S { a: [4, 5], x: 6 }; }\n\
+             let l: S = lit();\n\
+             print(l);\n\
+             fn chain() -> S { return lit(); }\n\
+             let c: S = chain();\n\
+             print(len(c.a), c.a[1], c.x);",
+            "1 2 1\nS { a: [4, 5], x: 6 }\n2 5 6\n",
+        );
     }
 
 }

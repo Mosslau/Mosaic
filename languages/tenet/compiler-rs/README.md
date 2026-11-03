@@ -11,7 +11,7 @@
 | 后端方式 | **clang 驱动**：生成 LLVM IR 文本（.ll）→ clang 子进程汇编 + 链接 |
 | 产出 | 原生可执行二进制（Mach-O / ELF） |
 | 特点 | `.ll` 文本可读可调试（`tenet ir` 即文档）；编译秒级；无 LLVM 开发库依赖 |
-| 测试 | 116 个单元测试 |
+| 测试 | 133 个单元测试（含 5 个 clang 运行期语义/内存追踪测试） |
 
 ## 管线
 
@@ -43,7 +43,7 @@ compiler-rs/
 │   ├── codegen.rs   # 类型推断 + LLVM IR 文本生成（含测试）
 │   ├── lib.rs       # 库入口（compile_to_ir）
 │   └── main.rs      # CLI + clang 驱动 + 内嵌 runtime.c
-├── examples/        # hello / fib / fizzbuzz / struct / array / nested / array_abi / dynamic_array / dynamic_abi / dynamic_expr / array_struct / dynamic_struct / nested_array / dynamic_nested_array / fixed_abi
+├── examples/        # hello / fib / fizzbuzz / struct / array / nested / array_abi / dynamic_array / dynamic_abi / dynamic_expr / array_struct / dynamic_struct / nested_array / dynamic_nested_array / fixed_abi / struct_dynamic_field / struct_array_field
 └── (target/ 构建产物，已 gitignore)
 ```
 
@@ -52,7 +52,7 @@ compiler-rs/
 ```bash
 cd tenet/compiler-rs
 
-cargo test                                   # 113 个单元测试
+cargo test                                   # 133 个单元测试
 cargo run -- build examples/hello.tenet -o hello && ./hello   # 编译为二进制并运行
 cargo run -- run examples/fib.tenet          # 编译 + 运行一步到位
 cargo run -- ir examples/hello.tenet         # 只看 LLVM IR（调试）
@@ -62,16 +62,50 @@ cargo run -- ir examples/hello.tenet         # 只看 LLVM IR（调试）
 
 | 类别 | 内容 |
 |---|---|
-| 类型 | `int` / `float` / `bool` / `string`；局部 `struct`；定长 `array<int/float/bool>` |
+| 类型 | `int` / `float` / `bool` / `string`；局部 `struct`；定长 `array<int/float/bool>`；struct 的动态数组字段 `array<int/float/bool>` |
 | 变量 | `let`（类型标注可选，静态推断）、赋值（值语义） |
-| struct | 顶层声明、标量/嵌套字段、字面量、字段读写、值拷贝；支持参数/返回值（指针 ABI） |
-| array | 固定值数组 `array<T, N>`/`array<struct, N>`（局部）/`array<array<T,N>,M>` 固定嵌套（局部）；动态 `array<T>`/`array<struct>`（局部/堆/push/深拷贝/drop；参数与返回值走 descriptor/sret，支持字面量/调用表达式）；动态嵌套 `array<array<int/float/bool>>`（二级下标/push/深拷贝/descriptor 参数返回，见下） |
+| struct | 顶层声明、标量/嵌套字段、固定数组字段、标量动态数组字段、字面量、字段读写、深拷贝/整体赋值；支持参数/返回值（按总槽数指针 / sret ABI） |
+| array | 固定值数组 `array<T, N>`/`array<struct, N>`（局部）/`array<array<T,N>,M>` 固定嵌套（局部）；动态 `array<T>`/`array<struct>`（局部/堆/push/深拷贝/drop；参数与返回值走 descriptor/sret，支持字面量/调用表达式）；动态嵌套 `array<array<int/float/bool>>`（二级下标/push/深拷贝/descriptor 参数返回，见下）；struct 元素含动态字段时固定/动态数组的 copy/drop 递归 |
 | 函数 | `fn f(a: int) -> int`、递归 |
 | 控制流 | `if/else if/else`、`while`（唯一循环）、`break`、`return` |
 | 运算符 | 算术（向零截断整除/取模）、比较、`&&`/`\|\|` 短路、一元 `-`/`!` |
 | 字符串 | 拼接、比较（经 runtime.c：tenet_concat / tenet_strcmp） |
 | 内建 | `print(...)`（任意类型，编译期拼 printf 格式串） |
 | 注释 | `//` 与 `/* */` |
+
+### struct 的动态数组字段 `array<T>`（v1）
+
+- 范围：字段可声明为 `array<int|float|bool>`；暂不支持动态 `array<struct>` 字段、
+  动态嵌套字段（`array<array<T>>`）与 struct 循环嵌套。
+- 布局：动态字段占 3 个 i64 descriptor 槽 `[data, len, cap]`，`struct_total_slots` /
+  `layout_of` 把 3 槽递归计入总槽数与后续字段偏移；可与标量、嵌套 struct、
+  固定数组字段共存。局部 struct 用三个独立槽位表示，ABI buffer / 数组元素里是连续三槽。
+- 初始化：`let s: S = S { a: [1, 2], x: 9 };`；`let t = s` / `t = s` 深拷贝动态字段
+  （重新 malloc），互不影响；整体赋值 `t = s` 先递归 drop 旧值。
+- 字段整体赋值：`s.a = [..]`、`s.a = t.a`；右侧先构造/深拷贝，再 drop 旧 descriptor。
+- 读写：`s.a[i]`、`push(s.a, x)`、`len(s.a)`；固定 `array<S,N>` / 动态 `array<S>`
+  元素的 `arr[i].a[j]` / `len(arr[i].a)` / `arr[i].a = [..]` 同样可用
+  （动态字段元素限标量）。
+- 参数/返回值：struct 按总槽数 ABI（`ptr %p` / `ptr %sret`）；入口深拷贝动态字段，
+  返回时把 descriptor 转移到 sret 并清空本地，避免 double-free。
+- drop：struct 离开作用域 / return / break / struct 参数副本 / struct 整体赋值旧值 /
+  固定与动态 struct 数组元素都会递归释放动态字段；`return` 后统一 drop 其余局部变量。
+- `print(s)` 展开为 `S { a: [7, 2], x: 9 }`（动态字段沿用现有 `[..]` 格式）。
+- 内存：只 `malloc`/`free`，无 RC/GC。
+
+示例：
+
+```bash
+cargo run -- run examples/struct_dynamic_field.tenet
+```
+
+输出（含 `push(s.a, 3)` 后长度变为 3）：
+
+```text
+3 7 5 9
+S { a: [7, 2, 3], x: 9 }
+8 7
+```
 
 ### 动态嵌套数组 `array<array<T>>`（v1）
 
@@ -99,7 +133,7 @@ cargo run -- ir examples/hello.tenet         # 只看 LLVM IR（调试）
 3. **基本块控制流**：`if`/`while`/`break`/短路全部翻译为 `br` 跳转；
    `terminated` 标志保证每个块恰好一个终止指令（ret/br）
 4. **print**：编译期按参数静态类型拼接 `printf` 格式串（`%lld`/`%g`/`%s`，bool 用 select）；
-   struct、固定数组、动态数组与动态嵌套数组按值展开打印（如 `[[1, 2], [3]]`）
+   struct（含动态数组字段）、固定数组、动态数组与动态嵌套数组按值展开打印（如 `[[1, 2], [3]]`）
 5. **运行时**：字符串拼接/比较走内嵌 `runtime.c`（链接时与产物一起编译）
 6. **兼容性**：本机 LLVM 21 的 IR 解析器对 `getelementptr inbounds (聚合类型)` 有兼容问题，
    取址使用不带 `inbounds`/括号的形式（语义等价）
@@ -112,13 +146,19 @@ cargo test
 
 词法（字面量/运算符/转义/位置/错误）、语法（let/优先级/函数/else-if 链/struct 声明与字面量/错误）、
 代码生成（IR 模式断言：alloca、递归调用、短路、混合提升、struct 字段扁平化/值拷贝、
-动态数组与动态嵌套数组的 descriptor 布局/深拷贝/push/二级下标/drop/参数返回/错误路径）。
+动态数组与动态嵌套数组的 descriptor 布局/深拷贝/push/二级下标/drop/参数返回/错误路径、
+struct 动态数组字段的布局/字段整体赋值/参数返回/数组元素/递归 drop）。
+另有 5 个运行期测试：clang 可用时编译并执行示例程序，内嵌 malloc/free 追踪器
+（替代本机沙箱不可用的 ASan）检查输出、泄漏与 double-free。
 
 ## 已知限制与演进
 
 - 只支持核心子集（标量 + 函数 + 控制流 + 局部 struct/array v1）；`Option`/`Result`/`match` 设计已定待实现
-- struct 支持参数/返回值与嵌套；字段限 int/float/bool 或其他 struct，不做 `array<struct>`、struct 字段 array
-- 固定数组 `array<T, N>`；动态数组 `array<T>` 支持局部、push/深拷贝/drop，以及参数/返回值（descriptor/sret，支持变量/字面量/调用实参）；动态嵌套数组 v1 仅支持 `array<array<int/float/bool>>`（外层、内层均动态，内层标量），不做 `array<struct>` 内层、更深嵌套、固定内层混用、`a[i]` 整体取值；无 RC/GC，只 malloc/free；struct 字段仍不支持 array
+- struct 支持参数/返回值与嵌套；固定数组字段 v1 与标量动态数组字段 v1 可用；
+  动态 `array<struct>` 字段、动态嵌套字段、`array<array<struct>>` 仍明确拒绝
+- 固定数组 `array<T, N>`；动态数组 `array<T>` 支持局部、push/深拷贝/drop，以及参数/返回值（descriptor/sret，支持变量/字面量/调用实参）；动态嵌套数组 v1 仅支持 `array<array<int/float/bool>>`（外层、内层均动态，内层标量），不做 `array<struct>` 内层、更深嵌套、固定内层混用、`a[i]` 整体取值；无 RC/GC，只 malloc/free
+- struct 动态字段 v1 只支持标量元素；支持 `let b = s.a` 深拷贝、`s.a = t.a` 整体字段赋值、
+  `push(s.a, x)`、`len(s.a)`、`print(s.a)`；尚不支持把字段直接作为动态数组函数实参（`f(s.a)`）
 - 除法/取模零除是 UB（与 C 一致）
 - 未开启 `-O2` 优化（可透传 clang）
 
@@ -129,7 +169,7 @@ cargo test
 | 语言 | Rust | C++17 | C++17 |
 | 后端 | clang 驱动（.ll 文本） | LLVM 库进程内（rustc 方式） | 手写 AArch64 后端（零 LLVM） |
 | 链接 | clang | 系统 `cc` | 系统 `as` + `ld` |
-| 测试 | 116 | 984 | 1166 |
+| 测试 | 133 | 984 | 1166 |
 | 产物 | 原生二进制，示例输出一致 | 同左 | 同左 |
 
 三套实现共享同一套语言设计，行为一致——「万语归宗」的验证：同一门语言，三种自主度级别的编译器。

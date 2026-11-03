@@ -47,7 +47,7 @@ while (i < 10) {
 
 | 实现 | 前端 | 后端方式 | 测试 |
 |---|---|---|---|
-| [`compiler-rs/`](./compiler-rs/) | Rust | clang 驱动（.ll 文本） | 116 |
+| [`compiler-rs/`](./compiler-rs/) | Rust | clang 驱动（.ll 文本） | 133 |
 | [`compiler-cpp/`](./compiler-cpp/) | C++17 | LLVM 库进程内（rustc 方式） | 984 |
 | [`compiler-arm64/`](./compiler-arm64/) | C++17 | **手写 AArch64 后端（零 LLVM）** | 1166 |
 
