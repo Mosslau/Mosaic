@@ -57,7 +57,7 @@ Ubuntu：`sudo apt-get install llvm-dev clang`）。代码兼容 LLVM 18 与 21�
 cd tenet/compiler-cpp
 
 make                    # 构建 tenet 与 test_tenet 并跑测试
-make test               # 984 项检查
+make test               # 993 项检查
 ./tenet build examples/hello.tenet -o hello && ./hello   # 编译为二进制并运行
 ./tenet run examples/fib.tenet          # 编译 + 运行一步到位
 ./tenet run examples/struct.tenet       # struct：字段 / 值拷贝 / 整体赋值
@@ -292,15 +292,14 @@ S3d 断言 struct 固定数组字段的 `[N*slots x i64]` 布局（`array<int,3>
 `array<array<int,2>,3>` 占 6 槽、`array<P,2>` 元素 stride 按 P 的总槽数）、
 `define void @f(ptr %sret, ptr %p0)` 总槽数 ABI、字面量 / 深拷贝 / 整体赋值、
 `s.a[i]` / `s.a[i].field` / `s.a[i][j]` / 嵌套 struct 字段数组读写、运行时下标
-`tenet_bounds_fail`、float bitcast / bool trunc、print 数组字段展开，以及动态数组
-字段 / 嵌套动态内层 / string 元素 / 数组字段循环嵌套 / 长度与元素类型不匹配 /
-直接读取整个数组字段 / 整体读取 `array<struct>` 元素的明确拒绝；
+`tenet_bounds_fail`、float bitcast / bool trunc、print 数组字段展开，以及动态 `array<struct>` 字段 / 动态嵌套字段 / string 元素 / 数组字段循环嵌套 / 长度与元素类型不匹配 /
+固定数组字段整体读取 / 整体读取 `array<struct>` 元素的明确拒绝；S3e 另断言动态标量字段的 3 槽 descriptor、深拷贝/递归 drop、`s.a[i]`/`push(s.a,x)`/`len`/`print(s)` 与 struct ABI。
 print aggregate 断言 struct 的
 `P { ` / `x: ` / `%lld` / `%g` 分片与扁平字段槽、嵌套 struct 的点分路径（`p.x`）、
 定长标量/struct/嵌套数组的编译期展开（元素布局、`slots` 步长、无运行时循环）、
 动态标量/struct 数组的 `pr.cond` 循环与描述符寻址、bool 的 true/false、空动态数组、
 参数间空格/结尾换行、纯标量 print 仍只调用一次 printf，以及 `print(f())` /
-字面量 / `a[i]` 整体读取的明确报错文案。共 984 项检查。
+字面量 / `a[i]` 整体读取的明确报错文案。共 993 项检查。
 
 ## 已知限制与演进
 

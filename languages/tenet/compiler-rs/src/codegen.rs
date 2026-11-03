@@ -3410,7 +3410,7 @@ impl Codegen {
             return Ok((elem, addr));
         }
         let len = info.array.ok_or_else(|| {
-            TenetError::at_pos("array<struct> 参数/返回值尚未支持".to_string(), pos.clone())
+            TenetError::at_pos("数组变量缺少固定地址（不是固定数组）".to_string(), pos.clone())
         })?;
         let base = info.addr.clone().unwrap();
         self.bounds_check(&iv, len);
@@ -3543,7 +3543,7 @@ impl Codegen {
         pos: Position,
     ) -> TResult<(String, String)> {
         let outer_len = info.array.ok_or_else(|| {
-            TenetError::at_pos("嵌套数组参数/返回值尚未支持".to_string(), pos.clone())
+            TenetError::at_pos("嵌套数组变量缺少固定长度（不是固定嵌套数组）".to_string(), pos.clone())
         })?;
         let inner_ty = self.array_elem_or_err(&info.ty, pos.clone())?;
         let inner_len = Self::array_decl_len(&inner_ty).ok_or_else(|| {

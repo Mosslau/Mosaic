@@ -45,7 +45,7 @@
 //   array<struct,N> / 固定嵌套 array<array<T,N>,M>，按 N*elem_slots 计入 struct
 //   总槽数与后续字段偏移；支持字面量、s.a[i] 读写、s.a[i].field / s.a[i][j]、
 //   整体深拷贝、struct 参数/返回值按总槽数 ABI、print 展开数组字段；
-//   动态数组字段（array<T>）在声明处明确拒绝
+//   动态数组字段（array<int/float/bool>）S3e 支持；动态 array<struct>/动态嵌套字段仍拒绝
 // - 后端（IR → 机器码）由 LLVM 库进程内完成（rustc 方式），
 //   不再调用 clang 解析文本
 #pragma once
