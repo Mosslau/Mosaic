@@ -1,8 +1,5 @@
 # Tenet 当前完成度
 
-> 快照：`4b918a57 docs(tenet): refresh capability boundary and print support`
-> 分支：`main`，已与 `origin/main` 同步，工作区 clean。
-
 ## 测试基线
 
 | 实现 | 测试 |
