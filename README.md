@@ -16,22 +16,29 @@
 
 ## 校验
 
+一条命令跑全部，各域使用自己的运行环境与 pytest 配置：
+
 ```bash
-# 前置：Python ≥ 3.11（algorithms/pyproject.toml 的 requires-python；默认 python3 可能是 3.9）
-# 运行环境用 uv 管理：cd algorithms && uv sync --extra dev（详见 algorithms/README.md「运行环境」）
-
-# ① 语言域：章节契约 + 悬空链接 + 构建产物纪律
-python3 .dsh/skills/tenetlang-notes/scripts/validate.py --links
-
-# ② 算法域：索引/状态/章节锚定/模板结构/违禁 import，以及单元测试
-python3 .dsh/skills/mindspring-lab/scripts/validate.py
-python3 -m pytest -q
-
-# ③ 语言域文档站（首次或依赖变更后先 npm install）
-(cd languages/website && npm install && npm run build)
+./verify.sh          # 文档契约 + 算法测试 + Agent 运行时
+./verify.sh --site   # 追加语言域文档站构建（需网络）
 ```
 
-`engineering/` 两平台**当前无自动化脚本**（规范自述「不带校验脚本」），按
+退出码：`0` 全部通过 / `1` 有域失败 / `2` 无失败但有域跳过（跳过的域不算通过）。
+
+| 域 | 实际命令 | 依赖 |
+|---|---|---|
+| 语言域文档契约 | `python3 .dsh/skills/tenetlang-notes/scripts/validate.py --links` | 系统 `python3` |
+| 算法域文档契约 | `python3 .dsh/skills/mindspring-lab/scripts/validate.py` | 系统 `python3` |
+| 算法域测试 | `cd algorithms && .venv/bin/python -m pytest -q`（575 项） | `uv sync --extra dev` |
+| Agent 运行时 | [`python-agent-runtime/scripts/verify.sh`](engineering/ai-platform/agent-platform/agent-service/python-agent-runtime/scripts/verify.sh)（pytest / ruff / docstring） | 该目录 `uv sync` |
+| 语言域文档站 | `cd languages/website && npm install && npm run build` | Node + 网络 |
+
+> 各域 pytest 配置互斥：根 [`pytest.ini`](pytest.ini) 只收 `algorithms/`（`--import-mode=importlib`），
+> `python-agent-runtime` 自带 `[tool.pytest.ini_options]`（prepend 模式，服务同目录导入）。
+> **不要用一条 `pytest` 跨域收集**——会在收集期直接失败。详见 [`verify.sh`](verify.sh)。
+> 算法域需 Python ≥ 3.11（`algorithms/pyproject.toml` 的 `requires-python`；系统 `python3` 可能是 3.9）。
+
+`engineering/` 两个平台的**设计文档**当前无自动化脚本（规范自述「不带校验脚本」），按
 [`.dsh/skills/engineering-docs/`](.dsh/skills/engineering-docs/) 的场景 D 完成度清单人工核对。
 
 ## 边界

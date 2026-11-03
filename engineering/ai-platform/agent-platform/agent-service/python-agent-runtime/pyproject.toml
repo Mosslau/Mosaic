@@ -33,3 +33,13 @@ dev = [
     "pytest>=8.3,<9.0",
     "ruff>=0.11,<1.0",
 ]
+
+[tool.pytest.ini_options]
+# 本子项目自带 pytest 配置，不与仓库根 pytest.ini 共用。
+#
+# 原因：根 pytest.ini 的 addopts 带 `--import-mode=importlib`（为算法域聚合运行服务），
+# 而本目录的测试用「同目录导入」（如 `from test_memory import FakeRedis`），importlib
+# 模式不往 sys.path 插目录，会直接 ModuleNotFoundError。自带配置后 pytest 把 rootdir
+# 定在本目录，测试按 prepend 模式收集。
+testpaths = ["tests"]
+pythonpath = ["tests"]

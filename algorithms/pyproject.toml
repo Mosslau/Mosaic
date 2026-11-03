@@ -32,6 +32,7 @@ select = ["E", "F", "I", "UP"]
 
 [tool.pytest.ini_options]
 # 本文件的 rootdir 就是 algorithms/，故这里指向自身即可（收集本目录下的实验测试）。
-# 「从仓库根执行」时的收集范围由仓库根的 pytest.ini 负责（会同时覆盖 engineering/ai-platform）。
+# 「从仓库根执行」时的收集范围由仓库根的 pytest.ini 负责（只覆盖 algorithms/；
+# engineering/ 的子项目自带 pytest 配置，由仓库根 verify.sh 分域调用）。
 testpaths = ["."]
 addopts = ["--import-mode=importlib"]
