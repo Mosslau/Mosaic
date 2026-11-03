@@ -1,0 +1,24 @@
+// S3d：struct 的固定数组字段 v1
+// 布局：struct 扁平槽；array<int, 3> 占 3 个 i64 槽，x 占 1 槽，S 共 4 槽。
+struct S { a: array<int, 3>; x: int; }
+
+let s: S = S { a: [1, 2, 3], x: 9 };
+s.a[1] = 7;
+
+// struct 整体赋值是深拷贝：t 与 s 的数组字段互不影响。
+let t: S = s;
+t.a[0] = 5;
+print(s.a[1], t.a[0], s.x);
+
+// struct 参数/返回值按总槽数走指针 / sret ABI。
+fn f(v: S) -> S {
+    v.a[2] = 8;
+    return v;
+}
+
+let u: S = f(s);
+print(u.a[2], s.a[2]);
+
+// print(struct) 会把数组字段展开成 [..]。
+print(s);
+print(u);

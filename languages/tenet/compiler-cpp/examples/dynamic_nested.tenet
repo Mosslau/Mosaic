@@ -1,0 +1,34 @@
+// S3c-3d v1：动态嵌套数组 array<array<T>>（外层动态 / 内层动态标量数组）。
+// 外层堆元素是内层 descriptor [data, len, cap]（3 个 i64 槽，stride = 24 字节）。
+let a: array<array<int>> = [[1, 2], [3]];
+push(a, [4, 5]);
+
+// 同类型 let 深拷贝：b 与 a 的内层堆完全独立。
+let b: array<array<int>> = a;
+a[0][0] = 9;
+
+print(len(a), a[0][0], a[1][0], b[0][0]);
+print(a);
+print(b);
+
+// 参数入口逐内层深拷贝；返回时把 data/len/cap 转移进 sret。
+fn clone(x: array<array<int>>) -> array<array<int>> {
+    return x;
+}
+
+let c: array<array<int>> = clone(b);
+print(len(c), c[0][1]);
+print(c);
+
+// 空字面量、len(a[i]) 与二级下标。
+let e: array<array<int>> = [];
+push(e, []);
+push(e, [7, 8, 9]);
+print(len(e), len(e[0]), len(e[1]), e[1][2]);
+
+// 内层 float / bool 同样按 8 字节槽存放。
+let f: array<array<float>> = [[1.5, 2.5], [3.5]];
+let z: array<array<bool>> = [[true, false], [false]];
+print(f[0][1], f[1][0], z[0][0], z[1][0]);
+print(f);
+print(z);

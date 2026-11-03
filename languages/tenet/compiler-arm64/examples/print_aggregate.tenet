@@ -1,0 +1,20 @@
+// print(array/struct)：struct 与定长/动态/嵌套数组的整体打印
+//
+// 输出（行尾换行）：
+//   P { x: 1, y: 2.5 }
+//   [P { x: 3, y: 4.5 }, P { x: 5, y: 6.5 }]
+//   [7, 8]
+//   [[1, 2], [3, 4]]
+//
+// 只支持直接打印 aggregate 变量；print(f()) / print([1, 2]) / print(a[i]) 会明确报错。
+struct P { x: int; y: float; }
+
+let p: P = P { x: 1, y: 2.5 };
+let a: array<P, 2> = [P { x: 3, y: 4.5 }, P { x: 5, y: 6.5 }];
+let d: array<int> = [7, 8];
+let n: array<array<int, 2>, 2> = [[1, 2], [3, 4]];
+
+print(p);
+print(a);
+print(d);
+print(n);

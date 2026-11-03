@@ -1,0 +1,21 @@
+// 动态嵌套数组 array<array<T>> v1：
+// 外层动态 / 内层动态标量数组；外层元素是内层 descriptor [data,len,cap]。
+let a: array<array<int>> = [[1, 2], [3]];
+push(a, [4, 5]);
+
+// 同类型 let 深拷贝：b 与 a 的内层堆完全独立。
+let b: array<array<int>> = a;
+a[0][0] = 9;
+
+print(len(a), a[0][0], a[1][0], b[0][0]);
+print(a);
+print(b);
+
+// 参数入口逐内层深拷贝，返回时转移 descriptor 所有权。
+fn clone(x: array<array<int>>) -> array<array<int>> {
+    return x;
+}
+
+let c: array<array<int>> = clone(b);
+print(len(c), c[0][1]);
+print(c);

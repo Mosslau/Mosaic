@@ -1,4 +1,4 @@
-// Tenet compiler-cpp 测试套件：镜像 compiler-rs 的测试，并补充 struct v1 / S3a / array v1 / S3b / S3c-1 / S3c-2 / S3c-3a / S3c-3b-1 / S3c-3b-2 / S3c-3c v1/v2 / S3c-3b-3 用例。
+// Tenet compiler-cpp 测试套件：镜像 compiler-rs 的测试，并补充 struct v1 / S3a / array v1 / S3b / S3c-1 / S3c-2 / S3c-3a / S3c-3b-1 / S3c-3b-2 / S3c-3c v1/v2 / S3c-3b-3 / S3c-3b-4 / S3c-3d / S3d（struct 固定数组字段）/ print aggregate 用例。
 // 词法/语法用文本断言；代码生成用 LLVM Module 结构断言。
 #include <iostream>
 #include <string>
@@ -164,6 +164,20 @@ static unsigned count_calls_in(const std::string& src, const std::string& fname,
                 ++count;
             }
         }
+    }
+    return count;
+}
+
+/// 统计函数内名字以 prefix 开头的基本块数（LLVM 对重名块自动追加数字后缀，
+/// 因此前缀匹配能同时覆盖 `pr.cond` / `pr.cond12` 这类重命名块）。
+static unsigned count_blocks_named(const std::string& src, const std::string& fname,
+                                   const std::string& prefix) {
+    auto c = Codegen::compile(Parser::parse(src));
+    auto* f = c.mod->getFunction(fname);
+    if (!f) return 0;
+    unsigned count = 0;
+    for (auto& bb : *f) {
+        if (std::string(bb.getName()).rfind(prefix, 0) == 0) ++count;
     }
     return count;
 }
@@ -576,10 +590,9 @@ static void test_struct() {
             "struct Point { x: int; }\nfn f() -> Point { return Point { x: 1 }; }");
         CHECK(ir.find("define void @f(ptr %sret)") != std::string::npos);
     }
-    CHECK_THROWS(
-        Codegen::compile(Parser::parse(
-            "struct Point { x: int; }\nlet p: Point = Point { x: 1 };\nprint(p);")),
-        "struct 变量 `p` 不能直接取值");
+    // print(struct) 已支持（详细用例见 test_print_aggregate）
+    CHECK(module_verifies(
+        "struct Point { x: int; }\nlet p: Point = Point { x: 1 };\nprint(p);"));
     CHECK_THROWS(
         Codegen::compile(Parser::parse("let x: int = 1;\nx.y = 2;")),
         "`x` 不是 struct，不能写字段 `y`");
@@ -859,16 +872,15 @@ static void test_struct_s3a() {
             "let l = Line { a: Point { x: \"s\" }, b: Point { x: 2 } };")),
         "字段 `a.x` 类型不匹配：需要 int，实际 string");
 
-    // 错误：直接 print struct（变量 / 调用结果）
+    // 错误：aggregate 表达式（调用结果）仍不能直接 print；变量已支持。
     CHECK_THROWS(
         Codegen::compile(Parser::parse(
             "struct Point { x: int; }\n"
             "fn make() -> Point { return Point { x: 1 }; }\nprint(make());")),
         "print 不支持 struct");
-    CHECK_THROWS(
-        Codegen::compile(Parser::parse(
-            "struct Point { x: int; }\nlet p = Point { x: 1 };\nprint(p);")),
-        "struct 变量 `p` 不能直接取值");
+    // 其他 struct 变量可直接 print（详细用例见 test_print_aggregate）
+    CHECK(module_verifies(
+        "struct Point { x: int; }\nlet p = Point { x: 1 };\nprint(p);"));
 
     // 错误：struct 实参类型不符（变量 / 字面量）
     CHECK_THROWS(
@@ -1064,13 +1076,12 @@ static void test_array() {
                  "只支持 int/float/bool");
 
     // S3c-2/S3c-3a：array<T> 签名是动态数组（descriptor ABI），参数 / 返回字面量合法；
-    // 不能直接 print(a)。
+    // print(array) 已支持（详细用例见 test_print_aggregate）。
     CHECK(module_ir("fn f(a: array<int>) -> int { return len(a); }")
               .find("define i64 @f(ptr %p0)") != std::string::npos);
     CHECK(module_ir("fn f() -> array<int> { return [1]; }")
               .find("define void @f(ptr %sret)") != std::string::npos);
-    CHECK_THROWS(Codegen::compile(Parser::parse("let a = [1, 2];\nprint(a);")),
-                 "数组变量 `a` 不能直接取值");
+    CHECK(module_verifies("let a = [1, 2];\nprint(a);"));
     CHECK_THROWS(Codegen::compile(Parser::parse("fn f(a: int) -> int { return a; }\nf([1]);")),
                  "数组字面量只能用于");
 
@@ -1331,8 +1342,9 @@ static void test_array_s3b() {
               .find("define void @f(ptr %sret)") != std::string::npos);
     CHECK(module_ir("fn f(a: array<array<int, 3>, 2>) -> int { return 0; }")
               .find("define i64 @f(ptr %p0)") != std::string::npos);
-    // 其余仍拒绝：struct 字段 array / 直接 print 数组。
-    CHECK_THROWS(Codegen::compile(Parser::parse("struct S { a: array<int, 3>; }")),
+    // 动态数组字段仍拒绝（固定长度数组字段 v1 已支持，见 test_struct_array_field）；
+    // aggregate 表达式（调用结果）不能直接 print，变量形式已支持（见 test_print_aggregate）。
+    CHECK_THROWS(Codegen::compile(Parser::parse("struct S { a: array<int>; }")),
                  "只支持 int/float/bool");
     CHECK_THROWS(
         Codegen::compile(Parser::parse(
@@ -1563,8 +1575,8 @@ static void test_dynamic_array_s3c1() {
     CHECK_THROWS(
         Codegen::compile(Parser::parse("let a: array<int> = [1];\nlet b: array<float> = a;")),
         "需要 array<float>");
-    CHECK_THROWS(Codegen::compile(Parser::parse("let a: array<int> = [1];\nprint(a);")),
-                 "动态数组变量 `a` 不能直接取值");
+    // 动态数组变量可直接 print（详细用例见 test_print_aggregate）
+    CHECK(module_verifies("let a: array<int> = [1];\nprint(a);"));
     CHECK_THROWS(
         Codegen::compile(Parser::parse("let a: array<int, 2> = [1, 2];\npush(a, 3);")),
         "不是动态数组，不能 push");
@@ -2388,15 +2400,31 @@ static void test_array_struct_s3c3b1() {
         Codegen::compile(Parser::parse(
             "struct P { x: int; }\n"
             "let a: array<P, 2> = [P { x: 1 }, P { x: 2 }];\n"
-            "let b = a;\n"
+            "let b: array<P, 3> = [P { x: 1 }, P { x: 2 }, P { x: 3 }];\n"
             "a = b;")),
-        "array<struct> 整体赋值尚未支持");
+        "数组参数类型不匹配");
     CHECK_THROWS(
         Codegen::compile(Parser::parse(
             "struct P { x: int; }\n"
             "let a: array<P, 2> = [P { x: 1 }, P { x: 2 }];\n"
-            "print(a);")),
-        "数组变量 `a` 不能直接取值");
+            "a = 1;")),
+        "固定数组实参必须是");
+    CHECK_THROWS(
+        Codegen::compile(Parser::parse(
+            "struct P { x: int; }\n"
+            "let a: array<P, 2> = [P { x: 1 }, P { x: 2 }];\n"
+            "a = [P { x: 1 }];")),
+        "数组长度不匹配");
+    CHECK_THROWS(
+        Codegen::compile(Parser::parse(
+            "let a: array<array<int, 2>, 2> = [[1, 2], [3, 4]];\n"
+            "a = [[1, 2], [3]];")),
+        "内层数组长度不匹配");
+    // 固定 array<struct, N> 可直接 print（详细用例见 test_print_aggregate）
+    CHECK(module_verifies(
+        "struct P { x: int; }\n"
+        "let a: array<P, 2> = [P { x: 1 }, P { x: 2 }];\n"
+        "print(a);"));
     CHECK_THROWS(
         Codegen::compile(Parser::parse(
             "struct P { x: int; }\n"
@@ -2406,8 +2434,8 @@ static void test_array_struct_s3c3b1() {
     CHECK_THROWS(
         Codegen::compile(Parser::parse(
             "struct P { x: int; }\n"
-            "struct S { a: array<P, 2>; }")),
-        "不支持 array");
+            "struct S { a: array<P>; }")),
+        "动态数组");
 
     // 类型错误：元素赋值 / 字段赋值 / 初始化长度与元素类型
     CHECK_THROWS(
@@ -2672,12 +2700,11 @@ static void test_dynamic_struct_array_s3c3b2() {
             "let a: array<P> = [P { x: 1 }];\n"
             "let p: P = a[0];")),
         "不支持整体读取 array<struct> 元素");
-    CHECK_THROWS(
-        Codegen::compile(Parser::parse(
-            "struct P { x: int; }\n"
-            "let a: array<P> = [P { x: 1 }];\n"
-            "print(a);")),
-        "动态数组变量 `a` 不能直接取值");
+    // 动态 array<struct> 可直接 print（详细用例见 test_print_aggregate）
+    CHECK(module_verifies(
+        "struct P { x: int; }\n"
+        "let a: array<P> = [P { x: 1 }];\n"
+        "print(a);"));
     CHECK_THROWS(
         Codegen::compile(Parser::parse(
             "struct P { x: int; }\n"
@@ -3044,6 +3071,801 @@ static void test_fixed_array_abi_s3c3b3() {
         "return 必须带值");
 }
 
+// ---- S3c-3b-4：固定数组整体赋值 b = a / b = [..] / b = f() ----
+// 右侧先按总槽数打包到临时 `[total x i64]` 缓冲，再逐槽覆盖目标；固定数组无堆。
+
+static void test_fixed_array_assign_s3c3b4() {
+    // 标量固定数组：原有 b = a / b = [..] / b = f() 路径不受扁平分支影响
+    {
+        auto src =
+            "fn mk() -> array<int, 3> { return [7, 8, 9]; }\n"
+            "let a: array<int, 3> = [1, 2, 3];\n"
+            "let b: array<int, 3> = [0, 0, 0];\n"
+            "b = a;\n"
+            "b = [4, 5, 6];\n"
+            "b = mk();\n"
+            "print(b[0], b[1], b[2]);";
+        auto ir = module_ir(src);
+        CHECK(ir.find("call void @mk(ptr %mk.sret)") != std::string::npos);
+        CHECK(module_verifies(src));
+    }
+
+    // array<struct, N>：变量 / 字面量 / 返回数组的调用三种右侧都按 N*slots 槽覆盖
+    {
+        auto src =
+            "struct P { x: int; y: int; }\n"
+            "fn mk() -> array<P, 2> { return [P { x: 1, y: 2 }, P { x: 3, y: 4 }]; }\n"
+            "let a: array<P, 2> = [P { x: 5, y: 6 }, P { x: 7, y: 8 }];\n"
+            "let b: array<P, 2> = [P { x: 0, y: 0 }, P { x: 0, y: 0 }];\n"
+            "b = a;\n"
+            "b = [P { x: 9, y: 10 }, P { x: 11, y: 12 }];\n"
+            "b = mk();\n"
+            "b[0].x = 42;\n"
+            "print(b[0].x, b[1].y);";
+        auto ir = module_ir(src);
+        CHECK(ir.find("define void @mk(ptr %sret)") != std::string::npos);
+        CHECK(ir.find("call void @mk(ptr %mk.sret)") != std::string::npos);
+        CHECK(ir.find("alloca [4 x i64]") != std::string::npos);
+        CHECK(ir.find("store i64 42") != std::string::npos);
+        CHECK(count_calls_in(src, "main", "malloc") == 0);  // 固定数组无堆
+        CHECK(module_verifies(src));
+    }
+
+    // array<P,1>：单字段 struct 数组（slots == 1）仍走扁平路径，b = f() 整体赋值
+    // （与 /tmp/bassign.tenet 同构，输出 7 1 2）
+    {
+        auto src =
+            "struct P { x: int; }\n"
+            "fn f() -> array<P, 1> { return [P { x: 7 }]; }\n"
+            "fn n() -> array<array<int, 1>, 2> { return [[1], [2]]; }\n"
+            "let b: array<P, 1> = [P { x: 0 }];\n"
+            "b = f();\n"
+            "let m: array<array<int, 1>, 2> = [[0], [0]];\n"
+            "m = n();\n"
+            "print(b[0].x, m[0][0], m[1][0]);";
+        auto ir = module_ir(src);
+        CHECK(ir.find("define void @f(ptr %sret)") != std::string::npos);
+        CHECK(ir.find("alloca [1 x i64]") != std::string::npos);
+        CHECK(ir.find("call void @f(ptr %f.sret)") != std::string::npos);
+        CHECK(ir.find("call void @n(ptr %n.sret)") != std::string::npos);
+        CHECK(module_verifies(src));
+    }
+
+    // 固定嵌套数组：b = a / b = [[..]] / b = f()（内层 1 槽同样支持）
+    {
+        auto src =
+            "fn n() -> array<array<int, 1>, 2> { return [[1], [2]]; }\n"
+            "let m: array<array<int, 1>, 2> = [[0], [0]];\n"
+            "m = n();\n"
+            "m = [[3], [4]];\n"
+            "let k: array<array<int, 1>, 2> = [[5], [6]];\n"
+            "m = k;\n"
+            "print(m[0][0], m[1][0]);";
+        auto ir = module_ir(src);
+        CHECK(ir.find("call void @n(ptr %n.sret)") != std::string::npos);
+        CHECK(ir.find("alloca [2 x i64]") != std::string::npos);
+        CHECK(module_verifies(src));
+    }
+
+    // array<P,1> 局部 / 参数 / 返回值 / 字段读写 / 元素赋值全链路
+    {
+        auto src =
+            "struct P { x: int; }\n"
+            "fn one(a: array<P, 1>) -> array<P, 1> {\n"
+            "    a[0].x = a[0].x + 1;\n"
+            "    a[0] = P { x: a[0].x + 1 };\n"
+            "    return a;\n"
+            "}\n"
+            "let a: array<P, 1> = [P { x: 1 }];\n"
+            "let b: array<P, 1> = one(a);\n"
+            "b[0].x = 9;\n"
+            "print(a[0].x, b[0].x);";
+        auto ir = module_ir(src);
+        CHECK(ir.find("define void @one(ptr %sret, ptr %p0)") != std::string::npos);
+        CHECK(ir.find("alloca [1 x i64]") != std::string::npos);
+        CHECK(ir.find("call void @one(ptr %one.sret, ptr %one.arg0)") !=
+              std::string::npos);
+        CHECK(module_verifies(src));
+    }
+
+    // array<array<int,1>,M> 局部 / 参数 / 返回值 / 元素读写（内层 1 槽仍走嵌套路径）
+    {
+        auto src =
+            "fn nid(a: array<array<int, 1>, 2>) -> array<array<int, 1>, 2> { return a; }\n"
+            "let n: array<array<int, 1>, 2> = [[1], [2]];\n"
+            "n[0][0] = 9;\n"
+            "let m: array<array<int, 1>, 2> = nid(n);\n"
+            "m[1][0] = 7;\n"
+            "print(n[0][0], n[1][0], m[0][0], m[1][0]);";
+        auto ir = module_ir(src);
+        CHECK(ir.find("define void @nid(ptr %sret, ptr %p0)") != std::string::npos);
+        CHECK(ir.find("alloca [2 x i64]") != std::string::npos);
+        CHECK(ir.find("call void @tenet_bounds_fail") != std::string::npos);
+        CHECK(module_verifies(src));
+    }
+}
+
+// ---- print aggregate（struct / 定长数组 / 动态数组 / 嵌套数组）----
+
+static void test_print_aggregate() {
+    // 1) struct：`P { x: 1, y: 2.5 }`；扁平字段逐个 printf 片段。
+    {
+        auto src =
+            "struct P { x: int; y: float; }\n"
+            "let p: P = P { x: 1, y: 2.5 };\n"
+            "print(p);";
+        auto ir = module_ir(src);
+        CHECK(ir.find("c\"P { \\00\"") != std::string::npos);
+        CHECK(ir.find("c\"x: \\00\"") != std::string::npos);
+        CHECK(ir.find("c\"y: \\00\"") != std::string::npos);
+        CHECK(ir.find("c\" }\\00\"") != std::string::npos);
+        CHECK(ir.find("c\"%lld\\00\"") != std::string::npos);
+        CHECK(ir.find("c\"%g\\00\"") != std::string::npos);
+        CHECK(count_calls_in(src, "main", "printf") == 8);
+        CHECK(module_verifies(src));
+    }
+
+    // 2) 嵌套 struct：字段名用扁平路径（`Q { p.x: 1, p.y: 2, z: 3 }`）。
+    {
+        auto src =
+            "struct P { x: int; y: int; }\n"
+            "struct Q { p: P; z: int; }\n"
+            "let q: Q = Q { p: P { x: 1, y: 2 }, z: 3 };\n"
+            "print(q);";
+        auto ir = module_ir(src);
+        CHECK(ir.find("c\"p.x: \\00\"") != std::string::npos);
+        CHECK(ir.find("c\"p.y: \\00\"") != std::string::npos);
+        CHECK(ir.find("c\"z: \\00\"") != std::string::npos);
+        CHECK(ir.find("c\"p: \\00\"") == std::string::npos);
+        CHECK(module_verifies(src));
+    }
+
+    // 3) 定长标量数组：编译期展开 `[1, 2, 3]`，无运行时循环。
+    {
+        auto src = "let a: array<int, 3> = [1, 2, 3];\nprint(a);";
+        auto ir = module_ir(src);
+        CHECK(count_text(ir, "c\"%lld\\00\"") == 3);
+        CHECK(count_text(ir, "c\", \\00\"") == 2);
+        CHECK(ir.find("c\"[\\00\"") != std::string::npos);
+        CHECK(ir.find("c\"]\\00\"") != std::string::npos);
+        CHECK(ir.find("pr.cond") == std::string::npos);
+        CHECK(count_calls_in(src, "main", "printf") == 8);
+        CHECK(module_verifies(src));
+    }
+    {
+        auto ir = module_ir("let f: array<float, 2> = [1.5, 2.5];\nprint(f);");
+        CHECK(count_text(ir, "c\"%g\\00\"") == 2);
+    }
+    {
+        auto src = "let b: array<bool, 2> = [true, false];\nprint(b);";
+        auto ir = module_ir(src);
+        CHECK(ir.find("c\"true\\00\"") != std::string::npos);
+        CHECK(ir.find("c\"false\\00\"") != std::string::npos);
+        CHECK(module_verifies(src));
+    }
+
+    // 4) 定长 struct 数组：每个元素按 slots 槽步长展开为 `P { ... }`。
+    {
+        auto src =
+            "struct P { x: int; y: float; }\n"
+            "let a: array<P, 2> = [P { x: 3, y: 4.5 }, P { x: 5, y: 6.5 }];\n"
+            "print(a);";
+        auto ir = module_ir(src);
+        CHECK(count_text(ir, "c\"P { \\00\"") == 2);
+        CHECK(count_text(ir, "c\"%lld\\00\"") == 2);
+        CHECK(count_text(ir, "c\"%g\\00\"") == 2);
+        CHECK(count_calls_in(src, "main", "malloc") == 0);
+        CHECK(count_calls_in(src, "main", "printf") == 18);
+        CHECK(module_verifies(src));
+    }
+    {
+        auto src =
+            "struct P { x: int; }\n"
+            "let a: array<P, 1> = [P { x: 7 }];\n"
+            "print(a);";
+        auto ir = module_ir(src);
+        CHECK(count_text(ir, "c\"P { \\00\"") == 1);
+        CHECK(module_verifies(src));
+    }
+
+    // 5) 动态标量数组：运行时循环（索引存栈槽），len 从描述符读取。
+    {
+        auto src = "let d: array<int> = [7, 8];\nprint(d);";
+        auto ir = module_ir(src);
+        CHECK(ir.find("pr.cond") != std::string::npos);
+        CHECK(ir.find("pr.body") != std::string::npos);
+        CHECK(ir.find("pr.sep") != std::string::npos);
+        CHECK(ir.find("pr.after") != std::string::npos);
+        CHECK(ir.find("pr.end") != std::string::npos);
+        CHECK(count_text(ir, "c\"%lld\\00\"") == 1);  // 循环体复用格式串
+        CHECK(count_calls_in(src, "main", "printf") == 5);
+        CHECK(module_verifies(src));
+    }
+    {
+        auto src = "let f: array<float> = [1.5, 2.5];\nprint(f);";
+        CHECK(count_text(module_ir(src), "c\"%g\\00\"") == 1);
+        CHECK(module_verifies(src));
+    }
+    {
+        auto src = "let b: array<bool> = [true];\nprint(b);";
+        auto ir = module_ir(src);
+        CHECK(ir.find("c\"true\\00\"") != std::string::npos);
+        CHECK(ir.find("c\"false\\00\"") != std::string::npos);
+        CHECK(module_verifies(src));
+    }
+    {
+        // 空动态数组输出 `[]`：循环仍生成，运行时零次迭代。
+        auto src = "let e: array<int> = [];\nprint(e);";
+        auto ir = module_ir(src);
+        CHECK(ir.find("pr.cond") != std::string::npos);
+        CHECK(ir.find("c\"[\\00\"") != std::string::npos);
+        CHECK(ir.find("c\"]\\00\"") != std::string::npos);
+        CHECK(module_verifies(src));
+    }
+
+    // 6) 动态 struct 数组：元素 stride = slots 槽，循环体复用 struct 格式片段。
+    {
+        auto src =
+            "struct P { x: int; y: float; }\n"
+            "let d: array<P> = [P { x: 1, y: 1.5 }];\n"
+            "print(d);";
+        auto ir = module_ir(src);
+        CHECK(ir.find("pr.cond") != std::string::npos);
+        CHECK(count_text(ir, "c\"P { \\00\"") == 1);
+        CHECK(count_text(ir, "c\"%lld\\00\"") == 1);
+        CHECK(count_text(ir, "c\"%g\\00\"") == 1);
+        CHECK(count_calls_in(src, "main", "printf") == 11);
+        CHECK(module_verifies(src));
+    }
+
+    // 7) 定长嵌套数组：外层/内层都编译期展开为 `[[1, 2], [3, 4]]`。
+    {
+        auto src = "let n: array<array<int, 2>, 2> = [[1, 2], [3, 4]];\nprint(n);";
+        auto ir = module_ir(src);
+        CHECK(count_text(ir, "c\"[\\00\"") == 3);
+        CHECK(count_text(ir, "c\"]\\00\"") == 3);
+        CHECK(count_text(ir, "c\"%lld\\00\"") == 4);
+        CHECK(count_text(ir, "c\", \\00\"") == 3);
+        CHECK(ir.find("pr.cond") == std::string::npos);
+        CHECK(module_verifies(src));
+    }
+
+    // 8) print 多参：aggregate 与标量之间一个空格；结尾换行。
+    {
+        auto src =
+            "struct P { x: int; }\n"
+            "let p: P = P { x: 1 };\n"
+            "print(p, 2, p);";
+        auto ir = module_ir(src);
+        CHECK(count_text(ir, "c\" \\00\"") == 2);
+        CHECK(count_text(ir, "c\"\\0A\\00\"") == 1);
+        CHECK(count_text(ir, "c\"%lld\\00\"") == 3);
+        CHECK(count_calls_in(src, "main", "printf") == 12);
+        CHECK(module_verifies(src));
+    }
+
+    // 9) 纯标量 / 字符串 / 数组元素仍走单次 printf（既有行为不变）。
+    {
+        auto src =
+            "let a: array<int, 2> = [1, 2];\n"
+            "print(a[0], len(a), \"s\", true, 2.5);";
+        CHECK(count_calls_in(src, "main", "printf") == 1);
+        CHECK(count_text(module_ir(src), "c\"%lld %lld %s %s %g\\0A\\00\"") == 1);
+        CHECK(module_verifies(src));
+    }
+
+    // 10) struct 的 bool 字段：输出 true / false。
+    {
+        auto src =
+            "struct B { b: bool; f: float; }\n"
+            "let b: B = B { b: true, f: 1.5 };\n"
+            "print(b);";
+        auto ir = module_ir(src);
+        CHECK(ir.find("c\"true\\00\"") != std::string::npos);
+        CHECK(ir.find("c\"false\\00\"") != std::string::npos);
+        CHECK(module_verifies(src));
+    }
+
+    // 11) aggregate 表达式（不是变量）明确报错：调用 / 字面量 / 元素整体读取。
+    CHECK_THROWS(
+        Codegen::compile(Parser::parse(
+            "struct P { x: int; }\n"
+            "fn mk() -> P { return P { x: 1 }; }\n"
+            "print(mk());")),
+        "print 不支持 struct");
+    CHECK_THROWS(
+        Codegen::compile(Parser::parse(
+            "fn mk() -> array<int, 2> { return [1, 2]; }\nprint(mk());")),
+        "print 不支持该类型的值");
+    CHECK_THROWS(
+        Codegen::compile(Parser::parse(
+            "struct P { x: int; }\n"
+            "let p = P { x: 1 };\n"
+            "fn mk() -> P { return P { x: 2 }; }\n"
+            "print(p, mk());")),
+        "print 不支持 struct");
+    CHECK_THROWS(Codegen::compile(Parser::parse("print([1, 2]);")),
+                 "数组字面量只能用于");
+    CHECK_THROWS(Codegen::compile(Parser::parse("struct P { x: int; }\nprint(P { x: 1 });")),
+                 "struct 字面量只能用于");
+    CHECK_THROWS(
+        Codegen::compile(Parser::parse(
+            "struct P { x: int; }\n"
+            "let a: array<P, 1> = [P { x: 1 }];\n"
+            "print(a[0]);")),
+        "不支持整体读取 array<struct> 元素");
+    CHECK_THROWS(
+        Codegen::compile(Parser::parse(
+            "let n: array<array<int, 2>, 2> = [[1, 2], [3, 4]];\n"
+            "print(n[0]);")),
+        "不支持整体读取嵌套数组元素");
+}
+
+// ---- S3c-3d：动态嵌套数组 array<array<T>> v1 ----
+// 外层动态、内层动态标量数组；外层堆元素是内层 descriptor [data,len,cap]
+// （3 个 i64 槽，stride = 24 字节）。覆盖字面量 / 深拷贝 / push / 二级下标 /
+// drop / 参数与返回值 / print / 双层边界检查 / 明确拒绝的非法形态。
+
+static void test_dynamic_nested_array_s3c3d() {
+    // 语法：`array<array<int>>` 类型归一化；参数/返回位置接受动态嵌套数组。
+    {
+        auto prog = Parser::parse(
+            "let a: array<array<int>> = [[1, 2], [3]];\n"
+            "fn clone(x: array<array<int>>) -> array<array<int>> { return x; }");
+        CHECK(prog.stmts[0]->ty.has_value() &&
+              *prog.stmts[0]->ty == "array<array<int>>");
+        CHECK(prog.stmts[1]->params.size() == 1);
+        CHECK(prog.stmts[1]->params[0].second == "array<array<int>>");
+        CHECK(prog.stmts[1]->ret.has_value() &&
+              *prog.stmts[1]->ret == "array<array<int>>");
+    }
+
+    // 字面量布局：外层 cap = max(2,4) = 4 → 4*3*8 = 96 字节；两行内层各 cap=4
+    // → 32 字节；外层元素按 [data,len,cap] 三槽访问（getelementptr [3 x i64]）。
+    {
+        auto src =
+            "let a: array<array<int>> = [[1, 2], [3]];\n"
+            "print(a);";
+        auto ir = module_ir(src);
+        CHECK(ir.find("call ptr @malloc(i64 96)") != std::string::npos);
+        CHECK(count_text(ir, "call ptr @malloc(i64 32)") == 2);
+        CHECK(count_calls_in(src, "main", "malloc") == 3);  // 外层 + 两行内层
+        CHECK(count_calls_in(src, "main", "free") == 2);    // 内层循环 free + 外层 free
+        CHECK(ir.find("getelementptr [3 x i64]") != std::string::npos);
+        CHECK(count_blocks_named(src, "main", "dyn.drop.inner.free") == 1);
+        CHECK(module_verifies(src));
+    }
+
+    // 空字面量 + push：外层 96 字节；push 内层空数组时临时内层 32 字节，
+    // 容量不足走 cap*2（新外层字节数按 24 字节/元素计算）。
+    {
+        auto src =
+            "let a: array<array<int>> = [];\n"
+            "push(a, []);\n"
+            "print(len(a), len(a[0]));";
+        auto ir = module_ir(src);
+        CHECK(ir.find("call ptr @malloc(i64 96)") != std::string::npos);
+        CHECK(ir.find("call ptr @malloc(i64 32)") != std::string::npos);
+        CHECK(ir.find("mul i64 %dyn.cap, 2") != std::string::npos);   // 外层 cap*2
+        CHECK(ir.find("mul i64 %dyn.newcap, 24") != std::string::npos);
+        CHECK(ir.find("mul i64 %dyn.len, 3") != std::string::npos);   // 外层元素 stride=3
+        CHECK(count_blocks_named(src, "main", "dyn.grow.after") == 1);
+        // len(a[0]) 只做外层一次边界检查（内层 len 直接读 descriptor 槽）。
+        CHECK(count_calls_in(src, "main", "tenet_bounds_fail") == 1);
+        // len(a) 是运行时读取，不是编译期常量 1。
+        CHECK(!printf_has_int_constant(src, 1));
+        CHECK(module_verifies(src));
+    }
+
+    // 用户程序（与 /tmp/dynnest.tenet 同构）：字面量 + push + 深拷贝 +
+    // 二级下标写 + len/元素 print + 参数入口深拷贝 + sret 转移。
+    {
+        auto src =
+            "let a: array<array<int>> = [[1, 2], [3]];\n"
+            "push(a, [4, 5]);\n"
+            "let b: array<array<int>> = a;\n"
+            "a[0][0] = 9;\n"
+            "print(len(a), a[0][0], a[1][0], b[0][0]);\n"
+            "fn clone(x: array<array<int>>) -> array<array<int>> { return x; }\n"
+            "let c: array<array<int>> = clone(b);\n"
+            "print(len(c), c[0][1]);";
+        auto ir = module_ir(src);
+        CHECK(ir.find("define void @clone(ptr %sret, ptr %p0)") != std::string::npos);
+        CHECK(count_calls_in(src, "main", "clone") == 1);
+        CHECK(count_calls_in(src, "main", "malloc") == 7);
+        CHECK(count_calls_in(src, "main", "free") == 7);
+        // a[0][0] / a[1][0] / b[0][0] / c[0][1] 各两层 + 写 a[0][0] 两层。
+        CHECK(count_calls_in(src, "main", "tenet_bounds_fail") >= 8);
+        CHECK(count_blocks_named(src, "main", "nested.copy.cond") == 1);  // let b = a
+        CHECK(count_blocks_named(src, "clone", "nested.copy.cond") == 1); // 参数入口
+        CHECK(count_blocks_named(src, "main", "dyn.grow.after") == 1);    // push
+        CHECK(count_blocks_named(src, "main", "dyn.drop.inner.free") == 3);
+        CHECK(module_verifies(src));
+    }
+
+    // 深拷贝：`let b = a` 与 `b = a` 都逐内层复制，互不影响；整体赋值前先 drop 旧值。
+    {
+        auto src =
+            "let a: array<array<int>> = [[1], [2]];\n"
+            "let b: array<array<int>> = a;\n"
+            "b = a;\n"
+            "a[0][0] = 9;\n"
+            "print(b[0][0]);";
+        CHECK(count_blocks_named(src, "main", "nested.copy.cond") == 2);
+        CHECK(count_blocks_named(src, "main", "dyn.drop.inner.free") == 3);
+        CHECK(count_calls_in(src, "main", "malloc") == 7);
+        CHECK(count_calls_in(src, "main", "free") == 6);
+        CHECK(module_verifies(src));
+    }
+
+    // push 内层变量 / 内层字面量：变量先深拷贝再追加，后续修改 r 不影响 a。
+    {
+        auto src =
+            "let a: array<array<int>> = [];\n"
+            "let r: array<int> = [7];\n"
+            "push(a, [1, 2]);\n"
+            "push(a, r);\n"
+            "r[0] = 9;\n"
+            "print(a[1][0]);";
+        CHECK(count_blocks_named(src, "main", "dyn.grow.after") == 2);
+        CHECK(count_calls_in(src, "main", "malloc") == 6);
+        CHECK(count_calls_in(src, "main", "free") == 5);
+        CHECK(count_calls_in(src, "main", "tenet_bounds_fail") == 3);
+        CHECK(module_verifies(src));
+    }
+
+    // push 返回内层数组的调用：调用结果 descriptor 转移进外层元素（不重复 malloc）。
+    {
+        auto src =
+            "fn mk() -> array<int> { return [9]; }\n"
+            "let a: array<array<int>> = [];\n"
+            "push(a, mk());\n"
+            "print(a[0][0]);";
+        CHECK(count_blocks_named(src, "main", "dyn.grow.after") == 1);
+        CHECK(count_calls_in(src, "main", "malloc") == 2);  // 外层 + 扩容
+        CHECK(count_calls_in(src, "main", "free") == 3);    // 扩容旧外层 + 内层 + 外层
+        CHECK(count_calls_in(src, "main", "tenet_bounds_fail") == 2);
+        CHECK(module_verifies(src));
+    }
+
+    // 内层 float / bool：8 字节槽 bitcast / zext·trunc；print 走内层行循环。
+    {
+        auto src =
+            "let x: float = 1.5;\n"
+            "let f: array<array<float>> = [[x], [2.5]];\n"
+            "print(f);\n"
+            "let b: array<array<bool>> = [[true], [false]];\n"
+            "print(b);";
+        auto ir = module_ir(src);
+        CHECK(ir.find("bitcast double") != std::string::npos);
+        CHECK(ir.find("bitcast i64") != std::string::npos);
+        CHECK(ir.find("trunc i64") != std::string::npos);
+        CHECK(ir.find("select i1") != std::string::npos);
+        CHECK(ir.find("c\"%g\\00\"") != std::string::npos);
+        CHECK(count_blocks_named(src, "main", "pnr.cond") == 2);
+        CHECK(count_calls_in(src, "main", "printf") == 16);
+        CHECK(module_verifies(src));
+    }
+
+    // 参数入口逐内层深拷贝：`clone(x)` 入口 malloc 外层 + 内层；调用方 let 接管 sret。
+    {
+        auto src =
+            "fn clone(x: array<array<int>>) -> array<array<int>> { return x; }\n"
+            "let a: array<array<int>> = [[1]];\n"
+            "let b: array<array<int>> = clone(a);\n"
+            "let c: array<array<int>> = clone([[2]]);\n"
+            "print(len(b), len(c));";
+        auto ir = module_ir(src);
+        CHECK(ir.find("define void @clone(ptr %sret, ptr %p0)") != std::string::npos);
+        CHECK(count_calls_in(src, "main", "clone") == 2);
+        CHECK(count_blocks_named(src, "clone", "nested.copy.cond") == 1);
+        CHECK(count_calls_in(src, "clone", "malloc") == 2);
+        CHECK(count_calls_in(src, "main", "malloc") == 4);
+        CHECK(count_calls_in(src, "main", "free") == 8);
+        CHECK(module_verifies(src));
+    }
+
+    // return 字面量：函数内构造动态嵌套数组后把 data/len/cap 转移进 sret（不 free）。
+    {
+        auto src =
+            "fn f() -> array<array<int>> { return [[1], [2]]; }\n"
+            "let a: array<array<int>> = f();\n"
+            "print(len(a));";
+        auto ir = module_ir(src);
+        CHECK(ir.find("define void @f(ptr %sret)") != std::string::npos);
+        CHECK(count_calls_in(src, "f", "malloc") == 3);
+        CHECK(count_calls_in(src, "f", "free") == 0);
+        CHECK(count_calls_in(src, "main", "malloc") == 0);
+        CHECK(count_calls_in(src, "main", "free") == 2);
+        CHECK(module_verifies(src));
+    }
+
+    // 双层边界检查：a[i][j] 两次；len(a[i]) 只有外层一次。
+    {
+        auto src = "let a: array<array<int>> = [[1]];\nprint(a[0][0]);";
+        CHECK(count_calls_in(src, "main", "tenet_bounds_fail") == 2);
+        CHECK(module_verifies(src));
+        auto lsrc = "let a: array<array<int>> = [[1]];\nprint(len(a[0]));";
+        auto lir = module_ir(lsrc);
+        CHECK(count_calls_in(lsrc, "main", "tenet_bounds_fail") == 1);
+        CHECK(lir.find("getelementptr [3 x i64]") != std::string::npos);
+        CHECK(module_verifies(lsrc));
+    }
+
+    // 作用域 drop：先逐内层 free(data)，再 free 外层（循环体每轮 / 函数退出）。
+    {
+        auto src =
+            "let i: int = 0;\n"
+            "while (i < 1) {\n"
+            "    let a: array<array<int>> = [[1], [2]];\n"
+            "    i = i + 1;\n"
+            "}";
+        CHECK(count_blocks_named(src, "main", "dyn.drop.inner.free") == 1);
+        CHECK(count_blocks_named(src, "main", "dyn.drop.rows") == 1);
+        CHECK(count_calls_in(src, "main", "free") == 2);
+        CHECK(module_verifies(src));
+    }
+
+    // 整体读取 / 整体赋值内层数组：明确拒绝（只支持 a[i][j]）。
+    CHECK_THROWS(
+        Codegen::compile(Parser::parse(
+            "let a: array<array<int>> = [[1]];\nprint(a[0]);")),
+        "整体读取");
+    CHECK_THROWS(
+        Codegen::compile(Parser::parse(
+            "let a: array<array<int>> = [[1]];\na[0] = [2];")),
+        "整体赋值");
+
+    // 不支持的类型形态：array<struct> 内层 / 更深嵌套 / 固定内层。
+    CHECK_THROWS(
+        Codegen::compile(Parser::parse(
+            "struct P { x: int; }\n"
+            "let a: array<array<P>> = [[P { x: 1 }]];")),
+        "不支持 array<struct>");
+    CHECK_THROWS(
+        Codegen::compile(Parser::parse("let a: array<array<array<int>>> = [[[1]]];")),
+        "只支持一层");
+    CHECK_THROWS(
+        Codegen::compile(Parser::parse("let a: array<array<int, 2>> = [[1, 2]];")),
+        "内层必须是动态数组");
+    CHECK_THROWS(
+        Codegen::compile(Parser::parse(
+            "fn f(a: array<array<int, 2>>) -> int { return len(a); }")),
+        "内层必须是动态数组");
+    CHECK_THROWS(
+        Codegen::compile(Parser::parse(
+            "fn f() -> array<array<int, 2>> { return [[1, 2]]; }")),
+        "内层必须是动态数组");
+
+    // 元素类型 / 初始化 / push / 参数类型错误。
+    CHECK_THROWS(
+        Codegen::compile(Parser::parse("let a: array<array<int>> = [[1], 2];")),
+        "嵌套数组第");
+    CHECK_THROWS(
+        Codegen::compile(Parser::parse("let a: array<array<int>> = [[1], [2.5]];")),
+        "类型不匹配");
+    CHECK_THROWS(
+        Codegen::compile(Parser::parse(
+            "let a: array<array<int>> = [[1]];\npush(a, [1.5]);")),
+        "类型不匹配");
+    CHECK_THROWS(
+        Codegen::compile(Parser::parse(
+            "let a: array<array<int>> = [[1]];\npush(a, 1);")),
+        "push 的嵌套数组值必须");
+    CHECK_THROWS(Codegen::compile(Parser::parse("let a: array<array<int>> = 1;")),
+                 "动态嵌套数组初始化必须是");
+    CHECK_THROWS(
+        Codegen::compile(Parser::parse(
+            "fn f(x: array<array<int>>) -> int { return len(x); }\n"
+            "let a: array<array<float>> = [[1.0]];\n"
+            "print(f(a));")),
+        "类型不匹配：期望 array<array<int>>");
+    CHECK_THROWS(
+        Codegen::compile(Parser::parse(
+            "let a: array<array<int>> = [[1]];\n"
+            "let b: array<array<float>> = a;")),
+        "需要 array<array<float>>");
+    CHECK_THROWS(
+        Codegen::compile(Parser::parse(
+            "let r: array<int> = [1];\n"
+            "let b: array<array<int>> = [[r]];")),
+        "不能直接取值");
+}
+
+// ---- S3d：struct 的固定数组字段 v1 ----
+
+static void test_struct_array_field_s3d() {
+    // 布局：array<int,3> 字段占 3 个 i64 槽，x 占 1 槽；总槽数 = 4。
+    {
+        auto src =
+            "struct S { a: array<int, 3>; x: int; }\n"
+            "let s: S = S { a: [1, 2, 3], x: 9 };\n"
+            "s.a[1] = 7;\n"
+            "print(s.a[1], s.x);";
+        auto ir = module_ir(src);
+        CHECK(ir.find("alloca [3 x i64]") != std::string::npos);
+        CHECK(count_scalar_allocas(src, "main", "i64") == 1);  // 仅 x 一个标量槽
+        CHECK(ir.find("store i64 7") != std::string::npos);
+        CHECK(module_verifies(src));
+    }
+
+    // 字面量 / 整体深拷贝 / 参数 / 返回值（按总槽数指针 + sret ABI）。
+    {
+        auto src =
+            "struct S { a: array<int, 3>; x: int; }\n"
+            "let s: S = S { a: [1, 2, 3], x: 9 };\n"
+            "let t: S = s;\n"
+            "t.a[0] = 5;\n"
+            "fn f(v: S) -> S { v.a[2] = 8; return v; }\n"
+            "let u: S = f(s);\n"
+            "print(s.a[1], t.a[0], s.x);\n"
+            "print(u.a[2], s.a[2]);\n"
+            "print(s);\n"
+            "print(u);";
+        auto ir = module_ir(src);
+        CHECK(ir.find("define void @f(ptr %sret, ptr %p0)") != std::string::npos);
+        CHECK(ir.find("alloca [4 x i64]") != std::string::npos);
+        CHECK(ir.find("store i64 5") != std::string::npos);  // t.a[0] = 5 深拷贝后写
+        CHECK(ir.find("a: ") != std::string::npos);          // print 展开数组字段
+        CHECK(module_verifies(src));
+    }
+
+    // array<struct> 字段：s.a[i].x 读写与 print 展开 `[P { x: .. }]`。
+    {
+        auto src =
+            "struct P { x: int; }\n"
+            "struct S { a: array<P, 2>; }\n"
+            "let s: S = S { a: [P { x: 1 }, P { x: 2 }] };\n"
+            "s.a[0].x = 9;\n"
+            "print(s.a[0].x, s.a[1].x);\n"
+            "print(s);";
+        auto ir = module_ir(src);
+        CHECK(ir.find("alloca [2 x i64]") != std::string::npos);
+        CHECK(ir.find("P { ") != std::string::npos);
+        CHECK(module_verifies(src));
+    }
+
+    // 固定嵌套数组字段：array<array<int,2>,3> 占 6 槽，s.m[i][j] 读写。
+    {
+        auto src =
+            "struct N { m: array<array<int, 2>, 3>; }\n"
+            "let n: N = N { m: [[1, 2], [3, 4], [5, 6]] };\n"
+            "n.m[1][0] = 8;\n"
+            "print(n.m[0][1], n.m[1][0], n.m[2][1]);\n"
+            "print(n);";
+        auto ir = module_ir(src);
+        CHECK(ir.find("alloca [6 x i64]") != std::string::npos);
+        CHECK(module_verifies(src));
+    }
+
+    // array<float,N> / array<bool,N> 字段：float bitcast、bool zext/trunc。
+    {
+        auto src =
+            "struct B { f: array<float, 2>; b: array<bool, 2>; }\n"
+            "let x: B = B { f: [1.5, 2.5], b: [true, false] };\n"
+            "x.f[0] = 3.5;\n"
+            "x.b[1] = true;\n"
+            "print(x.f[0], x.b[1]);\n"
+            "print(x);";
+        auto ir = module_ir(src);
+        CHECK(ir.find("bitcast i64") != std::string::npos);
+        CHECK(ir.find("trunc i64") != std::string::npos);
+        // 数组字段元素按扁平 i64 槽读写，不能直接 store double / i1。
+        CHECK(ir.find("store double") == std::string::npos);
+        CHECK(ir.find("store i1") == std::string::npos);
+        CHECK(module_verifies(src));
+    }
+
+    // 嵌套 struct 字段里的数组：o.i.a[1] 读写。
+    {
+        auto src =
+            "struct I { a: array<int, 2>; b: float; }\n"
+            "struct O { i: I; x: int; }\n"
+            "let o: O = O { i: I { a: [1, 2], b: 2.5 }, x: 7 };\n"
+            "o.i.a[1] = 9;\n"
+            "print(o.i.a[0], o.i.a[1], o.x);\n"
+            "print(o);";
+        auto ir = module_ir(src);
+        CHECK(ir.find("alloca [2 x i64]") != std::string::npos);
+        CHECK(module_verifies(src));
+    }
+
+    // 固定 array<struct> 元素本身带数组字段：arr[0].a[0] 读写与 print。
+    {
+        auto src =
+            "struct P { a: array<int, 2>; x: int; }\n"
+            "let arr: array<P, 2> = [P { a: [1, 2], x: 3 }, P { a: [4, 5], x: 6 }];\n"
+            "arr[0].a[0] = 9;\n"
+            "arr[1].x = 8;\n"
+            "print(arr[0].a[0], arr[0].a[1], arr[1].x);\n"
+            "print(arr);";
+        auto ir = module_ir(src);
+        // P 的槽数 = array<int,2> 字段 2 槽 + x 1 槽 = 3；array<P,2> = 6 槽。
+        CHECK(ir.find("alloca [6 x i64]") != std::string::npos);
+        CHECK(module_verifies(src));
+    }
+
+    // struct 的数组字段整体赋值 / 从另一个 struct 数组字段拷贝。
+    {
+        auto src =
+            "struct S { a: array<int, 3>; x: int; }\n"
+            "let s: S = S { a: [1, 2, 3], x: 9 };\n"
+            "s.a = [4, 5, 6];\n"
+            "s.a = s.a;\n"
+            "let t: S = S { a: s.a, x: s.x };\n"
+            "print(s.a[0], t.a[0]);";
+        auto ir = module_ir(src);
+        CHECK(ir.find("store i64 6") != std::string::npos);
+        CHECK(module_verifies(src));
+    }
+
+    // 运行时下标进入 struct 数组字段：生成 tenet_bounds_fail 检查。
+    {
+        auto src =
+            "struct S { a: array<int, 2>; }\n"
+            "let s: S = S { a: [1, 2] };\n"
+            "let i: int = 1;\n"
+            "print(s.a[i]);";
+        CHECK(function_calls(src, "main", "tenet_bounds_fail"));
+        CHECK(module_verifies(src));
+    }
+
+    // 错误：动态数组字段 / 嵌套动态内层 / string 元素 / 数组字段循环嵌套。
+    CHECK_THROWS(Codegen::compile(Parser::parse("struct S { a: array<int>; }")),
+                 "不支持动态数组");
+    CHECK_THROWS(
+        Codegen::compile(Parser::parse("struct S { a: array<array<int>, 2>; }")),
+        "不支持动态数组");
+    CHECK_THROWS(Codegen::compile(Parser::parse("struct S { a: array<string, 2>; }")),
+                 "不支持 string");
+    CHECK_THROWS(Codegen::compile(Parser::parse("struct A { a: array<A, 2>; }")),
+                 "循环嵌套");
+    CHECK_THROWS(Codegen::compile(Parser::parse("struct S { a: array<array<A, 2>, 2>; }")),
+                 "数组元素类型 `A` 未定义");
+
+    // 错误：字面量长度 / 元素类型 / 嵌套元素不是数组 / 缺字段。
+    CHECK_THROWS(
+        Codegen::compile(Parser::parse(
+            "struct S { a: array<int, 3>; x: int; }\n"
+            "let s: S = S { a: [1, 2], x: 9 };")),
+        "数组长度不匹配");
+    CHECK_THROWS(
+        Codegen::compile(Parser::parse(
+            "struct S { a: array<int, 3>; x: int; }\n"
+            "let s: S = S { a: [1, 2.0, 3], x: 9 };")),
+        "数组元素 1 类型不匹配");
+    CHECK_THROWS(
+        Codegen::compile(Parser::parse(
+            "struct N { m: array<array<int, 2>, 2>; }\n"
+            "let n: N = N { m: [[1, 2], 3] };")),
+        "嵌套数组元素必须是");
+    CHECK_THROWS(
+        Codegen::compile(Parser::parse(
+            "struct S { a: array<int, 3>; x: int; }\n"
+            "let s: S = S { x: 9 };")),
+        "缺少字段 `a`");
+    CHECK_THROWS(
+        Codegen::compile(Parser::parse(
+            "struct S { a: array<int, 3>; x: int; }\n"
+            "let s: S = S { a: 1, x: 9 };")),
+        "初始化必须是同类型数组字面量");
+
+    // 错误：直接读取整个数组字段 / 整体读取 array<struct> 元素。
+    CHECK_THROWS(
+        Codegen::compile(Parser::parse(
+            "struct S { a: array<int, 2>; }\n"
+            "let s: S = S { a: [1, 2] };\n"
+            "print(s.a);")),
+        "不能直接取值");
+    CHECK_THROWS(
+        Codegen::compile(Parser::parse(
+            "struct P { x: int; }\n"
+            "struct S { a: array<P, 2>; }\n"
+            "let s: S = S { a: [P { x: 1 }, P { x: 2 }] };\n"
+            "let p = s.a[0];")),
+        "不支持整体读取 array<struct>");
+}
+
 int main() {
     test_lexer();
     test_parser();
@@ -3059,6 +3881,10 @@ int main() {
     test_dynamic_struct_array_s3c3b2();
     test_nested_array_s3c3c1();
     test_fixed_array_abi_s3c3b3();
+    test_fixed_array_assign_s3c3b4();
+    test_print_aggregate();
+    test_dynamic_nested_array_s3c3d();
+    test_struct_array_field_s3d();
 
     std::cout << "通过 " << (checks - failures) << " / " << checks << " 项检查";
     if (failures > 0) {

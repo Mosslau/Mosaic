@@ -1,0 +1,26 @@
+// S3c-3b-4：固定数组整体赋值 b = a / b = [..] / b = f()
+// 固定数组没有堆：右侧先按总槽数打包到临时扁平缓冲，再逐槽覆盖目标。
+// 支持 array<T, N>、array<struct, N> 与 array<array<T, N>, M>。
+struct P { x: int; }
+
+fn f() -> array<P, 1> { return [P { x: 7 }]; }
+fn n() -> array<array<int, 1>, 2> { return [[1], [2]]; }
+
+// array<struct, N>：三种右侧形态
+let b: array<P, 1> = [P { x: 0 }];
+b = f();                  // 返回数组的调用
+let a: array<P, 1> = [P { x: 3 }];
+b = a;                    // 同类型数组变量
+b = [P { x: 7 }];         // 字面量
+print(b[0].x);            // 7
+
+// 固定嵌套数组：b = f() / b = [[..]]
+let m: array<array<int, 1>, 2> = [[0], [0]];
+m = n();
+m = [[1], [2]];
+print(m[0][0], m[1][0]);  // 1 2
+
+// 标量固定数组同样支持三种右侧
+let s: array<int, 3> = [0, 0, 0];
+s = [5, 6, 7];
+print(s[0], s[1], s[2]);  // 5 6 7

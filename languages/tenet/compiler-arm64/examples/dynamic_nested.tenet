@@ -1,0 +1,36 @@
+// S3c-3e：动态嵌套数组 array<array<T>> v1
+// 外层与内层都是动态数组；外层堆元素是内层 descriptor [data, len, cap]，
+// 外层 stride = 3 * 8 = 24 字节。只支持一层嵌套，内层元素限 int/float/bool。
+// 只 malloc/free，无 RC/GC；let 深拷贝、push 深拷贝、参数入口深拷贝。
+
+let rows: array<array<int>> = [[1, 2], [3]];
+push(rows, [4, 5]);   // 内层字面量：深拷贝后追加
+let inner: array<int> = [6];
+push(rows, inner);    // 内层变量：深拷贝，之后修改 inner 不影响 rows
+inner[0] = 99;
+print(rows);          // [[1, 2], [3], [4, 5], [6]]
+
+// let 同类型变量：逐内层深拷贝，rows 与 copy 的内层堆完全独立。
+let copy: array<array<int>> = rows;
+rows[0][0] = 10;
+print(copy[0][0], rows[0][0], len(rows), len(rows[2]));  // 1 10 4 2
+
+// 参数入口逐内层深拷贝；返回值经隐藏 sret 描述符转移所有权。
+fn clone(x: array<array<int>>) -> array<array<int>> {
+    push(x, [7]);
+    return x;
+}
+let more: array<array<int>> = clone(copy);
+print(more);          // [[1, 2], [3], [4, 5], [6], [7]]
+print(copy);          // [[1, 2], [3], [4, 5], [6]]
+
+// float / bool 内层同样支持。
+let fs: array<array<float>> = [[1.5, 2.5], [3.5]];
+let bs: array<array<bool>> = [[true, false], [false]];
+print(fs);
+print(bs);
+
+// 空外层 / 空内层。
+let empty: array<array<int>> = [];
+push(empty, []);
+print(empty, len(empty), len(empty[0]));  // [[]] 1 0

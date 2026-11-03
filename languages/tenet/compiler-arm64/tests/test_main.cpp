@@ -376,8 +376,12 @@ static void test_backend() {
         CHECK(a.find("str x0, [x29, #-8]") != std::string::npos);
         CHECK(a.find("str x9, [x15, #0]") != std::string::npos);
     }
-    CHECK_THROWS(asm_of("struct Point { x: int; }\nlet p = Point { x: 1 };\nprint(p);"),
-                 "不能直接取值");
+    {
+        std::string a =
+            asm_of("struct Point { x: int; }\nlet p = Point { x: 1 };\nprint(p);");
+        CHECK(a.find(".asciz \"Point { \"") != std::string::npos);
+        CHECK(a.find(".asciz \"x: \"") != std::string::npos);
+    }
     CHECK_THROWS(asm_of("struct Point { x: int; }\nlet p = Point { x: 1 };\nprint(p.z);"),
                  "没有字段 `z`");
     CHECK_THROWS(asm_of("struct Point { x: int; }\nlet p = Point { x: 1 };\np.z = 1;"),
@@ -682,9 +686,11 @@ static void test_struct_s3a() {
                         "let l = L { a: P { x: 1 }, b: P { x: 2 } };\nl.a.x.y = 1;"),
                  "只支持对 struct 变量写字段");
 
-    // 不能直接 print struct；嵌套 struct 字段需继续访问到标量
-    CHECK_THROWS(asm_of("struct P { x: int; }\nlet p = P { x: 1 };\nprint(p);"),
-                 "struct 变量 `p` 不能直接取值");
+    // 可直接 print struct 变量；嵌套 struct 字段需继续访问到标量
+    {
+        std::string a = asm_of("struct P { x: int; }\nlet p = P { x: 1 };\nprint(p);");
+        CHECK(a.find(".asciz \"P { \"") != std::string::npos);
+    }
     CHECK_THROWS(asm_of("struct P { x: int; }\nfn mk() -> P { return P { x: 1 }; }\nprint(mk());"),
                  "print 不支持该类型的值");
     CHECK_THROWS(asm_of("struct P { x: int; }\nprint(P { x: 1 });"),
@@ -946,8 +952,12 @@ static void test_array() {
     CHECK_THROWS(asm_of("fn f() -> int { return 1; }\nprint(f()[0]);"),
                  "v1 只支持对数组变量取下标");
 
-    // 数组不能直接取值 / 打印；S3c-2 允许 array<T> 作参数/返回值（descriptor/sret ABI）
-    CHECK_THROWS(asm_of("let a = [1, 2];\nprint(a);"), "数组变量 `a` 不能直接取值");
+    // 数组不能直接取值，但可以直接 print；S3c-2 允许 array<T> 作参数/返回值（descriptor/sret ABI）
+    {
+        std::string a = asm_of("let a = [1, 2];\nprint(a);");
+        CHECK(a.find(".asciz \"[\"") != std::string::npos);
+        CHECK(a.find(".asciz \"]\"") != std::string::npos);
+    }
     CHECK_THROWS(asm_of("let a = [1, 2];\nlet x: int = a;"), "数组变量 `a` 不能直接取值");
     CHECK_THROWS(asm_of("print([1, 2]);"), "数组字面量只能用于 let 初始化或整体赋值");
     CHECK_THROWS(asm_of("let a = [1, 2];\nlet b: int = [1];"),
@@ -1219,9 +1229,11 @@ static void test_array_s3b() {
         CHECK(threw);
     }
 
-    // 数组参数不能在 print 中整体取值（保持现有行为）
-    CHECK_THROWS(asm_of("fn f(a: array<int, 2>) { print(a); }"),
-                 "数组变量 `a` 不能直接取值");
+    // 数组参数可以直接 print（按值拷贝后的本地槽展开）
+    {
+        std::string a = asm_of("fn f(a: array<int, 2>) { print(a); }");
+        CHECK(a.find(".asciz \"[\"") != std::string::npos);
+    }
 }
 
 // ---- S3c：局部动态数组 array<T>（堆、push、len、下标、深拷贝、drop）----
@@ -1478,12 +1490,21 @@ static void test_array_s3c() {
 
     // 元素类型 / 下标类型 / 直接取值
     CHECK_THROWS(asm_of("let a: array<string> = [];"), "v1 数组元素只支持 int/float/bool");
-    CHECK_THROWS(asm_of("let a: array<array<int>> = [];"), "嵌套数组外层必须是固定长度");
+    {
+        // S3c-3e：动态嵌套空外层合法：cap=4 → malloc(4*24)。
+        std::string a = asm_of("let a: array<array<int>> = [];\nprint(len(a));");
+        CHECK(a.find("mov x0, #96") != std::string::npos);
+        CHECK(a.find("bl _malloc") != std::string::npos);
+    }
     CHECK_THROWS(asm_of("let a: array<int> = [1, 2.0];"),
                  "数组元素 1 类型不匹配：需要 int，实际 float");
     CHECK_THROWS(asm_of("let a: array<int> = [1];\nprint(a[true]);"),
                  "数组下标必须是 int，实际为 bool");
-    CHECK_THROWS(asm_of("let a: array<int> = [1];\nprint(a);"), "数组变量 `a` 不能直接取值");
+    {
+        std::string a = asm_of("let a: array<int> = [1];\nprint(a);");
+        CHECK(a.find("L.print.cond.") != std::string::npos);
+        CHECK(a.find("ldr x9, [x10, x9, lsl #3]") != std::string::npos);
+    }
     CHECK_THROWS(asm_of("let a: array<int> = [1];\nlet x: int = a;"),
                  "数组变量 `a` 不能直接取值");
     CHECK_THROWS(asm_of("let a: array<int> = [1];\nlet b: array<int> = a[0];"),
@@ -1497,7 +1518,7 @@ static void test_array_s3c() {
     CHECK_THROWS(asm_of("fn f(a: array<string>) -> int { return 0; }"),
                  "v1 数组元素只支持 int/float/bool");
     CHECK_THROWS(asm_of("fn f() -> array<array<int>> { return [1]; }"),
-                 "嵌套数组外层必须是固定长度");
+                 "嵌套数组第 0 个元素必须是内层数组字面量");
     CHECK_THROWS(asm_of("struct S { a: array<int>; }"), "不支持 array");
 
     // 错误定位：push 值类型错误指向第二个实参
@@ -2177,10 +2198,12 @@ static void test_array_struct_s3c3b1() {
                         "let a: array<P, 1> = [P { x: 1 }];\n"
                         "let p: P = a[0];"),
                  "array<struct> 元素不能整体读取为 struct 值");
-    CHECK_THROWS(asm_of("struct P { x: int; }\n"
-                        "let a: array<P, 1> = [P { x: 1 }];\n"
-                        "print(a);"),
-                 "数组变量 `a` 不能直接取值");
+    {
+        std::string a = asm_of("struct P { x: int; }\n"
+                               "let a: array<P, 1> = [P { x: 1 }];\n"
+                               "print(a);");
+        CHECK(a.find(".asciz \"P { \"") != std::string::npos);
+    }
 
     // 下标必须是 int；元素整体赋值类型检查
     CHECK_THROWS(asm_of("struct P { x: int; }\n"
@@ -2221,9 +2244,13 @@ static void test_array_struct_s3c3b1() {
                                "fn f() -> array<P> { return [P { x: 1 }, P { x: 2 }]; }");
         CHECK(a.find("_f:") != std::string::npos);
     }
-    CHECK_THROWS(asm_of("struct P { x: int; }\n"
-                        "struct S { a: array<P, 2>; }"),
-                 "struct 字段不支持 array（含 array<struct>）");
+    // S3d：固定数组字段已支持；这里改为正向断言（动态 array 字段仍拒绝，见下）。
+    {
+        std::string a = asm_of("struct P { x: int; }\n"
+                               "struct S { a: array<P, 2>; }\n"
+                               "let s: S = S { a: [P { x: 1 }, P { x: 2 }] };");
+        CHECK(a.find("_main:") != std::string::npos);
+    }
     CHECK_THROWS(asm_of("struct P { x: int; }\n"
                         "let a: array<array<P, 1>, 1> = [[P { x: 1 }]];"),
                  "嵌套数组内层只支持 int/float");
@@ -2482,10 +2509,13 @@ static void test_dynamic_struct_array_s3c3b2() {
                         "let a: array<P> = [P { x: 1, y: 2 }];\n"
                         "let p: P = a[0];"),
                  "array<struct> 元素不能整体读取为 struct 值");
-    CHECK_THROWS(asm_of("struct P { x: int; }\n"
-                        "let a: array<P> = [P { x: 1 }];\n"
-                        "print(a);"),
-                 "数组变量 `a` 不能直接取值");
+    {
+        std::string a = asm_of("struct P { x: int; }\n"
+                               "let a: array<P> = [P { x: 1 }];\n"
+                               "print(a);");
+        CHECK(a.find("L.print.cond.") != std::string::npos);
+        CHECK(a.find("add x10, x10, x9, lsl #3") != std::string::npos);
+    }
 
     // 类型不匹配：初始化来源 / push 值 / 元素整体赋值
     CHECK_THROWS(asm_of("struct P { x: int; }\nstruct Q { y: int; }\n"
@@ -2679,8 +2709,8 @@ static void test_nested_array_s3c3c() {
     }
     CHECK_THROWS(asm_of("let a: array<array<bool, 2>, 2> = [[true, false], [false, true]];"),
                  "嵌套数组内层暂不支持 bool");
-    CHECK_THROWS(asm_of("let a: array<array<int>> = [[1]];"),
-                 "嵌套数组外层必须是固定长度");
+    CHECK_THROWS(asm_of("let a: array<array<int>> = [[1], 2];"),
+                 "嵌套数组第 1 个元素必须是内层数组字面量");
     CHECK_THROWS(asm_of("let a: array<array<int, 2>, 2> = [[1, 2], [3, 4]];\n"
                         "let b: array<array<int>, 2> = [[[1]], [[2]]];"),
                  "嵌套数组内层必须是固定长度");
@@ -2927,7 +2957,7 @@ static void test_fixed_array_abi_s3c3d() {
                         "fn f(a: array<array<P, 2>, 2>) -> int { return 0; }"),
                  "嵌套数组内层只支持 int/float");
     CHECK_THROWS(asm_of("fn f(a: array<array<int, 2>>) -> int { return 0; }"),
-                 "嵌套数组外层必须是固定长度");
+                 "动态嵌套数组的内层必须是动态数组");
     CHECK_THROWS(asm_of("struct P { x: int; }\n"
                         "fn f(a: array<P, 2>) -> int { return a[0].x; }\n"
                         "let d: array<P> = [P { x: 1 }];\n"
@@ -2937,6 +2967,527 @@ static void test_fixed_array_abi_s3c3d() {
                         "let n: array<array<int, 2>, 2> = [[1, 2], [3, 4]];\n"
                         "print(f(n[0]));"),
                  "数组实参必须是同类型数组变量、字面量或返回数组的调用");
+}
+
+// ---- print aggregate（struct / 定长数组 / 动态数组 / 嵌套数组）----
+
+static void test_print_aggregate() {
+    // 1) struct：`P { x: 1, y: 2.5 }`；扁平字段逐个 printf。
+    {
+        std::string a = asm_of(
+            "struct P { x: int; y: float; }\n"
+            "let p: P = P { x: 1, y: 2.5 };\n"
+            "print(p);");
+        CHECK(a.find(".asciz \"P { \"") != std::string::npos);
+        CHECK(a.find(".asciz \"x: \"") != std::string::npos);
+        CHECK(a.find(".asciz \"y: \"") != std::string::npos);
+        CHECK(a.find(".asciz \" }\"") != std::string::npos);
+        CHECK(a.find(".asciz \"%lld\"") != std::string::npos);
+        CHECK(a.find(".asciz \"%g\"") != std::string::npos);
+        CHECK(a.find("ldr x9, [x29, #-8]") != std::string::npos);   // p.x
+        CHECK(a.find("ldr x9, [x29, #-16]") != std::string::npos);  // p.y
+        CHECK(count_substr(code_only(a), "bl _printf") == 8);
+    }
+
+    // 2) 嵌套 struct：字段名用扁平路径（`Q { p.x: 1, p.y: 2, z: 3 }`）。
+    {
+        std::string a = asm_of(
+            "struct P { x: int; y: int; }\n"
+            "struct Q { p: P; z: int; }\n"
+            "let q: Q = Q { p: P { x: 1, y: 2 }, z: 3 };\n"
+            "print(q);");
+        CHECK(a.find(".asciz \"Q { \"") != std::string::npos);
+        CHECK(a.find(".asciz \"p.x: \"") != std::string::npos);
+        CHECK(a.find(".asciz \"p.y: \"") != std::string::npos);
+        CHECK(a.find(".asciz \"z: \"") != std::string::npos);
+        CHECK(a.find(".asciz \"p: \"") == std::string::npos);
+    }
+
+    // 3) 定长标量数组：编译期展开 `[1, 2, 3]`。
+    {
+        std::string a = asm_of("let a: array<int, 3> = [1, 2, 3];\nprint(a);");
+        CHECK(a.find(".asciz \"[\"") != std::string::npos);
+        CHECK(a.find(".asciz \"]\"") != std::string::npos);
+        CHECK(count_substr(code_only(a), ".asciz \"%lld\"") == 3);
+        CHECK(count_substr(code_only(a), ".asciz \", \"") == 2);
+        CHECK(a.find("L.print.cond.") == std::string::npos);  // 定长展开，无运行时循环
+    }
+    {
+        std::string a = asm_of("let f: array<float, 2> = [1.5, 2.5];\nprint(f);");
+        CHECK(count_substr(code_only(a), ".asciz \"%g\"") == 2);
+    }
+    {
+        std::string a = asm_of("let b: array<bool, 2> = [true, false];\nprint(b);");
+        CHECK(a.find(".asciz \"true\"") != std::string::npos);
+        CHECK(a.find(".asciz \"false\"") != std::string::npos);
+    }
+
+    // 4) 定长 struct 数组：元素 stride = slots*8，字段在元素内按 +8 排列。
+    {
+        std::string a = asm_of(
+            "struct P { x: int; y: float; }\n"
+            "let a: array<P, 2> = [P { x: 3, y: 4.5 }, P { x: 5, y: 6.5 }];\n"
+            "print(a);");
+        CHECK(count_substr(code_only(a), ".asciz \"P { \"") == 2);
+        CHECK(a.find("ldr x9, [x29, #-32]") != std::string::npos);  // a[0].x
+        CHECK(a.find("ldr x9, [x29, #-24]") != std::string::npos);  // a[0].y
+        CHECK(a.find("ldr x9, [x29, #-16]") != std::string::npos);  // a[1].x
+        CHECK(a.find("ldr x9, [x29, #-8]") != std::string::npos);   // a[1].y
+        CHECK(code_only(a).find("bl _malloc") == std::string::npos);  // 不引入堆
+    }
+
+    // 5) 动态标量数组：运行时循环（索引存 scratch 槽），len 从描述符读。
+    {
+        std::string a = asm_of("let d: array<int> = [7, 8];\nprint(d);");
+        CHECK(a.find("L.print.cond.") != std::string::npos);
+        CHECK(a.find("L.print.sep.") != std::string::npos);
+        CHECK(a.find("b.hs L.print.end.") != std::string::npos);
+        CHECK(a.find("ldr x9, [x10, x9, lsl #3]") != std::string::npos);
+        CHECK(count_substr(code_only(a), ".asciz \"%lld\"") == 1);
+    }
+    {
+        std::string a = asm_of("let f: array<float> = [1.5, 2.5];\nprint(f);");
+        CHECK(count_substr(code_only(a), ".asciz \"%g\"") == 1);
+    }
+    {
+        std::string a = asm_of("let b: array<bool> = [true];\nprint(b);");
+        CHECK(a.find(".asciz \"true\"") != std::string::npos);
+        CHECK(a.find(".asciz \"false\"") != std::string::npos);
+    }
+    {
+        std::string a = asm_of("let e: array<int> = [];\nprint(e);");
+        CHECK(a.find("L.print.cond.") != std::string::npos);
+        CHECK(a.find(".asciz \"[\"") != std::string::npos);
+        CHECK(a.find(".asciz \"]\"") != std::string::npos);
+    }
+
+    // 6) 动态 struct 数组：stride = slots*8 取元素。
+    {
+        std::string a = asm_of(
+            "struct P { x: int; y: float; }\n"
+            "let d: array<P> = [P { x: 1, y: 1.5 }];\n"
+            "print(d);");
+        CHECK(a.find("L.print.cond.") != std::string::npos);
+        CHECK(a.find("mov x11, #2") != std::string::npos);  // slots = 2
+        CHECK(a.find("mul x9, x9, x11") != std::string::npos);
+        CHECK(a.find("add x10, x10, x9, lsl #3") != std::string::npos);
+        CHECK(a.find("ldr x9, [x10, #0]") != std::string::npos);
+        CHECK(a.find("ldr x9, [x10, #8]") != std::string::npos);
+        CHECK(count_substr(code_only(a), ".asciz \"P { \"") == 1);  // 循环体复用格式串
+    }
+
+    // 7) 定长嵌套数组：外层/内层都展开为 `[[1, 2], [3, 4]]`。
+    {
+        std::string a = asm_of(
+            "let n: array<array<int, 2>, 2> = [[1, 2], [3, 4]];\n"
+            "print(n);");
+        CHECK(count_substr(code_only(a), ".asciz \"[\"") == 3);
+        CHECK(count_substr(code_only(a), ".asciz \"]\"") == 3);
+        CHECK(count_substr(code_only(a), ".asciz \"%lld\"") == 4);
+        CHECK(count_substr(code_only(a), ".asciz \", \"") == 3);
+        CHECK(code_only(a).find("bl _malloc") == std::string::npos);
+    }
+
+    // 8) print 多参：aggregate 与标量之间一个空格；结尾换行。
+    {
+        std::string a = asm_of(
+            "struct P { x: int; }\n"
+            "let p: P = P { x: 1 };\n"
+            "print(p, 2, p);");
+        CHECK(count_substr(code_only(a), ".asciz \" \"") == 2);
+        CHECK(count_substr(code_only(a), ".asciz \"\\n\"") == 1);
+        CHECK(count_substr(code_only(a), ".asciz \"%lld\"") == 3);
+    }
+
+    // 9) 纯标量 print 仍走单次 printf（既有行为不变）。
+    {
+        std::string a = asm_of(
+            "let a: array<int, 2> = [1, 2];\n"
+            "print(a[0], len(a), \"s\", true, 2.5);");
+        CHECK(count_substr(code_only(a), "bl _printf") == 1);
+    }
+
+    // 10) aggregate 表达式（不是变量）明确报错。
+    CHECK_THROWS(asm_of("struct P { x: int; }\n"
+                        "fn mk() -> P { return P { x: 1 }; }\n"
+                        "print(mk());"),
+                 "print 不支持该类型的值");
+    CHECK_THROWS(asm_of("fn mk() -> array<int, 2> { return [1, 2]; }\n"
+                        "print(mk());"),
+                 "print 不支持该类型的值");
+    CHECK_THROWS(asm_of("struct P { x: int; }\nprint(P { x: 1 });"),
+                 "struct 字面量只能用于");
+    CHECK_THROWS(asm_of("let n: array<array<int, 2>, 2> = [[1, 2], [3, 4]];\n"
+                        "print(n[0]);"),
+                 "嵌套数组元素不能整体取值");
+    CHECK_THROWS(asm_of("struct P { x: int; }\n"
+                        "let a: array<P, 1> = [P { x: 1 }];\n"
+                        "print(a[0]);"),
+                 "array<struct> 元素不能整体读取");
+}
+
+// ---- S3c-3e：动态嵌套数组 array<array<T>>（外层/内层均动态，内层标量）----
+
+static void test_dynamic_nested_array_s3c3e() {
+    // 1) 字面量布局：外层 cap=4 → 4*24=96 字节；两行内层各 cap=4 → 32 字节。
+    //    外层元素是内层 descriptor [data,len,cap]，stride=24。
+    {
+        std::string a = asm_of("let a: array<array<int>> = [[1, 2], [3]];");
+        CHECK(a.find("mov x0, #96") != std::string::npos);
+        CHECK(count_substr(code_only(a), "bl _malloc") == 3);
+        CHECK(a.find("add x14, x14, #24") != std::string::npos);  // 第二行 descriptor
+        CHECK(a.find("str x9, [x14, #0]") != std::string::npos);   // 内层 data
+        CHECK(a.find("str x9, [x14, #8]") != std::string::npos);   // 内层 len
+        CHECK(a.find("str x9, [x14, #16]") != std::string::npos);  // 内层 cap
+    }
+
+    // 2) 空外层 + push 空内层；len(a[0]) 只检查外层一次，再读内层 len 槽。
+    {
+        std::string a = asm_of(
+            "let a: array<array<int>> = [];\n"
+            "push(a, []);\n"
+            "print(len(a), len(a[0]));");
+        CHECK(a.find("mov x0, #96") != std::string::npos);  // 空外层 cap=4
+        CHECK(a.find("mov x0, #32") != std::string::npos);  // 空内层 cap=4
+        CHECK(a.find("L.dyn.nested.grow") != std::string::npos);
+        CHECK(a.find("ldr x9, [x10, #8]") != std::string::npos);  // len(a[0])
+        CHECK(count_substr(code_only(a), "bl _tenet_bounds_fail") == 1);
+    }
+
+    // 3) let 深拷贝 + b = a 整体赋值：两次逐内层深拷贝；赋值前 drop 旧 b。
+    {
+        std::string a = asm_of(
+            "let a: array<array<int>> = [[1], [2]];\n"
+            "let b: array<array<int>> = a;\n"
+            "b = a;\n"
+            "a[0][0] = 9;\n"
+            "print(b[0][0]);");
+        CHECK(count_substr(code_only(a), "L.dnest.copy.") >= 4);  // 两次拷贝各有 loop/end
+        CHECK(a.find("L.dnest.drop.loop") != std::string::npos);
+        CHECK(a.find("L.dnest.drop.after") != std::string::npos);
+        CHECK(a.find("mov x11, #24") != std::string::npos);  // 外层按 24 字节 stride 拷贝
+    }
+
+    // 4) push：内层字面量与内层变量都深拷贝后追加；外层容量按 cap*2 扩容。
+    {
+        std::string a = asm_of(
+            "let a: array<array<int>> = [];\n"
+            "let r: array<int> = [7];\n"
+            "push(a, [1, 2]);\n"
+            "push(a, r);\n"
+            "r[0] = 9;\n"
+            "print(a[1][0]);");
+        CHECK(count_substr(code_only(a), "L.dyn.nested.grow") == 8);  // 两次 push 各有 grow/after（引用+标签）
+        CHECK(count_substr(code_only(a), "L.dyn.copy.") >= 2);  // 内层变量深拷贝
+        CHECK(a.find("L.copy.words") != std::string::npos);     // 外层扩容搬运
+        CHECK(count_substr(code_only(a), "bl _malloc") >= 3);
+    }
+
+    // 5) float / bool 内层 + print：`[[1.5], [2.5]]` 与 true/false 展开。
+    {
+        std::string a = asm_of(
+            "let f: array<array<float>> = [[1.5], [2.5]];\n"
+            "print(f);\n"
+            "let b: array<array<bool>> = [[true], [false]];\n"
+            "print(b);");
+        CHECK(a.find(".asciz \"%g\"") != std::string::npos);
+        CHECK(a.find(".asciz \"true\"") != std::string::npos);
+        CHECK(a.find(".asciz \"false\"") != std::string::npos);
+        CHECK(a.find("L.print.nested.cond") != std::string::npos);
+        CHECK(a.find("L.print.inner.cond") != std::string::npos);
+        CHECK(a.find("ldr x9, [x10, #0]") != std::string::npos);  // 内层 data
+    }
+
+    // 6) print(a)：外层/内层各展开一次 `[` `]`，元素分隔符两处，整行换行一次。
+    {
+        std::string a = asm_of(
+            "let a: array<array<int>> = [[1, 2], [3]];\n"
+            "print(a);");
+        std::string c = code_only(a);
+        CHECK(count_substr(c, ".asciz \"[\"") == 2);
+        CHECK(count_substr(c, ".asciz \"]\"") == 2);
+        CHECK(count_substr(c, ".asciz \", \"") == 2);
+        CHECK(count_substr(c, ".asciz \"%lld\"") == 1);
+        CHECK(count_substr(c, ".asciz \"\\n\"") == 1);
+    }
+
+    // 7) 参数/返回值：descriptor + 入口逐内层深拷贝；返回值走 sret 转移。
+    {
+        std::string a = asm_of(
+            "fn clone(x: array<array<int>>) -> array<array<int>> { return x; }\n"
+            "let a: array<array<int>> = [[1]];\n"
+            "let b: array<array<int>> = clone(a);\n"
+            "let c: array<array<int>> = clone([[2]]);\n"
+            "print(len(b), len(c));");
+        CHECK(a.find("\n_clone:\n") != std::string::npos);
+        CHECK(count_substr(a, "\tbl _clone") == 2);
+        CHECK(a.find("ldr x15, [x29, #-8]") != std::string::npos);  // sret 指针
+        CHECK(a.find("str x9, [x15, #0]") != std::string::npos);    // data 转移
+        CHECK(a.find("str x9, [x15, #8]") != std::string::npos);    // len 转移
+        CHECK(a.find("str x9, [x15, #16]") != std::string::npos);   // cap 转移
+        CHECK(a.find("L.dnest.copy.") != std::string::npos);        // 参数入口深拷贝
+    }
+
+    // 8) a[i][j] 读写：内外两层各做一次运行时边界检查。
+    {
+        std::string a = asm_of(
+            "let a: array<array<int>> = [[1]];\n"
+            "print(a[0][0]);");
+        CHECK(count_substr(code_only(a), "bl _tenet_bounds_fail") == 2);
+        CHECK(a.find("ldr x14, [x10, #0]") != std::string::npos);  // 内层 data
+    }
+    {
+        std::string a = asm_of(
+            "let a: array<array<int>> = [[1]];\n"
+            "a[0][0] = 9;");
+        CHECK(count_substr(code_only(a), "bl _tenet_bounds_fail") == 2);
+        CHECK(a.find("str x9, [x14, x11, lsl #3]") != std::string::npos);
+    }
+    {
+        std::string a = asm_of(
+            "let a: array<array<int>> = [[1]];\n"
+            "let i: int = 0;\n"
+            "let j: int = 0;\n"
+            "print(a[i][j]);");
+        CHECK(count_substr(code_only(a), "bl _tenet_bounds_fail") == 2);
+        CHECK(a.find("add x10, x12, x10") != std::string::npos);  // 外层行地址
+    }
+
+    // 9) drop：先逐内层 free(data)，再 free 外层。
+    {
+        std::string a = asm_of(
+            "fn f() {\n"
+            "  let a: array<array<int>> = [[1], [2]];\n"
+            "  print(len(a));\n"
+            "}\n"
+            "f();");
+        std::string c = code_only(a);
+        size_t loop = c.find("L.dnest.drop.loop");
+        size_t inner_free = c.find("bl _free", loop == std::string::npos ? 0 : loop);
+        size_t after = c.find("L.dnest.drop.after",
+                              inner_free == std::string::npos ? 0 : inner_free);
+        size_t outer_free = c.find("bl _free", after == std::string::npos ? 0 : after);
+        CHECK(loop != std::string::npos && after != std::string::npos);
+        CHECK(inner_free != std::string::npos && inner_free < after);
+        CHECK(outer_free != std::string::npos && outer_free > after);
+        CHECK(c.find("L.dnest.drop.clear") != std::string::npos);
+    }
+
+    // 10) 不支持/类型错误：struct 内层、更深嵌套、固定/动态内层混用、整体行取值。
+    CHECK_THROWS(asm_of("struct P { x: int; }\n"
+                        "let a: array<array<P>> = [[P { x: 1 }]];"),
+                 "array<struct>");
+    CHECK_THROWS(asm_of("let a: array<array<array<int>>> = [[[1]]];"),
+                 "只支持一层");
+    CHECK_THROWS(asm_of("let a: array<array<int, 2>> = [[1, 2]];"),
+                 "内层必须是动态数组");
+    CHECK_THROWS(asm_of("let a: array<array<int>, 2> = [[1], [2]];"),
+                 "嵌套数组内层必须是固定长度");
+    CHECK_THROWS(asm_of("let a: array<array<string>> = [];"),
+                 "只支持 int/float/bool");
+    CHECK_THROWS(asm_of("struct S { a: array<array<int>>; }"), "不支持 array");
+    CHECK_THROWS(asm_of("let a: array<array<int>> = [[1]];\nprint(a[0]);"),
+                 "嵌套数组元素不能整体取值");
+    CHECK_THROWS(asm_of("let a: array<array<int>> = [[1]];\na[0] = [2];"),
+                 "嵌套数组元素不能整体赋值");
+    CHECK_THROWS(asm_of("let a: array<array<int>> = [[1], 2];"),
+                 "嵌套数组第 1 个元素必须是内层数组字面量");
+    CHECK_THROWS(asm_of("let a: array<array<int>> = [[1], [2.5]];"), "类型不匹配");
+    CHECK_THROWS(asm_of("let a: array<array<int>> = [[1]];\npush(a, [1.5]);"),
+                 "类型不匹配");
+    CHECK_THROWS(asm_of("let a: array<array<int>> = [[1]];\n"
+                        "let b: array<array<float>> = a;"),
+                 "动态嵌套数组类型不匹配");
+    CHECK_THROWS(asm_of("fn f(x: array<array<int>>) -> int { return len(x); }\n"
+                        "let a: array<array<float>> = [[1.0]];\n"
+                        "print(f(a));"),
+                 "参数类型不匹配");
+    CHECK_THROWS(asm_of("fn f() -> array<array<int>> { return [[1.5]]; }"),
+                 "类型不匹配");
+}
+
+// ---- S3d：struct 固定数组字段 v1 ----
+
+static void test_struct_fixed_array_field_s3d() {
+    // 语法：字段类型可以是固定数组（含 struct 元素 / 固定嵌套）
+    {
+        auto prog = Parser::parse(
+            "struct S { a: array<int, 3>; x: int; }\n"
+            "struct M { m: array<array<int, 2>, 2>; }");
+        CHECK(prog.stmts[0]->fields.size() == 2);
+        CHECK(prog.stmts[0]->fields[0].second == "array<int,3>");
+        CHECK(prog.stmts[0]->fields[1].second == T_INT);
+        CHECK(prog.stmts[1]->fields[0].second == "array<array<int,2>,2>");
+    }
+
+    // 布局：array<int,3> 占 3 槽 + x 占 1 槽 → 4 槽 / 32 字节；字面量按顺序写槽
+    {
+        std::string a = asm_of(
+            "struct S { a: array<int, 3>; x: int; }\n"
+            "let s: S = S { a: [1, 2, 3], x: 9 };\n"
+            "s.a[1] = 7;\n"
+            "print(s.a[1], s.x);");
+        CHECK(a.find("sub sp, sp, #32") != std::string::npos);
+        CHECK(a.find("str x9, [x29, #-8]") != std::string::npos);
+        CHECK(a.find("str x9, [x29, #-16]") != std::string::npos);
+        CHECK(a.find("str x9, [x29, #-24]") != std::string::npos);
+        CHECK(a.find("str x9, [x29, #-32]") != std::string::npos);
+        CHECK(a.find("ldr x9, [x29, #-16]") != std::string::npos);  // s.a[1]
+        CHECK(a.find("ldr x9, [x29, #-32]") != std::string::npos);  // s.x
+    }
+
+    // 动态下标：array<int,3> 字段做运行时边界检查（cmp idx, #3）
+    {
+        std::string a = asm_of(
+            "struct S { a: array<int, 3>; x: int; }\n"
+            "let s: S = S { a: [1, 2, 3], x: 9 };\n"
+            "let i: int = 1;\n"
+            "print(s.a[i], s.x);");
+        CHECK(a.find("cmp x10, #3") != std::string::npos);
+        CHECK(a.find("b.hs L.bounds.fail.") != std::string::npos);
+        CHECK(a.find("bl _tenet_bounds_fail") != std::string::npos);
+    }
+
+    // 整体赋值/let 拷贝：4 槽逐槽深拷贝（s: -8..-32，t: -40..-64）
+    {
+        std::string a = asm_of(
+            "struct S { a: array<int, 3>; x: int; }\n"
+            "let s: S = S { a: [1, 2, 3], x: 9 };\n"
+            "let t: S = s;\n"
+            "t.a[0] = 5;\n"
+            "print(s.a[1], t.a[0]);");
+        CHECK(a.find("sub sp, sp, #64") != std::string::npos);
+        CHECK(a.find("ldr x9, [x29, #-24]") != std::string::npos);
+        CHECK(a.find("str x9, [x29, #-56]") != std::string::npos);
+        CHECK(a.find("str x9, [x29, #-40]") != std::string::npos);
+    }
+
+    // struct 参数/返回值按总槽数走指针 / sret ABI（4 槽）
+    {
+        std::string a = asm_of(
+            "struct S { a: array<int, 3>; x: int; }\n"
+            "fn f(v: S) -> S { v.a[2] = 8; return v; }\n"
+            "let s: S = S { a: [1, 2, 3], x: 9 };\n"
+            "let u: S = f(s);\n"
+            "print(u.a[2], u.x);");
+        CHECK(a.find("_f:") != std::string::npos);
+        CHECK(a.find("str x0, [x29, #-8]") != std::string::npos);   // 隐藏 sret
+        CHECK(a.find("ldr x9, [x1, #0]") != std::string::npos);     // 参数槽 0
+        CHECK(a.find("ldr x9, [x1, #-24]") != std::string::npos);   // 参数槽 3
+        CHECK(a.find("str x9, [x15, #-24]") != std::string::npos);  // sret 槽 3
+        CHECK(a.find("ldr x9, [x29, #-32]") != std::string::npos);  // v.a[2]
+    }
+
+    // 数组字段可由同类型数组变量 / 返回数组的调用初始化；struct 整体赋值深拷贝
+    {
+        std::string a = asm_of(
+            "struct S { a: array<int, 3>; x: int; }\n"
+            "fn mk() -> array<int, 3> { return [7, 8, 9]; }\n"
+            "let src: array<int, 3> = [1, 2, 3];\n"
+            "let s: S = S { a: src, x: 4 };\n"
+            "let t: S = S { a: mk(), x: 5 };\n"
+            "s = t;\n"
+            "print(s.a[0], t.a[2], s.x);");
+        CHECK(a.find("_mk:") != std::string::npos);
+        CHECK(a.find("bl _mk") != std::string::npos);
+        CHECK(a.find("ldr x9, [x29, #-8]") != std::string::npos);
+    }
+
+    // 嵌套 struct 字段链中的固定数组：o.i.arr[1] 读写 + print 展开
+    {
+        std::string a = asm_of(
+            "struct Inner { arr: array<int, 2>; }\n"
+            "struct Outer { i: Inner; x: int; }\n"
+            "let o: Outer = Outer { i: Inner { arr: [10, 20] }, x: 1 };\n"
+            "o.i.arr[1] = 30;\n"
+            "print(o.i.arr[0], o.i.arr[1], o.x);\n"
+            "print(o);");
+        CHECK(a.find(".asciz \"i.arr: \"") != std::string::npos);
+        CHECK(a.find(".asciz \"x: \"") != std::string::npos);
+        CHECK(a.find(".asciz \"[\"") != std::string::npos);
+        CHECK(a.find(".asciz \"]\"") != std::string::npos);
+    }
+
+    // struct 字段是 array<struct,N>：s.a[i].field / s.a[i] = struct / print
+    {
+        std::string a = asm_of(
+            "struct P { x: int; }\n"
+            "struct S { a: array<P, 2>; }\n"
+            "let s: S = S { a: [P { x: 1 }, P { x: 2 }] };\n"
+            "let i: int = 0;\n"
+            "s.a[i].x = 9;\n"
+            "s.a[1] = P { x: 7 };\n"
+            "print(s.a[0].x, s.a[1].x);\n"
+            "print(s);");
+        CHECK(a.find(".asciz \"P { \"") != std::string::npos);
+        CHECK(a.find(".asciz \"a: \"") != std::string::npos);
+        CHECK(a.find("sub x14, x14, x17, lsl #3") != std::string::npos);
+    }
+
+    // 固定嵌套数组字段 array<array<int,2>,2>：s.m[i][j] 读写 + print
+    {
+        std::string a = asm_of(
+            "struct M { m: array<array<int, 2>, 2>; z: int; }\n"
+            "let m: M = M { m: [[1, 2], [3, 4]], z: 5 };\n"
+            "let i: int = 1;\n"
+            "m.m[0][1] = 8;\n"
+            "m.m[i][0] = 9;\n"
+            "print(m.m[0][1], m.m[i][0], m.z);\n"
+            "print(m);");
+        CHECK(a.find(".asciz \"m: \"") != std::string::npos);
+        CHECK(a.find("cmp x10, #2") != std::string::npos);  // 外层/内层边界检查
+    }
+
+    // float / bool 固定数组字段：float 按位模式槽、bool 占一槽
+    {
+        std::string a = asm_of(
+            "struct S { f: array<float, 2>; b: array<bool, 2>; }\n"
+            "let s: S = S { f: [1.5, 2.5], b: [true, false] };\n"
+            "s.f[0] = 9.5;\n"
+            "print(s.f[0], s.b[1]);\n"
+            "print(s);");
+        CHECK(a.find("str d9, [x29, #-8]") != std::string::npos);
+        CHECK(a.find(".asciz \"f: \"") != std::string::npos);
+        CHECK(a.find(".asciz \"b: \"") != std::string::npos);
+    }
+
+    // 错误：动态 array<T> 字段（含嵌套动态）明确拒绝
+    CHECK_THROWS(asm_of("struct S { a: array<int>; }"), "不支持 array");
+    CHECK_THROWS(asm_of("struct S { a: array<int>; }"), "只支持 int/float/bool");
+    CHECK_THROWS(asm_of("struct S { a: array<array<int>, 2>; }"), "不支持 array");
+    CHECK_THROWS(asm_of("struct S { a: array<array<int, 2>>; }"), "不支持 array");
+    CHECK_THROWS(asm_of("struct S { a: array<string, 2>; }"), "不支持 string");
+    CHECK_THROWS(asm_of("struct S { a: array<Nope, 2>; }"), "类型 `Nope` 未定义");
+    CHECK_THROWS(asm_of("struct S { a: array<S, 2>; }"), "循环嵌套");
+    CHECK_THROWS(asm_of("struct A { b: array<B, 2>; }\nstruct B { a: A; }"), "循环嵌套");
+    CHECK_THROWS(asm_of("struct S { a: array<int, 2>; }\n"
+                        "let s: S = S { a: [1, 2, 3] };"),
+                 "数组长度不匹配");
+    CHECK_THROWS(asm_of("struct S { a: array<int, 2>; }\n"
+                        "let s: S = S { a: [1, 2.0] };"),
+                 "类型不匹配");
+    CHECK_THROWS(asm_of("struct S { a: array<int, 2>; }\n"
+                        "let s: S = S { a: [1, 2] };\nprint(s.a);"),
+                 "不能整体取值");
+    {
+        std::string a = asm_of("struct S { a: array<int, 2>; }\n"
+                               "let s: S = S { a: [1, 2] };\ns.a = [3, 4];\n"
+                               "print(s.a[0]);");
+        CHECK(a.find("str x9, [x29, #-8]") != std::string::npos);
+    }
+    CHECK_THROWS(asm_of("struct S { a: array<int, 2>; }\n"
+                        "let s: S = S { a: [1, 2] };\nprint(s.a[2]);"),
+                 "越界");
+    CHECK_THROWS(asm_of("struct S { a: array<int, 2>; }\n"
+                        "let s: S = S { a: [1, 2] };\ns.a[-1] = 3;"),
+                 "越界");
+    CHECK_THROWS(asm_of("struct S { m: array<array<int, 2>, 2>; }\n"
+                        "let s: S = S { m: [[1, 2], [3, 4]] };\nprint(s.m[0][2]);"),
+                 "内层数组下标 2 越界");
+    CHECK_THROWS(asm_of("struct S { a: array<int, 2>; }\n"
+                        "let s: S = S { a: [1, 2] };\n"
+                        "let t: array<int, 3> = s.a;"),
+                 "数组");
 }
 
 int main() {
@@ -2953,6 +3504,9 @@ int main() {
     test_dynamic_struct_array_s3c3b2();
     test_nested_array_s3c3c();
     test_fixed_array_abi_s3c3d();
+    test_print_aggregate();
+    test_dynamic_nested_array_s3c3e();
+    test_struct_fixed_array_field_s3d();
 
     std::cout << "通过 " << (checks - failures) << " / " << checks << " 项检查";
     if (failures > 0) {
