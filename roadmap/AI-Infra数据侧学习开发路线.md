@@ -1,6 +1,6 @@
 # AI Infra 数据侧学习开发路线
 
-> 版本：v2 · 执行路线
+> 版本：v3 · 执行路线
 > 定位：把 `engineering/` 两个平台、`languages/` 6 门语言 + Tenet、`algorithms/` 42 个算法编排成一条 60 个月、可验收的路线。
 > 关系：本页是**编排层**，不替代各域文档；D 阶段、语言阶段、算法细节以各域 README / 路线文档为准。
 > 纪律：每个路线阶段必须有「**命令 + 输入 + 观察结果**」；没有可重跑证据，不算完成。
@@ -86,7 +86,7 @@ T1-S 计入路线阶段，随第 1 年 T1 阶段并行。
 | T1-D3 | 数据集成 | `make verify V3` | `datasets/cdc_sample.jsonl` | 源→Kafka→Iceberg 可查；重放两次不变 |
 | T1-D4 | 计算引擎 | `make verify V4` | `jobs/stream.sql` | 批/流任务完成；checkpoint 可查；重启续跑 |
 | T1-D5 | 开发工作台与调度 | `make verify V5` | `portal/source_form.yaml` | 门户新增源；dev→prod 发布/回滚 |
-| T1-D6 | 语义与特征 | `make verify V6` | `models/metrics.yaml`、`features/` | 指标复用；`V6-4` 最小 Feature Store 离线/在线一致 |
+| T1-D6 | 语义、特征与本体 | `make verify V6` | `models/metrics.yaml`、`features/`、`ontology/` | 指标/特征可复用；`V6-4` 特征一致；`V6-5` 本体 MVP |
 | T1-D7 | 统一目录 | `make verify V7` | `catalog/seed.json` | 指标→源表血缘；字段级 ≥90% |
 | T1-D8 | 数据治理 | `make verify V8` | `quality/rules.yaml`、`pii_sample.csv` | 脏数据阻断；越权拒绝；PII 掩码；成本可分摊 |
 | T1-D9 | 服务化 | `make verify V9` | `api/query.http` | API/BI 同口径；401/429/审计生效 |
@@ -105,14 +105,14 @@ T1-S 计入路线阶段，随第 1 年 T1 阶段并行。
 
 ### 3.1 T2-A 平台主链（D0–D10）
 
-> 详细设计见 [`AI平台建设路线.md`](../engineering/ai-platform/AI平台建设路线.md)。D2/D3/D7/D9/D10 已扩验收，版本 v15。
+> 详细设计见 [`AI平台建设路线.md`](../engineering/ai-platform/AI平台建设路线.md)。D2/D3/D7/D9/D10 已扩验收，版本 v16。
 
 | 阶段 | 建什么 | 命令（开工后固化） | 输入 | 观察 / 通过 |
 |---|---|---|---|---|
 | T2-D0 | 基础设施 | `make up && make health` | `deploy/compose.yaml` | K8s/MinIO/PG/Vault/Prometheus/Grafana 健康 |
 | T2-D1 | 契约与控制内核 | `make verify A1` | `contracts/asset_ref.json` | dummy 服务注册；trace + 账本可查 |
-| T2-D2 | 数据与语料（含训练数据工程/多模态数据） | `make verify A2` | `corpus/10gb/`、`multimodal/` | 10GB 链；A2-4…A2-8（packing/数据卡/标注合成/多模态） |
-| T2-D3 | 检索与知识（含持续评测） | `make verify A3` | `eval/qa_100.jsonl` | 答案+引用；100 题回归；A3-4 漂移基线 |
+| T2-D2 | 数据与语料（含训练数据工程/多模态数据/文档加工） | `make verify A2` | `corpus/10gb/`、`multimodal/`、`docs/` | 10GB 链；A2-4…A2-9（packing/数据卡/标注合成/多模态/文档加工） |
+| T2-D3 | 检索与知识（含持续评测/知识引擎） | `make verify A3` | `eval/qa_100.jsonl`、`docs/` | 答案+引用；100 题回归；A3-5…A3-7 知识引擎/实体链接/权限评测 |
 | T2-D4 | 存储与版本 | `make verify A4` | `iceberg/snapshot.json` | 同一 `snapshotId` 数据 + 索引复现 |
 | T2-D5 | 推理与服务 | `make verify A5` | `models/qwen-small/` | OpenAI SDK 只改 `base_url`；TTFT/TPOT/P95 |
 | T2-D6 | 算力与调度 | `make verify A6` | `gpu/queue.yaml` | 队列/配额；`已分配+空闲=总量`；GPU·秒可归集 |
@@ -123,7 +123,7 @@ T1-S 计入路线阶段，随第 1 年 T1 阶段并行。
 
 ### 3.2 T2-B LLM 训练数据工程（LD-1…LD-10）
 
-> 给 D2 补训练数据集构造/接入能力；对应验收 `A2-4`–`A2-8`。命令是待实现模块的验收草案。
+> 给 D2 补训练数据集构造/接入能力；对应验收 `A2-4`–`A2-9`。命令是待实现模块的验收草案。
 
 | 编号 | 模块 | 命令 | 输入 | 观察 / 通过 |
 |---|---|---|---|---|
@@ -136,7 +136,7 @@ T1-S 计入路线阶段，随第 1 年 T1 阶段并行。
 | LD-7 | 评测集与去污染 | `python -m data.contam --eval eval/golden.jsonl --corpus packed/` | `golden.jsonl`、`packed/` | n-gram/embedding 污染报告 |
 | LD-8 | 数据集版本与数据卡 | `python -m data.card --snapshot <id>` | `packed/` | 数据卡；同快照重建同哈希 |
 | LD-9 | 标注/合成数据接入 | `python -m data.augment --manifest annotate_synth.yaml` | 外部标注/合成 manifest | 质量抽检；许可/来源可追溯；不建 UI |
-| LD-10 | 多模态数据接入 | `python -m data.multimodal --manifest mm.yaml` | 图文/音视频 manifest | 去重/质量/许可；小样本可训练 |
+| LD-10 | 多模态/文档加工 | `python -m data.multimodal --manifest mm.yaml` | 图文/音视频/文档 manifest | 去重/质量/许可；文档可检索、引用可定位 |
 
 验收映射：
 
@@ -146,6 +146,7 @@ T1-S 计入路线阶段，随第 1 年 T1 阶段并行。
 - `A2-6` = LD-8：数据卡 + snapshot 哈希可重建。
 - `A2-7` = LD-9：标注/合成数据接入可追溯。
 - `A2-8` = LD-10：多模态数据 manifest/质量/许可。
+- `A2-9` = LD-10：文档/多模态加工，块可检索、引用可定位。
 
 ### 3.3 T2-C 训练数据通路（TDP-1…TDP-9）
 
@@ -348,5 +349,6 @@ T1-S 计入路线阶段，随第 1 年 T1 阶段并行。
 
 | 版本 | 变更 |
 |---|---|
+| v3 | 补 D6 业务本体（`V6-5`）、D2 文档加工（`A2-9`）、D3 知识引擎/实体链接/权限评测（`A3-5`–`A3-7`）；路线阶段数不变。 |
 | v2 | 按“平台支持”补：T2-B LD-9/10（标注/合成、多模态数据）、T2-C TDP-8/9（高级存储、大规模 checkpoint）、T1-S 计入路线；T2-A D2/D3/D7/D9/D10 扩验收；路线 54→59。 |
 | v1 | 初版：四轨（T1 数据平台 / T2 AI 平台 / T3 语言+Tenet / T4 算法）；T2 含 T2-A 主链、T2-B 训练数据工程、T2-C 训练数据通路；全阶段证据契约；60 个月总日历。 |

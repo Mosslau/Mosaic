@@ -10,7 +10,7 @@
 |---|---|---|---|---|
 | ① 开发语言部分 | [`languages/`](languages/) | 学（多语言阶段式学习路线）/ 析（语言设计解剖）/ 合（Tenet 语言与编译器） | 6 语言 × 126 阶段 | 已建成（正文 + 示例 + 文档站） |
 | ② 算法部分 | [`algorithms/`](algorithms/) | 手写算法 vs 框架对照，五个学科族 | 42 个算法 | 已完成（42/42 完成，以 [`algorithms/README.md`](algorithms/README.md) 索引表为准） |
-| ③ 工程系统部分 | [`engineering/`](engineering/) | [`ai-platform/`](engineering/ai-platform/)（AI 平台，D0–D10 共 11 阶段）+ [`data-platform/`](engineering/data-platform/)（通用数据平台，D0–D12 共 13 阶段） | 2 个平台 / 24 个阶段 | 设计阶段：ai-platform 0/11（D8 进行中，Part 1 资料完成，运行时代码未开始）；data-platform 0/13（路线 v46，设计文档，未实现） |
+| ③ 工程系统部分 | [`engineering/`](engineering/) | [`ai-platform/`](engineering/ai-platform/)（AI 平台，D0–D10 共 11 阶段）+ [`data-platform/`](engineering/data-platform/)（通用数据平台，D0–D12 共 13 阶段） | 2 个平台 / 24 个阶段 | 设计阶段：ai-platform 0/11（D8 进行中，Part 1 资料完成，运行时代码未开始）；data-platform 0/13（路线 v47，设计文档，未实现） |
 
 > 跨域执行路线：[`roadmap/AI-Infra数据侧学习开发路线.md`](roadmap/AI-Infra数据侧学习开发路线.md)（四轨：数据平台 / AI 平台 / 语言+Tenet / 算法；60 个月；每阶段带命令 + 输入 + 观察）。
 
@@ -38,7 +38,7 @@ python3 -m pytest -q
 
 `languages/` 承载**语义与教学**（"应该怎么做、为什么"），`engineering/` 的目标是**真实系统与真实指标**（"跑起来是什么样"）。同一个概念在两处出现时，前者讲清纪律，后者交付可运行的实现与实测数字——不重复造文档。
 
-当前 `engineering/` 两域都还没到"跑起来"：`ai-platform/` 为设计阶段（0/11，D8 进行中：Part 1 资料完成，运行时代码未开始），`data-platform/` 为设计文档（0/13，路线 v46，未实现）。**状态以各域 README / 设计文档头部标注为准；未实现的不按"已跑通"叙述。**
+当前 `engineering/` 两域都还没到"跑起来"：`ai-platform/` 为设计阶段（0/11，D8 进行中：Part 1 资料完成，运行时代码未开始），`data-platform/` 为设计文档（0/13，路线 v47，未实现）。**状态以各域 README / 设计文档头部标注为准；未实现的不按"已跑通"叙述。**
 
 ## 为什么叫 Mosaic
 
