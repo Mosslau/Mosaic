@@ -1,6 +1,6 @@
 # AI Infra 数据侧学习开发路线
 
-> 版本：v3 · 执行路线
+> 版本：v4 · 执行路线
 > 定位：把 `engineering/` 两个平台、`languages/` 6 门语言 + Tenet、`algorithms/` 42 个算法编排成一条 60 个月、可验收的路线。
 > 关系：本页是**编排层**，不替代各域文档；D 阶段、语言阶段、算法细节以各域 README / 路线文档为准。
 > 纪律：每个路线阶段必须有「**命令 + 输入 + 观察结果**」；没有可重跑证据，不算完成。
@@ -92,7 +92,7 @@ T1-S 计入路线阶段，随第 1 年 T1 阶段并行。
 | T1-D9 | 服务化 | `make verify V9` | `api/query.http` | API/BI 同口径；401/429/审计生效 |
 | T1-D10 | AI 工程化 | `make verify V10` | `eval/questions_100.jsonl` | 问数 ≥80%；日志证明不直产 SQL |
 | T1-D11 | 控制面与运营 | `make verify V11` | `stack.yaml` | 一条命令拉起；trace/成本/台账闭环 |
-| T1-D12 | 生产化 | `make verify V12` | `chaos/kill_node.sh` | 节点故障自愈；备份恢复；压测/回滚达标 |
+| T1-D12 | 生产化（企业级） | `make verify V12` | `chaos/kill_node.sh` | 自愈/备份/压测/回滚；`V12-6` 企业级评审项 |
 
 ### 2.1 T1-S 分析 SQL / 数仓建模（学习子轨，计入 59 个路线阶段）
 
@@ -105,7 +105,7 @@ T1-S 计入路线阶段，随第 1 年 T1 阶段并行。
 
 ### 3.1 T2-A 平台主链（D0–D10）
 
-> 详细设计见 [`AI平台建设路线.md`](../engineering/ai-platform/AI平台建设路线.md)。D2/D3/D7/D9/D10 已扩验收，版本 v16。
+> 详细设计见 [`AI平台建设路线.md`](../engineering/ai-platform/AI平台建设路线.md)。D2/D3/D7/D9/D10 已扩验收，版本 v17。
 
 | 阶段 | 建什么 | 命令（开工后固化） | 输入 | 观察 / 通过 |
 |---|---|---|---|---|
@@ -119,7 +119,7 @@ T1-S 计入路线阶段，随第 1 年 T1 阶段并行。
 | T2-D7 | 训练与微调（含预训练/对齐/多模态训练支持） | `make verify A7` | `train/lora.yaml`、`train/pretrain_smoke.yaml` | LoRA/MLflow；A7-4…A7-10 支持性 smoke |
 | T2-D8 | Agent 与运行时 | `make verify A8` | `runtime/ports.yaml` | 两个运行时通过同一 `RuntimePort` |
 | T2-D9 | 控制面与运营（含质量/反馈） | `make verify A9` | `stack.yaml`、`feedback/` | 一条命令拉起；A9-5/6 质量看板与反馈日志 |
-| T2-D10 | 生产化（含护栏/数据飞轮） | `make verify A10` | `chaos/kill_node.sh`、`guardrails/` | 自愈/恢复/压测；A10-7/8 护栏与飞轮闭环 |
+| T2-D10 | 生产化（企业级/护栏/数据飞轮） | `make verify A10` | `chaos/kill_node.sh`、`guardrails/` | 自愈/恢复/压测；A10-7/8/9 护栏、飞轮、企业级评审 |
 
 ### 3.2 T2-B LLM 训练数据工程（LD-1…LD-10）
 
@@ -349,6 +349,7 @@ T1-S 计入路线阶段，随第 1 年 T1 阶段并行。
 
 | 版本 | 变更 |
 |---|---|
+| v4 | 删独立企业级设计章节：企业级要求并入 T1-D12（`V12-6`）/ T2-D10（`A10-9`）；D 阶段编号不变。 |
 | v3 | 补 D6 业务本体（`V6-5`）、D2 文档加工（`A2-9`）、D3 知识引擎/实体链接/权限评测（`A3-5`–`A3-7`）；路线阶段数不变。 |
 | v2 | 按“平台支持”补：T2-B LD-9/10（标注/合成、多模态数据）、T2-C TDP-8/9（高级存储、大规模 checkpoint）、T1-S 计入路线；T2-A D2/D3/D7/D9/D10 扩验收；路线 54→59。 |
 | v1 | 初版：四轨（T1 数据平台 / T2 AI 平台 / T3 语言+Tenet / T4 算法）；T2 含 T2-A 主链、T2-B 训练数据工程、T2-C 训练数据通路；全阶段证据契约；60 个月总日历。 |
