@@ -79,6 +79,7 @@
 | 学习/开发路线 | [`../../roadmap/AI-Infra数据侧学习开发路线.md`](../../roadmap/AI-Infra数据侧学习开发路线.md) | 四轨 60 个月执行表；本平台对应 T1 |
 | 生产化（企业级） | 本路线 §5.1 + §6 `V12-6` | NFR/安全/HA/DR/运维/拓扑/租户/FinOps/合规 |
 | 跨平台契约 | [`../README.md`](../README.md)「跨平台契约（数据 ↔ AI）」 | `EntityRef`/`MetricRef`/`EvidenceRef`/`Policy` |
+| 业务域需求 | [`../../roadmap/车联网与机器人数据域需求.md`](../../roadmap/车联网与机器人数据域需求.md) | 车联网/机器人对象/事件/指标 + D 阶段映射 |
 
 ## 边界与校验
 
