@@ -3451,6 +3451,21 @@ static void test_struct_fixed_array_field_s3d() {
         CHECK(a.find(".asciz \"b: \"") != std::string::npos);
     }
 
+    // 深路径：数组元素内的固定数组字段 arr[i].f[j] / s.ps[i].q.f[j]
+    {
+        std::string a = asm_of(
+            "struct P { xs: array<int, 2>; tag: int; }\n"
+            "struct S { ps: array<P, 2>; }\n"
+            "let s: S = S { ps: [P { xs: [1, 2], tag: 3 }, "
+            "P { xs: [4, 5], tag: 6 }] };\n"
+            "let i: int = 1;\n"
+            "let j: int = 0;\n"
+            "s.ps[i].xs[j] = 9;\n"
+            "print(s.ps[i].xs[j], s.ps[0].tag);");
+        CHECK(a.find("str x9, [x14, #0]") != std::string::npos);
+        CHECK(a.find("ldr x9, [x14, #0]") != std::string::npos);
+    }
+
     // 错误：动态 array<T> 字段（含嵌套动态）明确拒绝
     CHECK_THROWS(asm_of("struct S { a: array<int>; }"), "不支持 array");
     CHECK_THROWS(asm_of("struct S { a: array<int>; }"), "只支持 int/float/bool");

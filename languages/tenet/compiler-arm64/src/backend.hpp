@@ -29,7 +29,8 @@
 // - 动态嵌套数组（S3c-3e）：array<array<T>>（外层/内层均动态、内层标量）；外层堆元素
 //   是内层 descriptor（stride=24），a[i][j] 双边界检查、push 深拷贝、参数入口逐内层
 //   深拷贝、sret 转移、先内层后外层 drop、print 输出 [[1, 2], [3]]
-// - struct 布局：深度优先按声明顺序展开为 8 字节标量槽（float 位模式 / bool 0-1）
+// - struct 布局：深度优先按声明顺序展开为 8 字节槽；标量 1 槽，固定数组字段占
+//   N*elem_slots 槽（S3d），struct 总槽数递归求和（float 位模式 / bool 0-1）
 // - 字符串：.data 常量 + adrp/add 取址；拼接/比较调用 libc（strlen/malloc/memcpy/strcmp）
 // - 控制流：if/while/break/短路全部翻译为标签 + 条件分支
 #pragma once
@@ -1555,6 +1556,43 @@ private:
             return true;
         }
         return false;
+    }
+
+    /// S3d 深路径：`arr[i].f[j]` / `s.ps[i].q.f[j]`——先取 struct 数组元素，
+    /// 再访问元素内固定数组字段的某个元素。
+    struct DeepArrayFieldRef {
+        ExprPtr base;          // 数组变量 / struct 固定数组字段
+        ExprPtr elem_index;    // 数组元素下标
+        std::string field_path;  // 元素 struct 内的字段点路径
+        ExprPtr field_index;   // 字段数组下标
+    };
+
+    /// 拆分 `arr[i].f[j]`（f 可嵌套为 q.f）；结构不符返回 false。
+    static bool deep_array_field_parts(const ExprPtr& e, DeepArrayFieldRef& out) {
+        if (!e || e->kind != Expr::Kind::Index || !e->lhs ||
+            e->lhs->kind != Expr::Kind::Field) {
+            return false;
+        }
+        std::vector<std::string> names;
+        ExprPtr cur = e->lhs;
+        while (cur && cur->kind == Expr::Kind::Field) {
+            names.push_back(cur->name);
+            cur = cur->lhs;
+        }
+        if (!cur || cur->kind != Expr::Kind::Index) return false;
+        if (!cur->lhs ||
+            (cur->lhs->kind != Expr::Kind::Var && cur->lhs->kind != Expr::Kind::Field)) {
+            return false;
+        }
+        std::string path;
+        for (auto it = names.rbegin(); it != names.rend(); ++it) {
+            path += (path.empty() ? "" : ".") + *it;
+        }
+        out.base = cur->lhs;
+        out.elem_index = cur->rhs;
+        out.field_path = path;
+        out.field_index = e->rhs;
+        return true;
     }
 
     struct FlatFieldRef {
@@ -3332,7 +3370,173 @@ private:
         return elem;
     }
 
+    /// S3d 深路径：把任意数组的第 idx 个元素基址算进 reg（默认 x14）。
+    /// 固定数组支持编译期常量下标；动态数组常量下标也做运行时 len 检查。
+    void emit_any_array_elem_base(const ArrayRef& ref, const ExprPtr& idx,
+                                  const Position& pos, const std::string& reg = "x14") {
+        int slots = array_elem_slots(ref.ty, pos);
+        if (ref.dynamic) {
+            std::string it = gen_expr(idx);
+            if (it != T_INT) {
+                throw TenetError::at_pos("数组下标必须是 int，实际为 " + it, idx->pos);
+            }
+            pop_reg("x10");
+            load_slot("x11", ref.dyn_len_off);
+            emit_bounds_check_dyn("x10", "x11");
+            load_slot(reg, ref.base_off);
+            emit_flat_slot_index("x17", "x10", slots, 0);
+            emit("add " + reg + ", " + reg + ", x17, lsl #3");
+            return;
+        }
+        if (auto ci = const_index(idx)) {
+            if (*ci < 0 || *ci >= ref.len) {
+                throw TenetError::at_pos("数组下标 " + std::to_string(*ci) + " 越界（长度 " +
+                                             std::to_string(ref.len) + "）",
+                                         idx->pos);
+            }
+            lea_slot(reg, ref.base_off + ref.stride * ((int)*ci * slots));
+            return;
+        }
+        std::string it = gen_expr(idx);
+        if (it != T_INT) {
+            throw TenetError::at_pos("数组下标必须是 int，实际为 " + it, idx->pos);
+        }
+        pop_reg("x10");
+        emit_bounds_check(ref.len, "x10");
+        lea_slot(reg, ref.base_off);
+        emit_flat_slot_index("x17", "x10", slots, 0);
+        emit(std::string(ref.stride < 0 ? "sub " : "add ") + reg + ", " + reg +
+             ", x17, lsl #3");
+    }
+
+    /// 解析 `arr[i].f[j]` 的字段数组信息；返回 false 表示不是该形状。
+    bool deep_array_field_info(const DeepArrayFieldRef& d, const Position& pos,
+                               ArrayRef& ar, LayoutEntry& entry, int& field_len,
+                               std::string& felem) {
+        ar = array_ref(d.base, pos, false);
+        if (!is_struct(ar.elem)) {
+            throw TenetError::at_pos(
+                "`" + d.base->name + "` 不是 array<struct>，不能对元素取字段 `" +
+                    d.field_path + "`",
+                pos);
+        }
+        auto it = layout_entry(ar.elem, d.field_path);
+        if (!it.has_value()) {
+            throw TenetError::at_pos(
+                "struct `" + ar.elem + "` 没有字段 `" + d.field_path + "`", pos);
+        }
+        entry = *it;
+        if (!is_array(entry.ty)) {
+            throw TenetError::at_pos(
+                "字段 `" + d.field_path + "` 不是数组，不能取下标", pos);
+        }
+        auto len = array_decl_len(entry.ty);
+        if (!len.has_value()) {
+            throw TenetError::at_pos(
+                "字段 `" + d.field_path + "` 是动态数组，不能取下标", pos);
+        }
+        field_len = *len;
+        auto elem = array_elem(entry.ty);
+        if (!elem.has_value()) {
+            throw TenetError::at_pos("字段 `" + d.field_path + "` 不是数组", pos);
+        }
+        if (is_struct(*elem) || is_array(*elem)) {
+            throw TenetError::at_pos(
+                "字段数组 `" + d.field_path + "` 的元素不能整体读取；请继续访问到标量",
+                pos);
+        }
+        felem = *elem;
+        return true;
+    }
+
+    /// 把 `arr[i].f[j]` 的槽地址算进 x14（i/j 均支持常量或运行时下标）。
+    void emit_deep_array_field_addr(const DeepArrayFieldRef& d, const ArrayRef& ar,
+                                    const LayoutEntry& entry, int field_len,
+                                    const Position& pos) {
+        emit_any_array_elem_base(ar, d.elem_index, pos);
+        if (auto ci = const_index(d.field_index)) {
+            if (*ci < 0 || *ci >= field_len) {
+                throw TenetError::at_pos("数组下标 " + std::to_string(*ci) + " 越界（长度 " +
+                                             std::to_string(field_len) + "）",
+                                         d.field_index->pos);
+            }
+            int flat = entry.offset + (int)*ci;
+            if (flat != 0) {
+                if (flat <= 4095) {
+                    emit(std::string(ar.stride < 0 ? "sub " : "add ") +
+                         "x14, x14, #" + std::to_string(flat * 8));
+                } else {
+                    emit_mov_const("x17", (int64_t)flat * 8);
+                    emit(std::string(ar.stride < 0 ? "sub " : "add ") +
+                         "x14, x14, x17");
+                }
+            }
+            return;
+        }
+        push_reg("x14");  // 元素基址跨字段下标求值保存
+        std::string it = gen_expr(d.field_index);
+        if (it != T_INT) {
+            throw TenetError::at_pos("数组下标必须是 int，实际为 " + it,
+                                     d.field_index->pos);
+        }
+        pop_reg("x11");
+        pop_reg("x14");
+        emit_bounds_check(field_len, "x11");
+        if (entry.offset != 0) {
+            if (entry.offset <= 4095) {
+                emit(std::string(ar.stride < 0 ? "sub " : "add ") +
+                     "x14, x14, #" + std::to_string(entry.offset * 8));
+            } else {
+                emit_mov_const("x17", (int64_t)entry.offset * 8);
+                emit(std::string(ar.stride < 0 ? "sub " : "add ") +
+                     "x14, x14, x17");
+            }
+        }
+        emit(std::string(ar.stride < 0 ? "sub " : "add ") +
+             "x14, x14, x11, lsl #3");
+    }
+
+    std::string gen_deep_array_field_read(const DeepArrayFieldRef& d, const Position& pos) {
+        ArrayRef ar;
+        LayoutEntry entry;
+        int field_len = 0;
+        std::string felem;
+        deep_array_field_info(d, pos, ar, entry, field_len, felem);
+        emit_deep_array_field_addr(d, ar, entry, field_len, pos);
+        std::string reg = is_float(felem) ? "d9" : "x9";
+        emit("ldr " + reg + ", [x14, #0]");
+        push_reg(reg);
+        return felem;
+    }
+
+    std::string gen_deep_array_field_write(const DeepArrayFieldRef& d, const ExprPtr& value,
+                                           const Position& pos) {
+        ArrayRef ar;
+        LayoutEntry entry;
+        int field_len = 0;
+        std::string felem;
+        deep_array_field_info(d, pos, ar, entry, field_len, felem);
+        emit_deep_array_field_addr(d, ar, entry, field_len, pos);
+        push_reg("x14");  // 目标地址跨右值求值保存
+        std::string vt = gen_expr(value);
+        if (vt != felem) {
+            throw TenetError::at_pos("字段数组元素赋值类型不匹配：需要 " + felem +
+                                         "，实际 " + vt,
+                                     value->pos);
+        }
+        std::string reg = is_float(felem) ? "d9" : "x9";
+        pop_reg(reg);
+        pop_reg("x14");
+        emit("str " + reg + ", [x14, #0]");
+        push_reg(reg);
+        return felem;
+    }
+
     std::string gen_index_read(const ExprPtr& e) {
+        DeepArrayFieldRef deep;
+        if (deep_array_field_parts(e, deep)) {
+            return gen_deep_array_field_read(deep, e->pos);
+        }
         ArrayRef ref = array_ref(e->lhs, e->pos, false);
         if (is_struct(ref.elem)) {
             throw TenetError::at_pos(
@@ -3388,6 +3592,10 @@ private:
     }
 
     std::string gen_index_write(const ExprPtr& e, const ExprPtr& target) {
+        DeepArrayFieldRef deep;
+        if (deep_array_field_parts(target, deep)) {
+            return gen_deep_array_field_write(deep, e->value, target->pos);
+        }
         ArrayRef ref = array_ref(target->lhs, target->pos, true);
         if (is_struct(ref.elem)) {
             return gen_struct_array_elem_write(target->rhs, ref, e->value, target->pos);

@@ -344,7 +344,7 @@ print aggregate 断言 struct 的
 | 语言 | Rust | C++17 | C++17 |
 | 后端 | clang 驱动（.ll 文本） | LLVM 库进程内（rustc 方式） | 手写 AArch64 后端（零 LLVM） |
 | 链接 | clang | 系统 `cc` | 系统 `as` + `ld` |
-| 测试 | 116 | 984 | 1164 |
+| 测试 | 116 | 984 | 1166 |
 | 产物 | 原生二进制，示例输出一致 | 同左 | 同左 |
 
 compiler-cpp 证明了"从 clang 驱动切换到链接 LLVM 库"的路线：前端产物不变，
