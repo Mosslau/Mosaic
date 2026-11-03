@@ -109,6 +109,16 @@ struct DynArrayInfo {
     llvm::AllocaInst* cap = nullptr;   // i64
 };
 
+/// S3e：动态数组 descriptor 的通用三个槽地址。
+/// 局部动态数组变量用 3 个独立 alloca；struct 动态字段在 ABI buffer / 数组元素里
+/// 是连续 3 个 i64 槽，用 flat_slot 求出三个槽地址。load/store/drop/深拷贝只依赖
+/// 这三个地址，因此局部 descriptor 与扁平槽 descriptor 共用一套实现。
+struct DynSlots {
+    llvm::Value* data = nullptr;  // ptr
+    llvm::Value* len = nullptr;   // i64
+    llvm::Value* cap = nullptr;   // i64
+};
+
 /// 变量信息。struct 变量不占一个聚合槽，而是按扁平布局拆字段槽位：
 /// 标量叶子一个独立 alloca，固定数组字段一个 `[N*elem_slots x i64]` alloca，
 /// 键是字段路径（如 `a.x` / `a`）；`addr == nullptr` 表示这是一个 struct 变量
@@ -122,12 +132,16 @@ struct VarInfo {
     std::optional<size_t> array_len;
     /// 动态数组的 data/len/cap 槽位；非动态数组为 nullopt。
     std::optional<DynArrayInfo> dyn;
+    /// S3e：struct 变量的动态数组字段（字段路径 → descriptor 三槽）。
+    /// 局部 struct 变量每个动态字段分配 3 个独立 alloca；ABI buffer / 数组元素里的
+    /// 字段是连续 3 槽，用 Place::Kind::DynArray 表示。
+    std::unordered_map<std::string, DynArrayInfo> dyn_fields;
 };
 
 /// 左值解析结果：支持 `s.a[i]`、`s.a[i].f`、`s.a[i][j]` 这类
 /// 「struct 变量 / 固定数组字段 / 数组元素」组合出的地址。
 struct Place {
-    enum class Kind { Scalar, Array, Struct };
+    enum class Kind { Scalar, Array, Struct, DynArray };
     Kind kind = Kind::Scalar;
     std::string ty;
     /// Scalar 的标量槽地址；Array 的数据首槽；Struct 的扁平槽块首槽。
@@ -145,6 +159,8 @@ struct Place {
     /// 此时读写必须按 pack_scalar / unpack_scalar 走 i64，而不能直接 load/store
     /// double / i1（bool 槽宽 8 字节）。
     bool slot_storage = false;
+    /// DynArray：descriptor 三槽地址（类型是 `array<T>` 动态数组）。
+    DynSlots dyn;
 };
 
 /// struct 扁平槽位布局中的一项。
@@ -282,10 +298,43 @@ private:
         }
     }
 
-    /// struct 的数组字段校验：每一层都必须是固定长度，叶子元素限标量或 struct。
-    /// 明确拒绝动态数组（`array<T>`）字段；嵌套数组的每一层都必须写 `N`。
+    /// struct 的数组字段校验。
+    /// S3e：动态标量数组字段 `array<int/float/bool>` 允许，占 3 个 descriptor 槽；
+    /// 动态 `array<struct>` 字段与动态嵌套字段（`array<array<T>>`）不在 v1 范围，
+    /// 固定数组的每一层仍然必须写长度 `N`，叶子元素限标量或 struct。
     void validate_struct_array_field(const std::string& sname, const std::string& fname,
                                      const std::string& fty, const Position& pos) const {
+        if (is_dynamic_array(fty)) {
+            auto elem = array_elem(fty);
+            if (!elem.has_value()) {
+                throw TenetError::at_pos("struct `" + sname + "` 的字段 `" + fname +
+                                             "` 的数组元素类型未知",
+                                         pos);
+            }
+            if (*elem == T_INT || *elem == T_FLOAT || *elem == T_BOOL) return;
+            if (is_struct(*elem)) {
+                throw TenetError::at_pos(
+                    "struct `" + sname + "` 的字段 `" + fname +
+                        "` 不支持动态 array<struct> 字段；v1 动态字段只支持 "
+                        "array<int/float/bool>",
+                    pos);
+            }
+            if (is_array(*elem)) {
+                throw TenetError::at_pos(
+                    "struct `" + sname + "` 的字段 `" + fname +
+                        "` 不支持动态嵌套数组字段；v1 动态字段只支持 "
+                        "array<int/float/bool>",
+                    pos);
+            }
+            if (*elem == T_STR) {
+                throw TenetError::at_pos(
+                    "struct `" + sname + "` 的字段 `" + fname +
+                        "` 的数组元素不支持 string；只支持 int/float/bool 或 struct",
+                    pos);
+            }
+            // 未定义的 struct 名交给 validate_struct_array_elem_defined 报错。
+            return;
+        }
         std::string cur = fty;
         while (is_array(cur)) {
             if (!array_decl_len(cur).has_value()) {
@@ -545,8 +594,9 @@ private:
     }
 
     /// 一个字段类型占用的 8 字节槽数：标量 1 槽；固定数组 `N * elem_slots`；
-    /// struct 递归求和。
+    /// 动态数组 descriptor 3 槽（S3e）；struct 递归求和。
     size_t field_slot_width(const std::string& ty) const {
+        if (is_dynamic_array(ty)) return 3;
         auto len = array_decl_len(ty);
         if (len.has_value()) return *len * array_elem_slots(ty);
         if (is_struct(ty)) return struct_total_slots(ty);
@@ -566,7 +616,8 @@ private:
     }
 
     /// struct 的扁平槽位布局（深度优先 + 声明顺序）：标量字段 1 槽，固定数组字段
-    /// 占 `N * elem_slots` 槽，嵌套 struct 递归展开。返回顺序即 ABI 槽位顺序。
+    /// 占 `N * elem_slots` 槽，动态数组字段占 3 个 descriptor 槽（S3e），嵌套 struct
+    /// 递归展开。返回顺序即 ABI 槽位顺序。
     std::vector<LayoutEntry> layout_of(const std::string& ty) const {
         std::vector<LayoutEntry> out;
         size_t offset = 0;
@@ -613,6 +664,23 @@ private:
             return *inner_len * array_elem_slots(*elem);
         }
         return 1;
+    }
+
+    /// S3e：该类型是否递归拥有需要释放的堆内存。
+    /// 动态数组自身；固定数组看元素；struct 看直接字段（含嵌套 struct / 固定数组）。
+    bool type_owns_heap(const std::string& ty) const {
+        if (is_dynamic_array(ty)) return true;
+        if (is_array(ty)) {
+            auto elem = array_elem(ty);
+            return elem.has_value() && type_owns_heap(*elem);
+        }
+        auto it = structs_.find(ty);
+        if (it == structs_.end()) return false;
+        for (const auto& [fname, fty] : it->second) {
+            (void)fname;
+            if (type_owns_heap(fty)) return true;
+        }
+        return false;
     }
 
     /// S3c-3c：`array<array<T, N>, M>` 的嵌套数组类型（内层必须是固定长度）。
@@ -828,8 +896,9 @@ private:
         throw TenetError::at_pos("struct `" + info.ty + "` 没有标量字段 `" + path + "`", pos);
     }
 
-    /// 解析左值风格的固定数组 / struct 访问（`s.a[i]`、`s.a[i].f`、`s.a[i][j]`、
-    /// `a[i].f` 等）。动态数组交给既有 descriptor 路径，返回 nullopt。
+    /// 解析左值风格的数组 / struct 访问（`s.a[i]`、`s.a[i].f`、`s.a[i][j]`、
+    /// `a[i].f`、`arr[i].a[j]` 等）。动态数组变量本身交给既有 descriptor 路径，
+    /// 返回 nullopt；struct 的动态数组字段返回 `Place::DynArray`（S3e）。
     std::optional<Place> resolve_place(const ExprPtr& e) {
         if (!e) return std::nullopt;
         if (e->kind == Expr::Kind::Var) {
@@ -863,9 +932,19 @@ private:
                     return Place{Place::Kind::Scalar, fty, f->second.second, false, 0,
                                  nullptr, ""};
                 }
-                std::string fty = direct_field_type(base->var->ty, e->field, e->pos);
+                // S3e：动态数组字段在局部 struct 变量里是三个独立槽位。
+                auto dynf = base->var->dyn_fields.find(path);
+                if (dynf != base->var->dyn_fields.end()) {
+                    auto dty = field_type_of(base->var->ty, path, e->pos);
+                    return Place{Place::Kind::DynArray, dty, nullptr, false, 0, nullptr,
+                                 "", false, dyn_slots_of(dynf->second)};
+                }
+                std::string fty = field_type_of(base->var->ty, path, e->pos);
                 if (is_struct(fty)) {
                     return Place{Place::Kind::Struct, fty, nullptr, false, 0, base->var, path};
+                }
+                if (is_dynamic_array(fty)) {
+                    throw TenetError("内部错误：动态字段 `" + path + "` 缺少 descriptor");
                 }
                 throw TenetError::at_pos(
                     "struct `" + base->var->ty + "` 没有字段 `" + path + "`", e->pos);
@@ -876,6 +955,11 @@ private:
             if (is_struct(fty)) {
                 return Place{Place::Kind::Struct, fty, faddr, false, 0, nullptr, ""};
             }
+            if (is_dynamic_array(fty)) {
+                // S3e：ABI buffer / 数组元素里的动态字段是连续 3 个 descriptor 槽。
+                return Place{Place::Kind::DynArray, fty, nullptr, false, 0, nullptr, "",
+                             false, dyn_slots_at(faddr)};
+            }
             if (is_array(fty)) {
                 auto len = array_decl_len(fty);
                 return Place{Place::Kind::Array, fty, faddr, true, len.value_or(0), nullptr,
@@ -884,8 +968,43 @@ private:
             return Place{Place::Kind::Scalar, fty, faddr, false, 0, nullptr, "", true};
         }
         if (e->kind == Expr::Kind::Index) {
+            // S3e：动态 array<struct> 的元素（`arr[i].a[j]` / `arr[i].a = ..`）。
+            if (e->base && e->base->kind == Expr::Kind::Var) {
+                const VarInfo& info = lookup_var(e->base->name, e->base->pos);
+                if (info.dyn.has_value()) {
+                    auto elem = array_elem(info.ty);
+                    if (elem.has_value() && is_struct(*elem)) {
+                        auto [elem_ty, elem_addr] =
+                            struct_array_elem_addr(info, e->index, e->pos);
+                        return Place{Place::Kind::Struct, elem_ty, elem_addr, false, 0,
+                                     nullptr, ""};
+                    }
+                }
+            }
             auto base = resolve_place(e->base);
-            if (!base.has_value() || base->kind != Place::Kind::Array) return std::nullopt;
+            if (!base.has_value()) return std::nullopt;
+            if (base->kind == Place::Kind::DynArray) {
+                // S3e：`s.a[i]` / `arr[i].a[j]` —— 动态描述符下标（运行时界限检查）。
+                auto elem = array_elem(base->ty);
+                if (!elem.has_value() || is_struct(*elem) || is_array(*elem)) {
+                    throw TenetError::at_pos(
+                        "v1 动态数组字段只支持标量元素，不能对 `" + base->ty + "` 取下标",
+                        e->pos);
+                }
+                auto* i64 = llvm::Type::getInt64Ty(ctx_);
+                auto* data = builder_.CreateLoad(ptr_ty(ctx_), base->dyn.data, "dyn.field.data");
+                auto* len = builder_.CreateLoad(i64, base->dyn.len, "dyn.field.len");
+                auto [it, iv] = gen_expr(e->index);
+                if (it != "i64") {
+                    throw TenetError::at_pos(
+                        "数组下标必须是 int，实际为 " + std::string(tenet_name(it)),
+                        e->index->pos);
+                }
+                bounds_check_value(iv, len);
+                return Place{Place::Kind::Scalar, *elem, dyn_slot(data, iv), false, 0,
+                             nullptr, "", true};
+            }
+            if (base->kind != Place::Kind::Array) return std::nullopt;
             auto elem = array_elem(base->ty);
             if (!elem.has_value()) {
                 throw TenetError::at_pos("`" + base->ty + "` 不是数组，不能取下标", e->pos);
@@ -916,6 +1035,52 @@ private:
                          base->packed};
         }
         return std::nullopt;
+    }
+
+    /// S3e：解析动态数组左值（动态数组变量 / struct 动态字段 / 数组元素动态字段），
+    /// 返回 (类型, descriptor 三槽)。不是动态数组左值时返回 nullopt。
+    std::optional<std::pair<std::string, DynSlots>> resolve_dyn_target(const ExprPtr& e) {
+        if (!e) return std::nullopt;
+        if (e->kind == Expr::Kind::Var) {
+            const VarInfo& info = lookup_var(e->name, e->pos);
+            if (info.dyn.has_value()) {
+                return std::make_pair(info.ty, dyn_slots_of(*info.dyn));
+            }
+            return std::nullopt;
+        }
+        if (e->kind != Expr::Kind::Field && e->kind != Expr::Kind::Index) {
+            return std::nullopt;
+        }
+        auto place = resolve_place(e);
+        if (place.has_value() && place->kind == Place::Kind::DynArray) {
+            return std::make_pair(place->ty, place->dyn);
+        }
+        return std::nullopt;
+    }
+
+    /// S3e：动态数组左值整体赋值（`s.a = [..]` / `s.a = t.a` / `arr[i].a = ..`）。
+    /// 先深拷贝右侧到临时 descriptor，再 drop 目标旧缓冲区，最后接管新缓冲区。
+    /// 右侧先完整求值，因此 `s.a = s.a` / `arr[i].a = arr[i].a` 这类自赋值也安全。
+    void assign_dyn_place(const std::string& ty, const DynSlots& target,
+                          const ExprPtr& value, const Position& pos) {
+        // `s.a = s.a`：目标与源是同一组 descriptor 槽 → 空操作。
+        auto src = resolve_dyn_target(value);
+        if (src.has_value() && src->first == ty && src->second.data == target.data &&
+            src->second.len == target.len && src->second.cap == target.cap) {
+            return;
+        }
+        VarInfo tmp = init_dynamic_array("__assign_tmp", ty, value, pos);
+        DynSlots t = dyn_slots_of(*tmp.dyn);
+        auto* i64 = llvm::Type::getInt64Ty(ctx_);
+        auto* pty = ptr_ty(ctx_);
+        auto* nd = builder_.CreateLoad(pty, t.data, "dyn.assign.data");
+        auto* nl = builder_.CreateLoad(i64, t.len, "dyn.assign.len");
+        auto* nc = builder_.CreateLoad(i64, t.cap, "dyn.assign.cap");
+        dyn_slots_clear(t);
+        dyn_drop_slots(target.data, target.len, target.cap, ty);
+        builder_.CreateStore(nd, target.data);
+        builder_.CreateStore(nl, target.len);
+        builder_.CreateStore(nc, target.cap);
     }
 
     /// 类型位置允许标量或已声明的 struct 名。
@@ -1118,9 +1283,14 @@ private:
                 if (is_flat_slot_array(pty)) {
                     // S3c-3b-3/S3c-3c v2：struct 元素 / 固定嵌套数组按总槽数
                     // （N*slots 或 M*N）拷贝到本地 `[total x i64]` 扁平缓冲。
+                    // S3e：元素含动态字段时逐元素深拷贝（入口值语义）。
                     const size_t total = fixed_array_total_slots(pty);
                     auto* addr = alloc_buffer(total, pname);
-                    copy_flat_i64(addr, arg, total);
+                    if (type_owns_heap(pty)) {
+                        deep_copy_value(pty, addr, arg);
+                    } else {
+                        copy_flat_i64(addr, arg, total);
+                    }
                     symbols_.back()[pname] = VarInfo{pty, addr, {}, *len};
                 } else {
                     std::string elem = array_elem_scalar(pty, stmt->pos);
@@ -1133,8 +1303,9 @@ private:
                 }
             } else if (is_struct(pty)) {
                 // struct 参数：入口按扁平布局把指针指向的字段值拷贝到本地槽位（值语义）。
+                // S3e：动态数组字段重新 malloc 深拷贝，参数与调用方完全独立。
                 VarInfo info = alloc_struct(pty, stmt->pos);
-                unpack_buffer(info, pty, arg);
+                unpack_buffer(info, pty, arg, /*deep=*/true);
                 symbols_.back()[pname] = std::move(info);
             } else {
                 auto addr = builder_.CreateAlloca(arg->getType(), nullptr, pname);
@@ -1284,7 +1455,9 @@ private:
                         if (current_sret_ == nullptr) {
                             throw TenetError("内部错误：struct 返回函数缺少 sret 参数");
                         }
-                        pack_expr_to_buffer(*current_ret_, stmt->expr, current_sret_);
+                        // S3e：变量返回转移动态 descriptor 并清空本地；字面量 / 调用
+                        // 结果同样把所有权交给 sret。
+                        transfer_struct_expr_to_sret(*current_ret_, stmt->expr, current_sret_);
                         drop_all_scopes();
                         builder_.CreateRetVoid();
                         return;
@@ -1584,6 +1757,17 @@ private:
                                 target->pos);
                         }
                         if (is_array(fty)) {
+                            if (is_dynamic_array(fty)) {
+                                // S3e：数组元素的动态字段整体赋值。
+                                auto dt = resolve_dyn_target(target);
+                                if (!dt.has_value()) {
+                                    throw TenetError::at_pos(
+                                        "动态数组字段 `" + path + "` 不能整体赋值",
+                                        target->pos);
+                                }
+                                assign_dyn_place(fty, dt->second, e->value, e->pos);
+                                return {fty, nullptr};
+                            }
                             auto place = resolve_place(target);
                             if (!place.has_value()) {
                                 throw TenetError::at_pos(
@@ -1638,6 +1822,22 @@ private:
                             target->base->pos);
                     }
                     std::string fty0 = field_type_of(info.ty, path, target->pos);
+                    if (is_dynamic_array(fty0)) {
+                        // S3e：动态数组字段整体赋值（s.a = [..] / s.a = t.a）。
+                        auto dt = resolve_dyn_target(target);
+                        if (!dt.has_value()) {
+                            throw TenetError::at_pos(
+                                "动态数组字段 `" + path + "` 不能整体赋值", target->pos);
+                        }
+                        if (dt->first != fty0) {
+                            throw TenetError::at_pos(
+                                "字段 `" + path + "` 类型不匹配：需要 " + fty0 + "，实际 " +
+                                    value_type_name(dt->first),
+                                target->pos);
+                        }
+                        assign_dyn_place(fty0, dt->second, e->value, e->pos);
+                        return {fty0, nullptr};
+                    }
                     if (is_array(fty0)) {
                         // struct 的固定数组字段整体赋值：s.a = [..] / s.a = t.a。
                         auto place = resolve_place(target);
@@ -1821,6 +2021,8 @@ private:
     }
 
     /// 为 struct 局部变量分配扁平字段槽位（嵌套路径如 `a.x`，每个叶子一个 alloca）。
+    /// S3e：动态数组字段分配 3 个 descriptor 槽（data/len/cap），单独记录在
+    /// dyn_fields 里；固定数组字段仍是扁平 `[slots x i64]`。
     VarInfo alloc_struct(const std::string& ty_name, const Position& pos) {
         if (!is_struct(ty_name)) {
             throw TenetError::at_pos("未定义的 struct `" + ty_name + "`", pos);
@@ -1828,6 +2030,10 @@ private:
         VarInfo info;
         info.ty = ty_name;
         for (const auto& entry : layout_of(ty_name)) {
+            if (is_dynamic_array(entry.ty)) {
+                info.dyn_fields[entry.path] = dyn_new_slots(entry.path);
+                continue;
+            }
             if (is_array(entry.ty)) {
                 // 固定数组字段统一用扁平 `[slots x i64]` 槽表示。
                 info.fields[entry.path] = {entry.ty, alloc_buffer(entry.slots, entry.path)};
@@ -1874,6 +2080,16 @@ private:
             i64, buf, {llvm::ConstantInt::get(i64, static_cast<uint64_t>(i))}, "flat.slot");
     }
 
+    /// S3e：局部动态数组变量 → 通用 descriptor 三槽。
+    static DynSlots dyn_slots_of(const DynArrayInfo& d) {
+        return DynSlots{d.data, d.len, d.cap};
+    }
+
+    /// S3e：扁平槽块里起始于 base 的连续 3 个 descriptor 槽（data/len/cap）。
+    DynSlots dyn_slots_at(llvm::Value* base) {
+        return DynSlots{flat_slot(base, 0), flat_slot(base, 1), flat_slot(base, 2)};
+    }
+
     /// 在任意两个 8 字节槽区之间逐槽拷贝。
     void copy_slots(llvm::Value* dst, llvm::Value* src, size_t count) {
         auto* i64 = llvm::Type::getInt64Ty(ctx_);
@@ -1918,17 +2134,43 @@ private:
     }
 
     /// 把缓冲区 [total x i64] 逐槽解包到 struct 本地扁平字段槽位。
-    /// 固定数组字段按 `N*elem_slots` 个连续槽整块拷贝。
-    void unpack_buffer(const VarInfo& dst, const std::string& ty_name, llvm::Value* buf) {
+    /// 固定数组字段按 `N*elem_slots` 个连续槽处理。
+    /// S3e：`deep == true` 用于函数入口参数——动态字段重新 malloc 深拷贝（值语义）；
+    /// `deep == false` 用于字面量 / 调用结果——descriptor 直接接管并清空源槽位。
+    void unpack_buffer(const VarInfo& dst, const std::string& ty_name, llvm::Value* buf,
+                       bool deep = false) {
         const size_t total = struct_total_slots(ty_name);
         auto layout = layout_of(ty_name);
         for (const auto& entry : layout) {
+            if (is_dynamic_array(entry.ty)) {
+                auto d = dst.dyn_fields.find(entry.path);
+                if (d == dst.dyn_fields.end()) {
+                    throw TenetError("内部错误：缺少动态字段槽 `" + entry.path + "`");
+                }
+                DynSlots target = dyn_slots_of(d->second);
+                DynSlots source = dyn_slots_at(flat_slot(buf, entry.offset));
+                if (deep) {
+                    dyn_slots_deep_copy(entry.ty, target, source);
+                } else {
+                    dyn_slots_transfer(target, source);
+                }
+                continue;
+            }
             auto f = dst.fields.find(entry.path);
             if (f == dst.fields.end()) {
                 throw TenetError("内部错误：缺少字段槽 `" + entry.path + "`");
             }
             if (is_array(entry.ty)) {
-                copy_slots(f->second.second, flat_slot(buf, entry.offset), entry.slots);
+                auto* src = flat_slot(buf, entry.offset);
+                if (type_owns_heap(entry.ty)) {
+                    if (deep) {
+                        deep_copy_value(entry.ty, f->second.second, src);
+                    } else {
+                        transfer_value_slots(entry.ty, f->second.second, src);
+                    }
+                } else {
+                    copy_slots(f->second.second, src, entry.slots);
+                }
                 continue;
             }
             auto* slot = buffer_slot(buf, total, entry.offset);
@@ -2051,7 +2293,11 @@ private:
                     expr->pos);
             }
             if (is_flat_slot_array(ty)) {
-                copy_slots(flat_slot(buf, off), src.addr, total);
+                if (type_owns_heap(ty)) {
+                    deep_copy_value(ty, flat_slot(buf, off), src.addr);
+                } else {
+                    copy_slots(flat_slot(buf, off), src.addr, total);
+                }
             } else {
                 copy_scalar_array_to_slots(ty, src.addr, buf, off);
             }
@@ -2064,7 +2310,9 @@ private:
                     "数组类型不匹配：需要 " + ty + "，调用返回 " + value_type_name(rt),
                     expr->pos);
             }
-            if (is_flat_slot_array(ty)) {
+            if (is_flat_slot_array(ty) && type_owns_heap(ty)) {
+                transfer_value_slots(ty, flat_slot(buf, off), src);
+            } else if (is_flat_slot_array(ty)) {
                 copy_slots(flat_slot(buf, off), src, total);
             } else {
                 copy_scalar_array_to_slots(ty, src, buf, off);
@@ -2075,7 +2323,11 @@ private:
             auto place = resolve_place(expr);
             if (place.has_value() && place->kind == Place::Kind::Array && place->ty == ty &&
                 place->packed) {
-                copy_slots(flat_slot(buf, off), place->addr, total);
+                if (type_owns_heap(ty)) {
+                    deep_copy_value(ty, flat_slot(buf, off), place->addr);
+                } else {
+                    copy_slots(flat_slot(buf, off), place->addr, total);
+                }
                 return;
             }
         }
@@ -2083,7 +2335,20 @@ private:
             "字段 `" + ty + "` 的初始化必须是同类型数组字面量、变量或调用", expr->pos);
     }
 
+    /// S3e：把动态数组表达式打包进扁平槽块的 descriptor 三槽（起始 off）。
+    /// 先用动态数组初始化路径得到一个独立的临时动态数组（变量 / 字面量 / 调用都
+    /// 会深拷贝），再把 data/len/cap 转移进目标槽位并清空临时槽位。
+    void pack_dyn_field_expr(const std::string& ty, const ExprPtr& expr, llvm::Value* buf,
+                             size_t off) {
+        VarInfo tmp = init_dynamic_array("__field_tmp", ty, expr, expr->pos);
+        DynSlots src = dyn_slots_of(*tmp.dyn);
+        dyn_slots_copy(dyn_slots_at(flat_slot(buf, off)), src);
+        dyn_slots_clear(src);
+    }
+
     /// 把 struct 表达式（字面量 / 同类型变量 / 返回 struct 的调用）打包进 [total x i64]。
+    /// S3e：动态数组字段重新 malloc 深拷贝（字面量字段也是新堆），保证打包结果
+    /// 拥有独立的堆缓冲区；变量 / 调用结果的整体值语义与 Rust 实现一致。
     void pack_expr_to_buffer(const std::string& ty_name, const ExprPtr& expr,
                              llvm::Value* buf) {
         const size_t n = struct_total_slots(ty_name);
@@ -2106,6 +2371,10 @@ private:
                     throw TenetError::at_pos("未知字段 `" + path + "`", fexpr->pos);
                 }
                 const LayoutEntry& entry = layout[*idx];
+                if (is_dynamic_array(entry.ty)) {
+                    pack_dyn_field_expr(entry.ty, fexpr, buf, entry.offset);
+                    continue;
+                }
                 if (is_array(entry.ty)) {
                     pack_array_field_expr(entry.ty, fexpr, buf, entry.offset);
                     continue;
@@ -2129,12 +2398,27 @@ private:
                     "需要 " + ty_name + "，实际是 " + src.ty, expr->pos);
             }
             for (const auto& entry : layout) {
+                if (is_dynamic_array(entry.ty)) {
+                    auto d = src.dyn_fields.find(entry.path);
+                    if (d == src.dyn_fields.end()) {
+                        throw TenetError("内部错误：缺少动态字段槽 `" + entry.path + "`");
+                    }
+                    dyn_slots_deep_copy(entry.ty, dyn_slots_at(flat_slot(buf, entry.offset)),
+                                        dyn_slots_of(d->second));
+                    continue;
+                }
                 auto f = src.fields.find(entry.path);
                 if (f == src.fields.end()) {
                     throw TenetError("内部错误：缺少字段槽 `" + entry.path + "`");
                 }
                 if (is_array(entry.ty)) {
-                    copy_slots(flat_slot(buf, entry.offset), f->second.second, entry.slots);
+                    if (type_owns_heap(entry.ty)) {
+                        deep_copy_value(entry.ty, flat_slot(buf, entry.offset),
+                                        f->second.second);
+                    } else {
+                        copy_slots(flat_slot(buf, entry.offset), f->second.second,
+                                   entry.slots);
+                    }
                     continue;
                 }
                 auto* v = builder_.CreateLoad(ty(llvm_type(entry.ty)), f->second.second);
@@ -2148,7 +2432,8 @@ private:
             if (rt != ty_name) {
                 throw TenetError::at_pos("需要 " + ty_name + "，实际 " + rt, expr->pos);
             }
-            copy_slots(buf, src_buf, n);
+            // 调用结果的 sret 缓冲把所有权转移给目标槽块（动态字段清空源 descriptor）。
+            transfer_value_slots(ty_name, buf, src_buf);
             return;
         }
         throw TenetError::at_pos(
@@ -2157,6 +2442,8 @@ private:
     }
 
     /// struct 初始化：字面量 / 同类型变量 / 返回 struct 的调用。
+    /// S3e：动态字段在字面量 / 调用结果路径上直接从临时缓冲接管（transfer），
+    /// 同类型变量路径做递归深拷贝。
     VarInfo init_struct(const std::string& name, const std::string& ty_name, const ExprPtr& value,
                         const Position& pos) {
         if (is_struct_array_index_read(value)) {
@@ -2172,7 +2459,7 @@ private:
             }
             auto* buf = alloc_buffer(struct_total_slots(ty_name), name + ".init");
             pack_expr_to_buffer(ty_name, value, buf);
-            unpack_buffer(dst, ty_name, buf);
+            unpack_buffer(dst, ty_name, buf, false);
             return dst;
         }
         if (value->kind == Expr::Kind::Var) {
@@ -2192,7 +2479,7 @@ private:
                 throw TenetError::at_pos(
                     "`" + name + "` 需要 " + ty_name + "，但调用返回 " + rt, value->pos);
             }
-            unpack_buffer(dst, ty_name, buf);
+            unpack_buffer(dst, ty_name, buf, false);
             return dst;
         }
         throw TenetError::at_pos("`" + name + "` 的 struct 初始化必须是 `" + ty_name +
@@ -2202,6 +2489,8 @@ private:
     }
 
     /// struct 整体赋值：字面量 / 同类型变量 / 返回 struct 的调用，全部按值拷贝。
+    /// S3e：右侧先完整求值（深拷贝 / 新堆 / sret 接管），再 drop 目标旧动态字段，
+    /// 最后把新值写入目标；`t = t` 是空操作。
     void assign_struct(const VarInfo& dst, const ExprPtr& value, const Position& pos) {
         if (is_struct_array_index_read(value)) {
             throw TenetError::at_pos(
@@ -2214,7 +2503,8 @@ private:
             }
             auto* buf = alloc_buffer(struct_total_slots(dst.ty), dst.ty + ".assign");
             pack_expr_to_buffer(dst.ty, value, buf);
-            unpack_buffer(dst, dst.ty, buf);
+            drop_var(dst);
+            unpack_buffer(dst, dst.ty, buf, false);
             return;
         }
         if (value->kind == Expr::Kind::Var) {
@@ -2223,7 +2513,12 @@ private:
                 throw TenetError::at_pos(
                     "赋值类型不匹配：需要 " + dst.ty + "，右侧是 " + sinfo.ty, pos);
             }
-            copy_struct(dst, sinfo);
+            if (&sinfo == &dst) return;  // t = t
+            // 先深拷贝到临时 struct，再释放旧值，最后转移，保证自赋值 / 别名安全。
+            VarInfo tmp = alloc_struct(dst.ty, pos);
+            copy_struct(tmp, sinfo);
+            drop_var(dst);
+            move_struct(dst, tmp);
             return;
         }
         if (value->kind == Expr::Kind::Call) {
@@ -2232,30 +2527,162 @@ private:
                 throw TenetError::at_pos(
                     "赋值类型不匹配：需要 " + dst.ty + "，右侧是 " + rt, pos);
             }
-            unpack_buffer(dst, dst.ty, buf);
+            drop_var(dst);
+            unpack_buffer(dst, dst.ty, buf, false);
             return;
         }
         throw TenetError::at_pos(
             "struct 整体赋值必须是同类型变量、字面量或返回 struct 的函数调用", value->pos);
     }
 
-    /// 逐字段值拷贝（struct 的值语义）：标量字段 load/store，固定数组字段逐槽拷贝。
+    /// 逐字段深拷贝（struct 的值语义）：标量字段 load/store；固定数组字段在含堆
+    /// 元素时递归深拷贝；动态数组字段 malloc 新缓冲区并复制元素。dst 是新分配的
+    /// struct（无旧值需要释放）。
     void copy_struct(const VarInfo& dst, const VarInfo& src) {
-        for (const auto& [path, dfield] : dst.fields) {
-            auto it = src.fields.find(path);
-            if (it == src.fields.end()) {
-                throw TenetError::at_pos("struct 字段 `" + path + "` 不存在", Position(1, 1));
+        for (const auto& entry : layout_of(dst.ty)) {
+            if (is_dynamic_array(entry.ty)) {
+                auto d = dst.dyn_fields.find(entry.path);
+                auto s = src.dyn_fields.find(entry.path);
+                if (d == dst.dyn_fields.end() || s == src.dyn_fields.end()) {
+                    throw TenetError::at_pos("struct 动态字段 `" + entry.path + "` 不存在",
+                                             Position(1, 1));
+                }
+                dyn_slots_deep_copy(entry.ty, dyn_slots_of(d->second),
+                                    dyn_slots_of(s->second));
+                continue;
             }
-            const auto& [fty, daddr] = dfield;
-            auto* saddr = it->second.second;
+            auto dfield = dst.fields.find(entry.path);
+            auto sfield = src.fields.find(entry.path);
+            if (dfield == dst.fields.end() || sfield == src.fields.end()) {
+                throw TenetError::at_pos("struct 字段 `" + entry.path + "` 不存在",
+                                         Position(1, 1));
+            }
+            const std::string& fty = dfield->second.first;
+            auto* daddr = dfield->second.second;
+            auto* saddr = sfield->second.second;
             if (is_array(fty)) {
-                const size_t slots = fixed_array_total_slots(fty);
-                copy_slots(daddr, saddr, slots);
+                if (type_owns_heap(fty)) {
+                    deep_copy_value(fty, daddr, saddr);
+                } else {
+                    copy_slots(daddr, saddr, entry.slots);
+                }
                 continue;
             }
             auto* v = builder_.CreateLoad(ty(llvm_type(fty)), saddr);
             builder_.CreateStore(v, daddr);
         }
+    }
+
+    /// 把 src 的字段转移到 dst（用于整体赋值的临时 struct）：动态 descriptor 复制后
+    /// 清空 src，避免 src 之后再被 drop 造成 double free。src 是函数内临时变量，
+    /// 不登记在作用域表里，因此实际只会转移一次。
+    void move_struct(const VarInfo& dst, const VarInfo& src) {
+        for (const auto& entry : layout_of(dst.ty)) {
+            if (is_dynamic_array(entry.ty)) {
+                auto d = dst.dyn_fields.find(entry.path);
+                auto s = src.dyn_fields.find(entry.path);
+                if (d == dst.dyn_fields.end() || s == src.dyn_fields.end()) {
+                    throw TenetError::at_pos("struct 动态字段 `" + entry.path + "` 不存在",
+                                             Position(1, 1));
+                }
+                dyn_slots_transfer(dyn_slots_of(d->second), dyn_slots_of(s->second));
+                continue;
+            }
+            auto dfield = dst.fields.find(entry.path);
+            auto sfield = src.fields.find(entry.path);
+            if (dfield == dst.fields.end() || sfield == src.fields.end()) {
+                throw TenetError::at_pos("struct 字段 `" + entry.path + "` 不存在",
+                                         Position(1, 1));
+            }
+            const std::string& fty = dfield->second.first;
+            auto* daddr = dfield->second.second;
+            auto* saddr = sfield->second.second;
+            if (is_array(fty) && type_owns_heap(fty)) {
+                transfer_value_slots(fty, daddr, saddr);
+                continue;
+            }
+            if (is_array(fty)) {
+                copy_slots(daddr, saddr, entry.slots);
+                continue;
+            }
+            auto* v = builder_.CreateLoad(ty(llvm_type(fty)), saddr);
+            builder_.CreateStore(v, daddr);
+        }
+    }
+
+    /// S3e：把局部 struct 字段转移到扁平槽块（return sret 用）。
+    /// 动态字段 descriptor 复制后清空本地槽位（所有权交给调用方），随后函数收尾
+    /// 的 drop_all_scopes 不会二次释放。
+    void transfer_struct_local_to_slots(const std::string& struct_ty, const VarInfo& info,
+                                        llvm::Value* dst) {
+        const size_t n = struct_total_slots(struct_ty);
+        for (const auto& entry : layout_of(struct_ty)) {
+            if (is_dynamic_array(entry.ty)) {
+                auto s = info.dyn_fields.find(entry.path);
+                if (s == info.dyn_fields.end()) {
+                    throw TenetError("内部错误：缺少动态字段槽 `" + entry.path + "`");
+                }
+                dyn_slots_transfer(dyn_slots_at(flat_slot(dst, entry.offset)),
+                                   dyn_slots_of(s->second));
+                continue;
+            }
+            auto f = info.fields.find(entry.path);
+            if (f == info.fields.end()) {
+                throw TenetError("内部错误：缺少字段槽 `" + entry.path + "`");
+            }
+            if (is_array(entry.ty)) {
+                if (type_owns_heap(entry.ty)) {
+                    transfer_value_slots(entry.ty, flat_slot(dst, entry.offset),
+                                         f->second.second);
+                } else {
+                    copy_slots(flat_slot(dst, entry.offset), f->second.second,
+                               entry.slots);
+                }
+                continue;
+            }
+            auto* v = builder_.CreateLoad(ty(llvm_type(entry.ty)), f->second.second);
+            auto* raw = pack_scalar(entry.ty, v);
+            builder_.CreateStore(raw, buffer_slot(dst, n, entry.offset));
+        }
+    }
+
+    /// S3e：struct return 写 sret。
+    /// - 变量：转移动态 descriptor 并清空本地；
+    /// - 字面量：打包时构造新堆；
+    /// - 调用：从被调函数的 sret 缓冲转移。
+    void transfer_struct_expr_to_sret(const std::string& ty, const ExprPtr& expr,
+                                      llvm::Value* sret) {
+        if (!expr) {
+            throw TenetError::at_pos("struct return 必须带值", Position(1, 1));
+        }
+        if (expr->kind == Expr::Kind::Var) {
+            const VarInfo& info = lookup_var(expr->name, expr->pos);
+            if (info.ty != ty) {
+                throw TenetError::at_pos(
+                    "返回类型不匹配：需要 " + ty + "，实际 " + info.ty, expr->pos);
+            }
+            transfer_struct_local_to_slots(ty, info, sret);
+            return;
+        }
+        if (expr->kind == Expr::Kind::StructLit) {
+            if (expr->name != ty) {
+                throw TenetError::at_pos(
+                    "返回类型不匹配：需要 " + ty + "，字面量是 " + expr->name, expr->pos);
+            }
+            pack_expr_to_buffer(ty, expr, sret);
+            return;
+        }
+        if (expr->kind == Expr::Kind::Call) {
+            auto [rt, src] = gen_expr(expr);
+            if (rt != ty) {
+                throw TenetError::at_pos(
+                    "返回类型不匹配：需要 " + ty + "，调用返回 " + rt, expr->pos);
+            }
+            transfer_value_slots(ty, sret, src);
+            return;
+        }
+        throw TenetError::at_pos(
+            ty + " 返回只支持变量、字面量或返回 " + ty + " 的函数调用", expr->pos);
     }
 
     /// 错误信息里的实际类型名（struct / array 保留 Tenet 类型名，不走 tenet_name）。
@@ -2413,7 +2840,11 @@ private:
             }
             const size_t total = fixed_array_total_slots(ty_name);
             auto* addr = alloc_buffer(total, name);
-            copy_flat_i64(addr, sret, total);
+            if (type_owns_heap(ty_name)) {
+                transfer_value_slots(ty_name, addr, sret);
+            } else {
+                copy_flat_i64(addr, sret, total);
+            }
             return VarInfo{ty_name, addr, {}, decl_len};
         }
         if (value->kind == Expr::Kind::Array) {
@@ -2463,6 +2894,9 @@ private:
                     llvm::ConstantInt::get(i64, static_cast<uint64_t>(i * slots)), i64);
                 pack_expr_to_buffer(*elem, (*literal)[i], dst);
             }
+        } else if (type_owns_heap(ty_name)) {
+            // S3e：固定 array<struct> 且元素含动态字段 → 逐元素深拷贝。
+            deep_copy_value(ty_name, addr, src);
         } else {
             copy_array_ptr(addr, src, len * slots, llvm::Type::getInt64Ty(ctx_));
         }
@@ -2655,12 +3089,20 @@ private:
                         value_type_name(sinfo.ty),
                     expr->pos);
             }
-            copy_flat_i64(buf, sinfo.addr, total);
+            if (type_owns_heap(ty_name)) {
+                deep_copy_value(ty_name, buf, sinfo.addr);
+            } else {
+                copy_flat_i64(buf, sinfo.addr, total);
+            }
             return;
         }
         if (expr->kind == Expr::Kind::Array) {
             VarInfo tmp = init_array("__arr_tmp", ty_name, expr, expr->pos);
-            copy_flat_i64(buf, tmp.addr, total);
+            if (type_owns_heap(ty_name)) {
+                transfer_value_slots(ty_name, buf, tmp.addr);
+            } else {
+                copy_flat_i64(buf, tmp.addr, total);
+            }
             return;
         }
         if (expr->kind == Expr::Kind::Call) {
@@ -2671,7 +3113,11 @@ private:
                         value_type_name(rt),
                     expr->pos);
             }
-            copy_flat_i64(buf, src, total);
+            if (type_owns_heap(ty_name)) {
+                transfer_value_slots(ty_name, buf, src);
+            } else {
+                copy_flat_i64(buf, src, total);
+            }
             return;
         }
         throw TenetError::at_pos(
@@ -2861,13 +3307,23 @@ private:
             // S3c-3b-4：固定 array<struct, N> / 固定嵌套数组整体赋值。右侧变量 /
             // 字面量 / 返回数组的调用先按总槽数打包到临时 `[total x i64]` 缓冲，
             // 再逐槽覆盖目标；固定数组无堆，直接覆盖即可（值语义）。
+            // S3e：元素含动态字段时先释放目标旧缓冲区，再转移新值；`b = b` 空操作。
             if (dst.addr == nullptr) {
                 throw TenetError::at_pos("固定数组整体赋值目标无效", pos);
+            }
+            if (value->kind == Expr::Kind::Var) {
+                const VarInfo& sinfo = lookup_var(value->name, value->pos);
+                if (&sinfo == &dst) return;
             }
             const size_t total = fixed_array_total_slots(dst.ty);
             auto* tmp = alloc_buffer(total, "__array_assign");
             pack_fixed_array_expr(dst.ty, value, tmp);
-            copy_flat_i64(dst.addr, tmp, total);
+            if (type_owns_heap(dst.ty)) {
+                drop_var(dst);
+                transfer_value_slots(dst.ty, dst.addr, tmp);
+            } else {
+                copy_flat_i64(dst.addr, tmp, total);
+            }
             return;
         }
         std::string elem = array_elem_scalar(dst.ty, pos);
@@ -3071,6 +3527,36 @@ private:
             builder_.CreateBr(cond_bb);
             after_bb->insertInto(fn);
             builder_.SetInsertPoint(after_bb);
+        } else if (is_dynamic_array(ty)) {
+            // S3e：动态 array<struct> 且元素含动态字段时递归 drop 每个元素。
+            auto elem = array_elem(ty);
+            if (elem.has_value() && is_struct(*elem) && type_owns_heap(*elem)) {
+                const size_t eslots = array_elem_slots(ty);
+                auto* len = builder_.CreateLoad(i64, len_slot, "dyn.drop.len");
+                auto* i_slot = builder_.CreateAlloca(i64, nullptr, "dyn.elem.drop.i");
+                builder_.CreateStore(llvm::ConstantInt::get(i64, 0), i_slot);
+                auto* cond_bb = llvm::BasicBlock::Create(ctx_, "dyn.elem.drop.cond");
+                auto* body_bb = llvm::BasicBlock::Create(ctx_, "dyn.elem.drop.body");
+                auto* end_elem_bb = llvm::BasicBlock::Create(ctx_, "dyn.elem.drop.end");
+                builder_.CreateBr(cond_bb);
+                cond_bb->insertInto(fn);
+                builder_.SetInsertPoint(cond_bb);
+                auto* iv = builder_.CreateLoad(i64, i_slot, "dyn.elem.drop.idx");
+                auto* cmp = builder_.CreateICmpSLT(iv, len, "dyn.elem.drop.cmp");
+                builder_.CreateCondBr(cmp, body_bb, end_elem_bb);
+                body_bb->insertInto(fn);
+                builder_.SetInsertPoint(body_bb);
+                auto* row = builder_.CreateMul(
+                    iv, llvm::ConstantInt::get(i64, static_cast<uint64_t>(eslots)),
+                    "dyn.elem.drop.row");
+                drop_value_slots(*elem, dyn_slot(p, row));
+                auto* ni = builder_.CreateAdd(iv, llvm::ConstantInt::get(i64, 1),
+                                              "dyn.elem.drop.next");
+                builder_.CreateStore(ni, i_slot);
+                builder_.CreateBr(cond_bb);
+                end_elem_bb->insertInto(fn);
+                builder_.SetInsertPoint(end_elem_bb);
+            }
         }
         builder_.CreateCall(runtime_fn("free"), {p});
         builder_.CreateStore(llvm::ConstantPointerNull::get(pty), data_slot);
@@ -3079,6 +3565,270 @@ private:
         builder_.CreateBr(end_bb);
         end_bb->insertInto(fn);
         builder_.SetInsertPoint(end_bb);
+    }
+
+    // ---- S3e：descriptor 通用三槽 + 扁平槽块的递归深拷贝 / 转移 / drop ----
+    // struct 的动态数组字段在局部变量里是三槽；在 ABI buffer / 数组元素里是连续
+    // 3 个 i64 槽。二者统一用 DynSlots（三个槽地址）表示。扁平槽块里的 struct /
+    // 固定数组 / 动态 descriptor 通过布局递归处理。
+
+    /// 三个 descriptor 槽逐槽值拷贝（目标/源都可以是任意槽地址）。
+    void dyn_slots_copy(const DynSlots& dst, const DynSlots& src) {
+        auto* i64 = llvm::Type::getInt64Ty(ctx_);
+        auto* pty = ptr_ty(ctx_);
+        builder_.CreateStore(builder_.CreateLoad(pty, src.data, "desc.copy.data"), dst.data);
+        builder_.CreateStore(builder_.CreateLoad(i64, src.len, "desc.copy.len"), dst.len);
+        builder_.CreateStore(builder_.CreateLoad(i64, src.cap, "desc.copy.cap"), dst.cap);
+    }
+
+    /// 把 descriptor 重置为 null / 0 / 0（所有权转移后避免 double free）。
+    void dyn_slots_clear(const DynSlots& s) {
+        auto* i64 = llvm::Type::getInt64Ty(ctx_);
+        auto* pty = ptr_ty(ctx_);
+        builder_.CreateStore(llvm::ConstantPointerNull::get(pty), s.data);
+        builder_.CreateStore(llvm::ConstantInt::get(i64, 0), s.len);
+        builder_.CreateStore(llvm::ConstantInt::get(i64, 0), s.cap);
+    }
+
+    /// descriptor 复制 + 清空源（return 所有权转移）。
+    void dyn_slots_transfer(const DynSlots& dst, const DynSlots& src) {
+        dyn_slots_copy(dst, src);
+        dyn_slots_clear(src);
+    }
+
+    /// 把 descriptor 三槽写进 `[3 x i64]` 栈上 descriptor（函数实参）。
+    void desc_store_slots(llvm::Value* desc, const DynSlots& s) {
+        auto* i64 = llvm::Type::getInt64Ty(ctx_);
+        auto* pty = ptr_ty(ctx_);
+        builder_.CreateStore(builder_.CreateLoad(pty, s.data, "desc.store.data"),
+                             desc_slot(desc, 0));
+        builder_.CreateStore(builder_.CreateLoad(i64, s.len, "desc.store.len"),
+                             desc_slot(desc, 1));
+        builder_.CreateStore(builder_.CreateLoad(i64, s.cap, "desc.store.cap"),
+                             desc_slot(desc, 2));
+    }
+
+    /// 堆缓冲区之间逐元素拷贝：元素含堆时递归深拷贝，否则按 8 字节槽拷贝。
+    /// `count` 是元素个数（不是槽数）。
+    void dyn_elems_copy(const std::string& elem, size_t eslots, llvm::Value* dst_data,
+                        llvm::Value* src_data, llvm::Value* count) {
+        auto* i64 = llvm::Type::getInt64Ty(ctx_);
+        if (!type_owns_heap(elem)) {
+            auto* total = builder_.CreateMul(
+                count, llvm::ConstantInt::get(i64, static_cast<uint64_t>(eslots)),
+                "dyn.copy.total");
+            dyn_copy_elems(dst_data, src_data, total);
+            return;
+        }
+        auto* fn = builder_.GetInsertBlock()->getParent();
+        auto* i_slot = builder_.CreateAlloca(i64, nullptr, "dyn.deep.i");
+        builder_.CreateStore(llvm::ConstantInt::get(i64, 0), i_slot);
+        auto* cond_bb = llvm::BasicBlock::Create(ctx_, "dyn.deep.cond");
+        auto* body_bb = llvm::BasicBlock::Create(ctx_, "dyn.deep.body");
+        auto* end_bb = llvm::BasicBlock::Create(ctx_, "dyn.deep.end");
+        builder_.CreateBr(cond_bb);
+        cond_bb->insertInto(fn);
+        builder_.SetInsertPoint(cond_bb);
+        auto* iv = builder_.CreateLoad(i64, i_slot, "dyn.deep.idx");
+        auto* cmp = builder_.CreateICmpSLT(iv, count, "dyn.deep.cmp");
+        builder_.CreateCondBr(cmp, body_bb, end_bb);
+        body_bb->insertInto(fn);
+        builder_.SetInsertPoint(body_bb);
+        auto* row = builder_.CreateMul(
+            iv, llvm::ConstantInt::get(i64, static_cast<uint64_t>(eslots)), "dyn.deep.row");
+        auto* d = dyn_slot(dst_data, row);
+        auto* s = dyn_slot(src_data, row);
+        deep_copy_value(elem, d, s);
+        auto* next = builder_.CreateAdd(iv, llvm::ConstantInt::get(i64, 1), "dyn.deep.next");
+        builder_.CreateStore(next, i_slot);
+        builder_.CreateBr(cond_bb);
+        end_bb->insertInto(fn);
+        builder_.SetInsertPoint(end_bb);
+    }
+
+    /// 深拷贝 descriptor 三槽：重新 malloc 堆缓冲区并递归复制元素。
+    void dyn_slots_deep_copy(const std::string& ty, const DynSlots& dst,
+                             const DynSlots& src) {
+        if (is_dynamic_nested_array(ty)) {
+            // 动态嵌套数组：逐内层 descriptor 深拷贝（struct 字段不在 v1 范围，
+            // 但通用路径仍保持正确）。
+            VarInfo tmp = nested_copy_from_slots(ty, src.data, src.len, src.cap,
+                                                 Position(1, 1));
+            DynSlots ts = dyn_slots_of(*tmp.dyn);
+            dyn_slots_copy(dst, ts);
+            dyn_slots_clear(ts);
+            return;
+        }
+        auto* i64 = llvm::Type::getInt64Ty(ctx_);
+        auto* pty = ptr_ty(ctx_);
+        auto* sp = builder_.CreateLoad(pty, src.data, "deep.src.data");
+        auto* sl = builder_.CreateLoad(i64, src.len, "deep.src.len");
+        auto* sc = builder_.CreateLoad(i64, src.cap, "deep.src.cap");
+        const size_t eslots = array_elem_slots(ty);
+        auto* bytes = builder_.CreateMul(
+            sc, llvm::ConstantInt::get(i64, static_cast<uint64_t>(eslots * 8)),
+            "deep.bytes");
+        auto* np = builder_.CreateCall(runtime_fn("malloc"), {bytes}, "deep.data");
+        auto elem = array_elem(ty);
+        if (!elem.has_value()) {
+            throw TenetError("内部错误：`" + ty + "` 不是数组");
+        }
+        dyn_elems_copy(*elem, eslots, np, sp, sl);
+        builder_.CreateStore(np, dst.data);
+        builder_.CreateStore(sl, dst.len);
+        builder_.CreateStore(sc, dst.cap);
+    }
+
+    /// 从任意 descriptor 三槽深拷贝出一个新的局部动态数组变量。
+    VarInfo dyn_deep_copy_from(const std::string& name, const std::string& ty,
+                               const DynSlots& src) {
+        if (!is_dynamic_array(ty)) {
+            throw TenetError::at_pos("`" + ty + "` 不是动态数组", Position(1, 1));
+        }
+        DynArrayInfo dyn = dyn_new_slots(name);
+        dyn_slots_deep_copy(ty, dyn_slots_of(dyn), src);
+        return VarInfo{ty, nullptr, {}, std::nullopt, dyn};
+    }
+
+    /// 深拷贝扁平槽块中的一个值：dst / src 是起始槽地址（源保持有效）。
+    /// 标量 / 无堆固定数组逐槽复制；动态 descriptor 重新 malloc；struct 递归字段。
+    void deep_copy_value(const std::string& ty, llvm::Value* dst, llvm::Value* src) {
+        if (!type_owns_heap(ty)) {
+            copy_slots(dst, src, field_slot_width(ty));
+            return;
+        }
+        if (is_dynamic_array(ty)) {
+            dyn_slots_deep_copy(ty, dyn_slots_at(dst), dyn_slots_at(src));
+            return;
+        }
+        auto elem = array_elem(ty);
+        if (elem.has_value()) {
+            const size_t len = array_decl_len(ty).value_or(0);
+            const size_t eslots = array_elem_slots(ty);
+            for (size_t i = 0; i < len; ++i) {
+                deep_copy_value(*elem, flat_slot(dst, i * eslots),
+                                flat_slot(src, i * eslots));
+            }
+            return;
+        }
+        auto it = structs_.find(ty);
+        if (it == structs_.end()) return;
+        for (const auto& [fname, fty] : it->second) {
+            const size_t off = direct_field_slot_offset(ty, fname, Position(1, 1));
+            if (is_dynamic_array(fty)) {
+                dyn_slots_deep_copy(fty, dyn_slots_at(flat_slot(dst, off)),
+                                    dyn_slots_at(flat_slot(src, off)));
+            } else if (type_owns_heap(fty)) {
+                deep_copy_value(fty, flat_slot(dst, off), flat_slot(src, off));
+            } else {
+                copy_slots(flat_slot(dst, off), flat_slot(src, off),
+                           field_slot_width(fty));
+            }
+        }
+    }
+
+    /// 扁平槽块中的值转移（return / 整体赋值）：descriptor 复制后清空源；
+    /// 无堆字段逐槽复制。源块之后不应再被 drop。
+    void transfer_value_slots(const std::string& ty, llvm::Value* dst, llvm::Value* src) {
+        if (!type_owns_heap(ty)) {
+            copy_slots(dst, src, field_slot_width(ty));
+            return;
+        }
+        if (is_dynamic_array(ty)) {
+            dyn_slots_transfer(dyn_slots_at(dst), dyn_slots_at(src));
+            return;
+        }
+        auto elem = array_elem(ty);
+        if (elem.has_value()) {
+            const size_t len = array_decl_len(ty).value_or(0);
+            const size_t eslots = array_elem_slots(ty);
+            for (size_t i = 0; i < len; ++i) {
+                transfer_value_slots(*elem, flat_slot(dst, i * eslots),
+                                     flat_slot(src, i * eslots));
+            }
+            return;
+        }
+        auto it = structs_.find(ty);
+        if (it == structs_.end()) return;
+        for (const auto& [fname, fty] : it->second) {
+            const size_t off = direct_field_slot_offset(ty, fname, Position(1, 1));
+            if (is_dynamic_array(fty)) {
+                dyn_slots_transfer(dyn_slots_at(flat_slot(dst, off)),
+                                   dyn_slots_at(flat_slot(src, off)));
+            } else if (type_owns_heap(fty)) {
+                transfer_value_slots(fty, flat_slot(dst, off), flat_slot(src, off));
+            } else {
+                copy_slots(flat_slot(dst, off), flat_slot(src, off),
+                           field_slot_width(fty));
+            }
+        }
+    }
+
+    /// 递归 drop 扁平槽块中的一个值（标量 / 无堆字段不处理）。
+    void drop_value_slots(const std::string& ty, llvm::Value* base) {
+        if (!type_owns_heap(ty)) return;
+        if (is_dynamic_array(ty)) {
+            dyn_drop_slots(flat_slot(base, 0), flat_slot(base, 1), flat_slot(base, 2), ty);
+            return;
+        }
+        auto elem = array_elem(ty);
+        if (elem.has_value()) {
+            const size_t len = array_decl_len(ty).value_or(0);
+            const size_t eslots = array_elem_slots(ty);
+            for (size_t i = 0; i < len; ++i) {
+                drop_value_slots(*elem, flat_slot(base, i * eslots));
+            }
+            return;
+        }
+        auto it = structs_.find(ty);
+        if (it == structs_.end()) return;
+        for (const auto& [fname, fty] : it->second) {
+            if (!type_owns_heap(fty)) continue;
+            const size_t off = direct_field_slot_offset(ty, fname, Position(1, 1));
+            if (is_dynamic_array(fty)) {
+                dyn_drop_slots(flat_slot(base, off), flat_slot(base, off + 1),
+                               flat_slot(base, off + 2), fty);
+            } else {
+                drop_value_slots(fty, flat_slot(base, off));
+            }
+        }
+    }
+
+    /// S3e：递归 drop 一个局部变量（动态数组 / struct 动态字段 / 固定数组元素）。
+    void drop_var(const VarInfo& info) {
+        if (info.dyn.has_value()) {
+            dyn_drop(*info.dyn, info.ty);
+            return;
+        }
+        if (is_array(info.ty)) {
+            // 固定 array<struct> / 嵌套数组：只处理元素含堆的类型。
+            if (!info.array_len.has_value() || info.addr == nullptr) return;
+            auto elem = array_elem(info.ty);
+            if (!elem.has_value() || !type_owns_heap(*elem)) return;
+            const size_t eslots = array_elem_slots(info.ty);
+            for (size_t i = 0; i < *info.array_len; ++i) {
+                drop_value_slots(*elem, flat_slot(info.addr, i * eslots));
+            }
+            return;
+        }
+        if (!is_struct(info.ty)) return;
+        for (const auto& entry : layout_of(info.ty)) {
+            if (is_dynamic_array(entry.ty)) {
+                auto f = info.dyn_fields.find(entry.path);
+                if (f == info.dyn_fields.end()) {
+                    throw TenetError("内部错误：struct 字段 `" + entry.path +
+                                     "` 缺少 descriptor");
+                }
+                dyn_drop(f->second, entry.ty);
+                continue;
+            }
+            if (!type_owns_heap(entry.ty)) continue;
+            auto f = info.fields.find(entry.path);
+            if (f == info.fields.end()) {
+                throw TenetError("内部错误：struct 字段 `" + entry.path + "` 缺少槽位");
+            }
+            drop_value_slots(entry.ty, f->second.second);
+        }
     }
 
     // ---- S3c-2：动态数组参数 / 返回值的 3 槽 descriptor ----
@@ -3211,9 +3961,14 @@ private:
         auto* bytes = builder_.CreateMul(
             sc, llvm::ConstantInt::get(i64, static_cast<uint64_t>(slots * 8)), "desc.bytes");
         auto* np = builder_.CreateCall(runtime_fn("malloc"), {bytes}, "dyn.param.data");
-        auto* total = builder_.CreateMul(
-            sl, llvm::ConstantInt::get(i64, static_cast<uint64_t>(slots)), "desc.total");
-        dyn_copy_elems(np, sp, total);
+        if (type_owns_heap(*elem)) {
+            // S3e：array<struct> 元素含动态字段 → 逐元素深拷贝。
+            dyn_elems_copy(*elem, slots, np, sp, sl);
+        } else {
+            auto* total = builder_.CreateMul(
+                sl, llvm::ConstantInt::get(i64, static_cast<uint64_t>(slots)), "desc.total");
+            dyn_copy_elems(np, sp, total);
+        }
         DynArrayInfo dyn = dyn_new_slots(name);
         builder_.CreateStore(np, dyn.data);
         builder_.CreateStore(sl, dyn.len);
@@ -3356,6 +4111,12 @@ private:
                     value->pos);
             }
             // 深拷贝：按源 cap * slots 重新 malloc，逐槽复制，源数组不受影响。
+            // S3e：struct 元素含动态字段时逐元素递归深拷贝。
+            if (type_owns_heap(*elem)) {
+                dyn_slots_deep_copy(ty_name, dyn_slots_of(dyn),
+                                    dyn_slots_of(*sinfo.dyn));
+                return VarInfo{ty_name, nullptr, {}, std::nullopt, dyn};
+            }
             auto* slen = builder_.CreateLoad(i64, sinfo.dyn->len, "dyn.src.len");
             auto* scap = builder_.CreateLoad(i64, sinfo.dyn->cap, "dyn.src.cap");
             auto* sp = builder_.CreateLoad(pty, sinfo.dyn->data, "dyn.src.data");
@@ -3377,23 +4138,22 @@ private:
             value->pos);
     }
 
-    /// S3c-3b-2：`push(a, struct)` —— 元素按 slots 个 8 字节槽追加。
+    /// S3c-3b-2 / S3e：`push(a, struct)` —— 元素按 slots 个 8 字节槽追加。
+    /// 目标可以是动态数组变量，也可以是 struct 的动态数组字段（Descriptor 三槽）。
     /// 容量不足时 cap*2，按 slots 计算新缓冲区字节数并逐槽拷贝，free 旧缓冲区。
-    void push_struct_dynamic(const VarInfo& info, const ExprPtr& value) {
-        if (!info.dyn.has_value()) {
-            throw TenetError("内部错误：push 目标不是动态数组");
-        }
-        auto elem = array_elem(info.ty);
+    void push_struct_dynamic(const std::string& ty, const DynSlots& dslots,
+                             const ExprPtr& value) {
+        auto elem = array_elem(ty);
         if (!elem.has_value() || !is_struct(*elem)) {
             throw TenetError("内部错误：push 目标不是 array<struct>");
         }
-        const size_t slots = array_elem_slots(info.ty);
+        const size_t eslots = array_elem_slots(ty);
         auto* i64 = llvm::Type::getInt64Ty(ctx_);
         auto* pty = ptr_ty(ctx_);
-        auto* tmp = alloc_buffer(slots, "push.tmp");
+        auto* tmp = alloc_buffer(eslots, "push.tmp");
         pack_expr_to_buffer(*elem, value, tmp);
-        auto* len = builder_.CreateLoad(i64, info.dyn->len, "dyn.len");
-        auto* cap = builder_.CreateLoad(i64, info.dyn->cap, "dyn.cap");
+        auto* len = builder_.CreateLoad(i64, dslots.len, "dyn.len");
+        auto* cap = builder_.CreateLoad(i64, dslots.cap, "dyn.cap");
         auto* full = builder_.CreateICmpEQ(len, cap, "dyn.full");
         auto* fn = builder_.GetInsertBlock()->getParent();
         auto* grow_bb = llvm::BasicBlock::Create(ctx_, "dyn.grow");
@@ -3403,33 +4163,73 @@ private:
         builder_.SetInsertPoint(grow_bb);
         auto* newcap = builder_.CreateMul(cap, llvm::ConstantInt::get(i64, 2), "dyn.newcap");
         auto* bytes = builder_.CreateMul(
-            newcap, llvm::ConstantInt::get(i64, static_cast<uint64_t>(slots * 8)),
+            newcap, llvm::ConstantInt::get(i64, static_cast<uint64_t>(eslots * 8)),
             "dyn.bytes");
         auto* np = builder_.CreateCall(runtime_fn("malloc"), {bytes}, "dyn.newdata");
-        auto* op = builder_.CreateLoad(pty, info.dyn->data, "dyn.olddata");
+        auto* op = builder_.CreateLoad(pty, dslots.data, "dyn.olddata");
         auto* total =
-            builder_.CreateMul(len, llvm::ConstantInt::get(i64, static_cast<uint64_t>(slots)),
+            builder_.CreateMul(len, llvm::ConstantInt::get(i64, static_cast<uint64_t>(eslots)),
                                "dyn.grow.total");
         dyn_copy_elems(np, op, total);
         builder_.CreateCall(runtime_fn("free"), {op});
-        builder_.CreateStore(np, info.dyn->data);
-        builder_.CreateStore(newcap, info.dyn->cap);
+        builder_.CreateStore(np, dslots.data);
+        builder_.CreateStore(newcap, dslots.cap);
         builder_.CreateBr(after_bb);
         after_bb->insertInto(fn);
         builder_.SetInsertPoint(after_bb);
-        auto* data = builder_.CreateLoad(pty, info.dyn->data, "dyn.data");
+        auto* data = builder_.CreateLoad(pty, dslots.data, "dyn.data");
         auto* row = builder_.CreateMul(
-            len, llvm::ConstantInt::get(i64, static_cast<uint64_t>(slots)), "dyn.row");
+            len, llvm::ConstantInt::get(i64, static_cast<uint64_t>(eslots)), "dyn.row");
         auto* dst = dyn_slot(data, row);
-        for (size_t k = 0; k < slots; ++k) {
-            auto* src_slot = buffer_slot(tmp, slots, k);
+        for (size_t k = 0; k < eslots; ++k) {
+            auto* src_slot = buffer_slot(tmp, eslots, k);
             auto* v = builder_.CreateLoad(i64, src_slot, "push.slot");
             auto* dst_slot = dyn_slot(
                 dst, llvm::ConstantInt::get(i64, static_cast<uint64_t>(k)));
             builder_.CreateStore(v, dst_slot);
         }
         auto* newlen = builder_.CreateAdd(len, llvm::ConstantInt::get(i64, 1), "dyn.newlen");
-        builder_.CreateStore(newlen, info.dyn->len);
+        builder_.CreateStore(newlen, dslots.len);
+    }
+
+    /// S3e：`push(a, scalar)` —— 目标可以是动态数组变量或 struct 的动态数组字段。
+    /// 容量不足时 cap*2，malloc 新缓冲区 + 逐槽拷贝 + free 旧缓冲区。
+    void push_scalar_dynamic(const std::string& ty, const DynSlots& dslots,
+                             const ExprPtr& value) {
+        std::string elem = array_elem_scalar(ty, value->pos);
+        std::string elem_ll = llvm_type(elem);
+        auto [vt, v] = gen_expr(value);
+        if (vt != elem_ll) {
+            throw TenetError::at_pos(
+                "push 值类型不匹配：需要 " + elem + "，实际 " + tenet_name(vt),
+                value->pos);
+        }
+        auto* i64 = llvm::Type::getInt64Ty(ctx_);
+        auto* pty = ptr_ty(ctx_);
+        auto* len = builder_.CreateLoad(i64, dslots.len, "dyn.len");
+        auto* cap = builder_.CreateLoad(i64, dslots.cap, "dyn.cap");
+        auto* full = builder_.CreateICmpEQ(len, cap, "dyn.full");
+        auto* fn = builder_.GetInsertBlock()->getParent();
+        auto* grow_bb = llvm::BasicBlock::Create(ctx_, "dyn.grow");
+        auto* after_bb = llvm::BasicBlock::Create(ctx_, "dyn.grow.after");
+        builder_.CreateCondBr(full, grow_bb, after_bb);
+        grow_bb->insertInto(fn);
+        builder_.SetInsertPoint(grow_bb);
+        auto* newcap = builder_.CreateMul(cap, llvm::ConstantInt::get(i64, 2), "dyn.newcap");
+        auto* bytes = builder_.CreateMul(newcap, llvm::ConstantInt::get(i64, 8), "dyn.bytes");
+        auto* np = builder_.CreateCall(runtime_fn("malloc"), {bytes}, "dyn.newdata");
+        auto* op = builder_.CreateLoad(pty, dslots.data, "dyn.olddata");
+        dyn_copy_elems(np, op, len);
+        builder_.CreateCall(runtime_fn("free"), {op});
+        builder_.CreateStore(np, dslots.data);
+        builder_.CreateStore(newcap, dslots.cap);
+        builder_.CreateBr(after_bb);
+        after_bb->insertInto(fn);
+        builder_.SetInsertPoint(after_bb);
+        auto* data = builder_.CreateLoad(pty, dslots.data, "dyn.data");
+        builder_.CreateStore(pack_scalar(elem, v), dyn_slot(data, len));
+        auto* newlen = builder_.CreateAdd(len, llvm::ConstantInt::get(i64, 1), "dyn.newlen");
+        builder_.CreateStore(newlen, dslots.len);
     }
 
     // ---- v1 动态嵌套数组：array<array<T>>（外层动态、内层动态标量）----
@@ -3588,12 +4388,10 @@ private:
 
     /// `push(a, inner)`：内层数组先深拷贝到临时动态数组，再把 descriptor
     /// 三个槽追加到外层元素（stride=3）；外层容量不足时 cap*2。
-    void push_nested_dynamic(const VarInfo& info, const ExprPtr& value) {
-        if (!info.dyn.has_value()) {
-            throw TenetError("内部错误：push 目标不是动态数组");
-        }
-        ensure_dynamic_nested_scalar_array(info.ty, value->pos);
-        auto inner_ty = array_elem(info.ty).value();
+    void push_nested_dynamic(const std::string& ty, const DynSlots& dslots,
+                             const ExprPtr& value) {
+        ensure_dynamic_nested_scalar_array(ty, value->pos);
+        auto inner_ty = array_elem(ty).value();
         if (value->kind != Expr::Kind::Array && value->kind != Expr::Kind::Var &&
             value->kind != Expr::Kind::Call) {
             throw TenetError::at_pos(
@@ -3607,8 +4405,8 @@ private:
         auto* td = builder_.CreateLoad(pty, tmp.dyn->data, "push.inner.data");
         auto* tl = builder_.CreateLoad(i64, tmp.dyn->len, "push.inner.len");
         auto* tc = builder_.CreateLoad(i64, tmp.dyn->cap, "push.inner.cap");
-        auto* len = builder_.CreateLoad(i64, info.dyn->len, "dyn.len");
-        auto* cap = builder_.CreateLoad(i64, info.dyn->cap, "dyn.cap");
+        auto* len = builder_.CreateLoad(i64, dslots.len, "dyn.len");
+        auto* cap = builder_.CreateLoad(i64, dslots.cap, "dyn.cap");
         auto* full = builder_.CreateICmpEQ(len, cap, "dyn.full");
         auto* fn = builder_.GetInsertBlock()->getParent();
         auto* grow_bb = llvm::BasicBlock::Create(ctx_, "dyn.grow");
@@ -3620,24 +4418,27 @@ private:
         auto* bytes = builder_.CreateMul(newcap, llvm::ConstantInt::get(i64, 24),
                                          "dyn.bytes");
         auto* np = builder_.CreateCall(runtime_fn("malloc"), {bytes}, "dyn.newdata");
-        auto* op = builder_.CreateLoad(pty, info.dyn->data, "dyn.olddata");
+        auto* op = builder_.CreateLoad(pty, dslots.data, "dyn.olddata");
         auto* total = builder_.CreateMul(len, llvm::ConstantInt::get(i64, 3),
                                          "dyn.grow.total");
         dyn_copy_elems(np, op, total);
         builder_.CreateCall(runtime_fn("free"), {op});
-        builder_.CreateStore(np, info.dyn->data);
-        builder_.CreateStore(newcap, info.dyn->cap);
+        builder_.CreateStore(np, dslots.data);
+        builder_.CreateStore(newcap, dslots.cap);
         builder_.CreateBr(after_bb);
         after_bb->insertInto(fn);
         builder_.SetInsertPoint(after_bb);
-        auto* data = builder_.CreateLoad(pty, info.dyn->data, "dyn.data");
+        auto* data = builder_.CreateLoad(pty, dslots.data, "dyn.data");
         auto* row = builder_.CreateMul(len, llvm::ConstantInt::get(i64, 3), "dyn.row");
         auto* dst = dyn_slot(data, row);
         builder_.CreateStore(td, desc_slot(dst, 0));
         builder_.CreateStore(tl, desc_slot(dst, 1));
         builder_.CreateStore(tc, desc_slot(dst, 2));
+        builder_.CreateStore(llvm::ConstantPointerNull::get(pty), tmp.dyn->data);
+        builder_.CreateStore(llvm::ConstantInt::get(i64, 0), tmp.dyn->len);
+        builder_.CreateStore(llvm::ConstantInt::get(i64, 0), tmp.dyn->cap);
         auto* newlen = builder_.CreateAdd(len, llvm::ConstantInt::get(i64, 1), "dyn.newlen");
-        builder_.CreateStore(newlen, info.dyn->len);
+        builder_.CreateStore(newlen, dslots.len);
     }
 
     /// 计算 `a[i]` 的内层 descriptor 地址（外层下标越界检查）。
@@ -3688,6 +4489,18 @@ private:
     /// `return 字面量` 也复用它构造临时动态数组，再转移/清理 descriptor。
     VarInfo init_dynamic_array(const std::string& name, const std::string& ty_name,
                                const ExprPtr& value, const Position& pos) {
+        // S3e：`s.a` / `t.a` / `arr[i].a` 这类动态数组字段左值 → 深拷贝一份新数组。
+        if (value && (value->kind == Expr::Kind::Field || value->kind == Expr::Kind::Index)) {
+            auto dt = resolve_dyn_target(value);
+            if (dt.has_value()) {
+                if (dt->first != ty_name) {
+                    throw TenetError::at_pos(
+                        "`" + name + "` 需要 " + ty_name + "，实际是 " + dt->first,
+                        value->pos);
+                }
+                return dyn_deep_copy_from(name, ty_name, dt->second);
+            }
+        }
         if (is_nested_array(ty_name)) {
             // v1 动态嵌套数组：外层与内层都必须动态，内层元素限标量。
             ensure_dynamic_nested_scalar_array(ty_name, pos);
@@ -3783,16 +4596,16 @@ private:
         builder_.CreateStore(tc, dst.dyn->cap);
     }
 
-    /// drop 指定作用域里的动态数组（按变量名排序，保证 IR 稳定）。
+    /// drop 指定作用域里拥有堆内存的变量（动态数组 / 含动态字段的 struct /
+    /// 元素含堆的固定数组）。按变量名排序，保证 IR 稳定。
     void drop_scope_at(size_t idx) {
         std::vector<std::string> names;
         for (const auto& [name, info] : symbols_[idx]) {
-            if (info.dyn.has_value()) names.push_back(name);
+            if (type_owns_heap(info.ty)) names.push_back(name);
         }
         std::sort(names.begin(), names.end());
         for (const auto& name : names) {
-            const VarInfo& info = symbols_[idx].at(name);
-            dyn_drop(*info.dyn, info.ty);
+            drop_var(symbols_[idx].at(name));
         }
     }
 
@@ -3936,66 +4749,40 @@ private:
                                                   const Position& pos) {
         if (callee == "print") return gen_print(args, pos);
         if (callee == "push") {
-            // S3c-1：push(a, x) —— 容量不足时 cap*2，malloc 新缓冲区 + 拷贝 + free 旧缓冲区。
+            // S3c-1 / S3e：push(a, x) —— 目标可以是动态数组变量，也可以是 struct 的
+            // 动态数组字段（`push(s.a, x)` / `push(arr[i].a, x)`）。
             if (args.size() != 2) {
                 throw TenetError::at_pos("`push` 需要两个参数：数组变量和值", pos);
             }
-            if (args[0]->kind != Expr::Kind::Var) {
+            bool is_var = args[0]->kind == Expr::Kind::Var;
+            if (is_var) {
+                const VarInfo& info = lookup_var(args[0]->name, args[0]->pos);
+                if (!info.dyn.has_value()) {
+                    throw TenetError::at_pos(
+                        "`" + args[0]->name + "` 不是动态数组，不能 push", args[0]->pos);
+                }
+            }
+            auto dt = resolve_dyn_target(args[0]);
+            if (!dt.has_value()) {
+                if (is_var) throw TenetError("内部错误：动态数组变量缺少 descriptor");
                 throw TenetError::at_pos("`push` 第一个参数必须是动态数组变量", args[0]->pos);
             }
-            const std::string& name = args[0]->name;
-            const VarInfo& info = lookup_var(name, args[0]->pos);
-            if (!info.dyn.has_value()) {
-                throw TenetError::at_pos("`" + name + "` 不是动态数组，不能 push",
-                                         args[0]->pos);
-            }
-            auto elem0 = array_elem(info.ty);
+            const std::string& ty = dt->first;
+            const DynSlots& dslots = dt->second;
+            auto elem0 = array_elem(ty);
             if (elem0.has_value() && is_array(*elem0)) {
                 // v1 动态嵌套数组：push 内层变量 / 字面量 / 返回内层数组的调用；
                 // 先深拷贝内层，再把 descriptor 追加到外层（stride=3，cap*2）。
-                ensure_dynamic_nested_scalar_array(info.ty, args[0]->pos);
-                push_nested_dynamic(info, args[1]);
+                ensure_dynamic_nested_scalar_array(ty, args[0]->pos);
+                push_nested_dynamic(ty, dslots, args[1]);
                 return {"void", nullptr};
             }
             if (elem0.has_value() && is_struct(*elem0)) {
                 // S3c-3b-2：push struct 字面量 / 同类型 struct 变量 / 返回 struct 的调用。
-                push_struct_dynamic(info, args[1]);
+                push_struct_dynamic(ty, dslots, args[1]);
                 return {"void", nullptr};
             }
-            std::string elem = array_elem_scalar(info.ty, args[0]->pos);
-            std::string elem_ll = llvm_type(elem);
-            auto [vt, v] = gen_expr(args[1]);
-            if (vt != elem_ll) {
-                throw TenetError::at_pos(
-                    "push 值类型不匹配：需要 " + elem + "，实际 " + tenet_name(vt),
-                    args[1]->pos);
-            }
-            auto* i64 = llvm::Type::getInt64Ty(ctx_);
-            auto* pty = ptr_ty(ctx_);
-            auto* len = builder_.CreateLoad(i64, info.dyn->len, "dyn.len");
-            auto* cap = builder_.CreateLoad(i64, info.dyn->cap, "dyn.cap");
-            auto* full = builder_.CreateICmpEQ(len, cap, "dyn.full");
-            auto* fn = builder_.GetInsertBlock()->getParent();
-            auto* grow_bb = llvm::BasicBlock::Create(ctx_, "dyn.grow");
-            auto* after_bb = llvm::BasicBlock::Create(ctx_, "dyn.grow.after");
-            builder_.CreateCondBr(full, grow_bb, after_bb);
-            grow_bb->insertInto(fn);
-            builder_.SetInsertPoint(grow_bb);
-            auto* newcap = builder_.CreateMul(cap, llvm::ConstantInt::get(i64, 2), "dyn.newcap");
-            auto* bytes = builder_.CreateMul(newcap, llvm::ConstantInt::get(i64, 8), "dyn.bytes");
-            auto* np = builder_.CreateCall(runtime_fn("malloc"), {bytes}, "dyn.newdata");
-            auto* op = builder_.CreateLoad(pty, info.dyn->data, "dyn.olddata");
-            dyn_copy_elems(np, op, len);
-            builder_.CreateCall(runtime_fn("free"), {op});
-            builder_.CreateStore(np, info.dyn->data);
-            builder_.CreateStore(newcap, info.dyn->cap);
-            builder_.CreateBr(after_bb);
-            after_bb->insertInto(fn);
-            builder_.SetInsertPoint(after_bb);
-            auto* data = builder_.CreateLoad(pty, info.dyn->data, "dyn.data");
-            builder_.CreateStore(pack_scalar(elem, v), dyn_slot(data, len));
-            auto* newlen = builder_.CreateAdd(len, llvm::ConstantInt::get(i64, 1), "dyn.newlen");
-            builder_.CreateStore(newlen, info.dyn->len);
+            push_scalar_dynamic(ty, dslots, args[1]);
             return {"void", nullptr};
         }
         if (callee == "len") {
@@ -4013,7 +4800,13 @@ private:
                                                         desc_slot(row, 1), "nested.len")};
                 }
             }
+            // S3e：len(s.a) / len(arr[i].a)；len(a) 动态数组变量 / 固定数组仍走下面。
             if (args[0]->kind != Expr::Kind::Var) {
+                auto dt = resolve_dyn_target(args[0]);
+                if (dt.has_value()) {
+                    return {"i64", builder_.CreateLoad(llvm::Type::getInt64Ty(ctx_),
+                                                        dt->second.len, "dyn.len")};
+                }
                 throw TenetError::at_pos("`len` 参数必须是数组变量", args[0]->pos);
             }
             const VarInfo& info = lookup_var(args[0]->name, args[0]->pos);
@@ -4070,15 +4863,20 @@ private:
                 vals.push_back(sret_buf);
             }
         }
-        // S3c-3a：动态实参里的字面量 / 调用结果产生的临时缓冲区，调用返回后清理。
+        // S3c-3a / S3e：实参里的字面量 / 调用结果 / 深拷贝产生的临时缓冲区，
+        // 调用返回后由调用方释放。
         std::vector<TempDyn> temp_dyn;
+        std::vector<std::pair<std::string, llvm::Value*>> temp_struct;
+        std::vector<std::pair<std::string, llvm::Value*>> temp_fixed;
         for (size_t i = 0; i < args.size(); ++i) {
             const std::string& pty = info.params[i];
             if (is_struct(pty)) {
                 // struct 实参：字面量 / 同类型变量 / 返回 struct 的调用，打包后传指针。
+                // S3e：打包时动态字段深拷贝得到独立缓冲区，调用返回后释放实参缓冲。
                 auto* buf = alloc_buffer(struct_total_slots(pty),
                                          callee + ".arg" + std::to_string(i));
                 pack_expr_to_buffer(pty, args[i], buf);
+                if (type_owns_heap(pty)) temp_struct.emplace_back(pty, buf);
                 vals.push_back(buf);
                 continue;
             }
@@ -4115,6 +4913,17 @@ private:
                     }
                     desc_copy(desc, rdesc);
                     temp_dyn.push_back(TempDyn{std::nullopt, rdesc, pty});
+                } else if (args[i]->kind == Expr::Kind::Field ||
+                           args[i]->kind == Expr::Kind::Index) {
+                    // S3e：struct 动态字段实参（s.a / arr[i].a）——被调函数入口深拷贝，
+                    // 调用方不拥有该缓冲区，因此不登记临时释放。
+                    auto dt = resolve_dyn_target(args[i]);
+                    if (!dt.has_value() || dt->first != pty) {
+                        throw TenetError::at_pos(
+                            "动态数组实参只支持变量、字段、字面量或返回动态数组的调用",
+                            args[i]->pos);
+                    }
+                    desc_store_slots(desc, dt->second);
                 } else {
                     throw TenetError::at_pos(
                         "动态数组实参只支持变量、字面量或返回动态数组的调用",
@@ -4134,6 +4943,7 @@ private:
                     const size_t total = fixed_array_total_slots(pty);
                     auto* buf = alloc_buffer(total, callee + ".arg" + std::to_string(i));
                     pack_fixed_array_expr(pty, args[i], buf);
+                    if (type_owns_heap(pty)) temp_fixed.emplace_back(pty, buf);
                     vals.push_back(buf);
                 } else {
                     std::string elem = array_elem_scalar(pty, args[i]->pos);
@@ -4157,13 +4967,19 @@ private:
         }
         auto fn = info.fn;
         auto call = builder_.CreateCall(fn, vals);
-        // S3c-3a：被调函数入口已深拷贝，调用返回后释放临时实参缓冲区。
+        // S3c-3a / S3e：被调函数入口已深拷贝，调用返回后释放临时实参缓冲区。
         for (auto& t : temp_dyn) {
             if (t.desc != nullptr) {
                 drop_desc_owned(t.desc, t.ty);
             } else if (t.var.has_value()) {
                 dyn_drop(*t.var, t.ty);
             }
+        }
+        for (const auto& [ty, buf] : temp_struct) {
+            drop_value_slots(ty, buf);
+        }
+        for (const auto& [ty, buf] : temp_fixed) {
+            drop_value_slots(ty, buf);
         }
         if (ret_struct || ret_array || ret_dynamic) {
             return {*info.ret, sret_buf};
@@ -4263,6 +5079,15 @@ private:
         for (size_t i = 0; i < flat.size(); ++i) {
             if (i > 0) printf_raw(", ");
             printf_raw(flat[i].path + ": ");
+            if (is_dynamic_array(flat[i].ty)) {
+                auto d = info.dyn_fields.find(flat[i].path);
+                if (d == info.dyn_fields.end()) {
+                    throw TenetError("内部错误：struct `" + info.ty +
+                                     "` 缺少动态字段槽 `" + flat[i].path + "`");
+                }
+                print_dyn_slots(flat[i].ty, dyn_slots_of(d->second), pos);
+                continue;
+            }
             auto f = info.fields.find(flat[i].path);
             if (f == info.fields.end()) {
                 throw TenetError("内部错误：struct `" + info.ty + "` 缺少字段槽 `" +
@@ -4291,6 +5116,11 @@ private:
                 i64, base,
                 {llvm::ConstantInt::get(i64, static_cast<uint64_t>(flat[i].offset))},
                 "print.field");
+            if (is_dynamic_array(flat[i].ty)) {
+                // S3e：ABI buffer / 数组元素里的动态字段是连续 3 个 descriptor 槽。
+                print_dyn_slots(flat[i].ty, dyn_slots_at(addr), pos);
+                continue;
+            }
             if (is_array(flat[i].ty)) {
                 print_array_slots_at(flat[i].ty, addr, pos);
                 continue;
@@ -4353,11 +5183,9 @@ private:
     /// 动态数组：运行时循环，索引存栈槽；标量元素按 1 槽、struct 元素按 slots 槽
     /// 从堆缓冲区定位。v1 动态嵌套数组的外层元素是内层 descriptor（3 槽），
     /// 逐行打印成 `[[1, 2], [3]]`。空数组输出 `[]`。
-    void print_dynamic_array(const VarInfo& info, const std::string& elem,
-                             const Position& pos) {
-        if (!info.dyn.has_value()) {
-            throw TenetError("内部错误：动态数组变量缺少 descriptor");
-        }
+    /// S3e：descriptor 用 DynSlots，局部数组与 struct 动态字段共用。
+    void print_dynamic_array(const std::string& arr_ty, const DynSlots& dslots,
+                             const std::string& elem, const Position& pos) {
         auto* i64 = llvm::Type::getInt64Ty(ctx_);
         printf_raw("[");
         auto* idx_slot = builder_.CreateAlloca(i64, nullptr, "print.i");
@@ -4372,7 +5200,7 @@ private:
         cond_bb->insertInto(fn);
         builder_.SetInsertPoint(cond_bb);
         auto* iv = builder_.CreateLoad(i64, idx_slot, "print.idx");
-        auto* len = builder_.CreateLoad(i64, info.dyn->len, "print.len");
+        auto* len = builder_.CreateLoad(i64, dslots.len, "print.len");
         auto* cmp = builder_.CreateICmpSLT(iv, len, "print.cmp");
         builder_.CreateCondBr(cmp, body_bb, end_bb);
         body_bb->insertInto(fn);
@@ -4388,14 +5216,14 @@ private:
         after_bb->insertInto(fn);
         builder_.SetInsertPoint(after_bb);
         auto* iv_elem = builder_.CreateLoad(i64, idx_slot, "print.idx");
-        auto* data = builder_.CreateLoad(ptr_ty(ctx_), info.dyn->data, "print.data");
+        auto* data = builder_.CreateLoad(ptr_ty(ctx_), dslots.data, "print.data");
         if (is_array(elem)) {
             // v1 动态嵌套数组：外层元素是内层 descriptor，stride = 3 槽。
             auto* row = builder_.CreateMul(iv_elem, llvm::ConstantInt::get(i64, 3),
                                            "print.row");
             print_dynamic_nested_row(elem, dyn_slot(data, row), pos);
         } else if (is_struct(elem)) {
-            const size_t slots = array_elem_slots(info.ty);
+            const size_t slots = array_elem_slots(arr_ty);
             auto* row = builder_.CreateMul(
                 iv_elem, llvm::ConstantInt::get(i64, static_cast<uint64_t>(slots)),
                 "print.row");
@@ -4414,6 +5242,16 @@ private:
         printf_raw("]");
     }
 
+    /// S3e：打印一个动态数组 descriptor（struct 字段 / `print(s.a)` 用）。
+    void print_dyn_slots(const std::string& ty, const DynSlots& dslots,
+                         const Position& pos) {
+        auto elem = array_elem(ty);
+        if (!elem.has_value()) {
+            throw TenetError::at_pos("`" + ty + "` 不是数组", pos);
+        }
+        print_dynamic_array(ty, dslots, *elem, pos);
+    }
+
     /// 数组变量：定长标量 / 定长 struct / 定长嵌套 / 动态数组。
     void print_array_info(const VarInfo& info, const Position& pos) {
         auto elem = array_elem(info.ty);
@@ -4421,7 +5259,7 @@ private:
             throw TenetError("内部错误：`" + info.ty + "` 不是数组");
         }
         if (info.dyn.has_value()) {
-            print_dynamic_array(info, *elem, pos);
+            print_dynamic_array(info.ty, dyn_slots_of(*info.dyn), *elem, pos);
             return;
         }
         if (!info.array_len.has_value() || info.addr == nullptr) {
@@ -4494,16 +5332,28 @@ private:
         throw TenetError::at_pos("print 不支持该类型的值", pos);
     }
 
-    /// print(a, b, ...) → 纯标量沿用单次 printf；出现 aggregate 变量时逐片段打印。
+    /// print(a, b, ...) → 纯标量沿用单次 printf；出现 aggregate 变量 / 数组字段时
+    /// 逐片段打印。
     std::pair<std::string, llvm::Value*> gen_print(const std::vector<ExprPtr>& args,
                                                    const Position& pos) {
         bool has_aggregate = false;
         for (const auto& a : args) {
-            if (a->kind != Expr::Kind::Var) continue;
-            const VarInfo& info = lookup_var(a->name, a->pos);
-            if (is_struct(info.ty) || is_array(info.ty)) {
-                has_aggregate = true;
-                break;
+            if (a->kind == Expr::Kind::Var) {
+                const VarInfo& info = lookup_var(a->name, a->pos);
+                if (is_struct(info.ty) || is_array(info.ty)) {
+                    has_aggregate = true;
+                    break;
+                }
+                continue;
+            }
+            // S3e：print(s.a) / print(arr[i].a) / print(s.arr) 这类数组字段链。
+            // 只处理顶层是字段访问的形式：print(a[0]) 之类仍走既有表达式错误路径。
+            if (a->kind == Expr::Kind::Field) {
+                auto chain = infer_chain_type(a);
+                if (chain.has_value() && is_dynamic_array(*chain)) {
+                    has_aggregate = true;
+                    break;
+                }
             }
         }
         if (!has_aggregate) return gen_print_scalars(args, pos);
@@ -4562,6 +5412,23 @@ private:
                 if (is_struct(info.ty) || is_array(info.ty)) {
                     print_aggregate_var(info, args[i]->pos);
                     continue;
+                }
+            } else if (args[i]->kind == Expr::Kind::Field) {
+                // S3e：动态数组字段（`print(s.a)` / `print(arr[i].a)`）按 descriptor 打印。
+                auto chain = infer_chain_type(args[i]);
+                if (chain.has_value() && is_dynamic_array(*chain)) {
+                    auto dt = resolve_dyn_target(args[i]);
+                    if (dt.has_value()) {
+                        print_dyn_slots(dt->first, dt->second, args[i]->pos);
+                        continue;
+                    }
+                    auto place = resolve_place(args[i]);
+                    if (place.has_value() && place->kind == Place::Kind::Array) {
+                        print_array_slots_at(place->ty, place->addr, args[i]->pos);
+                        continue;
+                    }
+                    throw TenetError::at_pos(
+                        "print 不支持该数组字段表达式；请打印数组变量", args[i]->pos);
                 }
             }
             auto [t, v] = gen_expr(args[i]);

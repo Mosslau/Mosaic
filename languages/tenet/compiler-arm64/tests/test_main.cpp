@@ -637,10 +637,16 @@ static void test_struct_s3a() {
         CHECK(a.find("str x9, [x29, #-16]") != std::string::npos);
     }
 
-    // struct 字段不能再是 array；S3c-3b-2 起动态 array<struct> 允许局部/参数/返回值，
-    // 但固定 array<struct, N> 参数/返回值仍明确拒绝（不在本轮）。
-    CHECK_THROWS(asm_of("struct S { a: array<int>; }"), "不支持 array");
-    CHECK_THROWS(asm_of("struct S { a: array<int>; }"), "只支持 int/float/bool");
+    // S3e：struct 支持动态 array<标量> 字段；动态 array<struct> 与动态嵌套字段仍拒绝。
+    CHECK_THROWS(asm_of("struct P { x: int; }\nstruct S { a: array<P>; }"),
+                 "不支持 array");
+    CHECK_THROWS(asm_of("struct P { x: int; }\nstruct S { a: array<P>; }"),
+                 "array<struct>");
+    {
+        std::string a = asm_of("struct S { a: array<int>; x: int; }\n"
+                               "let s: S = S { a: [1, 2], x: 3 };\nprint(len(s.a));");
+        CHECK(a.find("bl _malloc") != std::string::npos);
+    }
     {
         std::string a = asm_of("struct P { x: int; }\nlet a: array<P> = [P { x: 1 }];");
         CHECK(a.find("bl _malloc") != std::string::npos);
@@ -980,7 +986,7 @@ static void test_array() {
                  "v1 数组元素只支持 int/float/bool");
     CHECK_THROWS(asm_of("let a: array<array<bool, 1>, 1> = [[true]];"),
                  "嵌套数组内层暂不支持 bool");
-    CHECK_THROWS(asm_of("struct S { a: array<int>; }"), "只支持 int/float/bool");
+    CHECK_THROWS(asm_of("struct S { a: array<string>; }"), "只支持 int/float/bool");
 
     // len 的错误路径
     CHECK_THROWS(asm_of("let n = 1;\nlet m = len(n);"), "`len` 参数必须是数组");
@@ -1519,7 +1525,7 @@ static void test_array_s3c() {
                  "v1 数组元素只支持 int/float/bool");
     CHECK_THROWS(asm_of("fn f() -> array<array<int>> { return [1]; }"),
                  "嵌套数组第 0 个元素必须是内层数组字面量");
-    CHECK_THROWS(asm_of("struct S { a: array<int>; }"), "不支持 array");
+    CHECK_THROWS(asm_of("struct S { a: array<array<int>>; }"), "不支持 array");
 
     // 错误定位：push 值类型错误指向第二个实参
     {
@@ -3466,9 +3472,11 @@ static void test_struct_fixed_array_field_s3d() {
         CHECK(a.find("ldr x9, [x14, #0]") != std::string::npos);
     }
 
-    // 错误：动态 array<T> 字段（含嵌套动态）明确拒绝
-    CHECK_THROWS(asm_of("struct S { a: array<int>; }"), "不支持 array");
-    CHECK_THROWS(asm_of("struct S { a: array<int>; }"), "只支持 int/float/bool");
+    // 错误：动态 array<struct> 字段、动态嵌套字段、固定数组套动态内层仍拒绝
+    CHECK_THROWS(asm_of("struct P { x: int; }\nstruct S { a: array<P>; }"),
+                 "不支持 array");
+    CHECK_THROWS(asm_of("struct P { x: int; }\nstruct S { a: array<P>; }"),
+                 "array<struct>");
     CHECK_THROWS(asm_of("struct S { a: array<array<int>, 2>; }"), "不支持 array");
     CHECK_THROWS(asm_of("struct S { a: array<array<int, 2>>; }"), "不支持 array");
     CHECK_THROWS(asm_of("struct S { a: array<string, 2>; }"), "不支持 string");
@@ -3505,6 +3513,445 @@ static void test_struct_fixed_array_field_s3d() {
                  "数组");
 }
 
+// ---- S3e：struct 的动态数组字段 v1 ----
+
+static void test_struct_dynamic_field_s3e() {
+    // 语法/类型：struct 字段可以是动态 array<标量>；与标量字段共存。
+    {
+        auto prog = Parser::parse(
+            "struct S { a: array<int>; x: int; }\n"
+            "let s: S = S { a: [1, 2], x: 9 };");
+        CHECK(prog.stmts[0]->kind == Stmt::Kind::StructDecl);
+        CHECK(prog.stmts[0]->fields.size() == 2);
+        CHECK(prog.stmts[0]->fields[0].second == "array<int>");
+        CHECK(prog.stmts[1]->ty.has_value() && *prog.stmts[1]->ty == "S");
+    }
+
+    // 布局：动态字段占 3 个连续 descriptor 槽（data/len/cap）+ 标量 1 槽；
+    // 局部 s/t 各 4 槽，字段向低地址展开（帧尾另有深拷贝临时槽）。
+    {
+        std::string a = asm_of(
+            "struct S { a: array<int>; x: int; }\n"
+            "let s: S = S { a: [1, 2], x: 9 };\n"
+            "let t: S = s;\n"
+            "print(s.a[0], t.x);");
+        CHECK(a.find("str x0, [x29, #-8]") != std::string::npos);   // s.a.data
+        CHECK(a.find("str x9, [x29, #-16]") != std::string::npos);  // s.a.len
+        CHECK(a.find("str x9, [x29, #-24]") != std::string::npos);  // s.a.cap
+        CHECK(a.find("str x9, [x29, #-32]") != std::string::npos);  // s.x
+        CHECK(a.find("str x0, [x29, #-40]") != std::string::npos);  // t.a.data
+        CHECK(a.find("str x9, [x29, #-56]") != std::string::npos);  // t.a.cap
+        CHECK(a.find("str x9, [x29, #-64]") != std::string::npos);  // t.x
+        CHECK(a.find("mov x0, #32") != std::string::npos);          // cap=max(2,4)*8
+        CHECK(count_substr(code_only(a), "bl _malloc") == 2);       // 字面量 + t 深拷贝
+        CHECK(a.find("L.copy.words.") != std::string::npos);        // 深拷贝循环
+        CHECK(count_substr(code_only(a), "bl _free") >= 2);         // 作用域结束 drop
+    }
+
+    // 入口清零：break/return 跳过 let 时收尾 drop 只能 free(NULL)，
+    // 因此函数/main 入口把动态字段的 data/len/cap 三槽清零。
+    {
+        std::string a = asm_of(
+            "struct S { a: array<int>; x: int; }\n"
+            "let s: S = S { a: [1, 2], x: 9 };\n"
+            "print(len(s.a), s.x);");
+        size_t z = a.find("str xzr, [x29, #-8]");
+        size_t m = a.find("bl _malloc", a.find("_main:"));
+        CHECK(z != std::string::npos && m != std::string::npos && z < m);
+        CHECK(a.find("str xzr, [x29, #-16]") != std::string::npos);
+        CHECK(a.find("str xzr, [x29, #-24]") != std::string::npos);
+    }
+    {
+        // break 可能跳过 let：循环体作用域仍按计划 drop（入口已清零，运行期安全）。
+        std::string a = asm_of(
+            "struct S { a: array<int>; }\n"
+            "let i: int = 0;\n"
+            "while (i < 2) {\n"
+            "  if (i == 0) { i = i + 1; break; }\n"
+            "  let s: S = S { a: [1] };\n"
+            "  i = i + 1;\n"
+            "}\n"
+            "print(i);");
+        CHECK(a.find("bl _free") != std::string::npos);
+        CHECK(a.find("str xzr, [x29, #-16]") != std::string::npos);  // 循环体 s.a.data
+    }
+
+    // 读写：s.a[i] 常量/运行时下标都读 len 槽做边界检查；push 走扩容路径。
+    {
+        std::string a = asm_of(
+            "struct S { a: array<int>; x: int; }\n"
+            "let s: S = S { a: [1, 2], x: 9 };\n"
+            "s.a[0] = 7;\n"
+            "let i: int = 1;\n"
+            "s.a[i] = 8;\n"
+            "push(s.a, 3);\n"
+            "print(len(s.a), s.a[0], s.a[i]);");
+        CHECK(a.find("ldr x9, [x29, #-16]") != std::string::npos);  // len 运行时读取
+        CHECK(a.find("cmp x10, x11") != std::string::npos);
+        CHECK(a.find("b.hs L.dbounds.fail.") != std::string::npos);
+        CHECK(a.find("bl _tenet_bounds_fail") != std::string::npos);
+        CHECK(a.find("L.dyn.grow.") != std::string::npos);
+        CHECK(a.find("L.dyn.grow.copy") != std::string::npos);
+        CHECK(a.find("str x11, [x14, x9, lsl #3]") != std::string::npos);  // push 写元素
+    }
+
+    // 空动态数组字段：cap 至少 4；push 在 len==cap 时扩容。
+    {
+        std::string a = asm_of(
+            "struct S { a: array<int>; }\n"
+            "let s: S = S { a: [] };\n"
+            "push(s.a, 1);\n"
+            "print(len(s.a), s.a[0]);");
+        CHECK(a.find("mov x0, #32") != std::string::npos);  // 空数组 cap=4 * 8
+        CHECK(a.find("L.dyn.grow.") != std::string::npos);
+        CHECK(a.find("add x12, x10, x10") != std::string::npos);  // newcap = cap*2
+    }
+
+    // 深拷贝：let t = s 的每个动态字段独立 malloc；t.a[0] 不影响 s.a[0]。
+    {
+        std::string a = asm_of(
+            "struct S { a: array<int>; x: int; }\n"
+            "let s: S = S { a: [1, 2], x: 9 };\n"
+            "let t: S = s;\n"
+            "t.a[0] = 5;\n"
+            "print(s.a[0], t.a[0]);");
+        CHECK(count_substr(code_only(a), "bl _malloc") == 2);
+        CHECK(a.find("L.copy.words.") != std::string::npos);
+        CHECK(a.find("str x10, [x14, x10, lsl #3]") != std::string::npos ||
+              a.find("str x9, [x14, x10, lsl #3]") != std::string::npos);
+    }
+
+    // 整体字段赋值 s.a = [..] / s.a = t.a：右侧先构造/深拷贝，再 drop 旧 descriptor。
+    {
+        std::string a = asm_of(
+            "struct S { a: array<int>; x: int; }\n"
+            "let s: S = S { a: [1], x: 2 };\n"
+            "s.a = [5, 6];\n"
+            "print(len(s.a), s.a[1]);");
+        CHECK(count_substr(code_only(a), "bl _malloc") == 2);   // 初始化 + 字段赋值
+        CHECK(count_substr(code_only(a), "bl _free") >= 2);     // 旧字段 + 作用域
+        CHECK(a.find("L.dyn.grow.") == std::string::npos);
+    }
+    {
+        std::string a = asm_of(
+            "struct S { a: array<int>; }\n"
+            "let s: S = S { a: [1] };\n"
+            "let t: S = S { a: [2, 3] };\n"
+            "s.a = t.a;\n"
+            "print(len(s.a), s.a[0]);");
+        CHECK(count_substr(code_only(a), "bl _malloc") == 3);   // 两个字面量 + 字段拷贝
+        CHECK(count_substr(code_only(a), "bl _free") >= 2);
+    }
+
+    // 自赋值 no-op：s = s / s.a = s.a 不 drop 自己、不额外 malloc。
+    {
+        std::string a = asm_of(
+            "struct S { a: array<int>; }\n"
+            "let s: S = S { a: [1, 2] };\n"
+            "s = s;\n"
+            "s.a = s.a;\n"
+            "print(len(s.a), s.a[0]);");
+        CHECK(count_substr(code_only(a), "bl _malloc") == 1);
+        CHECK(count_substr(code_only(a), "bl _free") == 1);
+    }
+    {
+        std::string a = asm_of(
+            "struct S { a: array<int>; }\n"
+            "let arr: array<S, 1> = [S { a: [1, 2] }];\n"
+            "arr[0].a = arr[0].a;\n"
+            "print(len(arr[0].a));");
+        CHECK(count_substr(code_only(a), "bl _malloc") == 1);
+    }
+
+    // 整体 struct 赋值 t = S{..} / t = f()：先求值右侧，再 drop 旧动态字段。
+    {
+        std::string a = asm_of(
+            "struct S { a: array<int>; x: int; }\n"
+            "fn mk() -> S { return S { a: [1], x: 2 }; }\n"
+            "let t: S = S { a: [3], x: 4 };\n"
+            "t = mk();\n"
+            "t = S { a: [5], x: 6 };\n"
+            "print(t.a[0], t.x);");
+        CHECK(a.find("bl _mk") != std::string::npos);
+        CHECK(count_substr(code_only(a), "bl _malloc") >= 3);
+        CHECK(count_substr(code_only(a), "bl _free") >= 3);
+    }
+
+    // 参数 ABI：struct 总槽（4）指针传递；入口动态字段重新 malloc 深拷贝；
+    // sret 返回转移 descriptor 并清空本地（避免二次释放）。
+    {
+        std::string a = asm_of(
+            "struct S { a: array<int>; x: int; }\n"
+            "fn f(v: S) -> S { v.a[0] = 8; return v; }\n"
+            "let s: S = S { a: [1, 2], x: 9 };\n"
+            "let u: S = f(s);\n"
+            "print(u.a[0], s.a[0]);");
+        CHECK(a.find("_f:") != std::string::npos);
+        CHECK(a.find("bl _f") != std::string::npos);
+        size_t fn = a.find("_f:");
+        size_t ret = a.find("L.f.ret");
+        CHECK(fn != std::string::npos && ret != std::string::npos && fn < ret);
+        std::string body = a.substr(fn, ret - fn);
+        CHECK(count_substr(body, "bl _malloc") == 1);        // 参数入口深拷贝
+        CHECK(body.find("L.copy.words.") != std::string::npos);
+        CHECK(count_substr(body, "str xzr, [x29, #") >= 3);  // 转移后清空本地 descriptor
+    }
+
+    // 函数自然落底 / 参数副本在 return 前 drop。
+    {
+        std::string a = asm_of(
+            "struct S { a: array<int>; }\n"
+            "fn n(v: S) -> int { return len(v.a); }\n"
+            "let s: S = S { a: [1, 2] };\n"
+            "print(n(s));");
+        CHECK(a.find("_n:") != std::string::npos);
+        CHECK(count_substr(code_only(a), "bl _malloc") >= 2);  // 字面量 + 参数深拷贝
+        CHECK(count_substr(code_only(a), "bl _free") >= 2);    // 参数副本 + main 的 s
+    }
+
+    // 作用域 / break drop：while 体内 struct 动态字段先释放再跳出。
+    {
+        std::string a = asm_of(
+            "struct S { a: array<int>; x: int; }\n"
+            "let i: int = 0;\n"
+            "while (i < 1) {\n"
+            "  let w: S = S { a: [1, 2], x: 1 };\n"
+            "  push(w.a, 3);\n"
+            "  print(w.a[0]);\n"
+            "  break;\n"
+            "}\n"
+            "print(0);");
+        CHECK(a.find("L.dyn.grow.") != std::string::npos);
+        size_t free_pos = a.find("bl _free");
+        size_t brk = a.find("b L.exit.");
+        CHECK(free_pos != std::string::npos);
+        CHECK(brk != std::string::npos && free_pos < brk);
+    }
+
+    // 返回值来源：字面量直接构造进 sret；调用链转移。
+    {
+        std::string a = asm_of(
+            "struct S { a: array<int>; x: int; }\n"
+            "fn make() -> S { return S { a: [1, 2], x: 3 }; }\n"
+            "fn chain() -> S { return make(); }\n"
+            "let m: S = chain();\n"
+            "print(m.a[0], m.a[1], m.x);");
+        CHECK(a.find("_make:") != std::string::npos);
+        CHECK(a.find("_chain:") != std::string::npos);
+        CHECK(a.find("bl _make") != std::string::npos);
+        CHECK(count_substr(code_only(a), "bl _malloc") >= 1);
+    }
+
+    // 固定 array<S, N> 元素：arr[i].a[j] / arr[i].a = [..] / push(arr[i].a, x)。
+    {
+        std::string a = asm_of(
+            "struct S { a: array<int>; x: int; }\n"
+            "let arr: array<S, 2> = [S { a: [1], x: 1 }, S { a: [2], x: 2 }];\n"
+            "arr[0].a[0] = 7;\n"
+            "arr[1].a = [8, 9];\n"
+            "push(arr[0].a, 5);\n"
+            "print(arr[0].a[0], arr[1].a[1], len(arr[1].a));");
+        CHECK(a.find("L.dbounds.fail.") != std::string::npos);  // 动态字段下标检查
+        CHECK(a.find("L.dyn.grow.") != std::string::npos);
+        CHECK(count_substr(code_only(a), "bl _malloc") >= 4);
+        CHECK(count_substr(code_only(a), "bl _free") >= 3);
+    }
+
+    // 动态 array<S> 元素：元素 descriptor 深拷贝、递归 drop、字段整体赋值/写回。
+    {
+        std::string a = asm_of(
+            "struct S { a: array<int>; x: int; }\n"
+            "let d: array<S> = [S { a: [3], x: 3 }];\n"
+            "d[0].a[0] = 4;\n"
+            "d[0].a = [6, 7];\n"
+            "push(d[0].a, 8);\n"
+            "push(d, S { a: [5], x: 5 });\n"
+            "let e: array<S> = d;\n"
+            "print(d[0].a[0], len(d), e[0].x);");
+        CHECK(count_substr(code_only(a), "L.dyn.elem.copy") >= 1);
+        CHECK(a.find("L.dyn.elem.drop") != std::string::npos);
+        CHECK(a.find("L.dyn.grow.") != std::string::npos);
+    }
+
+    // bool / float 动态字段：按位模式打包，print 用 %g / true/false。
+    {
+        std::string a = asm_of(
+            "struct F { a: array<float>; }\n"
+            "struct B { a: array<bool>; }\n"
+            "let f: F = F { a: [1.5, 2.5] };\n"
+            "let b: B = B { a: [true, false] };\n"
+            "print(f);\n"
+            "print(b);\n"
+            "print(f.a[0], b.a[1]);\n"
+            "push(f.a, 3.5);");
+        CHECK(a.find(".asciz \"%g\"") != std::string::npos);
+        CHECK(a.find("fmov x9, d9") != std::string::npos);
+        CHECK(a.find(".asciz \"true\"") != std::string::npos);
+        CHECK(a.find(".asciz \"false\"") != std::string::npos);
+        CHECK(a.find(".asciz \"F { \"") != std::string::npos);
+        CHECK(a.find(".asciz \"B { \"") != std::string::npos);
+        CHECK(a.find("L.dyn.grow.") != std::string::npos);
+    }
+
+    // print(struct)：动态字段按 [..] 运行时展开；print(s.a) 直接打印字段。
+    {
+        std::string a = asm_of(
+            "struct S { a: array<int>; x: int; }\n"
+            "let s: S = S { a: [1, 2], x: 9 };\n"
+            "print(s);\n"
+            "print(s.a);");
+        CHECK(a.find(".asciz \"S { \"") != std::string::npos);
+        CHECK(a.find(".asciz \"a: \"") != std::string::npos);
+        CHECK(a.find(".asciz \"x: \"") != std::string::npos);
+        CHECK(count_substr(code_only(a), "L.print.cond.") >= 2);
+    }
+
+    // 嵌套 struct 路径：o.in.a 读写 / push / 整体字段赋值。
+    {
+        std::string a = asm_of(
+            "struct I { a: array<int>; }\n"
+            "struct O { in: I; z: int; }\n"
+            "let o: O = O { in: I { a: [1, 2] }, z: 3 };\n"
+            "o.in.a[0] = 5;\n"
+            "push(o.in.a, 7);\n"
+            "o.in.a = [4, 5, 6];\n"
+            "print(o.in.a[0], len(o.in.a), o.z);");
+        CHECK(a.find("L.dyn.grow.") != std::string::npos);
+        CHECK(a.find("L.dbounds.fail.") != std::string::npos);
+        CHECK(count_substr(code_only(a), "bl _malloc") >= 2);
+    }
+
+    // 固定 array<P, N> / 动态 array<P> 的 struct 参数与返回值（P 含动态字段）。
+    {
+        std::string a = asm_of(
+            "struct P { a: array<int>; }\n"
+            "fn id(x: array<P, 2>) -> array<P, 2> { return x; }\n"
+            "let xs: array<P, 2> = [P { a: [1] }, P { a: [2] }];\n"
+            "let ys: array<P, 2> = id(xs);\n"
+            "print(ys[0].a[0], xs[1].a[0]);");
+        CHECK(a.find("_id:") != std::string::npos);
+        CHECK(count_substr(code_only(a), "bl _malloc") >= 4);  // 2 元素 × (字面量 + 参数深拷贝)
+        CHECK(a.find("L.copy.words.") != std::string::npos);  // 元素内标量动态字段深拷贝
+    }
+    {
+        std::string a = asm_of(
+            "struct P { a: array<int>; }\n"
+            "fn cl(x: array<P>) -> array<P> { return x; }\n"
+            "let d: array<P> = [P { a: [1] }];\n"
+            "let e: array<P> = cl(d);\n"
+            "print(e[0].a[0], len(e));");
+        CHECK(a.find("_cl:") != std::string::npos);
+        CHECK(a.find("L.dyn.elem.copy") != std::string::npos);  // 元素递归深拷贝
+        CHECK(a.find("L.dyn.elem.drop") != std::string::npos);  // 元素递归 drop
+    }
+
+    // sret 返回变量 v：descriptor 转移后清空本地，函数收尾 drop 不再释放。
+    {
+        std::string a = asm_of(
+            "struct S { a: array<int>; x: int; }\n"
+            "fn f() -> S { let v: S = S { a: [1], x: 2 }; return v; }\n"
+            "let u = f();\n"
+            "print(u.a[0], len(u.a));");
+        size_t fn = a.find("_f:");
+        size_t ret = a.find("L.f.ret");
+        CHECK(fn != std::string::npos && ret != std::string::npos && fn < ret);
+        std::string body = a.substr(fn, ret - fn);
+        CHECK(count_substr(body, "str xzr, [x29, #") >= 3);
+    }
+
+    // 表达式上下文：len(s.a) / len(v[0].a) / arr[i].a[j] 可参与二元运算、
+    // 函数实参与 print（类型推断覆盖动态字段）。
+    {
+        std::string a = asm_of(
+            "struct S { a: array<int>; x: int; }\n"
+            "fn f(v: array<S>) -> int { return len(v[0].a) + len(v); }\n"
+            "fn g(s: S) -> int { return len(s.a) + s.x; }\n"
+            "let d: array<S> = [S { a: [1, 2], x: 0 }];\n"
+            "let s: S = S { a: [3], x: 4 };\n"
+            "let n: int = g(s) + f(d);\n"
+            "print(n, d[0].a[1], s.a[0] + 1);");
+        CHECK(a.find("_f:") != std::string::npos);
+        CHECK(a.find("_g:") != std::string::npos);
+        CHECK(a.find("bl _f") != std::string::npos);
+        CHECK(a.find("bl _g") != std::string::npos);
+    }
+    {
+        std::string a = asm_of(
+            "struct S { a: array<int>; }\n"
+            "let d: array<S> = [S { a: [1] }];\n"
+            "let x: int = d[0].a[0];\n"
+            "print(x);");
+        CHECK(a.find("L.dbounds.fail.") != std::string::npos);
+    }
+    {
+        // 函数参数是独立副本：函数内 push/写字段不影响调用方（编译通过 + 参数入口深拷贝）。
+        std::string a = asm_of(
+            "struct S { a: array<int>; }\n"
+            "fn grow(v: array<S>) -> int {\n"
+            "  push(v[0].a, 7);\n"
+            "  push(v, S { a: [8] });\n"
+            "  v[1].a[0] = 99;\n"
+            "  return len(v[0].a) + len(v);\n"
+            "}\n"
+            "let d: array<S> = [S { a: [1] }];\n"
+            "print(grow(d), len(d));");
+        CHECK(a.find("_grow:") != std::string::npos);
+        CHECK(count_substr(code_only(a), "L.dyn.elem.copy") >= 1);
+        CHECK(count_substr(code_only(a), "bl _malloc") >= 3);
+    }
+
+    // 类型/形态错误
+    CHECK_THROWS(asm_of("struct P { x: int; }\nstruct S { a: array<P>; }"),
+                 "不支持 array");
+    CHECK_THROWS(asm_of("struct P { x: int; }\nstruct S { a: array<P>; }"),
+                 "array<struct>");
+    CHECK_THROWS(asm_of("struct S { a: array<array<int>>; }"), "不支持 array");
+    CHECK_THROWS(asm_of("struct S { a: array<array<int>, 2>; }"), "不支持 array");
+    CHECK_THROWS(asm_of("struct S { a: array<string>; }"),
+                 "只支持 int/float/bool");
+    CHECK_THROWS(asm_of("struct S { a: array<int>; }\n"
+                        "let s: S = S { a: [1] };\ns.a = [1.5];"),
+                 "类型不匹配");
+    CHECK_THROWS(asm_of("struct S { a: array<int>; }\n"
+                        "struct T { a: array<float>; }\n"
+                        "let s: S = S { a: [1] };\n"
+                        "let t: T = T { a: [1.5] };\n"
+                        "s.a = t.a;"),
+                 "类型不匹配");
+    CHECK_THROWS(asm_of("struct S { a: array<int>; }\n"
+                        "let s: S = S { a: [1] };\n"
+                        "let d: array<float> = s.a;"),
+                 "类型不匹配");
+    CHECK_THROWS(asm_of("struct S { a: array<int>; }\n"
+                        "let s: S = S { a: [1] };\n"
+                        "let x: int = s.a;"),
+                 "不能直接取值");
+    CHECK_THROWS(asm_of("struct S { a: array<int>; }\n"
+                        "let s: S = S { a: [1] };\n"
+                        "s.a[0] = 1.5;"),
+                 "类型不匹配");
+    CHECK_THROWS(asm_of("struct S { a: array<int>; }\n"
+                        "let s: S = S { a: [1] };\n"
+                        "push(s.a, 1.5);"),
+                 "push 值类型不匹配");
+    CHECK_THROWS(asm_of("struct S { a: array<int>; }\n"
+                        "let s: S = S { a: [1] };\n"
+                        "push(s, 1);"),
+                 "不是数组");
+    CHECK_THROWS(asm_of("struct S { a: array<int>; }\n"
+                        "let s: S = S { a: [1] };\n"
+                        "print(len(s));"),
+                 "不是数组");
+    CHECK_THROWS(asm_of("struct S { a: array<int>; }\n"
+                        "let s: S = S { a: [1] };\n"
+                        "s.a = 1;"),
+                 "初始化");
+    CHECK_THROWS(asm_of("struct S { a: array<int>; }\n"
+                        "let s: S = S { a: [1] };\n"
+                        "let n: int = len(s.a[0]);"),
+                 "len");
+}
+
 int main() {
     test_lexer();
     test_parser();
@@ -3522,6 +3969,7 @@ int main() {
     test_print_aggregate();
     test_dynamic_nested_array_s3c3e();
     test_struct_fixed_array_field_s3d();
+    test_struct_dynamic_field_s3e();
 
     std::cout << "通过 " << (checks - failures) << " / " << checks << " 项检查";
     if (failures > 0) {

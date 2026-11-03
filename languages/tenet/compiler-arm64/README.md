@@ -11,7 +11,7 @@
 | 后端方式 | **手写 AArch64 汇编后端**：AST 直接生成 arm64 汇编文本（.s）→ 系统 `as` 汇编 → `ld` 链接 |
 | 产出 | 原生可执行二进制（Mach-O arm64） |
 | 特点 | 全链路零 LLVM/clang（仅用系统 as/ld 作"手"）；类似 TCC / 早期 GCC 的做法 |
-| 测试 | 1166 项检查 |
+| 测试 | 1279 项检查 |
 
 ## 管线
 
@@ -34,9 +34,9 @@ compiler-arm64/
 ├── Makefile          # 纯 clang++ -std=c++17，无 LLVM 库
 ├── src/
 │   ├── error.hpp / token.hpp / lexer.hpp / ast.hpp / parser.hpp   # 前端（与 compiler-cpp 同构）
-│   ├── backend.hpp   # ★手写 AArch64 后端（含 1166 项检查的断言对象）
+│   ├── backend.hpp   # ★手写 AArch64 后端（含 1279 项检查的断言对象）
 │   └── main.cpp      # CLI + as/ld 驱动 + 内嵌 arm64 运行时
-├── examples/         # hello / fib / fizzbuzz / struct / nested / array / array_abi / array_struct / dynamic_array / dynamic_abi / dynamic_expr / dynamic_struct / nested_array / fixed_abi / print_aggregate / dynamic_nested / struct_array_field
+├── examples/         # hello / fib / fizzbuzz / struct / nested / array / array_abi / array_struct / dynamic_array / dynamic_abi / dynamic_expr / dynamic_struct / nested_array / fixed_abi / print_aggregate / dynamic_nested / struct_array_field / struct_dynamic_field
 └── tests/            # test_main.cpp
 ```
 
@@ -48,7 +48,7 @@ compiler-arm64/
 cd tenet/compiler-arm64
 
 make                    # 构建 tenet 与 test_tenet 并跑测试
-make test               # 1166 项检查
+make test               # 1279 项检查
 ./tenet build examples/hello.tenet -o hello && ./hello   # 编译为二进制并运行
 ./tenet run examples/fib.tenet          # 编译 + 运行一步到位
 ./tenet run examples/array_struct.tenet   # S3c-3b-1：固定 array<struct, N> 局部数组
@@ -59,6 +59,7 @@ make test               # 1166 项检查
 ./tenet run examples/print_aggregate.tenet # print(struct / array / struct 数组 / 嵌套数组)
 ./tenet run examples/dynamic_nested.tenet  # S3c-3e：动态嵌套数组 array<array<T>>
 ./tenet run examples/struct_array_field.tenet # S3d：struct 的固定数组字段（字面量/读写/ABI/print）
+./tenet run examples/struct_dynamic_field.tenet # S3e：struct 的动态数组字段（深拷贝/字段赋值/ABI/print）
 ./tenet asm examples/hello.tenet        # 看生成的 arm64 汇编（调试）
 ```
 
@@ -70,11 +71,12 @@ make test               # 1166 项检查
 |---|---|
 | 类型 | `int` / `float` / `bool` / `string`；struct；固定长度值数组 `array<T, N>`（局部、参数、返回值）；固定长度 struct 数组 `array<S, N>`（局部、参数、返回值）；动态数组 `array<T>` / `array<S>`（局部、参数、返回值，堆缓冲 `data/len/cap`）；固定嵌套数组 `array<array<T, N>, M>`（局部、参数、返回值）；动态嵌套数组 `array<array<T>>`（局部、参数、返回值，外层堆元素是内层 descriptor） |
 | 变量 | `let`（类型标注可选，静态推断）、赋值（值语义） |
-| struct | 顶层声明、嵌套字段（`struct Line { a: Point; b: Point; }`）、链式字段读写（`l.a.x`）、嵌套字面量、整体值拷贝；支持 struct 参数/返回值（指针 ABI：实参传扁平槽地址，返回值走隐藏 sret 指针）；字段可为 `int`/`float`/`bool`、其他 struct 或固定数组（S3d：`array<T,N>` / `array<struct,N>` / 固定嵌套 `array<array<T,N>,M>`），禁止循环嵌套与动态 `array<T>` 字段 |
+| struct | 顶层声明、嵌套字段（`struct Line { a: Point; b: Point; }`）、链式字段读写（`l.a.x`）、嵌套字面量、整体值拷贝；支持 struct 参数/返回值（指针 ABI：实参传扁平槽地址，返回值走隐藏 sret 指针）；字段可为 `int`/`float`/`bool`、其他 struct、固定数组（S3d：`array<T,N>` / `array<struct,N>` / 固定嵌套 `array<array<T,N>,M>`）或动态 `array<int/float/bool>`（S3e，占 3 个 descriptor 槽）；禁止循环嵌套、动态 `array<struct>` 字段与动态嵌套字段 |
 | array（定长 v1 / 动态 S3c/S3c-2/S3c-3a） | 定长 `array<T, N>`：局部变量、参数、返回值（长度是类型的一部分），局部可省略标注由字面量推断；`a[i]` 读写、`len(a)` 编译期常量、逐元素值拷贝、同长度整体赋值（指针 + sret ABI，按值语义）。动态 `array<T>`：`[e1, ...]` / `[]` 初始化、`push(a, x)` 扩容（cap*2，空数组 cap=4，malloc 新缓冲 + 拷贝 + free 旧缓冲）、`len(a)` 运行时读 len、`a[i]` 运行时边界检查、`let b = a` / `b = a` 深拷贝（先 drop 旧值）、离开作用域 / `return` / `break` 前 drop；S3c-2 起支持参数与返回值（参数传 3 槽描述符指针 + 入口深拷贝；返回值走隐藏 sret 描述符 + 所有权转移，调用方 `let`/赋值接管堆缓冲）；S3c-3a 起动态实参还支持字面量 `f([1,2])` 与返回动态数组的调用 `f(g())`（调用方构造临时描述符、调用后只 free 临时堆缓冲），`return` 还支持字面量 `return [1,2];` 与调用 `return g();`（堆缓冲所有权转移给 sret）。标量元素仅 `int`/`float`/`bool`（8 字节槽，float 用位模式）；struct 元素与嵌套数组见下两行，均可整体 `print`（见“内建”） |
-| array<struct>（S3c-3b-1 / S3c-3b-2 / S3c-3d） | 固定 `array<S, N>`（局部、参数、返回值）与动态 `array<S>`（局部、参数、返回值）都按扁平字段槽存储，元素 stride = 扁平字段数 slots × 8（float 位模式、bool 占一槽）：`[S { ... }, ...]` / `[]` 初始化、`a[i].field` / `a[i].p.x` 读写、`a[i] = S { ... }` / `a[i] = 同类型变量` 整体元素赋值、`let b = a` / `b = a` 深拷贝；动态另有 `push` 扩容（按 slots*8 字节）与 `len(a)` 运行时读取。固定数组常量下标编译期越界，动态下标运行时检查；动态数组下标（含常量）都读 len 槽做运行时检查。动态 `array<S>` 参数传 3 槽描述符指针 + 入口按 slots 深拷贝，返回值走 sret 描述符 + 所有权转移；固定 `array<S, N>` 参数传元素 0 地址 + 入口按 `N*slots` 拷贝，返回值走隐藏 sret（x0）按总槽数打包、调用方逐槽接管（S3c-3d）。drop 只 free 堆缓冲（S 的字段可以是固定数组，S3d 起元素 slots 递归计入数组槽）。`print(a)` 支持；不支持整体读取 `a[i]` 为 struct 值 |
+| array<struct>（S3c-3b-1 / S3c-3b-2 / S3c-3d） | 固定 `array<S, N>`（局部、参数、返回值）与动态 `array<S>`（局部、参数、返回值）都按扁平字段槽存储，元素 stride = 扁平字段数 slots × 8（float 位模式、bool 占一槽）：`[S { ... }, ...]` / `[]` 初始化、`a[i].field` / `a[i].p.x` 读写、`a[i] = S { ... }` / `a[i] = 同类型变量` 整体元素赋值、`let b = a` / `b = a` 深拷贝；动态另有 `push` 扩容（按 slots*8 字节）与 `len(a)` 运行时读取。固定数组常量下标编译期越界，动态下标运行时检查；动态数组下标（含常量）都读 len 槽做运行时检查。动态 `array<S>` 参数传 3 槽描述符指针 + 入口按 slots 深拷贝，返回值走 sret 描述符 + 所有权转移；固定 `array<S, N>` 参数传元素 0 地址 + 入口按 `N*slots` 拷贝，返回值走隐藏 sret（x0）按总槽数打包、调用方逐槽接管（S3c-3d）。drop 时元素若含动态字段（S3e）先逐元素递归 drop 再 free 堆缓冲（S 的字段可以是固定数组，S3d 起元素 slots 递归计入数组槽）。`print(a)` 支持；不支持整体读取 `a[i]` 为 struct 值 |
 | array<array<T,N>,M>（S3c-3c / S3c-3d） | 局部变量、参数、返回值，内层元素仅 `int`/`float`（bool 明确拒绝）：字面量 `[[1,2],[3,4]]` 初始化、同类型变量深拷贝/整体赋值；`a[i][j]` 读写，外层/内层分别边界检查；`len(a)` 仍为外层编译期常量（不支持 `len(a[i])`）。存储为扁平 `[M*N x i64]`：元素 i,j 在 `base + 8*(i*N + j)`。参数传元素 0 地址 + 入口按 `M*N` 槽拷贝；返回值走隐藏 sret（x0）+ 调用方逐槽接管（S3c-3d）。不支持动态外层/内层混用（动态形式见 S3c-3e 行）、更深嵌套与 struct 内层 |
 | array<array<T>>（S3c-3e） | 动态嵌套数组 v1：外层、内层都是动态数组，内层元素仅 `int`/`float`/`bool`。外层堆元素是内层 descriptor 的 3 个 i64 槽 `[data,len,cap]`，外层 stride = `3*8 = 24` 字节。字面量 `[[1,2],[3]]` / 空 `[]` 初始化；`let b = a` / `b = a` 逐内层深拷贝；`a[i][j]` 读写，内外两层都做运行时边界检查；`len(a)` 读外层，`len(a[i])` 读内层；`push(a, inner)` 深拷贝内层并追加（外层 cap*2，空外层 cap=4）；参数传 descriptor + 入口逐内层深拷贝，返回值走 sret 转移所有权，调用方 `let`/赋值接管；drop 先逐内层 `free(data)` 再 free 外层；`print(a)` 输出 `[[1, 2], [3]]`。不支持 `a[i]` 整体取值/赋值、`array<array<struct>>`、更深嵌套、固定/动态内层混用与 struct 字段中的动态 array |
+| struct 的动态数组字段（S3e） | 字段可为 `array<int>` / `array<float>` / `array<bool>`（占 3 个连续 i64 descriptor 槽 data/len/cap），与标量、嵌套 struct、固定数组字段共存；struct 总槽数递归含 3 槽/动态字段。支持字面量 `S { a: [1, 2], x: 9 }`、同类型 struct 深拷贝 `let t = s`、整体赋值 `t = s` / `t = S { .. }` / `t = f()`（右侧先求值，再 drop 旧动态字段）；字段整体赋值 `s.a = [..]` / `s.a = t.a` / `s.a = f()`（右侧先深拷贝，再 drop 旧 descriptor，自赋值 no-op）；`s.a[i]` 读写（运行时边界检查）、`push(s.a, x)`（空数组 cap=4、cap*2 扩容）、`len(s.a)`、`print(s.a)`、`print(s)`；固定 `array<S,N>` / 动态 `array<S>` 元素的 `arr[i].a[j]`、`arr[i].a = [..]`、`push(arr[i].a, x)`（物化 descriptor 后写回元素槽）。struct 参数按总槽数指针 ABI、入口逐动态字段深拷贝；返回值走隐藏 sret 并转移 descriptor、清空本地；作用域/return/break/整体赋值旧值/数组元素递归 drop；只 malloc/free，无 RC/GC。v1 不支持动态 `array<struct>` 字段与动态嵌套字段 |
 | 函数 | `fn f(a: int) -> int`、struct/array 参数与返回值（按值语义）、递归 |
 | 控制流 | `if/else if/else`、`while`（唯一循环）、`break`、`return` |
 | 运算符 | 算术（向零截断整除/取模，`sdiv`/`msub`）、比较、`&&`/`\|\|` 短路、一元 `-`/`!` |
@@ -132,7 +134,8 @@ make test               # 1166 项检查
 9. **struct 扁平化**：struct 不生成聚合布局，而是深度优先按声明顺序把字段展开成
    8 字节栈槽（`Line { a: Point; b: Point; }` → `a.x`、`a.y`、`b.x`、`b.y`）。
    标量字段 1 槽；S3d 的固定数组字段占 `N * elem_slots` 个连续槽（`array<struct,N>`
-   的 `elem_slots` 为 struct 总槽数，固定嵌套数组递归相乘）；struct 总槽数递归求和。
+   的 `elem_slots` 为 struct 总槽数，固定嵌套数组递归相乘）；S3e 的动态数组字段占
+   3 个连续 descriptor 槽（data/len/cap）；struct 总槽数递归求和。
    int/float/bool 都占 8 字节槽，float 用位模式、bool 存 0/1。字段读写按完整路径
    （`l.a.x`）直接寻址；`let q = p;`/`q = p;` 逐字段 `ldr`/`str` 值拷贝（数组字段逐槽）。
    调用点的 struct 临时实参与 sret 缓冲由帧规划按需追加到普通槽之后：函数体发射完
@@ -211,7 +214,8 @@ make test               # 1166 项检查
       `data + 8*(i*slots + field_index)` 寻址；`a[i] = S { ... }` / `a[i] = s` 整体元素赋值
       同样按 slots 逐槽复制
     - 参数：描述符指针 + 入口 `_malloc(cap*slots*8)` 并深拷贝 `len*slots` 槽（参数值语义）；
-      返回值：sret 描述符 + 所有权转移（变量/字面量/调用）；drop 只 `_free(data)`
+      返回值：sret 描述符 + 所有权转移（变量/字面量/调用）；drop 对纯标量元素只
+      `_free(data)`，S3e 起元素含动态字段时先逐元素递归 drop
     - 固定 `array<S, N>` 参数/返回值走 S3c-3d 的扁平槽 ABI（见下）
 16. **S3c-3c 固定嵌套数组**：`array<array<T, N>, M>` 在帧里占
     `M*N` 个连续 8 字节槽（扁平 `[M*N x i64]`），外层元素 i 的内层元素 j 在
@@ -297,8 +301,38 @@ make test               # 1166 项检查
       含数组字段时先把元素拷进临时缓冲再按局部布局展开，普通动态 struct 数组保持原汇编
     - 整体赋值 `s.a = [..]` / `s.a = 同类型数组变量` / `s.a = 返回数组的调用` 复用
       字段写入路径；整体读取 `s.a` 仍要求下标（或 `print(struct)`）
-    - 明确不支持：动态 `array<T>` 字段、整体读取 `s.a`、`array<struct>` 元素整体读取；
+    - 明确不支持：整体读取 `s.a`、`array<struct>` 元素整体读取；
       多级数组元素与字段数组混用（如 `arr[i].f[j].g[0]`）按现有错误文案拒绝
+
+21. **S3e struct 的动态数组字段 v1**：字段可为 `array<int|float|bool>`（动态标量数组），
+    在 `layout_of` 里占 3 个连续槽 `data/len/cap`；局部 struct 的 slot j 在 `base - 8*j`，
+    ABI 缓冲/数组元素在 `base + 8*j`。`struct_total_slots` 递归计入 3 槽/动态字段。
+    - 类型校验：只允许标量元素；动态 `array<struct>`、动态嵌套字段、string 元素明确拒绝；
+      固定数组套动态内层沿用旧报错
+    - 初始化：字面量字段复用 `init_dynamic_into`（`_malloc(cap*8)`，cap=max(n,4)）；
+      同类型 struct 深拷贝逐动态字段重新 malloc 并复制负载；整体赋值 `t = s` /
+      `t = S { .. }` / `t = f()` 先求值/深拷贝右侧，再递归 drop 旧字段，最后转移；
+      `t = t` 为 no-op
+    - 字段整体赋值 `s.a = [..]` / `s.a = t.a` / `s.a = f()`：右侧先构造/深拷贝到临时
+      descriptor，再 drop 旧 descriptor，最后搬三槽；`s.a = s.a` 为 no-op
+    - 读写：`s.a[i]` 读布局里的 data/len 槽（常量下标也运行时检查）、
+      `push(s.a, x)` 原位扩容、`len(s.a)` 读 len 槽、`print(s.a)` 运行时循环；
+      `print(s)` 按布局打印 `a: [..]`；`s.a` 整体取值明确报错
+    - 数组元素：固定 `array<S,N>` 与动态 `array<S>` 的 `arr[i].a[j]` 用「元素基址 +
+      字段偏移 + 运行时下标」寻址（元素内字段方向随数组 stride：+8 / -8）；
+      `arr[i].a = ..` 物化/深拷贝右侧 → drop 旧元素 descriptor → 写回元素槽；
+      `push(arr[i].a, x)` 先把元素 descriptor 物化到临时三槽，push 后写回；
+      `a[i] = S{..}` / `a[i] = s` 元素整体赋值先构造新值，再 drop 旧元素动态字段
+    - 递归工具：`SlotBlock {local, base, stride, bias}` 统一表示局部槽 / 指针槽块，
+      `deep_copy_value` / `transfer_value` / `drop_value` 按「标量 / struct / 固定数组 /
+      动态 descriptor」递归；`malloc/free` 跨调用用帧尾 scratch 槽保存循环索引与描述符；
+      动态数组元素含堆时 `drop_dyn_payload` 先逐元素 drop 再 free 外层
+    - ABI：struct 参数按总槽数传指针，入口对动态字段重新 malloc 深拷贝；返回值走隐藏
+      sret，变量/字面量/调用都转移 descriptor 并 `str xzr` 清空本地（避免函数收尾二次
+      释放）；调用点对字面量/调用结果的临时 struct/array 实参在 `bl` 后递归 drop
+    - drop 注册：局部 struct（含动态字段）与元素含堆的固定数组按作用域登记，
+      `exit_scope` / `drop_all_scopes` / `break` 统一递归 drop；`main` 结束同样释放
+    - v1 不支持：动态 `array<struct>` 字段、动态嵌套字段、`arr[i].a` 整体读取
 
 ## 测试
 
@@ -369,15 +403,29 @@ S3d 断言 struct 固定数组字段：布局 `array<int,3>` 占 3 槽 + 标量 
 整体赋值 `s.a = [..]`，以及动态数组字段/
 string 元素/未定义元素/数组循环嵌套/长度与元素类型不匹配/整体读取/越界的报错文案。
 
+S3e 断言 struct 动态数组字段：布局 3 槽 + 标量 1 槽（s 的 -8/-16/-24/-32 与 t 的
+-40…-64）、字面量 `cap=max(n,4)`、`s.a[i]` 的 len 槽运行时读取与 `L.dbounds.fail.`、
+push 扩容（`L.dyn.grow.` / `L.dyn.grow.copy`）、空字段数组 cap=4、`let t = s` 独立
+malloc + `L.copy.words.`、`s.a = [..]` / `s.a = t.a` 的 malloc/free 配对、自赋值
+（`s = s` / `s.a = s.a` / `arr[0].a = arr[0].a`）不产生复制/释放、`t = f()` 与
+`t = S{..}` 先求值再 drop、struct 参数入口深拷贝（函数体内 malloc + copy 循环）与
+sret `str xzr` 清空本地、函数落底/参数副本 drop、while/break 前 drop 顺序、
+`return` 字面量/调用链、固定 `array<S,N>` 与动态 `array<S>` 元素的
+`arr[i].a[j]` / `arr[i].a = [..]` / `push(arr[i].a, x)` / 递归 `L.dyn.elem.copy` /
+`L.dyn.elem.drop`、float/bool 字段的 `%g` / true-false 与 print 分片、
+嵌套 struct 路径 `o.in.a`、以及动态 `array<struct>` 字段/动态嵌套字段/string 元素/
+字段赋值类型不匹配/整体读取/`len(s)` /`push(s,..)`/非法初始化等报错文案。
+
 ## 已知限制与演进
 
 - 只支持核心子集；`Option`/`Result`/`match` 设计已定待实现
-- struct 字段允许 `int`/`float`/`bool`、其他 struct 或固定数组（S3d：`array<T,N>` / `array<struct,N>` / 固定嵌套 `array<array<T,N>,M>`）；禁止循环嵌套与动态 `array<T>` 字段；整体读取 `s.a` 要求写下标（整体赋值 `s.a = ...` 支持）；`print(p)` 支持整体打印 struct（数组字段展开为 `[..]`）
+- struct 字段允许 `int`/`float`/`bool`、其他 struct、固定数组（S3d：`array<T,N>` / `array<struct,N>` / 固定嵌套 `array<array<T,N>,M>`）或动态 `array<int/float/bool>`（S3e）；禁止循环嵌套、动态 `array<struct>` 字段与动态嵌套字段；整体读取 `s.a` 要求写下标（整体赋值 `s.a = ...` 支持）；`print(p)` 支持整体打印 struct（数组/动态数组字段展开为 `[..]`）
 - struct 字段链必须访问到标量；嵌套 struct 字段本身不能整体赋值/作实参（参考 compiler-rs 的 S3a 范围）
 - 定长标量数组 `array<T, N>`：局部可省略标注，由字面量推断；标量元素 `int`/`float`/`bool`；不支持空数组、整体读取 `a[i]`；`print(a)` 支持
 - 固定 struct 数组 `array<S, N>`（S3c-3b-1 / S3c-3d）：局部变量、参数、返回值（字面量/同类型数组/返回数组调用初始化、`a[i].field`/嵌套路径读写、`a[i] = struct`、深拷贝；参数传元素 0 地址 + 入口按 `N*slots` 拷贝，返回值 sret + 调用方逐槽接管）；支持元素 struct 内含固定数组字段（slots 递归计入）；不支持整体读取 `a[i]`；`print(a)` 支持
 - 动态数组 `array<T>`（S3c / S3c-2 / S3c-3a）：支持局部变量、参数、返回值（堆缓冲 + push 扩容 + 运行时 len/越界检查 + 深拷贝 + 作用域 drop；参数 descriptor 指针 + 入口深拷贝，返回值 sret 描述符 + 所有权转移）；S3c-3a 起动态实参支持变量/字面量/返回动态数组的调用，`return` 支持变量/字面量/调用；标量元素仅 `int`/`float`/`bool`；不支持嵌套/struct 字段；`print(a)` 支持；不做 RC/GC，纯 malloc/free
-- 动态 struct 数组 `array<S>`（S3c-3b-2）：局部变量、参数、返回值都支持（描述符 + stride=slots*8、push 扩容、`a[i].field`/嵌套路径读写、整体元素赋值、深拷贝与 drop）；元素 struct 可含固定数组字段（slots 递归计入），不能整体读取 `a[i]`；`print(a)` 支持
+- struct 的动态数组字段 `array<int|float|bool>`（S3e）：3 个 descriptor 槽；字段整体赋值（右侧先深拷贝再 drop 旧值）、`s.a[i]` / `push(s.a, x)` / `len(s.a)` / `print(s.a)` / `print(s)`、struct 深拷贝与整体赋值/参数入口深拷贝/sret 转移清空、作用域/break/drop、固定/动态 `array<S>` 元素字段链；不支持动态 `array<struct>` 字段、动态嵌套字段与整体读取 `s.a`
+- 动态 struct 数组 `array<S>`（S3c-3b-2）：局部变量、参数、返回值都支持（描述符 + stride=slots*8、push 扩容、`a[i].field`/嵌套路径读写、整体元素赋值、深拷贝与 drop）；元素 struct 可含固定数组字段（slots 递归计入）与动态标量数组字段（S3e，元素递归深拷贝/drop、`a[i].a[j]` / `a[i].a = ..` / `push(a[i].a, x)`），不能整体读取 `a[i]`；`print(a)` 支持
 - 固定嵌套数组 `array<array<T,N>,M>`（S3c-3c / S3c-3d）：局部变量、参数、返回值，内层仅 `int`/`float`（bool 拒绝）；参数/返回值按 `M*N` 槽指针 + sret ABI；`print(a)` 支持；不支持 `len(a[i])`、动态外层/内层混用（动态嵌套数组见下）、更深嵌套、struct 内层
 - 动态嵌套数组 `array<array<T>>`（S3c-3e，v1）：外层/内层均动态，内层元素仅 `int`/`float`/`bool`；外层堆元素是内层 descriptor（stride=24）；支持局部字面量/空 `[]`/深拷贝/赋值、`push` 深拷贝、`a[i][j]` 双边界读写、`len(a)`/`len(a[i])`、参数入口逐内层深拷贝、sret 返回值转移、先内层后外层 drop、`print(a)`；不支持 `a[i]` 整体取值/赋值、`array<array<struct>>`、更深嵌套、固定/动态内层混用；只 malloc/free，无 RC/GC
 - 函数参数最多 8 个参数位（AAPCS x0-x7；sret 与 struct/array 指针也各占一位）；纯标量 print 最多 9 个变参（x9-x15 + 需要时借用 callee-saved x19/x20），含 aggregate 时逐片段调用 printf、不受此上限约束
@@ -392,7 +440,7 @@ string 元素/未定义元素/数组循环嵌套/长度与元素类型不匹配/
 | 语言 | Rust | C++17 | C++17 |
 | 后端 | clang 驱动（.ll 文本） | LLVM 库进程内（rustc 方式） | **手写 AArch64 后端（零 LLVM）** |
 | 链接 | clang | 系统 `cc` | 系统 `as` + `ld` |
-| 测试 | 133 | 984 | 1166 |
+| 测试 | 133 | 993 | 1279 |
 | LLVM/clang | 有（clang） | 有（LLVM 库） | **零** |
 | 产物 | 原生二进制，示例输出一致 | 同左 | 同左 |
 

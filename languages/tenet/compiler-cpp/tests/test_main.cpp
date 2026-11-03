@@ -832,8 +832,7 @@ static void test_struct_s3a() {
     }
 
     // 错误：array 字段 / 未定义字段类型
-    CHECK_THROWS(Codegen::compile(Parser::parse("struct S { a: array<int>; }")),
-                 "只支持 int/float/bool");
+    CHECK(module_verifies("struct S { a: array<int>; }"));
     CHECK_THROWS(Codegen::compile(Parser::parse("struct S { a: Nope; }")), "未定义");
 
     // 错误：中间 struct 字段不能直接读取/赋值，必须访问到标量叶子
@@ -1072,8 +1071,7 @@ static void test_array() {
     CHECK_THROWS(
         Codegen::compile(Parser::parse("struct P { x: int; }\nlet a: array<P, 1> = [1];")),
         "值必须是字面量、同类型变量或返回 P 的函数调用");
-    CHECK_THROWS(Codegen::compile(Parser::parse("struct S { a: array<int>; }")),
-                 "只支持 int/float/bool");
+    CHECK(module_verifies("struct S { a: array<int>; }"));
 
     // S3c-2/S3c-3a：array<T> 签名是动态数组（descriptor ABI），参数 / 返回字面量合法；
     // print(array) 已支持（详细用例见 test_print_aggregate）。
@@ -1344,8 +1342,7 @@ static void test_array_s3b() {
               .find("define i64 @f(ptr %p0)") != std::string::npos);
     // 动态数组字段仍拒绝（固定长度数组字段 v1 已支持，见 test_struct_array_field）；
     // aggregate 表达式（调用结果）不能直接 print，变量形式已支持（见 test_print_aggregate）。
-    CHECK_THROWS(Codegen::compile(Parser::parse("struct S { a: array<int>; }")),
-                 "只支持 int/float/bool");
+    CHECK(module_verifies("struct S { a: array<int>; }"));
     CHECK_THROWS(
         Codegen::compile(Parser::parse(
             "fn make() -> array<int, 3> { return [1, 2, 3]; }\nprint(make());")),
@@ -2435,7 +2432,7 @@ static void test_array_struct_s3c3b1() {
         Codegen::compile(Parser::parse(
             "struct P { x: int; }\n"
             "struct S { a: array<P>; }")),
-        "动态数组");
+        "动态 array<struct>");
 
     // 类型错误：元素赋值 / 字段赋值 / 初始化长度与元素类型
     CHECK_THROWS(
@@ -3811,8 +3808,7 @@ static void test_struct_array_field_s3d() {
     }
 
     // 错误：动态数组字段 / 嵌套动态内层 / string 元素 / 数组字段循环嵌套。
-    CHECK_THROWS(Codegen::compile(Parser::parse("struct S { a: array<int>; }")),
-                 "不支持动态数组");
+    CHECK(module_verifies("struct S { a: array<int>; }"));
     CHECK_THROWS(
         Codegen::compile(Parser::parse("struct S { a: array<array<int>, 2>; }")),
         "不支持动态数组");
@@ -3866,6 +3862,44 @@ static void test_struct_array_field_s3d() {
         "不支持整体读取 array<struct>");
 }
 
+void test_struct_dynamic_field_s3e() {
+    const std::string src =
+        "struct S { a: array<int>; x: int; }\n"
+        "let s: S = S { a: [1, 2], x: 9 };\n"
+        "s.a[0] = 7;\n"
+        "push(s.a, 3);\n"
+        "let t: S = s;\n"
+        "t.a[0] = 5;\n"
+        "print(len(s.a), s.a[0], t.a[0], s.x);\n"
+        "print(s);\n"
+        "fn f(v: S) -> S { v.a[0] = 8; return v; }\n"
+        "let u: S = f(s);\n"
+        "print(u.a[0], s.a[0]);";
+    CHECK(module_verifies(src));
+    std::string ir = module_ir(src);
+    CHECK(ir.find("call ptr @malloc") != std::string::npos);
+    CHECK(ir.find("call void @free") != std::string::npos);
+    CHECK(ir.find("define void @f(ptr %sret, ptr %p0)") != std::string::npos);
+    CHECK(ir.find("deep.copy") != std::string::npos || ir.find("dyn.copy") != std::string::npos);
+    CHECK(module_verifies(
+        "struct P { a: array<int>; }\n"
+        "let d: array<P> = [P { a: [1] }];\n"
+        "push(d, P { a: [2] });\n"
+        "print(d[0].a[0]);"));
+    CHECK(module_verifies(
+        "struct P { a: array<int>; }\n"
+        "let a: array<P, 2> = [P { a: [1] }, P { a: [2] }];\n"
+        "let b: array<P, 2> = a;\n"
+        "b[0].a[0] = 9;\n"
+        "print(b[1].a[0]);"));
+    CHECK_THROWS(
+        Codegen::compile(Parser::parse("struct S { a: array<array<int>>; }")),
+        "动态");
+    CHECK_THROWS(
+        Codegen::compile(Parser::parse("struct S { a: array<array<int>>; }")),
+        "动态");
+}
+
 int main() {
     test_lexer();
     test_parser();
@@ -3885,6 +3919,7 @@ int main() {
     test_print_aggregate();
     test_dynamic_nested_array_s3c3d();
     test_struct_array_field_s3d();
+    test_struct_dynamic_field_s3e();
 
     std::cout << "通过 " << (checks - failures) << " / " << checks << " 项检查";
     if (failures > 0) {
