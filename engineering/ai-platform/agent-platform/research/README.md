@@ -2,7 +2,7 @@
 
 > **一句话主线**：从 Prompt Engineering 走向 Loop Engineering——ReAct 用"提示词"制造循环，现代 Agent Loop 用"运行时"制造循环，并被 Graph Engineering 接棒。
 >
-> 本目录是 AgentNest 的研究知识库：方法论 → 演进机理 → 产品对比 → 框架全景 → 工具收藏，五条线支撑 [../frameworks/](../frameworks/) 的落地与 [../tutorials/](../tutorials/) 的教学。
+> 本目录是 AgentNest 的研究知识库：方法论 → 演进机理 → 产品对比 → 框架全景 → 工具收藏，五条线支撑 [../agent-frameworks/](../agent-frameworks/) 的落地与 [../tutorials/](../tutorials/) 的教学。
 
 ## 文档地图（5 个入口）
 
@@ -31,7 +31,7 @@
 ## 配套仓库
 
 - [../tutorials/](../tutorials/)：从零手写 harness 的教学代码（python / rust，s01-s20 与本目录概念一一对应）
-- [../frameworks/](../frameworks/)：统一平台底座（接入 / 控制面 / AI 基础设施 + 可插拔运行时适配层：agentscope / langchain-graph / codex / dsh / 自研 agent-core）——本文档为选型与设计依据
+- [../agent-frameworks/](../agent-frameworks/)：统一平台底座（接入 / 控制面 / AI 基础设施 + 可插拔运行时适配层：agentscope / langchain-graph / codex / dsh / 自研 agent-core）——本文档为选型与设计依据
 
 ## 维护说明
 

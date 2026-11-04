@@ -29,7 +29,7 @@ Part 1（沉淀）──门禁──▶ Part 2（实证）──门禁──▶ 
 
 | 层 | 技术基线 |
 |---|---|
-| 平台底座（公共层） | PostgreSQL / Redis / Milvus·pgvector / MinIO·S3 / Vault·KMS / Prometheus·Grafana·Loki / E2B·OCI 沙箱（设计基线，详见 [frameworks/](frameworks/)） |
+| 平台底座（公共层） | PostgreSQL / Redis / Milvus·pgvector / MinIO·S3 / Vault·KMS / Prometheus·Grafana·Loki / E2B·OCI 沙箱（设计基线，详见 [agent-frameworks/](agent-frameworks/)） |
 | 运行时适配（四框架） | AgentScope 2.0、LangChain / LangGraph、OpenAI Codex（进程级编排）、DeepSeek Harness（TS 插件树） |
 | 自研内核 agent-core | Rust + tokio，单二进制，HTTP/gRPC 直连 |
 | 教学轨道 tutorials | Python 3（单文件 `code.py`）+ Rust（Cargo workspace），s01–s20 双轨道对齐 |
@@ -50,7 +50,7 @@ Part 1（沉淀）──门禁──▶ Part 2（实证）──门禁──▶ 
 
 - 控制面**框架无关**：不 import 任何框架的运行时；发布物化为运行时无关快照，由各适配器翻译
 - 端口做薄：只定各运行时最小契约（会话生命周期 / StreamEvent 事件流 / 审批挂起 / 隔离翻译），差异靠能力矩阵在发布期校验
-- 完整架构总纲与能力矩阵见 [frameworks/README.md](frameworks/README.md)
+- 完整架构总纲与能力矩阵见 [agent-frameworks/README.md](agent-frameworks/README.md)
 
 ## 目录导航
 
@@ -58,7 +58,7 @@ Part 1（沉淀）──门禁──▶ Part 2（实证）──门禁──▶ 
 |---|---|---|
 | [research/](research/) | 研究知识库：方法论、演进机理、产品对比、框架全景、工具收藏 | 基本完备 |
 | [tutorials/](tutorials/) | 从零手写 Agent Harness 教学（Python + Rust 双轨道，s01–s20） | 已完结 |
-| [frameworks/](frameworks/) | 统一平台底座总纲 + 四框架三件套（技术架构 / 实施计划 / 阶段总览） | 未落地 |
+| [agent-frameworks/](agent-frameworks/) | 统一平台底座总纲 + 四框架三件套（技术架构 / 实施计划 / 阶段总览） | 未落地 |
 | [agent-core/](agent-core/) | 自研核心：完全自研运行时，底座的第五适配器 | 设计存档（暂不开发） |
 
 ## 复用的算法
@@ -92,7 +92,7 @@ Part 3（规模化）：
 
 ## 实施笔记
 
-- **2026-08 架构收敛**：`frameworks/` 四条框架路线与 `agent-core/` 自研路线原共享 80% 公共建设（接入 / 控制面 / AI 基础设施），分别建设 = 重复造轮子；收敛为"一个底座 + 可插拔运行时"，agent-core 从并列路线降级为第五适配器
+- **2026-08 架构收敛**：`agent-frameworks/` 四条框架路线与 `agent-core/` 自研路线原共享 80% 公共建设（接入 / 控制面 / AI 基础设施），分别建设 = 重复造轮子；收敛为"一个底座 + 可插拔运行时"，agent-core 从并列路线降级为第五适配器
 - **关键取舍一：端口做薄**——Runtime Port 只定最小契约，差异靠能力矩阵兜底；抽象层做厚等于自研运行时（回到 agent-core），做薄则各适配器维护成本可控
 - **关键取舍二：agent-core 优先于商业框架接入**——自研内核最能验证端口设计是否够薄，且不受上游变更绑架
 - **关键取舍三：agent-core 设计存档暂不开发**（2026-08-27）——先归档设计，待 Part 2 评审后决定；其《技术架构方案》同时作为底座"自研运行时蓝本"与"AI 基础设施蓝本"

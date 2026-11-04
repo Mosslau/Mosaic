@@ -6,7 +6,7 @@
 
 ## 定位
 
-在 [frameworks/](../frameworks/) 的**统一平台底座**架构下，agent-core 是**第五个运行时适配器**——唯一完全自研、最可控的 Agent 内核；其《技术架构方案》同时是底座"自研运行时蓝本"与"AI 基础设施（模型网关等）蓝本"。
+在 [agent-frameworks/](../agent-frameworks/) 的**统一平台底座**架构下，agent-core 是**第五个运行时适配器**——唯一完全自研、最可控的 Agent 内核；其《技术架构方案》同时是底座"自研运行时蓝本"与"AI 基础设施（模型网关等）蓝本"。
 
 | | 框架适配器（agentscope / langchain-graph / codex / dsh） | agent-core 自研适配器 |
 |---|---|---|
