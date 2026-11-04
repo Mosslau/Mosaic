@@ -58,7 +58,7 @@ Part 1（沉淀）──门禁──▶ Part 2（实证）──门禁──▶ 
 |---|---|---|
 | [research/](research/) | 研究知识库：方法论、演进机理、产品对比、框架全景、工具收藏 | 基本完备 |
 | [tutorials/](tutorials/) | 从零手写 Agent Harness 教学（Python + Rust 双轨道，s01–s20） | 已完结 |
-| [frameworks/](frameworks/) | 统一平台底座总纲 + 四框架三件套（技术架构 / 实施计划 / 阶段总览） | 评审稿 |
+| [frameworks/](frameworks/) | 统一平台底座总纲 + 四框架三件套（技术架构 / 实施计划 / 阶段总览） | 未落地 |
 | [agent-core/](agent-core/) | 自研核心：完全自研运行时，底座的第五适配器 | 设计存档（暂不开发） |
 
 ## 复用的算法
@@ -76,7 +76,7 @@ Part 1（沉淀）：
 
 - [x] **A38** research 方法论（六层演进 / 产品对比 / 框架全景）沉淀完备
 - [x] **A39** tutorials 双轨道教学（Python + Rust，s01–s20）完结
-- [x] **A40** frameworks 四框架三件套 + agent-core 设计存档齐备（评审稿）
+- [x] **A40** frameworks 四框架三件套 + agent-core 设计存档齐备
 - [ ] **A41** 方案评审定稿，选定 Part 2 首个落地对象（Part 2 门禁）
 
 Part 2（实证）：

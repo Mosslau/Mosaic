@@ -17,5 +17,5 @@
 
 > 执行纪律：路线中的每个阶段必须给出「命令 + 输入 + 观察结果」；没有可重跑证据不算完成。
 
-> 工程侧的落地：数据平台 → [`../engineering/data-platform/`](../engineering/data-platform/)（D 阶段路线 v48，0/13，未实现）；AI 平台 → [`../engineering/ai-platform/`](../engineering/ai-platform/)（D 阶段路线 v17，0/11；D8 的 Part 1 资料/教程已完成，运行时代码未开始）。
+> 工程侧的落地：数据平台 → [`../engineering/data-platform/`](../engineering/data-platform/)（0/13，未实现）；AI 平台 → [`../engineering/ai-platform/`](../engineering/ai-platform/)（0/11；D8 的 Part 1 资料/教程已完成，运行时代码未开始）。
 

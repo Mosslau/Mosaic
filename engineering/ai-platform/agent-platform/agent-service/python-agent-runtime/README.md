@@ -6,7 +6,7 @@
 
 当前 Runtime 的完整架构、实现状态和调用方/Runtime 职责边界见：
 
-- `docs/Python-Agent-Runtime-重构计划.md`（**唯一设计文档，v1.10**：对齐 50 项能力全景；
+- `docs/Python-Agent-Runtime-重构计划.md`（**唯一设计文档**：对齐 50 项能力全景；
   三轨排期 12 周；DoD 61 条；附录 G 9 张架构图 + 附录 H 50 项能力矩阵）
 - 通用企业级设计标准见仓库根目录 `docs/企业级项目设计参考.md`
 - `../docs/Java-Spring与Python-DeepAgents技术架构说明.md`

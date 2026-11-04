@@ -1,8 +1,6 @@
 # 🏗️ AgentNest 平台底座（Platform Base）— 统一架构总纲
 
 > **一句话主线**：把 `frameworks/` 四条框架路线与 `agent-core/` 自研路线，统一到**一个平台底座 + 可插拔运行时**的架构上——公共层（接入 / 控制面 / AI 基础设施）只建一次，各框架与自研内核都以"运行时适配器"接入，按能力矩阵差异化供给。
->
-> 版本：v0.2 · 状态：评审稿 · 日期 2026-08-27
 
 ---
 
@@ -164,10 +162,10 @@ trait RuntimePort {
 
 | 目录 | 技术基座 | 形态 | 接入方式 | 状态 |
 |---|---|---|---|---|
-| [agentscope/](agentscope/) | AgentScope 2.0 | 企业级多租户 Agent 平台 | 现成扩展点注入（接入成本最低） | 评审稿 |
-| [langchain-graph/](langchain-graph/) | LangChain / LangGraph | 图状态机编排平台 | 图定义下发 + Checkpointer 对接 | 评审稿 |
-| [codex/](codex/) | OpenAI Codex | 企业级编码 Agent 平台 | 进程级外部编排（闭源黑盒） | 评审稿 |
-| [deepseek-harness/](deepseek-harness/) | DeepSeek Harness | Harness 底座（Everything is a Plugin） | 插件树组装 + 事件日志对接 | 评审稿 |
+| [agentscope/](agentscope/) | AgentScope 2.0 | 企业级多租户 Agent 平台 | 现成扩展点注入（接入成本最低） | 未落地 |
+| [langchain-graph/](langchain-graph/) | LangChain / LangGraph | 图状态机编排平台 | 图定义下发 + Checkpointer 对接 | 未落地 |
+| [codex/](codex/) | OpenAI Codex | 企业级编码 Agent 平台 | 进程级外部编排（闭源黑盒） | 未落地 |
+| [deepseek-harness/](deepseek-harness/) | DeepSeek Harness | Harness 底座（Everything is a Plugin） | 插件树组装 + 事件日志对接 | 未落地 |
 | [../agent-core/](../agent-core/) | **完全自研**（Rust） | 服务端执行引擎 | HTTP/gRPC 直连（最可控） | **设计存档**（暂不开发） |
 
 > 各目录的三件套（技术架构 / 实施计划 / 阶段总览）继续有效——它们是"该运行时如何接入底座"的详细方案；本文档是总纲，只做统一与差异裁决。
@@ -205,10 +203,10 @@ M0 底座骨架（控制面 + 接入层 + AI 基础设施占位）
 
 | 框架 | 技术基座 | 状态 |
 |---|---|---|
-| [agentscope/](agentscope/) | AgentScope 2.0（企业级多租户 Agent 平台） | 评审稿 |
-| [codex/](codex/) | OpenAI Codex（企业级编码 Agent 平台） | 评审稿 |
-| [deepseek-harness/](deepseek-harness/) | DeepSeek Harness（dsh，Everything is a Plugin 的 Harness 底座） | 评审稿 |
-| [langchain-graph/](langchain-graph/) | LangChain / LangGraph（图状态机编排平台） | 评审稿 |
+| [agentscope/](agentscope/) | AgentScope 2.0（企业级多租户 Agent 平台） | 未落地 |
+| [codex/](codex/) | OpenAI Codex（企业级编码 Agent 平台） | 未落地 |
+| [deepseek-harness/](deepseek-harness/) | DeepSeek Harness（dsh，Everything is a Plugin 的 Harness 底座） | 未落地 |
+| [langchain-graph/](langchain-graph/) | LangChain / LangGraph（图状态机编排平台） | 未落地 |
 
 ## 8. 与其他目录的关系
 
