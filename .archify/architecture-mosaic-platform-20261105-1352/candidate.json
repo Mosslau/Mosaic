@@ -1,0 +1,657 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Mosaic 平台架构：两个平台 + 车联网/机器人闭环",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "output": ".archify/architecture-mosaic-platform-20261105-1352/mosaic-platform.html",
+    "repository": {
+      "url": "git@github.com:Mosslau/Mosaic.git",
+      "link_mode": "local-only",
+      "revision": "91c4e63bc43044968c82974c3719f0580ea82536"
+    }
+  },
+  "components": [
+    {
+      "id": "veh",
+      "type": "external",
+      "label": "车联网设备",
+      "sublabel": "TSP/BMS · CAN/MQTT 帧",
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        200,
+        70
+      ],
+      "sources": [
+        {
+          "path": "roadmap/车联网与机器人数据域需求.md",
+          "line": 316,
+          "end_line": 320
+        },
+        {
+          "path": "engineering/车联网与机器人数据域技术增量.md",
+          "line": 114,
+          "end_line": 119
+        }
+      ]
+    },
+    {
+      "id": "robot",
+      "type": "external",
+      "label": "机器人设备",
+      "sublabel": "ROS 2/DDS · MCAP/点云",
+      "pos": [
+        40,
+        160
+      ],
+      "size": [
+        200,
+        70
+      ],
+      "sources": [
+        {
+          "path": "roadmap/车联网与机器人数据域需求.md",
+          "line": 418,
+          "end_line": 431
+        },
+        {
+          "path": "engineering/车联网与机器人数据域技术增量.md",
+          "line": 114,
+          "end_line": 119
+        }
+      ]
+    },
+    {
+      "id": "bizsrc",
+      "type": "external",
+      "label": "业务系统",
+      "sublabel": "CRM/DMS/工单/OTA",
+      "pos": [
+        580,
+        40
+      ],
+      "size": [
+        200,
+        70
+      ],
+      "sources": [
+        {
+          "path": "roadmap/车联网与机器人数据域需求.md",
+          "line": 172,
+          "end_line": 189
+        }
+      ]
+    },
+    {
+      "id": "edge",
+      "type": "backend",
+      "label": "数据接入 D3",
+      "sublabel": "EMQX + SeaTunnel · 补传",
+      "pos": [
+        330,
+        160
+      ],
+      "size": [
+        200,
+        70
+      ],
+      "sources": [
+        {
+          "path": "engineering/车联网与机器人数据域技术增量.md",
+          "line": 79,
+          "end_line": 99
+        },
+        {
+          "path": "engineering/data-platform/通用数据平台建设路线.md",
+          "line": 101
+        }
+      ]
+    },
+    {
+      "id": "reg",
+      "type": "database",
+      "label": "三登记簿",
+      "sublabel": "增量 · 协议/固件/时钟",
+      "pos": [
+        660,
+        160
+      ],
+      "size": [
+        200,
+        70
+      ],
+      "sources": [
+        {
+          "path": "engineering/车联网与机器人数据域技术增量.md",
+          "line": 100,
+          "end_line": 111
+        }
+      ]
+    },
+    {
+      "id": "lake",
+      "type": "database",
+      "label": "湖仓 D2",
+      "sublabel": "raw WORM · parsed · curated",
+      "pos": [
+        330,
+        280
+      ],
+      "size": [
+        200,
+        70
+      ],
+      "sources": [
+        {
+          "path": "engineering/车联网与机器人数据域技术增量.md",
+          "line": 139,
+          "end_line": 154
+        },
+        {
+          "path": "engineering/data-platform/通用数据平台建设路线.md",
+          "line": 100
+        }
+      ]
+    },
+    {
+      "id": "compute",
+      "type": "backend",
+      "label": "数据计算 D4",
+      "sublabel": "Flink/Spark · Python 算子",
+      "pos": [
+        330,
+        400
+      ],
+      "size": [
+        200,
+        70
+      ],
+      "sources": [
+        {
+          "path": "engineering/车联网与机器人数据域技术增量.md",
+          "line": 156,
+          "end_line": 168
+        },
+        {
+          "path": "engineering/data-platform/通用数据平台建设路线.md",
+          "line": 102
+        }
+      ]
+    },
+    {
+      "id": "semantic",
+      "type": "database",
+      "label": "数据语义 D6",
+      "sublabel": "增量 · 设备/信号/地图",
+      "pos": [
+        330,
+        520
+      ],
+      "size": [
+        200,
+        70
+      ],
+      "sources": [
+        {
+          "path": "engineering/data-platform/通用数据平台建设路线.md",
+          "line": 104
+        },
+        {
+          "path": "roadmap/车联网与机器人数据域需求.md",
+          "line": 251,
+          "end_line": 263
+        },
+        {
+          "path": "engineering/车联网与机器人数据域技术增量.md",
+          "line": 419
+        }
+      ]
+    },
+    {
+      "id": "svc",
+      "type": "backend",
+      "label": "数据服务 D9",
+      "sublabel": "查询网关 · API · BI",
+      "pos": [
+        330,
+        640
+      ],
+      "size": [
+        200,
+        70
+      ],
+      "sources": [
+        {
+          "path": "engineering/data-platform/通用数据平台建设路线.md",
+          "line": 107
+        },
+        {
+          "path": "roadmap/车联网与机器人数据域需求.md",
+          "line": 47,
+          "end_line": 59
+        }
+      ]
+    },
+    {
+      "id": "contracts",
+      "type": "backend",
+      "label": "跨平台契约",
+      "sublabel": "EntityRef · MetricRef · Policy",
+      "pos": [
+        660,
+        640
+      ],
+      "size": [
+        200,
+        70
+      ],
+      "sources": [
+        {
+          "path": "engineering/README.md",
+          "line": 109,
+          "end_line": 125
+        },
+        {
+          "path": "engineering/车联网与机器人数据域技术增量.md",
+          "line": 462,
+          "end_line": 480
+        }
+      ]
+    },
+    {
+      "id": "corpus",
+      "type": "backend",
+      "label": "AI 语料 D2",
+      "sublabel": "增量 · 文档/多模态 · WindowRef",
+      "pos": [
+        1040,
+        160
+      ],
+      "size": [
+        200,
+        70
+      ],
+      "sources": [
+        {
+          "path": "engineering/ai-platform/AI平台建设路线.md",
+          "line": 101
+        },
+        {
+          "path": "engineering/车联网与机器人数据域技术增量.md",
+          "line": 170,
+          "end_line": 200
+        }
+      ]
+    },
+    {
+      "id": "knowledge",
+      "type": "backend",
+      "label": "AI 知识 D3",
+      "sublabel": "混合检索 · Rerank · 实体链接",
+      "pos": [
+        1040,
+        280
+      ],
+      "size": [
+        200,
+        70
+      ],
+      "sources": [
+        {
+          "path": "engineering/ai-platform/AI平台建设路线.md",
+          "line": 102
+        },
+        {
+          "path": "roadmap/车联网与机器人数据域需求.md",
+          "line": 47,
+          "end_line": 59
+        }
+      ]
+    },
+    {
+      "id": "infer",
+      "type": "backend",
+      "label": "AI 推理 D5",
+      "sublabel": "vLLM · OpenAI 兼容",
+      "pos": [
+        1040,
+        400
+      ],
+      "size": [
+        200,
+        70
+      ],
+      "sources": [
+        {
+          "path": "engineering/ai-platform/AI平台建设路线.md",
+          "line": 104
+        }
+      ]
+    },
+    {
+      "id": "agent",
+      "type": "backend",
+      "label": "AI Agent D8",
+      "sublabel": "RuntimePort · 工具 · 审批",
+      "pos": [
+        1040,
+        520
+      ],
+      "size": [
+        200,
+        70
+      ],
+      "sources": [
+        {
+          "path": "engineering/ai-platform/AI平台建设路线.md",
+          "line": 107
+        },
+        {
+          "path": "engineering/README.md",
+          "line": 150,
+          "end_line": 154
+        }
+      ]
+    },
+    {
+      "id": "action",
+      "type": "external",
+      "label": "业务动作",
+      "sublabel": "工单/派单/调度 · 回灌",
+      "pos": [
+        1370,
+        520
+      ],
+      "size": [
+        200,
+        70
+      ],
+      "sources": [
+        {
+          "path": "roadmap/车联网与机器人数据域需求.md",
+          "line": 47,
+          "end_line": 59
+        },
+        {
+          "path": "roadmap/车联网与机器人数据域需求.md",
+          "line": 84,
+          "end_line": 92
+        }
+      ]
+    },
+    {
+      "id": "flywheel",
+      "type": "backend",
+      "label": "AI 飞轮 D9/D10",
+      "sublabel": "增量 · prediction_id 归因",
+      "pos": [
+        1370,
+        640
+      ],
+      "size": [
+        200,
+        70
+      ],
+      "sources": [
+        {
+          "path": "engineering/车联网与机器人数据域技术增量.md",
+          "line": 203,
+          "end_line": 223
+        },
+        {
+          "path": "engineering/ai-platform/AI平台建设路线.md",
+          "line": 108
+        }
+      ]
+    },
+    {
+      "id": "base",
+      "type": "cloud",
+      "label": "共享底座 D0",
+      "sublabel": "K8s/GPU · Vault · 模型网关",
+      "pos": [
+        1370,
+        280
+      ],
+      "size": [
+        200,
+        70
+      ],
+      "sources": [
+        {
+          "path": "engineering/ai-platform/AI平台建设路线.md",
+          "line": 91
+        },
+        {
+          "path": "engineering/ai-platform/AI平台建设路线.md",
+          "line": 99
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "veh-to-edge",
+      "from": "veh",
+      "to": "edge",
+      "label": "CAN/MQTT",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "variant": "emphasis"
+    },
+    {
+      "id": "robot-to-edge",
+      "from": "robot",
+      "to": "edge",
+      "label": "ROS 2",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "biz-to-edge",
+      "from": "bizsrc",
+      "to": "edge",
+      "label": "CDC/API",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "reg-to-edge",
+      "from": "reg",
+      "to": "edge",
+      "label": "codec 版本",
+      "fromSide": "left",
+      "toSide": "right"
+    },
+    {
+      "id": "edge-to-lake",
+      "from": "edge",
+      "to": "lake",
+      "label": "raw + parsed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "lake-to-compute",
+      "from": "lake",
+      "to": "compute",
+      "label": "Iceberg 表",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "compute-to-semantic",
+      "from": "compute",
+      "to": "semantic",
+      "label": "DWD/DWS",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "semantic-to-svc",
+      "from": "semantic",
+      "to": "svc",
+      "label": "实体/指标",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "svc-to-contracts",
+      "from": "svc",
+      "to": "contracts",
+      "label": "证据化服务",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "contracts-to-corpus",
+      "from": "contracts",
+      "to": "corpus",
+      "label": "实体/证据",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          920,
+          675
+        ],
+        [
+          920,
+          195
+        ]
+      ]
+    },
+    {
+      "id": "corpus-to-knowledge",
+      "from": "corpus",
+      "to": "knowledge",
+      "label": "语料/向量",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "knowledge-to-infer",
+      "from": "knowledge",
+      "to": "infer",
+      "label": "上下文/引用",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "infer-to-agent",
+      "from": "infer",
+      "to": "agent",
+      "label": "模型输出",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "agent-to-action",
+      "from": "agent",
+      "to": "action",
+      "label": "建议动作",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "action-to-flywheel",
+      "from": "action",
+      "to": "flywheel",
+      "label": "业务结果",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "flywheel-to-semantic",
+      "from": "flywheel",
+      "to": "semantic",
+      "label": "修正本体/指标",
+      "variant": "dashed",
+      "fromSide": "left",
+      "toSide": "left",
+      "via": [
+        [
+          1310,
+          675
+        ],
+        [
+          1310,
+          730
+        ],
+        [
+          270,
+          730
+        ],
+        [
+          270,
+          555
+        ]
+      ]
+    },
+    {
+      "id": "base-to-agent",
+      "from": "base",
+      "to": "agent",
+      "label": "工具/沙箱",
+      "variant": "dashed",
+      "fromSide": "left",
+      "toSide": "bottom",
+      "via": [
+        [
+          1300,
+          315
+        ],
+        [
+          1300,
+          630
+        ],
+        [
+          1140,
+          630
+        ]
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "数据平台 D0–D12",
+      "items": [
+        "湖为真相源，Doris 只做 serving",
+        "12 个控制中心分落 D5/D6/D7/D8/D11",
+        "领域增量：登记簿 · 时空 · 孪生 · 回灌"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "AI 平台 D0–D10",
+      "items": [
+        "语料 D2 → 知识 D3 → 推理 D5 → Agent D8",
+        "训练 D7 / 算力 D6 / 控制面 D9 不在请求主链",
+        "模型网关 · MCP · 沙箱只建一次"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "车联网 + 机器人",
+      "items": [
+        "约 80% 同构，不建两套平台",
+        "差异收敛到 codec 插件 · 本体扩展 · 算子库 · 时空字典",
+        "三轴：数据流 A · 设备运行 B · 时空表达 C"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "闭环判据",
+      "items": [
+        "在线环秒~分钟，离线环小时~天",
+        "没有 prediction_id 就没有归因",
+        "有动作 / 结果 / 回流 / 度量 / owner 才算闭环"
+      ]
+    }
+  ]
+}

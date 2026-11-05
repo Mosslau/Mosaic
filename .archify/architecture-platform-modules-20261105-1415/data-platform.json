@@ -1,0 +1,516 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "通用数据平台：系统模块架构（D0–D12）",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "output": ".archify/architecture-platform-modules-20261105-1415/data-platform.html",
+    "repository": {
+      "url": "git@github.com:Mosslau/Mosaic.git",
+      "link_mode": "local-only",
+      "revision": "91c4e63bc43044968c82974c3719f0580ea82536"
+    }
+  },
+  "layout": {
+    "mode": "grid",
+    "cols": 6,
+    "gapX": 70,
+    "gapY": 60,
+    "cellW": 190,
+    "cellH": 70
+  },
+  "components": [
+    {
+      "id": "portal",
+      "type": "backend",
+      "label": "统一门户 / 表单",
+      "sublabel": "配置向导 · 发布 SOP",
+      "row": 0,
+      "col": 0,
+      "sources": [
+        {
+          "path": "engineering/data-platform/通用数据平台建设路线.md",
+          "line": 23
+        },
+        {
+          "path": "engineering/data-platform/通用数据平台建设路线.md",
+          "line": 103
+        }
+      ],
+      "size": [
+        190,
+        70
+      ]
+    },
+    {
+      "id": "ask",
+      "type": "backend",
+      "label": "AI 问数 D10",
+      "sublabel": "NL→MQL · 100 题评测",
+      "row": 0,
+      "col": 3,
+      "sources": [
+        {
+          "path": "engineering/data-platform/通用数据平台建设路线.md",
+          "line": 108
+        },
+        {
+          "path": "engineering/data-platform/通用数据平台建设路线.md",
+          "line": 32
+        }
+      ],
+      "size": [
+        190,
+        70
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "开放 API / BI",
+      "sublabel": "查询网关 · Superset",
+      "row": 0,
+      "col": 4,
+      "sources": [
+        {
+          "path": "engineering/data-platform/通用数据平台建设路线.md",
+          "line": 23
+        },
+        {
+          "path": "engineering/data-platform/通用数据平台建设路线.md",
+          "line": 107
+        }
+      ],
+      "size": [
+        190,
+        70
+      ]
+    },
+    {
+      "id": "workbench",
+      "type": "backend",
+      "label": "开发工作台 D5",
+      "sublabel": "DS 编排 · StreamPark",
+      "row": 1,
+      "col": 0,
+      "sources": [
+        {
+          "path": "engineering/data-platform/通用数据平台建设路线.md",
+          "line": 103
+        }
+      ],
+      "size": [
+        190,
+        70
+      ]
+    },
+    {
+      "id": "catalog",
+      "type": "database",
+      "label": "统一目录 D7",
+      "sublabel": "DataHub · 血缘",
+      "row": 1,
+      "col": 1,
+      "sources": [
+        {
+          "path": "engineering/data-platform/通用数据平台建设路线.md",
+          "line": 105
+        }
+      ],
+      "size": [
+        190,
+        70
+      ]
+    },
+    {
+      "id": "gov",
+      "type": "security",
+      "label": "数据治理 D8",
+      "sublabel": "质量/权限/审计/成本",
+      "row": 1,
+      "col": 2,
+      "sources": [
+        {
+          "path": "engineering/data-platform/通用数据平台建设路线.md",
+          "line": 106
+        }
+      ],
+      "size": [
+        190,
+        70
+      ]
+    },
+    {
+      "id": "ctrl",
+      "type": "backend",
+      "label": "平台控制面 D11",
+      "sublabel": "注册 / trace / 台账",
+      "row": 1,
+      "col": 5,
+      "sources": [
+        {
+          "path": "engineering/data-platform/通用数据平台建设路线.md",
+          "line": 109
+        }
+      ],
+      "size": [
+        190,
+        70
+      ]
+    },
+    {
+      "id": "ingest",
+      "type": "backend",
+      "label": "接入 D3",
+      "sublabel": "SeaTunnel · DLQ",
+      "row": 2,
+      "col": 0,
+      "sources": [
+        {
+          "path": "engineering/data-platform/通用数据平台建设路线.md",
+          "line": 101
+        }
+      ],
+      "size": [
+        190,
+        70
+      ]
+    },
+    {
+      "id": "lake",
+      "type": "database",
+      "label": "湖仓 D2",
+      "sublabel": "Iceberg · MinIO · Doris",
+      "row": 2,
+      "col": 1,
+      "sources": [
+        {
+          "path": "engineering/data-platform/通用数据平台建设路线.md",
+          "line": 100
+        },
+        {
+          "path": "engineering/data-platform/通用数据平台建设路线.md",
+          "line": 74
+        }
+      ],
+      "size": [
+        190,
+        70
+      ]
+    },
+    {
+      "id": "compute",
+      "type": "backend",
+      "label": "计算 D4",
+      "sublabel": "Flink/Spark · SQL",
+      "row": 2,
+      "col": 2,
+      "sources": [
+        {
+          "path": "engineering/data-platform/通用数据平台建设路线.md",
+          "line": 102
+        }
+      ],
+      "size": [
+        190,
+        70
+      ]
+    },
+    {
+      "id": "semantic",
+      "type": "database",
+      "label": "语义 D6",
+      "sublabel": "metric_def · MQL · 本体",
+      "row": 2,
+      "col": 3,
+      "sources": [
+        {
+          "path": "engineering/data-platform/通用数据平台建设路线.md",
+          "line": 104
+        }
+      ],
+      "size": [
+        190,
+        70
+      ]
+    },
+    {
+      "id": "svc",
+      "type": "backend",
+      "label": "服务 D9",
+      "sublabel": "查询网关 · API",
+      "row": 2,
+      "col": 4,
+      "sources": [
+        {
+          "path": "engineering/data-platform/通用数据平台建设路线.md",
+          "line": 107
+        }
+      ],
+      "size": [
+        190,
+        70
+      ]
+    },
+    {
+      "id": "kafka",
+      "type": "messagebus",
+      "label": "Kafka",
+      "sublabel": "分区 · 重放",
+      "row": 3,
+      "col": 0,
+      "sources": [
+        {
+          "path": "engineering/data-platform/通用数据平台建设路线.md",
+          "line": 98
+        }
+      ],
+      "size": [
+        190,
+        70
+      ]
+    },
+    {
+      "id": "minio",
+      "type": "database",
+      "label": "MinIO + Iceberg",
+      "sublabel": "湖表 · 快照",
+      "row": 3,
+      "col": 1,
+      "sources": [
+        {
+          "path": "engineering/data-platform/通用数据平台建设路线.md",
+          "line": 100
+        }
+      ],
+      "size": [
+        190,
+        70
+      ]
+    },
+    {
+      "id": "engines",
+      "type": "cloud",
+      "label": "Flink / Spark / Doris",
+      "sublabel": "批 / 流 / OLAP",
+      "row": 3,
+      "col": 2,
+      "sources": [
+        {
+          "path": "engineering/data-platform/通用数据平台建设路线.md",
+          "line": 75
+        }
+      ],
+      "size": [
+        190,
+        70
+      ]
+    },
+    {
+      "id": "runtime",
+      "type": "cloud",
+      "label": "K8s + PG/Redis",
+      "sublabel": "运行时 · 观测",
+      "row": 3,
+      "col": 4,
+      "sources": [
+        {
+          "path": "engineering/data-platform/通用数据平台建设路线.md",
+          "line": 98
+        }
+      ],
+      "size": [
+        190,
+        70
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "入口与服务层",
+      "wraps": [
+        "portal",
+        "ask",
+        "api"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "控制面 D5 / D7 / D8 / D11",
+      "wraps": [
+        "workbench",
+        "catalog",
+        "gov",
+        "ctrl"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "数据面 D2 / D3 / D4 / D6 / D9",
+      "wraps": [
+        "ingest",
+        "lake",
+        "compute",
+        "semantic",
+        "svc"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "基础设施",
+      "wraps": [
+        "kafka",
+        "minio",
+        "engines",
+        "runtime"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "portal-to-workbench",
+      "from": "portal",
+      "to": "workbench",
+      "label": "配置",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "workbench-to-ingest",
+      "from": "workbench",
+      "to": "ingest",
+      "label": "作业/调度",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "catalog-to-lake",
+      "from": "catalog",
+      "to": "lake",
+      "label": "元数据",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "gov-to-semantic",
+      "from": "gov",
+      "to": "semantic",
+      "label": "口径/规则"
+    },
+    {
+      "id": "ctrl-to-svc",
+      "from": "ctrl",
+      "to": "svc",
+      "label": "注册/trace",
+      "variant": "dashed"
+    },
+    {
+      "id": "ask-to-semantic",
+      "from": "ask",
+      "to": "semantic",
+      "label": "NL→MQL",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "api-to-svc",
+      "from": "api",
+      "to": "svc",
+      "label": "JDBC/HTTP",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "ingest-to-lake",
+      "from": "ingest",
+      "to": "lake",
+      "label": "Kafka",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "lake-to-compute",
+      "from": "lake",
+      "to": "compute",
+      "label": "表/快照",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "compute-to-semantic",
+      "from": "compute",
+      "to": "semantic",
+      "label": "SQL/DWD",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "semantic-to-svc",
+      "from": "semantic",
+      "to": "svc",
+      "label": "MQL",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "ingest-to-kafka",
+      "from": "ingest",
+      "to": "kafka",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "lake-to-minio",
+      "from": "lake",
+      "to": "minio",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "compute-to-engines",
+      "from": "compute",
+      "to": "engines",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "svc-to-runtime",
+      "from": "svc",
+      "to": "runtime",
+      "label": "缓存/审计",
+      "fromSide": "bottom",
+      "toSide": "top"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "数据面（D2 / D3 / D4 / D6 / D9）",
+      "items": [
+        "湖为真相源，Doris 只做 serving",
+        "语义层唯一口径：metric_def + MQL→SQL",
+        "接入走 SeaTunnel，DLQ 按原因枚举"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "控制面（D5 / D7 / D8 / D11）",
+      "items": [
+        "12 个控制中心分落 D5 / D6 / D7 / D8 / D11",
+        "先能管才能放：D8 必须在 D9 之前",
+        "D11 只做跨域控制面，不重复 D5 的调度"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "基础设施与边界",
+      "items": [
+        "Kafka / MinIO / Iceberg / Doris / Flink / Spark / PG / Redis / K8s",
+        "不造全家桶：调度 / 集成 / 湖表 / 目录 / 语义引擎用成熟件",
+        "模型网关 / MCP / 沙箱归 AI 平台，本平台只调用"
+      ]
+    }
+  ]
+}

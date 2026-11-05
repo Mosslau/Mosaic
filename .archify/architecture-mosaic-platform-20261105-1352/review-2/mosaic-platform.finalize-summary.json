@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "/Users/ninebot/code/chat/Mosaic/.archify/architecture-mosaic-platform-20261105-1352/candidate.json",
+    "sha256": "cafe8ff9eee650dfe96ee337822f318b74b1da7d82a7680079c41c9f0d4dd8e6",
+    "bytes": 13950
+  },
+  "artifact": {
+    "path": "/Users/ninebot/code/chat/Mosaic/.archify/architecture-mosaic-platform-20261105-1352/review-2/mosaic-platform.html",
+    "sha256": "7da749e0eb3c557a4fda5c5681cad26dd914b462cd9713d1af9c05d98dac2b83",
+    "bytes": 781590
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/Users/ninebot/code/chat/Mosaic/.archify/architecture-mosaic-platform-20261105-1352/review-2/mosaic-platform.finalize.json",
+    "summaryReceipt": "/Users/ninebot/code/chat/Mosaic/.archify/architecture-mosaic-platform-20261105-1352/review-2/mosaic-platform.finalize-summary.json",
+    "browserCheckReceipt": "/Users/ninebot/code/chat/Mosaic/.archify/architecture-mosaic-platform-20261105-1352/review-2/mosaic-platform.browser-check.json"
+  },
+  "update": {
+    "status": "unavailable",
+    "installedVersion": null,
+    "availableVersion": null,
+    "releaseNotes": null,
+    "checkedAt": null,
+    "source": null,
+    "noticeRequired": false,
+    "noticeText": null,
+    "reason": "cache-unavailable"
+  },
+  "visualReview": "not-requested",
+  "durationMs": 1799,
+  "visualReviewRecommendation": {
+    "action": "inspect-route-readability",
+    "signals": {
+      "routesOverSuggestedBends": 2
+    },
+    "reason": "Automated gates passed, but crossings or detours still need perceptual review before claiming visual quality.",
+    "affectedRoutes": {
+      "crossings": [],
+      "detours": [
+        {
+          "relationship": {
+            "id": "flywheel-to-semantic",
+            "from": "flywheel",
+            "to": "semantic",
+            "label": "修正本体/指标",
+            "collectionIndex": 15,
+            "artifactIndex": 16
+          },
+          "bends": 4,
+          "stretch": 1.198
+        },
+        {
+          "relationship": {
+            "id": "base-to-agent",
+            "from": "base",
+            "to": "agent",
+            "label": "工具/沙箱",
+            "collectionIndex": 16,
+            "artifactIndex": 17
+          },
+          "bends": 3,
+          "stretch": 1.158
+        }
+      ],
+      "truncated": false
+    },
+    "hints": [
+      "flywheel → semantic needs 4 bends: move node flywheel or semantic so they share a row or column with matching centers, or sit diagonally with a clear corner.",
+      "base → agent needs 3 bends: move node base or agent so they share a row or column with matching centers, or sit diagonally with a clear corner."
+    ],
+    "repair": "Trace these relationships at the desktop viewport. For Architecture, use references/architecture-layout-repair.md: reflow a blocked main path or tangled connected scene, and repair an isolated defect locally only when the surrounding composition is accepted. Preserve all semantic content and user-fixed geometry. Rerun finalize once after the edit."
+  }
+}

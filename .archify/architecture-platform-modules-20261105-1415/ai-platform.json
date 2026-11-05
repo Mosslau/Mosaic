@@ -1,0 +1,415 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "AI 平台：系统模块架构（D0–D10）",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "output": ".archify/architecture-platform-modules-20261105-1415/ai-platform.html",
+    "repository": {
+      "url": "git@github.com:Mosslau/Mosaic.git",
+      "link_mode": "local-only",
+      "revision": "91c4e63bc43044968c82974c3719f0580ea82536"
+    }
+  },
+  "layout": {
+    "mode": "grid",
+    "origin": [
+      40,
+      40
+    ],
+    "cols": 5,
+    "gapX": 70,
+    "gapY": 60,
+    "cellW": 190,
+    "cellH": 70
+  },
+  "components": [
+    {
+      "id": "ctrl",
+      "type": "backend",
+      "label": "平台控制面 D9/D11",
+      "sublabel": "编排 · 注册 · trace · 成本",
+      "row": 0,
+      "col": 0,
+      "size": [
+        190,
+        70
+      ],
+      "sources": [
+        {
+          "path": "engineering/ai-platform/AI平台建设路线.md",
+          "line": 38
+        },
+        {
+          "path": "engineering/ai-platform/AI平台建设路线.md",
+          "line": 108
+        }
+      ]
+    },
+    {
+      "id": "entry",
+      "type": "backend",
+      "label": "控制台 / 开放 API",
+      "sublabel": "OpenAI 兼容 · SDK",
+      "row": 0,
+      "col": 3,
+      "size": [
+        190,
+        70
+      ],
+      "sources": [
+        {
+          "path": "engineering/ai-platform/AI平台建设路线.md",
+          "line": 22
+        },
+        {
+          "path": "engineering/ai-platform/AI平台建设路线.md",
+          "line": 70
+        }
+      ]
+    },
+    {
+      "id": "gateway",
+      "type": "security",
+      "label": "模型网关 / MCP / 沙箱",
+      "sublabel": "工具 · 审批 · 隔离",
+      "row": 1,
+      "col": 2,
+      "size": [
+        190,
+        70
+      ],
+      "sources": [
+        {
+          "path": "engineering/ai-platform/AI平台建设路线.md",
+          "line": 91
+        },
+        {
+          "path": "engineering/ai-platform/AI平台建设路线.md",
+          "line": 146
+        }
+      ]
+    },
+    {
+      "id": "agent",
+      "type": "backend",
+      "label": "Agent 运行时 D8",
+      "sublabel": "RuntimePort · agent-core",
+      "row": 1,
+      "col": 3,
+      "size": [
+        190,
+        70
+      ],
+      "sources": [
+        {
+          "path": "engineering/ai-platform/AI平台建设路线.md",
+          "line": 107
+        },
+        {
+          "path": "engineering/ai-platform/AI平台建设路线.md",
+          "line": 69
+        }
+      ]
+    },
+    {
+      "id": "train",
+      "type": "backend",
+      "label": "训练 D7",
+      "sublabel": "LoRA/QLoRA · MLflow",
+      "row": 2,
+      "col": 1,
+      "size": [
+        190,
+        70
+      ],
+      "sources": [
+        {
+          "path": "engineering/ai-platform/AI平台建设路线.md",
+          "line": 106
+        }
+      ]
+    },
+    {
+      "id": "registry",
+      "type": "database",
+      "label": "模型注册",
+      "sublabel": "版本 · 回滚",
+      "row": 2,
+      "col": 2,
+      "size": [
+        190,
+        70
+      ],
+      "sources": [
+        {
+          "path": "engineering/ai-platform/AI平台建设路线.md",
+          "line": 66
+        }
+      ]
+    },
+    {
+      "id": "infer",
+      "type": "backend",
+      "label": "推理 D5",
+      "sublabel": "vLLM · 量化",
+      "row": 2,
+      "col": 3,
+      "size": [
+        190,
+        70
+      ],
+      "sources": [
+        {
+          "path": "engineering/ai-platform/AI平台建设路线.md",
+          "line": 104
+        }
+      ]
+    },
+    {
+      "id": "retrieval",
+      "type": "backend",
+      "label": "检索 D3",
+      "sublabel": "混合检索 · Rerank",
+      "row": 2,
+      "col": 4,
+      "size": [
+        190,
+        70
+      ],
+      "sources": [
+        {
+          "path": "engineering/ai-platform/AI平台建设路线.md",
+          "line": 102
+        }
+      ]
+    },
+    {
+      "id": "corpus",
+      "type": "backend",
+      "label": "语料 D2",
+      "sublabel": "清洗/去重/embedding",
+      "row": 3,
+      "col": 0,
+      "size": [
+        190,
+        70
+      ],
+      "sources": [
+        {
+          "path": "engineering/ai-platform/AI平台建设路线.md",
+          "line": 101
+        }
+      ]
+    },
+    {
+      "id": "lake",
+      "type": "database",
+      "label": "湖仓 D4",
+      "sublabel": "Iceberg · 向量同提交",
+      "row": 3,
+      "col": 1,
+      "size": [
+        190,
+        70
+      ],
+      "sources": [
+        {
+          "path": "engineering/ai-platform/AI平台建设路线.md",
+          "line": 103
+        }
+      ]
+    },
+    {
+      "id": "vectors",
+      "type": "database",
+      "label": "向量库",
+      "sublabel": "Milvus / faiss",
+      "row": 3,
+      "col": 4,
+      "size": [
+        190,
+        70
+      ],
+      "sources": [
+        {
+          "path": "engineering/ai-platform/AI平台建设路线.md",
+          "line": 64
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "入口与控制面",
+      "wraps": [
+        "ctrl",
+        "entry"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "应用与运行时",
+      "wraps": [
+        "gateway",
+        "agent"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "模型与检索",
+      "wraps": [
+        "train",
+        "registry",
+        "infer",
+        "retrieval"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "数据与语料",
+      "wraps": [
+        "corpus",
+        "lake",
+        "vectors"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "ctrl-to-train",
+      "from": "ctrl",
+      "to": "train",
+      "label": "编排/评测",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "via": [
+        [
+          135,
+          335
+        ]
+      ]
+    },
+    {
+      "id": "entry-to-agent",
+      "from": "entry",
+      "to": "agent",
+      "label": "OpenAI 兼容",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "agent-to-gateway",
+      "from": "agent",
+      "to": "gateway",
+      "label": "MCP",
+      "fromSide": "left",
+      "toSide": "right"
+    },
+    {
+      "id": "infer-to-agent",
+      "from": "infer",
+      "to": "agent",
+      "label": "模型输出",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "retrieval-to-agent",
+      "from": "retrieval",
+      "to": "agent",
+      "label": "上下文",
+      "fromSide": "left",
+      "toSide": "right",
+      "via": [
+        [
+          1060,
+          335
+        ],
+        [
+          1060,
+          205
+        ]
+      ]
+    },
+    {
+      "id": "registry-to-infer",
+      "from": "registry",
+      "to": "infer",
+      "label": "模型包",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "train-to-registry",
+      "from": "train",
+      "to": "registry",
+      "label": "权重",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "lake-to-train",
+      "from": "lake",
+      "to": "train",
+      "label": "WindowRef",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "corpus-to-lake",
+      "from": "corpus",
+      "to": "lake",
+      "label": "raw",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "lake-to-vectors",
+      "from": "lake",
+      "to": "vectors",
+      "label": "索引/embedding",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "vectors-to-retrieval",
+      "from": "vectors",
+      "to": "retrieval",
+      "label": "top-k",
+      "fromSide": "top",
+      "toSide": "bottom"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "能力链（D2 → D4 → D3 / D7 → D5 → D8）",
+      "items": [
+        "语料加工进湖，语料与向量同一次提交",
+        "检索走混合检索 + Rerank，答案必须带引用",
+        "微调产物进模型注册，推理用 vLLM 的 OpenAI 兼容接口"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "运行时（D8）",
+      "items": [
+        "RuntimePort 统一发布 / 事件流 / 审批 / 隔离",
+        "至少两个运行时过同一契约：框架适配器 + agent-core",
+        "模型网关 / MCP / 沙箱只建一次，所有运行时共享"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "控制面与算力",
+      "items": [
+        "编排 / 注册 / trace / 成本 / 台账 / 评测 统一到 D9",
+        "K8s + Volcano + GPU Operator 提供队列/配额/GPU·秒",
+        "无 GPU 时 D5 先用 mock/API，真实数字缺失必须标注"
+      ]
+    }
+  ]
+}

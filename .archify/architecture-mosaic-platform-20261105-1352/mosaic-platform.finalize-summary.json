@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "finalize",
+  "status": "fail",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "/Users/ninebot/code/chat/Mosaic/.archify/architecture-mosaic-platform-20261105-1352/candidate.json",
+    "sha256": "cafe8ff9eee650dfe96ee337822f318b74b1da7d82a7680079c41c9f0d4dd8e6",
+    "bytes": 13950
+  },
+  "artifact": {
+    "path": "/Users/ninebot/code/chat/Mosaic/.archify/architecture-mosaic-platform-20261105-1352/mosaic-platform.html",
+    "sha256": "7da749e0eb3c557a4fda5c5681cad26dd914b462cd9713d1af9c05d98dac2b83",
+    "bytes": 781590
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "fail"
+  },
+  "failedStage": "browser-check",
+  "diagnostics": [
+    {
+      "code": "viewer/evidence-path-conflict",
+      "severity": "error",
+      "message": "browser-check will not replace the existing unowned evidence path \"/Users/ninebot/code/chat/Mosaic/.archify/architecture-mosaic-platform-20261105-1352/mosaic-platform.browser-check.json\".",
+      "subject": {
+        "artifact": "/Users/ninebot/code/chat/Mosaic/.archify/architecture-mosaic-platform-20261105-1352/mosaic-platform.html",
+        "evidencePath": "/Users/ninebot/code/chat/Mosaic/.archify/architecture-mosaic-platform-20261105-1352/mosaic-platform.browser-check.json"
+      },
+      "evidence": {
+        "reason": {
+          "code": "ownership-artifact-mismatch"
+        }
+      },
+      "supportedFixes": [
+        "move the conflicting file aside, or choose a separate --out-dir, then rerun browser-check"
+      ]
+    }
+  ],
+  "diagnosticSummary": {
+    "total": 1,
+    "shown": 1,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/Users/ninebot/code/chat/Mosaic/.archify/architecture-mosaic-platform-20261105-1352/mosaic-platform.finalize.json",
+    "summaryReceipt": "/Users/ninebot/code/chat/Mosaic/.archify/architecture-mosaic-platform-20261105-1352/mosaic-platform.finalize-summary.json",
+    "browserCheckReceipt": "/Users/ninebot/code/chat/Mosaic/.archify/architecture-mosaic-platform-20261105-1352/mosaic-platform.browser-check.json"
+  },
+  "update": {
+    "status": "unavailable",
+    "installedVersion": null,
+    "availableVersion": null,
+    "releaseNotes": null,
+    "checkedAt": null,
+    "source": null,
+    "noticeRequired": false,
+    "noticeText": null,
+    "reason": "cache-unavailable"
+  },
+  "visualReview": "not-requested",
+  "durationMs": 832
+}

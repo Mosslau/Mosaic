@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "31c298b5-1e74-4edc-a535-070c781ea22d",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/ninebot/code/chat/Mosaic/.archify/architecture-platform-modules-20261105-1415/data-platform.json",
+  "output": "/Users/ninebot/code/chat/Mosaic/.archify/architecture-platform-modules-20261105-1415/data-platform.html",
+  "specification": {
+    "sha256": "3f7075643c39e8d4c5da09ca3b05721712b86509d0c24a6890fd51402c7ae289",
+    "bytes": 10959
+  },
+  "artifact": {
+    "sha256": "f65e4119f1767c03beb3cd641f773b349fa9c2023d8e54407d4ffa7e095ab41e",
+    "bytes": 779612
+  }
+}

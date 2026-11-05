@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "335d93fe-2f7e-49bd-8216-1a99a53e0319",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/ninebot/code/chat/Mosaic/.archify/architecture-platform-modules-20261105-1415/ai-platform.json",
+  "output": "/Users/ninebot/code/chat/Mosaic/.archify/architecture-platform-modules-20261105-1415/ai-platform.html",
+  "specification": {
+    "sha256": "cd9b444c02508e2cdb0f030fc3824db1aff923e47907ed569ebb08e873f5d657",
+    "bytes": 8655
+  },
+  "artifact": {
+    "sha256": "87e42b9268302ce6ed70fe11d044fe7c63ee3d0c3ff625c073ed9e433dbb812b",
+    "bytes": 767965
+  }
+}

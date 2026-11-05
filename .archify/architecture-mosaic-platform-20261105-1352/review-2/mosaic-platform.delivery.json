@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "a5907877-5f1f-410b-be98-a35b26f0c1d7",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/ninebot/code/chat/Mosaic/.archify/architecture-mosaic-platform-20261105-1352/candidate.json",
+  "output": "/Users/ninebot/code/chat/Mosaic/.archify/architecture-mosaic-platform-20261105-1352/review-2/mosaic-platform.html",
+  "specification": {
+    "sha256": "cafe8ff9eee650dfe96ee337822f318b74b1da7d82a7680079c41c9f0d4dd8e6",
+    "bytes": 13950
+  },
+  "artifact": {
+    "sha256": "7da749e0eb3c557a4fda5c5681cad26dd914b462cd9713d1af9c05d98dac2b83",
+    "bytes": 781590
+  }
+}
