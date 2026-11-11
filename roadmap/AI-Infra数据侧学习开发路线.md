@@ -290,8 +290,8 @@ T1-S 计入路线阶段，随第 1 年 T1 阶段并行。
 
 | 资产 | 状态 | 真相源 |
 |---|---|---|
-| 数据平台 | 0/13，设计阶段 | [`engineering/data-platform/README.md`](../engineering/data-platform/README.md) |
-| AI 平台 | 0/11，D8 Part 1 资料完成 | [`engineering/ai-platform/README.md`](../engineering/ai-platform/README.md) |
+| 数据平台 | 0/13；D0 底座 + D1 契约内核 + D3 设备纵切可运行（🚧） | [`engineering/data-platform/README.md`](../engineering/data-platform/README.md) |
+| AI 平台 | 0/11；D0 底座 + D1 契约内核 + D3 故障诊断纵切可运行（🚧），D8 Part 1 资料完成 | [`engineering/ai-platform/README.md`](../engineering/ai-platform/README.md) |
 | 语言 | 126/126 已建成 | [`languages/README.md`](../languages/README.md) |
 | 算法 | 42/42 已完成 | [`algorithms/README.md`](../algorithms/README.md) |
 

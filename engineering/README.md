@@ -68,14 +68,17 @@
 
 | 平台 | 完成 | 进行中 | 未开始 |
 |---|---|---|---|
-| AI | 0/11 | D8（Part 1 资料已完成，编码未开始） | D0–D7、D9、D10 |
-| 数据 | 0/13 | — | D0–D12 |
+| AI | 0/11 | D0（共享底座）、D1（契约内核）、D3（故障诊断纵切）、D8（Part 1 资料） | D2、D4–D7、D9、D10 |
+| 数据 | 0/13 | D0（共享底座）、D1（契约内核）、D3（设备数据纵切） | D2、D4–D12 |
 
-- 两平台都**没有可运行实现**；完成度以 D 阶段的端到端证明为准，不以文档为准。
-- 下一步：AI 先做 D0/D1（底座 + 契约），数据先做 D0/D1；具体见各平台路线文档。
+- 两平台都**没有生产级实现**；D0 共享底座与 D1 dummy 服务已可运行，证据见 [`infra/`](infra/README.md) 与各平台 `P1-contract-kernel/`。完成度仍以 D 阶段验收全部有实测证据为准。
+- 下一步：D0/D1 已落地、跨平台纵切已跑通（见上）；下一刀是 D2 的 Iceberg/SeaTunnel 与 Flink 流式解码，把 `signal_long` 从 PG 迁到湖表，并给 AI D3 建 100 题评测集。
+- 一条命令看闭环：`engineering/vertical-slice.sh`（设备帧 → 故障 → 诊断 → 工单 → 反馈）。
 
 ## 文档入口
 
+- 共享底座：[infra/README.md](infra/README.md)（Kafka/PG/Redis/Prometheus/Grafana）
+- 单元：数据 [P1 契约内核](data-platform/P1-contract-kernel/README.md) · [P2 设备纵切](data-platform/P2-device-slice/README.md) · AI [P1 契约内核](ai-platform/P1-contract-kernel/README.md) · [P2 故障诊断](ai-platform/P2-fault-rag/README.md)
 - AI 平台：[索引](ai-platform/README.md) · [建设路线](ai-platform/AI平台建设路线.md)
 - 数据平台：[索引](data-platform/README.md) · [建设路线](data-platform/通用数据平台建设路线.md)
 - 学习/开发路线：[AI Infra 数据侧主路线](../roadmap/AI-Infra数据侧学习开发路线.md)（四轨；T2-B/T2-C 对应 AI D2/D7 扩展验收）
