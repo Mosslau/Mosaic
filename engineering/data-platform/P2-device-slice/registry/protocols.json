@@ -1,0 +1,25 @@
+{
+  "codec_version": "codec-1",
+  "protocols": {
+    "dbc.v1": {
+      "version": "v1",
+      "description": "初版 DBC：电池电压 0.1V/LSB，电机温度 0.5C/LSB（-40 偏移）",
+      "defaults": { "scale": 0.1, "offset": 0, "unit": "raw" },
+      "signals": {
+        "battery_voltage": { "scale": 0.1, "offset": 0, "unit": "V", "raw_min": 0, "raw_max": 600 },
+        "motor_temp": { "scale": 0.5, "offset": -40, "unit": "C", "raw_min": 0, "raw_max": 400 },
+        "speed": { "scale": 0.01, "offset": 0, "unit": "km/h", "raw_min": 0, "raw_max": 20000 }
+      }
+    },
+    "dbc.v2": {
+      "version": "v2",
+      "description": "OTA 后 DBC：电池电压改 0.05V/LSB，电机温度改 0.25C/LSB（同一条报文含义变了）",
+      "defaults": { "scale": 0.1, "offset": 0, "unit": "raw" },
+      "signals": {
+        "battery_voltage": { "scale": 0.05, "offset": 0, "unit": "V", "raw_min": 0, "raw_max": 1200 },
+        "motor_temp": { "scale": 0.25, "offset": -40, "unit": "C", "raw_min": 0, "raw_max": 800 },
+        "speed": { "scale": 0.01, "offset": 0, "unit": "km/h", "raw_min": 0, "raw_max": 20000 }
+      }
+    }
+  }
+}

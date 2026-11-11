@@ -90,7 +90,23 @@ else
   record "Agent 运行时" skip
 fi
 
-# --- ④ 语言域文档站（可选）--------------------------------------------------
+# --- ④ 工程域（D1 契约内核 + D0 共享底座）------------------------------------
+if [[ -x engineering/verify.sh ]]; then
+  section "工程域（D1 契约内核 + D0 共享底座）"
+  engineering/verify.sh
+  status=$?
+  if ((status == 0)); then
+    record "工程域" pass
+  elif ((status == 2)); then
+    record "工程域" skip
+  else
+    record "工程域" fail
+  fi
+else
+  record "工程域" skip
+fi
+
+# --- ⑤ 语言域文档站（可选）--------------------------------------------------
 if ((RUN_SITE)); then
   if [[ -d languages/website/node_modules ]]; then
     run "语言域文档站构建" bash -c 'cd languages/website && npm run build'
