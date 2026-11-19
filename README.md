@@ -10,7 +10,7 @@
 |---|---|---|---|---|
 | ① 开发语言部分 | [`languages/`](languages/) | 学（多语言阶段式学习路线）/ 析（语言设计解剖）/ 合（Tenet 语言与编译器） | 6 语言 × 126 阶段 | 已建成（正文 + 示例 + 文档站；Tenet 三后端 2405 项测试） |
 | ② 算法部分 | [`algorithms/`](algorithms/) | 手写算法 vs 框架对照，五个学科族 | 42 个算法 | 已完成（42/42、575 项测试；以 [`algorithms/README.md`](algorithms/README.md) 索引表为准） |
-| ③ 工程系统部分 | [`engineering/`](engineering/) | [`ai-platform/`](engineering/ai-platform/)（AI 平台，D0–D10 共 11 阶段）+ [`data-platform/`](engineering/data-platform/)（通用数据平台，D0–D12 共 13 阶段） | 2 个平台 / 24 个阶段 | 已开工：D0 共享底座 + 两平台 D1 契约内核 + 一条跨平台纵切（D3）；24 个阶段 0 个完成、D0/D1/D3 进行中 |
+| ③ 工程系统部分 | [`engineering/`](engineering/) | [`ai-platform/`](engineering/ai-platform/)（AI 平台，D0–D10 共 11 阶段）+ [`data-platform/`](engineering/data-platform/)（通用数据平台，D0–D12 共 13 阶段） | 2 个平台 / 24 个阶段 | 已开工：仅 D0 共享底座（compose）可运行；24 个阶段 0 个完成，D1–D12 未开始（agent-platform 为独立产品线，不计入） |
 
 > 跨域执行路线：[`roadmap/AI-Infra数据侧学习开发路线.md`](roadmap/AI-Infra数据侧学习开发路线.md)（四轨：数据平台 / AI 平台 / 语言+Tenet / 算法；60 个月；每阶段带命令 + 输入 + 观察）。
 
@@ -37,7 +37,7 @@
 ```text
 roadmap（目标函数）      ← 60 个月、四轨、三条职业叙事
       ↑
-engineering（主线）      ← 3.9 万行设计 + D0/D1 + 一条跨平台纵切（D3）← 开始出实现
+engineering（主线）      ← 设计 + D0 底座（compose），D1–D12 未开始
       ↑
 languages + algorithms   ← 已封顶，边际收益接近 0
 ```

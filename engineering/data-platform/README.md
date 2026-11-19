@@ -1,7 +1,7 @@
 # 数据平台（data-platform）
 
 > 定位：Mosaic 第 ③ 部分的通用数据平台——以「集成成熟开源 + 薄自研胶水」构建企业级 Data+AI 数据平台，对标 DataWorks / WeData 的能力集。
-> 当前状态：**D0 共享底座 + D1 契约内核 + D3 纵切已可运行，其余仍为设计阶段**——D0 用 `../infra/compose/` 起 5 个组件；D1 见 [`P1-contract-kernel/`](P1-contract-kernel/README.md)；D3 纵切见 [`P2-device-slice/`](P2-device-slice/README.md)；D2 及 D4–D12 没有实现。
+> 当前状态：**仅 D0 共享 compose 底座可运行，D1–D12 未开始**——D0 用 [`../compose/`](../compose/README.md) 起 5 个组件（7 项烟测通过）；原 D1 契约内核与 D3 纵切 demo 已移除。
 
 ## 定位与状态
 
@@ -15,10 +15,10 @@
 
 | 阶段 | 能力域 | 一句话验收 | 状态 | 完成日期 | 验收 |
 |---|---|---|---|---|---|
-| D0 | 基础设施 | 组件起得来，dummy 链路通 | 🚧 |  | `V0-1`–`V0-3` |
-| D1 | 契约与控制内核 | dummy 源注册，健康/trace/账本可查 | 🚧 |  | `V1-1`–`V1-3` |
+| D0 | 基础设施 | 组件起得来，Kafka/PG/Redis 链路通 | 🚧 |  | `V0-1`–`V0-3` |
+| D1 | 契约与控制内核 | 契约冻结 + 源注册，健康/trace/账本可查 | ⬜ |  | `V1-1`–`V1-3` |
 | D2 | 存储底座 | 建表、写入、快照/查询可复现 | ⬜ |  | `V2-1`–`V2-3` |
-| D3 | 数据集成 | 源 → Kafka → Iceberg 可查，重放两次不变 | 🚧 |  | `V3-1`–`V3-3` |
+| D3 | 数据集成 | 源 → Kafka → Iceberg 可查，重放两次不变 | ⬜ |  | `V3-1`–`V3-3` |
 | D4 | 计算引擎 | 批/流任务跑通，状态/checkpoint 可查 | ⬜ |  | `V4-1`–`V4-3` |
 | D5 | 开发工作台与调度 | 新增源 = 门户填一份表单 | ⬜ |  | `V5-1`–`V5-3` |
 | D6 | 语义、特征与本体 | 指标复用；特征离线/在线一致；业务本体 MVP（10 实体/20 关系/50 术语/10 规则） | ⬜ |  | `V6-1`–`V6-5` |
@@ -31,7 +31,7 @@
 
 > 状态规则：⬜ 未开始 / 🚧 进行中 / ✅ 已完成（必须带日期）。✅ 的判据是该阶段验收全部有实测证据。
 >
-> **D0/D1/D3 的 🚧 证据**：共享底座 `engineering/infra/compose/smoke.sh` 7 项通过（MinIO/Vault 未验证）；D1 `P1-contract-kernel/test.sh` 14 项通过；D3 纵切 `P2-device-slice/slice.sh` 跑通「100 帧 → 5000 行长表 → 2 条故障」，重放幂等、换版解码差异已实测（Iceberg 未接）。
+> **D0 的 🚧 证据**：共享底座 [`engineering/compose/smoke.sh`](../compose/smoke.sh) 7 项通过（MinIO/Vault 未验证）；D1/D3 未开始（原 P1/P2 demo 已移除，契约与纵切只剩设计）。
 
 ## 依赖与开工顺序
 

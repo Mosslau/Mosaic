@@ -1,8 +1,8 @@
 # 共享基础设施（D0 底座）
 
 > 定位：AI 平台与数据平台**共用**的 D0 底座。两个平台的 D0 不各建一套 compose——Kafka / PG / Redis / 观测只起一次。
-> 状态：🚧（5 个组件已实测；MinIO / Vault 镜像未缓存、K8s 未验证，见「未验证项」）
-> 对应验收：数据平台 `V0-1`–`V0-3`；AI 平台 `A0-1`–`A0-3`
+> 状态：🚧（5 个默认组件已实测；MinIO / Vault 镜像未缓存、K8s 未验证，见「未验证项」）
+> 对应验收：数据平台 `V0-1`–`V0-3`；AI 平台 `A0-1`–`A0-3`（仅 D0，D1 起未开始）
 
 ## 组件与端口
 
@@ -13,7 +13,7 @@
 | Kafka（KRaft 单节点） | `apache/kafka:4.4.0` | **19092** | 事件总线；D3 接入 / D4 流计算 |
 | PostgreSQL 16 | `postgres:16-alpine` | **15432** | 账本、注册表、元数据 |
 | Redis 7 | `redis:7.4-alpine` | **16379** | 缓存 / 状态（孪生、限流） |
-| Prometheus | `prom/prometheus:v2.55.1` | **19090** | 指标抓取；抓 `mosaic-dummy`（18180/18181） |
+| Prometheus | `prom/prometheus:v2.55.1` | **19090** | 指标抓取（当前仅抓自身） |
 | Grafana | `grafana/grafana:11.3.1` | **13000** | 看板；已预置 Prometheus 数据源 |
 | MinIO（可选） | `minio/minio` | 19000 / 19001 | 对象存储；`--profile objectstore` |
 | Vault（可选） | `hashicorp/vault:1.18` | 18200 | 凭据；`--profile vault` |
@@ -23,7 +23,7 @@ Grafana 默认账号 `admin / mosaic`；PG 默认库/用户/密码 `mosaic / mos
 ## 一键起停
 
 ```bash
-cd engineering/infra/compose
+cd engineering/compose
 ./up.sh                          # 起 5 个默认组件，等健康检查通过
 ./up.sh --profile objectstore    # 追加 MinIO（需联网拉镜像）
 ./up.sh --profile vault          # 追加 Vault（需联网拉镜像）
@@ -72,6 +72,6 @@ cd engineering/infra/compose
 
 ## 边界
 
-- 只做**共享底座**；D1 契约内核在各平台的 `P1-contract-kernel/`，不在本目录。
+- 只做**共享底座**；D1 契约内核尚未建立（原 P1 demo 已移除），不在本目录。
 - 不引入 K8s 编排；生产化（HA、备份、TLS）属 D12/D10，不在 D0 范围。
-- Prometheus 的 `mosaic-dummy` target 指向宿主 `18180/18181`，dummy 服务未启动时 target 为 down，不影响 D0 判定。
+- Prometheus 当前只抓自身；D1 契约库/注册服务落地后再恢复 `mosaic-dummy` target。

@@ -7,8 +7,7 @@ scrape_configs:
     static_configs:
       - targets: ["localhost:9090"]
 
-  # D1 dummy 服务（本机 18080，容器内经 host.docker.internal 访问）。
-  # 服务未启动时该 target 为 down，不影响 D0 判定。
-  - job_name: mosaic-dummy
-    static_configs:
-      - targets: ["host.docker.internal:18180", "host.docker.internal:18181"]
+  # D1 dummy 服务已移除；等 D1 契约库/注册服务落地后再恢复此 job。
+  # - job_name: mosaic-dummy
+  #   static_configs:
+  #     - targets: ["host.docker.internal:18180", "host.docker.internal:18181"]

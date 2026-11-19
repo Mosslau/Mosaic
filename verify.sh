@@ -90,9 +90,9 @@ else
   record "Agent 运行时" skip
 fi
 
-# --- ④ 工程域（D1 契约内核 + D0 共享底座）------------------------------------
+# --- ④ 工程域（当前无单元校验；engineering/verify.sh 不存在则跳过）-------------
 if [[ -x engineering/verify.sh ]]; then
-  section "工程域（D1 契约内核 + D0 共享底座）"
+  section "工程域（可选）"
   engineering/verify.sh
   status=$?
   if ((status == 0)); then
