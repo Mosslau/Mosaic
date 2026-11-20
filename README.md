@@ -12,8 +12,6 @@
 | ② 算法部分 | [`algorithms/`](algorithms/) | 手写算法 vs 框架对照，五个学科族 | 42 个算法 | 已完成（42/42、575 项测试；以 [`algorithms/README.md`](algorithms/README.md) 索引表为准） |
 | ③ 工程系统部分 | [`engineering/`](engineering/) | [`ai-platform/`](engineering/ai-platform/)（AI 平台，D0–D10 共 11 阶段）+ [`data-platform/`](engineering/data-platform/)（通用数据平台，D0–D12 共 13 阶段） | 2 个平台 / 24 个阶段 | 已开工：仅 D0 共享底座（compose）可运行；24 个阶段 0 个完成，D1–D12 未开始（agent-platform 为独立产品线，不计入） |
 
-> 跨域执行路线：[`engineering/docs/AI-Infra数据侧学习开发路线.md`](engineering/docs/AI-Infra数据侧学习开发路线.md)（四轨：数据平台 / AI 平台 / 语言+Tenet / 算法；60 个月；每阶段带命令 + 输入 + 观察）。
-
 ## 这个仓库服务什么
 
 | 层 | 表面说法 | 实际功能 | 证据 |
@@ -35,7 +33,7 @@
 ## 结构判断：不是拼图，是梯子
 
 ```text
-roadmap（目标函数）      ← 60 个月、四轨、三条职业叙事
+roadmap（目标函数）      ← 职业叙事与成长路线（人怎么走到这里）
       ↑
 engineering（主线）      ← 设计 + D0 底座（compose），D1–D12 未开始
       ↑

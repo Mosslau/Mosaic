@@ -81,7 +81,7 @@
 - 共享底座：[compose/README.md](compose/README.md)（Kafka/PG/Redis/Prometheus/Grafana）
 - AI 平台：[索引](ai-platform/README.md) · [建设路线](ai-platform/AI平台建设路线.md)
 - 数据平台：[索引](data-platform/README.md) · [建设路线](data-platform/通用数据平台建设路线.md)
-- 跨平台文档（[`docs/`](docs/)）：学习/开发路线 [AI Infra 数据侧主路线](docs/AI-Infra数据侧学习开发路线.md)（四轨；T2-B/T2-C 对应 AI D2/D7 扩展验收）· 数据基建叙事 [数据团队路线与AI数据基建](docs/数据团队路线与AI数据基建.md) · 业务域需求 [车联网与机器人数据域需求](docs/车联网与机器人数据域需求.md)（D/A 阶段映射）· 领域技术增量 [车联网与机器人数据域技术增量](docs/车联网与机器人数据域技术增量.md)（二进制协议数据的接入/存储/计算/训练/闭环）
+- 跨平台背景文档：[`docs/`](docs/) —— 演进叙事、业务域需求（车联网/机器人）、领域技术增量；索引见 [docs/README.md](docs/README.md)
 - 跨平台契约：见本页「跨平台契约（数据 ↔ AI）」
 - 跨平台闭环：见本页「跨平台闭环（数据 ↔ AI ↔ 业务）」
 - 规范：[`engineering-docs`](../.dsh/skills/engineering-docs/)（四层文档模型；D 阶段落地后按需补 L4）

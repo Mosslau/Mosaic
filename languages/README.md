@@ -2,7 +2,7 @@
 
 Mosaic 的第 ① 部分。三条**并列**主线，对应「学 → 析 → 合」：
 
-> 全栈路线中的语言轨：[`../engineering/docs/AI-Infra数据侧学习开发路线.md`](../engineering/docs/AI-Infra数据侧学习开发路线.md)（6 门语言 126 阶段 + Tenet 3 编译器）。
+> 全栈路线的入口见 [`../roadmap/README.md`](../roadmap/README.md)（6 门语言 126 阶段 + Tenet 3 编译器；不改变本索引）。
 
 | 目录 | 主线 | 内容 |
 |---|---|---|
