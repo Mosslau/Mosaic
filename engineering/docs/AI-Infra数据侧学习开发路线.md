@@ -35,10 +35,10 @@
 
 | 轨道 | 内容 | 规模 | 真相源 |
 |---|---|---|---|
-| **T1 数据平台** | 集成、湖仓、计算、调度、语义、目录、治理、服务、控制面、生产化 | 13 个 D 阶段 + T1-S（共 14 个路线阶段） | [`engineering/data-platform/`](../engineering/data-platform/) |
-| **T2 AI 平台** | T2-A 平台主链；T2-B LLM 训练数据工程；T2-C 训练数据通路 | 11 个 D 阶段 + 10 + 9 个专项模块 | [`engineering/ai-platform/`](../engineering/ai-platform/) |
-| **T3 语言 + Tenet** | 6 门语言 126 阶段；Tenet 3 个编译器 + 三端一致性 | 6 批 + 4 项 | [`languages/`](../languages/) |
-| **T4 算法** | 搜索、统计 ML、深度学习、Transformer、生成式 | 42 个，5 族 | [`algorithms/`](../algorithms/) |
+| **T1 数据平台** | 集成、湖仓、计算、调度、语义、目录、治理、服务、控制面、生产化 | 13 个 D 阶段 + T1-S（共 14 个路线阶段） | [`engineering/data-platform/`](../data-platform/) |
+| **T2 AI 平台** | T2-A 平台主链；T2-B LLM 训练数据工程；T2-C 训练数据通路 | 11 个 D 阶段 + 10 + 9 个专项模块 | [`engineering/ai-platform/`](../ai-platform/) |
+| **T3 语言 + Tenet** | 6 门语言 126 阶段；Tenet 3 个编译器 + 三端一致性 | 6 批 + 4 项 | [`languages/`](../../languages/) |
+| **T4 算法** | 搜索、统计 ML、深度学习、Transformer、生成式 | 42 个，5 族 | [`algorithms/`](../../algorithms/) |
 
 T2 的三条子轨：
 
@@ -75,7 +75,7 @@ T1-S 计入路线阶段，随第 1 年 T1 阶段并行。
 
 ## 2. T1 数据平台（D0–D12）
 
-> 详细架构、选型、契约、验收标准见 [`通用数据平台建设路线.md`](../engineering/data-platform/通用数据平台建设路线.md)。下表只加排序和证据。
+> 详细架构、选型、契约、验收标准见 [`通用数据平台建设路线.md`](../data-platform/通用数据平台建设路线.md)。下表只加排序和证据。
 
 | 阶段 | 建什么 | 命令（开工后固化） | 输入 | 观察 / 通过 |
 |---|---|---|---|---|
@@ -104,7 +104,7 @@ T1-S 计入路线阶段，随第 1 年 T1 阶段并行。
 
 ### 3.1 T2-A 平台主链（D0–D10）
 
-> 详细设计见 [`AI平台建设路线.md`](../engineering/ai-platform/AI平台建设路线.md)。D2/D3/D7/D9/D10 已扩验收。
+> 详细设计见 [`AI平台建设路线.md`](../ai-platform/AI平台建设路线.md)。D2/D3/D7/D9/D10 已扩验收。
 
 | 阶段 | 建什么 | 命令（开工后固化） | 输入 | 观察 / 通过 |
 |---|---|---|---|---|
@@ -290,10 +290,10 @@ T1-S 计入路线阶段，随第 1 年 T1 阶段并行。
 
 | 资产 | 状态 | 真相源 |
 |---|---|---|
-| 数据平台 | 0/13；D0 底座 + D1 契约内核 + D3 设备纵切可运行（🚧） | [`engineering/data-platform/README.md`](../engineering/data-platform/README.md) |
-| AI 平台 | 0/11；D0 底座 + D1 契约内核 + D3 故障诊断纵切可运行（🚧），D8 Part 1 资料完成 | [`engineering/ai-platform/README.md`](../engineering/ai-platform/README.md) |
-| 语言 | 126/126 已建成 | [`languages/README.md`](../languages/README.md) |
-| 算法 | 42/42 已完成 | [`algorithms/README.md`](../algorithms/README.md) |
+| 数据平台 | 0/13；D0 底座 + D1 契约内核 + D3 设备纵切可运行（🚧） | [`engineering/data-platform/README.md`](../data-platform/README.md) |
+| AI 平台 | 0/11；D0 底座 + D1 契约内核 + D3 故障诊断纵切可运行（🚧），D8 Part 1 资料完成 | [`engineering/ai-platform/README.md`](../ai-platform/README.md) |
+| 语言 | 126/126 已建成 | [`languages/README.md`](../../languages/README.md) |
+| 算法 | 42/42 已完成 | [`algorithms/README.md`](../../algorithms/README.md) |
 
 ### 8.3 维护规则
 

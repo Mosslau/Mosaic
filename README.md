@@ -12,7 +12,7 @@
 | ② 算法部分 | [`algorithms/`](algorithms/) | 手写算法 vs 框架对照，五个学科族 | 42 个算法 | 已完成（42/42、575 项测试；以 [`algorithms/README.md`](algorithms/README.md) 索引表为准） |
 | ③ 工程系统部分 | [`engineering/`](engineering/) | [`ai-platform/`](engineering/ai-platform/)（AI 平台，D0–D10 共 11 阶段）+ [`data-platform/`](engineering/data-platform/)（通用数据平台，D0–D12 共 13 阶段） | 2 个平台 / 24 个阶段 | 已开工：仅 D0 共享底座（compose）可运行；24 个阶段 0 个完成，D1–D12 未开始（agent-platform 为独立产品线，不计入） |
 
-> 跨域执行路线：[`roadmap/AI-Infra数据侧学习开发路线.md`](roadmap/AI-Infra数据侧学习开发路线.md)（四轨：数据平台 / AI 平台 / 语言+Tenet / 算法；60 个月；每阶段带命令 + 输入 + 观察）。
+> 跨域执行路线：[`engineering/docs/AI-Infra数据侧学习开发路线.md`](engineering/docs/AI-Infra数据侧学习开发路线.md)（四轨：数据平台 / AI 平台 / 语言+Tenet / 算法；60 个月；每阶段带命令 + 输入 + 观察）。
 
 ## 这个仓库服务什么
 
@@ -20,7 +20,7 @@
 |---|---|---|---|
 | **表层** | 三个技术域的知识库 | 自我训练 + 能力证明 | 6 语言 × 126 阶段、42 算法、2405 项编译器测试 |
 | **中层** | 工程系统建设 | 职业叙事的三条出口 | roadmap 三篇：[大模型数据中心平台工程师](roadmap/大模型数据中心平台工程师.md) / [智能通用大数据平台工程师](roadmap/智能通用大数据平台工程师.md) / [FDE](roadmap/AI能力到企业底座-2-FDE岗位与方法.md) |
-| **深层** | 车联网与机器人数据域 | 组织内的话语权 | 从"通用平台"转向[公司真实业务域](roadmap/车联网与机器人数据域需求.md) |
+| **深层** | 车联网与机器人数据域 | 组织内的话语权 | 从"通用平台"转向[公司真实业务域](engineering/docs/车联网与机器人数据域需求.md) |
 
 ## 朝哪个方向走
 
