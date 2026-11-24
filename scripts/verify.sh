@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Mosaic 一键校验：按域分发，每个域用自己的运行环境与 pytest 配置。
 #
-#   ./verify.sh          # 文档契约（语言/算法/路线图）+ 算法测试 + Agent 运行时
-#   ./verify.sh --site   # 追加语言域文档站构建（需要网络，较慢）
+#   ./scripts/verify.sh          # 文档契约（语言/算法/路线图）+ 算法测试 + Agent 运行时
+#   ./scripts/verify.sh --site   # 追加语言域文档站构建（需要网络，较慢）
 #
 # 退出码：0 全部通过 / 1 有域失败 / 2 无失败但有域跳过（跳过的域不算通过）。
 #
@@ -12,7 +12,7 @@
 
 set -uo pipefail
 
-ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT}"
 
 DOCS_PYTHON="${DOCS_PYTHON:-python3}"

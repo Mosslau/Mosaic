@@ -60,7 +60,7 @@
 本域纳入仓库一键校验：断链与索引覆盖（每个 `.md` 都必须能从本页索引到）。
 
 ```bash
-python3 scripts/check_links.py roadmap   # 或 ./verify.sh 的「文档契约 · 路线图域」
+python3 scripts/check_links.py roadmap   # 或 ./scripts/verify.sh 的「文档契约 · 路线图域」
 ```
 
 ## 跨目录：已迁出的文档
