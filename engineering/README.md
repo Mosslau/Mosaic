@@ -58,7 +58,7 @@
 | 共享物 | 归属 | 使用方 |
 |---|---|---|
 | K8s 集群 | AI 平台（D6） | 两平台共用、队列分开 |
-| 对象存储 + Iceberg 湖（含 Polaris REST Catalog） | 数据平台（D2/D3） | AI 平台 D4 |
+| 对象存储（RustFS/云 S3·OSS）+ Iceberg 湖（含 Polaris REST Catalog） | 数据平台（D2/D3） | AI 平台 D4 |
 | Vault / 可观测 | AI 平台 D0/D8 | 两平台共用 |
 | 模型网关 / MCP / 沙箱 | AI 平台 D8 | 数据平台 D10 调用 |
 | 数据任务调度（DolphinScheduler） | 数据平台 D5 | — |
@@ -73,7 +73,7 @@
 
 当前状态一句话：**只有共享 D0 底座可运行（compose 7/7 组件、11 项烟测全部通过），两个平台的 D1–D12 均未开始；`agent-platform` 是独立产品线，不计入 D 阶段。**
 
-- 两平台都**没有平台级实现**：D0 底座见 [`compose/README.md`](compose/README.md)（7 个组件已实测，含 MinIO/Vault）；D1 的契约只在两份路线文档里，没有代码；原 P1/P2 demo 已移除。
+- 两平台都**没有平台级实现**：D0 底座见 [`compose/README.md`](compose/README.md)（7 个组件已实测，含对象存储与 Vault；对象存储当前为 MinIO 过渡，目标 RustFS/云 S3·OSS）；D1 的契约只在两份路线文档里，没有代码；原 P1/P2 demo 已移除。
 - 下一步：先建 D1 契约库（12 份 schema）+ PG 注册/账本表，再进 D2 Iceberg；按“一条真实数据纵切”收口，不再做合成数据 demo。
 
 ## 文档入口

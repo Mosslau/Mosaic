@@ -1,7 +1,7 @@
 # 数据平台（data-platform）
 
 > 定位：Mosaic 第 ③ 部分的通用数据平台——以「集成成熟开源 + 薄自研胶水」构建企业级 Data+AI 数据平台，对标 DataWorks / WeData 的能力集。
-> 当前状态：**仅 D0 共享 compose 底座可运行，D1–D12 未开始**——D0 用 [`../compose/`](../compose/README.md) 起 7 个组件（11 项烟测全部通过，含 MinIO/Vault）；原 D1 契约内核与 D3 纵切 demo 已移除。
+> 当前状态：**仅 D0 共享 compose 底座可运行，D1–D12 未开始**——D0 用 [`../compose/`](../compose/README.md) 起 7 个组件（11 项烟测全部通过，含对象存储/Vault；对象存储当前为 MinIO 过渡）；原 D1 契约内核与 D3 纵切 demo 已移除。
 
 ## 定位与状态
 
@@ -17,7 +17,7 @@
 |---|---|---|---|---|---|
 | D0 | 基础设施 | 组件起得来，Kafka/PG/Redis 链路通 | 🚧 |  | `V0-1`–`V0-3` |
 | D1 | 契约与控制内核 | 契约冻结 + 源注册，健康/trace/账本可查 | ⬜ |  | `V1-1`–`V1-3` |
-| D2 | 存储底座 | 建表、写入、快照/查询可复现（经 Polaris REST Catalog） | ⬜ |  | `V2-1`–`V2-3`、`V2-8` |
+| D2 | 存储底座 | 建表、写入、快照/查询可复现（经 Polaris REST Catalog，对象存储 RustFS/云可换） | ⬜ |  | `V2-1`–`V2-3`、`V2-8`、`V2-9` |
 | D3 | 数据集成 | 源 → Kafka → Iceberg 可查，重放两次不变 | ⬜ |  | `V3-1`–`V3-3` |
 | D4 | 计算引擎 | 批/流任务跑通，状态/checkpoint 可查 | ⬜ |  | `V4-1`–`V4-3` |
 | D5 | 开发工作台与调度 | 新增源 = 门户填一份表单 | ⬜ |  | `V5-1`–`V5-3` |
@@ -31,7 +31,7 @@
 
 > 状态规则：⬜ 未开始 / 🚧 进行中 / ✅ 已完成（必须带日期）。✅ 的判据是该阶段验收全部有实测证据。
 >
-> **D0 的 🚧 证据**：共享底座 [`engineering/compose/smoke.sh`](../compose/smoke.sh) 11 项通过（7 个组件含 MinIO/Vault，2026-11-24）；D1/D3 未开始（原 P1/P2 demo 已移除，契约与纵切只剩设计）。
+> **D0 的 🚧 证据**：共享底座 [`engineering/compose/smoke.sh`](../compose/smoke.sh) 11 项通过（7 个组件含对象存储/Vault，2026-11-24）；D1/D3 未开始（原 P1/P2 demo 已移除，契约与纵切只剩设计）。
 
 ## 依赖与开工顺序
 
@@ -41,7 +41,7 @@
 |---|---|---|
 | D0 | — | 组件一条命令起；先 compose，不追生产 K8s |
 | D1 | D0 | 只做契约/注册/健康/trace/账本；门户/配置/作业提交留到 D5 |
-| D2 | D1 | Iceberg 为真相源；Doris 只做 serving；Catalog 统一走 Polaris（REST） |
+| D2 | D1 | Iceberg 为真相源；Doris 只做 serving；Catalog 统一走 Polaris（REST）；对象存储只认 S3 API（RustFS/云） |
 | D3 | D2 | SeaTunnel 批/流/CDC；重放必须幂等 |
 | D4 | D2、D3 | Flink/Spark 只在已入湖数据上加工 |
 | D5 | D3、D4 | DS 唯一编排 + StreamPark 托管；门户是关键路径 |
@@ -86,7 +86,7 @@
 
 | 边界 | 归属 |
 |---|---|
-| 对象存储 + Iceberg 湖（含 Polaris Catalog） | 数据平台 D2/D3（拥有方） |
+| 对象存储（RustFS/云 S3·OSS）+ Iceberg 湖（含 Polaris Catalog） | 数据平台 D2/D3（拥有方） |
 | Doris / 查询网关 / 语义层 | 数据平台 D6/D9 |
 | 模型网关 / MCP / 沙箱 | AI 平台 D8；本平台 D10 调用 |
 | K8s 集群 | AI 平台 D6；本平台 D12 共用、队列分开 |

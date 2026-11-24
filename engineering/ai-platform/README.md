@@ -27,7 +27,7 @@
 
 > 状态规则：⬜ 未开始 / 🚧 进行中 / ✅ 已完成（必须带日期）。✅ 的判据是该阶段验收全部有实测证据。
 > D8 的 🚧：Part 1（research / tutorials / frameworks 方案）已完成；运行时代码未开始。
-> D0 的 🚧：用 [`../compose/`](../compose/README.md) 起 7 个组件（11 项烟测全部通过，含 MinIO/Vault）。
+> D0 的 🚧：用 [`../compose/`](../compose/README.md) 起 7 个组件（11 项烟测全部通过，含对象存储/Vault）。
 > D1/D3 未开始：原 P1 契约内核与 P2 纵切 demo 已移除，契约只剩路线文档里的定义，没有代码。
 
 ## 依赖与开工顺序
@@ -85,7 +85,7 @@
 |---|---|
 | 模型网关 / MCP 网关 / 沙箱 | AI 平台 D8（只建一次） |
 | GPU / 训练推理队列 / Airflow | AI 平台 D6 / D9 |
-| 对象存储 + Iceberg 湖（含 Polaris Catalog） | 数据平台 D2/D3；AI 平台 D4 使用 |
+| 对象存储（RustFS/云 S3·OSS）+ Iceberg 湖（含 Polaris Catalog） | 数据平台 D2/D3；AI 平台 D4 使用 |
 | 数据任务调度（DolphinScheduler） | 数据平台 D5 |
 | 凭据 | Vault 唯一来源；K8s Secret 仅注入 |
 

@@ -15,14 +15,14 @@
 | Redis 7 | `redis:7.4-alpine` | **16379** | 缓存 / 状态（孪生、限流） |
 | Prometheus | `prom/prometheus:v2.55.1` | **19090** | 指标抓取（当前仅抓自身） |
 | Grafana | `grafana/grafana:11.3.1` | **13000** | 看板；已预置 Prometheus 数据源 |
-| MinIO（对象存储） | `bitnamilegacy/minio:2025.4.22-debian-12-r1` | 19000 / 19001 | Iceberg 湖 / 语料 / Skill 包 / 归档；默认桶 `mosaic` |
+| MinIO（对象存储，过渡） | `bitnamilegacy/minio:2025.4.22-debian-12-r1` | 19000 / 19001 | Iceberg 湖 / 语料 / Skill 包 / 归档；默认桶 `mosaic` |
 | Vault（凭据） | `hashicorp/vault:1.18` | 18200 | 凭据唯一来源（dev 模式） |
 
 默认账号：Grafana `admin / mosaic`；PG 库/用户/密码 `mosaic / mosaic / mosaic`；MinIO `mosaic / mosaic123`；Vault dev root token `root`。
 
 **7 个组件全部必选**：`./up.sh` 默认全起，并用 `--wait` 等 healthcheck 通过。
 
-> **MinIO 镜像说明**：MinIO 自 2025-10 起停止发布社区版镜像（Docker Hub 下架、Quay 返回 401），这里改用 Bitnami 归档构建（同源二进制，2025.4.22 版，digest `sha256:d7cd0e17…`）。长期维护或生产化时应换 MinIO 商业版，或换 SeaweedFS / Garage 等兼容实现。
+> **MinIO 镜像说明（过渡态）**：MinIO 自 2025-10 起停止发布社区版镜像（Docker Hub 下架、Quay 返回 401），这里改用 Bitnami 归档构建（同源二进制，2025.4.22 版，digest `sha256:d7cd0e17…`）仅作过渡。对象存储的目标形态是 **自建 RustFS / 云 S3·OSS 两套**（S3 API，见[数据平台 D2](../data-platform/通用数据平台建设路线.md)）；切换只改 endpoint/凭据，warehouse 路径不变。
 
 ## 一键起停
 
