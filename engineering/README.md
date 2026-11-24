@@ -71,9 +71,9 @@
 | AI | 0/11 | D0（共享 compose 底座） | D1–D10（D8 仅有 Part 1 资料，无运行时） |
 | 数据 | 0/13 | D0（共享 compose 底座） | D1–D12 |
 
-当前状态一句话：**只有共享 D0 底座可运行（compose 7/7 组件、11 项烟测全部通过），两个平台的 D1–D12 均未开始；`agent-platform` 是独立产品线，不计入 D 阶段。**
+当前状态一句话：**只有共享 D0 底座可运行（compose 7/7 组件、12 项烟测全部通过），两个平台的 D1–D12 均未开始；`agent-platform` 是独立产品线，不计入 D 阶段。**
 
-- 两平台都**没有平台级实现**：D0 底座见 [`compose/README.md`](compose/README.md)（7 个组件已实测，含对象存储与 Vault；对象存储当前为 MinIO 过渡，目标 RustFS/云 S3·OSS）；D1 的契约只在两份路线文档里，没有代码；原 P1/P2 demo 已移除。
+- 两平台都**没有平台级实现**：D0 底座见 [`compose/README.md`](compose/README.md)（7 个组件已实测，含 RustFS 与 Vault）；D1 的契约只在两份路线文档里，没有代码；原 P1/P2 demo 已移除。
 - 下一步：先建 D1 契约库（12 份 schema）+ PG 注册/账本表，再进 D2 Iceberg；按“一条真实数据纵切”收口，不再做合成数据 demo。
 
 ## 文档入口

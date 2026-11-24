@@ -4,4 +4,4 @@
 #   ./down.sh --volumes  # 连卷一起删（数据清空）
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
-docker compose down "$@"
+docker compose down --remove-orphans "$@"

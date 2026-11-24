@@ -1,10 +1,10 @@
 name: mosaic-base
 
-# 共享 D0 底座：两个平台共用同一套 Kafka / PG / Redis / Prometheus / Grafana / MinIO / Vault。
+# 共享 D0 底座：两个平台共用同一套 Kafka / PG / Redis / Prometheus / Grafana / RustFS / Vault。
 # 端口全部避开本机已有栈（5432/6379/9090/3000 已被占用）：
 #   Kafka 19092 · PG 15432 · Redis 16379 · Prometheus 19090 · Grafana 13000
-#   MinIO 19000/19001 · Vault 18200
-# 7 个服务默认全部启动（MinIO / Vault 为必选依赖，不再用 profile 隔离）。
+#   RustFS 19000/19001 · Vault 18200
+# 7 个服务默认全部启动（RustFS / Vault 为必选依赖，不再用 profile 隔离）。
 
 services:
   kafka:
@@ -95,24 +95,22 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - grafana-data:/var/lib/grafana
 
-  # 对象存储（过渡态）：Iceberg 湖 / 语料 / Skill 包 / 归档的落盘层（数据平台 D2、AI 平台 D2/D4 依赖）
-  # 目标形态：自建 RustFS 或云 S3/OSS（S3 API，切换只改 endpoint/凭据），见数据平台 D2。
-  # 镜像说明：MinIO 自 2025-10 起停止发布社区版镜像（Docker Hub 下架、Quay 401），
-  # 这里用 Bitnami 归档构建（同源二进制，2025.4.22）作过渡，不再指望上游更新。
-  minio:
-    image: bitnamilegacy/minio:2025.4.22-debian-12-r1
-    container_name: mosaic-minio
+  # 对象存储：Iceberg 湖 / 语料 / Skill 包 / 归档的落盘层（数据平台 D2、AI 平台 D2/D4 依赖）
+  # RustFS：Apache-2.0 的 S3 兼容实现，替代已停发的 MinIO；云上可换 S3/OSS（同一套 S3 API）。
+  rustfs:
+    image: rustfs/rustfs:1.0.6
+    container_name: mosaic-rustfs
     ports:
       - "19000:9000"
       - "19001:9001"
     environment:
-      MINIO_ROOT_USER: mosaic
-      MINIO_ROOT_PASSWORD: mosaic123
-      MINIO_DEFAULT_BUCKETS: mosaic
+      RUSTFS_ACCESS_KEY: mosaic
+      RUSTFS_SECRET_KEY: mosaic123
+      RUSTFS_VOLUMES: /data
     volumes:
-      - minio-data:/bitnami/minio/data
+      - rustfs-data:/data
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/minio/health/live || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/health && curl -fsS http://localhost:9001/rustfs/console/health"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -143,4 +141,4 @@ volumes:
   redis-data:
   prom-data:
   grafana-data:
-  minio-data:
+  rustfs-data:

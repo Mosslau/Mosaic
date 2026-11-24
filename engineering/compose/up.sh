@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 一键起共享 D0 底座（7 个服务默认全起）。
-#   ./up.sh                  # kafka / postgres / redis / prometheus / grafana / minio / vault
+#   ./up.sh                  # kafka / postgres / redis / prometheus / grafana / rustfs / vault
 #   ./up.sh kafka postgres   # 只起指定服务（调试用）
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"

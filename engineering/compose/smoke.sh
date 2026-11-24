@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# D0 验收烟测：组件健康 + dummy 链路（Kafka → PG → Redis）+ 观测入口 + MinIO/Vault。
+# D0 验收烟测：组件健康 + dummy 链路（Kafka → PG → Redis）+ 观测入口 + RustFS/Vault。
 # 通过标准对应 V0-1/V0-2/A0-1/A0-2 的最小证据；7 个组件任一不可用即失败。
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
@@ -84,25 +84,33 @@ else
 fi
 
 echo
-echo "== 6. MinIO：健康 + 建桶/写读对象 =="
-if curl -fsS --max-time 5 http://localhost:19000/minio/health/live >/dev/null 2>&1; then
-  ok "MinIO :19000 health=live"
+echo "== 6. RustFS：健康 + 建桶/写读对象 =="
+if curl -fsS --max-time 5 http://localhost:19000/health >/dev/null 2>&1; then
+  ok "RustFS :19000 health=200"
 else
-  bad "MinIO :19000 不可用"
+  bad "RustFS :19000 不可用"
 fi
-MC=(docker compose exec -T minio mc --config-dir /tmp/.mc)
-if "${MC[@]}" alias set local http://localhost:9000 mosaic mosaic123 >/dev/null 2>&1; then
-  "${MC[@]}" mb --ignore-existing local/mosaic-smoke >/dev/null 2>&1
-  printf 'hello-minio\n' | "${MC[@]}" pipe local/mosaic-smoke/d0.txt >/dev/null 2>&1
-  OBJ=$("${MC[@]}" cat local/mosaic-smoke/d0.txt 2>/dev/null | tr -d '\r' | head -1)
-  if [ "${OBJ}" = "hello-minio" ]; then
+S3=http://localhost:19000
+SIG=(--aws-sigv4 "aws:amz:us-east-1:s3" --user "mosaic:mosaic123")
+BCODE=$(curl -s -o /dev/null -w '%{http_code}' "${SIG[@]}" -X PUT "$S3/mosaic-smoke")
+if [ "${BCODE}" = "200" ] || [ "${BCODE}" = "409" ]; then
+  ok "bucket mosaic-smoke 可创建（HTTP ${BCODE}）"
+else
+  bad "bucket mosaic-smoke 创建失败（HTTP ${BCODE}）"
+fi
+TMPOBJ=$(mktemp)
+printf 'hello-rustfs\n' > "$TMPOBJ"
+if curl -fsS -o /dev/null "${SIG[@]}" -T "$TMPOBJ" "$S3/mosaic-smoke/d0.txt"; then
+  OBJ=$(curl -fsS "${SIG[@]}" "$S3/mosaic-smoke/d0.txt" 2>/dev/null | tr -d '\r' | head -1)
+  if [ "${OBJ}" = "hello-rustfs" ]; then
     ok "mosaic-smoke/d0.txt 可写可读（${OBJ}）"
   else
-    bad "MinIO 对象读取不符：'${OBJ}'"
+    bad "RustFS 对象读取不符：'${OBJ}'"
   fi
 else
-  bad "MinIO mc alias 配置失败"
+  bad "RustFS 对象写入失败"
 fi
+rm -f "$TMPOBJ"
 
 echo
 echo "== 7. Vault：状态 + 写读一个 secret =="
