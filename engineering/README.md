@@ -58,7 +58,7 @@
 | 共享物 | 归属 | 使用方 |
 |---|---|---|
 | K8s 集群 | AI 平台（D6） | 两平台共用、队列分开 |
-| 对象存储 + Iceberg 湖 | 数据平台（D2/D3） | AI 平台 D4 |
+| 对象存储 + Iceberg 湖（含 Polaris REST Catalog） | 数据平台（D2/D3） | AI 平台 D4 |
 | Vault / 可观测 | AI 平台 D0/D8 | 两平台共用 |
 | 模型网关 / MCP / 沙箱 | AI 平台 D8 | 数据平台 D10 调用 |
 | 数据任务调度（DolphinScheduler） | 数据平台 D5 | — |

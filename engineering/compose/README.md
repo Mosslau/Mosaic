@@ -78,7 +78,7 @@ cd engineering/compose
 
 ## 边界
 
-- 只做**共享底座**；D1 契约内核尚未建立（原 P1 demo 已移除），不在本目录。
+- 只做**共享底座**；D1 契约内核尚未建立（原 P1 demo 已移除），不在本目录；D2 起的 Polaris Catalog / Doris 等平台组件也不在本目录（归数据平台 D2/D3）。
 - 不引入 K8s 编排；生产化（HA、备份、TLS）属 D12/D10，不在 D0 范围。
 - Vault 是 **dev 模式**（内存态、root token、无持久化），只用于本地开发；生产化接 KMS / 正式 Vault 集群。
 - Prometheus 当前只抓自身；D1 契约库/注册服务落地后再恢复 `mosaic-dummy` target。

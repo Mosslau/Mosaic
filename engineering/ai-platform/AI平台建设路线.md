@@ -61,7 +61,7 @@
 | 域 | 选型 | 说明 |
 |---|---|---|
 | ① 数据与语料 | Python + PySpark + MinHash/LSH + tokenizer + embedding | 解析/清洗/去重/分片/embedding；训练集 packing/配比/去污染/数据卡；标注/合成/多模态/文档加工 |
-| ② 存储与版本 | Iceberg + MinIO + 向量库（Milvus/faiss） | 语料与向量同一次提交 |
+| ② 存储与版本 | Iceberg（经数据平台 Polaris REST Catalog）+ MinIO + 向量库（Milvus/faiss） | 语料与向量同一次提交 |
 | ③ 算力与调度 | K8s + Volcano + GPU Operator | 队列/优先级/配额/账本 |
 | ④ 训练与微调 | LoRA/QLoRA + MLflow + DataLoader/checkpoint | 可复现微调；预训练/RLHF/DPO/多模态训练支持；数据通路吞吐与恢复 |
 | ⑤ 推理与服务 | vLLM（OpenAI 兼容）+ 量化 | TTFT/TPOT/tokens/s/P95 |
@@ -100,7 +100,7 @@
 | **D1** | 契约与控制内核 | `AssetRef` / `Answer` / `Service` / `Ledger`；注册、健康、trace、账本最小版 | dummy 服务注册成功，一次调用可查 trace + 账本 | D0 |
 | **D2** | 数据与语料（含训练数据工程/多模态数据/文档加工） | 解析/清洗/去重/分片/embedding；训练集 packing/配比/去污染/数据卡；标注/合成接入；多模态数据 manifest；文档/多模态加工（PDF/OCR/表格/音视频切片） | 10GB 级加工全链可复现；训练集 manifest 与数据卡可重建；标注/合成、多模态与文档加工可检索 | D1 |
 | **D3** | 检索与知识（含持续评测/知识引擎） | 混合检索 + Rerank + `/ask` + 引用 + 评测集；100 题回归/漂移基线；企业知识引擎（文档理解、多模态检索、跨模态引用、实体链接） | 答案带可点引用；评测可回归；文档能链接到结构化实体，引用可追溯 | D2 |
-| **D4** | 存储与版本 | Iceberg 语料/向量同一次提交、snapshot、compaction | 同一 `snapshotId` 可复现数据与索引 | D2、D3 |
+| **D4** | 存储与版本 | 经 REST Catalog 的 Iceberg 语料/向量同一次提交、snapshot、compaction | 同一 `snapshotId` 可复现数据与索引 | D2、D3 |
 | **D5** | 推理与服务 | OpenAI 兼容服务、vLLM/mock 双适配、量化、限流、压测 | 同一 SDK 只改 `base_url`；TTFT/TPOT/P95 有数字 | D1、D4（可选） |
 | **D6** | 算力与调度 | K8s + Volcano + GPU Operator + 队列/配额/账本 | 队列/优先级/配额生效；`已分配+空闲=总量`；GPU·秒可归集 | D0 |
 | **D7** | 训练与微调（含预训练/对齐/多模态训练支持） | LoRA/QLoRA + MLflow + 数据/超参/种子入档；预训练/继续训练、RLHF/DPO、多模态训练入口；高级数据通路 | 一次微调可复现；预训练/对齐/多模态支持有小样本 smoke；数据通路吞吐与 checkpoint 恢复有数字 | D6 |
@@ -190,7 +190,7 @@
 
 | 事项 | AI 平台 | 数据平台 |
 |---|---|---|
-| 对象存储 + Iceberg 湖 | 使用方（D4） | 拥有方（D2/D3） |
+| 对象存储 + Iceberg 湖（含 Polaris Catalog） | 使用方（D4） | 拥有方（D2/D3） |
 | K8s 集群 | 拥有方（D6） | 共用、队列分开（D12） |
 | 模型网关 / MCP / 沙箱 | 拥有方（D8） | 调用方（D10） |
 | 数据任务调度 | — | DolphinScheduler（D5） |

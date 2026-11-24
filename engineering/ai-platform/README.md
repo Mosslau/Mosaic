@@ -85,7 +85,7 @@
 |---|---|
 | 模型网关 / MCP 网关 / 沙箱 | AI 平台 D8（只建一次） |
 | GPU / 训练推理队列 / Airflow | AI 平台 D6 / D9 |
-| 对象存储 + Iceberg 湖 | 数据平台 D2/D3；AI 平台 D4 使用 |
+| 对象存储 + Iceberg 湖（含 Polaris Catalog） | 数据平台 D2/D3；AI 平台 D4 使用 |
 | 数据任务调度（DolphinScheduler） | 数据平台 D5 |
 | 凭据 | Vault 唯一来源；K8s Secret 仅注入 |
 
