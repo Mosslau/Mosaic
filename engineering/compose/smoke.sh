@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# D0 验收烟测：组件健康 + dummy 链路（Kafka → PG → Redis）+ 观测入口。
-# 通过标准对应 V0-1/V0-2/A0-1/A0-2 的最小证据；缺 MinIO/Vault 时如实跳过。
+# D0 验收烟测：组件健康 + dummy 链路（Kafka → PG → Redis）+ 观测入口 + MinIO/Vault。
+# 通过标准对应 V0-1/V0-2/A0-1/A0-2 的最小证据；7 个组件任一不可用即失败。
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
@@ -8,7 +8,6 @@ PASS=0
 FAIL=0
 ok()  { printf '  \033[32m✅\033[0m %s\n' "$1"; PASS=$((PASS + 1)); }
 bad() { printf '  \033[31m❌\033[0m %s\n' "$1"; FAIL=$((FAIL + 1)); }
-skip(){ printf '  \033[33m➖\033[0m %s\n' "$1"; }
 
 echo "== 1. 容器状态 =="
 docker compose ps --format '  {{.Name}}\t{{.Status}}'
@@ -36,7 +35,8 @@ fi
 echo
 echo "== 3. Postgres：建表 / 写入 / 查询 =="
 if docker compose exec -T postgres psql -U mosaic -d mosaic -v ON_ERROR_STOP=1 -q \
-  -c "create table if not exists d0_smoke (id serial primary key, note text not null, created_at timestamptz default now())" >/dev/null 2>&1; then
+  -c "drop table if exists d0_smoke" \
+  -c "create table d0_smoke (id serial primary key, note text not null, created_at timestamptz default now())" >/dev/null 2>&1; then
   docker compose exec -T postgres psql -U mosaic -d mosaic -v ON_ERROR_STOP=1 -q \
     -c "insert into d0_smoke(note) values ('d0-smoke')" >/dev/null 2>&1
   CNT=$(docker compose exec -T postgres psql -U mosaic -d mosaic -tAc \
@@ -84,16 +84,39 @@ else
 fi
 
 echo
-echo "== 6. 可选组件 =="
-if docker compose ps --services --filter status=running 2>/dev/null | grep -qx minio; then
-  ok "MinIO 已启动"
+echo "== 6. MinIO：健康 + 建桶/写读对象 =="
+if curl -fsS --max-time 5 http://localhost:19000/minio/health/live >/dev/null 2>&1; then
+  ok "MinIO :19000 health=live"
 else
-  skip "MinIO 未启动（镜像未缓存；需要时 ./up.sh --profile objectstore）"
+  bad "MinIO :19000 不可用"
 fi
-if docker compose ps --services --filter status=running 2>/dev/null | grep -qx vault; then
-  ok "Vault 已启动"
+MC=(docker compose exec -T minio mc --config-dir /tmp/.mc)
+if "${MC[@]}" alias set local http://localhost:9000 mosaic mosaic123 >/dev/null 2>&1; then
+  "${MC[@]}" mb --ignore-existing local/mosaic-smoke >/dev/null 2>&1
+  printf 'hello-minio\n' | "${MC[@]}" pipe local/mosaic-smoke/d0.txt >/dev/null 2>&1
+  OBJ=$("${MC[@]}" cat local/mosaic-smoke/d0.txt 2>/dev/null | tr -d '\r' | head -1)
+  if [ "${OBJ}" = "hello-minio" ]; then
+    ok "mosaic-smoke/d0.txt 可写可读（${OBJ}）"
+  else
+    bad "MinIO 对象读取不符：'${OBJ}'"
+  fi
 else
-  skip "Vault 未启动（镜像未缓存；需要时 ./up.sh --profile vault）"
+  bad "MinIO mc alias 配置失败"
+fi
+
+echo
+echo "== 7. Vault：状态 + 写读一个 secret =="
+if docker compose exec -T -e VAULT_TOKEN=root vault vault status >/dev/null 2>&1; then
+  ok "vault status 可读（dev 模式 unsealed）"
+else
+  bad "vault status 失败"
+fi
+docker compose exec -T -e VAULT_TOKEN=root vault vault kv put secret/d0 smoke=ok >/dev/null 2>&1
+VSEC=$(docker compose exec -T -e VAULT_TOKEN=root vault vault kv get -field=smoke secret/d0 2>/dev/null | tr -d '\r')
+if [ "${VSEC}" = "ok" ]; then
+  ok "secret/d0 smoke=${VSEC} 可写可读"
+else
+  bad "Vault secret 读取不符：'${VSEC}'"
 fi
 
 echo
@@ -103,4 +126,4 @@ if [ "${FAIL}" -gt 0 ]; then
   echo "  结论：D0 未通过"
   exit 1
 fi
-echo "  结论：D0 通过（MinIO/Vault 未验证项已标注）"
+echo "  结论：D0 通过（7 个组件全部健康）"

@@ -27,7 +27,7 @@
 
 > 状态规则：⬜ 未开始 / 🚧 进行中 / ✅ 已完成（必须带日期）。✅ 的判据是该阶段验收全部有实测证据。
 > D8 的 🚧：Part 1（research / tutorials / frameworks 方案）已完成；运行时代码未开始。
-> D0 的 🚧：用 [`../compose/`](../compose/README.md) 起 5 个组件（7 项烟测通过；MinIO/Vault 未验证）。
+> D0 的 🚧：用 [`../compose/`](../compose/README.md) 起 7 个组件（11 项烟测全部通过，含 MinIO/Vault）。
 > D1/D3 未开始：原 P1 契约内核与 P2 纵切 demo 已移除，契约只剩路线文档里的定义，没有代码。
 
 ## 依赖与开工顺序

@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# 一键起共享 D0 底座。
-#   ./up.sh                  # 默认 5 个服务：kafka / postgres / redis / prometheus / grafana
-#   ./up.sh --profile objectstore   # 追加 MinIO（需联网拉镜像）
-#   ./up.sh --profile vault         # 追加 Vault（需联网拉镜像）
+# 一键起共享 D0 底座（7 个服务默认全起）。
+#   ./up.sh                  # kafka / postgres / redis / prometheus / grafana / minio / vault
+#   ./up.sh kafka postgres   # 只起指定服务（调试用）
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 

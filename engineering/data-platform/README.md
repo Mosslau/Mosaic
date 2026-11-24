@@ -1,7 +1,7 @@
 # 数据平台（data-platform）
 
 > 定位：Mosaic 第 ③ 部分的通用数据平台——以「集成成熟开源 + 薄自研胶水」构建企业级 Data+AI 数据平台，对标 DataWorks / WeData 的能力集。
-> 当前状态：**仅 D0 共享 compose 底座可运行，D1–D12 未开始**——D0 用 [`../compose/`](../compose/README.md) 起 5 个组件（7 项烟测通过）；原 D1 契约内核与 D3 纵切 demo 已移除。
+> 当前状态：**仅 D0 共享 compose 底座可运行，D1–D12 未开始**——D0 用 [`../compose/`](../compose/README.md) 起 7 个组件（11 项烟测全部通过，含 MinIO/Vault）；原 D1 契约内核与 D3 纵切 demo 已移除。
 
 ## 定位与状态
 
@@ -31,7 +31,7 @@
 
 > 状态规则：⬜ 未开始 / 🚧 进行中 / ✅ 已完成（必须带日期）。✅ 的判据是该阶段验收全部有实测证据。
 >
-> **D0 的 🚧 证据**：共享底座 [`engineering/compose/smoke.sh`](../compose/smoke.sh) 7 项通过（MinIO/Vault 未验证）；D1/D3 未开始（原 P1/P2 demo 已移除，契约与纵切只剩设计）。
+> **D0 的 🚧 证据**：共享底座 [`engineering/compose/smoke.sh`](../compose/smoke.sh) 11 项通过（7 个组件含 MinIO/Vault，2026-11-24）；D1/D3 未开始（原 P1/P2 demo 已移除，契约与纵切只剩设计）。
 
 ## 依赖与开工顺序
 

@@ -1,9 +1,10 @@
 name: mosaic-base
 
-# 共享 D0 底座：两个平台共用同一套 Kafka / PG / Redis / Prometheus / Grafana。
+# 共享 D0 底座：两个平台共用同一套 Kafka / PG / Redis / Prometheus / Grafana / MinIO / Vault。
 # 端口全部避开本机已有栈（5432/6379/9090/3000 已被占用）：
 #   Kafka 19092 · PG 15432 · Redis 16379 · Prometheus 19090 · Grafana 13000
-# MinIO / Vault 用 profile 隔离：默认不启动，需要时 --profile objectstore / --profile vault。
+#   MinIO 19000/19001 · Vault 18200
+# 7 个服务默认全部启动（MinIO / Vault 为必选依赖，不再用 profile 隔离）。
 
 services:
   kafka:
@@ -94,32 +95,46 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - grafana-data:/var/lib/grafana
 
-  # 可选：对象存储（镜像未缓存时需联网）
+  # 对象存储：Iceberg 湖 / 语料 / Skill 包 / 归档的落盘层（数据平台 D2、AI 平台 D2/D4 依赖）
+  # 镜像说明：MinIO 自 2025-10 起停止发布社区版镜像（Docker Hub 下架、Quay 401），
+  # 这里用 Bitnami 归档构建（同源二进制，2025.4.22），需长期维护时应换付费版或替代品。
   minio:
-    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    image: bitnamilegacy/minio:2025.4.22-debian-12-r1
     container_name: mosaic-minio
-    profiles: ["objectstore"]
-    command: ["server", "/data", "--console-address", ":9001"]
     ports:
       - "19000:9000"
       - "19001:9001"
     environment:
       MINIO_ROOT_USER: mosaic
       MINIO_ROOT_PASSWORD: mosaic123
+      MINIO_DEFAULT_BUCKETS: mosaic
     volumes:
-      - minio-data:/data
+      - minio-data:/bitnami/minio/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/minio/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
 
-  # 可选：凭据（AI D0 需要；镜像未缓存时需联网）
+  # 凭据：PG/Redis/Kafka 连接串、模型 API Key 的唯一来源（两平台共用）
+  # 当前为 dev 模式（内存态、root token），只用于本地；生产化见 D10/D12。
   vault:
     image: hashicorp/vault:1.18
     container_name: mosaic-vault
-    profiles: ["vault"]
     command: ["server", "-dev", "-dev-root-token-id=root"]
     ports:
       - "18200:8200"
     environment:
       VAULT_DEV_ROOT_TOKEN_ID: root
       VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+      VAULT_ADDR: http://127.0.0.1:8200
+    healthcheck:
+      test: ["CMD", "vault", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
 
 volumes:
   kafka-data:
