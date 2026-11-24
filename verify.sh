@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Mosaic 一键校验：按域分发，每个域用自己的运行环境与 pytest 配置。
 #
-#   ./verify.sh          # 文档契约 + 算法测试 + Agent 运行时
+#   ./verify.sh          # 文档契约（语言/算法/路线图）+ 算法测试 + Agent 运行时
 #   ./verify.sh --site   # 追加语言域文档站构建（需要网络，较慢）
 #
 # 退出码：0 全部通过 / 1 有域失败 / 2 无失败但有域跳过（跳过的域不算通过）。
@@ -58,16 +58,19 @@ run() {
   fi
 }
 
-# --- ① 文档契约（语言域 + 算法域）------------------------------------------
+# --- ① 文档契约（语言域 + 算法域 + 路线图域）---------------------------------
 if command -v "${DOCS_PYTHON}" >/dev/null 2>&1; then
-  run "文档契约 · 语言域（章节/链接/产物纪律）" \
+  run "文档契约 · 语言域（断链）" \
     "${DOCS_PYTHON}" .dsh/skills/tenetlang-notes/scripts/validate.py --links
   run "文档契约 · 算法域（索引/状态/锚定/违禁 import）" \
     "${DOCS_PYTHON}" .dsh/skills/mindspring-lab/scripts/validate.py
+  run "文档契约 · 路线图域（断链/索引覆盖）" \
+    "${DOCS_PYTHON}" scripts/check_links.py roadmap
 else
   echo "[verify] 找不到 ${DOCS_PYTHON}，跳过文档域（可用 DOCS_PYTHON=... 指定解释器）" >&2
   record "文档契约 · 语言域" skip
   record "文档契约 · 算法域" skip
+  record "文档契约 · 路线图域" skip
 fi
 
 # --- ② 算法域测试 -----------------------------------------------------------
